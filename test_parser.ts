@@ -1,4 +1,4 @@
-import { parseInboundNfeXml } from "./erp/src/pages/utils/inboundNfe/inboundXmlParser.ts";
+import { parseInboundNfeXml } from './erp/src/pages/utils/inboundNfe/inboundXmlParser.ts';
 
 const xml = `<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
 <NFe xmlns="http://www.portalfiscal.inf.br/nfe">

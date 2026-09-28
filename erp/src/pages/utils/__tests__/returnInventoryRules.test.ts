@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { canProcessReturnStock, getReturnInventoryDate, getReturnUnitCost, shouldCreateReturnEntry } from '../returnInventoryRules';
+import {
+  canProcessReturnStock,
+  getReturnInventoryDate,
+  getReturnUnitCost,
+  shouldCreateReturnEntry,
+} from '../returnInventoryRules';
 import { replayMovingAverageMoves } from '../movingAverageCostRules';
 import { canCreateSaleExitForItem } from '../saleInventoryRules';
 
@@ -13,7 +18,11 @@ describe('devolução de produto cadastrado', () => {
   });
 
   it('só movimenta devolução atendida, preservando a data de cadastro da devolução', () => {
-    const scheduled = { orderType: 'return', status: 'scheduled', date: '2026-08-01T10:00:00.000Z' } as any;
+    const scheduled = {
+      orderType: 'return',
+      status: 'scheduled',
+      date: '2026-08-01T10:00:00.000Z',
+    } as any;
     const fulfilled = { ...scheduled, status: 'fulfilled' };
 
     expect(canProcessReturnStock(scheduled)).toBe(false);
@@ -23,8 +32,21 @@ describe('devolução de produto cadastrado', () => {
   });
 
   it('materializa uma única saída e entrada histórica após reconciliação de venda e devolução atendidas', () => {
-    const temporary = { description: 'TESTE_ERP_item', quantity: 1, unitPrice: 900, unitDiscount: 0, discountType: 'fixed', handlingType: '', isTemporaryProduct: true } as any;
-    const linked = { ...temporary, productId: 'produto-teste', isTemporaryProduct: false, unitCost: 500 };
+    const temporary = {
+      description: 'TESTE_ERP_item',
+      quantity: 1,
+      unitPrice: 900,
+      unitDiscount: 0,
+      discountType: 'fixed',
+      handlingType: '',
+      isTemporaryProduct: true,
+    } as any;
+    const linked = {
+      ...temporary,
+      productId: 'produto-teste',
+      isTemporaryProduct: false,
+      unitCost: 500,
+    };
     const sale = { orderType: 'sale', status: 'fulfilled' } as any;
     const returned = { orderType: 'return', status: 'fulfilled' } as any;
 

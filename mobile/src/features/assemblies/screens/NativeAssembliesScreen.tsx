@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
@@ -22,13 +31,18 @@ type AssemblyTask = {
   isOutside: boolean;
 };
 
-const normalizeLabel = (value: unknown) => String(value || '').trim().toLocaleLowerCase('pt-BR');
+const normalizeLabel = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
 
 const getScheduleDate = (order: any): string => {
   const data = order.order_data || {};
   const shipping = data.shipping || {};
   const schedule = shipping.scheduling || data.schedule || data.scheduling || order.schedule || {};
-  return parseOrderDateStr(schedule.date || schedule.startDate || order.scheduled_date || order.date);
+  return parseOrderDateStr(
+    schedule.date || schedule.startDate || order.scheduled_date || order.date
+  );
 };
 
 const getSchedule = (order: any) => {
@@ -46,14 +60,36 @@ const getAssemblyTasks = (orders: any[], handlingOptions: any[]): AssemblyTask[]
     const schedule = getSchedule(order);
     const dateKey = getScheduleDate(order);
     const status = String(order.status || data.status || '').toLowerCase();
-    const hasPendingSchedule = schedule.pendingScheduling || schedule.notInformed || data.pendingScheduling || order.pending_scheduling;
+    const hasPendingSchedule =
+      schedule.pendingScheduling ||
+      schedule.notInformed ||
+      data.pendingScheduling ||
+      order.pending_scheduling;
 
-    if (data.deleted || order.deleted || isCancelledOrder(order) || status === 'draft' || status === 'rascunho') return [];
+    if (
+      data.deleted ||
+      order.deleted ||
+      isCancelledOrder(order) ||
+      status === 'draft' ||
+      status === 'rascunho'
+    )
+      return [];
     if (hasPendingSchedule || !dateKey || dateKey < today) return [];
 
-    const items = Array.isArray(data.items) ? data.items : Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(data.items)
+      ? data.items
+      : Array.isArray(order.items)
+        ? order.items
+        : [];
     const orderHandling = String(
-      data.handlingType || data.handling || data.deliveryType || shipping.handlingType || shipping.handling || order.handling || order.handlingType || '',
+      data.handlingType ||
+        data.handling ||
+        data.deliveryType ||
+        shipping.handlingType ||
+        shipping.handling ||
+        order.handling ||
+        order.handlingType ||
+        ''
     );
 
     return items.flatMap((item: any, index: number) => {
@@ -62,13 +98,15 @@ const getAssemblyTasks = (orders: any[], handlingOptions: any[]): AssemblyTask[]
       const isInternal = isAssemblyInternalType(handling, handlingOptions);
       if (!isOutside && !isInternal) return [];
 
-      return [{
-        id: `${order.id || order.orderIndex || 'order'}-${index}-${normalizeLabel(handling)}`,
-        order,
-        item,
-        dateKey,
-        isOutside,
-      }];
+      return [
+        {
+          id: `${order.id || order.orderIndex || 'order'}-${index}-${normalizeLabel(handling)}`,
+          order,
+          item,
+          dateKey,
+          isOutside,
+        },
+      ];
     });
   });
 };
@@ -80,9 +118,8 @@ const formatUpcomingDate = (dateKey: string) => {
   return `AGENDADO PARA ${weekday}, ${day}/${String(month).padStart(2, '0')}`;
 };
 
-const webStickyHeaderStyle = Platform.OS === 'web'
-  ? ({ position: 'sticky', top: 0, zIndex: 10 } as any)
-  : undefined;
+const webStickyHeaderStyle =
+  Platform.OS === 'web' ? ({ position: 'sticky', top: 0, zIndex: 10 } as any) : undefined;
 
 export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder }) => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -141,7 +178,9 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
   const tasks = useMemo(() => getAssemblyTasks(orders, handlingOptions), [orders, handlingOptions]);
   const todayKey = getLocalDateString(new Date());
   const todayTasks = tasks.filter((task) => task.dateKey === todayKey);
-  const upcomingTasks = tasks.filter((task) => task.dateKey > todayKey).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  const upcomingTasks = tasks
+    .filter((task) => task.dateKey > todayKey)
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
   const upcomingSections = Array.from(
     upcomingTasks.reduce((groups, task) => {
       const group = groups.get(task.dateKey) || [];
@@ -149,10 +188,12 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       groups.set(task.dateKey, group);
       return groups;
     }, new Map<string, AssemblyTask[]>()),
-    ([dateKey, data]) => ({ key: dateKey, title: formatUpcomingDate(dateKey), data }),
+    ([dateKey, data]) => ({ key: dateKey, title: formatUpcomingDate(dateKey), data })
   );
   const sections = [
-    ...(todayTasks.length ? [{ key: 'today', title: `PARA HOJE · ${todayTasks.length}`, data: todayTasks }] : []),
+    ...(todayTasks.length
+      ? [{ key: 'today', title: `PARA HOJE · ${todayTasks.length}`, data: todayTasks }]
+      : []),
     ...upcomingSections,
   ].map((section) => {
     const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
@@ -171,18 +212,22 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#7c3aed" />
-          <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Carregando montagens...</Text>
+          <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
+            Carregando montagens...
+          </Text>
         </View>
       ) : tasks.length === 0 ? (
         <View style={styles.center}>
-          <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Nenhuma montagem para hoje ou próximos dias.</Text>
+          <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
+            Nenhuma montagem para hoje ou próximos dias.
+          </Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
-          ListHeaderComponent={(
+          ListHeaderComponent={
             <View style={styles.legend}>
               <View style={[styles.legendBadge, styles.legendInternal]}>
                 <MobileDrill size={13} />
@@ -193,26 +238,40 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
                 <Text style={styles.legendText}>MONTAGEM FORA</Text>
               </View>
             </View>
-          )}
+          }
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />
+          }
           renderSectionHeader={({ section }) => {
             const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
             return (
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => toggleSection(section.key)}
-                style={[styles.sectionHeader, webStickyHeaderStyle, isDarkMode && styles.sectionHeaderDark]}
+                style={[
+                  styles.sectionHeader,
+                  webStickyHeaderStyle,
+                  isDarkMode && styles.sectionHeaderDark,
+                ]}
               >
                 <View style={styles.sectionHeaderLeft}>
                   <CalendarIcon size={16} color="#2563eb" />
-                  <Text style={[styles.sectionHeaderText, isDarkMode && styles.textDark]}>{section.title}</Text>
+                  <Text style={[styles.sectionHeaderText, isDarkMode && styles.textDark]}>
+                    {section.title}
+                  </Text>
                 </View>
                 <View style={styles.sectionHeaderRight}>
                   <View style={styles.sectionHeaderCount}>
-                    <Text style={styles.sectionHeaderCountText}>{section.count} {section.count === 1 ? 'montagem' : 'montagens'}</Text>
+                    <Text style={styles.sectionHeaderCountText}>
+                      {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
+                    </Text>
                   </View>
-                  {isCollapsed ? <ChevronRight size={18} color="#2563eb" /> : <ChevronDown size={18} color="#2563eb" />}
+                  {isCollapsed ? (
+                    <ChevronRight size={18} color="#2563eb" />
+                  ) : (
+                    <ChevronDown size={18} color="#2563eb" />
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -237,7 +296,14 @@ const styles = StyleSheet.create({
   containerDark: { backgroundColor: '#0f172a' },
   listContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24, gap: 8 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4, marginBottom: 4 },
-  legendBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  legendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   legendInternal: { backgroundColor: '#f59e0b' },
   legendOutside: { backgroundColor: '#ef4444' },
   legendText: { color: '#fff', fontSize: 10, fontWeight: '900' },
@@ -263,8 +329,19 @@ const styles = StyleSheet.create({
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionHeaderText: { fontSize: 12, fontWeight: '800', color: '#334155' },
-  sectionHeaderCount: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#2563eb' },
+  sectionHeaderCount: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+  },
   sectionHeaderCountText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  emptyText: { color: '#64748b', fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  emptyText: {
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   textDark: { color: '#f8fafc' },
 });

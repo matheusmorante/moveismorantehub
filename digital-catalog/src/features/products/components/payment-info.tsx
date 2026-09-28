@@ -1,17 +1,23 @@
-"use client"
+'use client';
 
-import { Info, CreditCard, AlertCircle, TrendingDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { formatCurrency } from "@/lib/utils"
+import { Info, CreditCard, AlertCircle, TrendingDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { formatCurrency } from '@/lib/utils';
 
 interface PaymentInfoProps {
-  price: number
-  originalPrice?: number
+  price: number;
+  originalPrice?: number;
 }
 
 export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
-  const installmentValue = price / 10
+  const installmentValue = price / 10;
 
   return (
     <div className="bg-gray-50/70 p-4 sm:p-5 rounded-2xl border border-gray-100 space-y-3">
@@ -39,7 +45,11 @@ export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-200/60">
         <div className="space-y-0.5">
           <p className="text-xs sm:text-base font-bold text-primary flex flex-wrap gap-x-1 items-center">
-            Em até 10x de <span className="text-blue-600 text-sm sm:text-lg font-black">{formatCurrency(installmentValue)}</span> sem juros
+            Em até 10x de{' '}
+            <span className="text-blue-600 text-sm sm:text-lg font-black">
+              {formatCurrency(installmentValue)}
+            </span>{' '}
+            sem juros
           </p>
           <p className="text-[10px] sm:text-[11px] text-muted-foreground">
             Visa, MasterCard, Elo e Hiper
@@ -48,7 +58,10 @@ export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
 
         <Dialog>
           <DialogTrigger asChild>
-            <button className="h-8 px-3 gap-1.5 flex items-center justify-center rounded-full bg-white text-gray-700 hover:bg-primary hover:text-white transition-all text-[11px] sm:text-xs font-bold shrink-0 border border-gray-200 shadow-2xs self-start sm:self-auto" title="Ver condições de pagamento">
+            <button
+              className="h-8 px-3 gap-1.5 flex items-center justify-center rounded-full bg-white text-gray-700 hover:bg-primary hover:text-white transition-all text-[11px] sm:text-xs font-bold shrink-0 border border-gray-200 shadow-2xs self-start sm:self-auto"
+              title="Ver condições de pagamento"
+            >
               <Info className="h-3.5 w-3.5 text-primary group-hover:text-white" />
               <span>Ver condições de pagamento</span>
             </button>
@@ -94,5 +107,5 @@ export function PaymentInfo({ price, originalPrice }: PaymentInfoProps) {
         </Dialog>
       </div>
     </div>
-  )
+  );
 }

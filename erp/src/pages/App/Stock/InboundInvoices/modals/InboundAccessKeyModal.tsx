@@ -2,136 +2,151 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 
 interface InboundAccessKeyModalProps {
-    readonly isOpen: boolean;
-    readonly isLoading: boolean;
-    readonly onClose: () => void;
-    readonly onSubmit: (accessKey: string) => Promise<void>;
+  readonly isOpen: boolean;
+  readonly isLoading: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (accessKey: string) => Promise<void>;
 }
 
-export function InboundAccessKeyModal({ isOpen, isLoading, onClose, onSubmit }: InboundAccessKeyModalProps) {
-    const [accessKey, setAccessKey] = useState('');
+export function InboundAccessKeyModal({
+  isOpen,
+  isLoading,
+  onClose,
+  onSubmit,
+}: InboundAccessKeyModalProps) {
+  const [accessKey, setAccessKey] = useState('');
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setAccessKey('');
-        }
-    }, [isOpen]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async () => {
-        const normalizedKey = accessKey.replace(/\D/g, '');
-        if (normalizedKey.length !== 44) {
-            toast.error('Informe uma chave de acesso NF-e com exatamente 44 dígitos.');
-            return;
-        }
-        try {
-            await onSubmit(normalizedKey);
-            setAccessKey('');
-        } catch (error: unknown) {
-            console.error('Erro ao consultar chave de acesso:', error);
-            toast.error('Não foi possível consultar a chave informada.');
-        }
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
-    const handleFormSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        void handleSubmit();
-    };
+  useEffect(() => {
+    if (isOpen) {
+      setAccessKey('');
+    }
+  }, [isOpen]);
 
-    return (
-        <div
-            className="fixed inset-0 z-[999999] flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="access-key-modal-title"
-        >
-            <button
-                type="button"
-                aria-label="Fechar"
-                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
-                onClick={onClose}
-            />
-            <form
-                onSubmit={handleFormSubmit}
-                className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+  if (!isOpen) return null;
+
+  const handleSubmit = async () => {
+    const normalizedKey = accessKey.replace(/\D/g, '');
+    if (normalizedKey.length !== 44) {
+      toast.error('Informe uma chave de acesso NF-e com exatamente 44 dígitos.');
+      return;
+    }
+    try {
+      await onSubmit(normalizedKey);
+      setAccessKey('');
+    } catch (error: unknown) {
+      console.error('Erro ao consultar chave de acesso:', error);
+      toast.error('Não foi possível consultar a chave informada.');
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void handleSubmit();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="access-key-modal-title"
+    >
+      <button
+        type="button"
+        aria-label="Fechar"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
+        onClick={onClose}
+      />
+      <form
+        onSubmit={handleFormSubmit}
+        className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
+      >
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h2
+              id="access-key-modal-title"
+              className="text-base font-black text-slate-800 dark:text-slate-100"
             >
-                <header className="flex items-start justify-between gap-4">
-                    <div>
-                        <h2 id="access-key-modal-title" className="text-base font-black text-slate-800 dark:text-slate-100">
-                            Adicionar NF-e por chave
-                        </h2>
-                        <p className="mt-1 text-xs text-slate-500">
-                            A chave será procurada na próxima consulta de distribuição DF-e/NSU.
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Fechar"
-                        className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        <i className="bi bi-x-lg" aria-hidden="true" />
-                    </button>
-                </header>
-                <label className="mt-6 flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Chave de acesso NF-e ({accessKey.length}/44)
-                    <div className="flex items-center gap-2">
-                        <input
-                            autoFocus
-                            inputMode="numeric"
-                            value={accessKey}
-                            onBlur={(e) => setAccessKey(e.target.value.replace(/\D/g, '').slice(0, 44))}
-                            onChange={(event) => setAccessKey(event.target.value.replace(/[^\d\s]/g, '').replace(/\s+/g, '').slice(0, 44))}
-                            placeholder="44 dígitos numéricos"
-                            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 transition-colors"
-                        />
-                        <a 
-                            href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`rounded-xl px-4 py-3 text-xs font-black uppercase transition-all flex items-center gap-2 border ${
-                                accessKey.length === 44 
-                                ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50 cursor-pointer' 
-                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed dark:bg-slate-800 dark:border-slate-700'
-                            }`}
-                            onClick={(e) => {
-                                if (accessKey.length !== 44) e.preventDefault();
-                            }}
-                            title="Consultar nota no portal da SEFAZ"
-                        >
-                            <i className="bi bi-box-arrow-up-right"></i> Sefaz
-                        </a>
-                    </div>
-                </label>
-                <footer className="mt-6 flex justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-xl px-4 py-2.5 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={isLoading || accessKey.length !== 44}
-                        className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md"
-                    >
-                        {isLoading ? 'Consultando...' : 'Consultar distribuição'}
-                    </button>
-                </footer>
-            </form>
-        </div>
-    );
+              Adicionar NF-e por chave
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              A chave será procurada na próxima consulta de distribuição DF-e/NSU.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <i className="bi bi-x-lg" aria-hidden="true" />
+          </button>
+        </header>
+        <label className="mt-6 flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+          Chave de acesso NF-e ({accessKey.length}/44)
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={accessKey}
+              onBlur={(e) => setAccessKey(e.target.value.replace(/\D/g, '').slice(0, 44))}
+              onChange={(event) =>
+                setAccessKey(
+                  event.target.value
+                    .replace(/[^\d\s]/g, '')
+                    .replace(/\s+/g, '')
+                    .slice(0, 44)
+                )
+              }
+              placeholder="44 dígitos numéricos"
+              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 transition-colors"
+            />
+            <a
+              href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`rounded-xl px-4 py-3 text-xs font-black uppercase transition-all flex items-center gap-2 border ${
+                accessKey.length === 44
+                  ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50 cursor-pointer'
+                  : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed dark:bg-slate-800 dark:border-slate-700'
+              }`}
+              onClick={(e) => {
+                if (accessKey.length !== 44) e.preventDefault();
+              }}
+              title="Consultar nota no portal da SEFAZ"
+            >
+              <i className="bi bi-box-arrow-up-right"></i> Sefaz
+            </a>
+          </div>
+        </label>
+        <footer className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl px-4 py-2.5 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading || accessKey.length !== 44}
+            className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md"
+          >
+            {isLoading ? 'Consultando...' : 'Consultar distribuição'}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
 }
 
 export default InboundAccessKeyModal;

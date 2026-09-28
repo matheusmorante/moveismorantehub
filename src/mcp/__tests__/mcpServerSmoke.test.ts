@@ -91,7 +91,7 @@ describe('MCP Server Smoke Test (HTTP & Protocol)', () => {
       await client.connect(transport);
       const result = await client.listTools();
       expect(result.tools).toHaveLength(9);
-      expect(result.tools.some(tool => tool.name === 'get_post_generation_context')).toBe(true);
+      expect(result.tools.some((tool) => tool.name === 'get_post_generation_context')).toBe(true);
 
       vi.spyOn(mcpProductService, 'searchProducts').mockResolvedValueOnce([
         {

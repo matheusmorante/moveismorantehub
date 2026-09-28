@@ -6,20 +6,17 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           eq: vi.fn(() => ({
-            gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
+            gte: vi.fn(() => Promise.resolve({ data: [], error: null })),
           })),
-          gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
-        }))
+          gte: vi.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
       })),
-      insert: vi.fn(() => Promise.resolve({ data: null, error: null }))
-    }))
-  }
+      insert: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    })),
+  },
 }));
 
-import {
-  harmonizePostStylesWithGeminiFlash,
-  DEFAULT_THEME_STYLE,
-} from './postHtmlStyleOptimizer';
+import { harmonizePostStylesWithGeminiFlash, DEFAULT_THEME_STYLE } from './postHtmlStyleOptimizer';
 import { AiGateway } from '@/services/aiGateway/AiGateway';
 
 describe('postHtmlStyleOptimizer - Harmonização de Cores e Contraste via Gemini Flash', () => {

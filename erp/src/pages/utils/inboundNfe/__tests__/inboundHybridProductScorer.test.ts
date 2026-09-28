@@ -34,7 +34,7 @@ describe('inboundTextSimilarity', () => {
     const result = computeFeatureMatchScore(nf, prod);
     expect(result.score).toBeGreaterThanOrEqual(40);
     expect(result.divergences).toHaveLength(0);
-    expect(result.matches.some(m => m.includes('Portas coincidente'))).toBe(true);
+    expect(result.matches.some((m) => m.includes('Portas coincidente'))).toBe(true);
   });
 });
 
@@ -44,8 +44,16 @@ describe('inboundHybridProductScorer', () => {
       id: 'prod-athenas-branco',
       name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Moval',
       variations: [
-        { id: 'var-branco', name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Branco', attributes: { Cor: 'Branco' } },
-        { id: 'var-freijo', name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Freijó', attributes: { Cor: 'Freijó' } },
+        {
+          id: 'var-branco',
+          name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Branco',
+          attributes: { Cor: 'Branco' },
+        },
+        {
+          id: 'var-freijo',
+          name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Freijó',
+          attributes: { Cor: 'Freijó' },
+        },
       ],
     },
     {
@@ -73,9 +81,13 @@ describe('inboundHybridProductScorer', () => {
         id: 'prod-athenas-branco',
         name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Moval ATHENAS-6P-BR',
         variations: [
-          { id: 'var-branco', name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Branco ATHENAS-6P-BR', attributes: { Cor: 'Branco' } },
+          {
+            id: 'var-branco',
+            name: 'Guarda Roupa Athenas 6 Portas 2 Gavetas Branco ATHENAS-6P-BR',
+            attributes: { Cor: 'Branco' },
+          },
         ],
-      }
+      },
     ];
 
     const result = await rankAndScoreCandidates(item, productsWithCode);

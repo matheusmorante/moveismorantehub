@@ -37,7 +37,9 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
 
   useEffect(() => {
     if (move && isOpen) {
-      setReason(isPurchase ? 'Estorno de entrada de pedido de compra' : 'Estorno manual de lançamento');
+      setReason(
+        isPurchase ? 'Estorno de entrada de pedido de compra' : 'Estorno manual de lançamento'
+      );
     }
   }, [move, isOpen, isPurchase]);
 
@@ -60,9 +62,7 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
             <RotateCcw size={22} color={isDarkMode ? '#fbbf24' : '#d97706'} />
           </View>
 
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>
-            Estornar movimentação?
-          </Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Estornar movimentação?</Text>
 
           <Text style={[styles.description, isDarkMode && styles.textMuted]}>
             {isPurchase
@@ -97,7 +97,10 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.confirmBtn, (!reason.trim() || isDeleting) && styles.confirmBtnDisabled]}
+              style={[
+                styles.confirmBtn,
+                (!reason.trim() || isDeleting) && styles.confirmBtnDisabled,
+              ]}
               onPress={handleConfirm}
               disabled={isDeleting || !reason.trim()}
             >

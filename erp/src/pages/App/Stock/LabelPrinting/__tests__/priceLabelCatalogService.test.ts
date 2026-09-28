@@ -35,7 +35,13 @@ describe('priceLabelCatalogService', () => {
   describe('searchProductsForLabel', () => {
     it('retorna produtos do cache local quando encontrados', async () => {
       const mockLocal = [
-        { id: '1', name: 'Mesa de Jantar 6 Lugares', code: 'MJ-01', unitPrice: 1200, promoPrice: 999 },
+        {
+          id: '1',
+          name: 'Mesa de Jantar 6 Lugares',
+          code: 'MJ-01',
+          unitPrice: 1200,
+          promoPrice: 999,
+        },
         { id: '2', name: 'Cadeira Estofada', code: 'CAD-01', unitPrice: 250 },
       ];
       vi.mocked(productLocalCache.getLocalProducts).mockReturnValue(mockLocal as any);
@@ -109,14 +115,10 @@ describe('priceLabelCatalogService', () => {
     });
 
     it('evita duplicidade de produtos presentes tanto no cache quanto no Supabase', async () => {
-      const mockLocal = [
-        { id: '10', name: 'Poltrona Bege', code: 'POL-01', unitPrice: 600 },
-      ];
+      const mockLocal = [{ id: '10', name: 'Poltrona Bege', code: 'POL-01', unitPrice: 600 }];
       vi.mocked(productLocalCache.getLocalProducts).mockReturnValue(mockLocal as any);
 
-      const mockDb = [
-        { id: '10', name: 'Poltrona Bege Atualizada', code: 'POL-01', price: 650 },
-      ];
+      const mockDb = [{ id: '10', name: 'Poltrona Bege Atualizada', code: 'POL-01', price: 650 }];
 
       (supabase.from as any).mockReturnValue({
         select: vi.fn().mockReturnThis(),

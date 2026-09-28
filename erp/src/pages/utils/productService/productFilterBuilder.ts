@@ -2,140 +2,142 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { removeAccents, buildAccentInsensitiveRegex } from '../textUtils';
 
 export interface ProductQueryFilterOptions {
-    showTrash?: boolean;
-    search?: string;
-    category?: string;
-    activeOnly?: boolean;
-    status?: string;
-    isDraft?: boolean;
-    includeDeactivated?: boolean;
-    supplierId?: string;
-    itemType?: string;
-    excludeItemType?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
+  showTrash?: boolean;
+  search?: string;
+  category?: string;
+  activeOnly?: boolean;
+  status?: string;
+  isDraft?: boolean;
+  includeDeactivated?: boolean;
+  supplierId?: string;
+  itemType?: string;
+  excludeItemType?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface ProductPaginationOptions {
-    orderColumn: string;
-    ascending: boolean;
-    from: number;
-    to: number;
+  orderColumn: string;
+  ascending: boolean;
+  from: number;
+  to: number;
 }
 
 /**
  * Aplica os filtros e ordenação na query Supabase do catálogo de produtos e executa a busca
  */
 export const applyProductFiltersAndSort = async (
-    query: any,
-    options?: ProductQueryFilterOptions,
-    pagination?: ProductPaginationOptions
+  query: any,
+  options?: ProductQueryFilterOptions,
+  pagination?: ProductPaginationOptions
 ): Promise<any> => {
-    let q = query.eq('deleted', false);
-    
-    if (options?.itemType) {
-        q = q.eq('item_type', options.itemType);
-    }
-    
-    if (options?.excludeItemType) {
-        q = q.neq('item_type', options.excludeItemType);
-    }
+  let q = query.eq('deleted', false);
 
-    // Filtro de rascunhos do ERP
-    if (options?.isDraft === true) {
-        q = q.eq('is_draft', true);
-    } else if (options?.isDraft === false) {
-        q = q.not('is_draft', 'is', true);
-    }
+  if (options?.itemType) {
+    q = q.eq('item_type', options.itemType);
+  }
 
-    if (options?.activeOnly === false) {
-        q = q.eq('active', false);
-    } else if (options?.activeOnly === true) {
-        q = q.eq('active', true);
-    } else if (options?.includeDeactivated === false) {
-        // Rascunhos não são produtos desativados: permanecem acessíveis no
-        // fluxo de cadastro, enquanto os desativados ficam ocultos.
-        q = q.or('active.eq.true,is_draft.eq.true');
-    }
+  if (options?.excludeItemType) {
+    q = q.neq('item_type', options.excludeItemType);
+  }
 
-    // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações (insensível a acentos)
-    if (options?.search) {
-        const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
-        if (rawSearch.length > 0) {
-            const unaccented = removeAccents(rawSearch);
-            const searchTerms = Array.from(new Set([rawSearch, unaccented])).filter(Boolean);
-            const regexPattern = `.*${buildAccentInsensitiveRegex(rawSearch)}.*`;
+  // Filtro de rascunhos do ERP
+  if (options?.isDraft === true) {
+    q = q.eq('is_draft', true);
+  } else if (options?.isDraft === false) {
+    q = q.not('is_draft', 'is', true);
+  }
 
-            // 1. Buscar variações pelo campo 'name' na tabela product_variations
-            let variationParentIds: string[] = [];
-            try {
-                const varOrList = [
-                    `name.imatch.${regexPattern}`,
-                    ...searchTerms.map(t => `name.ilike.%${t}%`)
-                ];
-                const { data: matchedVariations } = await supabase
-                    .from('product_variations')
-                    .select('product_id')
-                    .or(varOrList.join(','))
-                    .limit(100);
+  if (options?.activeOnly === false) {
+    q = q.eq('active', false);
+  } else if (options?.activeOnly === true) {
+    q = q.eq('active', true);
+  } else if (options?.includeDeactivated === false) {
+    // Rascunhos não são produtos desativados: permanecem acessíveis no
+    // fluxo de cadastro, enquanto os desativados ficam ocultos.
+    q = q.or('active.eq.true,is_draft.eq.true');
+  }
 
-                if (matchedVariations && matchedVariations.length > 0) {
-                    variationParentIds = Array.from(new Set(
-                        matchedVariations.map(v => v.product_id).filter(Boolean)
-                    ));
-                }
-            } catch (e) {
-                console.warn('[ProductService] Erro ao buscar em product_variations:', e);
-            }
+  // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações (insensível a acentos)
+  if (options?.search) {
+    const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
+    if (rawSearch.length > 0) {
+      const unaccented = removeAccents(rawSearch);
+      const searchTerms = Array.from(new Set([rawSearch, unaccented])).filter(Boolean);
+      const regexPattern = `.*${buildAccentInsensitiveRegex(rawSearch)}.*`;
 
-            // 2. Montar filtro or com o campo name dos produtos e os IDs de variações
-            const orConditions: string[] = [];
-            orConditions.push(`name.imatch.${regexPattern}`);
-            searchTerms.forEach(t => {
-                orConditions.push(`name.ilike.%${t}%`);
-            });
+      // 1. Buscar variações pelo campo 'name' na tabela product_variations
+      let variationParentIds: string[] = [];
+      try {
+        const varOrList = [
+          `name.imatch.${regexPattern}`,
+          ...searchTerms.map((t) => `name.ilike.%${t}%`),
+        ];
+        const { data: matchedVariations } = await supabase
+          .from('product_variations')
+          .select('product_id')
+          .or(varOrList.join(','))
+          .limit(100);
 
-            // Adicionar condi├º├úo AND palavra por palavra para ser mais tolerante a espa├ºos extras ou ordem das palavras
-            const words = unaccented.split(/\s+/).filter(Boolean);
-            if (words.length > 0) {
-                const andCondition = `and(${words.map(w => `name.ilike.%${w}%`).join(',')})`;
-                orConditions.push(andCondition);
-            }
-
-            if (variationParentIds.length > 0) {
-                variationParentIds.forEach(id => {
-                    orConditions.push(`id.eq.${id}`);
-                });
-            }
-
-            q = q.or(orConditions.join(','));
+        if (matchedVariations && matchedVariations.length > 0) {
+          variationParentIds = Array.from(
+            new Set(matchedVariations.map((v) => v.product_id).filter(Boolean))
+          );
         }
-    }
+      } catch (e) {
+        console.warn('[ProductService] Erro ao buscar em product_variations:', e);
+      }
 
-    // Filtro de categoria
-    if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
-        q = q.eq('category', options.category);
-    } else if (options?.category === 'Serviços') {
-        q = q.eq('item_type', 'service');
-    } else if (options?.category === 'Produtos') {
-        q = q.eq('item_type', 'product');
-    }
+      // 2. Montar filtro or com o campo name dos produtos e os IDs de variações
+      const orConditions: string[] = [];
+      orConditions.push(`name.imatch.${regexPattern}`);
+      searchTerms.forEach((t) => {
+        orConditions.push(`name.ilike.%${t}%`);
+      });
 
-    // Filtro por status do catálogo digital (ex: 'published', 'hidden')
-    if (options?.status) {
-        q = q.eq('status', options.status);
-    }
+      // Adicionar condi├º├úo AND palavra por palavra para ser mais tolerante a espa├ºos extras ou ordem das palavras
+      const words = unaccented.split(/\s+/).filter(Boolean);
+      if (words.length > 0) {
+        const andCondition = `and(${words.map((w) => `name.ilike.%${w}%`).join(',')})`;
+        orConditions.push(andCondition);
+      }
 
-    // Filtro por fornecedor
-    if (options?.supplierId) {
-        q = q.or(`supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId},supplier_ids.cs.{"${options.supplierId}"}`);
-    }
+      if (variationParentIds.length > 0) {
+        variationParentIds.forEach((id) => {
+          orConditions.push(`id.eq.${id}`);
+        });
+      }
 
-    if (pagination) {
-        q = q.order(pagination.orderColumn, { ascending: pagination.ascending })
-             .range(pagination.from, pagination.to);
+      q = q.or(orConditions.join(','));
     }
+  }
 
-    return await q;
+  // Filtro de categoria
+  if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
+    q = q.eq('category', options.category);
+  } else if (options?.category === 'Serviços') {
+    q = q.eq('item_type', 'service');
+  } else if (options?.category === 'Produtos') {
+    q = q.eq('item_type', 'product');
+  }
+
+  // Filtro por status do catálogo digital (ex: 'published', 'hidden')
+  if (options?.status) {
+    q = q.eq('status', options.status);
+  }
+
+  // Filtro por fornecedor
+  if (options?.supplierId) {
+    q = q.or(
+      `supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId},supplier_ids.cs.{"${options.supplierId}"}`
+    );
+  }
+
+  if (pagination) {
+    q = q
+      .order(pagination.orderColumn, { ascending: pagination.ascending })
+      .range(pagination.from, pagination.to);
+  }
+
+  return await q;
 };
-

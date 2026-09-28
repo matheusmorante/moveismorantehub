@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 
 export type ResultNature = 'RECEITA' | 'DESPESA' | 'NAO_AFETA_RESULTADO';
 
-export function determineResultNature(categoryName?: string | null, type?: 'income' | 'expense'): ResultNature {
+export function determineResultNature(
+  categoryName?: string | null,
+  type?: 'income' | 'expense'
+): ResultNature {
   if (!categoryName) {
     return type === 'income' ? 'RECEITA' : 'DESPESA';
   }
@@ -82,7 +85,9 @@ export function calculateInstallments(
 
   for (let i = 0; i < count; i++) {
     const isLast = i === count - 1;
-    const installmentAmount = isLast ? Math.round((baseAmount + remainder) * 100) / 100 : baseAmount;
+    const installmentAmount = isLast
+      ? Math.round((baseAmount + remainder) * 100) / 100
+      : baseAmount;
 
     let dueDateStr: string;
     if (daysIntervals && daysIntervals.length >= count) {
@@ -113,7 +118,9 @@ export function processPayablePayment(
   existingTransactions: FinancialTransaction[] = []
 ): { updatedPayable: PayableAccount; newTransaction?: FinancialTransaction; alreadyPaid: boolean } {
   if (payable.status === 'PAID' || payable.payment_transaction_id) {
-    const existingTx = existingTransactions.find(t => t.payable_id === payable.id || t.id === payable.payment_transaction_id);
+    const existingTx = existingTransactions.find(
+      (t) => t.payable_id === payable.id || t.id === payable.payment_transaction_id
+    );
     return {
       updatedPayable: payable,
       newTransaction: existingTx,
@@ -150,7 +157,10 @@ export function processPayablePayment(
   };
 }
 
-export function calculateBalance(transactions: FinancialTransaction[], initialBalance: number = 0): number {
+export function calculateBalance(
+  transactions: FinancialTransaction[],
+  initialBalance: number = 0
+): number {
   return transactions.reduce((acc, t) => {
     if (t.status !== 'ACTIVE' || t.reversed_at) return acc;
     if (t.type === 'income') return acc + t.amount;
@@ -209,7 +219,10 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
   });
 
   it('7. Principal de empréstimo: SAÍDA + NÃO AFETA RESULTADO', () => {
-    const nature = determineResultNature('Pagamento de Empréstimo (Amortização de Principal)', 'expense');
+    const nature = determineResultNature(
+      'Pagamento de Empréstimo (Amortização de Principal)',
+      'expense'
+    );
     expect(nature).toBe('NAO_AFETA_RESULTADO');
   });
 
@@ -244,9 +257,36 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('10. Fluxo de Caixa: considera todas as Entradas/Saídas efetivas (inclusive empréstimos e aportes)', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'income', amount: 20000, date: '2026-09-01', description: 'Empréstimo Banco', status: 'ACTIVE', category_name: 'Empréstimo Recebido', result_nature: 'NAO_AFETA_RESULTADO' },
-      { id: '2', type: 'income', amount: 5000, date: '2026-09-02', description: 'Venda de Móveis', status: 'ACTIVE', category_name: 'Vendas', result_nature: 'RECEITA' },
-      { id: '3', type: 'expense', amount: 1000, date: '2026-09-03', description: 'Luz', status: 'ACTIVE', category_name: 'Energia Elétrica', result_nature: 'DESPESA' },
+      {
+        id: '1',
+        type: 'income',
+        amount: 20000,
+        date: '2026-09-01',
+        description: 'Empréstimo Banco',
+        status: 'ACTIVE',
+        category_name: 'Empréstimo Recebido',
+        result_nature: 'NAO_AFETA_RESULTADO',
+      },
+      {
+        id: '2',
+        type: 'income',
+        amount: 5000,
+        date: '2026-09-02',
+        description: 'Venda de Móveis',
+        status: 'ACTIVE',
+        category_name: 'Vendas',
+        result_nature: 'RECEITA',
+      },
+      {
+        id: '3',
+        type: 'expense',
+        amount: 1000,
+        date: '2026-09-03',
+        description: 'Luz',
+        status: 'ACTIVE',
+        category_name: 'Energia Elétrica',
+        result_nature: 'DESPESA',
+      },
     ];
     const balance = calculateBalance(txs, 0);
     expect(balance).toBe(24000); // 20k + 5k - 1k
@@ -254,8 +294,26 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('11. Resultado DRE: não considera empréstimo como Receita', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'income', amount: 20000, date: '2026-09-01', description: 'Empréstimo Banco', status: 'ACTIVE', category_name: 'Empréstimo Recebido', result_nature: 'NAO_AFETA_RESULTADO' },
-      { id: '2', type: 'income', amount: 5000, date: '2026-09-02', description: 'Venda de Móveis', status: 'ACTIVE', category_name: 'Vendas', result_nature: 'RECEITA' },
+      {
+        id: '1',
+        type: 'income',
+        amount: 20000,
+        date: '2026-09-01',
+        description: 'Empréstimo Banco',
+        status: 'ACTIVE',
+        category_name: 'Empréstimo Recebido',
+        result_nature: 'NAO_AFETA_RESULTADO',
+      },
+      {
+        id: '2',
+        type: 'income',
+        amount: 5000,
+        date: '2026-09-02',
+        description: 'Venda de Móveis',
+        status: 'ACTIVE',
+        category_name: 'Vendas',
+        result_nature: 'RECEITA',
+      },
     ];
     const dre = calculateDRE(txs, 0);
     expect(dre.revenue).toBe(5000); // Não inclui os 20k de empréstimo
@@ -263,7 +321,16 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('12. Resultado DRE: não considera aporte como Receita', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'income', amount: 50000, date: '2026-09-01', description: 'Aporte Sócio', status: 'ACTIVE', category_name: 'Aporte de Sócio', result_nature: 'NAO_AFETA_RESULTADO' },
+      {
+        id: '1',
+        type: 'income',
+        amount: 50000,
+        date: '2026-09-01',
+        description: 'Aporte Sócio',
+        status: 'ACTIVE',
+        category_name: 'Aporte de Sócio',
+        result_nature: 'NAO_AFETA_RESULTADO',
+      },
     ];
     const dre = calculateDRE(txs, 0);
     expect(dre.revenue).toBe(0);
@@ -271,8 +338,26 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('13. Resultado DRE: não considera distribuição de lucro como Despesa operacional', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'expense', amount: 10000, date: '2026-09-01', description: 'Distribuição de Lucro', status: 'ACTIVE', category_name: 'Distribuição de Lucros', result_nature: 'NAO_AFETA_RESULTADO' },
-      { id: '2', type: 'expense', amount: 2000, date: '2026-09-02', description: 'Salários', status: 'ACTIVE', category_name: 'Salários', result_nature: 'DESPESA' },
+      {
+        id: '1',
+        type: 'expense',
+        amount: 10000,
+        date: '2026-09-01',
+        description: 'Distribuição de Lucro',
+        status: 'ACTIVE',
+        category_name: 'Distribuição de Lucros',
+        result_nature: 'NAO_AFETA_RESULTADO',
+      },
+      {
+        id: '2',
+        type: 'expense',
+        amount: 2000,
+        date: '2026-09-02',
+        description: 'Salários',
+        status: 'ACTIVE',
+        category_name: 'Salários',
+        result_nature: 'DESPESA',
+      },
     ];
     const dre = calculateDRE(txs, 0);
     expect(dre.operatingExpenses).toBe(2000); // Não inclui os 10k de distribuição de lucros
@@ -280,7 +365,16 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('14. Compra de mercadoria: pagamento aparece como Saída de caixa sem duplicar CMV no Resultado DRE', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'expense', amount: 15000, date: '2026-09-01', description: 'Compra de Estoque Bechara', status: 'ACTIVE', category_name: 'Compra de Estoque / Mercadorias', result_nature: 'NAO_AFETA_RESULTADO' },
+      {
+        id: '1',
+        type: 'expense',
+        amount: 15000,
+        date: '2026-09-01',
+        description: 'Compra de Estoque Bechara',
+        status: 'ACTIVE',
+        category_name: 'Compra de Estoque / Mercadorias',
+        result_nature: 'NAO_AFETA_RESULTADO',
+      },
     ];
     const balance = calculateBalance(txs, 20000);
     expect(balance).toBe(5000); // Aparece no fluxo de caixa
@@ -292,30 +386,79 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
 
   it('15. Filtros: Entradas retorna todas as entradas, inclusive não-receitas', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'income', amount: 20000, date: '2026-09-01', description: 'Empréstimo', status: 'ACTIVE', category_name: 'Empréstimo Recebido' },
-      { id: '2', type: 'income', amount: 500, date: '2026-09-02', description: 'Juros', status: 'ACTIVE', category_name: 'Juros Recebidos' },
-      { id: '3', type: 'expense', amount: 1000, date: '2026-09-03', description: 'Luz', status: 'ACTIVE', category_name: 'Energia' },
+      {
+        id: '1',
+        type: 'income',
+        amount: 20000,
+        date: '2026-09-01',
+        description: 'Empréstimo',
+        status: 'ACTIVE',
+        category_name: 'Empréstimo Recebido',
+      },
+      {
+        id: '2',
+        type: 'income',
+        amount: 500,
+        date: '2026-09-02',
+        description: 'Juros',
+        status: 'ACTIVE',
+        category_name: 'Juros Recebidos',
+      },
+      {
+        id: '3',
+        type: 'expense',
+        amount: 1000,
+        date: '2026-09-03',
+        description: 'Luz',
+        status: 'ACTIVE',
+        category_name: 'Energia',
+      },
     ];
-    const entradas = txs.filter(t => t.type === 'income');
+    const entradas = txs.filter((t) => t.type === 'income');
     expect(entradas).toHaveLength(2);
-    expect(entradas.map(e => e.description)).toContain('Empréstimo');
-    expect(entradas.map(e => e.description)).toContain('Juros');
+    expect(entradas.map((e) => e.description)).toContain('Empréstimo');
+    expect(entradas.map((e) => e.description)).toContain('Juros');
   });
 
   it('16. Filtros: Saídas retorna todas as saídas, inclusive não-despesas', () => {
     const txs: FinancialTransaction[] = [
-      { id: '1', type: 'expense', amount: 5000, date: '2026-09-01', description: 'Distribuição Lucro', status: 'ACTIVE', category_name: 'Distribuição de Lucros' },
-      { id: '2', type: 'expense', amount: 700, date: '2026-09-02', description: 'Luz', status: 'ACTIVE', category_name: 'Energia' },
-      { id: '3', type: 'income', amount: 1000, date: '2026-09-03', description: 'Venda', status: 'ACTIVE', category_name: 'Vendas' },
+      {
+        id: '1',
+        type: 'expense',
+        amount: 5000,
+        date: '2026-09-01',
+        description: 'Distribuição Lucro',
+        status: 'ACTIVE',
+        category_name: 'Distribuição de Lucros',
+      },
+      {
+        id: '2',
+        type: 'expense',
+        amount: 700,
+        date: '2026-09-02',
+        description: 'Luz',
+        status: 'ACTIVE',
+        category_name: 'Energia',
+      },
+      {
+        id: '3',
+        type: 'income',
+        amount: 1000,
+        date: '2026-09-03',
+        description: 'Venda',
+        status: 'ACTIVE',
+        category_name: 'Vendas',
+      },
     ];
-    const saidas = txs.filter(t => t.type === 'expense');
+    const saidas = txs.filter((t) => t.type === 'expense');
     expect(saidas).toHaveLength(2);
-    expect(saidas.map(s => s.description)).toContain('Distribuição Lucro');
-    expect(saidas.map(s => s.description)).toContain('Luz');
+    expect(saidas.map((s) => s.description)).toContain('Distribuição Lucro');
+    expect(saidas.map((s) => s.description)).toContain('Luz');
   });
 
   it('17. Nomenclatura UI: Formulários usam + Entrada e - Saída', () => {
-    const formatTypeLabel = (type: 'income' | 'expense') => (type === 'income' ? '+ Entrada' : '- Saída');
+    const formatTypeLabel = (type: 'income' | 'expense') =>
+      type === 'income' ? '+ Entrada' : '- Saída';
     expect(formatTypeLabel('income')).toBe('+ Entrada');
     expect(formatTypeLabel('expense')).toBe('- Saída');
   });
@@ -338,7 +481,8 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
       // result_nature não definido (undefined)
     };
 
-    const derivedNature = legacyTx.result_nature || determineResultNature(legacyTx.category_name, legacyTx.type);
+    const derivedNature =
+      legacyTx.result_nature || determineResultNature(legacyTx.category_name, legacyTx.type);
     expect(derivedNature).toBe('NAO_AFETA_RESULTADO');
   });
 
@@ -347,8 +491,18 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
       intentType: 'SINGLE_TRANSACTION',
       type: 'expense',
       batchDraftsList: [
-        { description: 'Pagamento de conta de luz', amount: 100, isRealized: true, businessPurpose: 'UNKNOWN' },
-        { description: 'Pagamento de internet', amount: 300, isRealized: true, businessPurpose: 'UNKNOWN' },
+        {
+          description: 'Pagamento de conta de luz',
+          amount: 100,
+          isRealized: true,
+          businessPurpose: 'UNKNOWN',
+        },
+        {
+          description: 'Pagamento de internet',
+          amount: 300,
+          isRealized: true,
+          businessPurpose: 'UNKNOWN',
+        },
       ],
     };
 
@@ -359,7 +513,7 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
     const isBatchAware = mockMultiBatch.batchDraftsList.length > 1;
     expect(isBatchAware).toBe(true);
 
-    const processedDescriptions = mockMultiBatch.batchDraftsList.map(d => d.description);
+    const processedDescriptions = mockMultiBatch.batchDraftsList.map((d) => d.description);
     expect(processedDescriptions).toContain('Pagamento de conta de luz');
     expect(processedDescriptions).toContain('Pagamento de internet');
   });
@@ -367,9 +521,12 @@ describe('Suíte Completa de Invariantes Financeiros (19 Testes Regressivos Obri
   it('21. DOCUMENTAÇÃO HISTÓRICA DA CAUSA RAIZ: Rastreabilidade do Bug de Descarte de Lote', () => {
     const rootCauseReport = {
       bugId: 'PERDA_SEGUNDA_MOVIMENTACAO_MESMA_MENSAGEM',
-      symptom: 'Ao falar "paguei a luz 100 e internet 300", a internet sumia e aparecia apenas 100 na UI',
-      rootCause: 'Atribuição precoce de questionToUser isolada do item [0] + descarte visual de batchDraftsList na UI do chat',
-      resolution: 'buildGroupedQuestion + applyTurnPatchWithDraftList + buildDraftAnalysisChips batch-aware',
+      symptom:
+        'Ao falar "paguei a luz 100 e internet 300", a internet sumia e aparecia apenas 100 na UI',
+      rootCause:
+        'Atribuição precoce de questionToUser isolada do item [0] + descarte visual de batchDraftsList na UI do chat',
+      resolution:
+        'buildGroupedQuestion + applyTurnPatchWithDraftList + buildDraftAnalysisChips batch-aware',
     };
 
     expect(rootCauseReport.rootCause).toContain('item [0]');

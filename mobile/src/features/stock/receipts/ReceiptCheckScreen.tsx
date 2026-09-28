@@ -14,12 +14,17 @@ export const ReceiptCheckScreen: React.FC<Props> = ({ isDarkMode, onBack }) => {
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={[styles.backButton, isDarkMode && styles.backButtonDark]}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={[styles.backButton, isDarkMode && styles.backButtonDark]}
+        >
           <ArrowLeft size={24} color={isDarkMode ? '#94a3b8' : '#64748b'} />
         </TouchableOpacity>
         <View style={styles.headerTitleGroup}>
           <Text style={[styles.title, isDarkMode && styles.textDark]}>NF 123456</Text>
-          <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>Indústria Móveis Silva</Text>
+          <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>
+            Indústria Móveis Silva
+          </Text>
         </View>
       </View>
 
@@ -36,9 +41,9 @@ export const ReceiptCheckScreen: React.FC<Props> = ({ isDarkMode, onBack }) => {
           </View>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.scanButton}
-          onPress={() => setCheckedVolumes(prev => Math.min(totalVolumes, prev + 1))}
+          onPress={() => setCheckedVolumes((prev) => Math.min(totalVolumes, prev + 1))}
         >
           <QrCode size={32} color="#ffffff" />
           <Text style={styles.scanButtonText}>Ler Código de Barras do Volume</Text>
@@ -46,7 +51,9 @@ export const ReceiptCheckScreen: React.FC<Props> = ({ isDarkMode, onBack }) => {
 
         <TouchableOpacity style={[styles.photoButton, isDarkMode && styles.photoButtonDark]}>
           <Camera size={24} color={isDarkMode ? '#f8fafc' : '#0f172a'} />
-          <Text style={[styles.photoButtonText, isDarkMode && styles.textDark]}>Anexar Canhoto / Foto</Text>
+          <Text style={[styles.photoButtonText, isDarkMode && styles.textDark]}>
+            Anexar Canhoto / Foto
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.itemsList}>
@@ -54,8 +61,12 @@ export const ReceiptCheckScreen: React.FC<Props> = ({ isDarkMode, onBack }) => {
           {Array.from({ length: 3 }).map((_, i) => (
             <View key={i} style={[styles.itemCard, isDarkMode && styles.itemCardDark]}>
               <View style={styles.itemInfo}>
-                <Text style={[styles.itemName, isDarkMode && styles.textDark]}>Sofá Retrátil 3 Lugares</Text>
-                <Text style={[styles.itemSku, isDarkMode && styles.textMutedDark]}>SKU: 100{i}</Text>
+                <Text style={[styles.itemName, isDarkMode && styles.textDark]}>
+                  Sofá Retrátil 3 Lugares
+                </Text>
+                <Text style={[styles.itemSku, isDarkMode && styles.textMutedDark]}>
+                  SKU: 100{i}
+                </Text>
               </View>
               <View style={[styles.itemQtyBadge, isDarkMode && styles.itemQtyBadgeDark]}>
                 <Text style={[styles.itemQtyText, isDarkMode && styles.textDark]}>5 un</Text>
@@ -270,5 +281,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
-  }
+  },
 });

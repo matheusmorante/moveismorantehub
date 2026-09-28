@@ -14,7 +14,11 @@ export function OrdersHeader({ dark, search, onSearch, onRefresh }: Props) {
     <View style={styles.container}>
       <View style={styles.top}>
         <Text style={[styles.title, dark && styles.light]}>Pedidos de Venda</Text>
-        <TouchableOpacity onPress={onRefresh} style={styles.refresh} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity
+          onPress={onRefresh}
+          style={styles.refresh}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <RefreshCw size={16} color="#64748b" />
         </TouchableOpacity>
       </View>

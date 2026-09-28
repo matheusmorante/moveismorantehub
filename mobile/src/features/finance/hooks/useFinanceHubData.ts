@@ -39,30 +39,33 @@ export function useFinanceHubData({ userProfile }: UseFinanceHubDataProps) {
     userProfile?.role,
   ]
     .filter(Boolean)
-    .map(role => String(role).trim().toLowerCase());
-  const isAdmin = profileRoles.some(role => ['admin', 'administrator', 'master'].includes(role));
+    .map((role) => String(role).trim().toLowerCase());
+  const isAdmin = profileRoles.some((role) => ['admin', 'administrator', 'master'].includes(role));
 
-  const loadData = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoadingData(true);
-    try {
-      const [cats, sum, list] = await Promise.all([
-        fetchFinancialCategories(),
-        fetchMonthlySummary(selectedYear, selectedMonth),
-        fetchTransactionsForMonth(selectedYear, selectedMonth, {
-          type: typeFilter,
-          ...advancedFilters,
-        }),
-      ]);
-      setCategories(cats);
-      setSummary(sum);
-      setTransactions(list);
-    } catch (e) {
-      console.warn('Erro ao carregar dados do módulo financeiro:', e);
-    } finally {
-      setLoadingData(false);
-      setRefreshing(false);
-    }
-  }, [selectedYear, selectedMonth, typeFilter, advancedFilters]);
+  const loadData = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoadingData(true);
+      try {
+        const [cats, sum, list] = await Promise.all([
+          fetchFinancialCategories(),
+          fetchMonthlySummary(selectedYear, selectedMonth),
+          fetchTransactionsForMonth(selectedYear, selectedMonth, {
+            type: typeFilter,
+            ...advancedFilters,
+          }),
+        ]);
+        setCategories(cats);
+        setSummary(sum);
+        setTransactions(list);
+      } catch (e) {
+        console.warn('Erro ao carregar dados do módulo financeiro:', e);
+      } finally {
+        setLoadingData(false);
+        setRefreshing(false);
+      }
+    },
+    [selectedYear, selectedMonth, typeFilter, advancedFilters]
+  );
 
   useEffect(() => {
     loadData(true);

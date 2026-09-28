@@ -54,7 +54,7 @@ class AiLatencyTrackerSingleton {
     responseSizeChars = 0,
     errorMessage?: string
   ): AiCallTelemetryRecord | undefined {
-    const record = this.records.find(r => r.id === id);
+    const record = this.records.find((r) => r.id === id);
     if (!record) return undefined;
 
     const startTs = new Date(record.startTimeIso).getTime();
@@ -66,8 +66,11 @@ class AiLatencyTrackerSingleton {
     record.errorMessage = errorMessage;
 
     console.info('[AiExecution]', {
-      id: record.id, operation: record.operation, model: record.model,
-      durationMs: record.durationMs, success: record.success,
+      id: record.id,
+      operation: record.operation,
+      model: record.model,
+      durationMs: record.durationMs,
+      success: record.success,
       responseSizeChars: record.responseSizeChars,
     });
 
@@ -75,7 +78,7 @@ class AiLatencyTrackerSingleton {
   }
 
   public getStats(): AiLatencyStats {
-    const finished = this.records.filter(r => r.endTimeIso);
+    const finished = this.records.filter((r) => r.endTimeIso);
     if (finished.length === 0) {
       return {
         totalCalls: 0,
@@ -90,7 +93,7 @@ class AiLatencyTrackerSingleton {
       };
     }
 
-    const durations = finished.map(r => r.durationMs).sort((a, b) => a - b);
+    const durations = finished.map((r) => r.durationMs).sort((a, b) => a - b);
     const total = durations.reduce((sum, d) => sum + d, 0);
     const getPercentile = (p: number) => {
       const idx = Math.min(durations.length - 1, Math.floor((p / 100) * durations.length));
@@ -99,8 +102,8 @@ class AiLatencyTrackerSingleton {
 
     return {
       totalCalls: finished.length,
-      successfulCalls: finished.filter(r => r.success).length,
-      failedCalls: finished.filter(r => !r.success).length,
+      successfulCalls: finished.filter((r) => r.success).length,
+      failedCalls: finished.filter((r) => !r.success).length,
       avgDurationMs: Math.round(total / finished.length),
       p50DurationMs: getPercentile(50),
       p90DurationMs: getPercentile(90),

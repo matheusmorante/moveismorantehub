@@ -38,7 +38,13 @@ const memoryAudioCache = new Map<string, AudioCacheRecord>();
 // Mapa de requisições em andamento por audioCacheKey para deduplicação concorrente
 const inFlightAudioRequests = new Map<
   string,
-  Promise<{ success: boolean; audioUrl?: string; base64Mp3?: string; isWav?: boolean; error?: string }>
+  Promise<{
+    success: boolean;
+    audioUrl?: string;
+    base64Mp3?: string;
+    isWav?: boolean;
+    error?: string;
+  }>
 >();
 
 /**
@@ -49,9 +55,7 @@ const inFlightAudioRequests = new Map<
  */
 export function normalizeSummaryText(text: string): string {
   if (!text) return '';
-  return text
-    .trim()
-    .replace(/\s+/g, ' ');
+  return text.trim().replace(/\s+/g, ' ');
 }
 
 /**
@@ -68,10 +72,7 @@ function simpleHash(str: string): string {
 /**
  * Gera a audioCacheKey baseada estritamente no texto normalizado e configs de voz.
  */
-export function generateAudioCacheKey(
-  text: string,
-  config: Partial<VoiceConfig> = {}
-): string {
+export function generateAudioCacheKey(text: string, config: Partial<VoiceConfig> = {}): string {
   const normText = normalizeSummaryText(text);
   const cfg: VoiceConfig = { ...DEFAULT_VOICE_CONFIG, ...config };
 
@@ -82,9 +83,7 @@ export function generateAudioCacheKey(
 /**
  * Busca áudio cacheado por chave (Memória -> AsyncStorage -> Supabase DB).
  */
-export async function getCachedAudioRecord(
-  cacheKey: string
-): Promise<AudioCacheRecord | null> {
+export async function getCachedAudioRecord(cacheKey: string): Promise<AudioCacheRecord | null> {
   // 1. Memória
   if (memoryAudioCache.has(cacheKey)) {
     return memoryAudioCache.get(cacheKey)!;
@@ -126,10 +125,7 @@ export async function getCachedAudioRecord(
 
       memoryAudioCache.set(cacheKey, record);
       try {
-        await AsyncStorage.setItem(
-          `@morante_audio_cache_${cacheKey}`,
-          JSON.stringify(record)
-        );
+        await AsyncStorage.setItem(`@morante_audio_cache_${cacheKey}`, JSON.stringify(record));
       } catch {}
 
       return record;
@@ -154,16 +150,11 @@ export async function getPlayableAudioUrl(record: AudioCacheRecord): Promise<str
 /**
  * Salva novo registro de áudio no cache (Memória + AsyncStorage + Supabase DB).
  */
-export async function saveAudioRecordToCache(
-  record: AudioCacheRecord
-): Promise<AudioCacheRecord> {
+export async function saveAudioRecordToCache(record: AudioCacheRecord): Promise<AudioCacheRecord> {
   memoryAudioCache.set(record.cacheKey, record);
 
   try {
-    await AsyncStorage.setItem(
-      `@morante_audio_cache_${record.cacheKey}`,
-      JSON.stringify(record)
-    );
+    await AsyncStorage.setItem(`@morante_audio_cache_${record.cacheKey}`, JSON.stringify(record));
   } catch {}
 
   try {
@@ -198,14 +189,14 @@ export async function getOrCreateAudioWithDeduplication<T>(
   generatorFn: () => Promise<T>
 ): Promise<T> {
   if (inFlightAudioRequests.has(cacheKey)) {
-    return (inFlightAudioRequests.get(cacheKey) as unknown) as Promise<T>;
+    return inFlightAudioRequests.get(cacheKey) as unknown as Promise<T>;
   }
 
   const promise = generatorFn().finally(() => {
     inFlightAudioRequests.delete(cacheKey);
   });
 
-  inFlightAudioRequests.set(cacheKey, (promise as unknown) as Promise<any>);
+  inFlightAudioRequests.set(cacheKey, promise as unknown as Promise<any>);
   return promise;
 }
 

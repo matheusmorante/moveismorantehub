@@ -14,15 +14,19 @@ export default function AccessAndUsersPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey(k => k + 1);
+    setRefreshKey((k) => k + 1);
   }, []);
 
   useEffect(() => {
     setLoading(true);
-    const unsub = subscribeToPeople('employees', (data) => {
-      setPeople(data);
-      setLoading(false);
-    }, false);
+    const unsub = subscribeToPeople(
+      'employees',
+      (data) => {
+        setPeople(data);
+        setLoading(false);
+      },
+      false
+    );
     return () => unsub();
   }, [refreshKey]);
 
@@ -31,8 +35,12 @@ export default function AccessAndUsersPage() {
       <div className="flex min-h-[60vh] items-center justify-center text-center p-4">
         <div>
           <i className="bi bi-shield-lock-fill mb-4 block text-6xl text-slate-300 dark:text-slate-600" />
-          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Acesso Restrito</h2>
-          <p className="text-sm text-slate-400 mt-1">Apenas administradores podem gerenciar acessos e usuários.</p>
+          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">
+            Acesso Restrito
+          </h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Apenas administradores podem gerenciar acessos e usuários.
+          </p>
         </div>
       </div>
     );

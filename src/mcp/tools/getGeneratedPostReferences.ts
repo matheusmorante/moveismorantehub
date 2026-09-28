@@ -16,13 +16,14 @@ export const getGeneratedPostReferencesTool = {
     const references = await mcpCampaignService.getGeneratedPostReferences(
       input.productId,
       input.campaignId,
-      input.limit,
+      input.limit
     );
     return {
       productId: input.productId,
       references,
       totalFound: references.length,
-      warning: 'Imagens geradas anteriormente servem exclusivamente para referência visual de iluminação/layout.',
+      warning:
+        'Imagens geradas anteriormente servem exclusivamente para referência visual de iluminação/layout.',
     };
   },
 };

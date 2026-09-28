@@ -4,270 +4,328 @@ import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 
 interface ProductNcmSelectorProps {
-    formData: Partial<Product>;
-    setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    isNcmAutoEnabled: boolean;
-    readonly toggleNcmAuto: () => void;
-    isGeneratingNCM: boolean;
-    suggestion: NcmAiSuggestion | null;
-    onAcceptSuggestion: () => void;
-    onDismissSuggestion: () => void;
+  formData: Partial<Product>;
+  setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  isNcmAutoEnabled: boolean;
+  readonly toggleNcmAuto: () => void;
+  isGeneratingNCM: boolean;
+  suggestion: NcmAiSuggestion | null;
+  onAcceptSuggestion: () => void;
+  onDismissSuggestion: () => void;
 }
 
 export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
-    formData,
-    setFormData,
-    isNcmAutoEnabled,
-    toggleNcmAuto,
-    isGeneratingNCM,
-    suggestion,
-    onAcceptSuggestion,
-    onDismissSuggestion,
+  formData,
+  setFormData,
+  isNcmAutoEnabled,
+  toggleNcmAuto,
+  isGeneratingNCM,
+  suggestion,
+  onAcceptSuggestion,
+  onDismissSuggestion,
 }) => {
-    const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
+  useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    const [results, setResults] = useState<NcmSearchResult[]>([]);
-    const [isLoadingNcms, setIsLoadingNcms] = useState(false);
-    const [currentCatalogEntry, setCurrentCatalogEntry] = useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
-    const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
+  const [results, setResults] = useState<NcmSearchResult[]>([]);
+  const [isLoadingNcms, setIsLoadingNcms] = useState(false);
+  const [currentCatalogEntry, setCurrentCatalogEntry] =
+    useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
+  const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
 
-    useEffect(() => {
-        const fetchNcms = async () => {
-            if (searchQuery.trim().length < 2) {
-                setResults([]);
-                return;
-            }
-            setIsLoadingNcms(true);
-            try {
-                const res = await ncmService.searchNcms(searchQuery, 10);
-                setResults(res);
-            } catch (err) {
-                console.error("Erro ao buscar NCMs:", err);
-                setResults([]);
-            } finally {
-                setIsLoadingNcms(false);
-            }
-        };
-        const timer = setTimeout(fetchNcms, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+  useEffect(() => {
+    const fetchNcms = async () => {
+      if (searchQuery.trim().length < 2) {
+        setResults([]);
+        return;
+      }
+      setIsLoadingNcms(true);
+      try {
+        const res = await ncmService.searchNcms(searchQuery, 10);
+        setResults(res);
+      } catch (err) {
+        console.error('Erro ao buscar NCMs:', err);
+        setResults([]);
+      } finally {
+        setIsLoadingNcms(false);
+      }
+    };
+    const timer = setTimeout(fetchNcms, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-    useEffect(() => {
-        const code = (formData.fiscal?.ncm || '').replace(/\D/g, '');
-        if (code.length !== 8) {
-            setCurrentCatalogEntry(null);
-            setHasCheckedCatalogEntry(false);
-            return;
-        }
-        let cancelled = false;
-        setHasCheckedCatalogEntry(false);
-        const timer = window.setTimeout(async () => {
-            try {
-                const entry = await ncmService.getCatalogEntry(code);
-                if (!cancelled) setCurrentCatalogEntry(entry);
-            } catch (error) {
-                console.warn('[NCM] Não foi possível consultar a vigência do código.', error);
-                if (!cancelled) setCurrentCatalogEntry(null);
-            } finally {
-                if (!cancelled) setHasCheckedCatalogEntry(true);
-            }
-        }, 250);
-        return () => { cancelled = true; window.clearTimeout(timer); };
-    }, [formData.fiscal?.ncm]);
+  useEffect(() => {
+    const code = (formData.fiscal?.ncm || '').replace(/\D/g, '');
+    if (code.length !== 8) {
+      setCurrentCatalogEntry(null);
+      setHasCheckedCatalogEntry(false);
+      return;
+    }
+    let cancelled = false;
+    setHasCheckedCatalogEntry(false);
+    const timer = window.setTimeout(async () => {
+      try {
+        const entry = await ncmService.getCatalogEntry(code);
+        if (!cancelled) setCurrentCatalogEntry(entry);
+      } catch (error) {
+        console.warn('[NCM] Não foi possível consultar a vigência do código.', error);
+        if (!cancelled) setCurrentCatalogEntry(null);
+      } finally {
+        if (!cancelled) setHasCheckedCatalogEntry(true);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [formData.fiscal?.ncm]);
 
-    return (
-        <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
-            <div className="flex items-center justify-between gap-2">
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">NCM *</label>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-checked={isNcmAutoEnabled}
-                        aria-label="Autopreencher NCM"
-                        onClick={toggleNcmAuto}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                        title="Ativar sugestões de NCM por IA"
-                    >
-                        {isGeneratingNCM ? <i className="bi bi-arrow-repeat animate-spin text-amber-500" /> : <i className="bi bi-stars text-amber-500 text-xs font-bold" />}
-                        <span>Autopreencher</span>
-                        <span aria-hidden="true" className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${isNcmAutoEnabled ? 'bg-purple-600' : 'bg-slate-400'}`}>
-                            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isNcmAutoEnabled ? 'translate-x-4' : ''}`} />
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setIsInfoModalOpen(true)}
-                        onMouseEnter={() => setIsInfoModalOpen(true)}
-                        onFocus={() => setIsInfoModalOpen(true)}
-                        aria-label="Como funciona o autopreenchimento do NCM"
-                        className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
-                        title="Como funciona a IA do NCM?"
-                    >
-                        <i className="bi bi-info-circle text-xs" />
-                    </button>
-                </div>
-            </div>
-            <div
-                className={`relative overflow-hidden rounded-2xl transition-all ${
-                    isGeneratingNCM
-                        ? 'ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.32)]'
-                        : ''
-                }`}
-                aria-busy={isGeneratingNCM}
+  return (
+    <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+          NCM *
+        </label>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isNcmAutoEnabled}
+            aria-label="Autopreencher NCM"
+            onClick={toggleNcmAuto}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+            title="Ativar sugestões de NCM por IA"
+          >
+            {isGeneratingNCM ? (
+              <i className="bi bi-arrow-repeat animate-spin text-amber-500" />
+            ) : (
+              <i className="bi bi-stars text-amber-500 text-xs font-bold" />
+            )}
+            <span>Autopreencher</span>
+            <span
+              aria-hidden="true"
+              className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${isNcmAutoEnabled ? 'bg-purple-600' : 'bg-slate-400'}`}
             >
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        setSearchQuery(val);
-                        setFormData(prev => ({
-                            ...prev,
-                            fiscal: {
-                                ...prev.fiscal!,
-                                ncm: val
-                            }
-                        }));
-                        setIsDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsDropdownOpen(true)}
-                    placeholder="Digite ou pesquise o NCM..."
-                    className={`w-full pl-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
-                        isGeneratingNCM
-                            ? 'pr-20 border-amber-400'
-                            : 'pr-8 border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
-                    }`}
-                />
-                {isGeneratingNCM ? (
-                    <>
-                        <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
-                            <span className="ncm-input-shimmer absolute inset-y-0 left-0 w-1/3" />
-                        </span>
-                        <span
-                            role="status"
-                            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
-                        >
-                            Gerando...
-                        </span>
-                    </>
-                ) : (
-                    <i className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                )}
-            </div>
+              <span
+                className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isNcmAutoEnabled ? 'translate-x-4' : ''}`}
+              />
+            </span>
+          </button>
 
-            {currentCatalogEntry && !currentCatalogEntry.active && (
-                <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                    Este NCM não está vigente na base local. Revise a classificação antes de usar em novas operações.
-                </p>
-            )}
-            {hasCheckedCatalogEntry && currentCatalogEntry === null && (
-                <p className="text-[10px] text-slate-500">Não foi possível confirmar a vigência deste NCM. Sincronize a tabela oficial antes de emitir documentos fiscais.</p>
-            )}
-            {suggestion?.ncm && (
-                <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-800 dark:text-violet-200">Sugestão de NCM · confirme antes de aplicar</p>
-                            <p className="mt-1 font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{suggestion.ncm}</p>
-                            <p className="mt-0.5 text-[10px] text-slate-600 dark:text-slate-300">{suggestion.description}</p>
-                            <p className="mt-2 text-[10px] leading-relaxed text-violet-800 dark:text-violet-200">{suggestion.reviewReason}</p>
-                        </div>
-                        <button type="button" onClick={onDismissSuggestion} aria-label="Descartar sugestão de NCM" className="shrink-0 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><i className="bi bi-x-lg" /></button>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                        <span className="text-[9px] text-slate-500">Confiança informada pela IA: {Math.round(suggestion.confidence * 100)}%</span>
-                        <button type="button" onClick={onAcceptSuggestion} className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-700">Aplicar sugestão</button>
-                    </div>
-                </div>
-            )}
-
-            {isDropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
-                    {isLoadingNcms ? (
-                        <div className="p-3 text-center text-xs text-slate-400">
-                            <i className="bi bi-arrow-repeat animate-spin mr-2" /> Buscando NCMs...
-                        </div>
-                    ) : results.length > 0 ? (
-                        results.map(item => (
-                            <div
-                                key={item.code}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        fiscal: {
-                                            ...prev.fiscal!,
-                                            ncm: item.code,
-                                            ncmDescription: item.official_description
-                                        }
-                                    }));
-                                    setSearchQuery(item.code);
-                                    setIsDropdownOpen(false);
-                                }}
-                                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl group"
-                            >
-                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600">{item.code}</span>
-                                <p className="text-[10px] text-slate-500 line-clamp-2">{item.official_description}</p>
-                                {item.alias_match && (
-                                    <p className="text-[9px] text-slate-400 mt-1 italic flex items-center gap-1">
-                                        <i className="bi bi-tag-fill" /> {item.alias_match}
-                                    </p>
-                                )}
-                            </div>
-                        ))
-                    ) : searchQuery.length >= 2 ? (
-                        <div className="p-3 text-center text-xs text-slate-400">
-                            Nenhum NCM encontrado.
-                        </div>
-                    ) : (
-                        <div className="p-3 text-center text-xs text-slate-400">
-                            Digite pelo menos 2 caracteres para buscar...
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {isInfoModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                                <i className="bi bi-stars text-amber-500" /> Inteligência Fiscal NCM
-                            </h4>
-                            <button type="button" onClick={() => setIsInfoModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
-                                <i className="bi bi-x-lg" />
-                            </button>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            A IA sugere um NCM a partir do nome, categoria, descrição e material. Ela não altera o código do produto automaticamente: confira o código e a descrição oficial e clique em “Aplicar sugestão” se a classificação estiver correta. Quando o material não está claro, MDF/MDP/madeira pode aparecer como hipótese, que exige confirmação do material real.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={() => setIsInfoModalOpen(false)}
-                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors"
-                        >
-                            Entendido
-                        </button>
-                    </div>
-                </div>
-            )}
+          <button
+            type="button"
+            onClick={() => setIsInfoModalOpen(true)}
+            onMouseEnter={() => setIsInfoModalOpen(true)}
+            onFocus={() => setIsInfoModalOpen(true)}
+            aria-label="Como funciona o autopreenchimento do NCM"
+            className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+            title="Como funciona a IA do NCM?"
+          >
+            <i className="bi bi-info-circle text-xs" />
+          </button>
         </div>
-    );
+      </div>
+      <div
+        className={`relative overflow-hidden rounded-2xl transition-all ${
+          isGeneratingNCM ? 'ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.32)]' : ''
+        }`}
+        aria-busy={isGeneratingNCM}
+      >
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            const val = e.target.value;
+            setSearchQuery(val);
+            setFormData((prev) => ({
+              ...prev,
+              fiscal: {
+                ...prev.fiscal!,
+                ncm: val,
+              },
+            }));
+            setIsDropdownOpen(true);
+          }}
+          onFocus={() => setIsDropdownOpen(true)}
+          placeholder="Digite ou pesquise o NCM..."
+          className={`w-full pl-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
+            isGeneratingNCM
+              ? 'pr-20 border-amber-400'
+              : 'pr-8 border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
+          }`}
+        />
+        {isGeneratingNCM ? (
+          <>
+            <span
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+              aria-hidden="true"
+            >
+              <span className="ncm-input-shimmer absolute inset-y-0 left-0 w-1/3" />
+            </span>
+            <span
+              role="status"
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
+            >
+              Gerando...
+            </span>
+          </>
+        ) : (
+          <i
+            className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
+          />
+        )}
+      </div>
+
+      {currentCatalogEntry && !currentCatalogEntry.active && (
+        <p
+          role="alert"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          Este NCM não está vigente na base local. Revise a classificação antes de usar em novas
+          operações.
+        </p>
+      )}
+      {hasCheckedCatalogEntry && currentCatalogEntry === null && (
+        <p className="text-[10px] text-slate-500">
+          Não foi possível confirmar a vigência deste NCM. Sincronize a tabela oficial antes de
+          emitir documentos fiscais.
+        </p>
+      )}
+      {suggestion?.ncm && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-violet-800 dark:text-violet-200">
+                Sugestão de NCM · confirme antes de aplicar
+              </p>
+              <p className="mt-1 font-mono text-xs font-bold text-slate-800 dark:text-slate-100">
+                {suggestion.ncm}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                {suggestion.description}
+              </p>
+              <p className="mt-2 text-[10px] leading-relaxed text-violet-800 dark:text-violet-200">
+                {suggestion.reviewReason}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onDismissSuggestion}
+              aria-label="Descartar sugestão de NCM"
+              className="shrink-0 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            >
+              <i className="bi bi-x-lg" />
+            </button>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="text-[9px] text-slate-500">
+              Confiança informada pela IA: {Math.round(suggestion.confidence * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={onAcceptSuggestion}
+              className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-700"
+            >
+              Aplicar sugestão
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isDropdownOpen && (
+        <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
+          {isLoadingNcms ? (
+            <div className="p-3 text-center text-xs text-slate-400">
+              <i className="bi bi-arrow-repeat animate-spin mr-2" /> Buscando NCMs...
+            </div>
+          ) : results.length > 0 ? (
+            results.map((item) => (
+              <div
+                key={item.code}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFormData((prev) => ({
+                    ...prev,
+                    fiscal: {
+                      ...prev.fiscal!,
+                      ncm: item.code,
+                      ncmDescription: item.official_description,
+                    },
+                  }));
+                  setSearchQuery(item.code);
+                  setIsDropdownOpen(false);
+                }}
+                className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl group"
+              >
+                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600">
+                  {item.code}
+                </span>
+                <p className="text-[10px] text-slate-500 line-clamp-2">
+                  {item.official_description}
+                </p>
+                {item.alias_match && (
+                  <p className="text-[9px] text-slate-400 mt-1 italic flex items-center gap-1">
+                    <i className="bi bi-tag-fill" /> {item.alias_match}
+                  </p>
+                )}
+              </div>
+            ))
+          ) : searchQuery.length >= 2 ? (
+            <div className="p-3 text-center text-xs text-slate-400">Nenhum NCM encontrado.</div>
+          ) : (
+            <div className="p-3 text-center text-xs text-slate-400">
+              Digite pelo menos 2 caracteres para buscar...
+            </div>
+          )}
+        </div>
+      )}
+
+      {isInfoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <i className="bi bi-stars text-amber-500" /> Inteligência Fiscal NCM
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsInfoModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <i className="bi bi-x-lg" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              A IA sugere um NCM a partir do nome, categoria, descrição e material. Ela não altera o
+              código do produto automaticamente: confira o código e a descrição oficial e clique em
+              “Aplicar sugestão” se a classificação estiver correta. Quando o material não está
+              claro, MDF/MDP/madeira pode aparecer como hipótese, que exige confirmação do material
+              real.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsInfoModalOpen(false)}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };

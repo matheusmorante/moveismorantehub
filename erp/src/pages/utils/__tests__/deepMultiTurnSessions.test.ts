@@ -53,11 +53,15 @@ describe('Bateria de Sessões Profundas Multi-Turno (deepMultiTurnSessions.test.
     expect(t1.draft?.batchDraftsList?.length).toBe(2);
 
     // Turno 2: Esclarecimento de destinação
-    const t2 = processFinancialInput('são da loja', TODAY, { rememberedUnrealizedFacts: t1.rememberedFacts });
+    const t2 = processFinancialInput('são da loja', TODAY, {
+      rememberedUnrealizedFacts: t1.rememberedFacts,
+    });
     expect(t2).toBeDefined();
 
     // Turno 3: Pagamento no Pix
-    const t3 = processFinancialInput('paguei as duas no pix', TODAY, { rememberedUnrealizedFacts: t1.rememberedFacts });
+    const t3 = processFinancialInput('paguei as duas no pix', TODAY, {
+      rememberedUnrealizedFacts: t1.rememberedFacts,
+    });
     expect(t3.isRealized).toBe(true);
     expect(t3.draft?.batchDraftsList?.length).toBe(2);
 

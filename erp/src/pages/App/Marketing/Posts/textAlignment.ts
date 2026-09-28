@@ -1,7 +1,14 @@
 export type HorizontalTextAlignment = 'left' | 'center' | 'right';
 export type VerticalTextAlignment = 'top' | 'middle' | 'bottom';
 
-export function getTextAlignmentOffset(contentWidth: number, contentHeight: number, selectionWidth: number | undefined, selectionHeight: number | undefined, horizontal: HorizontalTextAlignment = 'left', vertical: VerticalTextAlignment = 'middle') {
+export function getTextAlignmentOffset(
+  contentWidth: number,
+  contentHeight: number,
+  selectionWidth: number | undefined,
+  selectionHeight: number | undefined,
+  horizontal: HorizontalTextAlignment = 'left',
+  vertical: VerticalTextAlignment = 'middle'
+) {
   const width = Math.max(contentWidth, selectionWidth || contentWidth);
   const height = Math.max(contentHeight, selectionHeight || contentHeight);
   const remainingX = width - contentWidth;
@@ -14,7 +21,16 @@ export function getTextAlignmentOffset(contentWidth: number, contentHeight: numb
   };
 }
 
-export function getTextBackgroundAlignment(contentWidth: number, contentHeight: number, paddingLeft: number, paddingRight: number, paddingTop: number, paddingBottom: number, horizontal: HorizontalTextAlignment = 'left', vertical: VerticalTextAlignment = 'middle') {
+export function getTextBackgroundAlignment(
+  contentWidth: number,
+  contentHeight: number,
+  paddingLeft: number,
+  paddingRight: number,
+  paddingTop: number,
+  paddingBottom: number,
+  horizontal: HorizontalTextAlignment = 'left',
+  vertical: VerticalTextAlignment = 'middle'
+) {
   const left = Math.max(0, paddingLeft);
   const right = Math.max(0, paddingRight);
   const top = Math.max(0, paddingTop);

@@ -70,9 +70,17 @@ export const seekGeminiAudio = async (seconds: number) => {
  * Sintetiza o áudio com voz ultrarrealista do Google AI Studio / Google Cloud Neural2 TTS.
  * Se a API Key não tiver acesso ou a cota expirar, retorna success: false.
  */
-function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {
+function pcmToWavBase64(
+  pcmBase64: string,
+  sampleRate = 24000,
+  numChannels = 1,
+  bitsPerSample = 16
+): string {
   try {
-    const rawStr = typeof atob !== 'undefined' ? atob(pcmBase64) : Buffer.from(pcmBase64, 'base64').toString('binary');
+    const rawStr =
+      typeof atob !== 'undefined'
+        ? atob(pcmBase64)
+        : Buffer.from(pcmBase64, 'base64').toString('binary');
     const pcmLen = rawStr.length;
     const buffer = new ArrayBuffer(44 + pcmLen);
     const view = new DataView(buffer);
@@ -101,7 +109,9 @@ function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, 
     for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+    return typeof btoa !== 'undefined'
+      ? btoa(binary)
+      : Buffer.from(binary, 'binary').toString('base64');
   } catch {
     return pcmBase64;
   }
@@ -112,8 +122,14 @@ function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, 
  */
 export const generateGeminiAudioMp3 = async (
   text: string,
-  scope?: DeliverySummaryRecord['scope'],
-): Promise<{ success: boolean; base64Mp3?: string; audioUrl?: string; isWav?: boolean; error?: string }> => {
+  scope?: DeliverySummaryRecord['scope']
+): Promise<{
+  success: boolean;
+  base64Mp3?: string;
+  audioUrl?: string;
+  isWav?: boolean;
+  error?: string;
+}> => {
   const cleanText = normalizeSummaryText(text);
   if (!cleanText) return { success: false, error: 'Texto vazio' };
 
@@ -162,7 +178,7 @@ export const playSummaryAudio = async (
   text: string,
   engine: 'gemini',
   callbacks: AudioPlaybackCallbacks,
-  scope?: DeliverySummaryRecord['scope'],
+  scope?: DeliverySummaryRecord['scope']
 ): Promise<{ success: boolean; engineUsed: 'gemini' }> => {
   await stopGeminiAudio();
 
@@ -180,7 +196,11 @@ export const playSummaryAudio = async (
         interruptionMode: 'duckOthers',
       });
 
-      const uri = res.audioUrl || (res.isWav ? `data:audio/wav;base64,${res.base64Mp3}` : `data:audio/mp3;base64,${res.base64Mp3}`);
+      const uri =
+        res.audioUrl ||
+        (res.isWav
+          ? `data:audio/wav;base64,${res.base64Mp3}`
+          : `data:audio/mp3;base64,${res.base64Mp3}`);
       const player = createAudioPlayer({ uri }, { updateInterval: 250 });
       player.volume = 1.0;
       activeSound = player;

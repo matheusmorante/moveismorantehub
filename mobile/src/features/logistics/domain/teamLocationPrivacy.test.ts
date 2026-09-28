@@ -53,7 +53,7 @@ describe('teamLocationPrivacy - Regra de Privacidade e Visibilidade da Equipe', 
     {
       user_id: 'user-2',
       user_name: 'Montador Lucas',
-      latitude: -25.360,
+      latitude: -25.36,
       longitude: -49.175,
       is_gps_active: true,
       is_delivering: false, // Não está em entrega ativa (no depósito ou em pausa)
@@ -63,8 +63,8 @@ describe('teamLocationPrivacy - Regra de Privacidade e Visibilidade da Equipe', 
     {
       user_id: 'user-3',
       user_name: 'Entregador Marcos',
-      latitude: -25.340,
-      longitude: -49.180,
+      latitude: -25.34,
+      longitude: -49.18,
       is_gps_active: true,
       is_delivering: true,
       active_order_id: 'order-102',
@@ -75,8 +75,8 @@ describe('teamLocationPrivacy - Regra de Privacidade e Visibilidade da Equipe', 
   it('deve ocultar membros que NÃO estão com entrega ativa (is_delivering = false)', () => {
     const visible = filterVisibleTeamMembers(mockMembers, 'user-99');
     expect(visible.length).toBe(2);
-    expect(visible.find(m => m.user_name === 'Montador Lucas')).toBeUndefined();
-    expect(visible.map(m => m.user_name)).toEqual(['Motorista Carlos', 'Entregador Marcos']);
+    expect(visible.find((m) => m.user_name === 'Montador Lucas')).toBeUndefined();
+    expect(visible.map((m) => m.user_name)).toEqual(['Motorista Carlos', 'Entregador Marcos']);
   });
 
   it('não deve exibir o próprio usuário logado na lista de outros membros', () => {
@@ -86,7 +86,9 @@ describe('teamLocationPrivacy - Regra de Privacidade e Visibilidade da Equipe', 
   });
 
   it('quando o motorista finaliza a entrega (is_delivering = false), ele deixa de ser visível', () => {
-    const updated = mockMembers.map(m => m.user_id === 'user-1' ? { ...m, is_delivering: false } : m);
+    const updated = mockMembers.map((m) =>
+      m.user_id === 'user-1' ? { ...m, is_delivering: false } : m
+    );
     const visible = filterVisibleTeamMembers(updated, 'user-99');
     expect(visible.length).toBe(1);
     expect(visible[0].user_name).toBe('Entregador Marcos');

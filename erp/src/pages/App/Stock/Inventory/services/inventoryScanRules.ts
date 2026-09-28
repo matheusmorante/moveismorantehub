@@ -3,8 +3,8 @@ import { extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const normalizeLabelId = (labelId: string): string => {
-    const trimmed = labelId.trim();
-    return UUID_REGEX.test(trimmed) ? trimmed.toLowerCase() : trimmed;
+  const trimmed = labelId.trim();
+  return UUID_REGEX.test(trimmed) ? trimmed.toLowerCase() : trimmed;
 };
 
 /**
@@ -13,7 +13,7 @@ export const normalizeLabelId = (labelId: string): string => {
  * Ignora códigos de pré-visualização de impressão (ex: 000XXX).
  */
 export const getPhysicalInventoryScanId = (rawCode: string): string | undefined => {
-    const raw = rawCode?.trim();
-    if (!raw) return undefined;
-    return extractLabelIdentity(raw).labelId || `qr:${raw}`;
+  const raw = rawCode?.trim();
+  if (!raw) return undefined;
+  return extractLabelIdentity(raw).labelId || `qr:${raw}`;
 };

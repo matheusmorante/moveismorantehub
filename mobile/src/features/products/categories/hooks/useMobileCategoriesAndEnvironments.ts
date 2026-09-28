@@ -39,7 +39,7 @@ export function useMobileCategoriesAndEnvironments(onDataChanged?: () => void) {
         fetchMobileCategoryProductCounts(),
       ]);
 
-      const categoriesWithCounts: CategoryNode[] = (cats || []).map(c => ({
+      const categoriesWithCounts: CategoryNode[] = (cats || []).map((c) => ({
         id: String(c.id),
         name: c.name,
         slug: c.slug,
@@ -47,7 +47,7 @@ export function useMobileCategoriesAndEnvironments(onDataChanged?: () => void) {
         productCount: prodCounts[c.id] || 0,
       }));
 
-      const environmentsWithCounts: EnvironmentNode[] = (envs || []).map(e => ({
+      const environmentsWithCounts: EnvironmentNode[] = (envs || []).map((e) => ({
         id: String(e.id),
         name: e.name,
         slug: e.slug,

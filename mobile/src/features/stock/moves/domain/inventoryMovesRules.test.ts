@@ -65,7 +65,9 @@ describe('Regras de Negócio e Cálculo de Saldo de Movimentações (ERP ↔ Mob
       relatedEntityType: 'sales_order',
       relatedEntityId: '10045',
     };
-    expect(getCleanObservation(salesMoveWithoutLabel)).toBe('Saída gerada pelo pedido de venda #10045');
+    expect(getCleanObservation(salesMoveWithoutLabel)).toBe(
+      'Saída gerada pelo pedido de venda #10045'
+    );
 
     const purchaseMove = {
       relatedEntityType: 'purchase_order',

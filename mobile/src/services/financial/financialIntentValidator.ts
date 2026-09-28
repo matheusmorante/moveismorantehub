@@ -18,12 +18,20 @@ export function validateParsedIntent(
     result.type = (result as any).movementType;
   }
   if (result.type) {
-    result.type = (result.type.toLowerCase() === 'income' || result.type.toLowerCase() === 'in') ? 'income' : 'expense';
+    result.type =
+      result.type.toLowerCase() === 'income' || result.type.toLowerCase() === 'in'
+        ? 'income'
+        : 'expense';
   } else {
     result.type = 'expense';
   }
 
-  if (!result.intentType || result.intentType === 'INSTALLMENT' || result.intentType === 'RECURRING' || result.intentType === 'PAYABLE_BILL') {
+  if (
+    !result.intentType ||
+    result.intentType === 'INSTALLMENT' ||
+    result.intentType === 'RECURRING' ||
+    result.intentType === 'PAYABLE_BILL'
+  ) {
     result.intentType = 'SINGLE_TRANSACTION';
   }
 
@@ -42,7 +50,10 @@ export function validateParsedIntent(
   }
 
   // 3. Lançamento Único, Consulta ou Atualização
-  if (result.intentType === 'QUERY_OR_UPDATE' || (result.candidateAccounts && result.candidateAccounts.length > 0)) {
+  if (
+    result.intentType === 'QUERY_OR_UPDATE' ||
+    (result.candidateAccounts && result.candidateAccounts.length > 0)
+  ) {
     result.missingFields = [];
     result.isReadyForConfirmation = false;
     return result;
@@ -99,9 +110,16 @@ export function validateParsedIntent(
     else if (/dinheiro/i.test(lowerDesc)) result.paymentMethod = 'Dinheiro';
   }
 
-  const isGenericCard = /cartão|cartao/i.test(lowerDesc) && !/débito|debito|crédito|credito|credto/i.test(lowerDesc);
+  const isGenericCard =
+    /cartão|cartao/i.test(lowerDesc) && !/débito|debito|crédito|credito|credto/i.test(lowerDesc);
 
-  if (isGenericCard && (result.paymentMethod === 'Cartão' || result.paymentMethod === 'Cartão de Crédito' || result.paymentMethod === 'UNKNOWN' || !result.paymentMethod)) {
+  if (
+    isGenericCard &&
+    (result.paymentMethod === 'Cartão' ||
+      result.paymentMethod === 'Cartão de Crédito' ||
+      result.paymentMethod === 'UNKNOWN' ||
+      !result.paymentMethod)
+  ) {
     result.paymentMethod = 'UNKNOWN';
     if (!result.missingFields) result.missingFields = [];
     if (!result.missingFields.includes('paymentMethod')) result.missingFields.push('paymentMethod');
@@ -111,7 +129,10 @@ export function validateParsedIntent(
   }
 
   // 7. DECISION-003: Incerteza / Estimativa do Usuário
-  const hasUncertainty = /\b(uns|pouco|acho\s+que|não\s+tenho\s+certeza|nao\s+tenho\s+certeza|talvez)\b/i.test(lowerDesc);
+  const hasUncertainty =
+    /\b(uns|pouco|acho\s+que|não\s+tenho\s+certeza|nao\s+tenho\s+certeza|talvez)\b/i.test(
+      lowerDesc
+    );
   if (hasUncertainty && result.isEstimated !== false) {
     result.isEstimated = true;
     result.isReadyForConfirmation = false;
@@ -129,29 +150,40 @@ export function validateParsedIntent(
 
   // 8. DECISION-001: Múltiplas Movimentações na Mesma Mensagem (batchDraftsList)
   const multipleFacts = extractMultipleFinancialFacts(result.description || '', todayStr);
-  if (multipleFacts.length >= 2 && (!result.batchDraftsList || result.batchDraftsList.length === 0)) {
+  if (
+    multipleFacts.length >= 2 &&
+    (!result.batchDraftsList || result.batchDraftsList.length === 0)
+  ) {
     result.batchDraftsList = multipleFacts;
     result.isReadyForConfirmation = false;
-    const pendingQuestion = result.batchDraftsList.find(d => d.questionToUser && d.questionToUser !== 'Confere?')?.questionToUser;
-    result.questionToUser = pendingQuestion || `Identifiquei ${result.batchDraftsList.length} movimentações nesta mensagem. Deseja confirmar todas?`;
+    const pendingQuestion = result.batchDraftsList.find(
+      (d) => d.questionToUser && d.questionToUser !== 'Confere?'
+    )?.questionToUser;
+    result.questionToUser =
+      pendingQuestion ||
+      `Identifiquei ${result.batchDraftsList.length} movimentações nesta mensagem. Deseja confirmar todas?`;
     return result;
   }
 
   // 9. REGRA OBRIGATÓRIA FACTUAL: Forma de pagamento é obrigatória para qualquer movimentação
-  const isFutureCommitment = /começando\s+mês\s+que\s+vem|comecando\s+mes\s+que\s+vem|vence\s+mês\s+que\s+vem|vence\s+mes\s+que\s+vem/i.test(result.description || '');
+  const isFutureCommitment =
+    /começando\s+mês\s+que\s+vem|comecando\s+mes\s+que\s+vem|vence\s+mês\s+que\s+vem|vence\s+mes\s+que\s+vem/i.test(
+      result.description || ''
+    );
 
   const hasPaymentMethod = Boolean(
     (result.paymentMethod &&
-    result.paymentMethod !== 'UNKNOWN' &&
-    result.paymentMethod !== 'UNKNOWN_BY_USER' &&
-    result.paymentMethod.trim() !== '') ||
-    (result.intentType as string) === 'INSTALLMENT' ||
-    Boolean(result.installmentList?.length)
+      result.paymentMethod !== 'UNKNOWN' &&
+      result.paymentMethod !== 'UNKNOWN_BY_USER' &&
+      result.paymentMethod.trim() !== '') ||
+      (result.intentType as string) === 'INSTALLMENT' ||
+      Boolean(result.installmentList?.length)
   );
 
   if (isFutureCommitment && (!result.installmentList || result.installmentList.length === 0)) {
     result.isReadyForConfirmation = false;
-    result.questionToUser = 'Este lançamento contém parcelas futuras. Você deseja registrar algum pagamento que já foi efetuado hoje?';
+    result.questionToUser =
+      'Este lançamento contém parcelas futuras. Você deseja registrar algum pagamento que já foi efetuado hoje?';
     return result;
   }
 
@@ -169,7 +201,9 @@ export function validateParsedIntent(
     return result;
   }
 
-  result.missingFields = (result.missingFields || []).filter(f => f !== 'paymentMethod' && f !== 'businessPurpose');
+  result.missingFields = (result.missingFields || []).filter(
+    (f) => f !== 'paymentMethod' && f !== 'businessPurpose'
+  );
   if (result.missingFields.length > 0) {
     result.isReadyForConfirmation = false;
   } else {
@@ -189,7 +223,14 @@ export function extractMultipleFinancialFacts(
   if (!lower) return [];
 
   // Fatos/itens financeiros conhecidos
-  const factKeywords: { key: string; label: string; cat: string; type?: 'expense' | 'income'; isVehicle?: boolean; isDual?: boolean }[] = [
+  const factKeywords: {
+    key: string;
+    label: string;
+    cat: string;
+    type?: 'expense' | 'income';
+    isVehicle?: boolean;
+    isDual?: boolean;
+  }[] = [
     { key: 'luz', label: 'Pagamento de conta de luz', cat: 'Contas de Consumo' },
     { key: 'energia', label: 'Pagamento de conta de luz', cat: 'Contas de Consumo' },
     { key: 'eletricidade', label: 'Pagamento de conta de luz', cat: 'Contas de Consumo' },
@@ -199,19 +240,54 @@ export function extractMultipleFinancialFacts(
     { key: 'agua', label: 'Pagamento de conta de água', cat: 'Contas de Consumo' },
     { key: 'aluguel', label: 'Pagamento de aluguel', cat: 'Aluguel' },
     { key: 'gasolina', label: 'Abastecimento de combustível', cat: 'Combustível', isVehicle: true },
-    { key: 'combustível', label: 'Abastecimento de combustível', cat: 'Combustível', isVehicle: true },
-    { key: 'combustivel', label: 'Abastecimento de combustível', cat: 'Combustível', isVehicle: true },
+    {
+      key: 'combustível',
+      label: 'Abastecimento de combustível',
+      cat: 'Combustível',
+      isVehicle: true,
+    },
+    {
+      key: 'combustivel',
+      label: 'Abastecimento de combustível',
+      cat: 'Combustível',
+      isVehicle: true,
+    },
     { key: 'abasteci', label: 'Abastecimento de combustível', cat: 'Combustível', isVehicle: true },
-    { key: 'oficina', label: 'Manutenção de veículo', cat: 'Manutenção de Veículos', isVehicle: true },
+    {
+      key: 'oficina',
+      label: 'Manutenção de veículo',
+      cat: 'Manutenção de Veículos',
+      isVehicle: true,
+    },
     { key: 'óleo', label: 'Manutenção de veículo', cat: 'Manutenção de Veículos', isVehicle: true },
     { key: 'oleo', label: 'Manutenção de veículo', cat: 'Manutenção de Veículos', isVehicle: true },
-    { key: 'pneus', label: 'Manutenção de veículo', cat: 'Manutenção de Veículos', isVehicle: true },
+    {
+      key: 'pneus',
+      label: 'Manutenção de veículo',
+      cat: 'Manutenção de Veículos',
+      isVehicle: true,
+    },
     { key: 'frete', label: 'Pagamento de frete', cat: 'Frete' },
     { key: 'mercadoria', label: 'Compra de estoque', cat: 'Compra de estoque' },
     { key: 'estoque', label: 'Compra de estoque', cat: 'Compra de estoque' },
-    { key: 'geladeira', label: 'Compra de geladeira', cat: 'Equipamentos da Empresa', isDual: true },
-    { key: 'televisão', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
-    { key: 'televisao', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
+    {
+      key: 'geladeira',
+      label: 'Compra de geladeira',
+      cat: 'Equipamentos da Empresa',
+      isDual: true,
+    },
+    {
+      key: 'televisão',
+      label: 'Compra de televisão',
+      cat: 'Equipamentos da Empresa',
+      isDual: true,
+    },
+    {
+      key: 'televisao',
+      label: 'Compra de televisão',
+      cat: 'Equipamentos da Empresa',
+      isDual: true,
+    },
     { key: 'tv', label: 'Compra de televisão', cat: 'Equipamentos da Empresa', isDual: true },
     { key: 'almoço', label: 'Alimentação / Almoço', cat: 'Alimentação' },
     { key: 'almoco', label: 'Alimentação / Almoço', cat: 'Alimentação' },
@@ -235,12 +311,27 @@ export function extractMultipleFinancialFacts(
   else if (/crédito|credito/i.test(lower)) globalPayment = 'Cartão de Crédito';
   else if (/dinheiro/i.test(lower)) globalPayment = 'Dinheiro';
 
-  const isRealizedPayment = /\b(paguei|quitei|efetuei|acabei\s+de\s+pagar|paguei\s+no|paguei\s+na|baixei|recebi|transferi|caiu|entrou|paguei\s+as\s+duas|paguei\s+os\s+dois|paguei\s+tudo|fiz\s+um\s+pagamento|fiz\s+o\s+pagamento|fiz\s+pagamento|fiz\s+um\s+pix|fiz\s+pix|fiz\s+uma\s+transferência|fiz\s+uma\s+transferencia|fiz\s+transferência|fiz\s+transferencia|fiz\s+um\s+depósito|fiz\s+um\s+deposito|pagamos|realizei\s+o\s+pagamento|realizei\s+pagamento)\b/i.test(lower);
+  const isRealizedPayment =
+    /\b(paguei|quitei|efetuei|acabei\s+de\s+pagar|paguei\s+no|paguei\s+na|baixei|recebi|transferi|caiu|entrou|paguei\s+as\s+duas|paguei\s+os\s+dois|paguei\s+tudo|fiz\s+um\s+pagamento|fiz\s+o\s+pagamento|fiz\s+pagamento|fiz\s+um\s+pix|fiz\s+pix|fiz\s+uma\s+transferência|fiz\s+uma\s+transferencia|fiz\s+transferência|fiz\s+transferencia|fiz\s+um\s+depósito|fiz\s+um\s+deposito|pagamos|realizei\s+o\s+pagamento|realizei\s+pagamento)\b/i.test(
+      lower
+    );
 
   // Divide o texto em cláusulas por vírgula, ponto, ponto-e-vírgula e conjunções " e ", " e também "
-  const clauses = lower.split(/(?:,|\.|\;|\be\b|\betambém\b|\be\s+também\b)/i).map(c => c.trim()).filter(Boolean);
+  const clauses = lower
+    .split(/(?:,|\.|\;|\be\b|\betambém\b|\be\s+também\b)/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
 
-  const foundItems: { label: string; cat: string; type: 'expense' | 'income'; isVehicle?: boolean; isDual?: boolean; amount: number; paymentMethod: string; key: string }[] = [];
+  const foundItems: {
+    label: string;
+    cat: string;
+    type: 'expense' | 'income';
+    isVehicle?: boolean;
+    isDual?: boolean;
+    amount: number;
+    paymentMethod: string;
+    key: string;
+  }[] = [];
 
   for (const clause of clauses) {
     const numMatch = clause.match(/(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/i);
@@ -252,7 +343,7 @@ export function extractMultipleFinancialFacts(
 
     for (const fk of factKeywords) {
       if (clause.includes(fk.key)) {
-        if (foundItems.some(i => i.label === fk.label)) continue;
+        if (foundItems.some((i) => i.label === fk.label)) continue;
 
         let pm = globalPayment;
         if (/\b(?:pix|pics)\b/i.test(clause)) pm = 'Pix';
@@ -284,28 +375,31 @@ export function extractMultipleFinancialFacts(
     const numberMatches = Array.from(lower.matchAll(/(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/gi));
 
     if (numberMatches.length >= 2) {
-      const presentKeywords: { fk: typeof factKeywords[0]; pos: number }[] = [];
+      const presentKeywords: { fk: (typeof factKeywords)[0]; pos: number }[] = [];
       for (const fk of factKeywords) {
         const idx = lower.indexOf(fk.key);
-        if (idx !== -1 && !presentKeywords.some(pk => pk.fk.label === fk.label)) {
+        if (idx !== -1 && !presentKeywords.some((pk) => pk.fk.label === fk.label)) {
           presentKeywords.push({ fk, pos: idx });
         }
       }
 
       presentKeywords.sort((a, b) => a.pos - b.pos);
 
-      const availableNumbers = numberMatches.map(m => {
-        const valStr = m[1].replace(/\./g, '').replace(',', '.');
-        return {
-          numVal: parseFloat(valStr),
-          pos: m.index || 0,
-          used: false,
-        };
-      }).filter(n => !isNaN(n.numVal) && n.numVal > 0);
+      const availableNumbers = numberMatches
+        .map((m) => {
+          const valStr = m[1].replace(/\./g, '').replace(',', '.');
+          return {
+            numVal: parseFloat(valStr),
+            pos: m.index || 0,
+            used: false,
+          };
+        })
+        .filter((n) => !isNaN(n.numVal) && n.numVal > 0);
 
       // 2. Um mesmo valor monetário não pode ser consumido por dois fatos independentes
       const allocatedAmountIndexes = new Set<number>();
-      const numbersComeAfterAllItems = presentKeywords.length > 0 &&
+      const numbersComeAfterAllItems =
+        presentKeywords.length > 0 &&
         availableNumbers.length >= presentKeywords.length &&
         availableNumbers[0].pos > presentKeywords[presentKeywords.length - 1].pos;
 
@@ -333,8 +427,13 @@ export function extractMultipleFinancialFacts(
             const matchedNum = availableNumbers[bestNumIdx];
             matchedNum.used = true;
             let pm = globalPayment;
-            const nextKeywordPosition = presentKeywords[keywordIndex + 1]?.pos ?? Math.min(lower.length, availableNumbers[0]?.pos ?? lower.length);
-            const kwSub = lower.substring(pk.pos, Math.max(pk.pos + pk.fk.key.length, nextKeywordPosition));
+            const nextKeywordPosition =
+              presentKeywords[keywordIndex + 1]?.pos ??
+              Math.min(lower.length, availableNumbers[0]?.pos ?? lower.length);
+            const kwSub = lower.substring(
+              pk.pos,
+              Math.max(pk.pos + pk.fk.key.length, nextKeywordPosition)
+            );
             if (/\b(?:pix|pics)\b/i.test(kwSub)) pm = 'Pix';
             else if (/débito|debito/i.test(kwSub)) pm = 'Cartão de Débito';
             else if (/crédito|credito/i.test(kwSub)) pm = 'Cartão de Crédito';
@@ -357,7 +456,7 @@ export function extractMultipleFinancialFacts(
   }
 
   if (foundItems.length >= 2) {
-    return foundItems.map(item => {
+    return foundItems.map((item) => {
       const isStoreExplicit = /loja|empresa|depósito|deposito|escritório|escritorio/i.test(lower);
       const isPersonalExplicit = /pessoal|minha casa|minha família|minha familia/i.test(lower);
       let busPurpose: 'BUSINESS' | 'PERSONAL' | 'UNKNOWN' = 'UNKNOWN';
@@ -386,32 +485,40 @@ export function extractMultipleFinancialFacts(
   return [];
 }
 
-export function buildGroupedQuestion(
-  batch: ParsedFinancialIntent[]
-): string | null {
+export function buildGroupedQuestion(batch: ParsedFinancialIntent[]): string | null {
   if (!batch || batch.length === 0) return null;
 
   const unknownPurposeDrafts = batch.filter(
-    d => d.businessPurpose === 'UNKNOWN' || d.missingFields?.includes('businessPurpose')
+    (d) => d.businessPurpose === 'UNKNOWN' || d.missingFields?.includes('businessPurpose')
   );
 
   if (unknownPurposeDrafts.length >= 2) {
-    const itemNames = unknownPurposeDrafts.map(d => {
+    const itemNames = unknownPurposeDrafts.map((d) => {
       const desc = (d.description || '').toLowerCase();
-      if (desc.includes('luz') || desc.includes('energia') || desc.includes('eletricidade')) return 'luz';
+      if (desc.includes('luz') || desc.includes('energia') || desc.includes('eletricidade'))
+        return 'luz';
       if (desc.includes('internet')) return 'internet';
       if (desc.includes('água') || desc.includes('agua')) return 'água';
       if (desc.includes('aluguel')) return 'aluguel';
       if (desc.includes('geladeira')) return 'geladeira';
-      if (desc.includes('televisão') || desc.includes('televisao') || desc.includes('tv')) return 'televisão';
-      return desc.replace(/^pagamento de (?:conta de )?/i, '').replace(/^compra de /i, '').trim();
+      if (desc.includes('televisão') || desc.includes('televisao') || desc.includes('tv'))
+        return 'televisão';
+      return desc
+        .replace(/^pagamento de (?:conta de )?/i, '')
+        .replace(/^compra de /i, '')
+        .trim();
     });
 
-    const joinedItems = itemNames.length === 2
-      ? `${itemNames[0]} e ${itemNames[1]}`
-      : `${itemNames.slice(0, -1).join(', ')} e ${itemNames[itemNames.length - 1]}`;
+    const joinedItems =
+      itemNames.length === 2
+        ? `${itemNames[0]} e ${itemNames[1]}`
+        : `${itemNames.slice(0, -1).join(', ')} e ${itemNames[itemNames.length - 1]}`;
 
-    const isDualItem = unknownPurposeDrafts.some(d => /geladeira|televisão|televisao|tv|micro-ondas|ar-condicionado|computador/i.test(d.description || ''));
+    const isDualItem = unknownPurposeDrafts.some((d) =>
+      /geladeira|televisão|televisao|tv|micro-ondas|ar-condicionado|computador/i.test(
+        d.description || ''
+      )
+    );
     if (isDualItem) {
       return `Esses itens de ${joinedItems} são para a loja ou são compras pessoais?`;
     }
@@ -421,28 +528,35 @@ export function buildGroupedQuestion(
   }
 
   const unknownPaymentDrafts = batch.filter(
-    d => !d.paymentMethod || d.paymentMethod === 'UNKNOWN' || d.missingFields?.includes('paymentMethod')
+    (d) =>
+      !d.paymentMethod ||
+      d.paymentMethod === 'UNKNOWN' ||
+      d.missingFields?.includes('paymentMethod')
   );
 
   if (unknownPaymentDrafts.length >= 2) {
-    const itemNames = unknownPaymentDrafts.map(d => {
+    const itemNames = unknownPaymentDrafts.map((d) => {
       const desc = (d.description || '').toLowerCase();
       if (desc.includes('luz')) return 'luz';
       if (desc.includes('internet')) return 'internet';
       if (desc.includes('água') || desc.includes('agua')) return 'água';
-      return desc.replace(/^pagamento de (?:conta de )?/i, '').replace(/^compra de /i, '').trim();
+      return desc
+        .replace(/^pagamento de (?:conta de )?/i, '')
+        .replace(/^compra de /i, '')
+        .trim();
     });
 
-    const joinedItems = itemNames.length === 2
-      ? `${itemNames[0]} e ${itemNames[1]}`
-      : `${itemNames.slice(0, -1).join(', ')} e ${itemNames[itemNames.length - 1]}`;
+    const joinedItems =
+      itemNames.length === 2
+        ? `${itemNames[0]} e ${itemNames[1]}`
+        : `${itemNames.slice(0, -1).join(', ')} e ${itemNames[itemNames.length - 1]}`;
 
     return `Qual foi a forma de pagamento das contas de ${joinedItems}?`;
   } else if (unknownPaymentDrafts.length === 1) {
     return unknownPaymentDrafts[0].questionToUser || null;
   }
 
-  const firstPending = batch.find(d => d.questionToUser && d.questionToUser !== 'Confere?');
+  const firstPending = batch.find((d) => d.questionToUser && d.questionToUser !== 'Confere?');
   return firstPending?.questionToUser || null;
 }
 
@@ -450,9 +564,16 @@ export function processFinancialInput(
   text: string,
   todayStr = new Date().toISOString().split('T')[0],
   options?: { rememberedUnrealizedFacts?: ParsedFinancialIntent[] }
-): { draft: ParsedFinancialIntent | null; isRealized?: boolean; rememberedFacts?: ParsedFinancialIntent[] } {
+): {
+  draft: ParsedFinancialIntent | null;
+  isRealized?: boolean;
+  rememberedFacts?: ParsedFinancialIntent[];
+} {
   const lower = text.toLowerCase().trim();
-  const isRealizedPayment = /\b(paguei|quitei|efetuei|acabei\s+de\s+pagar|paguei\s+no|paguei\s+na|baixei|recebi|transferi|caiu|entrou|paguei\s+as\s+duas|paguei\s+os\s+dois|paguei\s+tudo|fiz\s+um\s+pagamento|fiz\s+o\s+pagamento|fiz\s+pagamento|fiz\s+um\s+pix|fiz\s+pix|fiz\s+uma\s+transferência|fiz\s+uma\s+transferencia|fiz\s+transferência|fiz\s+transferencia|fiz\s+um\s+depósito|fiz\s+um\s+deposito|pagamos|realizei\s+o\s+pagamento|realizei\s+pagamento)\b/i.test(lower);
+  const isRealizedPayment =
+    /\b(paguei|quitei|efetuei|acabei\s+de\s+pagar|paguei\s+no|paguei\s+na|baixei|recebi|transferi|caiu|entrou|paguei\s+as\s+duas|paguei\s+os\s+dois|paguei\s+tudo|fiz\s+um\s+pagamento|fiz\s+o\s+pagamento|fiz\s+pagamento|fiz\s+um\s+pix|fiz\s+pix|fiz\s+uma\s+transferência|fiz\s+uma\s+transferencia|fiz\s+transferência|fiz\s+transferencia|fiz\s+um\s+depósito|fiz\s+um\s+deposito|pagamos|realizei\s+o\s+pagamento|realizei\s+pagamento)\b/i.test(
+      lower
+    );
 
   const activeContext = options?.rememberedUnrealizedFacts || globalUnrealizedFactsContext;
 
@@ -465,7 +586,7 @@ export function processFinancialInput(
       globalUnrealizedFactsContext = [];
     }
     const groupedQuestion = buildGroupedQuestion(multipleFacts);
-    const allMissing = Array.from(new Set(multipleFacts.flatMap(d => d.missingFields || [])));
+    const allMissing = Array.from(new Set(multipleFacts.flatMap((d) => d.missingFields || [])));
     const mainDraft: ParsedFinancialIntent = {
       intentType: 'SINGLE_TRANSACTION',
       type: multipleFacts[0].type,
@@ -478,7 +599,9 @@ export function processFinancialInput(
       batchDraftsList: multipleFacts,
       isReadyForConfirmation: false,
       isRealized: isRealizedPayment,
-      questionToUser: groupedQuestion || `Identifiquei ${multipleFacts.length} movimentações nesta mensagem. Qual foi a forma de pagamento?`,
+      questionToUser:
+        groupedQuestion ||
+        `Identifiquei ${multipleFacts.length} movimentações nesta mensagem. Qual foi a forma de pagamento?`,
     };
 
     return { draft: mainDraft, isRealized: isRealizedPayment, rememberedFacts: multipleFacts };
@@ -487,17 +610,26 @@ export function processFinancialInput(
   // 2. Resposta de pagamento a fatos não realizados prévios
   if (isRealizedPayment && activeContext.length >= 1) {
     let targetFacts: ParsedFinancialIntent[] = [];
-    const isGenericPaymentRef = /\b(as\s+duas|os\s+dois|tudo|ambas|ambos|paguei\s+no|paguei\s+na|foi\s+no|foi\s+na|no\s+pix|no\s+debito|no\s+débito|no\s+credito|no\s+crédito|em\s+dinheiro)\b/i.test(lower);
+    const isGenericPaymentRef =
+      /\b(as\s+duas|os\s+dois|tudo|ambas|ambos|paguei\s+no|paguei\s+na|foi\s+no|foi\s+na|no\s+pix|no\s+debito|no\s+débito|no\s+credito|no\s+crédito|em\s+dinheiro)\b/i.test(
+        lower
+      );
 
     if (lower.includes('luz') && !lower.includes('internet')) {
-      targetFacts = activeContext.filter(f => (f.description || '').toLowerCase().includes('luz'));
+      targetFacts = activeContext.filter((f) =>
+        (f.description || '').toLowerCase().includes('luz')
+      );
     } else if (lower.includes('internet') && !lower.includes('luz')) {
-      targetFacts = activeContext.filter(f => (f.description || '').toLowerCase().includes('internet'));
+      targetFacts = activeContext.filter((f) =>
+        (f.description || '').toLowerCase().includes('internet')
+      );
     } else if (isGenericPaymentRef) {
       targetFacts = activeContext;
     } else {
       // Verifica se a mensagem casa com a descrição de algum fato pendente
-      targetFacts = activeContext.filter(f => f.description && lower.includes(f.description.toLowerCase()));
+      targetFacts = activeContext.filter(
+        (f) => f.description && lower.includes(f.description.toLowerCase())
+      );
     }
 
     if (targetFacts.length > 0) {
@@ -507,12 +639,17 @@ export function processFinancialInput(
       else if (/crédito|credito/i.test(lower)) turnPaymentMethod = 'Cartão de Crédito';
       else if (/dinheiro/i.test(lower)) turnPaymentMethod = 'Dinheiro';
 
-      const realizedBatch = targetFacts.map(f => validateParsedIntent({
-        ...f,
-        paymentMethod: turnPaymentMethod || f.paymentMethod || 'UNKNOWN',
-        isRealized: true,
-        isReadyForConfirmation: false,
-      }, todayStr));
+      const realizedBatch = targetFacts.map((f) =>
+        validateParsedIntent(
+          {
+            ...f,
+            paymentMethod: turnPaymentMethod || f.paymentMethod || 'UNKNOWN',
+            isRealized: true,
+            isReadyForConfirmation: false,
+          },
+          todayStr
+        )
+      );
 
       globalUnrealizedFactsContext = [];
       const pendingQuestion = buildGroupedQuestion(realizedBatch);
@@ -524,11 +661,13 @@ export function processFinancialInput(
         categoryName: realizedBatch[0].categoryName,
         paymentMethod: realizedBatch[0].paymentMethod,
         businessPurpose: realizedBatch[0].businessPurpose,
-        missingFields: Array.from(new Set(realizedBatch.flatMap(d => d.missingFields || []))),
+        missingFields: Array.from(new Set(realizedBatch.flatMap((d) => d.missingFields || []))),
         batchDraftsList: realizedBatch.length >= 2 ? realizedBatch : null,
         isReadyForConfirmation: false,
         isRealized: true,
-        questionToUser: pendingQuestion || `Identifiquei ${realizedBatch.length} movimentação(ões) nesta mensagem. Deseja confirmar?`,
+        questionToUser:
+          pendingQuestion ||
+          `Identifiquei ${realizedBatch.length} movimentação(ões) nesta mensagem. Deseja confirmar?`,
       };
 
       return { draft: mainDraft, isRealized: true };

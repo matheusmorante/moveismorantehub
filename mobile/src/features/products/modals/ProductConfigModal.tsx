@@ -48,7 +48,12 @@ export const ProductConfigModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.content, dark && styles.darkContent]}>
           <View style={styles.header}>
             <View>
@@ -61,9 +66,17 @@ export const ProductConfigModal: React.FC<Props> = ({
           </View>
 
           <View style={styles.optionsList}>
-            <TouchableOpacity style={[styles.cardOption, dark && styles.darkCard]} onPress={() => setShowProductTypes(true)}>
-              <View style={[styles.iconWrapper, { backgroundColor: '#fff7ed' }]}><Layers size={22} color="#ea580c" /></View>
-              <View style={styles.cardTexts}><Text style={[styles.cardTitle, dark && styles.light]}>Tipos de Produto</Text><Text style={styles.cardDesc}>Padronizar nomes e prefixos usados nos produtos</Text></View>
+            <TouchableOpacity
+              style={[styles.cardOption, dark && styles.darkCard]}
+              onPress={() => setShowProductTypes(true)}
+            >
+              <View style={[styles.iconWrapper, { backgroundColor: '#fff7ed' }]}>
+                <Layers size={22} color="#ea580c" />
+              </View>
+              <View style={styles.cardTexts}>
+                <Text style={[styles.cardTitle, dark && styles.light]}>Tipos de Produto</Text>
+                <Text style={styles.cardDesc}>Padronizar nomes e prefixos usados nos produtos</Text>
+              </View>
               <ChevronRight size={18} color="#94a3b8" />
             </TouchableOpacity>
             <TouchableOpacity
@@ -75,7 +88,9 @@ export const ProductConfigModal: React.FC<Props> = ({
               </View>
               <View style={styles.cardTexts}>
                 <Text style={[styles.cardTitle, dark && styles.light]}>Ambientes e Categorias</Text>
-                <Text style={styles.cardDesc}>Organizar ambientes, categorias, vínculos e características</Text>
+                <Text style={styles.cardDesc}>
+                  Organizar ambientes, categorias, vínculos e características
+                </Text>
               </View>
               <ChevronRight size={18} color="#94a3b8" />
             </TouchableOpacity>
@@ -89,7 +104,9 @@ export const ProductConfigModal: React.FC<Props> = ({
               </View>
               <View style={styles.cardTexts}>
                 <Text style={[styles.cardTitle, dark && styles.light]}>Atributos e Variações</Text>
-                <Text style={styles.cardDesc}>Criar atributos globais (Cor, Tamanho, etc.) e opções</Text>
+                <Text style={styles.cardDesc}>
+                  Criar atributos globais (Cor, Tamanho, etc.) e opções
+                </Text>
               </View>
               <ChevronRight size={18} color="#94a3b8" />
             </TouchableOpacity>
@@ -111,8 +128,16 @@ export const ProductConfigModal: React.FC<Props> = ({
         dark={dark}
         onClose={() => setShowAttributes(false)}
       />
-      <EnvironmentsManagerModal visible={showEnvironments} dark={dark} onClose={() => setShowEnvironments(false)} />
-      <ProductTypesManagerModal visible={showProductTypes} dark={dark} onClose={() => setShowProductTypes(false)} />
+      <EnvironmentsManagerModal
+        visible={showEnvironments}
+        dark={dark}
+        onClose={() => setShowEnvironments(false)}
+      />
+      <ProductTypesManagerModal
+        visible={showProductTypes}
+        dark={dark}
+        onClose={() => setShowProductTypes(false)}
+      />
     </Modal>
   );
 };

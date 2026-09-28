@@ -16,7 +16,7 @@ export const SYSTEM_DEFAULT_ASSETS: MarketingAsset[] = [
     aspectRatio: 1.5,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'asset-badge-10x-juros',
@@ -29,7 +29,7 @@ export const SYSTEM_DEFAULT_ASSETS: MarketingAsset[] = [
     aspectRatio: 2,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'asset-badge-10x-transparent',
@@ -42,8 +42,8 @@ export const SYSTEM_DEFAULT_ASSETS: MarketingAsset[] = [
     aspectRatio: 2,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 export const assetService = {
@@ -66,16 +66,19 @@ export const assetService = {
           height: item.height,
           aspectRatio: item.aspect_ratio,
           createdAt: item.created_at,
-          updatedAt: item.updated_at
+          updatedAt: item.updated_at,
         }));
-        
+
         // Unir com defaults do sistema sem duplicar
-        const customIds = new Set(dbAssets.map(a => a.id));
-        const missingDefaults = SYSTEM_DEFAULT_ASSETS.filter(a => !customIds.has(a.id));
-        return [...SYSTEM_DEFAULT_ASSETS.filter(a => !customIds.has(a.id)), ...dbAssets];
+        const customIds = new Set(dbAssets.map((a) => a.id));
+        const missingDefaults = SYSTEM_DEFAULT_ASSETS.filter((a) => !customIds.has(a.id));
+        return [...SYSTEM_DEFAULT_ASSETS.filter((a) => !customIds.has(a.id)), ...dbAssets];
       }
     } catch (e) {
-      console.warn('[assetService] Tabela de assets no Supabase indisponível, usando fallback local.', e);
+      console.warn(
+        '[assetService] Tabela de assets no Supabase indisponível, usando fallback local.',
+        e
+      );
     }
 
     // Fallback LocalStorage
@@ -83,8 +86,8 @@ export const assetService = {
       const stored = localStorage.getItem(LOCAL_STORAGE_ASSETS_KEY);
       if (stored) {
         const parsed: MarketingAsset[] = JSON.parse(stored);
-        const customIds = new Set(parsed.map(a => a.id));
-        return [...SYSTEM_DEFAULT_ASSETS.filter(a => !customIds.has(a.id)), ...parsed];
+        const customIds = new Set(parsed.map((a) => a.id));
+        return [...SYSTEM_DEFAULT_ASSETS.filter((a) => !customIds.has(a.id)), ...parsed];
       }
     } catch (e) {
       console.error('[assetService] Erro ao ler LocalStorage:', e);
@@ -93,7 +96,9 @@ export const assetService = {
     return SYSTEM_DEFAULT_ASSETS;
   },
 
-  async save(asset: Omit<MarketingAsset, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<MarketingAsset> {
+  async save(
+    asset: Omit<MarketingAsset, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+  ): Promise<MarketingAsset> {
     const now = new Date().toISOString();
     const newAsset: MarketingAsset = {
       id: asset.id || `asset-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -106,7 +111,7 @@ export const assetService = {
       height: asset.height || 400,
       aspectRatio: asset.aspectRatio || 1,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     try {
@@ -120,7 +125,7 @@ export const assetService = {
         width: newAsset.width,
         height: newAsset.height,
         aspect_ratio: newAsset.aspectRatio,
-        updated_at: now
+        updated_at: now,
       });
     } catch (e) {
       console.warn('[assetService] Salvando asset no fallback LocalStorage.', e);
@@ -128,7 +133,7 @@ export const assetService = {
 
     // Salvar também no LocalStorage
     const current = await this.getAll();
-    const filtered = current.filter(a => a.id !== newAsset.id && !a.isSystemDefault);
+    const filtered = current.filter((a) => a.id !== newAsset.id && !a.isSystemDefault);
     localStorage.setItem(LOCAL_STORAGE_ASSETS_KEY, JSON.stringify([...filtered, newAsset]));
 
     return newAsset;
@@ -142,8 +147,8 @@ export const assetService = {
     }
 
     const current = await this.getAll();
-    const updated = current.filter(a => a.id !== id && !a.isSystemDefault);
+    const updated = current.filter((a) => a.id !== id && !a.isSystemDefault);
     localStorage.setItem(LOCAL_STORAGE_ASSETS_KEY, JSON.stringify(updated));
     return true;
-  }
+  },
 };

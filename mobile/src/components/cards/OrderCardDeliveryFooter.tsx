@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Truck, MapPin, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react-native';
-import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../features/orders/utils/deliveryAutoFulfillment';
+import {
+  hasDeliveryExceeded12Hours,
+  autoFulfillOrderIfExceeded12Hours,
+} from '../../features/orders/utils/deliveryAutoFulfillment';
 
 interface Props {
   order: any;
@@ -13,8 +16,10 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   const data = order.order_data || order;
   const shipping = data.shipping || {};
   const status = String(order.status || data.status || '').toLowerCase();
-  const pickup = /pickup|retirada/.test(String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase());
-  
+  const pickup = /pickup|retirada/.test(
+    String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
+  );
+
   if (pickup) return null;
 
   if (hasDeliveryExceeded12Hours(order)) {
@@ -23,9 +28,11 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   }
 
   const deliveryStatus = data.deliveryStatus;
-  const isFulfilled = status === 'fulfilled' || status === 'atendido' || deliveryStatus === 'completed';
+  const isFulfilled =
+    status === 'fulfilled' || status === 'atendido' || deliveryStatus === 'completed';
   const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
-  const isInTransit = (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
+  const isInTransit =
+    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
   const isUnattended = deliveryStatus === 'unattended';
   const isPreparing = deliveryStatus === 'preparing';
 
@@ -74,7 +81,9 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       label: 'NÃO ATENDIDO',
       icon: <AlertTriangle size={14} color="#fff" />,
       bgColor: '#dc2626',
-      subtext: data.unattendedReason ? `Motivo: ${data.unattendedReason}` : 'Cliente ausente / Pendência',
+      subtext: data.unattendedReason
+        ? `Motivo: ${data.unattendedReason}`
+        : 'Cliente ausente / Pendência',
     };
   } else if (isFulfilled) {
     config = {
@@ -120,9 +129,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
           {config.icon}
           <Text style={styles.label}>{config.label}</Text>
         </View>
-        <Text style={styles.subtext}>
-          {config.subtext}
-        </Text>
+        <Text style={styles.subtext}>{config.subtext}</Text>
       </View>
     </TouchableOpacity>
   );

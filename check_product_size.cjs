@@ -6,7 +6,12 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_A
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function test() {
-  const { data, error } = await supabase.from('products').select('*, product_images(*), product_variations(*), product_categories(*, categories(name)), opportunities(*)').limit(100);
+  const { data, error } = await supabase
+    .from('products')
+    .select(
+      '*, product_images(*), product_variations(*), product_categories(*, categories(name)), opportunities(*)'
+    )
+    .limit(100);
   if (error) return console.error(error);
   const size = Buffer.byteLength(JSON.stringify(data));
   console.log(`Size for 100 products: ${(size / 1024).toFixed(2)} KB`);

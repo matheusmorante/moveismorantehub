@@ -3,7 +3,7 @@ import { CircuitState, OperationType, SupabaseAnomalyEvent, GUARD_CONFIG } from 
 export class CircuitBreaker {
   private globalHitCounter: number[] = [];
   private hitCounters: Map<string, number[]> = new Map();
-  private circuitStates: Map<string, { state: CircuitState, expiresAt: number }> = new Map();
+  private circuitStates: Map<string, { state: CircuitState; expiresAt: number }> = new Map();
   private emitAnomaly: (event: SupabaseAnomalyEvent) => void;
 
   constructor(emitAnomaly: (event: SupabaseAnomalyEvent) => void) {
@@ -12,13 +12,13 @@ export class CircuitBreaker {
 
   private cleanOldHits(now: number) {
     const windowStart = now - GUARD_CONFIG.WINDOW_MS;
-    
+
     // Limpar global
-    this.globalHitCounter = this.globalHitCounter.filter(t => t > windowStart);
-    
+    this.globalHitCounter = this.globalHitCounter.filter((t) => t > windowStart);
+
     // Limpar per fingerprint
     for (const [fp, hits] of this.hitCounters.entries()) {
-      const validHits = hits.filter(t => t > windowStart);
+      const validHits = hits.filter((t) => t > windowStart);
       if (validHits.length === 0) {
         this.hitCounters.delete(fp);
       } else {
@@ -43,11 +43,12 @@ export class CircuitBreaker {
     // 1. Verificar Kill Switch Global
     this.globalHitCounter.push(now);
     if (this.globalHitCounter.length > GUARD_CONFIG.GLOBAL_KILL_SWITCH) {
-      if (operationType === 'SELECT') { // Prioriza preservar writes
+      if (operationType === 'SELECT') {
+        // Prioriza preservar writes
         this.emitAnomaly({
           level: 'CRITICAL',
           title: 'Emergency Kill Switch Ativado',
-          message: `Mais de ${GUARD_CONFIG.GLOBAL_KILL_SWITCH} requests em ${GUARD_CONFIG.WINDOW_MS}ms. Bloqueando leitura.`
+          message: `Mais de ${GUARD_CONFIG.GLOBAL_KILL_SWITCH} requests em ${GUARD_CONFIG.WINDOW_MS}ms. Bloqueando leitura.`,
         });
         return false; // Bloqueado
       }
@@ -72,16 +73,20 @@ export class CircuitBreaker {
     this.hitCounters.set(fingerprint, hits);
 
     // 4. Validar limites
-    const maxLimit = (operationType === 'SELECT') ? GUARD_CONFIG.MAX_READ_REQUESTS : GUARD_CONFIG.MAX_WRITE_REQUESTS;
-    
+    const maxLimit =
+      operationType === 'SELECT' ? GUARD_CONFIG.MAX_READ_REQUESTS : GUARD_CONFIG.MAX_WRITE_REQUESTS;
+
     if (hits.length > maxLimit) {
       // Abre o circuito
-      this.circuitStates.set(fingerprint, { state: 'OPEN', expiresAt: now + GUARD_CONFIG.COOLDOWN_MS });
+      this.circuitStates.set(fingerprint, {
+        state: 'OPEN',
+        expiresAt: now + GUARD_CONFIG.COOLDOWN_MS,
+      });
       this.emitAnomaly({
         level: 'CRITICAL',
         title: 'Circuit Breaker Acionado',
         message: `Loop detectado (${hits.length} chamadas). Operação bloqueada por ${GUARD_CONFIG.COOLDOWN_MS}ms.`,
-        fingerprint
+        fingerprint,
       });
       return false; // Bloqueado
     }

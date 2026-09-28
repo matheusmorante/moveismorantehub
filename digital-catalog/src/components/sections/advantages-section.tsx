@@ -1,4 +1,4 @@
-import { Truck, ShieldCheck, Clock, Package, CreditCard } from "lucide-react"
+import { Truck, ShieldCheck, Clock, Package, CreditCard } from 'lucide-react';
 
 export function AdvantagesSection() {
   return (
@@ -10,7 +10,9 @@ export function AdvantagesSection() {
               <Truck className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">Entrega Rápida</h3>
+              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">
+                Entrega Rápida
+              </h3>
               <p className="text-[10px] text-muted-foreground font-medium">(1 a 5 dias úteis)</p>
             </div>
           </div>
@@ -20,7 +22,9 @@ export function AdvantagesSection() {
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">Compra Segura</h3>
+              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">
+                Compra Segura
+              </h3>
               <p className="text-[10px] text-muted-foreground font-medium">Pagamento na entrega</p>
             </div>
           </div>
@@ -30,8 +34,12 @@ export function AdvantagesSection() {
               <CreditCard className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">Até 10x sem Juros</h3>
-              <p className="text-[10px] text-muted-foreground font-medium">Visa, Master, Elo e Hiper</p>
+              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">
+                Até 10x sem Juros
+              </h3>
+              <p className="text-[10px] text-muted-foreground font-medium">
+                Visa, Master, Elo e Hiper
+              </p>
             </div>
           </div>
 
@@ -40,8 +48,12 @@ export function AdvantagesSection() {
               <Clock className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">Montagem Agendada</h3>
-              <p className="text-[10px] text-muted-foreground font-medium">Feito no dia da entrega</p>
+              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">
+                Montagem Agendada
+              </h3>
+              <p className="text-[10px] text-muted-foreground font-medium">
+                Feito no dia da entrega
+              </p>
             </div>
           </div>
 
@@ -50,12 +62,14 @@ export function AdvantagesSection() {
               <Package className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">Retirada Agendada</h3>
+              <h3 className="font-bold text-xs text-primary uppercase tracking-tight">
+                Retirada Agendada
+              </h3>
               <p className="text-[10px] text-muted-foreground font-medium">Retire no depósito</p>
             </div>
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }

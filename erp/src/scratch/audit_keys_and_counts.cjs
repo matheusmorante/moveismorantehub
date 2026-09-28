@@ -2,7 +2,8 @@ const { Client } = require('pg');
 const fs = require('fs');
 
 const client = new Client({
-  connectionString: 'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres'
+  connectionString:
+    'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres',
 });
 
 async function run() {
@@ -73,29 +74,32 @@ async function run() {
   `);
 
   // 6. Contagem de tabelas financeiras
-  const apCount = (await client.query(`SELECT count(*) FROM public.accounts_payable`)).rows[0].count;
-  const arCount = (await client.query(`SELECT count(*) FROM public.accounts_receivable`)).rows[0].count;
-  const ftCount = (await client.query(`SELECT count(*) FROM public.financial_transactions`)).rows[0].count;
+  const apCount = (await client.query(`SELECT count(*) FROM public.accounts_payable`)).rows[0]
+    .count;
+  const arCount = (await client.query(`SELECT count(*) FROM public.accounts_receivable`)).rows[0]
+    .count;
+  const ftCount = (await client.query(`SELECT count(*) FROM public.financial_transactions`)).rows[0]
+    .count;
 
   const result = {
     orders: {
       stats: orderStats.rows[0],
       itemKeys: orderItemKeys.rows,
-      orderDataKeys: orderDataKeys.rows
+      orderDataKeys: orderDataKeys.rows,
     },
     inboundInvoices: {
       stats: inboundStats.rows[0],
-      itemKeys: inboundItemKeys.rows
+      itemKeys: inboundItemKeys.rows,
     },
     purchases: {
       stats: purchaseStats.rows[0],
-      itemKeys: purchaseItemKeys.rows
+      itemKeys: purchaseItemKeys.rows,
     },
     finance: {
       accountsPayableCount: parseInt(apCount, 10),
       accountsReceivableCount: parseInt(arCount, 10),
-      financialTransactionsCount: parseInt(ftCount, 10)
-    }
+      financialTransactionsCount: parseInt(ftCount, 10),
+    },
   };
 
   fs.writeFileSync('src/scratch/audit_summary.json', JSON.stringify(result, null, 2));
@@ -105,7 +109,7 @@ async function run() {
   await client.end();
 }
 
-run().catch(err => {
+run().catch((err) => {
   console.error(err);
   process.exit(1);
 });

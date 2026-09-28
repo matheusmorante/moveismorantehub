@@ -1,4 +1,7 @@
-import { processFinancialInput, validateParsedIntent } from '../../../../../mobile/src/services/financial/financialIntentValidator';
+import {
+  processFinancialInput,
+  validateParsedIntent,
+} from '../../../../../mobile/src/services/financial/financialIntentValidator';
 import type { ParsedFinancialIntent } from '../../../../../mobile/src/services/financial/financialTypes';
 
 export interface PreAnalysisSnapshot {
@@ -80,7 +83,11 @@ export class AiPreAnalysisManager {
     const hash = this.generateTextHash(cleanText);
 
     // Se já temos snapshot válido para essa versão e hash, retorna ele
-    if (this.latestSnapshot && this.latestSnapshot.textHash === hash && this.latestSnapshot.version === version) {
+    if (
+      this.latestSnapshot &&
+      this.latestSnapshot.textHash === hash &&
+      this.latestSnapshot.version === version
+    ) {
       return this.latestSnapshot;
     }
 
@@ -126,9 +133,10 @@ export class AiPreAnalysisManager {
    * Chamado no momento do commit (clique no botão ENVIAR).
    * Verifica se há snapshot válido correspondente exatamente ao texto final.
    */
-  public static commitAndConsume(
-    submittedText: string
-  ): { reused: boolean; snapshot: PreAnalysisSnapshot | null } {
+  public static commitAndConsume(submittedText: string): {
+    reused: boolean;
+    snapshot: PreAnalysisSnapshot | null;
+  } {
     const submittedHash = this.generateTextHash(submittedText);
 
     if (this.latestSnapshot && this.latestSnapshot.textHash === submittedHash) {

@@ -32,7 +32,20 @@ export const TransactionListGrouped: React.FC<Props> = ({
       const yesterdayStr = yesterday.toISOString().split('T')[0];
 
       const [y, m, d] = dateStr.split('-').map(Number);
-      const monthNamesShort = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+      const monthNamesShort = [
+        'JAN',
+        'FEV',
+        'MAR',
+        'ABR',
+        'MAI',
+        'JUN',
+        'JUL',
+        'AGO',
+        'SET',
+        'OUT',
+        'NOV',
+        'DEZ',
+      ];
       const monthLabel = monthNamesShort[(m || 1) - 1];
 
       if (dateStr === todayStr) {
@@ -49,7 +62,7 @@ export const TransactionListGrouped: React.FC<Props> = ({
 
   // Group items by date
   const groupedMap: Record<string, FinancialTransaction[]> = {};
-  transactions.forEach(item => {
+  transactions.forEach((item) => {
     const key = item.date || 'Desconhecida';
     if (!groupedMap[key]) groupedMap[key] = [];
     groupedMap[key].push(item);
@@ -57,7 +70,7 @@ export const TransactionListGrouped: React.FC<Props> = ({
 
   const sortedDates = Object.keys(groupedMap).sort((a, b) => b.localeCompare(a));
 
-  const groups: GroupedByDate[] = sortedDates.map(dateKey => ({
+  const groups: GroupedByDate[] = sortedDates.map((dateKey) => ({
     dateKey,
     formattedLabel: formatGroupHeader(dateKey),
     items: groupedMap[dateKey],
@@ -75,12 +88,12 @@ export const TransactionListGrouped: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      {groups.map(group => (
+      {groups.map((group) => (
         <View key={group.dateKey} style={styles.groupContainer}>
           <Text style={[styles.dateHeader, isDarkMode && styles.dateHeaderDark]}>
             {group.formattedLabel}
           </Text>
-          {group.items.map(item => (
+          {group.items.map((item) => (
             <TransactionItemCard
               key={item.id}
               transaction={item}

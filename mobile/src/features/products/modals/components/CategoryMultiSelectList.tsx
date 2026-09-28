@@ -11,11 +11,12 @@ interface CategoryMultiSelectListProps {
   dark: boolean;
 }
 
-const normalizeSearchTerm = (value: string) => value
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('pt-BR')
-  .trim();
+const normalizeSearchTerm = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
 
 export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = ({
   categories,
@@ -26,15 +27,15 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
 }) => {
   const [search, setSearch] = useState('');
   const selectedCategories = useMemo(
-    () => filteredCategories.filter(category => selectedCategoryIds.includes(category.id)),
-    [filteredCategories, selectedCategoryIds],
+    () => filteredCategories.filter((category) => selectedCategoryIds.includes(category.id)),
+    [filteredCategories, selectedCategoryIds]
   );
   const normalizedSearch = normalizeSearchTerm(search);
   const matchingCategories = useMemo(() => {
     if (normalizedSearch.length < 2) return [];
-    return filteredCategories.filter(category => {
+    return filteredCategories.filter((category) => {
       const parentNames = (category.parents || [])
-        .map(id => categories.find(item => item.id === id)?.name || '')
+        .map((id) => categories.find((item) => item.id === id)?.name || '')
         .join(' ');
       return normalizeSearchTerm(`${category.name} ${parentNames}`).includes(normalizedSearch);
     });
@@ -60,16 +61,24 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
       </View>
       {selectedCategories.length > 0 && (
         <View style={styles.selectedWrap}>
-          {selectedCategories.map(category => {
+          {selectedCategories.map((category) => {
             const parentNames = (category.parents || [])
-              .map(id => categories.find(item => item.id === id)?.name)
+              .map((id) => categories.find((item) => item.id === id)?.name)
               .filter(Boolean)
               .join(', ');
             return (
-              <TouchableOpacity key={category.id} onPress={() => onToggleCategory(category)} style={styles.selectedChip}>
+              <TouchableOpacity
+                key={category.id}
+                onPress={() => onToggleCategory(category)}
+                style={styles.selectedChip}
+              >
                 <Check size={12} color="#2563eb" strokeWidth={3} />
                 <Text style={styles.selectedChipText}>{category.name}</Text>
-                {parentNames ? <Text style={styles.selectedChipParents} numberOfLines={1}>({parentNames})</Text> : null}
+                {parentNames ? (
+                  <Text style={styles.selectedChipParents} numberOfLines={1}>
+                    ({parentNames})
+                  </Text>
+                ) : null}
                 <X size={12} color="#64748b" />
               </TouchableOpacity>
             );
@@ -77,53 +86,59 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
         </View>
       )}
       {normalizedSearch.length >= 2 ? (
-      <ScrollView nestedScrollEnabled style={styles.categoriesScroll} keyboardShouldPersistTaps="handled">
-        {matchingCategories.map((cat) => {
-          const isChecked = selectedCategoryIds.includes(cat.id);
-          const parentNames = (cat.parents || [])
-            .map((pid) => categories.find((item) => item.id === pid)?.name)
-            .filter(Boolean)
-            .join(', ');
+        <ScrollView
+          nestedScrollEnabled
+          style={styles.categoriesScroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {matchingCategories.map((cat) => {
+            const isChecked = selectedCategoryIds.includes(cat.id);
+            const parentNames = (cat.parents || [])
+              .map((pid) => categories.find((item) => item.id === pid)?.name)
+              .filter(Boolean)
+              .join(', ');
 
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              onPress={() => onToggleCategory(cat)}
-              style={[styles.categoryItem, dark && styles.darkCategoryItem]}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  isChecked && styles.checkboxChecked,
-                  dark && !isChecked && styles.darkCheckbox,
-                ]}
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => onToggleCategory(cat)}
+                style={[styles.categoryItem, dark && styles.darkCategoryItem]}
+                activeOpacity={0.7}
               >
-                {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
-              </View>
-              <View style={styles.categoryInfo}>
-                <Text
+                <View
                   style={[
-                    styles.categoryName,
-                    isChecked && styles.categoryNameActive,
-                    dark && styles.lightText,
+                    styles.checkbox,
+                    isChecked && styles.checkboxChecked,
+                    dark && !isChecked && styles.darkCheckbox,
                   ]}
                 >
-                  {cat.name}
-                </Text>
-                {parentNames ? (
-                  <Text style={styles.categoryParents} numberOfLines={1}>
-                    Ambientes: {parentNames}
+                  {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                </View>
+                <View style={styles.categoryInfo}>
+                  <Text
+                    style={[
+                      styles.categoryName,
+                      isChecked && styles.categoryNameActive,
+                      dark && styles.lightText,
+                    ]}
+                  >
+                    {cat.name}
                   </Text>
-                ) : null}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-        {matchingCategories.length === 0 && (
-          <Text style={styles.emptyCategoriesText}>Nenhuma categoria encontrada para “{search}”.</Text>
-        )}
-      </ScrollView>
+                  {parentNames ? (
+                    <Text style={styles.categoryParents} numberOfLines={1}>
+                      Ambientes: {parentNames}
+                    </Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {matchingCategories.length === 0 && (
+            <Text style={styles.emptyCategoriesText}>
+              Nenhuma categoria encontrada para “{search}”.
+            </Text>
+          )}
+        </ScrollView>
       ) : (
         <Text style={styles.emptyCategoriesText}>Digite ao menos 2 caracteres para pesquisar.</Text>
       )}

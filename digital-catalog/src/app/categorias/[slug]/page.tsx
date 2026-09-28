@@ -1,90 +1,97 @@
-"use client"
+'use client';
 
-import { use } from "react"
-import { ProductGrid } from "@/features/products/components/product-grid"
-import { ProductFilter } from "@/features/products/components/product-filter"
-import { useState, useCallback, useEffect, useRef } from "react"
-import { ChevronRight, Home, X } from "lucide-react"
-import Link from "next/link"
-import { supabase } from "@/lib/supabase/client"
-import { FilterContent } from "@/features/products/components/filter-sidebar"
+import { use } from 'react';
+import { ProductGrid } from '@/features/products/components/product-grid';
+import { ProductFilter } from '@/features/products/components/product-filter';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { ChevronRight, Home, X } from 'lucide-react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase/client';
+import { FilterContent } from '@/features/products/components/filter-sidebar';
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
-  const [categories, setCategories] = useState<any[]>([])
-  const [relationships, setRelationships] = useState<any[]>([])
-  const [loadingData, setLoadingData] = useState(true)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const sidebarRef = useRef<HTMLDivElement>(null)
+  const { slug } = use(params);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [relationships, setRelationships] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Bloqueia scroll do body quando sidebar aberta em mobile/tablet
   useEffect(() => {
     if (isSidebarOpen) {
-      document.body.style.overflow = "hidden"
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = ""
+      document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = "" }
-  }, [isSidebarOpen])
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
 
-  const [filters, setFilters] = useState({ 
-    envs: [] as string[], 
-    cats: [] as string[], 
-    search: "",
+  const [filters, setFilters] = useState({
+    envs: [] as string[],
+    cats: [] as string[],
+    search: '',
     minPrice: 0,
     maxPrice: 10000,
-    type: "all",
-    sortBy: "newest"
-  })
+    type: 'all',
+    sortBy: 'newest',
+  });
 
   const handleFilterChange = useCallback((newFilters: any) => {
-    const clearsCategoryFilters = typeof newFilters.search === "string" && newFilters.search.trim().length > 0
-    setFilters(prev => ({ ...prev, ...newFilters, ...(clearsCategoryFilters && { envs: [], cats: [] }) }))
-  }, [])
+    const clearsCategoryFilters =
+      typeof newFilters.search === 'string' && newFilters.search.trim().length > 0;
+    setFilters((prev) => ({
+      ...prev,
+      ...newFilters,
+      ...(clearsCategoryFilters && { envs: [], cats: [] }),
+    }));
+  }, []);
 
   useEffect(() => {
     async function loadData() {
       const [catRes, relRes] = await Promise.all([
-        supabase.from("categories").select("*").order("name"),
-        supabase.from("category_relationships").select("*")
-      ])
-      
-      const loadedCats = catRes.data || []
-      setCategories(loadedCats)
-      setRelationships(relRes.data || [])
-      
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('category_relationships').select('*'),
+      ]);
+
+      const loadedCats = catRes.data || [];
+      setCategories(loadedCats);
+      setRelationships(relRes.data || []);
+
       // Encontrar a categoria pelo slug com normalização inteligente (plural/singular/sinônimos)
       const SLUG_MAPPINGS: Record<string, string> = {
-        "cozinhas": "cozinha",
-        "quartos": "quarto",
-        "mesas": "mesas-de-jantar",
-        "cadeiras": "cadeiras-para-sala-de-jantar",
-        "aparadores": "aparadores-buffets"
-      }
-      
-      const targetSlug = SLUG_MAPPINGS[slug] || slug
-      let currentCat = loadedCats.find(c => c.slug === targetSlug)
-      
+        cozinhas: 'cozinha',
+        quartos: 'quarto',
+        mesas: 'mesas-de-jantar',
+        cadeiras: 'cadeiras-para-sala-de-jantar',
+        aparadores: 'aparadores-buffets',
+      };
+
+      const targetSlug = SLUG_MAPPINGS[slug] || slug;
+      let currentCat = loadedCats.find((c) => c.slug === targetSlug);
+
       // Fallback sutil para plural/singular
-      if (!currentCat && targetSlug.endsWith("s")) {
-        currentCat = loadedCats.find(c => c.slug === targetSlug.slice(0, -1))
+      if (!currentCat && targetSlug.endsWith('s')) {
+        currentCat = loadedCats.find((c) => c.slug === targetSlug.slice(0, -1));
       }
       if (!currentCat) {
-        currentCat = loadedCats.find(c => c.slug === targetSlug + "s")
+        currentCat = loadedCats.find((c) => c.slug === targetSlug + 's');
       }
 
       if (currentCat) {
         if (currentCat.type === 'environment') {
-          setFilters(prev => ({ ...prev, envs: [currentCat.id] }))
+          setFilters((prev) => ({ ...prev, envs: [currentCat.id] }));
         } else {
-          setFilters(prev => ({ ...prev, cats: [currentCat.id] }))
+          setFilters((prev) => ({ ...prev, cats: [currentCat.id] }));
         }
       }
-      
-      setLoadingData(false)
+
+      setLoadingData(false);
     }
-    loadData()
-  }, [slug])
+    loadData();
+  }, [slug]);
 
   return (
     <div className="container mx-auto px-6 md:px-12 py-8 md:py-12 flex flex-col items-center">
@@ -93,28 +100,30 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
           <Home className="h-4 w-4" /> Início
         </Link>
         <ChevronRight className="h-4 w-4" />
-        <Link href="/categorias" className="hover:text-primary">Categorias</Link>
+        <Link href="/categorias" className="hover:text-primary">
+          Categorias
+        </Link>
         <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground font-medium capitalize">{slug.replace("-", " ")}</span>
+        <span className="text-foreground font-medium capitalize">{slug.replace('-', ' ')}</span>
       </nav>
 
       <div className="flex flex-col gap-8 w-full items-center">
         <header className="space-y-2 text-center">
           <h1 className="text-3xl md:text-5xl font-bold text-primary capitalize">
-            {slug.replace("-", " ")}
+            {slug.replace('-', ' ')}
           </h1>
           <p className="text-muted-foreground text-lg">
             Confira nossa seleção completa para sua casa.
           </p>
         </header>
 
-        <ProductFilter 
+        <ProductFilter
           filters={filters}
           categories={categories}
           relationships={relationships}
-          onFilterChange={handleFilterChange} 
+          onFilterChange={handleFilterChange}
           isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(v => !v)}
+          onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
         />
 
         <div className="pt-8 w-full">
@@ -124,8 +133,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
             <aside className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-24 self-start">
               <FilterContent
                 filters={filters}
-                categories={categories.filter(c => c.type === "category")}
-                environments={categories.filter(c => c.type === "environment")}
+                categories={categories.filter((c) => c.type === 'category')}
+                environments={categories.filter((c) => c.type === 'environment')}
                 relationships={relationships}
                 onApply={handleFilterChange}
               />
@@ -152,7 +161,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       <div
         ref={sidebarRef}
         className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Painel de filtros"
       >
@@ -166,8 +175,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
           <FilterContent
             filters={filters}
-            categories={categories.filter(c => c.type === "category")}
-            environments={categories.filter(c => c.type === "environment")}
+            categories={categories.filter((c) => c.type === 'category')}
+            environments={categories.filter((c) => c.type === 'environment')}
             relationships={relationships}
             onApply={handleFilterChange}
             onClose={() => setIsSidebarOpen(false)}
@@ -175,5 +184,5 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
         </div>
       </div>
     </div>
-  )
+  );
 }

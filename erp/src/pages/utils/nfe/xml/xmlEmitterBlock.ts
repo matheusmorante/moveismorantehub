@@ -1,37 +1,39 @@
-import { AppSettings } from "../../settingsService";
+import { AppSettings } from '../../settingsService';
 
 export function escapeXml(unsafe: string = ''): string {
-    return String(unsafe)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 export interface IdeParams {
-    accessKey: string;
-    randomCode: string;
-    checkDigit: number;
-    nfeNumber: number;
-    series: string;
-    model: '55' | '65';
-    environment: 1 | 2;
-    dhEmi: string;
-    natureOfOperation?: string;
-    operationType?: 0 | 1;
-    finalidade?: 1 | 3 | 4;
-    referencedAccessKey?: string;
-    destinationIndicator?: 1 | 2 | 3;
-    presenceIndicator?: 0 | 1 | 2 | 3 | 9;
-    municipalityCode?: string;
+  accessKey: string;
+  randomCode: string;
+  checkDigit: number;
+  nfeNumber: number;
+  series: string;
+  model: '55' | '65';
+  environment: 1 | 2;
+  dhEmi: string;
+  natureOfOperation?: string;
+  operationType?: 0 | 1;
+  finalidade?: 1 | 3 | 4;
+  referencedAccessKey?: string;
+  destinationIndicator?: 1 | 2 | 3;
+  presenceIndicator?: 0 | 1 | 2 | 3 | 9;
+  municipalityCode?: string;
 }
 
 export function buildIdeXml(p: IdeParams): string {
-    if (p.referencedAccessKey && (p.finalidade !== 3 || !/^\d{44}$/.test(p.referencedAccessKey))) {
-        throw new Error('Referência de cabeçalho permitida apenas para estorno com chave fiscal válida.');
-    }
-    return `
+  if (p.referencedAccessKey && (p.finalidade !== 3 || !/^\d{44}$/.test(p.referencedAccessKey))) {
+    throw new Error(
+      'Referência de cabeçalho permitida apenas para estorno com chave fiscal válida.'
+    );
+  }
+  return `
     <ide>
       <cUF>41</cUF>
       <cNF>${p.randomCode}</cNF>
@@ -57,19 +59,20 @@ export function buildIdeXml(p: IdeParams): string {
 }
 
 export function buildEmitXml(settings: AppSettings): string {
-    const emitCnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '').padStart(14, '0');
-    const emitName = settings.companyName || 'MOVEIS MORANTE LTDA';
-    const emitIE = ((settings as any).companyIE || 'ISENTO').replace(/[^\w]/g, '');
-    const emitCRT = (settings as any).companyCRT || '1';
-    const emitCep = ((settings as any).companyCEP || '80000000').replace(/\D/g, '');
-    const emitBairro = (settings as any).companyBairro || 'Centro';
-    const emitMun = (settings as any).companyXMun || 'Curitiba';
-    const emitCMun = (settings as any).companyCMun || '4106907';
-    const emitUF = (settings as any).companyUF || 'PR';
-    const emitLogr = (settings as any).companyLogradouro || settings.companyAddress || 'Rua Principal';
-    const emitNum = (settings as any).companyNumero || '100';
+  const emitCnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '').padStart(14, '0');
+  const emitName = settings.companyName || 'MOVEIS MORANTE LTDA';
+  const emitIE = ((settings as any).companyIE || 'ISENTO').replace(/[^\w]/g, '');
+  const emitCRT = (settings as any).companyCRT || '1';
+  const emitCep = ((settings as any).companyCEP || '80000000').replace(/\D/g, '');
+  const emitBairro = (settings as any).companyBairro || 'Centro';
+  const emitMun = (settings as any).companyXMun || 'Curitiba';
+  const emitCMun = (settings as any).companyCMun || '4106907';
+  const emitUF = (settings as any).companyUF || 'PR';
+  const emitLogr =
+    (settings as any).companyLogradouro || settings.companyAddress || 'Rua Principal';
+  const emitNum = (settings as any).companyNumero || '100';
 
-    return `
+  return `
     <emit>
       <CNPJ>${emitCnpj}</CNPJ>
       <xNome>${escapeXml(emitName)}</xNome>

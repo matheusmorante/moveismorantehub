@@ -9,12 +9,12 @@ import { InboundIndividualProductModal } from '../modals/InboundIndividualProduc
 import { QuickRegisterVariationModal } from '../modals/QuickRegisterVariationModal';
 
 interface InboundInvoiceItemsReviewProps {
-    items: InboundInvoiceItem[];
-    supplierId?: string;
-    suppliers: Person[];
-    onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
-    onProcessingSuggestionsChange?: (processing: boolean) => void;
-    suggestionsEnabled?: boolean;
+  items: InboundInvoiceItem[];
+  supplierId?: string;
+  suppliers: Person[];
+  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
+  onProcessingSuggestionsChange?: (processing: boolean) => void;
+  suggestionsEnabled?: boolean;
 }
 
 /**
@@ -22,98 +22,97 @@ interface InboundInvoiceItemsReviewProps {
  * Apresenta a lista de itens e integra os modais de cadastro e classificação.
  */
 export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps) {
-    const { items, supplierId, suggestionsEnabled = false } = props;
-    const review = useInboundInvoiceItemsReview(props);
+  const { items, supplierId, suggestionsEnabled = false } = props;
+  const review = useInboundInvoiceItemsReview(props);
 
-    return (
-        <>
-            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                    <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                            Itens da NF ({items.length})
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500">
-                            {review.linkedCount} vinculados · {items.length - review.linkedCount} não vinculados
-                        </p>
-                    </div>
+  return (
+    <>
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+              Itens da NF ({items.length})
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {review.linkedCount} vinculados · {items.length - review.linkedCount} não vinculados
+            </p>
+          </div>
+        </header>
 
-                </header>
-
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {items.map((item) => (
-                        <InboundInvoiceItemRow
-                            key={item.itemNumber}
-                            item={item}
-                            supplierId={supplierId}
-                            suggestion={review.suggestionFor(item)}
-                            acceptingSuggestion={review.acceptingSuggestion}
-                            removingLink={review.removingLink}
-                            onSelectProduct={review.selectProduct}
-                            onAcceptSuggestion={review.acceptSuggestion}
-                            onRejectSuggestion={review.rejectSuggestion}
-                            onRemoveLink={review.removeLink}
-                            onRequestQuickRegister={review.setQuickRegisterTarget}
-                            onRequestEditProduct={review.editProduct}
-                            onUpdateItem={props.onChange}
-                        />
-                    ))}
-                </div>
-
-                {review.unlinkedItems.length > 0 && (
-                    <footer className="border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/30">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                                <p>{items.length} itens na NF</p>
-                                <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                                    {review.linkedCount} vinculados · {review.unlinkedItems.length} sem vínculo
-                                </p>
-                            </div>
-                        </div>
-                    </footer>
-                )}
-            </section>
-
-            <InboundIndividualProductModal
-                item={review.individualItem}
-                markup={review.individualMarkup}
-                onMarkupChange={review.setIndividualMarkup}
-                onClose={() => review.setIndividualItem(null)}
-                onConfirm={review.confirmIndividualCreation}
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {items.map((item) => (
+            <InboundInvoiceItemRow
+              key={item.itemNumber}
+              item={item}
+              supplierId={supplierId}
+              suggestion={review.suggestionFor(item)}
+              acceptingSuggestion={review.acceptingSuggestion}
+              removingLink={review.removingLink}
+              onSelectProduct={review.selectProduct}
+              onAcceptSuggestion={review.acceptSuggestion}
+              onRejectSuggestion={review.rejectSuggestion}
+              onRemoveLink={review.removeLink}
+              onRequestQuickRegister={review.setQuickRegisterTarget}
+              onRequestEditProduct={review.editProduct}
+              onUpdateItem={props.onChange}
             />
+          ))}
+        </div>
 
-            <InboundClassificationModals
-                isPreparingProduct={review.isPreparingProduct}
-                isClassifying={review.isClassifying}
-                classifyingItem={review.classifyingItem}
-                aiClassification={review.aiClassification}
-                effectiveMarkup={review.effectiveMarkup}
-                onEffectiveMarkupChange={review.setEffectiveMarkup}
-                onConfirmExistingVariation={review.confirmExistingVariationLink}
-                onConfirmNewVariation={review.confirmNewVariationInFamily}
-                onDiscardAndCreateNew={review.discardClassificationAndCreateNew}
-            />
+        {review.unlinkedItems.length > 0 && (
+          <footer className="border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/30">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                <p>{items.length} itens na NF</p>
+                <p className="mt-1 text-emerald-700 dark:text-emerald-300">
+                  {review.linkedCount} vinculados · {review.unlinkedItems.length} sem vínculo
+                </p>
+              </div>
+            </div>
+          </footer>
+        )}
+      </section>
 
-            <ProductFormModal
-                isOpen={review.isProductModalOpen}
-                onClose={review.closeProductModal}
-                product={review.editingParentProduct}
-                initialData={review.initialProductData}
-                initialTab={review.editingParentProduct ? 'variacoes' : 'geral'}
-                openAddVariationOnOpen={Boolean(review.editingParentProduct)}
-                isQuickRegister={true}
-                onSuccess={review.handleCreatedProductFromModal}
-            />
+      <InboundIndividualProductModal
+        item={review.individualItem}
+        markup={review.individualMarkup}
+        onMarkupChange={review.setIndividualMarkup}
+        onClose={() => review.setIndividualItem(null)}
+        onConfirm={review.confirmIndividualCreation}
+      />
 
-            <QuickRegisterVariationModal
-                isOpen={Boolean(review.quickRegisterTarget)}
-                item={review.quickRegisterTarget?.item || null}
-                supplierId={supplierId}
-                onClose={() => review.setQuickRegisterTarget(null)}
-                onConfirmSelection={review.handleQuickRegisterConfirm}
-            />
-        </>
-    );
+      <InboundClassificationModals
+        isPreparingProduct={review.isPreparingProduct}
+        isClassifying={review.isClassifying}
+        classifyingItem={review.classifyingItem}
+        aiClassification={review.aiClassification}
+        effectiveMarkup={review.effectiveMarkup}
+        onEffectiveMarkupChange={review.setEffectiveMarkup}
+        onConfirmExistingVariation={review.confirmExistingVariationLink}
+        onConfirmNewVariation={review.confirmNewVariationInFamily}
+        onDiscardAndCreateNew={review.discardClassificationAndCreateNew}
+      />
+
+      <ProductFormModal
+        isOpen={review.isProductModalOpen}
+        onClose={review.closeProductModal}
+        product={review.editingParentProduct}
+        initialData={review.initialProductData}
+        initialTab={review.editingParentProduct ? 'variacoes' : 'geral'}
+        openAddVariationOnOpen={Boolean(review.editingParentProduct)}
+        isQuickRegister={true}
+        onSuccess={review.handleCreatedProductFromModal}
+      />
+
+      <QuickRegisterVariationModal
+        isOpen={Boolean(review.quickRegisterTarget)}
+        item={review.quickRegisterTarget?.item || null}
+        supplierId={supplierId}
+        onClose={() => review.setQuickRegisterTarget(null)}
+        onConfirmSelection={review.handleQuickRegisterConfirm}
+      />
+    </>
+  );
 }
 
 export default InboundInvoiceItemsReview;

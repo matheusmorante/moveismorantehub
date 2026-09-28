@@ -2,7 +2,9 @@ import Order from '../types/order.type';
 
 export type SuggestedFiscalDocument = 'NFE' | 'NFCE';
 
-type FiscalOrderContext = Pick<Order, 'orderType' | 'shipping'> | { orderType?: string; shipping?: { deliveryMethod?: string } };
+type FiscalOrderContext =
+  | Pick<Order, 'orderType' | 'shipping'>
+  | { orderType?: string; shipping?: { deliveryMethod?: string } };
 
 /**
  * Defines the document initially suggested for a sale.
@@ -12,6 +14,5 @@ export const getSuggestedFiscalDocument = (order: FiscalOrderContext): Suggested
   return (order as any).shipping?.deliveryMethod === 'pickup' ? 'NFCE' : 'NFE';
 };
 
-export const getSuggestedFiscalDocumentLabel = (order: FiscalOrderContext): string => (
-  getSuggestedFiscalDocument(order) === 'NFCE' ? 'Gerar NFC-e' : 'Gerar NF-e'
-);
+export const getSuggestedFiscalDocumentLabel = (order: FiscalOrderContext): string =>
+  getSuggestedFiscalDocument(order) === 'NFCE' ? 'Gerar NFC-e' : 'Gerar NF-e';

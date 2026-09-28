@@ -79,7 +79,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
   }, []);
 
   const toggleLink = useCallback((id: string) => {
-    setSelectedLinks(prev => toggleNodeLink(prev, id));
+    setSelectedLinks((prev) => toggleNodeLink(prev, id));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -106,7 +106,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
       if (isEnv) {
         await saveMobileEnvironment(formattedName, selectedLinks, editingNode?.id);
       } else {
-        const attributeIds = selectedAttributes.map(a => a.id);
+        const attributeIds = selectedAttributes.map((a) => a.id);
         await saveMobileCategory(formattedName, selectedLinks, attributeIds, editingNode?.id);
       }
       closeForm();

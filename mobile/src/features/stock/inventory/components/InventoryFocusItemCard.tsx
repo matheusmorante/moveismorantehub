@@ -26,7 +26,11 @@ export const InventoryFocusItemCard: React.FC<Props> = ({
 }) => {
   return (
     <View style={[styles.cardContainer, { width }]}>
-      <Text style={[styles.itemName, { color: textPrimary }]} numberOfLines={3} adjustsFontSizeToFit>
+      <Text
+        style={[styles.itemName, { color: textPrimary }]}
+        numberOfLines={3}
+        adjustsFontSizeToFit
+      >
         {item.name}
       </Text>
       <Text style={[styles.itemSupplier, { color: muted }]}>
@@ -64,7 +68,7 @@ export const InventoryFocusItemCard: React.FC<Props> = ({
             ]}
             keyboardType="numeric"
             value={item.physicalCount === null ? '' : String(item.physicalCount)}
-            onChangeText={val => {
+            onChangeText={(val) => {
               if (val === '') onUpdateCount(item.id, null);
               else onUpdateCount(item.id, Math.max(0, parseInt(val, 10) || 0));
             }}

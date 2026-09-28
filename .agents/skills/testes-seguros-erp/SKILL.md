@@ -48,27 +48,19 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 
 ---
 
-## 2. Ambientes de Teste e Janela de Docker + Supabase Local
+## 2. Ambientes de Teste e Disponibilidade (Docker vs Produção)
 
-Docker e Supabase Local podem ser usados para testes, mas o uso do stack local está restrito à janela abaixo. A regra se aplica a qualquer comando que dependa de Docker/Supabase Local e a testes que dependam dele, inclusive `supabase start`/`stop`, `supabase db reset`, migrations e repair, `supabase test db`/pgTAP, PostgreSQL real, concorrência multi-conexão, `FOR UPDATE`, rollback/fault injection, RLS/JWT/`auth.uid()`, Storage, integração com escrita, testes destrutivos, banco limpo, upgrade representativo e k6 ligado ao stack.
+Verifique sempre o dia da semana e o horário atual em `America/Sao_Paulo`.
 
-**Timezone obrigatório: `America/Sao_Paulo`. Janela permitida:**
+- **Segunda a Sexta-feira, das 09:00 às 18:00**: o **Docker/Supabase Local está INDISPONÍVEL**.
+  - Nesse período, quando o teste realmente precisar de banco, é permitido usar o **Supabase remoto de produção**, de forma extremamente controlada.
+  - **ATENÇÃO**: Isso **NÃO** significa liberar testes destrutivos genéricos no remoto. Continuam valendo rigorosamente todas as blindagens de segurança (dados próprios da execução, uso estrito de `testRunId`, validação com `assertOwnedByCurrentTest`). É expressamente proibido reaproveitar registros reais existentes para rollback/fault injection ou alterar dados que não pertençam à execução do teste atual.
+- **Fora dessa janela (Noites e Finais de Semana)**: O Docker/Supabase Local volta a estar disponível e deve obrigatoriamente retornar ao posto de ambiente preferido para testes de banco.
 
-| Dia | Janela |
-|---|---|
-| Domingo | Qualquer horário |
-| Segunda-feira | Após 18:30 |
-| Terça-feira | Indisponível |
-| Quarta-feira | Indisponível |
-| Quinta-feira | Indisponível |
-| Sexta-feira | Após 18:30 |
-| Sábado | Indisponível |
-
-Antes do primeiro comando dependente do stack, verifique o dia da semana e a hora atual em `America/Sao_Paulo` e registre se a janela está aberta. Não deduza autorização da instalação ou do estado do Docker. Um Docker/Supabase Local já em execução fora da janela não autoriza testes: não inicie operações restritas nem interrompa processos do usuário sem necessidade.
-
-**Fora da janela permitida:** não iniciar Docker/Supabase Local; não executar testes destrutivos ou de integração real que dependam deles; nunca usar produção como substituto; e nunca declarar integração aprovada com base em mock, PGlite, inspeção estática, Vitest ou Playwright. Marque explicitamente `PENDENTE — aguardando janela permitida para Docker + Supabase Local` e indique a evidência real ainda faltante. Não tente subir o stack repetidamente, baixar imagens, reinstalar ou fazer troubleshooting pesado. É permitido preparar scripts, fixtures, pgTAP, k6, seeds, asserts e cenários para execução posterior, deixando claro que ainda não foram executados.
-
-Fora desse stack, podem continuar as validações que não dependem dele: Vitest/unitários, React Testing Library/componentes, ESLint, TypeScript, inspeção estática e Playwright quando o fluxo não depender do Supabase Local nem escrever em produção. Playwright não prova atomicidade PostgreSQL; PGlite não prova concorrência multi-sessão; ZAP não prova RLS; inspeção de `FOR UPDATE` não prova concorrência; `success = true` não prova o estado final; SQLite/IndexedDB não provam PostgreSQL. Mocks não provam integração.
+Sempre escolha a opção mais simples e segura:
+1. **Teste focado**: prefira Vitest/Jest com mocks para validar a unidade alterada.
+2. **Integração necessária**: obedeça à regra de disponibilidade (Docker vs Prod) garantindo a limpeza e propriedade restrita dos dados gerados.
+3. **Escalonamento visual**: use Playwright somente se a mudança afetar fluxos de interface não cobertos pelos testes locais.
 
 Escolha a opção mais simples e segura para o escopo, respeitando a janela:
 
@@ -137,20 +129,19 @@ Para cada módulo, além do happy path:
 
 
 ### 3.4 Responsabilidades das Ferramentas e Fluxo Proporcional ao Risco
-- **Vitest**: Funções puras, cálculos e lógicas isoladas.
-- **RTL (React Testing Library)**: Interações de interface e componentes isolados.
+- **Vitest**: Funções puras, cálculos e lógicas isoladas (Fluxo cotidiano).
+- **RTL (React Testing Library)**: Interações de interface e componentes isolados (Fluxo cotidiano).
 - **Playwright**: E2E em navegador, fluxos completos de UI integrados.
-- **Supabase CLI Local**: Obrigatório para ambiente de testes destrutivos, somente dentro da janela da seção 2. Banco reproduzível via `supabase db reset`. **NUNCA** rodar testes destrutivos em produção.
-- **pgTAP**: Validações exclusivas de banco (RPC, RLS, Constraints, Triggers).
-- **Atomicidade**: Falha induzida no meio da transação com validação de rollback no banco (prova real no PostgreSQL).
-- **k6**: Concorrência e testes de carga.
-- **OWASP ZAP**: Segurança dinâmica complementar ao RLS/Auth. Sempre em ambiente local.
-- **Separação de Persistência**: SQLite/IndexedDB não substituem testes no PostgreSQL. As responsabilidades são separadas.
+- **pgTAP e Atomicidade**: Validações exclusivas de banco, falhas e rollbacks induzidos com validação de estado final.
+- **Ferramentas Pesadas (Nuance de Roteamento)**:
+  - **k6**: Executar *exclusivamente* quando houver um objetivo explícito de carga ou performance.
+  - **OWASP ZAP**: Executar *exclusivamente* para auditoria de segurança ou em fluxo explicitamente definido. Não usar na rotina diária.
+  - **Trivy / Gitleaks**: Têm primariamente papel de CI/CD ou auditoria focada. Gitleaks pode fazer sentido localmente antes de commits específicos, mas não force execução automática a cada alteração de código.
 - **Fluxo Proporcional ao Risco**:
   - *Baixo*: Unitários (Vitest).
   - *Médio*: Componentes e fluxos isolados (RTL).
   - *Alto*: Integração pontual, Playwright E2E.
-  - *Crítico/Concorrente*: PostgreSQL isolado com pgTAP, Atomicidade real, ZAP (Segurança) e k6 (Carga), com Docker/Supabase Local somente dentro da janela definida na seção 2.
+  - *Crítico*: Banco real (Supabase Docker ou Prod com `testRunId`) com verificação estrita de atomicidade.
 
 ## 4. Ordem Oficial dos Módulos Vitais e Críticos
 
@@ -347,8 +338,16 @@ CAUSA RAIZ (qual regra, contrato, fluxo ou fonte da verdade originou a inconsist
 - Evitar seletores por texto exato quando o texto pode mudar — preferir `data-testid` ou role com name.
 - Proibido `page.waitForTimeout(ms)` como substituto de `page.waitForSelector` / `expect(...).toBeVisible()`.
 
-### Critério de Encerramento: Quando o Teste Está "Completo"
-O agente não deve declarar "testado" apenas porque a suíte ficou verde. Um teste está completo quando:
+### Critério de Encerramento e Status INCONCLUSIVO
+Além de APROVADO e REPROVADO, existe oficialmente o status **INCONCLUSIVO**.
+O agente **deve** usar o status INCONCLUSIVO e interromper processos que:
+- Ficam travados (hanging) no terminal;
+- Consomem CPU indefinidamente sem produzir resultado (comum em compilações, `tsc`, scripts `npm`, Playwright);
+- Dependem de um ambiente indisponível.
+
+Um processo travado nunca deve ser interpretado como "sucesso", nem reprovado como se fosse falha de lógica que precise de alteração no código. Classifique como INCONCLUSIVO, interrompa-o e reduza o escopo ou utilize outra abordagem.
+
+O agente só deve declarar "testado" (APROVADO) quando:
 1. O resultado esperado foi verificado na interface (texto, estado visual, feedback).
 2. Os efeitos colaterais foram conferidos (banco, local storage, estoque, financeiro).
 3. Os estados relevantes foram cobertos (sucesso, erro, vazio, loading — conforme 3.1).

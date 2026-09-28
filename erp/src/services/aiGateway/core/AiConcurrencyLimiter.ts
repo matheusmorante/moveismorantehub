@@ -6,7 +6,7 @@ export class AiConcurrencyLimiter {
   private static categoryActive: Record<AiCategory, number> = {
     TEXT: 0,
     IMAGE: 0,
-    TTS: 0
+    TTS: 0,
   };
 
   public static tryAcquire(category: AiCategory): { acquired: boolean; reason?: string } {
@@ -16,14 +16,14 @@ export class AiConcurrencyLimiter {
     if (this.globalActive >= globalConfig.concurrent) {
       return {
         acquired: false,
-        reason: `Limite de concorrência global atingido (${this.globalActive}/${globalConfig.concurrent} requisições de IA ativas simultaneamente).`
+        reason: `Limite de concorrência global atingido (${this.globalActive}/${globalConfig.concurrent} requisições de IA ativas simultaneamente).`,
       };
     }
 
     if (this.categoryActive[category] >= categoryConfig.concurrent) {
       return {
         acquired: false,
-        reason: `Limite de concorrência para ${category} atingido (${this.categoryActive[category]}/${categoryConfig.concurrent} requisições ativas).`
+        reason: `Limite de concorrência para ${category} atingido (${this.categoryActive[category]}/${categoryConfig.concurrent} requisições ativas).`,
       };
     }
 

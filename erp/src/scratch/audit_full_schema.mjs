@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://hkoxhourxwlddgsfdgws.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
+const supabaseKey =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function inspectAll() {
@@ -18,7 +19,7 @@ async function inspectAll() {
     'product_images',
     'product_supplier_codes',
     'team_locations',
-    'settings'
+    'settings',
   ];
 
   const results = {};
@@ -59,12 +60,12 @@ async function inspectAll() {
         count,
         columnCount: sample ? Object.keys(sample).length : 0,
         columns,
-        hasSample: !!sample
+        hasSample: !!sample,
       };
     }
   }
 
-  import('fs').then(fs => {
+  import('fs').then((fs) => {
     fs.writeFileSync('src/scratch/full_schema_results.json', JSON.stringify(results, null, 2));
     console.log('Saved to src/scratch/full_schema_results.json');
   });

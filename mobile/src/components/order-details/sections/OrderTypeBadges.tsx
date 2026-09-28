@@ -13,9 +13,19 @@ interface OrderTypeBadgesProps {
 export function OrderTypeBadges({ assistance, pickup, internal, outside }: OrderTypeBadgesProps) {
   return (
     <View style={styles.badges}>
-      <View style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}>
-        {assistance ? <Wrench size={14} color="#fff" /> : pickup ? <Package size={14} color="#fff" /> : <Truck size={14} color="#fff" />}
-        <Text style={styles.badgeText}>{assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+      <View
+        style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}
+      >
+        {assistance ? (
+          <Wrench size={14} color="#fff" />
+        ) : pickup ? (
+          <Package size={14} color="#fff" />
+        ) : (
+          <Truck size={14} color="#fff" />
+        )}
+        <Text style={styles.badgeText}>
+          {assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}
+        </Text>
       </View>
       {internal && (
         <View style={[styles.badge, styles.orange]}>
@@ -35,7 +45,14 @@ export function OrderTypeBadges({ assistance, pickup, internal, outside }: Order
 
 const styles = StyleSheet.create({
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
   green: { backgroundColor: '#10b981' },
   purple: { backgroundColor: '#a855f7' },
   orange: { backgroundColor: '#f59e0b' },

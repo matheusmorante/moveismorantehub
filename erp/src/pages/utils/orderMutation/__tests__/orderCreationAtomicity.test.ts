@@ -42,18 +42,25 @@ describe('cadastro de pedido com estoque atômico', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('envia o pedido à RPC que também grava as movimentações', async () => {
-    mocks.rpc.mockResolvedValue({ data: { id: 'pedido-1', order_index: 123, order_data: scheduledSale }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: { id: 'pedido-1', order_index: 123, order_data: scheduledSale },
+      error: null,
+    });
 
     await expect(executeSaveOrder(scheduledSale as any, vi.fn())).resolves.toBe('pedido-1');
-    expect(mocks.rpc).toHaveBeenCalledWith('create_order_with_inventory_transaction',
-      expect.objectContaining({ p_order_id: expect.any(String), p_items: scheduledSale.items }));
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_order_with_inventory_transaction',
+      expect.objectContaining({ p_order_id: expect.any(String), p_items: scheduledSale.items })
+    );
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('não grava pedido por fallback quando a RPC ou a movimentação falha', async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: new Error('falha na movimentação') });
 
-    await expect(executeSaveOrder(scheduledSale as any, vi.fn())).rejects.toThrow('falha na movimentação');
+    await expect(executeSaveOrder(scheduledSale as any, vi.fn())).rejects.toThrow(
+      'falha na movimentação'
+    );
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.recordHistory).not.toHaveBeenCalled();
   });

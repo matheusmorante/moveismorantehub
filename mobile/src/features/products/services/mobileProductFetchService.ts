@@ -26,7 +26,10 @@ export const fetchMobileProductsPage = async (
 
     let query = supabase
       .from('products')
-      .select('*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)', { count: 'exact' })
+      .select(
+        '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)',
+        { count: 'exact' }
+      )
       .eq('deleted', false);
 
     if (options?.itemType === 'composition') {
@@ -64,9 +67,12 @@ export const fetchMobileProductsPage = async (
         .from('product_categories')
         .select('product_id')
         .eq('category_id', options.category);
-      const linkedProductIds = (categoryLinks || []).map((row: any) => row.product_id).filter(Boolean);
+      const linkedProductIds = (categoryLinks || [])
+        .map((row: any) => row.product_id)
+        .filter(Boolean);
       const conditions = [`category_id.eq.${options.category}`];
-      if (categoryRow?.name) conditions.push(`category.eq."${escapePostgrestValue(categoryRow.name)}"`);
+      if (categoryRow?.name)
+        conditions.push(`category.eq."${escapePostgrestValue(categoryRow.name)}"`);
       if (linkedProductIds.length > 0) conditions.push(`id.in.(${linkedProductIds.join(',')})`);
       query = query.or(conditions.join(','));
     }
@@ -82,13 +88,16 @@ export const fetchMobileProductsPage = async (
         const { data: matchedVars, error: variationsError } = await supabase
           .from('product_variations')
           .select('product_id')
-          .or(terms.map(term => `name.ilike.%${term}%`).join(','))
+          .or(terms.map((term) => `name.ilike.%${term}%`).join(','))
           .limit(100);
         if (variationsError && options?.throwOnError) throw variationsError;
-        if (variationsError) console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
+        if (variationsError)
+          console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
 
         if (matchedVars && matchedVars.length > 0) {
-          matchedParentIds = Array.from(new Set(matchedVars.map((v: any) => v.product_id).filter(Boolean)));
+          matchedParentIds = Array.from(
+            new Set(matchedVars.map((v: any) => v.product_id).filter(Boolean))
+          );
         }
       } catch (e) {
         if (options?.throwOnError) throw e;
@@ -97,12 +106,13 @@ export const fetchMobileProductsPage = async (
 
       // Paridade com productFilterBuilder do ERP: a busca textual da lista
       // considera nome do produto e nome da variação, não descrição/código.
-      const orConditions = terms.map(term => `name.ilike.%${term}%`);
+      const orConditions = terms.map((term) => `name.ilike.%${term}%`);
       const words = normalizedSearch.split(/\s+/).filter(Boolean);
-      if (words.length > 1) orConditions.push(`and(${words.map(word => `name.ilike.%${word}%`).join(',')})`);
+      if (words.length > 1)
+        orConditions.push(`and(${words.map((word) => `name.ilike.%${word}%`).join(',')})`);
 
       if (matchedParentIds.length > 0) {
-        matchedParentIds.forEach(id => orConditions.push(`id.eq.${id}`));
+        matchedParentIds.forEach((id) => orConditions.push(`id.eq.${id}`));
       }
 
       query = query.or(orConditions.join(','));
@@ -117,9 +127,15 @@ export const fetchMobileProductsPage = async (
       return { data: [], total: 0 };
     }
 
-    const categoryIds = Array.from(new Set((data || []).flatMap((product: any) =>
-      (product.product_categories || []).map((relation: any) => relation.category_id).filter(Boolean)
-    )));
+    const categoryIds = Array.from(
+      new Set(
+        (data || []).flatMap((product: any) =>
+          (product.product_categories || [])
+            .map((relation: any) => relation.category_id)
+            .filter(Boolean)
+        )
+      )
+    );
     const categoryNames = new Map<string, string>();
     if (categoryIds.length > 0) {
       const { data: categoryRows, error: categoryError } = await supabase
@@ -127,72 +143,93 @@ export const fetchMobileProductsPage = async (
         .select('id, name')
         .in('id', categoryIds);
       if (categoryError && options?.throwOnError) throw categoryError;
-      (categoryRows || []).forEach((category: any) => categoryNames.set(String(category.id), category.name));
+      (categoryRows || []).forEach((category: any) =>
+        categoryNames.set(String(category.id), category.name)
+      );
     }
 
     const formatted = (data || []).map((p: any) => {
       const parentCode = p.code || p.sku || '000000';
       const orderedImageRows = Array.isArray(p.product_images)
-        ? [...p.product_images].sort((a: any, b: any) => Number(Boolean(b.is_main)) - Number(Boolean(a.is_main)))
+        ? [...p.product_images].sort(
+            (a: any, b: any) => Number(Boolean(b.is_main)) - Number(Boolean(a.is_main))
+          )
         : [];
       const relationImages = orderedImageRows.map((image: any) => image.image_url).filter(Boolean);
-      const productImages = relationImages.length > 0
-        ? relationImages
-        : Array.isArray(p.images)
-        ? p.images
-        : typeof p.images === 'string' && p.images
-        ? [p.images]
-        : [];
+      const productImages =
+        relationImages.length > 0
+          ? relationImages
+          : Array.isArray(p.images)
+            ? p.images
+            : typeof p.images === 'string' && p.images
+              ? [p.images]
+              : [];
 
       const storedVariations = p.product_variations || [];
       let allVars: any[] = storedVariations
         .filter((v: any) => options?.includeMerged === true || !v.merged_to_variation_id)
         .map((v: any, vIdx: number) => {
-        const varImages = Array.isArray(v.images) && v.images.length > 0
-          ? v.images
-          : v.image_url
-          ? String(v.image_url).split(',').map((s: string) => s.trim()).filter(Boolean)
-          : [];
+          const varImages =
+            Array.isArray(v.images) && v.images.length > 0
+              ? v.images
+              : v.image_url
+                ? String(v.image_url)
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter(Boolean)
+                : [];
 
-        const suffix = String(vIdx + 1).padStart(2, '0');
-        const expectedPrefix = parentCode ? `${parentCode}-` : '';
-        const isAlreadyFormatted = Boolean(
-          expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix)
-        );
-        let resolvedSku = isAlreadyFormatted ? v.sku : (parentCode ? `${parentCode}-${suffix}` : (v.sku || ''));
-        resolvedSku = String(resolvedSku || '').trim().replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
+          const suffix = String(vIdx + 1).padStart(2, '0');
+          const expectedPrefix = parentCode ? `${parentCode}-` : '';
+          const isAlreadyFormatted = Boolean(
+            expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix)
+          );
+          let resolvedSku = isAlreadyFormatted
+            ? v.sku
+            : parentCode
+              ? `${parentCode}-${suffix}`
+              : v.sku || '';
+          resolvedSku = String(resolvedSku || '')
+            .trim()
+            .replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
 
-        const syncUnitPrice = v.syncUnitPrice ?? (v.use_parent_price !== false);
-        const syncPromoPrice = v.syncPromoPrice ?? (v.use_parent_promo_price !== false);
-        const syncDescription = v.syncDescription ?? (v.use_parent_description !== false);
-        const syncDimensions = v.syncWidth ?? (v.use_parent_dimensions !== false);
-        const variationPrice = syncUnitPrice ? Number(p.unit_price ?? p.price ?? 0) : Number(v.price ?? 0);
-        const variationPromoPrice = syncPromoPrice
-          ? (p.promo_price === null || p.promo_price === undefined ? undefined : Number(p.promo_price))
-          : (v.promo_price === null || v.promo_price === undefined ? undefined : Number(v.promo_price));
+          const syncUnitPrice = v.syncUnitPrice ?? v.use_parent_price !== false;
+          const syncPromoPrice = v.syncPromoPrice ?? v.use_parent_promo_price !== false;
+          const syncDescription = v.syncDescription ?? v.use_parent_description !== false;
+          const syncDimensions = v.syncWidth ?? v.use_parent_dimensions !== false;
+          const variationPrice = syncUnitPrice
+            ? Number(p.unit_price ?? p.price ?? 0)
+            : Number(v.price ?? 0);
+          const variationPromoPrice = syncPromoPrice
+            ? p.promo_price === null || p.promo_price === undefined
+              ? undefined
+              : Number(p.promo_price)
+            : v.promo_price === null || v.promo_price === undefined
+              ? undefined
+              : Number(v.promo_price);
 
-        return {
-          ...v,
-          sku: resolvedSku,
-          name: v.name || p.name,
-          stock: Number(v.stock ?? 0),
-          price: variationPrice,
-          promo_price: variationPromoPrice,
-          unitPrice: variationPrice,
-          promoPrice: variationPromoPrice,
-          costPrice: Number(v.cost_price ?? p.cost_price ?? 0),
-          syncUnitPrice,
-          syncPromoPrice,
-          syncDescription,
-          syncWidth: syncDimensions,
-          syncHeight: syncDimensions,
-          syncDepth: syncDimensions,
-          syncWeight: syncDimensions,
-          status: v.status || p.status || 'published',
-          active: v.active !== false,
-          images: varImages,
-          attributes: v.attributes || {},
-        };
+          return {
+            ...v,
+            sku: resolvedSku,
+            name: v.name || p.name,
+            stock: Number(v.stock ?? 0),
+            price: variationPrice,
+            promo_price: variationPromoPrice,
+            unitPrice: variationPrice,
+            promoPrice: variationPromoPrice,
+            costPrice: Number(v.cost_price ?? p.cost_price ?? 0),
+            syncUnitPrice,
+            syncPromoPrice,
+            syncDescription,
+            syncWidth: syncDimensions,
+            syncHeight: syncDimensions,
+            syncDepth: syncDimensions,
+            syncWeight: syncDimensions,
+            status: v.status || p.status || 'published',
+            active: v.active !== false,
+            images: varImages,
+            attributes: v.attributes || {},
+          };
         });
 
       // LÓGICA OFICIAL DO ERP (productService.ts):
@@ -207,7 +244,10 @@ export const fetchMobileProductsPage = async (
             name: p.name || 'Padrão',
             stock: Number(p.stock ?? 0),
             price: Number(p.unit_price ?? p.price ?? 0),
-            promo_price: p.promo_price !== null && p.promo_price !== undefined ? Number(p.promo_price) : undefined,
+            promo_price:
+              p.promo_price !== null && p.promo_price !== undefined
+                ? Number(p.promo_price)
+                : undefined,
             cost_price: Number(p.cost_price ?? 0),
             active: Boolean(p.active),
             status: p.status || 'published',
@@ -217,17 +257,23 @@ export const fetchMobileProductsPage = async (
         ];
       }
 
-      const activeVariationsCount = allVars.filter((variation: any) => variation.active !== false).length;
+      const activeVariationsCount = allVars.filter(
+        (variation: any) => variation.active !== false
+      ).length;
       const totalVariationsCount = allVars.length || 1;
       const parentActive = allVars.length > 0 ? activeVariationsCount > 0 : Boolean(p.active);
       const isParent = isProductItem || Boolean(p.has_variations || allVars.length > 0);
 
       return {
         ...p,
-        category: (p.product_categories || [])
-          .map((relation: any) => categoryNames.get(String(relation.category_id)))
-          .filter(Boolean)
-          .join(' | ') || p.category || p.category_name || '',
+        category:
+          (p.product_categories || [])
+            .map((relation: any) => categoryNames.get(String(relation.category_id)))
+            .filter(Boolean)
+            .join(' | ') ||
+          p.category ||
+          p.category_name ||
+          '',
         allVariations: allVars,
         images: productImages,
         unitPrice: Number(p.unit_price ?? p.price ?? 0),
@@ -241,7 +287,13 @@ export const fetchMobileProductsPage = async (
         isDraft: Boolean(p.is_draft || p.status === 'draft'),
         mainSupplierId: p.main_supplier_id || p.supplier_id || null,
         supplierId: p.supplier_id || p.main_supplier_id || null,
-        supplierIds: Array.isArray(p.supplier_ids) ? p.supplier_ids : (p.supplier_id ? [p.supplier_id] : (p.main_supplier_id ? [p.main_supplier_id] : [])),
+        supplierIds: Array.isArray(p.supplier_ids)
+          ? p.supplier_ids
+          : p.supplier_id
+            ? [p.supplier_id]
+            : p.main_supplier_id
+              ? [p.main_supplier_id]
+              : [],
       };
     });
 

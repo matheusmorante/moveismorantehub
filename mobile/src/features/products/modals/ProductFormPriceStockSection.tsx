@@ -8,11 +8,7 @@ interface Props {
   dark: boolean;
 }
 
-export const ProductFormPriceStockSection: React.FC<Props> = ({
-  formData,
-  setFormData,
-  dark,
-}) => {
+export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [newImageUrl, setNewImageUrl] = useState('');
 
   const update = (field: string, val: any) => {
@@ -29,7 +25,10 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({
 
   const handleRemoveImage = (index: number) => {
     const current = Array.isArray(formData.images) ? formData.images : [];
-    update('images', current.filter((_: any, i: number) => i !== index));
+    update(
+      'images',
+      current.filter((_: any, i: number) => i !== index)
+    );
   };
 
   return (
@@ -143,7 +142,10 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({
             {formData.images.map((url: string, index: number) => (
               <View key={index} style={styles.thumbWrapper}>
                 <Image source={{ uri: url }} style={styles.thumb} />
-                <TouchableOpacity onPress={() => handleRemoveImage(index)} style={styles.removeThumbBtn}>
+                <TouchableOpacity
+                  onPress={() => handleRemoveImage(index)}
+                  style={styles.removeThumbBtn}
+                >
                   <X size={10} color="#ffffff" />
                 </TouchableOpacity>
               </View>
@@ -181,7 +183,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imagesPreviewList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  thumbWrapper: { position: 'relative', width: 54, height: 54, borderRadius: 10, overflow: 'hidden' },
+  thumbWrapper: {
+    position: 'relative',
+    width: 54,
+    height: 54,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
   thumb: { width: '100%', height: '100%' },
   removeThumbBtn: {
     position: 'absolute',

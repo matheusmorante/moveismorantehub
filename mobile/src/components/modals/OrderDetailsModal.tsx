@@ -14,12 +14,21 @@ interface Props {
   userProfile?: any;
 }
 
-export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode, userRole, userProfile }) => {
+export const OrderDetailsModal: React.FC<Props> = ({
+  order,
+  onClose,
+  isDarkMode,
+  userRole,
+  userProfile,
+}) => {
   const insets = useSafeAreaInsets();
   const [preparingDelivery, setPreparingDelivery] = useState(false);
   const [canStartDelivery, setCanStartDelivery] = useState(false);
   const [detailedOrder, setDetailedOrder] = useState<any>(order);
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
+  );
 
   useEffect(() => {
     setDetailedOrder(order);
@@ -32,7 +41,10 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
     }
 
     const existingItems = order.order_data?.items || order.items || [];
-    const hasFullItems = Array.isArray(existingItems) && existingItems.length > 0 && existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
+    const hasFullItems =
+      Array.isArray(existingItems) &&
+      existingItems.length > 0 &&
+      existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
     if (hasFullItems) return;
 
     let alive = true;
@@ -46,7 +58,9 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
           setDetailedOrder(data);
         }
       })
-      .catch((err) => console.warn('[OrderDetailsModal] Falha ao carregar detalhes completos:', err));
+      .catch((err) =>
+        console.warn('[OrderDetailsModal] Falha ao carregar detalhes completos:', err)
+      );
 
     return () => {
       alive = false;
@@ -59,7 +73,9 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
       const allowedRoles = Array.isArray(configuredRoles)
         ? configuredRoles
         : ['administrator', 'deliverer'];
-      const normalizedRole = String(userRole || '').trim().toLowerCase();
+      const normalizedRole = String(userRole || '')
+        .trim()
+        .toLowerCase();
       const isAdministrator = ['admin', 'administrator', 'master'].includes(normalizedRole);
       const hasConfiguredPermission = allowedRoles.some(
         (role: string) => String(role).trim().toLowerCase() === normalizedRole
@@ -79,37 +95,56 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { paddingTop: topInset }, isDarkMode && styles.modalContainerDark]}>
+      <View
+        style={[
+          styles.modalContainer,
+          { paddingTop: topInset },
+          isDarkMode && styles.modalContainerDark,
+        ]}
+      >
         {preparingDelivery ? (
           <DeliveryPreparationScreen
             order={detailedOrder || order}
             isDarkMode={isDarkMode}
             userProfile={userProfile}
-            onBack={started => {
+            onBack={(started) => {
               setPreparingDelivery(false);
               if (started) onClose();
             }}
           />
-        ) : <>
-        {/* Full-Screen Header */}
-        <View style={[styles.headerRow, isDarkMode && styles.headerRowDark]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-            <View style={styles.iconCircle}>
-              <ShoppingBag size={20} color="#2563eb" />
+        ) : (
+          <>
+            {/* Full-Screen Header */}
+            <View style={[styles.headerRow, isDarkMode && styles.headerRowDark]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <View style={styles.iconCircle}>
+                  <ShoppingBag size={20} color="#2563eb" />
+                </View>
+                <Text style={[styles.titleText, isDarkMode && styles.textDark]}>
+                  Detalhes do Pedido
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+              >
+                <X size={20} color={isDarkMode ? '#f8fafc' : '#475569'} />
+              </TouchableOpacity>
             </View>
-            <Text style={[styles.titleText, isDarkMode && styles.textDark]}>Detalhes do Pedido</Text>
-          </View>
 
-          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>
-            <X size={20} color={isDarkMode ? '#f8fafc' : '#475569'} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Full-Screen Body Content */}
-        <View style={{ flex: 1 }}>
-          <OrderDetailsBody order={detailedOrder || order} isDarkMode={isDarkMode} canStartDelivery={canStartDelivery} onStartDelivery={() => setPreparingDelivery(true)} onViewDelivery={() => setPreparingDelivery(true)} />
-        </View>
-        </>}
+            {/* Full-Screen Body Content */}
+            <View style={{ flex: 1 }}>
+              <OrderDetailsBody
+                order={detailedOrder || order}
+                isDarkMode={isDarkMode}
+                canStartDelivery={canStartDelivery}
+                onStartDelivery={() => setPreparingDelivery(true)}
+                onViewDelivery={() => setPreparingDelivery(true)}
+              />
+            </View>
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -118,10 +153,10 @@ export const OrderDetailsModal: React.FC<Props> = ({ order, onClose, isDarkMode,
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
   },
   modalContainerDark: {
-    backgroundColor: '#0f172a'
+    backgroundColor: '#0f172a',
   },
   headerRow: {
     flexDirection: 'row',
@@ -131,11 +166,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
   },
   headerRowDark: {
     backgroundColor: '#0f172a',
-    borderBottomColor: '#1e293b'
+    borderBottomColor: '#1e293b',
   },
   iconCircle: {
     width: 42,
@@ -143,16 +178,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#eff6ff',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   titleText: {
     flexShrink: 1,
     fontSize: 18,
     fontWeight: '900',
-    color: '#0f172a'
+    color: '#0f172a',
   },
   textDark: {
-    color: '#f8fafc'
+    color: '#f8fafc',
   },
   closeBtn: {
     width: 36,
@@ -160,9 +195,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   closeBtnDark: {
-    backgroundColor: '#1e293b'
-  }
+    backgroundColor: '#1e293b',
+  },
 });

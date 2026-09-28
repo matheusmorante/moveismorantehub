@@ -15,35 +15,57 @@ interface Props {
   onSelectCandidate: (candidate: any) => void;
 }
 
-export function FinancialTimelineCard({ entry, active, categories, isDarkMode, onConfirm, onSelectCandidate }: Props) {
+export function FinancialTimelineCard({
+  entry,
+  active,
+  categories,
+  isDarkMode,
+  onConfirm,
+  onSelectCandidate,
+}: Props) {
   const queued = entry.intent.batchDraftsList || [];
   const current = queued[0] || entry.intent;
 
-  return <View style={styles.wrapper}>
-    <View style={styles.senderRow}>
-      <View style={styles.avatar}><Bot size={14} color="#7c3aed" /></View>
-      <Text style={[styles.sender, isDarkMode && styles.senderDark]}>Seu Lizandro</Text>
-      <Text style={styles.timestamp}>{entry.timestamp}</Text>
+  return (
+    <View style={styles.wrapper}>
+      <View style={styles.senderRow}>
+        <View style={styles.avatar}>
+          <Bot size={14} color="#7c3aed" />
+        </View>
+        <Text style={[styles.sender, isDarkMode && styles.senderDark]}>Seu Lizandro</Text>
+        <Text style={styles.timestamp}>{entry.timestamp}</Text>
+      </View>
+      {queued.length > 0 && (
+        <Text style={[styles.queueLabel, isDarkMode && styles.queueLabelDark]}>
+          Tratando uma movimentação por vez
+          {queued.length > 1 ? ` · mais ${queued.length - 1} na fila` : ''}
+        </Text>
+      )}
+      <TransactionPreviewCard
+        intent={current}
+        cardState={entry.cardState}
+        readOnly={!active}
+        onConfirm={() => onConfirm(current)}
+        onSelectCandidate={onSelectCandidate}
+        categories={categories}
+        isDarkMode={isDarkMode}
+      />
     </View>
-    {queued.length > 0 && <Text style={[styles.queueLabel, isDarkMode && styles.queueLabelDark]}>
-      Tratando uma movimentação por vez{queued.length > 1 ? ` · mais ${queued.length - 1} na fila` : ''}
-    </Text>}
-    <TransactionPreviewCard
-      intent={current}
-      cardState={entry.cardState}
-      readOnly={!active}
-      onConfirm={() => onConfirm(current)}
-      onSelectCandidate={onSelectCandidate}
-      categories={categories}
-      isDarkMode={isDarkMode}
-    />
-  </View>;
+  );
 }
 
 const styles = StyleSheet.create({
   wrapper: { gap: 4, marginVertical: 8, paddingHorizontal: 12 },
   senderRow: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 28, height: 28, borderRadius: 14, marginRight: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3e8ff' },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3e8ff',
+  },
   sender: { color: '#475569', fontSize: 12, fontWeight: '700' },
   senderDark: { color: '#cbd5e1' },
   timestamp: { marginLeft: 8, color: '#94a3b8', fontSize: 10 },

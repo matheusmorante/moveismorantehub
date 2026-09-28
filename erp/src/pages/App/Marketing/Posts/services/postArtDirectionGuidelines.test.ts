@@ -36,15 +36,23 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
 
     // 1. Direção de Arte Obrigatória presente
     expect(prompt).toContain('DIREÇÃO DE ARTE OBRIGATÓRIA (QUALIDADE PUBLICITÁRIA PREMIUM)');
-    expect(prompt).toContain('Crie uma peça publicitária visualmente rica, profissional e sofisticada');
+    expect(prompt).toContain(
+      'Crie uma peça publicitária visualmente rica, profissional e sofisticada'
+    );
     expect(prompt).toContain('O resultado NÃO deve parecer uma montagem simples de catálogo');
 
     // 2. Separação explícita de conceitos
-    expect(prompt).toContain('AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE');
-    expect(prompt).toContain('Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte');
+    expect(prompt).toContain(
+      'AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE'
+    );
+    expect(prompt).toContain(
+      'Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte'
+    );
 
     // 3. Ambientação inteligente
-    expect(prompt).toContain('Ambientação comercial realista e elegante relacionada ao ambiente de uso do móvel');
+    expect(prompt).toContain(
+      'Ambientação comercial realista e elegante relacionada ao ambiente de uso do móvel'
+    );
     expect(prompt).toContain('Sofá: sala de estar elegante e acolhedora');
 
     // 4. Hierarquia visual comercial
@@ -63,17 +71,27 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
     // 6. Anti-Simplicidade (proibição de montagem simplista de catálogo)
     expect(prompt).toContain('ANTI-SIMPLICIDADE (RESULTADO INSUFICIENTE PROIBIDO):');
     expect(prompt).toContain('Não produza uma composição semelhante a:');
-    expect(prompt).toContain('produto recortado + fundo branco/liso + caixa branca simples + preço');
+    expect(prompt).toContain(
+      'produto recortado + fundo branco/liso + caixa branca simples + preço'
+    );
 
     // 7. Referência de qualidade
     expect(prompt).toContain('REFERÊNCIA DE QUALIDADE:');
-    expect(prompt).toContain('Campanha publicitária premium de varejo de móveis para redes sociais');
+    expect(prompt).toContain(
+      'Campanha publicitária premium de varejo de móveis para redes sociais'
+    );
 
     // 8. Regra Crítica de Grounding Visual (ancoragem como referência direta)
     expect(prompt).toContain('REGRA CRÍTICA — ANCORAGEM OBRIGATÓRIA DAS REFERÊNCIAS VISUAIS');
-    expect(prompt).toContain('As imagens identificadas DEVEM ser efetivamente anexadas e utilizadas como REFERÊNCIAS VISUAIS DIRETAS');
-    expect(prompt).toContain('É expressamente PROIBIDO gerar a arte apenas a partir de uma descrição textual');
-    expect(prompt).toContain('Se o pacote contém um guarda-roupa, uma geração contendo relógio, carteira, sofá ou qualquer outro produto diferente é uma falha crítica');
+    expect(prompt).toContain(
+      'As imagens identificadas DEVEM ser efetivamente anexadas e utilizadas como REFERÊNCIAS VISUAIS DIRETAS'
+    );
+    expect(prompt).toContain(
+      'É expressamente PROIBIDO gerar a arte apenas a partir de uma descrição textual'
+    );
+    expect(prompt).toContain(
+      'Se o pacote contém um guarda-roupa, uma geração contendo relógio, carteira, sofá ou qualquer outro produto diferente é uma falha crítica'
+    );
 
     // 9. Fluxo Contínuo Direto (sem perguntar formato)
     expect(prompt).toContain('FORMATO PADRÃO SOLICITADO: FEED (Aspect Ratio 4:5 — 1080 × 1350)');
@@ -104,7 +122,9 @@ describe('postArtDirectionGuidelines — Direção de Arte Global e Anti-Simplic
     // 2. Conteúdo literal separado da liberdade visual dos ícones
     expect(prompt).toContain('CONTEÚDO LITERAL OBRIGATÓRIO — BENEFÍCIOS DO RODAPÉ');
     expect(prompt).toContain('LIBERDADE VISUAL LIMITADA');
-    expect(prompt).toContain('A IA pode organizar visualmente os itens e desenhar ícones coerentes');
+    expect(prompt).toContain(
+      'A IA pode organizar visualmente os itens e desenhar ícones coerentes'
+    );
 
     // 3. Proibição expressa de clichês, frases genéricas e slogans vazios
     expect(prompt).toContain('TEXTOS, SLOGANS E RÓTULOS GENÉRICOS EXPRESSAMENTE PROIBIDOS:');

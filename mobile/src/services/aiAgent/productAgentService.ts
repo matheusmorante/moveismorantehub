@@ -134,7 +134,8 @@ export async function getMobileProductDetails(
 ): Promise<MobileProductDetailForAgent | null> {
   const target = codigoOuSku.trim();
   if (!target) return null;
-  if (!/^[a-z\d_-]+$/i.test(target)) throw new Error('O código ou SKU do produto contém caracteres inválidos.');
+  if (!/^[a-z\d_-]+$/i.test(target))
+    throw new Error('O código ou SKU do produto contém caracteres inválidos.');
 
   // 1. Consulta pelo código ou SKU do produto pai
   let { data, error } = await supabase
@@ -199,13 +200,23 @@ export async function getMobileProductDetails(
       }
     }
 
-    const varImages = Array.isArray(v.images) && v.images.length > 0
-      ? v.images
-      : v.image_url
-      ? String(v.image_url).split(',').map((s: string) => s.trim()).filter(Boolean)
-      : Array.isArray(data.images) ? data.images : [];
+    const varImages =
+      Array.isArray(v.images) && v.images.length > 0
+        ? v.images
+        : v.image_url
+          ? String(v.image_url)
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : Array.isArray(data.images)
+            ? data.images
+            : [];
 
-    const hasDims = v.height !== undefined || v.width !== undefined || v.depth !== undefined || v.weight !== undefined;
+    const hasDims =
+      v.height !== undefined ||
+      v.width !== undefined ||
+      v.depth !== undefined ||
+      v.weight !== undefined;
 
     return {
       sku: v.sku || '',
@@ -231,8 +242,8 @@ export async function getMobileProductDetails(
   const parentImages = Array.isArray(data.images)
     ? data.images
     : typeof data.images === 'string' && data.images
-    ? [data.images]
-    : [];
+      ? [data.images]
+      : [];
 
   return {
     codigo: parentCode,
@@ -261,13 +272,14 @@ export async function getMobileProductDetails(
       larguraCm: data.width,
       profundidadeCm: data.depth,
       pesoKg: data.weight,
-      embalagem: (data.pkg_height || data.pkg_width || data.pkg_depth)
-        ? {
-            alturaCm: data.pkg_height,
-            larguraCm: data.pkg_width,
-            profundidadeCm: data.pkg_depth,
-          }
-        : undefined,
+      embalagem:
+        data.pkg_height || data.pkg_width || data.pkg_depth
+          ? {
+              alturaCm: data.pkg_height,
+              larguraCm: data.pkg_width,
+              profundidadeCm: data.pkg_depth,
+            }
+          : undefined,
       adicionais: Array.isArray(data.extra_dimensions)
         ? data.extra_dimensions.map((e: any) => ({ rotulo: e.label || e.name, valor: e.value }))
         : undefined,

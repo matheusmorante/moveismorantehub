@@ -54,7 +54,7 @@ export const getSavedSummaryRecord = async (
 
 /** A tela acompanha a versão mais recente produzida pelo servidor para o escopo. */
 export const getLatestSavedSummaryRecord = async (
-  scope: DeliverySummaryRecord['scope'],
+  scope: DeliverySummaryRecord['scope']
 ): Promise<DeliverySummaryRecord | null> => {
   try {
     const { data, error } = await supabase
@@ -64,14 +64,17 @@ export const getLatestSavedSummaryRecord = async (
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    return !error && data ? data as DeliverySummaryRecord : null;
+    return !error && data ? (data as DeliverySummaryRecord) : null;
   } catch {
     return null;
   }
 };
 
 export const saveSummaryRecord = async (
-  record: Partial<DeliverySummaryRecord> & { scope: 'today' | 'tomorrow' | 'next_days' | 'next5days'; data_fingerprint: string }
+  record: Partial<DeliverySummaryRecord> & {
+    scope: 'today' | 'tomorrow' | 'next_days' | 'next5days';
+    data_fingerprint: string;
+  }
 ): Promise<DeliverySummaryRecord> => {
   const fullRecord: DeliverySummaryRecord = {
     id: record.id || `sum_${record.scope}_${record.data_fingerprint}`,

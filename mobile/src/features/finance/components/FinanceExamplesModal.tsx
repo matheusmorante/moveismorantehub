@@ -1,7 +1,18 @@
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
-import { X, Sparkles, Fuel, ArrowDownLeft, FileCheck, Layers, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
+import {
+  X,
+  Sparkles,
+  Fuel,
+  ArrowDownLeft,
+  FileCheck,
+  Layers,
+  Package,
+  Truck,
+  Wrench,
+  RotateCcw,
+} from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -9,20 +20,16 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-export const FinanceExamplesModal: React.FC<Props> = ({
-  visible,
-  onClose,
-  isDarkMode = false,
-}) => {
+export const FinanceExamplesModal: React.FC<Props> = ({ visible, onClose, isDarkMode = false }) => {
   const insets = useSafeAreaInsets();
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.contentCard, isDarkMode && styles.contentCardDark]}>
           {/* Cabeçalho */}
           <View style={styles.header}>
@@ -38,7 +45,8 @@ export const FinanceExamplesModal: React.FC<Props> = ({
           </View>
 
           <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-            Digite naturalmente para consultar informações do ERP ou registrar movimentações financeiras:
+            Digite naturalmente para consultar informações do ERP ou registrar movimentações
+            financeiras:
           </Text>
 
           {/* Lista em Scroll de Exemplos para Leitura */}

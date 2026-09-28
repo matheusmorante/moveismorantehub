@@ -2,7 +2,10 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MapPin, Navigation, User, Clock } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
-import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
+import {
+  openGoogleMapsNavigation,
+  extractNavigationTarget,
+} from '../../../logistics/utils/externalMapsNavigation';
 
 interface Props {
   order: any;

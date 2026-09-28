@@ -57,7 +57,7 @@ describe('Bateria de Comportamento Humano e Linguagem Real (humanLanguageBattery
 
     it('"internet deu 99,90" -> Saída R$ 99,90, Internet', () => {
       const res = processFinancialInput('internet deu 99,90', TODAY);
-      expect(res.draft?.amount).toBe(99.90);
+      expect(res.draft?.amount).toBe(99.9);
       expect(res.draft?.description?.toLowerCase()).toContain('internet');
     });
 

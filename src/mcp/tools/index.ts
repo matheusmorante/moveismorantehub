@@ -23,7 +23,7 @@ export const ALL_MCP_TOOLS = [
 export type McpToolName = (typeof ALL_MCP_TOOLS)[number]['name'];
 
 export function getMcpToolByName(name: string) {
-  return ALL_MCP_TOOLS.find(t => t.name === name);
+  return ALL_MCP_TOOLS.find((t) => t.name === name);
 }
 
 export {

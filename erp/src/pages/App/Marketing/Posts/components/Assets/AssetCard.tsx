@@ -27,9 +27,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, onSelect, onDelete 
         <h4 className="text-xs font-semibold text-slate-100 truncate" title={asset.name}>
           {asset.name}
         </h4>
-        <span className="text-[10px] text-slate-400 block truncate mt-0.5">
-          {asset.category}
-        </span>
+        <span className="text-[10px] text-slate-400 block truncate mt-0.5">{asset.category}</span>
       </div>
 
       <div className="w-full flex items-center gap-1.5 mt-2">

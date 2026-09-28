@@ -13,12 +13,12 @@ export const PostExportModal: React.FC<PostExportModalProps> = ({
   isOpen,
   onClose,
   aspectRatio,
-  productName
+  productName,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
   const [ratioWidth, ratioHeight] = aspectRatio.split(':').map(Number);
-  const outputHeight = Math.round(1080 * ratioHeight / ratioWidth);
+  const outputHeight = Math.round((1080 * ratioHeight) / ratioWidth);
 
   if (!isOpen) return null;
 
@@ -29,10 +29,15 @@ export const PostExportModal: React.FC<PostExportModalProps> = ({
       const element = document.getElementById('marketing-post-canvas');
       if (!element) throw new Error('Selecione um produto antes de exportar.');
       const canvas = await exportPostImage(element);
-      const link = document.createElement('a'); link.download = `${productName.replace(/[^\p{L}\p{N} -]/gu, '').slice(0, 100)}.png`;
-      link.href = canvas.toDataURL('image/png'); link.click(); onClose();
+      const link = document.createElement('a');
+      link.download = `${productName.replace(/[^\p{L}\p{N} -]/gu, '').slice(0, 100)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      onClose();
     } catch (e) {
-      setError('Não foi possível exportar. Verifique se todas as imagens carregaram e permitem exportação.');
+      setError(
+        'Não foi possível exportar. Verifique se todas as imagens carregaram e permitem exportação.'
+      );
     } finally {
       setIsExporting(false);
     }
@@ -58,7 +63,9 @@ export const PostExportModal: React.FC<PostExportModalProps> = ({
           </div>
           <div className="flex justify-between">
             <span>Formato:</span>
-            <strong className="text-indigo-400 font-semibold">{aspectRatio} (Feed Instagram)</strong>
+            <strong className="text-indigo-400 font-semibold">
+              {aspectRatio} (Feed Instagram)
+            </strong>
           </div>
           <div className="flex justify-between">
             <span>Resolução:</span>
@@ -66,7 +73,11 @@ export const PostExportModal: React.FC<PostExportModalProps> = ({
           </div>
         </div>
 
-        {error && <p role="alert" className="text-red-300 text-sm">{error}</p>}
+        {error && (
+          <p role="alert" className="text-red-300 text-sm">
+            {error}
+          </p>
+        )}
         <div className="flex items-center justify-end gap-2 pt-2">
           <button
             onClick={onClose}
@@ -79,7 +90,11 @@ export const PostExportModal: React.FC<PostExportModalProps> = ({
             disabled={isExporting}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2"
           >
-            {isExporting ? <i className="bi bi-arrow-repeat animate-spin"></i> : <i className="bi bi-download"></i>}
+            {isExporting ? (
+              <i className="bi bi-arrow-repeat animate-spin"></i>
+            ) : (
+              <i className="bi bi-download"></i>
+            )}
             Baixar Imagem PNG
           </button>
         </div>

@@ -54,39 +54,63 @@ export function buildCanonicalSummaryPayload(
   rawOrders: any[],
   scope: 'today' | 'tomorrow' | 'next5days'
 ): CanonicalSummaryPayload {
-  const activeOrders = (rawOrders || []).filter((o: any) => o.status !== 'cancelled' && o.status !== 'deleted');
+  const activeOrders = (rawOrders || []).filter(
+    (o: any) => o.status !== 'cancelled' && o.status !== 'deleted'
+  );
 
-  const canonicalOrders: CanonicalOrder[] = activeOrders.map((o: any) => {
-    const oData = o.order_data || {};
-    const shipping = oData.shipping || o.shipping || {};
-    const sched = shipping.scheduling || oData.schedule || {};
-    const custData = oData.customerData || oData.customer || {};
+  const canonicalOrders: CanonicalOrder[] = activeOrders
+    .map((o: any) => {
+      const oData = o.order_data || {};
+      const shipping = oData.shipping || o.shipping || {};
+      const sched = shipping.scheduling || oData.schedule || {};
+      const custData = oData.customerData || oData.customer || {};
 
-    const rawItems = oData.items || o.items || [];
-    const items: CanonicalOrderItem[] = rawItems.map((it: any) => ({
-      name: (it.description || it.name || 'móvel').trim().toLowerCase(),
-      quantity: Number(it.quantity || 1),
-      handlingType: String(it.handlingType || '').trim().toLowerCase(),
-      isAssemblyOutside: String(it.handlingType || '').toLowerCase().includes('montagem fora'),
-    })).sort((a: CanonicalOrderItem, b: CanonicalOrderItem) => a.name.localeCompare(b.name));
+      const rawItems = oData.items || o.items || [];
+      const items: CanonicalOrderItem[] = rawItems
+        .map((it: any) => ({
+          name: (it.description || it.name || 'móvel').trim().toLowerCase(),
+          quantity: Number(it.quantity || 1),
+          handlingType: String(it.handlingType || '')
+            .trim()
+            .toLowerCase(),
+          isAssemblyOutside: String(it.handlingType || '')
+            .toLowerCase()
+            .includes('montagem fora'),
+        }))
+        .sort((a: CanonicalOrderItem, b: CanonicalOrderItem) => a.name.localeCompare(b.name));
 
-    return {
-      id: String(o.id || '').trim(),
-      orderIndex: o.orderIndex || null,
-      customerName: String(custData.name || '').trim().toLowerCase(),
-      city: String(shipping.city || o.city || '').trim().toLowerCase(),
-      neighborhood: String(shipping.neighborhood || '').trim().toLowerCase(),
-      addressText: String(shipping.address || '').trim().toLowerCase(),
-      handlingType: String(oData.handlingType || '').trim().toLowerCase(),
-      scheduledDate: String(sched.scheduleDate || '2026-09-05').split('T')[0],
-      scheduledTime: String(sched.time || '').trim(),
-      period: String(sched.period || '').trim().toLowerCase(),
-      distanceKm: shipping.distanceKm || null,
-      observations: String(oData.observations || '').trim().toLowerCase(),
-      items,
-      notices: [],
-    };
-  }).sort((a: CanonicalOrder, b: CanonicalOrder) => a.id.localeCompare(b.id));
+      return {
+        id: String(o.id || '').trim(),
+        orderIndex: o.orderIndex || null,
+        customerName: String(custData.name || '')
+          .trim()
+          .toLowerCase(),
+        city: String(shipping.city || o.city || '')
+          .trim()
+          .toLowerCase(),
+        neighborhood: String(shipping.neighborhood || '')
+          .trim()
+          .toLowerCase(),
+        addressText: String(shipping.address || '')
+          .trim()
+          .toLowerCase(),
+        handlingType: String(oData.handlingType || '')
+          .trim()
+          .toLowerCase(),
+        scheduledDate: String(sched.scheduleDate || '2026-09-05').split('T')[0],
+        scheduledTime: String(sched.time || '').trim(),
+        period: String(sched.period || '')
+          .trim()
+          .toLowerCase(),
+        distanceKm: shipping.distanceKm || null,
+        observations: String(oData.observations || '')
+          .trim()
+          .toLowerCase(),
+        items,
+        notices: [],
+      };
+    })
+    .sort((a: CanonicalOrder, b: CanonicalOrder) => a.id.localeCompare(b.id));
 
   return {
     scope,
@@ -136,7 +160,7 @@ class FakeGeminiService {
       throw new Error('Fake Gemini Text Failure');
     }
     // Simula pequena latência assíncrona
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     return `Resumo gerado por IA (${this.textCallCount}): Entregas em dia.`;
   }
 
@@ -145,7 +169,7 @@ class FakeGeminiService {
     if (this.shouldFailAudio) {
       throw new Error('Fake TTS Audio Failure');
     }
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     return `audio_url_${this.audioCallCount}.mp3`;
   }
 
@@ -172,7 +196,12 @@ describe('Suíte de Integração e Robustez: Resumos de Entrega IA & Áudio TTS'
     return memoryStore.get(`${scope}_${fingerprint}`) || null;
   };
 
-  const saveTestRecord = async (record: Partial<DeliverySummaryRecord> & { scope: 'today' | 'tomorrow' | 'next5days'; data_fingerprint: string }) => {
+  const saveTestRecord = async (
+    record: Partial<DeliverySummaryRecord> & {
+      scope: 'today' | 'tomorrow' | 'next5days';
+      data_fingerprint: string;
+    }
+  ) => {
     const full: DeliverySummaryRecord = {
       id: record.id || `sum_${record.scope}_${record.data_fingerprint}`,
       scope: record.scope,

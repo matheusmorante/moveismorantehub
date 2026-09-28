@@ -1,6 +1,6 @@
 const OrderPrintStyles = () => {
-    return (
-        <style>{`
+  return (
+    <style>{`
             @media print {
                 @page { margin: 0.5cm; }
                 body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 11px !important; }
@@ -93,7 +93,7 @@ const OrderPrintStyles = () => {
                 .border-slate-200 { border-color: #e2e8f0 !important; }
             }
         `}</style>
-    );
+  );
 };
 
 export default OrderPrintStyles;

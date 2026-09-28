@@ -39,7 +39,7 @@ const CAMPAIGN_ELEMENTS: Array<{ type: ElementType; icon: string }> = [
 const card = (
   model: ElementModel | undefined,
   onEdit: (model: ElementModel) => void,
-  onView: (model: ElementModel) => void,
+  onView: (model: ElementModel) => void
 ) => {
   const imageUrl = model?.generatedAssetUrl || model?.referenceFiles?.[0]?.fileUrl;
   return model ? (
@@ -47,13 +47,17 @@ const card = (
       role="button"
       tabIndex={0}
       onClick={() => onView(model)}
-      onKeyDown={event => {
+      onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') onView(model);
       }}
       className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-750 bg-slate-900 p-2.5 hover:border-slate-600 transition"
     >
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="h-12 w-16 rounded object-contain bg-slate-950 p-0.5" />
+        <img
+          src={imageUrl}
+          alt=""
+          className="h-12 w-16 rounded object-contain bg-slate-950 p-0.5"
+        />
       ) : (
         <div className="flex h-12 w-16 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">
           Sem foto
@@ -69,7 +73,7 @@ const card = (
       </div>
       <button
         type="button"
-        onClick={event => {
+        onClick={(event) => {
           event.stopPropagation();
           onEdit(model);
         }}
@@ -93,7 +97,9 @@ export function CampaignElementsPanel({
   const [open, setOpen] = useState<ElementType | null>(null);
 
   // Contagem restrita aos 3 elementos oficiais
-  const totalConfigured = models.filter(m => CAMPAIGN_ELEMENTS.some(e => e.type === m.elementType)).length;
+  const totalConfigured = models.filter((m) =>
+    CAMPAIGN_ELEMENTS.some((e) => e.type === m.elementType)
+  ).length;
 
   return (
     <aside className="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-lg">
@@ -109,13 +115,13 @@ export function CampaignElementsPanel({
 
       {/* Lista com os 3 Elementos da Campanha */}
       <div className="divide-y divide-slate-800">
-        {CAMPAIGN_ELEMENTS.map(item => renderElementRow(item.type, item.icon))}
+        {CAMPAIGN_ELEMENTS.map((item) => renderElementRow(item.type, item.icon))}
       </div>
     </aside>
   );
 
   function renderElementRow(type: ElementType, icon: string) {
-    const items = models.filter(item => item.elementType === type);
+    const items = models.filter((item) => item.elementType === type);
     const expanded = open === type;
     const isConfigured = items.length > 0;
     const isBadge = type === 'BADGE';
@@ -162,18 +168,24 @@ export function CampaignElementsPanel({
                   <div className="rounded bg-slate-900 border border-slate-800 p-2 mb-2 text-[11px] text-slate-400 flex items-center gap-2">
                     <span>ℹ️</span>
                     <span>
-                      O produto atual não possui oportunidade correspondente vinculada. O selo será omitido do prompt.
+                      O produto atual não possui oportunidade correspondente vinculada. O selo será
+                      omitido do prompt.
                     </span>
                   </div>
                 )}
-                {opportunities.map(opportunity => {
-                  const model = items.find(item => item.opportunityId === opportunity.id);
+                {opportunities.map((opportunity) => {
+                  const model = items.find((item) => item.opportunityId === opportunity.id);
                   return (
-                    <section key={opportunity.id} className="rounded-lg border border-slate-800 p-2.5 bg-slate-900/40">
+                    <section
+                      key={opportunity.id}
+                      className="rounded-lg border border-slate-800 p-2.5 bg-slate-900/40"
+                    >
                       <h3 className="mb-2 text-xs font-bold text-slate-200">{opportunity.name}</h3>
                       {card(model, onEdit, onView) || (
                         <div>
-                          <p className="text-xs text-slate-500">Sem selo configurado para esta oportunidade.</p>
+                          <p className="text-xs text-slate-500">
+                            Sem selo configurado para esta oportunidade.
+                          </p>
                           <button
                             type="button"
                             onClick={() => onCreate('BADGE', opportunity.id)}
@@ -187,14 +199,18 @@ export function CampaignElementsPanel({
                   );
                 })}
                 {!opportunities.length && (
-                  <p className="text-xs text-slate-500">Nenhuma oportunidade ativa cadastrada no ERP.</p>
+                  <p className="text-xs text-slate-500">
+                    Nenhuma oportunidade ativa cadastrada no ERP.
+                  </p>
                 )}
               </div>
             ) : items[0] ? (
               card(items[0], onEdit, onView)
             ) : (
               <div className="space-y-2 py-1">
-                <p className="text-xs text-slate-500">Nenhum prompt configurado para este elemento nesta campanha.</p>
+                <p className="text-xs text-slate-500">
+                  Nenhum prompt configurado para este elemento nesta campanha.
+                </p>
                 <button
                   type="button"
                   onClick={() => onCreate(type)}

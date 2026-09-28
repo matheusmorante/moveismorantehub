@@ -29,7 +29,7 @@ export const getAppSettings = async (): Promise<any | null> => {
       (error) => {
         if (generation === cacheGeneration) appSettingsPromise = null;
         throw error;
-      },
+      }
     );
   appSettingsPromise = request;
 

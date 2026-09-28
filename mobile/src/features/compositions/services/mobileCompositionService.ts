@@ -1,80 +1,101 @@
 import { supabase } from '../../../services/supabaseClient';
-import type { Composition, CompositionVariation, CompositionVariationItem } from '../types/composition.type';
+import type {
+  Composition,
+  CompositionVariation,
+  CompositionVariationItem,
+} from '../types/composition.type';
 
 export const saveComposition = async (
-    composition: Partial<Composition>,
-    variations: Partial<CompositionVariation>[]
+  composition: Partial<Composition>,
+  variations: Partial<CompositionVariation>[]
 ) => {
-    // Upsert Composition
-    const compData = {
-        name: composition.name,
-        sku: composition.sku,
-        description: composition.description,
-        active: composition.active,
-        catalog_published: composition.catalog_published,
-        pricing_mode: composition.pricing_mode,
-        manual_price: composition.manual_price
-    };
+  // Upsert Composition
+  const compData = {
+    name: composition.name,
+    sku: composition.sku,
+    description: composition.description,
+    active: composition.active,
+    catalog_published: composition.catalog_published,
+    pricing_mode: composition.pricing_mode,
+    manual_price: composition.manual_price,
+  };
 
-    let compId = composition.id;
+  let compId = composition.id;
 
-    if (compId) {
-        const { error } = await supabase.from('compositions').update(compData).eq('id', compId);
-        if (error) throw error;
-    } else {
-        const { data, error } = await supabase.from('compositions').insert([compData]).select('id').single();
-        if (error) throw error;
-        compId = data.id;
-    }
+  if (compId) {
+    const { error } = await supabase.from('compositions').update(compData).eq('id', compId);
+    if (error) throw error;
+  } else {
+    const { data, error } = await supabase
+      .from('compositions')
+      .insert([compData])
+      .select('id')
+      .single();
+    if (error) throw error;
+    compId = data.id;
+  }
 
-    // Toda composição possui ao menos uma variação operacional. O pai serve
-    // apenas para agrupamento; itens, estoque e futuras movimentações usam a
-    // variação filha.
-    const variationsToSave = variations.length > 0
-        ? variations
-        : [{
+  // Toda composição possui ao menos uma variação operacional. O pai serve
+  // apenas para agrupamento; itens, estoque e futuras movimentações usam a
+  // variação filha.
+  const variationsToSave =
+    variations.length > 0
+      ? variations
+      : [
+          {
             name: composition.name || 'Padrão',
             sku: composition.sku,
             active: composition.active !== false,
             items: [],
-        }];
+          },
+        ];
 
-    // Upsert das variações
-    for (const v of variationsToSave) {
-        let varId = v.id;
-        const varData = {
-            composition_id: compId,
-            name: v.name || 'Padrão',
-            sku: v.sku || composition.sku,
-            active: v.active !== false
-        };
+  // Upsert das variações
+  for (const v of variationsToSave) {
+    let varId = v.id;
+    const varData = {
+      composition_id: compId,
+      name: v.name || 'Padrão',
+      sku: v.sku || composition.sku,
+      active: v.active !== false,
+    };
 
-        if (varId) {
-            const { error } = await supabase.from('composition_variations').update(varData).eq('id', varId);
-            if (error) throw error;
-        } else {
-            const { data, error } = await supabase.from('composition_variations').insert([varData]).select('id').single();
-            if (error) throw error;
-            varId = data.id;
-        }
-
-        // Delete old items
-        if (varId) {
-            await supabase.from('composition_variation_items').delete().eq('composition_variation_id', varId);
-        }
-
-        // Insert new items
-        if (v.items && v.items.length > 0) {
-            const itemsData = v.items.map(item => ({
-                composition_variation_id: varId,
-                product_id: item.product_id,
-                variation_id: item.variation_id || null,
-                quantity: item.quantity
-            }));
-            const { error } = await supabase.from('composition_variation_items').insert(itemsData);
-            if (error) throw error;
-        }
+    if (varId) {
+      const { error } = await supabase
+        .from('composition_variations')
+        .update(varData)
+        .eq('id', varId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase
+        .from('composition_variations')
+        .insert([varData])
+        .select('id')
+        .single();
+      if (error) throw error;
+      varId = data.id;
     }
 
-    return compId;
+    // Delete old items
+    if (varId) {
+      await supabase
+        .from('composition_variation_items')
+        .delete()
+        .eq('composition_variation_id', varId);
+    }
+
+    // Insert new items
+    if (v.items && v.items.length > 0) {
+      const itemsData = v.items.map((item) => ({
+        composition_variation_id: varId,
+        product_id: item.product_id,
+        variation_id: item.variation_id || null,
+        quantity: item.quantity,
+      }));
+      const { error } = await supabase.from('composition_variation_items').insert(itemsData);
+      if (error) throw error;
+    }
+  }
+
+  return compId;
 };

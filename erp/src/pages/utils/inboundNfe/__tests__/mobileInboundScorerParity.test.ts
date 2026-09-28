@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { SupplierProductSummary } from '../services/inboundSupplierProductContext';
-import { InboundDeterministicScorerContext, rankAndScoreDeterministic } from '../services/inboundDeterministicScorer';
-import { createInboundScorerContext, rankInboundSuggestions } from '../../../../../../mobile/src/features/stock/invoices/utils/inboundDeterministicScorer';
+import {
+  InboundDeterministicScorerContext,
+  rankAndScoreDeterministic,
+} from '../services/inboundDeterministicScorer';
+import {
+  createInboundScorerContext,
+  rankInboundSuggestions,
+} from '../../../../../../mobile/src/features/stock/invoices/utils/inboundDeterministicScorer';
 
 describe('mobile inbound scorer parity with ERP', () => {
   const catalog: SupplierProductSummary[] = [
@@ -20,15 +26,24 @@ describe('mobile inbound scorer parity with ERP', () => {
     },
   ];
 
-  const mobileCatalog = catalog.flatMap((product) => product.variations.length
-    ? product.variations.map((variation) => ({
-      id: variation.id,
-      productId: product.id,
-      variationId: variation.id,
-      name: variation.name,
-      comparisonName: `${product.name} ${variation.name}`,
-    }))
-    : [{ id: product.id, productId: product.id, name: product.name, comparisonName: product.name }]);
+  const mobileCatalog = catalog.flatMap((product) =>
+    product.variations.length
+      ? product.variations.map((variation) => ({
+          id: variation.id,
+          productId: product.id,
+          variationId: variation.id,
+          name: variation.name,
+          comparisonName: `${product.name} ${variation.name}`,
+        }))
+      : [
+          {
+            id: product.id,
+            productId: product.id,
+            name: product.name,
+            comparisonName: product.name,
+          },
+        ]
+  );
 
   const assertParity = (description: string, supplierCode?: string) => {
     const erpContext = new InboundDeterministicScorerContext(catalog);
@@ -36,7 +51,7 @@ describe('mobile inbound scorer parity with ERP', () => {
     const erp = rankAndScoreDeterministic(description, supplierCode, erpContext).topCandidate;
     const mobile = rankInboundSuggestions(description, supplierCode, mobileContext)[0];
     expect(mobile && [mobile.productId, mobile.variationId, mobile.confidence]).toEqual(
-      erp && [erp.productId, erp.variationId, erp.confidence],
+      erp && [erp.productId, erp.variationId, erp.confidence]
     );
   };
 

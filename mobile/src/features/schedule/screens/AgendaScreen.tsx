@@ -1,14 +1,37 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SectionList, ActivityIndicator, RefreshControl, Platform, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SectionList,
+  ActivityIndicator,
+  RefreshControl,
+  Platform,
+  StatusBar,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar as CalendarIcon, Plus, Truck, Package, RefreshCw, ChevronRight, MapPin, Clock, Tag } from 'lucide-react-native';
+import {
+  Calendar as CalendarIcon,
+  Plus,
+  Truck,
+  Package,
+  RefreshCw,
+  ChevronRight,
+  MapPin,
+  Clock,
+  Tag,
+} from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
 import { fetchCalendarEvents, CalendarEvent } from '../../../services/scheduleEventsService';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { getLocalDateString, formatFullAddress } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { getOperationActivityPresentation, getOperationActivityType } from '../utils/operationActivity';
+import {
+  getOperationActivityPresentation,
+  getOperationActivityType,
+} from '../utils/operationActivity';
 
 export type AgendaFilterType = 'all' | 'deliveries' | 'pickups' | 'assemblies' | 'events';
 
@@ -24,7 +47,8 @@ export const AgendaScreen: React.FC<Props> = ({
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
+  const topInset =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
   const [activeFilter, setActiveFilter] = useState<AgendaFilterType>('all');
   const [orders, setOrders] = useState<any[]>([]);
@@ -38,7 +62,9 @@ export const AgendaScreen: React.FC<Props> = ({
       const [{ data: orderData }, eventList] = await Promise.all([
         supabase
           .from('orders')
-          .select('id, status, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, customer_name, order_number, order_index, created_at, order_data')
+          .select(
+            'id, status, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, customer_name, order_number, order_index, created_at, order_data'
+          )
           .or('deleted.is.null,deleted.eq.false')
           .in('status', ['scheduled', 'draft'])
           .order('created_at', { ascending: false }),
@@ -71,33 +97,52 @@ export const AgendaScreen: React.FC<Props> = ({
     const itemsByDate: Record<string, any[]> = {};
 
     // 1. Inserir Pedidos (Entregas / Retiradas / Montagens)
-    orders.forEach(order => {
+    orders.forEach((order) => {
       const orderData = order.order_data || {};
       const shipping = orderData.shipping || order.shipping || {};
       const customer = orderData.customerData || order.customer || {};
       const orderItems = orderData.items || order.items || [];
-      const dDate = getOperationalScheduleDate(order) || order.delivery_date || order.scheduled_date || todayStr;
+      const dDate =
+        getOperationalScheduleDate(order) ||
+        order.delivery_date ||
+        order.scheduled_date ||
+        todayStr;
       if (!itemsByDate[dDate]) itemsByDate[dDate] = [];
 
       const operationType = getOperationActivityType(order);
-      const isPickup = String(shipping.deliveryType || shipping.deliveryMethod || '').toLowerCase().includes('retirada');
-      const isAssembly = orderItems.some((item: { handlingType?: string }) => item.handlingType?.includes('montagem'));
+      const isPickup = String(shipping.deliveryType || shipping.deliveryMethod || '')
+        .toLowerCase()
+        .includes('retirada');
+      const isAssembly = orderItems.some((item: { handlingType?: string }) =>
+        item.handlingType?.includes('montagem')
+      );
 
-      let itemKind = operationType === 'return' ? 'return' : operationType === 'assistance' ? 'assistance' : (isPickup ? 'pickup' : 'delivery');
+      let itemKind =
+        operationType === 'return'
+          ? 'return'
+          : operationType === 'assistance'
+            ? 'assistance'
+            : isPickup
+              ? 'pickup'
+              : 'delivery';
       if (isAssembly) itemKind = 'assembly';
 
       itemsByDate[dDate].push({
         id: `ord_${order.id}`,
         kind: itemKind,
         date: dDate,
-        title: customer.fullName || order.customer_name || order.client_name || `Pedido #${orderData.orderIndex || order.orderIndex || order.order_number}`,
+        title:
+          customer.fullName ||
+          order.customer_name ||
+          order.client_name ||
+          `Pedido #${orderData.orderIndex || order.orderIndex || order.order_number}`,
         subtitle: formatFullAddress(shipping, customer),
         order,
       });
     });
 
     // 2. Inserir Eventos da Agenda (Reuniões, Vistorias, etc.)
-    events.forEach(evt => {
+    events.forEach((evt) => {
       const eDate = evt.date || todayStr;
       if (!itemsByDate[eDate]) itemsByDate[eDate] = [];
 
@@ -113,18 +158,20 @@ export const AgendaScreen: React.FC<Props> = ({
 
     // Filtrar conforme pílula ativa
     const sortedDates = Object.keys(itemsByDate).sort();
-    return sortedDates.map(dateKey => {
-      let list = itemsByDate[dateKey];
-      if (activeFilter === 'deliveries') list = list.filter(i => i.kind === 'delivery');
-      else if (activeFilter === 'pickups') list = list.filter(i => i.kind === 'pickup');
-      else if (activeFilter === 'assemblies') list = list.filter(i => i.kind === 'assembly');
-      else if (activeFilter === 'events') list = list.filter(i => i.kind === 'event');
+    return sortedDates
+      .map((dateKey) => {
+        let list = itemsByDate[dateKey];
+        if (activeFilter === 'deliveries') list = list.filter((i) => i.kind === 'delivery');
+        else if (activeFilter === 'pickups') list = list.filter((i) => i.kind === 'pickup');
+        else if (activeFilter === 'assemblies') list = list.filter((i) => i.kind === 'assembly');
+        else if (activeFilter === 'events') list = list.filter((i) => i.kind === 'event');
 
-      return {
-        title: dateKey === todayStr ? `Hoje (${dateKey})` : dateKey,
-        data: list,
-      };
-    }).filter(sec => sec.data.length > 0);
+        return {
+          title: dateKey === todayStr ? `Hoje (${dateKey})` : dateKey,
+          data: list,
+        };
+      })
+      .filter((sec) => sec.data.length > 0);
   }, [orders, events, activeFilter]);
 
   return (
@@ -155,31 +202,41 @@ export const AgendaScreen: React.FC<Props> = ({
             style={[styles.pillBtn, activeFilter === 'all' && styles.pillBtnActive]}
             onPress={() => setActiveFilter('all')}
           >
-            <Text style={[styles.pillText, activeFilter === 'all' && styles.pillTextActive]}>Todos</Text>
+            <Text style={[styles.pillText, activeFilter === 'all' && styles.pillTextActive]}>
+              Todos
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pillBtn, activeFilter === 'deliveries' && styles.pillBtnActive]}
             onPress={() => setActiveFilter('deliveries')}
           >
-            <Text style={[styles.pillText, activeFilter === 'deliveries' && styles.pillTextActive]}>Entregas</Text>
+            <Text style={[styles.pillText, activeFilter === 'deliveries' && styles.pillTextActive]}>
+              Entregas
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pillBtn, activeFilter === 'pickups' && styles.pillBtnActive]}
             onPress={() => setActiveFilter('pickups')}
           >
-            <Text style={[styles.pillText, activeFilter === 'pickups' && styles.pillTextActive]}>Retiradas</Text>
+            <Text style={[styles.pillText, activeFilter === 'pickups' && styles.pillTextActive]}>
+              Retiradas
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pillBtn, activeFilter === 'assemblies' && styles.pillBtnActive]}
             onPress={() => setActiveFilter('assemblies')}
           >
-            <Text style={[styles.pillText, activeFilter === 'assemblies' && styles.pillTextActive]}>Montagens</Text>
+            <Text style={[styles.pillText, activeFilter === 'assemblies' && styles.pillTextActive]}>
+              Montagens
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pillBtn, activeFilter === 'events' && styles.pillBtnActive]}
             onPress={() => setActiveFilter('events')}
           >
-            <Text style={[styles.pillText, activeFilter === 'events' && styles.pillTextActive]}>Eventos</Text>
+            <Text style={[styles.pillText, activeFilter === 'events' && styles.pillTextActive]}>
+              Eventos
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -188,14 +245,18 @@ export const AgendaScreen: React.FC<Props> = ({
       {loading ? (
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={[styles.loadingText, isDarkMode && styles.subtitleDark]}>Carregando agenda...</Text>
+          <Text style={[styles.loadingText, isDarkMode && styles.subtitleDark]}>
+            Carregando agenda...
+          </Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
+          }
           renderSectionHeader={({ section: { title } }) => (
             <View style={[styles.sectionHeader, isDarkMode && styles.sectionHeaderDark]}>
               <CalendarIcon size={14} color="#2563eb" />
@@ -211,9 +272,26 @@ export const AgendaScreen: React.FC<Props> = ({
                 activeOpacity={isOrder ? 0.7 : 1}
               >
                 <View style={styles.itemBadgeCol}>
-                  {item.kind === 'delivery' || item.kind === 'assistance' || item.kind === 'return' ? (
-                    <View style={[styles.kindBadge, { backgroundColor: getOperationActivityPresentation(item.order).backgroundColor }]}>
-                      <Text style={[styles.operationLabel, { color: getOperationActivityPresentation(item.order).color }]}>{getOperationActivityPresentation(item.order).label}</Text>
+                  {item.kind === 'delivery' ||
+                  item.kind === 'assistance' ||
+                  item.kind === 'return' ? (
+                    <View
+                      style={[
+                        styles.kindBadge,
+                        {
+                          backgroundColor: getOperationActivityPresentation(item.order)
+                            .backgroundColor,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.operationLabel,
+                          { color: getOperationActivityPresentation(item.order).color },
+                        ]}
+                      >
+                        {getOperationActivityPresentation(item.order).label}
+                      </Text>
                     </View>
                   ) : item.kind === 'pickup' ? (
                     <View style={[styles.kindBadge, { backgroundColor: '#f3e8ff' }]}>
@@ -231,11 +309,17 @@ export const AgendaScreen: React.FC<Props> = ({
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>{item.title}</Text>
-                  <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>{item.subtitle}</Text>
+                  <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>
+                    {item.subtitle}
+                  </Text>
                 </View>
 
-                {isOrder ? <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} /> : null}
+                {isOrder ? (
+                  <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                ) : null}
               </TouchableOpacity>
             );
           }}

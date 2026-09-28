@@ -19,7 +19,9 @@ export const CardInstallmentList: React.FC<Props> = ({
   if (installmentItems.length === 0) return null;
 
   const hasManyInstallments = installmentItems.length > 12;
-  const displayedInstallments = expandedInstallments ? installmentItems : installmentItems.slice(0, 12);
+  const displayedInstallments = expandedInstallments
+    ? installmentItems
+    : installmentItems.slice(0, 12);
 
   return (
     <View style={styles.installmentsBlock}>
@@ -44,9 +46,15 @@ export const CardInstallmentList: React.FC<Props> = ({
           activeOpacity={0.7}
         >
           <Text style={styles.expandBtnText}>
-            {expandedInstallments ? 'Recolher parcelas' : `Ver todas as ${installmentItems.length} parcelas`}
+            {expandedInstallments
+              ? 'Recolher parcelas'
+              : `Ver todas as ${installmentItems.length} parcelas`}
           </Text>
-          {expandedInstallments ? <ChevronUp size={14} color="#3b82f6" /> : <ChevronDown size={14} color="#3b82f6" />}
+          {expandedInstallments ? (
+            <ChevronUp size={14} color="#3b82f6" />
+          ) : (
+            <ChevronDown size={14} color="#3b82f6" />
+          )}
         </TouchableOpacity>
       ) : null}
     </View>

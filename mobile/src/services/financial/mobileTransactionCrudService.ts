@@ -33,20 +33,20 @@ export const fetchTransactionsForMonth = async (
     query = query.eq('created_by', filters.createdBy);
   }
 
-  const [categories, { data, error }] = await Promise.all([
-    fetchFinancialCategories(),
-    query,
-  ]);
+  const [categories, { data, error }] = await Promise.all([fetchFinancialCategories(), query]);
 
   if (error) {
     console.warn('Erro ao consultar transações:', error.message);
     return [];
   }
 
-  const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
   let list: FinancialTransaction[] = (data || []).map((row: any) => {
-    const catName = (row.category_id && categoryMap.get(row.category_id)) || row.category_name || 'Despesa não classificada';
+    const catName =
+      (row.category_id && categoryMap.get(row.category_id)) ||
+      row.category_name ||
+      'Despesa não classificada';
     return {
       id: row.id,
       type: row.type,
@@ -76,7 +76,7 @@ export const fetchTransactionsForMonth = async (
   if (filters?.searchQuery && filters.searchQuery.trim()) {
     const q = filters.searchQuery.toLowerCase().trim();
     list = list.filter(
-      t =>
+      (t) =>
         t.description.toLowerCase().includes(q) ||
         (t.category_name && t.category_name.toLowerCase().includes(q)) ||
         (t.counterparty && t.counterparty.toLowerCase().includes(q)) ||
@@ -103,7 +103,8 @@ export const createFinancialTransaction = async (
     return { success: false, error: 'A descrição da movimentação é obrigatória.' };
   }
 
-  const resultNature = payload.result_nature || determineResultNature(payload.category_name, payload.type);
+  const resultNature =
+    payload.result_nature || determineResultNature(payload.category_name, payload.type);
 
   const fullRecord: any = {
     type: payload.type,
@@ -143,7 +144,8 @@ export const createFinancialTransaction = async (
       description: fullRecord.description,
       payment_method: fullRecord.payment_method,
       category_id: fullRecord.category_id,
-      notes: fullRecord.notes || (fullRecord.category_name ? `[${fullRecord.category_name}]` : null),
+      notes:
+        fullRecord.notes || (fullRecord.category_name ? `[${fullRecord.category_name}]` : null),
     };
     if (fullRecord.idempotency_key) {
       basicRecord.idempotency_key = fullRecord.idempotency_key;
@@ -230,16 +232,10 @@ export const updateFinancialTransaction = async (
     collaborator_name: payload.collaborator_name || null,
   };
 
-  let updateRes = await supabase
-    .from('financial_transactions')
-    .update(fullUpdate)
-    .eq('id', id);
+  let updateRes = await supabase.from('financial_transactions').update(fullUpdate).eq('id', id);
 
   if (updateRes.error && updateRes.error.message?.includes('column')) {
-    updateRes = await supabase
-      .from('financial_transactions')
-      .update(updatePayload)
-      .eq('id', id);
+    updateRes = await supabase.from('financial_transactions').update(updatePayload).eq('id', id);
   }
 
   return updateRes.error ? { success: false, error: updateRes.error.message } : { success: true };
@@ -248,10 +244,7 @@ export const updateFinancialTransaction = async (
 export const deleteFinancialTransaction = async (
   id: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
-    .from('financial_transactions')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.from('financial_transactions').delete().eq('id', id);
 
   return error ? { success: false, error: error.message } : { success: true };
 };

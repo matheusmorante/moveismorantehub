@@ -32,7 +32,10 @@ export function getRegisteredTokens(): Map<string, { clientId: McpClientId; clie
   }
 
   if (antigravityToken && antigravityToken.length >= 16) {
-    tokenMap.set(antigravityToken, { clientId: 'antigravity', clientName: 'Google Antigravity IDE' });
+    tokenMap.set(antigravityToken, {
+      clientId: 'antigravity',
+      clientName: 'Google Antigravity IDE',
+    });
   }
 
   return tokenMap;
@@ -41,7 +44,12 @@ export function getRegisteredTokens(): Map<string, { clientId: McpClientId; clie
 export function getAllowedClients(): Set<string> {
   const customAllowed = process.env.MCP_ALLOWED_CLIENTS?.trim();
   if (customAllowed) {
-    return new Set(customAllowed.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+    return new Set(
+      customAllowed
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    );
   }
   return new Set(['chatgpt', 'antigravity', 'internal']);
 }
@@ -50,9 +58,15 @@ export function getAllowedClients(): Set<string> {
  * Valida a autenticação do cliente MCP.
  * Aceita Bearer token no cabeçalho Authorization ou query/raw token.
  */
-export function validateMcpAuth(rawHeaderOrToken?: string, requestedClientId?: string): McpClientAuth {
+export function validateMcpAuth(
+  rawHeaderOrToken?: string,
+  requestedClientId?: string
+): McpClientAuth {
   if (!rawHeaderOrToken || typeof rawHeaderOrToken !== 'string') {
-    throw new McpAuthError('Acesso não autorizado: Token de autenticação Bearer ausente.', 'UNAUTHORIZED');
+    throw new McpAuthError(
+      'Acesso não autorizado: Token de autenticação Bearer ausente.',
+      'UNAUTHORIZED'
+    );
   }
 
   let token = rawHeaderOrToken.trim();
@@ -68,17 +82,26 @@ export function validateMcpAuth(rawHeaderOrToken?: string, requestedClientId?: s
 
   // Se nenhum token foi configurado no ambiente, emite erro seguro
   if (registeredTokens.size === 0) {
-    throw new McpAuthError('Servidor MCP não configurado com credenciais de acesso válidas.', 'UNAUTHORIZED');
+    throw new McpAuthError(
+      'Servidor MCP não configurado com credenciais de acesso válidas.',
+      'UNAUTHORIZED'
+    );
   }
 
   const clientInfo = registeredTokens.get(token);
   if (!clientInfo) {
-    throw new McpAuthError('Acesso não autorizado: Credencial de acesso MCP inválida ou revogada.', 'UNAUTHORIZED');
+    throw new McpAuthError(
+      'Acesso não autorizado: Credencial de acesso MCP inválida ou revogada.',
+      'UNAUTHORIZED'
+    );
   }
 
   const allowedClients = getAllowedClients();
   if (!allowedClients.has(clientInfo.clientId.toLowerCase())) {
-    throw new McpAuthError(`Acesso proibido: O cliente "${clientInfo.clientId}" está desabilitado na allowlist.`, 'FORBIDDEN');
+    throw new McpAuthError(
+      `Acesso proibido: O cliente "${clientInfo.clientId}" está desabilitado na allowlist.`,
+      'FORBIDDEN'
+    );
   }
 
   return {

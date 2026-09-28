@@ -1,207 +1,219 @@
-import { calcPaymentsSummary, calcItemsSummary } from "./calculations";
+import { calcPaymentsSummary, calcItemsSummary } from './calculations';
 import { getSettings } from '@/pages/utils/settingsService';
-import CustomerData from "../types/customerData.type";
-import { Item } from "../types/items.type"
-import { Payment } from "../types/payments.type";
-import Shipping from "../types/Shipping.type";
-import Order from "../types/order.type";
+import CustomerData from '../types/customerData.type';
+import { Item } from '../types/items.type';
+import { Payment } from '../types/payments.type';
+import Shipping from '../types/Shipping.type';
+import Order from '../types/order.type';
 
 export type ValidationErrors = Record<string, string>;
 
-export const validateItems = (items: Item[], isBudget: boolean = false, isReturn: boolean = false): ValidationErrors => {
-    const errors: ValidationErrors = {};
-    if (!items || !Array.isArray(items)) return errors;
-    const hideHandling = isBudget || isReturn;
-    items.forEach((item, idx) => {
-        if (!item) return;
-        if (!item.description || item.description.trim() === "") {
-            errors[`item_${idx}_description`] = "A descricao do item e obrigatoria.";
-        }
-        const isService = item.itemType === 'service';
-        if (!hideHandling && !isService && (!item.handlingType || item.handlingType.trim() === "")) {
-            errors[`item_${idx}_handlingType`] = "O manuseio do item e obrigatorio.";
-        }
-    });
-    return errors;
-}
+export const validateItems = (
+  items: Item[],
+  isBudget: boolean = false,
+  isReturn: boolean = false
+): ValidationErrors => {
+  const errors: ValidationErrors = {};
+  if (!items || !Array.isArray(items)) return errors;
+  const hideHandling = isBudget || isReturn;
+  items.forEach((item, idx) => {
+    if (!item) return;
+    if (!item.description || item.description.trim() === '') {
+      errors[`item_${idx}_description`] = 'A descricao do item e obrigatoria.';
+    }
+    const isService = item.itemType === 'service';
+    if (!hideHandling && !isService && (!item.handlingType || item.handlingType.trim() === '')) {
+      errors[`item_${idx}_handlingType`] = 'O manuseio do item e obrigatorio.';
+    }
+  });
+  return errors;
+};
 
 export const validatePayments = (
-    payments: Payment[],
-    amountRemaining: number
+  payments: Payment[],
+  amountRemaining: number
 ): ValidationErrors => {
-    const errors: ValidationErrors = {};
-    if (!payments || !Array.isArray(payments)) return errors;
+  const errors: ValidationErrors = {};
+  if (!payments || !Array.isArray(payments)) return errors;
 
-    payments.forEach((payment, idx) => {
-        if (!payment) return;
-        if (!payment.status) {
-            errors[`payment_${idx}_status`] = "O status do pagamento é obrigatório.";
-        }
-    });
-
-    if (!payments || payments.length === 0) {
-        errors['payments_summary'] = "Informe ao menos uma forma de pagamento.";
-    } else if (Math.abs(amountRemaining) > 0.01) {
-        if (amountRemaining > 0) {
-            errors['payments_summary'] = `Ainda há R$ ${amountRemaining.toFixed(2).replace('.', ',')} a ser declarado.`;
-        } else {
-            errors['payments_summary'] = `O valor pago ultrapassou o total em R$ ${Math.abs(amountRemaining).toFixed(2).replace('.', ',')}.`;
-        }
+  payments.forEach((payment, idx) => {
+    if (!payment) return;
+    if (!payment.status) {
+      errors[`payment_${idx}_status`] = 'O status do pagamento é obrigatório.';
     }
+  });
 
-    return errors;
-}
+  if (!payments || payments.length === 0) {
+    errors['payments_summary'] = 'Informe ao menos uma forma de pagamento.';
+  } else if (Math.abs(amountRemaining) > 0.01) {
+    if (amountRemaining > 0) {
+      errors['payments_summary'] =
+        `Ainda há R$ ${amountRemaining.toFixed(2).replace('.', ',')} a ser declarado.`;
+    } else {
+      errors['payments_summary'] =
+        `O valor pago ultrapassou o total em R$ ${Math.abs(amountRemaining).toFixed(2).replace('.', ',')}.`;
+    }
+  }
+
+  return errors;
+};
 
 export { validateCustomerData, validateShipping } from './customerShippingValidation';
 import { validateCustomerData, validateShipping } from './customerShippingValidation';
 
 export const validateSeller = (seller: Order['seller']): ValidationErrors => {
-    const errors: ValidationErrors = {};
-    // Seller is always mandatory now, ignoring settings toggle as per request
-    if (!seller) {
-        errors['seller'] = "Selecione o atendente responsável.";
-    }
-    return errors;
-}
+  const errors: ValidationErrors = {};
+  // Seller is always mandatory now, ignoring settings toggle as per request
+  if (!seller) {
+    errors['seller'] = 'Selecione o atendente responsável.';
+  }
+  return errors;
+};
 
 export const validateOrder = (order: Order): ValidationErrors => {
-    if (!order) return { order: "Pedido não encontrado." };
+  if (!order) return { order: 'Pedido não encontrado.' };
 
-    const isDraft = order.status === 'draft';
-    const isAssistance = order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
-    const isPickup = order.shipping?.deliveryMethod === 'pickup';
-    const isBudget = order.orderType === 'budget';
+  const isDraft = order.status === 'draft';
+  const isAssistance =
+    order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
+  const isPickup = order.shipping?.deliveryMethod === 'pickup';
+  const isBudget = order.orderType === 'budget';
 
-    // Filter out genuinely empty items (no productId and no description)
-    const validItems = (order.items || []).filter(item => item.productId || item.description);
-    const items = validItems;
+  // Filter out genuinely empty items (no productId and no description)
+  const validItems = (order.items || []).filter((item) => item.productId || item.description);
+  const items = validItems;
 
-    const payments = order.payments || [];
-    const shippingValue = order.shipping?.value || 0;
-    const itemsSummary = calcItemsSummary(items);
-    
-    // For assistance orders, we must include the service value in the total to validate payments correctly
-    let effectiveItemsTotalValue = itemsSummary.itemsTotalValue;
-    if (order.orderType === 'assistance' && order.assistanceServiceValue) {
-        effectiveItemsTotalValue += order.assistanceServiceValue;
+  const payments = order.payments || [];
+  const shippingValue = order.shipping?.value || 0;
+  const itemsSummary = calcItemsSummary(items);
+
+  // For assistance orders, we must include the service value in the total to validate payments correctly
+  let effectiveItemsTotalValue = itemsSummary.itemsTotalValue;
+  if (order.orderType === 'assistance' && order.assistanceServiceValue) {
+    effectiveItemsTotalValue += order.assistanceServiceValue;
+  }
+
+  const { amountRemaining } = calcPaymentsSummary(
+    payments,
+    { ...itemsSummary, itemsTotalValue: effectiveItemsTotalValue },
+    shippingValue
+  );
+
+  const isReturn = order.orderType === 'return';
+
+  const errors: ValidationErrors = {
+    ...validateItems(items, isBudget, isReturn),
+    ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
+    ...validateSeller(order.seller),
+  };
+
+  // If it's not a draft and not a budget, we require full validation
+  if (!isDraft && !isBudget) {
+    Object.assign(errors, {
+      ...validateShipping(order.shipping, order.customerData, isBudget),
+      ...validatePayments(payments, amountRemaining),
+    });
+  } else if (!isDraft && isBudget) {
+    Object.assign(errors, {
+      ...validateShipping(order.shipping, order.customerData, isBudget),
+    });
+  }
+
+  // Items presence validation (required for both non-draft sales and non-draft budgets)
+  if (!isDraft) {
+    const hasRegularItems = items.length > 0;
+    const hasAssistanceItems = order.assistanceItems && order.assistanceItems.length > 0;
+
+    if (!hasRegularItems && !hasAssistanceItems) {
+      if (isAssistance) {
+        errors['items_summary'] = 'O pedido de assistência deve conter pelo menos um item.';
+      } else {
+        errors['items_summary'] = 'O pedido/orçamento deve conter pelo menos um produto.';
+      }
     }
+  }
 
-    const { amountRemaining } = calcPaymentsSummary(
-        payments,
-        { ...itemsSummary, itemsTotalValue: effectiveItemsTotalValue },
-        shippingValue
-    );
+  if (isBudget && order.shipping?.deliveryMethod === 'delivery') {
+    // Address requirements removed for budgets
+  }
 
-    const isReturn = order.orderType === 'return';
+  // Order Date is always important but for draft we could potentially skip it if we auto-fill,
+  // but here let's keep it as is or fill it in the service.
+  if (!order.date || order.date.trim() === '') {
+    errors['order_date'] = 'A data do pedido é obrigatória.';
+  }
 
-    const errors: ValidationErrors = {
-        ...validateItems(items, isBudget, isReturn),
-        ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
-        ...validateSeller(order.seller)
-    };
-
-    // If it's not a draft and not a budget, we require full validation
-    if (!isDraft && !isBudget) {
-        Object.assign(errors, {
-            ...validateShipping(order.shipping, order.customerData, isBudget),
-            ...validatePayments(payments, amountRemaining)
-        });
-    } else if (!isDraft && isBudget) {
-        Object.assign(errors, {
-            ...validateShipping(order.shipping, order.customerData, isBudget)
-        });
-    }
-
-    // Items presence validation (required for both non-draft sales and non-draft budgets)
-    if (!isDraft) {
-        const hasRegularItems = items.length > 0;
-        const hasAssistanceItems = order.assistanceItems && order.assistanceItems.length > 0;
-        
-        if (!hasRegularItems && !hasAssistanceItems) {
-            if (isAssistance) {
-                errors['items_summary'] = "O pedido de assistência deve conter pelo menos um item.";
-            } else {
-                errors['items_summary'] = "O pedido/orçamento deve conter pelo menos um produto.";
-            }
-        }
-    }
-
-    if (isBudget && order.shipping?.deliveryMethod === 'delivery') {
-        // Address requirements removed for budgets
-    }
-
-    // Order Date is always important but for draft we could potentially skip it if we auto-fill, 
-    // but here let's keep it as is or fill it in the service.
-    if (!order.date || order.date.trim() === '') {
-        errors['order_date'] = "A data do pedido é obrigatória.";
-    }
-
-    return errors;
-}
+  return errors;
+};
 
 // Keeping legacy validateBase for compatibility if needed, but updated to use new logic
 export const validateBase = (order: Order) => {
-    const errors = validateOrder(order);
-    return Object.keys(errors).length === 0;
-}
+  const errors = validateOrder(order);
+  return Object.keys(errors).length === 0;
+};
 
 export const validateAssistanceOrder = (order: Order): ValidationErrors => {
-    const errors: ValidationErrors = {};
+  const errors: ValidationErrors = {};
 
-    if (order.status === 'draft') return errors;
+  if (order.status === 'draft') return errors;
 
-    const { requiredFields } = getSettings();
+  const { requiredFields } = getSettings();
 
-    if (!order.customerData?.fullName && requiredFields.assistanceOrder?.customer) {
-        errors['customer_fullName'] = "Nome do cliente é obrigatório.";
-    }
+  if (!order.customerData?.fullName && requiredFields.assistanceOrder?.customer) {
+    errors['customer_fullName'] = 'Nome do cliente é obrigatório.';
+  }
 
-    if (requiredFields.customer?.phone && (!order.customerData?.phone || !order.customerData.phone.trim())) {
-        errors['customer_phone'] = "Telefone é obrigatório.";
-    }
+  if (
+    requiredFields.customer?.phone &&
+    (!order.customerData?.phone || !order.customerData.phone.trim())
+  ) {
+    errors['customer_phone'] = 'Telefone é obrigatório.';
+  }
 
-    if (!order.assistanceDescription) {
-        errors['assistanceDescription'] = "Descrição do serviço é obrigatória.";
-    }
+  if (!order.assistanceDescription) {
+    errors['assistanceDescription'] = 'Descrição do serviço é obrigatória.';
+  }
 
-    if (!order.seller && requiredFields.assistanceOrder?.seller) {
-        errors['seller'] = "Vendedor é obrigatório.";
-    }
+  if (!order.seller && requiredFields.assistanceOrder?.seller) {
+    errors['seller'] = 'Vendedor é obrigatório.';
+  }
 
-    if (order.scheduledDate || order.scheduledTime) {
-        if (!order.scheduledDate) errors['shipping_date'] = "Data é obrigatória.";
-        if (!order.scheduledTime) errors['shipping_time'] = "Horário é obrigatório.";
-    }
+  if (order.scheduledDate || order.scheduledTime) {
+    if (!order.scheduledDate) errors['shipping_date'] = 'Data é obrigatória.';
+    if (!order.scheduledTime) errors['shipping_time'] = 'Horário é obrigatório.';
+  }
 
-    // Check for items in assistance too
-    const hasRegularItems = (order.items || []).some(item => !!item.productId);
-    const hasAssistanceItems = (order.assistanceItems || []).length > 0;
-    if (!hasRegularItems && !hasAssistanceItems) {
-        errors['items_summary'] = "Selecione pelo menos um item do pedido original ou adicione uma peça/serviço avulso.";
-    }
+  // Check for items in assistance too
+  const hasRegularItems = (order.items || []).some((item) => !!item.productId);
+  const hasAssistanceItems = (order.assistanceItems || []).length > 0;
+  if (!hasRegularItems && !hasAssistanceItems) {
+    errors['items_summary'] =
+      'Selecione pelo menos um item do pedido original ou adicione uma peça/serviço avulso.';
+  }
 
-    return errors;
+  return errors;
 };
 
 export const isOrderIncomplete = (order: Order) => {
-    if (!order) return true;
-    // Assistance orders have different required fields. 
-    // We check either the explicit type or the presence of assistance items as a fallback.
-    const isAssistance = order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
-    
-    if (isAssistance) {
-        return Object.keys(validateAssistanceOrder(order)).length > 0;
-    }
-    // All other order types use the full validation
-    return !validateBase(order);
+  if (!order) return true;
+  // Assistance orders have different required fields.
+  // We check either the explicit type or the presence of assistance items as a fallback.
+  const isAssistance =
+    order.orderType === 'assistance' || (order.assistanceItems && order.assistanceItems.length > 0);
+
+  if (isAssistance) {
+    return Object.keys(validateAssistanceOrder(order)).length > 0;
+  }
+  // All other order types use the full validation
+  return !validateBase(order);
 };
 
 export const validateReviews = (order: Order): ValidationErrors => {
-    const errors: ValidationErrors = {};
-    if (!order || !order.customerData) return { order: "Dados insuficientes." };
+  const errors: ValidationErrors = {};
+  if (!order || !order.customerData) return { order: 'Dados insuficientes.' };
 
-    if (!order.customerData.fullName) {
-        errors['customer_fullName'] = "Nome completo é obrigatório para o pedido de avaliação.";
-    }
-    return errors;
-}
+  if (!order.customerData.fullName) {
+    errors['customer_fullName'] = 'Nome completo é obrigatório para o pedido de avaliação.';
+  }
+  return errors;
+};

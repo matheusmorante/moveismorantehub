@@ -3,11 +3,22 @@ import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { getLocationMapsUrl, parseCoordinatesFromMapsUrl, isCancelledOrder, formatOrderCode } from '../../../utils/orderUtils';
-import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../../orders/utils/deliveryAutoFulfillment';
+import {
+  getLocationMapsUrl,
+  parseCoordinatesFromMapsUrl,
+  isCancelledOrder,
+  formatOrderCode,
+} from '../../../utils/orderUtils';
+import {
+  hasDeliveryExceeded12Hours,
+  autoFulfillOrderIfExceeded12Hours,
+} from '../../orders/utils/deliveryAutoFulfillment';
 import { getDeliverySchedulePeriod } from '../utils/deliverySchedulePeriod';
 import { countDeliveryObservations } from '../utils/countDeliveryObservations';
-import { getOperationActivityPresentation, type OperationActivityType } from '../../schedule/utils/operationActivity';
+import {
+  getOperationActivityPresentation,
+  type OperationActivityType,
+} from '../../schedule/utils/operationActivity';
 export { checkOutOfOrderRisk } from '../utils/deliveryRouteRisk';
 
 export interface DeliveryRouteItem {
@@ -130,7 +141,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       const isAutoFulfilled = hasDeliveryExceeded12Hours(o);
       const dStatus = isAutoFulfilled
         ? 'completed'
-        : (o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending'));
+        : o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
       if (dStatus === 'in_progress' || dStatus === 'in_service') {
         if (!firstInProgressId) firstInProgressId = o.id;
       } else if (dStatus !== 'completed' && dStatus !== 'unattended') {
@@ -141,10 +152,16 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
     const activeTargetId = firstInProgressId || firstPendingId;
 
     // Encontra o ID da primeira parada pendente na sequência sugerida
-    const topPendingItem = sorted.find(o => {
+    const topPendingItem = sorted.find((o) => {
       if (hasDeliveryExceeded12Hours(o)) return false;
-      const dStatus = o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
-      return dStatus !== 'completed' && dStatus !== 'unattended' && dStatus !== 'in_progress' && dStatus !== 'in_service';
+      const dStatus =
+        o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
+      return (
+        dStatus !== 'completed' &&
+        dStatus !== 'unattended' &&
+        dStatus !== 'in_progress' &&
+        dStatus !== 'in_service'
+      );
     });
     const topPendingId = topPendingItem?.id;
 
@@ -168,7 +185,13 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       }
 
       // 2º Se não encontrou na URL, utiliza as coordenadas salvas em destinationCoords
-      if (!hasValidCoords && Array.isArray(dCoords) && dCoords.length === 2 && dCoords[0] !== 0 && dCoords[1] !== 0) {
+      if (
+        !hasValidCoords &&
+        Array.isArray(dCoords) &&
+        dCoords.length === 2 &&
+        dCoords[0] !== 0 &&
+        dCoords[1] !== 0
+      ) {
         coords = { latitude: Number(dCoords[1]), longitude: Number(dCoords[0]) };
         hasValidCoords = true;
       }
@@ -176,7 +199,12 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       const isAutoFulfilled = hasDeliveryExceeded12Hours(o);
       const rawDeliveryStatus = isAutoFulfilled ? 'completed' : oData.deliveryStatus;
       let status: DeliveryRouteItem['status'] = 'pending';
-      if (isAutoFulfilled || o.status === 'fulfilled' || rawDeliveryStatus === 'completed' || rawDeliveryStatus === 'fulfilled') {
+      if (
+        isAutoFulfilled ||
+        o.status === 'fulfilled' ||
+        rawDeliveryStatus === 'completed' ||
+        rawDeliveryStatus === 'fulfilled'
+      ) {
         status = 'completed';
       } else if (rawDeliveryStatus === 'unattended') {
         status = 'unattended';
@@ -188,13 +216,14 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
 
       const items = oData.items || o.items || oData.assistanceItems || [];
       const itemCount = Array.isArray(items) ? items.length : 0;
-      const observation = oData.observation ?? oData.observations ?? o.observation ?? o.observations;
+      const observation =
+        oData.observation ?? oData.observations ?? o.observation ?? o.observations;
       const deliveryAddressObservation = shipping.deliveryAddress?.observation;
-      const isCurrent = (status === 'in_progress' || status === 'in_service');
+      const isCurrent = status === 'in_progress' || status === 'in_service';
       const isNext = !firstInProgressId && o.id === activeTargetId;
 
       const periodInfo = getDeliverySchedulePeriod(shipping);
-      const isSuggestedFirst = (o.id === topPendingId);
+      const isSuggestedFirst = o.id === topPendingId;
       const activity = getOperationActivityPresentation(o);
 
       let restrictionLevel: DeliveryRouteItem['restrictionLevel'] = 'free';
@@ -214,7 +243,9 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
           shipping.deliveryAddress?.number || customer.fullAddress?.number,
           shipping.deliveryAddress?.neighborhood || customer.fullAddress?.neighborhood,
           shipping.deliveryAddress?.city || customer.fullAddress?.city || 'Colombo',
-        ].filter(Boolean).join(', '),
+        ]
+          .filter(Boolean)
+          .join(', '),
         mapsUrl,
         itemsCount: itemCount,
         sequence: idx + 1, // Ordem do Roteiro
@@ -286,4 +317,3 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
     onRefresh,
   };
 }
-

@@ -27,10 +27,14 @@ export class ReportFormatter {
       lines.push(`  Argumentos Esperados: ${JSON.stringify(result.expected.expectedArgs)}`);
     }
     if (result.expected.mustAskUser) {
-      lines.push(`  Deve Perguntar ao Usuário: SIM (Termos: ${result.expected.questionKeywords?.join(', ') || 'qualquer'})`);
+      lines.push(
+        `  Deve Perguntar ao Usuário: SIM (Termos: ${result.expected.questionKeywords?.join(', ') || 'qualquer'})`
+      );
     }
     if (result.expected.prohibitedInferences) {
-      lines.push(`  Inferências Proibidas (Alucinações): [${result.expected.prohibitedInferences.join(', ')}]`);
+      lines.push(
+        `  Inferências Proibidas (Alucinações): [${result.expected.prohibitedInferences.join(', ')}]`
+      );
     }
     lines.push('----------------------------------------------------------------------');
     lines.push('RECEBIDO:');

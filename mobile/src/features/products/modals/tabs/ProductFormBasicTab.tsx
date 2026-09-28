@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
 import { fetchMobileCategories, MobileCategory } from '../../services/mobileCategoryService';
-import { fetchMobileOpportunities, MobileOpportunity } from '../../services/mobileOpportunityService';
+import {
+  fetchMobileOpportunities,
+  MobileOpportunity,
+} from '../../services/mobileOpportunityService';
 import { OpportunitySelectModal } from '../components/OpportunitySelectModal';
 import { CategoryMultiSelectList } from '../components/CategoryMultiSelectList';
 import { CategoriesManagerModal } from '../CategoriesManagerModal';
@@ -43,13 +39,13 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
   const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(
     Boolean(formData.title && formData.title !== formData.name) ||
-    Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
+      Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
   );
 
   useEffect(() => {
     setDiferenciarTitulo(
       Boolean(formData.title && formData.title !== formData.name) ||
-      Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
+        Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
     );
   }, [formData.name, formData.title, formData.marketplaceTitle]);
 
@@ -58,32 +54,37 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
     fetchMobileOpportunities().then(setOpportunities);
   }, []);
 
-  const set = (field: string, val: any) => setFormData(prev => ({ ...prev, [field]: val }));
+  const set = (field: string, val: any) => setFormData((prev) => ({ ...prev, [field]: val }));
 
   const filteredCategories = useMemo(() => {
-    return categories.filter(cat => {
+    return categories.filter((cat) => {
       const name = cat.name?.trim().toUpperCase() || '';
       const isFixed = FIXED_ENVIRONMENTS.includes(name);
-      const hasChildren = categories.some(other => other.parents?.includes(cat.id));
-      const isEnvironment = isFixed || (hasChildren && (!cat.parents || cat.parents.length === 0)) || (!cat.parents || cat.parents.length === 0);
+      const hasChildren = categories.some((other) => other.parents?.includes(cat.id));
+      const isEnvironment =
+        isFixed ||
+        (hasChildren && (!cat.parents || cat.parents.length === 0)) ||
+        !cat.parents ||
+        cat.parents.length === 0;
       return !isEnvironment;
     });
   }, [categories]);
 
   const handleToggleCategory = (cat: MobileCategory) => {
-    const currentIds: string[] = formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
+    const currentIds: string[] =
+      formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
     const isChecked = currentIds.includes(cat.id);
     let nextIds: string[];
 
     if (isChecked) {
-      nextIds = currentIds.filter(id => id !== cat.id);
+      nextIds = currentIds.filter((id) => id !== cat.id);
     } else {
       nextIds = [...currentIds, cat.id];
     }
 
-    const firstSelected = categories.find(c => c.id === nextIds[0]);
+    const firstSelected = categories.find((c) => c.id === nextIds[0]);
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       categoryIds: nextIds,
       categoryId: nextIds[0] || '',
@@ -91,8 +92,9 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
     }));
   };
 
-  const selectedOpportunity = opportunities.find(o => o.id === formData.opportunityId);
-  const selectedCategoryIds: string[] = formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
+  const selectedOpportunity = opportunities.find((o) => o.id === formData.opportunityId);
+  const selectedCategoryIds: string[] =
+    formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
 
   return (
     <View style={styles.container}>
@@ -107,7 +109,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
               const nextVal = !diferenciarTitulo;
               setDiferenciarTitulo(nextVal);
               if (!nextVal) {
-                setFormData(prev => ({
+                setFormData((prev) => ({
                   ...prev,
                   title: prev.name || '',
                   marketplaceTitle: prev.name || '',
@@ -116,13 +118,23 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
             }}
             style={[
               styles.diferenciarBtn,
-              diferenciarTitulo ? styles.diferenciarBtnActive : (dark ? styles.darkDiferenciarBtn : styles.lightDiferenciarBtn)
+              diferenciarTitulo
+                ? styles.diferenciarBtnActive
+                : dark
+                  ? styles.darkDiferenciarBtn
+                  : styles.lightDiferenciarBtn,
             ]}
           >
-            <Text style={[
-              styles.diferenciarBtnText,
-              diferenciarTitulo ? styles.diferenciarBtnTextActive : (dark ? styles.lightText : styles.dimText)
-            ]}>
+            <Text
+              style={[
+                styles.diferenciarBtnText,
+                diferenciarTitulo
+                  ? styles.diferenciarBtnTextActive
+                  : dark
+                    ? styles.lightText
+                    : styles.dimText,
+              ]}
+            >
               {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
             </Text>
           </TouchableOpacity>
@@ -130,8 +142,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
         <TextInput
           value={formData.name || ''}
-          onChangeText={val => {
-            setFormData(prev => ({
+          onChangeText={(val) => {
+            setFormData((prev) => ({
               ...prev,
               name: val,
               ...(!diferenciarTitulo ? { title: val, marketplaceTitle: val } : {}),
@@ -156,8 +168,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           </View>
           <TextInput
             value={formData.title || formData.marketplaceTitle || ''}
-            onChangeText={val => {
-              setFormData(prev => ({
+            onChangeText={(val) => {
+              setFormData((prev) => ({
                 ...prev,
                 title: val,
                 marketplaceTitle: val,
@@ -172,40 +184,40 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
       {/* CATEGORIA(S) */}
       {formData.itemType !== 'service' && (
-      <View style={styles.field}>
-        <View style={styles.labelRow}>
-          <View style={styles.labelBadgeRow}>
-            <Text style={[styles.label, dark && styles.lightLabel]}>
-              CATEGORIA(S) <Text style={styles.required}>*</Text>
-            </Text>
-            <View style={styles.catalogBadge}>
-              <Text style={styles.catalogBadgeText}>CATÁLOGO</Text>
+        <View style={styles.field}>
+          <View style={styles.labelRow}>
+            <View style={styles.labelBadgeRow}>
+              <Text style={[styles.label, dark && styles.lightLabel]}>
+                CATEGORIA(S) <Text style={styles.required}>*</Text>
+              </Text>
+              <View style={styles.catalogBadge}>
+                <Text style={styles.catalogBadgeText}>CATÁLOGO</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowCategoriesManager(true)}
+                style={styles.manageCategoriesButton}
+                accessibilityRole="button"
+                accessibilityLabel="Gerenciar categorias de produtos"
+              >
+                <Text style={styles.manageCategoriesText}>GERENCIAR</Text>
+                <Settings size={12} color="#64748b" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => setShowCategoriesManager(true)}
-              style={styles.manageCategoriesButton}
-              accessibilityRole="button"
-              accessibilityLabel="Gerenciar categorias de produtos"
-            >
-              <Text style={styles.manageCategoriesText}>GERENCIAR</Text>
-              <Settings size={12} color="#64748b" />
-            </TouchableOpacity>
+            {selectedCategoryIds.length > 0 && (
+              <Text style={styles.selectedCategoryCount}>
+                {selectedCategoryIds.length} selecionada{selectedCategoryIds.length > 1 ? 's' : ''}
+              </Text>
+            )}
           </View>
-          {selectedCategoryIds.length > 0 && (
-            <Text style={styles.selectedCategoryCount}>
-              {selectedCategoryIds.length} selecionada{selectedCategoryIds.length > 1 ? 's' : ''}
-            </Text>
-          )}
-        </View>
 
-        <CategoryMultiSelectList
-          categories={categories}
-          filteredCategories={filteredCategories}
-          selectedCategoryIds={selectedCategoryIds}
-          onToggleCategory={handleToggleCategory}
-          dark={dark}
-        />
-      </View>
+          <CategoryMultiSelectList
+            categories={categories}
+            filteredCategories={filteredCategories}
+            selectedCategoryIds={selectedCategoryIds}
+            onToggleCategory={handleToggleCategory}
+            dark={dark}
+          />
+        </View>
       )}
 
       {/* OPORTUNIDADE */}
@@ -235,7 +247,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         <Text style={[styles.label, dark && styles.lightLabel]}>OBSERVAÇÕES INTERNAS</Text>
         <TextInput
           value={formData.observations || ''}
-          onChangeText={val => set('observations', val)}
+          onChangeText={(val) => set('observations', val)}
           placeholder="Digite notas internas sobre este produto, processos ou detalhes específicos..."
           placeholderTextColor="#94a3b8"
           multiline
@@ -250,7 +262,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         visible={showOpportunityModal}
         opportunities={opportunities}
         selectedOpportunityId={formData.opportunityId}
-        onSelect={id => set('opportunityId', id)}
+        onSelect={(id) => set('opportunityId', id)}
         onClose={() => setShowOpportunityModal(false)}
         dark={dark}
       />

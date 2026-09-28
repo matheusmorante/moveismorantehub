@@ -18,7 +18,7 @@ export const TransactionCollaboratorSelector: React.FC<Props> = ({
     <View>
       <Text style={[styles.label, isDarkMode && styles.labelDark]}>Colaborador / Funcionário</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-        {collaborators.map(collab => (
+        {collaborators.map((collab) => (
           <TouchableOpacity
             key={collab.id}
             style={[styles.chip, selectedCollaboratorId === collab.id && styles.chipActive]}
@@ -31,7 +31,12 @@ export const TransactionCollaboratorSelector: React.FC<Props> = ({
             }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.chipText, selectedCollaboratorId === collab.id && styles.chipTextActive]}>
+            <Text
+              style={[
+                styles.chipText,
+                selectedCollaboratorId === collab.id && styles.chipTextActive,
+              ]}
+            >
               {collab.name}
             </Text>
           </TouchableOpacity>

@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  TextInput,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { X, Calendar as CalendarIcon, Clock, Tag, FileText, Check } from 'lucide-react-native';
 import { createCalendarEvent, CalendarEvent } from '../../../services/scheduleEventsService';
 
@@ -53,7 +63,7 @@ export const CreateEventModal: React.FC<Props> = ({
     }
 
     setSaving(true);
-    const typeObj = EVENT_TYPES.find(t => t.id === selectedType);
+    const typeObj = EVENT_TYPES.find((t) => t.id === selectedType);
     const res = await createCalendarEvent({
       title: title.trim(),
       date: date.trim(),
@@ -77,11 +87,18 @@ export const CreateEventModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.headerTitle, isDarkMode && styles.textDark]}>Novo Compromisso na Agenda</Text>
+            <Text style={[styles.headerTitle, isDarkMode && styles.textDark]}>
+              Novo Compromisso na Agenda
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
@@ -90,7 +107,9 @@ export const CreateEventModal: React.FC<Props> = ({
           <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
             {/* Título */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>Título do Evento *</Text>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                Título do Evento *
+              </Text>
               <TextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="Ex: Reunião de alinhamento ou Vistoria"
@@ -102,7 +121,9 @@ export const CreateEventModal: React.FC<Props> = ({
 
             {/* Data */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>Data (AAAA-MM-DD) *</Text>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                Data (AAAA-MM-DD) *
+              </Text>
               <TextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="2026-09-10"
@@ -114,15 +135,22 @@ export const CreateEventModal: React.FC<Props> = ({
 
             {/* Período / Horário */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>Horário ou Período</Text>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                Horário ou Período
+              </Text>
               <View style={styles.presetsRow}>
-                {PERIOD_PRESETS.map(preset => (
+                {PERIOD_PRESETS.map((preset) => (
                   <TouchableOpacity
                     key={preset}
                     style={[styles.presetChip, timeOrPeriod === preset && styles.presetChipActive]}
                     onPress={() => setTimeOrPeriod(preset)}
                   >
-                    <Text style={[styles.presetText, timeOrPeriod === preset && styles.presetTextActive]}>
+                    <Text
+                      style={[
+                        styles.presetText,
+                        timeOrPeriod === preset && styles.presetTextActive,
+                      ]}
+                    >
                       {preset}
                     </Text>
                   </TouchableOpacity>
@@ -139,15 +167,23 @@ export const CreateEventModal: React.FC<Props> = ({
 
             {/* Tipo de Evento */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>Tipo de Compromisso</Text>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                Tipo de Compromisso
+              </Text>
               <View style={styles.typesRow}>
-                {EVENT_TYPES.map(t => (
+                {EVENT_TYPES.map((t) => (
                   <TouchableOpacity
                     key={t.id}
-                    style={[styles.typeChip, { borderColor: t.color }, selectedType === t.id && { backgroundColor: t.color }]}
+                    style={[
+                      styles.typeChip,
+                      { borderColor: t.color },
+                      selectedType === t.id && { backgroundColor: t.color },
+                    ]}
                     onPress={() => setSelectedType(t.id as any)}
                   >
-                    <Text style={[styles.typeText, { color: selectedType === t.id ? '#fff' : t.color }]}>
+                    <Text
+                      style={[styles.typeText, { color: selectedType === t.id ? '#fff' : t.color }]}
+                    >
                       {t.label}
                     </Text>
                   </TouchableOpacity>
@@ -157,7 +193,9 @@ export const CreateEventModal: React.FC<Props> = ({
 
             {/* Observações */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>Observações / Notas</Text>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                Observações / Notas
+              </Text>
               <TextInput
                 style={[styles.input, styles.textArea, isDarkMode && styles.inputDark]}
                 placeholder="Detalhes adicionais do compromisso..."
@@ -171,7 +209,12 @@ export const CreateEventModal: React.FC<Props> = ({
           </ScrollView>
 
           {/* Botão Salvar */}
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.8}
+          >
             {saving ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (

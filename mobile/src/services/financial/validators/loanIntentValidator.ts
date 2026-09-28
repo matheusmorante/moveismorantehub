@@ -10,13 +10,11 @@ export interface LoanValidationResult {
  * Aplica as regras de negócio de empréstimos e formas de recebimento.
  * Extraído para manter alta coesão e respeito ao princípio de responsabilidade única.
  */
-export function applyLoanValidationRules(
-  result: ParsedFinancialIntent
-): LoanValidationResult {
+export function applyLoanValidationRules(result: ParsedFinancialIntent): LoanValidationResult {
   const isLoan = Boolean(
     result.isLoan ||
-    (result.categoryName && /empréstimo|emprestimo/i.test(result.categoryName)) ||
-    (result.description && /empréstimo|emprestimo|emprestado|emprestei/i.test(result.description))
+      (result.categoryName && /empréstimo|emprestimo/i.test(result.categoryName)) ||
+      (result.description && /empréstimo|emprestimo|emprestado|emprestei/i.test(result.description))
   );
 
   if (!isLoan) {
@@ -48,8 +46,12 @@ export function applyLoanValidationRules(
   if (isBank) {
     result.creditorType = 'FINANCIAL_INSTITUTION';
     if (!result.creditor || result.creditor === 'Empréstimo' || result.creditor === 'Empréstimos') {
-      const match = lowerDesc.match(/(?:do|no|na|pelo|da)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i);
-      result.creditor = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : (creditorRaw || 'Banco');
+      const match = lowerDesc.match(
+        /(?:do|no|na|pelo|da)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i
+      );
+      result.creditor = match
+        ? match[1].charAt(0).toUpperCase() + match[1].slice(1)
+        : creditorRaw || 'Banco';
     }
     result.supplier = result.creditor;
     result.counterparty = result.creditor;
@@ -75,9 +77,9 @@ export function applyLoanValidationRules(
   if (result.creditorType === 'FINANCIAL_INSTITUTION') {
     const hasExplicitPayment = Boolean(
       result.paymentMethod &&
-      result.paymentMethod !== 'UNKNOWN' &&
-      result.paymentMethod !== 'UNKNOWN_BY_USER' &&
-      result.paymentMethod.trim() !== ''
+        result.paymentMethod !== 'UNKNOWN' &&
+        result.paymentMethod !== 'UNKNOWN_BY_USER' &&
+        result.paymentMethod.trim() !== ''
     );
 
     if (!hasExplicitPayment) {
@@ -89,15 +91,16 @@ export function applyLoanValidationRules(
   if (result.creditorType === 'PERSON_OR_OTHER') {
     const hasExplicitPayment = Boolean(
       result.paymentMethod &&
-      result.paymentMethod !== 'UNKNOWN' &&
-      result.paymentMethod !== 'UNKNOWN_BY_USER' &&
-      result.paymentMethod.trim() !== ''
+        result.paymentMethod !== 'UNKNOWN' &&
+        result.paymentMethod !== 'UNKNOWN_BY_USER' &&
+        result.paymentMethod.trim() !== ''
     );
 
     if (!hasExplicitPayment) {
       result.paymentMethod = 'UNKNOWN';
       if (!result.missingFields) result.missingFields = [];
-      if (!result.missingFields.includes('paymentMethod')) result.missingFields.push('paymentMethod');
+      if (!result.missingFields.includes('paymentMethod'))
+        result.missingFields.push('paymentMethod');
       result.isReadyForConfirmation = false;
       const amt = result.amount || result.totalAmount;
       const formattedAmount = amt

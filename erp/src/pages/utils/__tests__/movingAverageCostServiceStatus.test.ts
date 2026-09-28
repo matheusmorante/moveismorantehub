@@ -11,13 +11,14 @@ vi.mock('../supabaseConfig', () => ({
           eq: () => query,
           order: () => query,
           is: () => query,
-          then: (resolve: (value: unknown) => void) => resolve({
-            data: [
-              { type: 'entry', quantity: 2, unit_cost: 10, status: 'effective' },
-              { type: 'entry', quantity: 3, unit_cost: 20, status: 'reversed' },
-            ],
-            error: null,
-          }),
+          then: (resolve: (value: unknown) => void) =>
+            resolve({
+              data: [
+                { type: 'entry', quantity: 2, unit_cost: 10, status: 'effective' },
+                { type: 'entry', quantity: 3, unit_cost: 20, status: 'reversed' },
+              ],
+              error: null,
+            }),
         };
         return query;
       },

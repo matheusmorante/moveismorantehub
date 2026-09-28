@@ -1,32 +1,32 @@
-import { AppSettings } from "../../settingsService";
+import { AppSettings } from '../../settingsService';
 
 export interface DanfeHeaderParams {
-    settings: AppSettings;
-    nfeNumber: number;
-    series: string;
-    formattedKey: string;
-    protocolNumber: string;
-    protocolDate: string;
-    natOp?: string;
-    logoUrl?: string;
+  settings: AppSettings;
+  nfeNumber: number;
+  series: string;
+  formattedKey: string;
+  protocolNumber: string;
+  protocolDate: string;
+  natOp?: string;
+  logoUrl?: string;
 }
 
 export function buildDanfeHeaderOfficialHtml(p: DanfeHeaderParams): string {
-    const emitName = p.settings.companyName || 'MÓVEIS MORANTE LTDA';
-    const emitCnpj = p.settings.companyCnpj || '44.512.248/0001-07';
-    const emitIE = (p.settings as any).companyIE || '9091234567';
-    const emitLogr = (p.settings as any).companyLogradouro || 'R. Cascavel';
-    const emitNum = (p.settings as any).companyNumero || '306';
-    const emitBairro = (p.settings as any).companyBairro || 'Guaraituba';
-    const emitMun = (p.settings as any).companyXMun || 'Colombo';
-    const emitUF = (p.settings as any).companyUF || 'PR';
-    const emitCep = (p.settings as any).companyCEP || '83410-270';
-    const emitPhone = p.settings.companyPhone || '(41) 99749-3547';
-    const natOp = p.natOp || 'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS';
+  const emitName = p.settings.companyName || 'MÓVEIS MORANTE LTDA';
+  const emitCnpj = p.settings.companyCnpj || '44.512.248/0001-07';
+  const emitIE = (p.settings as any).companyIE || '9091234567';
+  const emitLogr = (p.settings as any).companyLogradouro || 'R. Cascavel';
+  const emitNum = (p.settings as any).companyNumero || '306';
+  const emitBairro = (p.settings as any).companyBairro || 'Guaraituba';
+  const emitMun = (p.settings as any).companyXMun || 'Colombo';
+  const emitUF = (p.settings as any).companyUF || 'PR';
+  const emitCep = (p.settings as any).companyCEP || '83410-270';
+  const emitPhone = p.settings.companyPhone || '(41) 99749-3547';
+  const natOp = p.natOp || 'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS';
 
-    const cleanKey = p.formattedKey.replace(/\s/g, '');
+  const cleanKey = p.formattedKey.replace(/\s/g, '');
 
-    return `
+  return `
     <!-- 1. CANHOTO DE RECEBIMENTO (OBRIGATÓRIO NO TOPO DO DANFE A4) -->
     <div class="canhoto-container">
         <table style="width: 100%; border-collapse: collapse;">
@@ -161,16 +161,16 @@ export function buildDanfeHeaderOfficialHtml(p: DanfeHeaderParams): string {
  * Gera barras de código de barras estilizadas com base no hash da chave de acesso
  */
 function generateBarcodeBars(key: string): string {
-    if (!key) return '<rect x="0" y="0" width="260" height="38" fill="#000" />';
-    let bars = '';
-    let x = 4;
-    for (let i = 0; i < key.length; i++) {
-        const charCode = key.charCodeAt(i);
-        const w1 = (charCode % 2) + 1;
-        const w2 = ((charCode + i) % 2) + 1;
-        bars += `<rect x="${x}" y="2" width="${w1}" height="34" fill="#000000" />`;
-        x += w1 + w2;
-        if (x > 252) break;
-    }
-    return bars;
+  if (!key) return '<rect x="0" y="0" width="260" height="38" fill="#000" />';
+  let bars = '';
+  let x = 4;
+  for (let i = 0; i < key.length; i++) {
+    const charCode = key.charCodeAt(i);
+    const w1 = (charCode % 2) + 1;
+    const w2 = ((charCode + i) % 2) + 1;
+    bars += `<rect x="${x}" y="2" width="${w1}" height="34" fill="#000000" />`;
+    x += w1 + w2;
+    if (x > 252) break;
+  }
+  return bars;
 }

@@ -24,28 +24,36 @@ export const applyInventoryPhysicalScan = (
   items: AuditItem[],
   itemId: string,
   labelId?: string,
-  scannedAt = new Date().toISOString(),
+  scannedAt = new Date().toISOString()
 ): ScanResult => {
-  const item = items.find(candidate => candidate.id === itemId);
+  const item = items.find((candidate) => candidate.id === itemId);
   if (!item) return { kind: 'not_found' };
 
   const normalizedLabelId = labelId ? normalizeLabelId(labelId) : undefined;
-  if (normalizedLabelId && items.some(candidate =>
-    candidate.countedLabelIds?.some(countedId => normalizeLabelId(countedId) === normalizedLabelId))) {
+  if (
+    normalizedLabelId &&
+    items.some((candidate) =>
+      candidate.countedLabelIds?.some(
+        (countedId) => normalizeLabelId(countedId) === normalizedLabelId
+      )
+    )
+  ) {
     return { kind: 'duplicate' };
   }
 
   const count = (item.physicalCount ?? 0) + 1;
-  const nextItems = items.map(candidate => candidate.id === itemId
-    ? {
-      ...candidate,
-      physicalCount: count,
-      countedAt: scannedAt,
-      countedLabelIds: normalizedLabelId
-        ? [...(candidate.countedLabelIds || []), normalizedLabelId]
-        : candidate.countedLabelIds,
-    }
-    : candidate);
+  const nextItems = items.map((candidate) =>
+    candidate.id === itemId
+      ? {
+          ...candidate,
+          physicalCount: count,
+          countedAt: scannedAt,
+          countedLabelIds: normalizedLabelId
+            ? [...(candidate.countedLabelIds || []), normalizedLabelId]
+            : candidate.countedLabelIds,
+        }
+      : candidate
+  );
 
   return { kind: 'updated', items: nextItems, count };
 };

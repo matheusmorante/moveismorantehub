@@ -30,13 +30,19 @@ export const parseHeuristicFinancialIntent = (msg: string, categories: TestCateg
       categoryName: null,
       vehicleId: null,
       missingFields: [],
-      questionToUser: 'As vendas de produtos/serviços já são lançadas automaticamente pelos pedidos no ERP para evitar duplicidade. Se esta for uma receita diferente (como Aporte, Empréstimo ou Reembolso), por favor informe a categoria desejada.',
+      questionToUser:
+        'As vendas de produtos/serviços já são lançadas automaticamente pelos pedidos no ERP para evitar duplicidade. Se esta for uma receita diferente (como Aporte, Empréstimo ou Reembolso), por favor informe a categoria desejada.',
       isReadyForConfirmation: false,
     };
   }
 
   let type: 'income' | 'expense' = 'expense';
-  if (text.includes('recebi') || text.includes('recebimento') || text.includes('entrada') || text.includes('reembolso')) {
+  if (
+    text.includes('recebi') ||
+    text.includes('recebimento') ||
+    text.includes('entrada') ||
+    text.includes('reembolso')
+  ) {
     type = 'income';
   }
 
@@ -61,7 +67,8 @@ export const parseHeuristicFinancialIntent = (msg: string, categories: TestCateg
 
   if (text.includes('retirei') && !text.includes('pró-labore') && !text.includes('pro-labore')) {
     missingFields.push('purpose_withdrawal');
-    questionToUser = 'Essa retirada foi pró-labore, retirada de sócio, adiantamento ou distribuição de lucros?';
+    questionToUser =
+      'Essa retirada foi pró-labore, retirada de sócio, adiantamento ou distribuição de lucros?';
   } else if (text.includes('paguei joão') || text.includes('paguei joao')) {
     missingFields.push('counterparty_nature');
     questionToUser = 'Esse pagamento foi salário, adiantamento, comissão, montagem ou outra coisa?';
@@ -96,7 +103,9 @@ describe('Módulo Financeiro - Regras do Assistente por IA', () => {
     const res = parseHeuristicFinancialIntent('Recebi 1900 de uma venda do sofá', mockCategories);
     expect(res.type).toBe('income');
     expect(res.isReadyForConfirmation).toBe(false);
-    expect(res.questionToUser).toContain('As vendas de produtos/serviços já são lançadas automaticamente pelos pedidos no ERP');
+    expect(res.questionToUser).toContain(
+      'As vendas de produtos/serviços já são lançadas automaticamente pelos pedidos no ERP'
+    );
   });
 
   it('3. Deve solicitar o valor ao enviar "Paguei conta de luz"', () => {

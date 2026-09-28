@@ -52,15 +52,19 @@ export const UnattendedModal: React.FC<Props> = ({
   };
 
   const updateProofUrl = (index: number, value: string) => {
-    setProofUrls(current => current.map((url, currentIndex) => currentIndex === index ? value : url));
+    setProofUrls((current) =>
+      current.map((url, currentIndex) => (currentIndex === index ? value : url))
+    );
   };
 
   const addProofField = () => {
-    setProofUrls(current => current.length < 5 ? [...current, ''] : current);
+    setProofUrls((current) => (current.length < 5 ? [...current, ''] : current));
   };
 
   const removeProofField = (index: number) => {
-    setProofUrls(current => current.length === 1 ? [''] : current.filter((_, currentIndex) => currentIndex !== index));
+    setProofUrls((current) =>
+      current.length === 1 ? [''] : current.filter((_, currentIndex) => currentIndex !== index)
+    );
   };
 
   return (
@@ -71,9 +75,14 @@ export const UnattendedModal: React.FC<Props> = ({
           <View style={styles.topRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={20} color="#dc2626" />
-              <Text style={[styles.title, isDarkMode && styles.textLight]}>Registrar Não Atendido</Text>
+              <Text style={[styles.title, isDarkMode && styles.textLight]}>
+                Registrar Não Atendido
+              </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+            >
               <X size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -82,7 +91,9 @@ export const UnattendedModal: React.FC<Props> = ({
             <Text style={styles.customerSubtext}>Cliente: {customerName}</Text>
 
             {/* Motivos */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>Selecione o Motivo:</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
+              Selecione o Motivo:
+            </Text>
             <View style={styles.reasonsList}>
               {UNATTENDED_REASONS.map((r) => {
                 const isSelected = selectedReason === r;
@@ -113,7 +124,9 @@ export const UnattendedModal: React.FC<Props> = ({
             </View>
 
             {/* Observações */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>Detalhes / Observações:</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
+              Detalhes / Observações:
+            </Text>
             <TextInput
               style={[styles.input, isDarkMode && styles.inputDark]}
               placeholder="Explique o que aconteceu no local..."
@@ -156,7 +169,9 @@ export const UnattendedModal: React.FC<Props> = ({
                   style={[styles.addProofButton, isDarkMode && styles.addProofButtonDark]}
                 >
                   <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
-                  <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>Adicionar foto ({proofUrls.length}/5)</Text>
+                  <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>
+                    Adicionar foto ({proofUrls.length}/5)
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>

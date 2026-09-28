@@ -8,7 +8,16 @@ interface Props {
 }
 
 export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
-  const { pendingCount, syncingCount, rejectedCount, conflictCount, hasRejections, isOnline, lastSyncAt, syncNow } = useOfflineSync();
+  const {
+    pendingCount,
+    syncingCount,
+    rejectedCount,
+    conflictCount,
+    hasRejections,
+    isOnline,
+    lastSyncAt,
+    syncNow,
+  } = useOfflineSync();
 
   const totalPending = pendingCount + syncingCount;
   if (totalPending === 0 && !hasRejections && isOnline) {
@@ -26,7 +35,10 @@ export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
       >
         <AlertCircle size={15} color="#ffffff" />
         <Text style={styles.text} numberOfLines={1}>
-          {rejectedCount + conflictCount} {rejectedCount + conflictCount === 1 ? 'alteração requer atenção' : 'alterações requerem atenção'}
+          {rejectedCount + conflictCount}{' '}
+          {rejectedCount + conflictCount === 1
+            ? 'alteração requer atenção'
+            : 'alterações requerem atenção'}
         </Text>
         <RefreshCw size={13} color="#ffffff" />
       </TouchableOpacity>
@@ -37,10 +49,7 @@ export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
     <TouchableOpacity
       onPress={syncNow}
       activeOpacity={0.85}
-      style={[
-        styles.container,
-        isSyncing ? styles.containerSyncing : styles.containerPending,
-      ]}
+      style={[styles.container, isSyncing ? styles.containerSyncing : styles.containerPending]}
     >
       {!isOnline ? (
         <CloudOff size={15} color="#ffffff" />
@@ -53,8 +62,8 @@ export const OfflineSyncBar: React.FC<Props> = ({ isDarkMode }) => {
         {!isOnline
           ? `Sem internet${lastSyncAt ? ` — última sincronização ${new Date(lastSyncAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
           : isSyncing
-          ? 'Transmitindo eventos para o servidor...'
-          : `Aguardando conexão (${pendingCount} ${pendingCount === 1 ? 'ação pendente' : 'ações pendentes'})`}
+            ? 'Transmitindo eventos para o servidor...'
+            : `Aguardando conexão (${pendingCount} ${pendingCount === 1 ? 'ação pendente' : 'ações pendentes'})`}
       </Text>
       {!isSyncing && <RefreshCw size={13} color="#ffffff" />}
     </TouchableOpacity>

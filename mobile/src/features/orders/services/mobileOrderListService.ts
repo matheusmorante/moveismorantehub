@@ -41,25 +41,26 @@ interface OrderListRow {
 
 const toListItem = (row: any): MobileOrderListItem => {
   const data = row.order_data || {};
-  const customerName = row.customer_name || data.customerData?.fullName || data.customer_name || 'Cliente';
+  const customerName =
+    row.customer_name || data.customerData?.fullName || data.customer_name || 'Cliente';
   const orderNumber = String(
     row.order_number ??
-    row.order_index ??
-    data.orderIndex ??
-    data.order_index ??
-    data.orderNumber ??
-    row.id ??
-    ''
+      row.order_index ??
+      data.orderIndex ??
+      data.order_index ??
+      data.orderNumber ??
+      row.id ??
+      ''
   ).trim();
   const orderStatus = row.status || data.status || 'scheduled';
   const orderType = data.orderType || data.order_type || row.order_type || 'sale';
   const totalValue = Number(
     row.total_amount ??
-    data.paymentsSummary?.totalOrderValue ??
-    data.totalValue ??
-    row.total_value ??
-    data.total ??
-    0
+      data.paymentsSummary?.totalOrderValue ??
+      data.totalValue ??
+      row.total_value ??
+      data.total ??
+      0
   );
 
   return {
@@ -84,10 +85,17 @@ const toListItem = (row: any): MobileOrderListItem => {
       deliveryArrivedAt: data.deliveryArrivedAt || row.delivery_arrived_at || '',
       deliveryStartedAt: data.deliveryStartedAt || row.delivery_started_at || '',
       unattendedReason: data.unattendedReason || row.unattended_reason || '',
-      marketingOrigin: data.marketingOrigin || data.customerData?.marketingOrigin || row.marketing_origin || '',
+      marketingOrigin:
+        data.marketingOrigin || data.customerData?.marketingOrigin || row.marketing_origin || '',
       isStockChecked: Boolean(data.isStockChecked ?? row.is_stock_checked),
       isRegisteredInBling: Boolean(data.isRegisteredInBling ?? row.is_registered_in_bling),
-      items: Array.isArray(data.items) ? data.items : (Array.isArray(row.items) ? row.items : (Array.isArray(row.item_handling) ? row.item_handling : [])),
+      items: Array.isArray(data.items)
+        ? data.items
+        : Array.isArray(row.items)
+          ? row.items
+          : Array.isArray(row.item_handling)
+            ? row.item_handling
+            : [],
       shipping: data.shipping || {
         deliveryMethod: data.deliveryMethod || row.delivery_method || '',
         scheduling: data.scheduling || {
@@ -102,7 +110,9 @@ const toListItem = (row: any): MobileOrderListItem => {
 };
 
 const isBudgetRow = (row: any): boolean =>
-  String(row?.order_type || row?.order_data?.orderType || row?.order_data?.order_type || '').toLowerCase() === 'budget';
+  String(
+    row?.order_type || row?.order_data?.orderType || row?.order_data?.order_type || ''
+  ).toLowerCase() === 'budget';
 
 const isHiddenRow = (row: any): boolean =>
   isBudgetRow(row) || Boolean(row?.deleted || row?.order_data?.deleted);
@@ -132,10 +142,15 @@ export const fetchMobileOrdersPage = async ({
 
     const term = search.trim().replace(/[,%()]/g, '');
     if (term) {
-      query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%,order_index.ilike.%${term}%`);
+      query = query.or(
+        `customer_name.ilike.%${term}%,order_number.ilike.%${term}%,order_index.ilike.%${term}%`
+      );
     }
     if (status === 'agendados') query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%');
-    if (status === 'concluidos') query = query.or('status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%');
+    if (status === 'concluidos')
+      query = query.or(
+        'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
+      );
     if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
 
     const { data, count, error } = await query;
@@ -155,7 +170,10 @@ export const fetchMobileOrdersPage = async ({
   // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
   let query = supabase
     .from('orders')
-    .select('id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data', { count: 'exact' })
+    .select(
+      'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
+      { count: 'exact' }
+    )
     .neq('order_type', 'budget')
     .order('created_at', { ascending: false });
 
@@ -164,7 +182,10 @@ export const fetchMobileOrdersPage = async ({
     query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%`);
   }
   if (status === 'agendados') query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%');
-  if (status === 'concluidos') query = query.or('status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%');
+  if (status === 'concluidos')
+    query = query.or(
+      'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
+    );
   if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
 
   query = query.range(firstRow, lastRow);
@@ -183,11 +204,25 @@ async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderLis
   // Cache é um acelerador de leitura, não pode invalidar dados recebidos do ERP
   // enquanto a migração SQLite ainda está inicializando no primeiro carregamento.
   try {
-    await Promise.all(items.map((item) => OrderRepository.saveLocal({ id: item.id, status: item.status,
-      orderType: item.order_type, customerName: item.customer_name, totalAmount: item.total_value,
-      orderData: { ...item.order_data, createdAt: item.created_at || item.order_data.createdAt || undefined },
-      version: item.version ?? 1, updatedAt: item.created_at ?? new Date().toISOString(),
-      syncedAt: new Date().toISOString(), isPendingLocal: false })));
+    await Promise.all(
+      items.map((item) =>
+        OrderRepository.saveLocal({
+          id: item.id,
+          status: item.status,
+          orderType: item.order_type,
+          customerName: item.customer_name,
+          totalAmount: item.total_value,
+          orderData: {
+            ...item.order_data,
+            createdAt: item.created_at || item.order_data.createdAt || undefined,
+          },
+          version: item.version ?? 1,
+          updatedAt: item.created_at ?? new Date().toISOString(),
+          syncedAt: new Date().toISOString(),
+          isPendingLocal: false,
+        })
+      )
+    );
   } catch (error) {
     console.warn('[MobileOrders] Cache local indisponível; mantendo resposta remota:', error);
   }

@@ -4,8 +4,10 @@ let preferredVoiceId: string | null | undefined;
 let preferredGeminiVoiceId: string | null | undefined;
 let isExplicitlyStopped = false;
 
-const MALE_VOICE_REGEX = /male|homem|menino|-pta-|-ptf-|-ptm-|ricardo|felipe|daniel|marcio|paulo|mario/i;
-const FEMALE_VOICE_REGEX = /female|feminina|mulher|menina|-ptd-|-jab-|-ptc-|-yef-|-afb-|luciana|francisca|helena|vitoria|marcia|spraktal|aoede|gemini/i;
+const MALE_VOICE_REGEX =
+  /male|homem|menino|-pta-|-ptf-|-ptm-|ricardo|felipe|daniel|marcio|paulo|mario/i;
+const FEMALE_VOICE_REGEX =
+  /female|feminina|mulher|menina|-ptd-|-jab-|-ptc-|-yef-|-afb-|luciana|francisca|helena|vitoria|marcia|spraktal|aoede|gemini/i;
 
 const scoreVoice = (voice: Speech.Voice, isGemini: boolean): number => {
   const descriptor = `${voice.identifier} ${voice.name}`.toLowerCase();
@@ -27,7 +29,12 @@ const scoreVoice = (voice: Speech.Voice, isGemini: boolean): number => {
   }
 
   if (isGemini) {
-    if (descriptor.includes('google') || descriptor.includes('gemini') || descriptor.includes('wavenet') || descriptor.includes('neural')) {
+    if (
+      descriptor.includes('google') ||
+      descriptor.includes('gemini') ||
+      descriptor.includes('wavenet') ||
+      descriptor.includes('neural')
+    ) {
       score += 500;
     }
     if (voice.quality === Speech.VoiceQuality.Enhanced) {
@@ -38,7 +45,9 @@ const scoreVoice = (voice: Speech.Voice, isGemini: boolean): number => {
   return score;
 };
 
-export const getPreferredNavigationVoice = async (engine: 'gemini' | 'native' = 'native'): Promise<string | undefined> => {
+export const getPreferredNavigationVoice = async (
+  engine: 'gemini' | 'native' = 'native'
+): Promise<string | undefined> => {
   if (engine === 'gemini' && preferredGeminiVoiceId !== undefined) {
     return preferredGeminiVoiceId || undefined;
   }
@@ -51,7 +60,9 @@ export const getPreferredNavigationVoice = async (engine: 'gemini' | 'native' = 
     const candidates = voices.filter((voice) => voice.language.toLowerCase().startsWith('pt'));
 
     if (candidates.length > 0) {
-      const sorted = candidates.sort((a, b) => scoreVoice(b, engine === 'gemini') - scoreVoice(a, engine === 'gemini'));
+      const sorted = candidates.sort(
+        (a, b) => scoreVoice(b, engine === 'gemini') - scoreVoice(a, engine === 'gemini')
+      );
       const best = sorted[0];
       if (best && scoreVoice(best, engine === 'gemini') > 0) {
         if (engine === 'gemini') preferredGeminiVoiceId = best.identifier;
@@ -66,7 +77,7 @@ export const getPreferredNavigationVoice = async (engine: 'gemini' | 'native' = 
     else preferredVoiceId = null;
   }
 
-  return engine === 'gemini' ? (preferredGeminiVoiceId || undefined) : (preferredVoiceId || undefined);
+  return engine === 'gemini' ? preferredGeminiVoiceId || undefined : preferredVoiceId || undefined;
 };
 
 export const stopSpeech = async () => {
@@ -115,7 +126,7 @@ export const speakTextWithFallback = async (
 
     // Voz Gemini IA usa afinação e cadência conversacionais diferenciadas (pitch: 1.08, rate: 0.90)
     const pitch = engineMode === 'gemini' ? (options.pitch ?? 1.08) : (options.pitch ?? 1.0);
-    const rate = engineMode === 'gemini' ? (options.rate ?? 0.90) : (options.rate ?? 1.0);
+    const rate = engineMode === 'gemini' ? (options.rate ?? 0.9) : (options.rate ?? 1.0);
 
     Speech.speak(cleanText, {
       language: 'pt-BR',

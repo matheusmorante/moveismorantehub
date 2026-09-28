@@ -15,7 +15,7 @@ export const SYSTEM_DEFAULT_CAMPAIGNS: MarketingCampaign[] = [
     active: true,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'camp-natal',
@@ -27,7 +27,7 @@ export const SYSTEM_DEFAULT_CAMPAIGNS: MarketingCampaign[] = [
     active: true,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'camp-black-friday',
@@ -39,7 +39,7 @@ export const SYSTEM_DEFAULT_CAMPAIGNS: MarketingCampaign[] = [
     active: true,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'camp-oferta-comum',
@@ -51,8 +51,8 @@ export const SYSTEM_DEFAULT_CAMPAIGNS: MarketingCampaign[] = [
     active: true,
     isSystemDefault: true,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 export const campaignService = {
@@ -74,13 +74,20 @@ export const campaignService = {
           badgeAssetId: c.badge_asset_id,
           active: c.active !== false,
           createdAt: c.created_at,
-          updatedAt: c.updated_at
+          updatedAt: c.updated_at,
         }));
-        
+
         let local: MarketingCampaign[] = [];
-        try { const value = JSON.parse(localStorage.getItem(LOCAL_STORAGE_CAMPAIGNS_KEY) || '[]'); if (Array.isArray(value)) local = value; } catch { /* cache ausente */ }
-        const merged = new Map([...SYSTEM_DEFAULT_CAMPAIGNS, ...dbCampaigns].map(c => [c.id, c]));
-        for (const item of local) if (!merged.has(item.id) || item.updatedAt >= (merged.get(item.id)?.updatedAt || '')) merged.set(item.id, item);
+        try {
+          const value = JSON.parse(localStorage.getItem(LOCAL_STORAGE_CAMPAIGNS_KEY) || '[]');
+          if (Array.isArray(value)) local = value;
+        } catch {
+          /* cache ausente */
+        }
+        const merged = new Map([...SYSTEM_DEFAULT_CAMPAIGNS, ...dbCampaigns].map((c) => [c.id, c]));
+        for (const item of local)
+          if (!merged.has(item.id) || item.updatedAt >= (merged.get(item.id)?.updatedAt || ''))
+            merged.set(item.id, item);
         return [...merged.values()];
       }
     } catch (e) {
@@ -91,8 +98,8 @@ export const campaignService = {
       const stored = localStorage.getItem(LOCAL_STORAGE_CAMPAIGNS_KEY);
       if (stored) {
         const parsed: MarketingCampaign[] = JSON.parse(stored);
-        const storedIds = new Set(parsed.map(c => c.id));
-        return [...SYSTEM_DEFAULT_CAMPAIGNS.filter(c => !storedIds.has(c.id)), ...parsed];
+        const storedIds = new Set(parsed.map((c) => c.id));
+        return [...SYSTEM_DEFAULT_CAMPAIGNS.filter((c) => !storedIds.has(c.id)), ...parsed];
       }
     } catch (e) {
       console.error('[campaignService] Erro LocalStorage:', e);
@@ -101,7 +108,9 @@ export const campaignService = {
     return SYSTEM_DEFAULT_CAMPAIGNS;
   },
 
-  async save(campaign: Omit<MarketingCampaign, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<MarketingCampaign> {
+  async save(
+    campaign: Omit<MarketingCampaign, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+  ): Promise<MarketingCampaign> {
     const now = new Date().toISOString();
     const newCamp: MarketingCampaign = {
       id: campaign.id || crypto.randomUUID(),
@@ -113,7 +122,7 @@ export const campaignService = {
       badgeAssetId: campaign.badgeAssetId || null,
       active: campaign.active !== false,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     try {
@@ -126,7 +135,7 @@ export const campaignService = {
         accent_color: newCamp.accentColor,
         badge_asset_id: newCamp.badgeAssetId,
         active: newCamp.active,
-        updated_at: now
+        updated_at: now,
       });
       newCamp.persistedRemotely = !error;
     } catch (e) {
@@ -135,9 +144,9 @@ export const campaignService = {
     }
 
     const current = await this.getAll();
-    const filtered = current.filter(c => c.id !== newCamp.id && !c.isSystemDefault);
+    const filtered = current.filter((c) => c.id !== newCamp.id && !c.isSystemDefault);
     localStorage.setItem(LOCAL_STORAGE_CAMPAIGNS_KEY, JSON.stringify([...filtered, newCamp]));
 
     return newCamp;
-  }
+  },
 };

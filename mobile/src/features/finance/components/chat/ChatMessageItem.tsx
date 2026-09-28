@@ -97,7 +97,12 @@ export const ChatMessageItem: React.FC<Props> = ({
             </Text>
 
             <View style={styles.bubbleFooter}>
-              <Text style={[styles.timeText, !isUser && msg.isAlert && (isDarkMode ? styles.alertTimeDark : styles.alertTime)]}>
+              <Text
+                style={[
+                  styles.timeText,
+                  !isUser && msg.isAlert && (isDarkMode ? styles.alertTimeDark : styles.alertTime),
+                ]}
+              >
                 {msg.timestamp}
                 {msg.version && msg.version > 1 ? ' (editado)' : ''}
               </Text>

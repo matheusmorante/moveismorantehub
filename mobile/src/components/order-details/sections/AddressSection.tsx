@@ -14,10 +14,18 @@ interface AddressSectionProps {
 
 export function AddressSection({ shipping, customer, schedule, order, dark }: AddressSectionProps) {
   const distance = shipping?.distance != null ? Number(shipping.distance).toFixed(1) : null;
-  const duration = shipping?.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
+  const duration =
+    shipping?.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
   const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
-  const address = shipping?.deliveryAddress || shipping?.address || customer?.fullAddress || customer?.address || {};
-  const addressObservation = String(address?.observation || address?.observations || address?.notes || '').trim();
+  const address =
+    shipping?.deliveryAddress ||
+    shipping?.address ||
+    customer?.fullAddress ||
+    customer?.address ||
+    {};
+  const addressObservation = String(
+    address?.observation || address?.observations || address?.notes || ''
+  ).trim();
 
   const openMapsLink = () => {
     if (mapsUrl) {
@@ -27,15 +35,21 @@ export function AddressSection({ shipping, customer, schedule, order, dark }: Ad
 
   return (
     <SectionCard dark={dark}>
-      <SectionHeader dark={dark} icon={<MapPin size={18} color="#ef4444" />} title="ENDEREÇO E AGENDAMENTO" />
-      <Text style={[styles.addressText, dark && styles.light]}>{formatFullAddress(shipping, customer)}</Text>
+      <SectionHeader
+        dark={dark}
+        icon={<MapPin size={18} color="#ef4444" />}
+        title="ENDEREÇO E AGENDAMENTO"
+      />
+      <Text style={[styles.addressText, dark && styles.light]}>
+        {formatFullAddress(shipping, customer)}
+      </Text>
       {addressObservation && (
         <View style={[styles.observationBox, dark && styles.observationBoxDark]}>
           <Text style={styles.observationTitle}>OBSERVAÇÃO DO ENDEREÇO</Text>
           <Text style={[styles.observationText, dark && styles.light]}>{addressObservation}</Text>
         </View>
       )}
-      
+
       {Boolean(mapsUrl) && (
         <TouchableOpacity onPress={openMapsLink} style={styles.mapsLinkButton} activeOpacity={0.8}>
           <ExternalLink size={14} color="#dc2626" />
@@ -58,12 +72,17 @@ export function AddressSection({ shipping, customer, schedule, order, dark }: Ad
       <View style={styles.schedule}>
         <View style={styles.inline}>
           <Calendar size={14} color="#64748b" />
-          <Text style={styles.detail}>Data: {formatOrderDate(schedule?.date || order?.created_at)}</Text>
+          <Text style={styles.detail}>
+            Data: {formatOrderDate(schedule?.date || order?.created_at)}
+          </Text>
         </View>
         <View style={styles.inline}>
           <Clock size={14} color="#64748b" />
           <Text style={styles.detail}>
-            Horário: {schedule?.startTime ? `${schedule.startTime}${schedule.endTime ? ` - ${schedule.endTime}` : ''}` : 'Não definido'}
+            Horário:{' '}
+            {schedule?.startTime
+              ? `${schedule.startTime}${schedule.endTime ? ` - ${schedule.endTime}` : ''}`
+              : 'Não definido'}
           </Text>
         </View>
       </View>
@@ -75,7 +94,14 @@ const styles = StyleSheet.create({
   detail: { fontSize: 12, fontWeight: '700', color: '#64748b' },
   light: { color: '#f8fafc' },
   addressText: { fontSize: 13, fontWeight: '700', color: '#334155', lineHeight: 19 },
-  route: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#eff6ff', padding: 9, borderRadius: 11 },
+  route: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    backgroundColor: '#eff6ff',
+    padding: 9,
+    borderRadius: 11,
+  },
   routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' },
   schedule: { gap: 6, paddingTop: 4 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -97,7 +123,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#dc2626',
   },
-  observationBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 11, padding: 10, gap: 3 },
+  observationBox: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 11,
+    padding: 10,
+    gap: 3,
+  },
   observationBoxDark: { backgroundColor: '#450a0a', borderColor: '#991b1b' },
   observationTitle: { fontSize: 9, fontWeight: '900', color: '#dc2626', letterSpacing: 0.5 },
   observationText: { fontSize: 12, fontWeight: '700', color: '#7f1d1d', lineHeight: 17 },

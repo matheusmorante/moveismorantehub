@@ -17,7 +17,9 @@ export class AiGateway {
    * Ponto de entrada ÚNICO para requisições de Texto Rápido/Econômico (Gemini 3.5 Flash Lite)
    * Usado para descrições, categorias, títulos, atributos e extrações leves.
    */
-  public static async requestText(options: Omit<AiRequestOptions, 'category'>): Promise<AiResponse<string>> {
+  public static async requestText(
+    options: Omit<AiRequestOptions, 'category'>
+  ): Promise<AiResponse<string>> {
     return this.execute<string>({ ...options, category: 'TEXT', tier: options.tier || 'lite' });
   }
 
@@ -25,7 +27,9 @@ export class AiGateway {
    * Ponto de entrada para tarefas de Raciocínio Estruturado e Fiscais (Gemini 3.8 Flash)
    * Usado para sugestão de NCM, regras tributárias e casos difíceis com thinking low/medium.
    */
-  public static async requestReasoning(options: Omit<AiRequestOptions, 'category' | 'tier'>): Promise<AiResponse<string>> {
+  public static async requestReasoning(
+    options: Omit<AiRequestOptions, 'category' | 'tier'>
+  ): Promise<AiResponse<string>> {
     return this.execute<string>({
       ...options,
       category: 'TEXT',
@@ -38,7 +42,10 @@ export class AiGateway {
   /**
    * Ponto de entrada para cálculo de similaridade semântica e busca vetorial (Gemini Embedding 2)
    */
-  public static async requestEmbedding(text: string, moduleSource = 'general'): Promise<AiResponse<number[]>> {
+  public static async requestEmbedding(
+    text: string,
+    moduleSource = 'general'
+  ): Promise<AiResponse<number[]>> {
     return this.execute<number[]>({
       operation: 'generate_embedding',
       payload: text,
@@ -52,7 +59,9 @@ export class AiGateway {
   /**
    * Ponto de entrada ÚNICO e OBRIGATÓRIO para requisições de Imagem (Gemini 2.5/3.1 Flash Image)
    */
-  public static async requestImage(options: Omit<AiRequestOptions, 'category'>): Promise<AiResponse<string>> {
+  public static async requestImage(
+    options: Omit<AiRequestOptions, 'category'>
+  ): Promise<AiResponse<string>> {
     return this.execute<string>({ ...options, category: 'IMAGE' });
   }
 
@@ -68,12 +77,17 @@ export class AiGateway {
       category: 'TTS',
       operation: 'tts_speech_summary',
       payload: { text, voice: AI_LIMITS.categories.TTS.voice },
-      ...options
+      ...options,
     });
 
     // Fallback gracioso se a cota diária de TTS (30/dia) ou limite for atingido
-    if (!res.success && (res.errorCode === 'AI_DAILY_LIMIT_REACHED' || res.errorCode === 'AI_FAIL_CLOSED_BLOCKED')) {
-      console.warn('[AiGateway] Cota de TTS Gemini atingida. Ativando fallback para voz nativa Google Maps/Speech API.');
+    if (
+      !res.success &&
+      (res.errorCode === 'AI_DAILY_LIMIT_REACHED' || res.errorCode === 'AI_FAIL_CLOSED_BLOCKED')
+    ) {
+      console.warn(
+        '[AiGateway] Cota de TTS Gemini atingida. Ativando fallback para voz nativa Google Maps/Speech API.'
+      );
       this.speakWithNativeFallback(text);
       return {
         success: true,
@@ -81,7 +95,7 @@ export class AiGateway {
         category: 'TTS',
         modelUsed: 'native-speech-fallback (Google Maps)',
         fallbackUsed: true,
-        userFriendlyMessage: 'Sintetizando voz via áudio nativo (Fallback ativado por cota).'
+        userFriendlyMessage: 'Sintetizando voz via áudio nativo (Fallback ativado por cota).',
       };
     }
 
@@ -112,9 +126,10 @@ export class AiGateway {
         success: false,
         errorCode: 'AI_CIRCUIT_BREAKER_OPEN',
         errorMessage: cbCheck.reason,
-        userFriendlyMessage: 'Sistema de IA temporariamente pausado por segurança. Tente novamente em 2 minutos.',
+        userFriendlyMessage:
+          'Sistema de IA temporariamente pausado por segurança. Tente novamente em 2 minutos.',
         category,
-        modelUsed: categoryConfig.model
+        modelUsed: categoryConfig.model,
       };
     }
 
@@ -125,9 +140,10 @@ export class AiGateway {
         success: false,
         errorCode: 'AI_CONCURRENCY_LIMIT_REACHED',
         errorMessage: concurrency.reason,
-        userFriendlyMessage: 'Muitas solicitações de IA ativas ao mesmo tempo. Aguarde alguns segundos.',
+        userFriendlyMessage:
+          'Muitas solicitações de IA ativas ao mesmo tempo. Aguarde alguns segundos.',
         category,
-        modelUsed: categoryConfig.model
+        modelUsed: categoryConfig.model,
       };
     }
 
@@ -142,24 +158,36 @@ export class AiGateway {
             success: false,
             errorCode: quota.errorCode || 'AI_DAILY_LIMIT_REACHED',
             errorMessage: quota.errorMessage,
-            userFriendlyMessage: category === 'TTS'
-              ? 'Limite diário de voz de IA atingido (30/dia). Ativando voz nativa.'
-              : 'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.',
+            userFriendlyMessage:
+              category === 'TTS'
+                ? 'Limite diário de voz de IA atingido (30/dia). Ativando voz nativa.'
+                : 'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.',
             category,
-            modelUsed: categoryConfig.model
+            modelUsed: categoryConfig.model,
           };
         }
 
         // 5. Determinar modelo efetivo
-        const effectiveModel = options.model || (
-          options.tier === 'reasoning' ? AI_MODELS.REASONING :
-          options.tier === 'embedding' ? AI_MODELS.EMBEDDING :
-          options.tier === 'lite' ? AI_MODELS.LITE :
-          categoryConfig.model
-        );
+        const effectiveModel =
+          options.model ||
+          (options.tier === 'reasoning'
+            ? AI_MODELS.REASONING
+            : options.tier === 'embedding'
+              ? AI_MODELS.EMBEDDING
+              : options.tier === 'lite'
+                ? AI_MODELS.LITE
+                : categoryConfig.model);
 
         // 6. Chamada de Produção Proxied ao Gemini HTTP Backend
-        const rawResult = await this.callGeminiApiProxied<T>(category, effectiveModel, payload, operation, options.moduleSource, options.thinkingBudget, options.jsonMode);
+        const rawResult = await this.callGeminiApiProxied<T>(
+          category,
+          effectiveModel,
+          payload,
+          operation,
+          options.moduleSource,
+          options.thinkingBudget,
+          options.jsonMode
+        );
 
         AiCircuitBreaker.recordSuccess(category);
         clearModelAiQuotaAlert(effectiveModel);
@@ -168,11 +196,13 @@ export class AiGateway {
           data: rawResult,
           category,
           modelUsed: effectiveModel,
-          executionTimeMs: Date.now() - startTime
+          executionTimeMs: Date.now() - startTime,
         };
       } catch (err: any) {
         AiCircuitBreaker.recordError(category, err.message || 'Error executing call');
-        const isQuotaOrRateLimit = /429|resource_exhausted|quota|rate limit/i.test(err?.message || '');
+        const isQuotaOrRateLimit = /429|resource_exhausted|quota|rate limit/i.test(
+          err?.message || ''
+        );
         const modelUsed = options.model || categoryConfig.model;
         return {
           success: false,
@@ -182,7 +212,7 @@ export class AiGateway {
             ? `Cota do modelo ${modelUsed} atingida (HTTP 429).`
             : 'Não foi possível processar a requisição de IA no momento.',
           category,
-          modelUsed
+          modelUsed,
         };
       } finally {
         AiConcurrencyLimiter.release(category);
@@ -207,18 +237,26 @@ export class AiGateway {
   ): Promise<T> {
     const callId = AiLatencyTracker.startCall(operation, model, category);
     const resolvedModule = moduleSource || inferModuleFromOperation(operation);
-    const serviceId = category === 'IMAGE' ? 'gemini_image' : category === 'TTS' ? 'gemini_tts' : 'gemini_flash';
+    const serviceId =
+      category === 'IMAGE' ? 'gemini_image' : category === 'TTS' ? 'gemini_tts' : 'gemini_flash';
 
-    let apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY : '');
+    let apiKey =
+      import.meta.env.VITE_GEMINI_API_KEY ||
+      (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY : '');
     if (!apiKey) {
       try {
         const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
-        apiKey = data?.data?.geminiApiKey || data?.geminiApiKey || data?.settings_data?.geminiApiKey || '';
+        apiKey =
+          data?.data?.geminiApiKey || data?.geminiApiKey || data?.settings_data?.geminiApiKey || '';
       } catch {
         // Fallback silencioso se der erro no supabase
       }
     }
-    if (!apiKey && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (
+      !apiKey &&
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
       apiKey = 'mock-key-for-e2e-and-local-development';
     }
     if (!apiKey) {
@@ -250,7 +288,9 @@ export class AiGateway {
     let requestBody: any;
     if (isEmbedding) {
       requestBody = {
-        content: { parts: [{ text: typeof payload === 'string' ? payload : JSON.stringify(payload) }] }
+        content: {
+          parts: [{ text: typeof payload === 'string' ? payload : JSON.stringify(payload) }],
+        },
       };
     } else {
       const contents = typeof payload === 'string' ? [{ parts: [{ text: payload }] }] : payload;
@@ -263,13 +303,14 @@ export class AiGateway {
         }
         if (thinkingBudget) {
           generationConfig.thinkingConfig = {
-            thinkingBudget: thinkingBudget === 'low' ? 1024 : thinkingBudget === 'medium' ? 2048 : 4096
+            thinkingBudget:
+              thinkingBudget === 'low' ? 1024 : thinkingBudget === 'medium' ? 2048 : 4096,
           };
         }
       }
       requestBody = {
         contents,
-        ...(Object.keys(generationConfig).length ? { generationConfig } : {})
+        ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
       };
     }
 
@@ -279,7 +320,7 @@ export class AiGateway {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       const durationMs = Date.now() - startFetch;
@@ -303,7 +344,8 @@ export class AiGateway {
 
       const json = await res.json();
       const parsed = parseGeminiResponse(json, category) as T;
-      const respSize = typeof parsed === 'string' ? parsed.length : JSON.stringify(parsed || {}).length;
+      const respSize =
+        typeof parsed === 'string' ? parsed.length : JSON.stringify(parsed || {}).length;
       AiLatencyTracker.endCall(callId, true, respSize);
 
       const promptTokens = Number(json?.usageMetadata?.promptTokenCount || 0);
@@ -316,19 +358,25 @@ export class AiGateway {
 
       if (category === 'IMAGE') {
         units = 1;
-        costEstimated = 0.20;
+        costEstimated = 0.2;
       } else if (category === 'TEXT') {
-        units = totalTokens || Math.max(1, Math.round((typeof payload === 'string' ? payload.length : 100) / 4));
+        units =
+          totalTokens ||
+          Math.max(1, Math.round((typeof payload === 'string' ? payload.length : 100) / 4));
         if (model.includes('embedding')) {
-          costEstimated = Number(((units * 0.00000015) * usdRate).toFixed(4));
+          costEstimated = Number((units * 0.00000015 * usdRate).toFixed(4));
         } else if (model.includes('3.8-flash')) {
-          costEstimated = Number((((promptTokens * 0.00000075) + (candidateTokens * 0.00000375)) * usdRate).toFixed(4));
+          costEstimated = Number(
+            ((promptTokens * 0.00000075 + candidateTokens * 0.00000375) * usdRate).toFixed(4)
+          );
         } else {
           // gemini-3.5-flash-lite (padrão)
-          costEstimated = Number((((promptTokens * 0.00000030) + (candidateTokens * 0.0000025)) * usdRate).toFixed(4));
+          costEstimated = Number(
+            ((promptTokens * 0.0000003 + candidateTokens * 0.0000025) * usdRate).toFixed(4)
+          );
         }
         if (costEstimated <= 0 && units > 0) {
-          costEstimated = Number(((units * 0.0000005) * usdRate).toFixed(4));
+          costEstimated = Number((units * 0.0000005 * usdRate).toFixed(4));
         }
       }
 
@@ -373,7 +421,14 @@ export class AiGateway {
       utterance.pitch = 1.0;
 
       const voices = window.speechSynthesis.getVoices();
-      const femalePtVoice = voices.find(v => v.lang.includes('pt') && (v.name.includes('Luciana') || v.name.includes('Francisca') || v.name.includes('Google') || v.name.includes('Maria')));
+      const femalePtVoice = voices.find(
+        (v) =>
+          v.lang.includes('pt') &&
+          (v.name.includes('Luciana') ||
+            v.name.includes('Francisca') ||
+            v.name.includes('Google') ||
+            v.name.includes('Maria'))
+      );
       if (femalePtVoice) utterance.voice = femalePtVoice;
 
       window.speechSynthesis.speak(utterance);

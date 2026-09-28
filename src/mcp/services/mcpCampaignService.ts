@@ -1,8 +1,4 @@
-import {
-  McpCampaignData,
-  McpCampaignPromptElement,
-  McpGeneratedReference,
-} from '../types/mcp.js';
+import { McpCampaignData, McpCampaignPromptElement, McpGeneratedReference } from '../types/mcp.js';
 import { mcpSupabase } from './mcpProductService.js';
 
 const DEFAULT_GLOBAL_GUIDELINES = `COMPOSIÇÃO GERAL
@@ -93,12 +89,14 @@ export class McpCampaignService {
         {
           key: 'TITLE',
           name: 'Título do Produto',
-          prompt: 'Posicione o título do produto em destaque com tipografia forte e legibilidade cristalina.',
+          prompt:
+            'Posicione o título do produto em destaque com tipografia forte e legibilidade cristalina.',
         },
         {
           key: 'PRICE',
           name: 'Preço Principal',
-          prompt: 'Destaque o valor comercial com container nítido, fundo contrastante e moeda R$ visível.',
+          prompt:
+            'Destaque o valor comercial com container nítido, fundo contrastante e moeda R$ visível.',
         },
         {
           key: 'INSTALLMENT',
@@ -108,12 +106,14 @@ export class McpCampaignService {
         {
           key: 'OPEN_VIEW',
           name: 'Visão Interna / Foto Secundária',
-          prompt: 'Quando houver fotografia do produto aberto, apresente-a em card secundário e discreto, sem rótulos ou textos sobrepostos.',
+          prompt:
+            'Quando houver fotografia do produto aberto, apresente-a em card secundário e discreto, sem rótulos ou textos sobrepostos.',
         },
         {
           key: 'VARIATION_GALLERY',
           name: 'Galeria de Outras Cores',
-          prompt: 'Apresente as miniaturas reais das DEMAIS cores disponíveis (nunca duplicando a cor principal já em destaque no post).',
+          prompt:
+            'Apresente as miniaturas reais das DEMAIS cores disponíveis (nunca duplicando a cor principal já em destaque no post).',
         },
         {
           key: 'CTA',
@@ -141,7 +141,11 @@ export class McpCampaignService {
   /**
    * Obtém histórico de artes já geradas para o produto/campanha como REFERÊNCIA VISUAL.
    */
-  async getGeneratedPostReferences(productId: string, campaignId?: string, limit = 5): Promise<McpGeneratedReference[]> {
+  async getGeneratedPostReferences(
+    productId: string,
+    campaignId?: string,
+    limit = 5
+  ): Promise<McpGeneratedReference[]> {
     let query = mcpSupabase
       .from('post_creator_previews')
       .select('*')

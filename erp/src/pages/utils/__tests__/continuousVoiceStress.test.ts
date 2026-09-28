@@ -67,7 +67,17 @@ describe('SUÍTE DE ESTRESSE DO MICROFONE CONTÍNUO E FLUXO DE VOZ (GRUPOS 1, 2,
     };
 
     const utterances: string[] = [];
-    const topics = ['gasolina', 'oficina', 'luz', 'água', 'televisão', 'geladeira', 'estoque', 'João', 'Bechara'];
+    const topics = [
+      'gasolina',
+      'oficina',
+      'luz',
+      'água',
+      'televisão',
+      'geladeira',
+      'estoque',
+      'João',
+      'Bechara',
+    ];
     const actions = ['Paguei', 'Recebi', 'Comprei', 'Abasteci', 'Não, foi'];
 
     for (let i = 0; i < 50; i++) {
@@ -139,7 +149,9 @@ describe('SUÍTE DE ESTRESSE DO MICROFONE CONTÍNUO E FLUXO DE VOZ (GRUPOS 1, 2,
 
     const speak = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => { sentCount += 1; }, AUTO_SEND_SILENCE_MS);
+      timer = setTimeout(() => {
+        sentCount += 1;
+      }, AUTO_SEND_SILENCE_MS);
     };
 
     speak();
@@ -191,7 +203,7 @@ describe('SUÍTE DE ESTRESSE DO MICROFONE CONTÍNUO E FLUXO DE VOZ (GRUPOS 1, 2,
   test('GRUPO 33: Ruídos como "ah", "hã" ou string vazia não criam movimentação', () => {
     const noisyTexts = ['', '   ', 'ah', 'hã'];
 
-    noisyTexts.forEach(txt => {
+    noisyTexts.forEach((txt) => {
       const isNoise = !txt.trim() || /^ah$|^hã$/i.test(txt.trim());
       expect(isNoise).toBe(true);
     });

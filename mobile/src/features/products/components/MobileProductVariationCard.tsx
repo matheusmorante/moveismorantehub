@@ -34,7 +34,10 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const [menuVisible, setMenuVisible] = React.useState(false);
   let varName = '';
   if (v.attributes && Array.isArray(v.attributes)) {
-    varName = v.attributes.map((a: any) => a.value).filter(Boolean).join(' · ');
+    varName = v.attributes
+      .map((a: any) => a.value)
+      .filter(Boolean)
+      .join(' · ');
   } else if (v.attributes && typeof v.attributes === 'object') {
     varName = Object.values(v.attributes).filter(Boolean).join(' · ');
   }
@@ -43,7 +46,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
   const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
-  const imgUrl = Array.isArray(v.images) && v.images[0] ? v.images[0] : (v.imageUrl || parentImage || null);
+  const imgUrl =
+    Array.isArray(v.images) && v.images[0] ? v.images[0] : v.imageUrl || parentImage || null;
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
   const promoPrice = Number(v.promo_price ?? v.promoPrice ?? 0);
   const hasPromo = promoPrice > 0 && promoPrice < normalPrice;
@@ -74,7 +78,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     onToggleCatalog(v.id, v.status || 'published');
   };
 
-  const variationProduct = { ...(parentProduct || {}), selectedVariationId: v.id, selectedVariation: v };
+  const variationProduct = {
+    ...(parentProduct || {}),
+    selectedVariationId: v.id,
+    selectedVariation: v,
+  };
 
   return (
     <View style={[styles.varCard, dark && styles.darkVarCard]}>
@@ -93,16 +101,19 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             {varName}
           </Text>
 
-           <Text style={styles.sku}>
-             SKU: {v.sku && String(v.sku).includes('-') ? v.sku : (v.sku ? `${v.sku}-${String(index + 1).padStart(2, '0')}` : '-')}
-           </Text>
-           {isMerged && <Text style={styles.mergedBadge}>Mesclado — somente histórico</Text>}
+          <Text style={styles.sku}>
+            SKU:{' '}
+            {v.sku && String(v.sku).includes('-')
+              ? v.sku
+              : v.sku
+                ? `${v.sku}-${String(index + 1).padStart(2, '0')}`
+                : '-'}
+          </Text>
+          {isMerged && <Text style={styles.mergedBadge}>Mesclado — somente histórico</Text>}
 
           <View style={styles.priceStockRow}>
             {hasPromo && (
-              <Text style={styles.oldPrice}>
-                R$ {normalPrice.toFixed(2).replace('.', ',')}
-              </Text>
+              <Text style={styles.oldPrice}>R$ {normalPrice.toFixed(2).replace('.', ',')}</Text>
             )}
             <Text style={[styles.price, dark && styles.priceDark]}>
               R$ {displayPrice.toFixed(2).replace('.', ',')}
@@ -113,7 +124,13 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             </View>
           </View>
         </View>
-        <TouchableOpacity disabled={isMerged} style={styles.menuButton} onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel={`Ações da variação ${varName}`}>
+        <TouchableOpacity
+          disabled={isMerged}
+          style={styles.menuButton}
+          onPress={() => setMenuVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Ações da variação ${varName}`}
+        >
           <MoreVertical size={17} color={dark ? '#cbd5e1' : '#64748b'} />
         </TouchableOpacity>
       </View>

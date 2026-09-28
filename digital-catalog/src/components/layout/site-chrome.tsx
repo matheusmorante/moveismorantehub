@@ -1,18 +1,18 @@
-"use client"
+'use client';
 
-import { usePathname } from "next/navigation"
-import { Suspense } from "react"
-import { Header } from "./header"
-import { SubHeader } from "./sub-header"
-import { Footer } from "./footer"
-import { WhatsAppButton } from "./whatsapp-button"
+import { usePathname } from 'next/navigation';
+import { Suspense } from 'react';
+import { Header } from './header';
+import { SubHeader } from './sub-header';
+import { Footer } from './footer';
+import { WhatsAppButton } from './whatsapp-button';
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const isAdminRoute = pathname.startsWith("/admin")
+  const pathname = usePathname();
+  const isAdminRoute = pathname.startsWith('/admin');
 
   if (isAdminRoute) {
-    return <>{children}</>
+    return <>{children}</>;
   }
 
   return (
@@ -25,5 +25,5 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       <Footer />
       <WhatsAppButton />
     </>
-  )
+  );
 }

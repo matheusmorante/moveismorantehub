@@ -65,9 +65,19 @@ export const ProductFormBasicSection: React.FC<Props> = ({
               <TouchableOpacity
                 key={t}
                 onPress={() => update('itemType', t)}
-                style={[styles.typeBtn, active && styles.typeBtnActive, dark && !active && styles.darkBtn]}
+                style={[
+                  styles.typeBtn,
+                  active && styles.typeBtnActive,
+                  dark && !active && styles.darkBtn,
+                ]}
               >
-                <Text style={[styles.typeText, active && styles.typeTextActive, dark && !active && styles.lightText]}>
+                <Text
+                  style={[
+                    styles.typeText,
+                    active && styles.typeTextActive,
+                    dark && !active && styles.lightText,
+                  ]}
+                >
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -85,9 +95,19 @@ export const ProductFormBasicSection: React.FC<Props> = ({
               <TouchableOpacity
                 key={c.id}
                 onPress={() => update('category', active ? '' : c.name)}
-                style={[styles.catPill, active && styles.catPillActive, dark && !active && styles.darkBtn]}
+                style={[
+                  styles.catPill,
+                  active && styles.catPillActive,
+                  dark && !active && styles.darkBtn,
+                ]}
               >
-                <Text style={[styles.catText, active && styles.catTextActive, dark && !active && styles.lightText]}>
+                <Text
+                  style={[
+                    styles.catText,
+                    active && styles.catTextActive,
+                    dark && !active && styles.lightText,
+                  ]}
+                >
                   {c.name}
                 </Text>
               </TouchableOpacity>

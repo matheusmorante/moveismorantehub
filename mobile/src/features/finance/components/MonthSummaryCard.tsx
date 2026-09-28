@@ -32,9 +32,7 @@ export const MonthSummaryCard: React.FC<Props> = ({
             </View>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>Entradas</Text>
           </View>
-          <Text style={styles.incomeValue}>
-            + {formatCurrency(income)}
-          </Text>
+          <Text style={styles.incomeValue}>+ {formatCurrency(income)}</Text>
         </View>
 
         {/* Saídas */}
@@ -45,9 +43,7 @@ export const MonthSummaryCard: React.FC<Props> = ({
             </View>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>Saídas</Text>
           </View>
-          <Text style={styles.expenseValue}>
-            - {formatCurrency(expense)}
-          </Text>
+          <Text style={styles.expenseValue}>- {formatCurrency(expense)}</Text>
         </View>
       </View>
 

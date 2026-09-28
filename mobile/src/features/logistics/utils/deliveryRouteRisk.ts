@@ -13,19 +13,25 @@ export interface OutOfOrderRisk {
  */
 export const checkOutOfOrderRisk = (
   targetItem: DeliveryRouteItem | null,
-  routeItems: DeliveryRouteItem[],
+  routeItems: DeliveryRouteItem[]
 ): OutOfOrderRisk => {
   if (!targetItem || targetItem.status !== 'pending') return { hasRisk: false };
 
-  const pendingItems = routeItems.filter(item => item.status === 'pending');
+  const pendingItems = routeItems.filter((item) => item.status === 'pending');
   if (pendingItems.length <= 1) return { hasRisk: false };
 
-  const targetIndex = pendingItems.findIndex(item => item.id === targetItem.id);
+  const targetIndex = pendingItems.findIndex((item) => item.id === targetItem.id);
   if (targetIndex <= 0) return { hasRisk: false };
 
   const riskyPriorItem = pendingItems
     .slice(0, targetIndex)
-    .find(item => item.isFixedTime || item.restrictionLevel === 'fixed' || item.periodLabel.includes('🔒') || item.periodLabel.includes('⚠️'));
+    .find(
+      (item) =>
+        item.isFixedTime ||
+        item.restrictionLevel === 'fixed' ||
+        item.periodLabel.includes('🔒') ||
+        item.periodLabel.includes('⚠️')
+    );
 
   if (!riskyPriorItem) return { hasRisk: false };
 

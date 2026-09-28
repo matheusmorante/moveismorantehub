@@ -1,31 +1,33 @@
-import { ItemsSummary } from "../../types/items.type";
+import { ItemsSummary } from '../../types/items.type';
 import CurrencyDisplay from '../../../components/CurrencyDisplay';
 import UnitDisplay from '../../../components/UnitDisplay';
 
 interface Props {
-    summary: ItemsSummary,
+  summary: ItemsSummary;
 }
 
-const Footer = ({summary} : Props ) => {
-    const s = summary || ({} as ItemsSummary);
-    return (
-        <tfoot className="border-t-2 border-slate-900 bg-slate-950 text-white">
-            <tr>
-                <td className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Totais dos Itens</td>
-                <td className="px-4 py-1.5 text-center text-sm font-black">
-                    <UnitDisplay value={s.totalQuantity || 0} />
-                </td>
-                <td className="px-4 py-1.5 text-right text-xs font-medium text-slate-400">
-                    <CurrencyDisplay value={s.itemsSubtotal || 0}/>
-                </td>
-                <td className="px-4 py-1.5 text-right text-xs font-medium text-slate-500">
-                    <CurrencyDisplay value={s.totalFixedDiscount || 0}/>
-                </td>
-                <td className="px-4 py-1.5 text-right text-base font-black text-amber-400">
-                    <CurrencyDisplay value={s.itemsTotalValue || 0}/>
-                </td>
-            </tr>
-        </tfoot>
-    )
-}
+const Footer = ({ summary }: Props) => {
+  const s = summary || ({} as ItemsSummary);
+  return (
+    <tfoot className="border-t-2 border-slate-900 bg-slate-950 text-white">
+      <tr>
+        <td className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Totais dos Itens
+        </td>
+        <td className="px-4 py-1.5 text-center text-sm font-black">
+          <UnitDisplay value={s.totalQuantity || 0} />
+        </td>
+        <td className="px-4 py-1.5 text-right text-xs font-medium text-slate-400">
+          <CurrencyDisplay value={s.itemsSubtotal || 0} />
+        </td>
+        <td className="px-4 py-1.5 text-right text-xs font-medium text-slate-500">
+          <CurrencyDisplay value={s.totalFixedDiscount || 0} />
+        </td>
+        <td className="px-4 py-1.5 text-right text-base font-black text-amber-400">
+          <CurrencyDisplay value={s.itemsTotalValue || 0} />
+        </td>
+      </tr>
+    </tfoot>
+  );
+};
 export default Footer;

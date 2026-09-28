@@ -48,7 +48,8 @@ export const TemplateGrid: React.FC<TemplateGridProps> = ({
             </p>
 
             <p className="mt-3 text-[11px] font-medium text-slate-500">
-              {template.formats?.join(' · ') || template.aspectRatio} · {template.assets?.length || 0} arquivos
+              {template.formats?.join(' · ') || template.aspectRatio} ·{' '}
+              {template.assets?.length || 0} arquivos
             </p>
           </div>
 

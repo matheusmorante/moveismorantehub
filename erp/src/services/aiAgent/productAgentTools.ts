@@ -110,13 +110,18 @@ const sanitizeVariationForAgent = (v: Variation): ProductVariationDetailForAgent
     }
   }
 
-  const hasDims = v.height !== undefined || v.width !== undefined || v.depth !== undefined || v.weight !== undefined;
+  const hasDims =
+    v.height !== undefined ||
+    v.width !== undefined ||
+    v.depth !== undefined ||
+    v.weight !== undefined;
 
   return {
     sku: v.sku || '',
     nome: v.name || '',
     preco: Number(v.unitPrice ?? 0),
-    precoPromocional: v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : undefined,
+    precoPromocional:
+      v.promoPrice !== undefined && v.promoPrice !== null ? Number(v.promoPrice) : undefined,
     precoCusto: v.costPrice !== undefined && v.costPrice !== null ? Number(v.costPrice) : undefined,
     estoque: Number(v.stock ?? 0),
     ativo: Boolean(v.active),
@@ -149,9 +154,12 @@ const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
     ativo: Boolean(p.active),
     precos: {
       precoVenda: Number(p.unitPrice ?? 0),
-      precoPromocional: p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
-      precoCusto: p.costPrice !== undefined && p.costPrice !== null ? Number(p.costPrice) : undefined,
-      custoFrete: p.freightCost !== undefined && p.freightCost !== null ? Number(p.freightCost) : undefined,
+      precoPromocional:
+        p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
+      precoCusto:
+        p.costPrice !== undefined && p.costPrice !== null ? Number(p.costPrice) : undefined,
+      custoFrete:
+        p.freightCost !== undefined && p.freightCost !== null ? Number(p.freightCost) : undefined,
     },
     estoque: {
       atual: Number(p.stock ?? 0),
@@ -163,13 +171,14 @@ const sanitizeProductDetailForAgent = (p: Product): ProductDetailForAgent => {
       larguraCm: p.width,
       profundidadeCm: p.depth,
       pesoKg: p.weight,
-      embalagem: (p.pkgHeight || p.pkgWidth || p.pkgDepth)
-        ? {
-            alturaCm: p.pkgHeight,
-            larguraCm: p.pkgWidth,
-            profundidadeCm: p.pkgDepth,
-          }
-        : undefined,
+      embalagem:
+        p.pkgHeight || p.pkgWidth || p.pkgDepth
+          ? {
+              alturaCm: p.pkgHeight,
+              larguraCm: p.pkgWidth,
+              profundidadeCm: p.pkgDepth,
+            }
+          : undefined,
       adicionais: Array.isArray(p.extraDimensions)
         ? p.extraDimensions.map((e) => ({ rotulo: e.label, valor: e.value }))
         : undefined,
@@ -199,7 +208,8 @@ const sanitizeProductSummaryForAgent = (p: Product): ProductSummaryForAgent => {
     marca: p.brand || '',
     condicao: p.condition || 'novo',
     preco: Number(p.unitPrice ?? 0),
-    precoPromocional: p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
+    precoPromocional:
+      p.promoPrice !== undefined && p.promoPrice !== null ? Number(p.promoPrice) : undefined,
     precoCusto: p.costPrice !== undefined && p.costPrice !== null ? Number(p.costPrice) : undefined,
     estoque: Number(p.stock ?? 0),
     unidade: p.unit || 'UN',
@@ -229,7 +239,10 @@ export const productAgentTools = {
 
       let query = supabase
         .from(TABLE_NAME)
-        .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)', { count: 'exact' })
+        .select(
+          '*, product_variations(*), product_categories(*, categories(*)), product_images(*)',
+          { count: 'exact' }
+        )
         .eq('deleted', false);
 
       if (onlyActive) {
@@ -316,7 +329,8 @@ export const productAgentTools = {
       return {
         success: false,
         code: 'INVALID_ARGUMENT',
-        error: 'É obrigatório informar o código oficial de 6 dígitos ou o SKU do produto para consultar detalhes.',
+        error:
+          'É obrigatório informar o código oficial de 6 dígitos ou o SKU do produto para consultar detalhes.',
       };
     }
 
@@ -340,7 +354,9 @@ export const productAgentTools = {
         if (varData?.product_id) {
           const { data: parentData, error: parentError } = await supabase
             .from(TABLE_NAME)
-            .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+            .select(
+              '*, product_variations(*), product_categories(*, categories(*)), product_images(*)'
+            )
             .eq('id', varData.product_id)
             .maybeSingle();
 
@@ -354,7 +370,9 @@ export const productAgentTools = {
         const paddedCode = rawTarget.padStart(6, '0');
         const { data: fallbackData } = await supabase
           .from(TABLE_NAME)
-          .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+          .select(
+            '*, product_variations(*), product_categories(*, categories(*)), product_images(*)'
+          )
           .eq('deleted', false)
           .or(`code.eq.${paddedCode},sku.ilike.%${rawTarget}%`)
           .limit(1)

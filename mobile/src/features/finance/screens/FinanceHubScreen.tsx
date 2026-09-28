@@ -12,10 +12,7 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-export const FinanceHubScreen: React.FC<Props> = ({
-  userProfile,
-  isDarkMode = false,
-}) => {
+export const FinanceHubScreen: React.FC<Props> = ({ userProfile, isDarkMode = false }) => {
   const hub = useFinanceHubData({ userProfile });
 
   return (
@@ -73,7 +70,7 @@ export const FinanceHubScreen: React.FC<Props> = ({
         transaction={hub.actionsTransaction}
         isDarkMode={isDarkMode}
         onClose={() => hub.setActionsTransaction(null)}
-        onEdit={tx => {
+        onEdit={(tx) => {
           hub.setActionsTransaction(null);
           hub.setEditingTransaction(tx);
           hub.setShowNewModal(true);

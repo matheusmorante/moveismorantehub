@@ -43,37 +43,51 @@ function extractVariationAttributes(variation: Record<string, unknown>): Record<
  * com suas variacoes para compor o contexto de classificacao da IA.
  * Contexto sem imagens, paginado e enviado à IA em lotes.
  */
-export async function fetchSupplierProductsForContext(supplierId: string): Promise<SupplierProductSummary[]> {
+export async function fetchSupplierProductsForContext(
+  supplierId: string
+): Promise<SupplierProductSummary[]> {
   if (!supplierId) return [];
   try {
     const loadPages = async () => {
       const rows: Record<string, unknown>[] = [];
       for (let offset = 0; ; offset += SUPPLIER_CONTEXT_PAGE_SIZE) {
-        let query = supabase.from('products')
+        let query = supabase
+          .from('products')
           .select('id, name, description, product_variations(id, name, attributes)')
-          .eq('deleted', false).eq('active', true).not('is_draft', 'is', true);
-        query = query.or('supplier_id.eq.' + supplierId + ',main_supplier_id.eq.' + supplierId + ',supplier_ids.cs.{"' + supplierId + '"}');
-        const { data, error } = await query.order('id').range(offset, offset + SUPPLIER_CONTEXT_PAGE_SIZE - 1);
+          .eq('deleted', false)
+          .eq('active', true)
+          .not('is_draft', 'is', true);
+        query = query.or(
+          'supplier_id.eq.' +
+            supplierId +
+            ',main_supplier_id.eq.' +
+            supplierId +
+            ',supplier_ids.cs.{"' +
+            supplierId +
+            '"}'
+        );
+        const { data, error } = await query
+          .order('id')
+          .range(offset, offset + SUPPLIER_CONTEXT_PAGE_SIZE - 1);
         if (error) throw error;
         rows.push(...(data || []));
         if ((data || []).length < SUPPLIER_CONTEXT_PAGE_SIZE) return rows;
       }
     };
     const filtered = await loadPages();
-    return filtered
-      .map((row: Record<string, unknown>) => ({
-        id: String(row['id'] || ''),
-        name: String(row['name'] || row['description'] || ''),
-        variations: Array.isArray(row['product_variations'])
-          ? (row['product_variations'] as Record<string, unknown>[])
-              .filter((v) => v['name'] || v['id'])
-              .map((v) => ({
-                id: String(v['id'] || ''),
-                name: String(v['name'] || ''),
-                attributes: extractVariationAttributes(v),
-              }))
-          : [],
-      }));
+    return filtered.map((row: Record<string, unknown>) => ({
+      id: String(row['id'] || ''),
+      name: String(row['name'] || row['description'] || ''),
+      variations: Array.isArray(row['product_variations'])
+        ? (row['product_variations'] as Record<string, unknown>[])
+            .filter((v) => v['name'] || v['id'])
+            .map((v) => ({
+              id: String(v['id'] || ''),
+              name: String(v['name'] || ''),
+              attributes: extractVariationAttributes(v),
+            }))
+        : [],
+    }));
   } catch (err) {
     console.warn('[inboundSupplierProductContext] Excecao ao buscar produtos do fornecedor:', err);
     return [];

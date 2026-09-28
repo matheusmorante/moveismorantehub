@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronDown, ChevronUp, MapPin, Clock, Play, ArrowRight, Truck } from 'lucide-react-native';
+import {
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Clock,
+  Play,
+  ArrowRight,
+  Truck,
+} from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
@@ -24,16 +32,29 @@ export const ScheduleCard: React.FC<Props> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const oData = item.order?.order_data || item.order || {};
-  const serviceSummary = analyzeOrderServiceHandlings(oData.items || item.order?.items || oData.assistanceItems || []);
+  const serviceSummary = analyzeOrderServiceHandlings(
+    oData.items || item.order?.items || oData.assistanceItems || []
+  );
   const items = oData.items || item.order?.items || oData.assistanceItems || [];
   const orderHandling = oData.handlingType || item.order?.handling_type || oData.handling;
-  const isReturn = String(oData.orderType || oData.order_type || item.order?.orderType || item.order?.order_type || '').toLowerCase() === 'return';
-  const hasOutsideAssembly = !isReturn && (serviceSummary.hasOutsideAssembly ||
-    isAssemblyOutsideType(orderHandling, handlingOptions) ||
-    items.some((entry: any) => isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)));
-  const hasDepotAssembly = !isReturn && (serviceSummary.hasDepotAssembly ||
-    isAssemblyInternalType(orderHandling, handlingOptions) ||
-    items.some((entry: any) => isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)));
+  const isReturn =
+    String(
+      oData.orderType || oData.order_type || item.order?.orderType || item.order?.order_type || ''
+    ).toLowerCase() === 'return';
+  const hasOutsideAssembly =
+    !isReturn &&
+    (serviceSummary.hasOutsideAssembly ||
+      isAssemblyOutsideType(orderHandling, handlingOptions) ||
+      items.some((entry: any) =>
+        isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)
+      ));
+  const hasDepotAssembly =
+    !isReturn &&
+    (serviceSummary.hasDepotAssembly ||
+      isAssemblyInternalType(orderHandling, handlingOptions) ||
+      items.some((entry: any) =>
+        isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)
+      ));
   const observationCount = item.observationCount ?? 0;
 
   // Informações de pagamento
@@ -68,7 +89,9 @@ export const ScheduleCard: React.FC<Props> = ({
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
           <View style={[styles.activityBadge, { backgroundColor: item.activityBackgroundColor }]}>
-            <Text style={[styles.activityBadgeText, { color: item.activityColor }]}>{item.activityLabel}</Text>
+            <Text style={[styles.activityBadgeText, { color: item.activityColor }]}>
+              {item.activityLabel}
+            </Text>
           </View>
           {/* Selo Parafusadeira Amarela - Montagem Depósito */}
           {hasDepotAssembly && (
@@ -113,9 +136,7 @@ export const ScheduleCard: React.FC<Props> = ({
       </View>
 
       {/* Cliente e Localização com Deslocamento e Quilometragem */}
-      <Text style={[styles.customerName, isDarkMode && styles.textLight]}>
-        {item.customerName}
-      </Text>
+      <Text style={[styles.customerName, isDarkMode && styles.textLight]}>{item.customerName}</Text>
 
       {addressAndTravelText ? (
         <View style={styles.locationRow}>
@@ -157,13 +178,14 @@ export const ScheduleCard: React.FC<Props> = ({
           activeOpacity={0.85}
         >
           <Play size={14} color="#ffffff" fill="#ffffff" />
-          <Text style={styles.startBtnText}>{item.activityType === 'delivery' ? 'INICIAR ENTREGA' : 'VER ATIVIDADE'}</Text>
+          <Text style={styles.startBtnText}>
+            {item.activityType === 'delivery' ? 'INICIAR ENTREGA' : 'VER ATIVIDADE'}
+          </Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 };
-
 
 const styles = StyleSheet.create({
   card: {

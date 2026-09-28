@@ -1,20 +1,26 @@
-import { Search, X, Loader2, Compass, Tag, ChevronRight, Package } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { SEARCH_PLACEHOLDER } from "./constants"
-import { slugifyCategory } from "@/lib/slug-utils"
-import { formatCurrency } from "@/lib/utils"
-import Image from "next/image"
-import Link from "next/link"
+import { Search, X, Loader2, Compass, Tag, ChevronRight, Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { SEARCH_PLACEHOLDER } from './constants';
+import { slugifyCategory } from '@/lib/slug-utils';
+import { formatCurrency } from '@/lib/utils';
+import Image from 'next/image';
+import Link from 'next/link';
 
 interface SearchInputProps {
-  value: string
-  onChange: (v: string) => void
-  inputRef?: React.RefObject<HTMLInputElement | null>
-  className?: string
-  onFocus?: () => void
+  value: string;
+  onChange: (v: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  className?: string;
+  onFocus?: () => void;
 }
 
-export function SearchInput({ value, onChange, inputRef, className = "", onFocus }: SearchInputProps) {
+export function SearchInput({
+  value,
+  onChange,
+  inputRef,
+  className = '',
+  onFocus,
+}: SearchInputProps) {
   return (
     <div className="relative flex-1">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
@@ -29,33 +35,33 @@ export function SearchInput({ value, onChange, inputRef, className = "", onFocus
           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all ${className}`}
       />
     </div>
-  )
+  );
 }
 
 interface DesktopSearchBarProps {
-  query: string
-  setQuery: (v: string) => void
-  onSubmit: (e: React.FormEvent) => void
-  searchContainerRef: React.RefObject<HTMLDivElement | null>
-  showSuggestions: boolean
-  setShowSuggestions: (v: boolean) => void
-  loadingSuggestions: boolean
+  query: string;
+  setQuery: (v: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  searchContainerRef: React.RefObject<HTMLDivElement | null>;
+  showSuggestions: boolean;
+  setShowSuggestions: (v: boolean) => void;
+  loadingSuggestions: boolean;
   suggestions: {
-    environments: any[]
-    categories: any[]
-    products: any[]
-  }
+    environments: any[];
+    categories: any[];
+    products: any[];
+  };
 }
 
-export function DesktopSearchBar({ 
-  query, 
-  setQuery, 
-  onSubmit, 
+export function DesktopSearchBar({
+  query,
+  setQuery,
+  onSubmit,
   searchContainerRef,
   showSuggestions,
   setShowSuggestions,
   loadingSuggestions,
-  suggestions 
+  suggestions,
 }: DesktopSearchBarProps) {
   return (
     <div ref={searchContainerRef} className="hidden lg:block flex-1 max-w-xl mx-6 relative">
@@ -68,7 +74,7 @@ export function DesktopSearchBar({
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => {
             if (query.trim().length >= 2) {
-              setShowSuggestions(true)
+              setShowSuggestions(true);
             }
           }}
           className="w-full h-11 pl-11 pr-4 rounded-full border border-gray-200 bg-gray-50 text-sm
@@ -103,9 +109,11 @@ export function DesktopSearchBar({
               {/* Ambientes */}
               {suggestions.environments.length > 0 && (
                 <div className="p-3">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">Ambientes</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">
+                    Ambientes
+                  </span>
                   <div className="space-y-0.5">
-                    {suggestions.environments.map(env => (
+                    {suggestions.environments.map((env) => (
                       <Link
                         key={env.id}
                         href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
@@ -123,9 +131,11 @@ export function DesktopSearchBar({
               {/* Categorias */}
               {suggestions.categories.length > 0 && (
                 <div className="p-3">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">Categorias</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">
+                    Categorias
+                  </span>
                   <div className="space-y-0.5">
-                    {suggestions.categories.map(cat => (
+                    {suggestions.categories.map((cat) => (
                       <Link
                         key={cat.id}
                         href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
@@ -143,9 +153,11 @@ export function DesktopSearchBar({
               {/* Produtos */}
               {suggestions.products.length > 0 && (
                 <div className="p-3">
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">Produtos</span>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-1.5 px-2">
+                    Produtos
+                  </span>
                   <div className="space-y-1.5">
-                    {suggestions.products.map(prod => (
+                    {suggestions.products.map((prod) => (
                       <Link
                         key={prod.id}
                         href={`/produto/${prod.slug}`}
@@ -160,15 +172,23 @@ export function DesktopSearchBar({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-gray-800 truncate group-hover:text-red-600 transition-colors">{prod.name}</h4>
+                          <h4 className="text-xs font-bold text-gray-800 truncate group-hover:text-red-600 transition-colors">
+                            {prod.name}
+                          </h4>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.promo_price ? (
                               <>
-                                <span className="text-xs font-black text-red-600">{formatCurrency(prod.promo_price)}</span>
-                                <span className="text-[9px] text-muted-foreground line-through">{formatCurrency(prod.price)}</span>
+                                <span className="text-xs font-black text-red-600">
+                                  {formatCurrency(prod.promo_price)}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground line-through">
+                                  {formatCurrency(prod.price)}
+                                </span>
                               </>
                             ) : (
-                              <span className="text-xs font-black text-red-600">{formatCurrency(prod.price)}</span>
+                              <span className="text-xs font-black text-red-600">
+                                {formatCurrency(prod.price)}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -179,63 +199,74 @@ export function DesktopSearchBar({
               )}
 
               {/* Sem resultados */}
-              {suggestions.environments.length === 0 && suggestions.categories.length === 0 && suggestions.products.length === 0 && (
-                <div className="p-6 text-center text-muted-foreground">
-                  <Package className="h-6 w-6 text-gray-300 mx-auto mb-1" />
-                  <p className="text-xs font-bold">Nenhuma sugestão encontrada</p>
-                </div>
-              )}
+              {suggestions.environments.length === 0 &&
+                suggestions.categories.length === 0 &&
+                suggestions.products.length === 0 && (
+                  <div className="p-6 text-center text-muted-foreground">
+                    <Package className="h-6 w-6 text-gray-300 mx-auto mb-1" />
+                    <p className="text-xs font-bold">Nenhuma sugestão encontrada</p>
+                  </div>
+                )}
             </div>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 interface MobileSearchOverlayProps {
-  query: string
-  setQuery: (v: string) => void
-  inputRef: React.RefObject<HTMLInputElement | null>
-  onSubmit: (e: React.FormEvent) => void
-  onClose: () => void
-  searchContainerRef: React.RefObject<HTMLDivElement | null>
-  showSuggestions: boolean
-  setShowSuggestions: (v: boolean) => void
-  loadingSuggestions: boolean
+  query: string;
+  setQuery: (v: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onSubmit: (e: React.FormEvent) => void;
+  onClose: () => void;
+  searchContainerRef: React.RefObject<HTMLDivElement | null>;
+  showSuggestions: boolean;
+  setShowSuggestions: (v: boolean) => void;
+  loadingSuggestions: boolean;
   suggestions: {
-    environments: any[]
-    categories: any[]
-    products: any[]
-  }
+    environments: any[];
+    categories: any[];
+    products: any[];
+  };
 }
 
-export function MobileSearchOverlay({ 
-  query, 
-  setQuery, 
-  inputRef, 
-  onSubmit, 
+export function MobileSearchOverlay({
+  query,
+  setQuery,
+  inputRef,
+  onSubmit,
   onClose,
   searchContainerRef,
   showSuggestions,
   setShowSuggestions,
   loadingSuggestions,
-  suggestions 
+  suggestions,
 }: MobileSearchOverlayProps) {
   return (
-    <div ref={searchContainerRef} className="lg:hidden absolute inset-x-0 top-full bg-white border-b border-gray-100 shadow-lg z-50 px-4 py-3 animate-in slide-in-from-top-2 duration-200">
+    <div
+      ref={searchContainerRef}
+      className="lg:hidden absolute inset-x-0 top-full bg-white border-b border-gray-100 shadow-lg z-50 px-4 py-3 animate-in slide-in-from-top-2 duration-200"
+    >
       <form onSubmit={onSubmit} className="flex gap-2 items-center">
-        <SearchInput 
-          value={query} 
-          onChange={setQuery} 
-          inputRef={inputRef} 
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          inputRef={inputRef}
           onFocus={() => {
             if (query.trim().length >= 2) {
-              setShowSuggestions(true)
+              setShowSuggestions(true);
             }
           }}
         />
-        <Button type="button" variant="ghost" size="icon" className="rounded-full shrink-0" onClick={onClose}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="rounded-full shrink-0"
+          onClick={onClose}
+        >
           <X className="h-5 w-5" />
         </Button>
       </form>
@@ -254,8 +285,8 @@ export function MobileSearchOverlay({
                 <Link
                   href={`/?search=${encodeURIComponent(query.trim())}`}
                   onClick={() => {
-                    setShowSuggestions(false)
-                    onClose()
+                    setShowSuggestions(false);
+                    onClose();
                   }}
                   className="w-full text-left px-4 py-2.5 flex items-center justify-start gap-2 text-xs font-black text-red-600 border-b border-gray-100 bg-red-50/40"
                 >
@@ -264,13 +295,13 @@ export function MobileSearchOverlay({
                 </Link>
               )}
 
-              {suggestions.environments.map(env => (
+              {suggestions.environments.map((env) => (
                 <Link
                   key={env.id}
-                        href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
+                  href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
                   onClick={() => {
-                    setShowSuggestions(false)
-                    onClose()
+                    setShowSuggestions(false);
+                    onClose();
                   }}
                   className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize"
                 >
@@ -279,13 +310,13 @@ export function MobileSearchOverlay({
                 </Link>
               ))}
 
-              {suggestions.categories.map(cat => (
+              {suggestions.categories.map((cat) => (
                 <Link
                   key={cat.id}
-                        href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
+                  href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
                   onClick={() => {
-                    setShowSuggestions(false)
-                    onClose()
+                    setShowSuggestions(false);
+                    onClose();
                   }}
                   className="w-full text-left px-4 py-2 flex items-center justify-start gap-2 text-xs font-bold text-gray-700 capitalize"
                 >
@@ -294,13 +325,13 @@ export function MobileSearchOverlay({
                 </Link>
               ))}
 
-              {suggestions.products.map(prod => (
+              {suggestions.products.map((prod) => (
                 <Link
                   key={prod.id}
                   href={`/produto/${prod.slug}`}
                   onClick={() => {
-                    setShowSuggestions(false)
-                    onClose()
+                    setShowSuggestions(false);
+                    onClose();
                   }}
                   className="flex items-center gap-3 p-2 hover:bg-gray-50 text-left"
                 >
@@ -316,11 +347,17 @@ export function MobileSearchOverlay({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       {prod.promo_price ? (
                         <>
-                          <span className="text-xs font-black text-red-600">{formatCurrency(prod.promo_price)}</span>
-                          <span className="text-[9px] text-muted-foreground line-through">{formatCurrency(prod.price)}</span>
+                          <span className="text-xs font-black text-red-600">
+                            {formatCurrency(prod.promo_price)}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground line-through">
+                            {formatCurrency(prod.price)}
+                          </span>
                         </>
                       ) : (
-                        <span className="text-xs font-black text-red-600">{formatCurrency(prod.price)}</span>
+                        <span className="text-xs font-black text-red-600">
+                          {formatCurrency(prod.price)}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -331,5 +368,5 @@ export function MobileSearchOverlay({
         </div>
       )}
     </div>
-  )
+  );
 }

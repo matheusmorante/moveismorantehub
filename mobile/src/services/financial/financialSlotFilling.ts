@@ -30,24 +30,51 @@ export const extractUnknownFieldsFromText = (
     lower.includes('ve pra mim');
 
   if (isGeneralUnknown) {
-    if (lower.includes('dia') || lower.includes('data') || lower.includes('vencimento') || lower.includes('quando')) {
+    if (
+      lower.includes('dia') ||
+      lower.includes('data') ||
+      lower.includes('vencimento') ||
+      lower.includes('quando')
+    ) {
       unknownSet.add('date');
       unknownSet.add('dueDate');
     }
-    if (lower.includes('forma') || lower.includes('como paguei') || lower.includes('pagamento') || lower.includes('paguei')) {
+    if (
+      lower.includes('forma') ||
+      lower.includes('como paguei') ||
+      lower.includes('pagamento') ||
+      lower.includes('paguei')
+    ) {
       unknownSet.add('paymentMethod');
     }
-    if (lower.includes('quantia') || lower.includes('valor') || lower.includes('quanto') || lower.includes('preço') || lower.includes('preco')) {
+    if (
+      lower.includes('quantia') ||
+      lower.includes('valor') ||
+      lower.includes('quanto') ||
+      lower.includes('preço') ||
+      lower.includes('preco')
+    ) {
       unknownSet.add('amount');
       unknownSet.add('totalAmount');
     }
 
     if (unknownSet.size === 0 && activeDraft) {
-      if (activeDraft.missingFields?.includes('amount') || (activeDraft.questionToUser && (activeDraft.questionToUser.includes('valor') || activeDraft.questionToUser.includes('Valor')))) {
+      if (
+        activeDraft.missingFields?.includes('amount') ||
+        (activeDraft.questionToUser &&
+          (activeDraft.questionToUser.includes('valor') ||
+            activeDraft.questionToUser.includes('Valor')))
+      ) {
         unknownSet.add('amount');
         unknownSet.add('totalAmount');
       }
-      if (activeDraft.missingFields?.includes('dueDate') || activeDraft.missingFields?.includes('date') || (activeDraft.questionToUser && (activeDraft.questionToUser.includes('data') || activeDraft.questionToUser.includes('vencimento')))) {
+      if (
+        activeDraft.missingFields?.includes('dueDate') ||
+        activeDraft.missingFields?.includes('date') ||
+        (activeDraft.questionToUser &&
+          (activeDraft.questionToUser.includes('data') ||
+            activeDraft.questionToUser.includes('vencimento')))
+      ) {
         unknownSet.add('date');
         unknownSet.add('dueDate');
       }
@@ -91,7 +118,9 @@ export const trySlotFillingFallback = (
 
     // Altera a intenção para busca no ERP
     draft.intentType = 'QUERY_OR_UPDATE';
-    draft.missingFields = (draft.missingFields || []).filter(f => !draft.unknownByUser?.includes(f));
+    draft.missingFields = (draft.missingFields || []).filter(
+      (f) => !draft.unknownByUser?.includes(f)
+    );
     draft.questionToUser = null;
 
     return validateParsedIntent(draft, todayStr);
@@ -105,7 +134,9 @@ export const trySlotFillingFallback = (
 
   if (
     !draft.description &&
-    /\b(?:conta|compra|venda|recebimento|pagamento|aluguel|energia|luz|internet|água|agua|combustível|combustivel|gasolina|frete|salário|salario|manutenção|manutencao)\b/i.test(text)
+    /\b(?:conta|compra|venda|recebimento|pagamento|aluguel|energia|luz|internet|água|agua|combustível|combustivel|gasolina|frete|salário|salario|manutenção|manutencao)\b/i.test(
+      text
+    )
   ) {
     draft.description = msg.trim();
     commonFieldsPatched += 1;
@@ -116,39 +147,48 @@ export const trySlotFillingFallback = (
       /(?:r\$\s*|\b(?:valor|total|foi|paguei|recebi)\s*(?:foi|de|era|\u00e9|e)?\s*)(\d+(?:\.\d{3})*(?:,\d{1,2})?)/i
     );
     if (explicitAmountMatch) {
-      const parsedAmount = parsePtBrNumber(
-        explicitAmountMatch[1],
-        /\b(?:mil|k)\b/i.test(text),
-      );
+      const parsedAmount = parsePtBrNumber(explicitAmountMatch[1], /\b(?:mil|k)\b/i.test(text));
       if (parsedAmount > 0) {
         draft.amount = parsedAmount;
         draft.isEstimated = false;
-        draft.missingFields = (draft.missingFields || []).filter(field => field !== 'amount' && field !== 'totalAmount');
+        draft.missingFields = (draft.missingFields || []).filter(
+          (field) => field !== 'amount' && field !== 'totalAmount'
+        );
         commonFieldsPatched += 1;
       }
     }
   }
 
-    const paymentMethod = detectFinancialPaymentMethod(text);
-    if (paymentMethod) {
-      draft.paymentMethod = paymentMethod;
-      draft.missingFields = (draft.missingFields || []).filter(field => field !== 'paymentMethod');
-      commonFieldsPatched += 1;
-    }
+  const paymentMethod = detectFinancialPaymentMethod(text);
+  if (paymentMethod) {
+    draft.paymentMethod = paymentMethod;
+    draft.missingFields = (draft.missingFields || []).filter((field) => field !== 'paymentMethod');
+    commonFieldsPatched += 1;
+  }
 
   if (
     draft.type === 'expense' &&
-    (!draft.businessPurpose || draft.businessPurpose === 'UNKNOWN' || draft.missingFields?.includes('businessPurpose'))
+    (!draft.businessPurpose ||
+      draft.businessPurpose === 'UNKNOWN' ||
+      draft.missingFields?.includes('businessPurpose'))
   ) {
     const purposeReply = inferBusinessPurpose(text);
     if (purposeReply === 'BUSINESS' || purposeReply === 'PERSONAL') {
       draft.businessPurpose = purposeReply;
       const description = (draft.description || '').toLowerCase();
-      const isEquipment = /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|computador|notebook|celular|smartphone|impressora|móveis|moveis|equipamento)\b/i.test(description);
-      draft.categoryName = purposeReply === 'PERSONAL'
-        ? 'Pró-labore'
-        : (isEquipment ? 'Equipamentos da Empresa' : 'Contas de Consumo');
-      draft.missingFields = (draft.missingFields || []).filter(field => field !== 'businessPurpose');
+      const isEquipment =
+        /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|computador|notebook|celular|smartphone|impressora|móveis|moveis|equipamento)\b/i.test(
+          description
+        );
+      draft.categoryName =
+        purposeReply === 'PERSONAL'
+          ? 'Pró-labore'
+          : isEquipment
+            ? 'Equipamentos da Empresa'
+            : 'Contas de Consumo';
+      draft.missingFields = (draft.missingFields || []).filter(
+        (field) => field !== 'businessPurpose'
+      );
       commonFieldsPatched += 1;
     }
   }
@@ -163,8 +203,13 @@ export const trySlotFillingFallback = (
   }
 
   // 0.5. Slot filling para Credor de Empréstimo (ex: "Do banco", "Do Itaú", "Do Matheus", "Do João")
-  const isCreditorMissing = activeDraft.missingFields?.includes('creditor') || (activeDraft.questionToUser && activeDraft.questionToUser.includes('De quem foi'));
-  if (isCreditorMissing || (draft.isLoan && (!draft.creditor || draft.creditorType === 'UNKNOWN'))) {
+  const isCreditorMissing =
+    activeDraft.missingFields?.includes('creditor') ||
+    (activeDraft.questionToUser && activeDraft.questionToUser.includes('De quem foi'));
+  if (
+    isCreditorMissing ||
+    (draft.isLoan && (!draft.creditor || draft.creditorType === 'UNKNOWN'))
+  ) {
     const isBankAnswer = isBankFinancialInstitution(text);
 
     let detectedCreditor: string | null = null;
@@ -172,17 +217,36 @@ export const trySlotFillingFallback = (
 
     if (isBankAnswer) {
       detectedType = 'FINANCIAL_INSTITUTION';
-      const match = text.match(/(?:do|da|no|na|pelo)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i);
+      const match = text.match(
+        /(?:do|da|no|na|pelo)?\s*(banco(?:\s+[a-z0-9]+)?|itaú|itau|bradesco|santander|nubank|caixa|inter|sicoob|sicredi|safra|btg|c6|financeira|cooperativa)/i
+      );
       detectedCreditor = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : 'Banco';
     } else {
-      const match = text.match(/(?:do|da|de|pelo|com|foi\s+o|foi\s+a|foi)?\s*([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+      const match = text.match(
+        /(?:do|da|de|pelo|com|foi\s+o|foi\s+a|foi)?\s*([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i
+      );
       if (match) {
         let raw = match[1];
         if (raw.toLowerCase() === 'foi' || raw.toLowerCase() === 'o' || raw.toLowerCase() === 'a') {
-          const secondMatch = text.match(/(?:foi\s+o|foi\s+a|foi|é\s+o|é\s+a|é)\s+([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+          const secondMatch = text.match(
+            /(?:foi\s+o|foi\s+a|foi|é\s+o|é\s+a|é)\s+([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i
+          );
           if (secondMatch) raw = secondMatch[1];
         }
-        const stopWords = ['uma', 'um', 'empréstimo', 'emprestimo', 'dinheiro', 'pix', 'banco', 'é', 'foi', 'o', 'a', 'categoria'];
+        const stopWords = [
+          'uma',
+          'um',
+          'empréstimo',
+          'emprestimo',
+          'dinheiro',
+          'pix',
+          'banco',
+          'é',
+          'foi',
+          'o',
+          'a',
+          'categoria',
+        ];
         if (!stopWords.includes(raw.toLowerCase())) {
           detectedCreditor = raw.charAt(0).toUpperCase() + raw.slice(1);
           detectedType = 'PERSON_OR_OTHER';
@@ -195,9 +259,12 @@ export const trySlotFillingFallback = (
       draft.supplier = detectedCreditor;
       draft.counterparty = detectedCreditor;
       draft.creditorType = detectedType;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'creditor');
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'creditor');
 
-      if (detectedType === 'FINANCIAL_INSTITUTION' && (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN')) {
+      if (
+        detectedType === 'FINANCIAL_INSTITUTION' &&
+        (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN')
+      ) {
         draft.paymentMethod = 'Transferência bancária';
       }
 
@@ -208,7 +275,8 @@ export const trySlotFillingFallback = (
   // 0.7. Slot filling para Finalidade da Despesa (Business vs Personal: "Da loja", "É para a loja", "Pessoal", "Minha casa")
   const isPurposeMissing =
     activeDraft.missingFields?.includes('businessPurpose') ||
-    (activeDraft.questionToUser && /loja ou é uma (?:compra|conta) pessoal/.test(activeDraft.questionToUser)) ||
+    (activeDraft.questionToUser &&
+      /loja ou é uma (?:compra|conta) pessoal/.test(activeDraft.questionToUser)) ||
     activeDraft.businessPurpose === 'UNKNOWN' ||
     /loja|empresa|comércio|comercio|escritório|escritorio|pessoal|casa/i.test(text);
 
@@ -218,20 +286,32 @@ export const trySlotFillingFallback = (
     if (purposeReply === 'BUSINESS') {
       draft.businessPurpose = 'BUSINESS';
       const descLower = (draft.description || '').toLowerCase();
-      const isDualItem = /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro)\b/i.test(descLower);
+      const isDualItem =
+        /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro)\b/i.test(
+          descLower
+        );
 
-      if (!draft.categoryName || draft.categoryName === 'UNKNOWN' || draft.categoryName === 'Despesa não classificada' || draft.categoryName === 'Pró-labore') {
+      if (
+        !draft.categoryName ||
+        draft.categoryName === 'UNKNOWN' ||
+        draft.categoryName === 'Despesa não classificada' ||
+        draft.categoryName === 'Pró-labore'
+      ) {
         draft.categoryName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
       }
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
-      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'businessPurpose');
+      (draft as any).questions = ((draft as any).questions || []).filter(
+        (q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q)
+      );
       draft.questionToUser = null;
       return validateParsedIntent(draft, todayStr);
     } else if (purposeReply === 'PERSONAL') {
       draft.businessPurpose = 'PERSONAL';
       draft.categoryName = 'Pró-labore';
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'businessPurpose');
-      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q));
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'businessPurpose');
+      (draft as any).questions = ((draft as any).questions || []).filter(
+        (q: string) => !/loja|pessoal|casa|businessPurpose/i.test(q)
+      );
       draft.questionToUser = null;
       return validateParsedIntent(draft, todayStr);
     }
@@ -254,7 +334,13 @@ export const trySlotFillingFallback = (
     text.includes('manutenção') ||
     text.includes('manutencao') ||
     text.includes('despesa operacional') ||
-    (text.startsWith('é ') && !text.includes('pix') && !text.includes('dia') && !text.includes('boleto') && !text.includes('dinheiro') && !text.includes('cartão') && !text.includes('cartao'));
+    (text.startsWith('é ') &&
+      !text.includes('pix') &&
+      !text.includes('dia') &&
+      !text.includes('boleto') &&
+      !text.includes('dinheiro') &&
+      !text.includes('cartão') &&
+      !text.includes('cartao'));
 
   if (isCategoryFilling && !text.includes('para o dia') && !text.includes('vencimento')) {
     let catName = '';
@@ -271,7 +357,9 @@ export const trySlotFillingFallback = (
     } else if (text.includes('manutenção') || text.includes('manutencao')) {
       catName = 'Manutenção';
     } else {
-      const match = text.match(/(?:(?:troca|muda|altera)\s+a\s+categoria\s+para\s+|categoria\s+para\s+|categoria\s+é\s+|categoria\s+|é\s+compra[,\s]+é\s+|é\s+compra[,\s]+|é\s+)([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ\s]+)/i);
+      const match = text.match(
+        /(?:(?:troca|muda|altera)\s+a\s+categoria\s+para\s+|categoria\s+para\s+|categoria\s+é\s+|categoria\s+|é\s+compra[,\s]+é\s+|é\s+compra[,\s]+|é\s+)([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ\s]+)/i
+      );
       if (match) {
         catName = match[1].trim();
         if (catName.toLowerCase().startsWith('para ')) catName = catName.slice(5).trim();
@@ -281,14 +369,16 @@ export const trySlotFillingFallback = (
 
     if (catName) {
       draft.categoryName = catName;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'category');
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'category');
 
       // Se restam parcelas sem vencimento, pergunta de forma curta e direta sobre o vencimento
-      const hasMissingDates = draft.installmentList && draft.installmentList.some(i => !i.dueDate);
+      const hasMissingDates =
+        draft.installmentList && draft.installmentList.some((i) => !i.dueDate);
       if (hasMissingDates) {
         draft.missingFields = ['installmentDueDates'];
         draft.isReadyForConfirmation = false;
-        draft.questionToUser = 'Qual é o vencimento do primeiro boleto? Os demais vencem mensalmente na mesma data?';
+        draft.questionToUser =
+          'Qual é o vencimento do primeiro boleto? Os demais vencem mensalmente na mesma data?';
       }
 
       return validateParsedIntent(draft, todayStr);
@@ -319,26 +409,46 @@ export const trySlotFillingFallback = (
     text.includes('transferência') ||
     text.includes('transferencia');
 
-  const isMissingPaymentMethod = !draft.paymentMethod || draft.paymentMethod === 'UNKNOWN' || draft.missingFields?.includes('paymentMethod');
+  const isMissingPaymentMethod =
+    !draft.paymentMethod ||
+    draft.paymentMethod === 'UNKNOWN' ||
+    draft.missingFields?.includes('paymentMethod');
 
-  if ((isPaymentMention || isMissingPaymentMethod) && !text.includes('boletos') && !text.includes('parcelas')) {
+  if (
+    (isPaymentMention || isMissingPaymentMethod) &&
+    !text.includes('boletos') &&
+    !text.includes('parcelas')
+  ) {
     const capturedMethod = detectFinancialPaymentMethod(text);
 
     if (capturedMethod) {
       draft.paymentMethod = capturedMethod;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'paymentMethod');
-      (draft as any).questions = ((draft as any).questions || []).filter((q: string) => !/pagamento|recebimento|forma|paymentMethod/i.test(q));
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'paymentMethod');
+      (draft as any).questions = ((draft as any).questions || []).filter(
+        (q: string) => !/pagamento|recebimento|forma|paymentMethod/i.test(q)
+      );
       draft.questionToUser = null;
-      if (!text.includes('dia') && !text.includes('categoria') && !text.includes('mil') && !text.includes('k')) {
+      if (
+        !text.includes('dia') &&
+        !text.includes('categoria') &&
+        !text.includes('mil') &&
+        !text.includes('k')
+      ) {
         return validateParsedIntent(draft, todayStr);
       }
     }
   }
 
   // 5. Slot filling para troca de Categoria (ex: "troca a categoria para móveis para revenda")
-  const isCategoryChange = text.includes('categoria') || text.includes('móveis para revenda') || text.includes('moveis para revenda') || text.includes('fornecedores') || text.includes('estoque');
+  const isCategoryChange =
+    text.includes('categoria') ||
+    text.includes('móveis para revenda') ||
+    text.includes('moveis para revenda') ||
+    text.includes('fornecedores') ||
+    text.includes('estoque');
   if (isCategoryChange) {
-    if (text.includes('móveis para revenda') || text.includes('moveis para revenda')) draft.categoryName = 'Móveis para revenda';
+    if (text.includes('móveis para revenda') || text.includes('moveis para revenda'))
+      draft.categoryName = 'Móveis para revenda';
     else if (text.includes('fornecedores')) draft.categoryName = 'Fornecedores';
     else if (text.includes('estoque')) draft.categoryName = 'Compra de estoque';
 
@@ -347,12 +457,21 @@ export const trySlotFillingFallback = (
     }
   }
 
-  const hasOrdinal = /(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1ª|\b2ª|\b3ª|\b4ª)/i.test(text);
-  const isGlobalAll = text.includes('todos') || text.includes('tudo') || text.includes('cada') || text.includes('todas');
+  const hasOrdinal =
+    /(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1ª|\b2ª|\b3ª|\b4ª)/i.test(
+      text
+    );
+  const isGlobalAll =
+    text.includes('todos') ||
+    text.includes('tudo') ||
+    text.includes('cada') ||
+    text.includes('todas');
 
   // A) Patch de data de parcela específica por ordinal
   if (hasOrdinal && !isGlobalAll && draft.installmentList && draft.installmentList.length > 0) {
-    const specificPatchMatch = text.match(/(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1|\b2|\b3|\b4)\s*(?:boleto|parcela)?\s*(?:é|vence|ficou)?\s*(?:para\s*o\s*dia|dia)\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
+    const specificPatchMatch = text.match(
+      /(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º|\b1|\b2|\b3|\b4)\s*(?:boleto|parcela)?\s*(?:é|vence|ficou)?\s*(?:para\s*o\s*dia|dia)\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i
+    );
     if (specificPatchMatch) {
       const ordinal = specificPatchMatch[1].toLowerCase();
       const day = parseInt(specificPatchMatch[2], 10);
@@ -363,7 +482,8 @@ export const trySlotFillingFallback = (
       else if (ordinal.includes('segund') || ordinal === '2' || ordinal === '2º') targetIdx = 1;
       else if (ordinal.includes('terceir') || ordinal === '3' || ordinal === '3º') targetIdx = 2;
       else if (ordinal.includes('quart') || ordinal === '4' || ordinal === '4º') targetIdx = 3;
-      else if (ordinal.includes('últim') || ordinal.includes('ultim')) targetIdx = draft.installmentList.length - 1;
+      else if (ordinal.includes('últim') || ordinal.includes('ultim'))
+        targetIdx = draft.installmentList.length - 1;
 
       if (targetIdx >= 0 && targetIdx < draft.installmentList.length && day >= 1 && day <= 31) {
         const today = new Date(todayStr || Date.now());
@@ -372,8 +492,19 @@ export const trySlotFillingFallback = (
 
         if (monthName) {
           const monthMap: Record<string, number> = {
-            janeiro: 0, fevereiro: 1, marco: 2, março: 2, abril: 3, maio: 4, junho: 5,
-            julho: 6, agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11
+            janeiro: 0,
+            fevereiro: 1,
+            marco: 2,
+            março: 2,
+            abril: 3,
+            maio: 4,
+            junho: 5,
+            julho: 6,
+            agosto: 7,
+            setembro: 8,
+            outubro: 9,
+            novembro: 10,
+            dezembro: 11,
           };
           if (monthMap[monthName] !== undefined) {
             targetMonth = monthMap[monthName];
@@ -387,14 +518,17 @@ export const trySlotFillingFallback = (
 
         const formattedMonth = String(targetMonth + 1).padStart(2, '0');
         const formattedDay = String(day).padStart(2, '0');
-        draft.installmentList[targetIdx].dueDate = `${targetYear}-${formattedMonth}-${formattedDay}`;
+        draft.installmentList[targetIdx].dueDate =
+          `${targetYear}-${formattedMonth}-${formattedDay}`;
 
         return validateParsedIntent(draft, todayStr);
       }
     }
 
     // A.2) Patch de valor de parcela específica por ordinal
-    const ordinalValueMatch = text.match(/(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º)\s*(?:boleto|parcela)?\s*(?:é|ficou|de)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
+    const ordinalValueMatch = text.match(
+      /(primeir[oa]|segund[oa]|terceir[oa]|quart[oa]|últim[oa]|ultim[oa]|\b1º|\b2º|\b3º|\b4º)\s*(?:boleto|parcela)?\s*(?:é|ficou|de)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i
+    );
     if (ordinalValueMatch) {
       const ordinal = ordinalValueMatch[1].toLowerCase();
       const val = parsePtBrNumber(ordinalValueMatch[2], text.includes('mil') || text.includes('k'));
@@ -404,7 +538,8 @@ export const trySlotFillingFallback = (
       else if (ordinal.includes('segund') || ordinal === '2º') targetIdx = 1;
       else if (ordinal.includes('terceir') || ordinal === '3º') targetIdx = 2;
       else if (ordinal.includes('quart') || ordinal === '4º') targetIdx = 3;
-      else if (ordinal.includes('últim') || ordinal.includes('ultim')) targetIdx = draft.installmentList.length - 1;
+      else if (ordinal.includes('últim') || ordinal.includes('ultim'))
+        targetIdx = draft.installmentList.length - 1;
 
       if (targetIdx >= 0 && targetIdx < draft.installmentList.length && val > 0) {
         draft.installmentList[targetIdx].amount = val;
@@ -416,13 +551,44 @@ export const trySlotFillingFallback = (
   }
 
   // B) Frases de vencimento global (ex: "é todos eles são para o dia 20 do próximo mês")
-  const hasDueDateKeyword = text.includes('vencimento') || text.includes('vence') || text.includes('para o dia') || text.includes('próximo mês') || text.includes('proximo mes') || text.includes('mês que vem') || text.includes('mes que vem') || text.includes('todo dia') || text.includes('cada dia') || text.includes('primeiro boleto dia') || text.includes('todos') || text.includes('dia 20') || text.includes('dia 15') || text.includes('dia 10') || text.includes('dia 25') || text.includes('dia 30');
+  const hasDueDateKeyword =
+    text.includes('vencimento') ||
+    text.includes('vence') ||
+    text.includes('para o dia') ||
+    text.includes('próximo mês') ||
+    text.includes('proximo mes') ||
+    text.includes('mês que vem') ||
+    text.includes('mes que vem') ||
+    text.includes('todo dia') ||
+    text.includes('cada dia') ||
+    text.includes('primeiro boleto dia') ||
+    text.includes('todos') ||
+    text.includes('dia 20') ||
+    text.includes('dia 15') ||
+    text.includes('dia 10') ||
+    text.includes('dia 25') ||
+    text.includes('dia 30');
 
-  const dayMatch = text.match(/(?:dia|todo\s*dia|para\s*o\s*dia|vencimento\s*dia)\s*(\d{1,2})/i) || (hasDueDateKeyword ? text.match(/\b(\d{1,2})\b/) : null);
-  const isNextMonth = text.includes('próximo mês') || text.includes('proximo mes') || text.includes('mês que vem') || text.includes('mes que vem');
-  const isEveryMonth = text.includes('todos') || text.includes('todo') || text.includes('cada') || text.includes('primeiro') || text.includes('mensal');
+  const dayMatch =
+    text.match(/(?:dia|todo\s*dia|para\s*o\s*dia|vencimento\s*dia)\s*(\d{1,2})/i) ||
+    (hasDueDateKeyword ? text.match(/\b(\d{1,2})\b/) : null);
+  const isNextMonth =
+    text.includes('próximo mês') ||
+    text.includes('proximo mes') ||
+    text.includes('mês que vem') ||
+    text.includes('mes que vem');
+  const isEveryMonth =
+    text.includes('todos') ||
+    text.includes('todo') ||
+    text.includes('cada') ||
+    text.includes('primeiro') ||
+    text.includes('mensal');
 
-  if (dayMatch && hasDueDateKeyword && (isNextMonth || isEveryMonth || text.includes('dia') || text.includes('vencimento'))) {
+  if (
+    dayMatch &&
+    hasDueDateKeyword &&
+    (isNextMonth || isEveryMonth || text.includes('dia') || text.includes('vencimento'))
+  ) {
     const day = parseInt(dayMatch[1], 10);
     if (day >= 1 && day <= 31) {
       draft.dueDay = day;
@@ -439,7 +605,9 @@ export const trySlotFillingFallback = (
         const isoDate = dateObj.toISOString().split('T')[0];
         draft.date = isoDate;
         draft.dueDate = isoDate;
-        draft.missingFields = (draft.missingFields || []).filter(f => f !== 'date' && f !== 'dueDate');
+        draft.missingFields = (draft.missingFields || []).filter(
+          (f) => f !== 'date' && f !== 'dueDate'
+        );
         return validateParsedIntent(draft, todayStr);
       }
 
@@ -449,22 +617,25 @@ export const trySlotFillingFallback = (
         const parts = firstDueDate.split('-');
         const prevMonth = parseInt(parts[1], 10) - 1;
         const prevYear = parseInt(parts[0], 10);
-        existingMonthOffset = (prevYear - today.getFullYear()) * 12 + (prevMonth - today.getMonth());
+        existingMonthOffset =
+          (prevYear - today.getFullYear()) * 12 + (prevMonth - today.getMonth());
         if (existingMonthOffset < 0) existingMonthOffset = 0;
       }
 
-      let startMonth = today.getMonth() + (isNextMonth ? 1 : (existingMonthOffset > 0 ? existingMonthOffset : 0));
+      let startMonth =
+        today.getMonth() + (isNextMonth ? 1 : existingMonthOffset > 0 ? existingMonthOffset : 0);
       let startYear = today.getFullYear();
 
       const count = draft.installmentsCount || draft.installmentList?.length || 3;
       const total = draft.totalAmount || draft.amount || 10000;
-      const list = draft.installmentList && draft.installmentList.length > 0
-        ? draft.installmentList
-        : Array.from({ length: count }, (_, i) => ({
-            number: i + 1,
-            amount: total / count,
-            dueDate: null,
-          }));
+      const list =
+        draft.installmentList && draft.installmentList.length > 0
+          ? draft.installmentList
+          : Array.from({ length: count }, (_, i) => ({
+              number: i + 1,
+              amount: total / count,
+              dueDate: null,
+            }));
 
       draft.installmentList = list.map((item, idx) => {
         let m = startMonth + idx;
@@ -481,7 +652,7 @@ export const trySlotFillingFallback = (
         };
       });
 
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'installmentDueDates');
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'installmentDueDates');
       return validateParsedIntent(draft, todayStr);
     }
   }
@@ -489,19 +660,23 @@ export const trySlotFillingFallback = (
   // C) Extração de valores detalhados de parcelas
   let parsedAmounts: number[] = [];
   const cleanText = text.replace(/^de\s*\d+\s*(?:mil)?\s*são/gi, '');
-  const amountsRegex = /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/gi;
+  const amountsRegex =
+    /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/gi;
   let match;
 
   while ((match = amountsRegex.exec(cleanText)) !== null) {
     const rawQ = match[1].toLowerCase();
-    let qty = rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
+    let qty =
+      rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
     let val = parsePtBrNumber(match[2], cleanText.includes('mil') || cleanText.includes('k'));
     if (qty <= 10) {
       for (let i = 0; i < qty; i++) parsedAmounts.push(val);
     }
   }
 
-  const singleLeftover = text.match(/\be\s+(?:outro|um|1)\s+(?:de\s+)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
+  const singleLeftover = text.match(
+    /\be\s+(?:outro|um|1)\s+(?:de\s+)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i
+  );
   if (singleLeftover && parsedAmounts.length > 0) {
     let val2 = parsePtBrNumber(singleLeftover[1], text.includes('mil') || text.includes('k'));
     parsedAmounts.push(val2);
@@ -519,7 +694,22 @@ export const trySlotFillingFallback = (
 
   // 6. Single transaction Date Patch
   const datePatchMatch = text.match(/(?:dia|no dia|para o dia)?\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
-  if (datePatchMatch && (text.includes('dia') || text.includes('outubro') || text.includes('setembro') || text.includes('novembro') || text.includes('dezembro') || text.includes('janeiro') || text.includes('fevereiro') || text.includes('março') || text.includes('abril') || text.includes('maio') || text.includes('junho') || text.includes('julho') || text.includes('agosto'))) {
+  if (
+    datePatchMatch &&
+    (text.includes('dia') ||
+      text.includes('outubro') ||
+      text.includes('setembro') ||
+      text.includes('novembro') ||
+      text.includes('dezembro') ||
+      text.includes('janeiro') ||
+      text.includes('fevereiro') ||
+      text.includes('março') ||
+      text.includes('abril') ||
+      text.includes('maio') ||
+      text.includes('junho') ||
+      text.includes('julho') ||
+      text.includes('agosto'))
+  ) {
     const day = parseInt(datePatchMatch[1], 10);
     if (day >= 1 && day <= 31) {
       const today = new Date(todayStr || Date.now());
@@ -533,23 +723,34 @@ export const trySlotFillingFallback = (
       const isoDate = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       draft.date = isoDate;
       draft.dueDate = isoDate;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'date' && f !== 'dueDate');
+      draft.missingFields = (draft.missingFields || []).filter(
+        (f) => f !== 'date' && f !== 'dueDate'
+      );
       return validateParsedIntent(draft, todayStr);
     }
   }
 
   // 7. Single transaction Amount Patch
-  const shortCentsRegexMatch = text.match(/(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total|foi)?\s*(?:r\$\s*)?(\d+)\s+e\s+(\d{1,2})\b/i);
-  const singleNumMatch = text.match(/(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/i);
+  const shortCentsRegexMatch = text.match(
+    /(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total|foi)?\s*(?:r\$\s*)?(\d+)\s+e\s+(\d{1,2})\b/i
+  );
+  const singleNumMatch = text.match(
+    /(?:valor|na verdade é|na verdade e|paguei|recebi|é|e|de|total)?\s*(?:r\$\s*)?(\d+(?:\.\d{3})?(?:,\d{1,2})?)/i
+  );
 
-  if (shortCentsRegexMatch && !text.includes('mil') && !text.includes('reais') && !text.includes('centavos')) {
+  if (
+    shortCentsRegexMatch &&
+    !text.includes('mil') &&
+    !text.includes('reais') &&
+    !text.includes('centavos')
+  ) {
     const r = parseInt(shortCentsRegexMatch[1], 10);
     const c = parseInt(shortCentsRegexMatch[2], 10);
     if (r > 0 && c >= 0 && c <= 99) {
-      const patchVal = r + (c / 100);
+      const patchVal = r + c / 100;
       draft.amount = patchVal;
       draft.isEstimated = false;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'amount');
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'amount');
       if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN') {
         draft.missingFields.push('paymentMethod');
         draft.isReadyForConfirmation = false;
@@ -572,11 +773,12 @@ export const trySlotFillingFallback = (
     }
 
     if (patchVal && patchVal > 0) {
-      const isAdditive = text.includes('mais') || text.includes('adiciona') || text.includes('soma');
+      const isAdditive =
+        text.includes('mais') || text.includes('adiciona') || text.includes('soma');
       const baseAmount = isAdditive && draft.amount ? draft.amount : 0;
       draft.amount = baseAmount + patchVal;
       draft.isEstimated = false;
-      draft.missingFields = (draft.missingFields || []).filter(f => f !== 'amount');
+      draft.missingFields = (draft.missingFields || []).filter((f) => f !== 'amount');
       if (!draft.paymentMethod || draft.paymentMethod === 'UNKNOWN') {
         draft.missingFields.push('paymentMethod');
         draft.isReadyForConfirmation = false;

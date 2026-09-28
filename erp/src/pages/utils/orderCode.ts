@@ -6,17 +6,17 @@ export const TEST_ORDER_CODE_THRESHOLD = 800000;
 const MAX_ORDER_CODE = 799999;
 
 export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): number | null => {
-    if (!order) return null;
-    const rawValue = 
-        order.orderIndex ?? 
-        (order as any).order_index ?? 
-        (order as any).order_data?.orderIndex ?? 
-        (order as any).order_data?.order_index ?? 
-        (order as any).orderNumber ?? 
-        (order as any).order_number;
+  if (!order) return null;
+  const rawValue =
+    order.orderIndex ??
+    (order as any).order_index ??
+    (order as any).order_data?.orderIndex ??
+    (order as any).order_data?.order_index ??
+    (order as any).orderNumber ??
+    (order as any).order_number;
 
-    const value = Number(rawValue);
-    return Number.isInteger(value) && value > 0 && value <= 999999 ? value : null;
+  const value = Number(rawValue);
+  return Number.isInteger(value) && value > 0 && value <= 999999 ? value : null;
 };
 
 /**
@@ -25,17 +25,17 @@ export const getOrderIndex = (order?: Partial<Order> | Record<string, any>): num
  * recebido no formulário ou na chamada de atualização.
  */
 export const resolveOrderIndexForUpdate = (
-    persistedOrder?: Partial<Order> | Record<string, any>,
-    incomingOrder?: Partial<Order> | Record<string, any>,
+  persistedOrder?: Partial<Order> | Record<string, any>,
+  incomingOrder?: Partial<Order> | Record<string, any>
 ): number | null => getOrderIndex(persistedOrder) ?? getOrderIndex(incomingOrder);
 
 /** The human-facing code is always the six-digit sequential order index, never the UUID. */
 export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): string => {
-    const orderIndex = getOrderIndex(order);
-    if (orderIndex) {
-        return String(orderIndex).padStart(6, '0');
-    }
-    return 'CÓDIGO INVÁLIDO';
+  const orderIndex = getOrderIndex(order);
+  if (orderIndex) {
+    return String(orderIndex).padStart(6, '0');
+  }
+  return 'CÓDIGO INVÁLIDO';
 };
 
 /**
@@ -44,48 +44,52 @@ export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): s
  * Gera de forma ultrarrápida e direta no banco.
  */
 export const getNextOrderIndex = async (): Promise<number> => {
-    try {
-        const { data: orders, error: fetchErr } = await supabase
-            .from('orders')
-            .select('id, order_data, order_number, created_at')
-            .order('created_at', { ascending: false })
-            .limit(200);
+  try {
+    const { data: orders, error: fetchErr } = await supabase
+      .from('orders')
+      .select('id, order_data, order_number, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-        if (fetchErr) {
-            throw new Error(`Erro ao consultar pedidos existentes: ${fetchErr.message}`);
-        }
-
-        let maxCode = 0;
-        for (const o of (orders || [])) {
-            const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
-            // Blindagem: pedidos de teste (>= 800000) são estritamente ignorados
-            if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
-                maxCode = num;
-            }
-        }
-
-        if (maxCode === 0) {
-            const { data: allOrders, error: allErr } = await supabase
-                .from('orders')
-                .select('order_data, order_number')
-                .limit(500);
-            if (allErr) throw allErr;
-            for (const o of (allOrders || [])) {
-                const num = getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
-                if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
-                    maxCode = num;
-                }
-            }
-        }
-
-        const nextCode = maxCode + 1;
-        if (nextCode <= 0 || nextCode > MAX_ORDER_CODE) {
-            throw new Error('Limite máximo de código sequencial de pedidos legítimos (799999) excedido.');
-        }
-
-        return nextCode;
-    } catch (err: any) {
-        console.error('[orderCode] Falha crítica ao gerar código sequencial de pedido:', err);
-        throw new Error(`Não foi possível gerar um código único para o pedido: ${err.message || err}`, { cause: err });
+    if (fetchErr) {
+      throw new Error(`Erro ao consultar pedidos existentes: ${fetchErr.message}`);
     }
+
+    let maxCode = 0;
+    for (const o of orders || []) {
+      const num =
+        getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
+      // Blindagem: pedidos de teste (>= 800000) são estritamente ignorados
+      if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
+        maxCode = num;
+      }
+    }
+
+    if (maxCode === 0) {
+      const { data: allOrders, error: allErr } = await supabase
+        .from('orders')
+        .select('order_data, order_number')
+        .limit(500);
+      if (allErr) throw allErr;
+      for (const o of allOrders || []) {
+        const num =
+          getOrderIndex(o.order_data || o) || getOrderIndex({ order_number: o.order_number });
+        if (num && num < TEST_ORDER_CODE_THRESHOLD && num > maxCode) {
+          maxCode = num;
+        }
+      }
+    }
+
+    const nextCode = maxCode + 1;
+    if (nextCode <= 0 || nextCode > MAX_ORDER_CODE) {
+      throw new Error('Limite máximo de código sequencial de pedidos legítimos (799999) excedido.');
+    }
+
+    return nextCode;
+  } catch (err: any) {
+    console.error('[orderCode] Falha crítica ao gerar código sequencial de pedido:', err);
+    throw new Error(`Não foi possível gerar um código único para o pedido: ${err.message || err}`, {
+      cause: err,
+    });
+  }
 };

@@ -14,11 +14,13 @@ export interface SharedAudioGenerationResult {
  */
 export async function ensureSharedSummaryAudio(
   scope: SummaryScope,
-  text: string,
+  text: string
 ): Promise<SharedAudioGenerationResult> {
   try {
     if (!supabase.functions?.invoke) return { status: 'MISSING', isOwner: false };
-    const { data, error } = await supabase.functions.invoke('generate-delivery-summary-audio', { body: { scope, text } });
+    const { data, error } = await supabase.functions.invoke('generate-delivery-summary-audio', {
+      body: { scope, text },
+    });
     if (error) throw error;
     return { status: (data?.status || 'FAILED') as SummaryStatus, isOwner: Boolean(data?.isOwner) };
   } catch (error) {

@@ -30,13 +30,19 @@ export const setGeminiCustomTransport = (fn: GeminiTransportFn | null) => {
 };
 
 export class GeminiClient {
-  public static async generateContent(payload: GeminiGenerateRequest): Promise<GeminiGenerateResponse> {
+  public static async generateContent(
+    payload: GeminiGenerateRequest
+  ): Promise<GeminiGenerateResponse> {
     if (customTransport) {
       return customTransport(payload);
     }
 
     const settings = typeof localStorage !== 'undefined' ? getSettings() : ({} as any);
-    const envKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY : '');
+    const envKey =
+      import.meta.env.VITE_GEMINI_API_KEY ||
+      (typeof process !== 'undefined'
+        ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY
+        : '');
     const apiKey = (envKey || (settings as any)?.geminiApiKey || '').trim();
 
     if (!apiKey) {
@@ -94,7 +100,9 @@ export class GeminiClient {
       try {
         const parsed = JSON.parse(errText);
         errorMsg = parsed?.error?.message || errorMsg;
-      } catch  { /* no-op: intencionalmente silencioso */ }
+      } catch {
+        /* no-op: intencionalmente silencioso */
+      }
 
       ApiUsageTracker.record({
         provider: 'gemini',

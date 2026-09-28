@@ -35,12 +35,15 @@ export const useStockMoves = () => {
         );
 
         // Ignora marcadores de inventário com quantidade zero (idêntico ao ERP)
-        const rawRows = data.filter(move => !isInventoryAuditMarker({
-          label: move.label || undefined,
-          quantity: move.quantity,
-        }));
+        const rawRows = data.filter(
+          (move) =>
+            !isInventoryAuditMarker({
+              label: move.label || undefined,
+              quantity: move.quantity,
+            })
+        );
 
-        const formattedData: StockMove[] = rawRows.map(move => {
+        const formattedData: StockMove[] = rawRows.map((move) => {
           const metadata = parseObservationMetadata(move.observation);
           const cleanObservation = getCanonicalCleanObservation({
             label: move.label || undefined,
@@ -72,8 +75,8 @@ export const useStockMoves = () => {
               (move.type === 'entry'
                 ? 'Entrada'
                 : move.type === 'withdrawal'
-                ? 'Saída'
-                : 'Movimentação'),
+                  ? 'Saída'
+                  : 'Movimentação'),
             unitCost: move.unitCost || move.unit_cost || undefined,
             unitPrice: move.unitPrice || move.unit_price || undefined,
             status: move.status || metadata.status || 'effective',
@@ -102,7 +105,9 @@ export const useStockMoves = () => {
         console.error('Failed to fetch stock moves:', err);
         setMoves([]);
         setTotalPages(1);
-        setError(err instanceof Error ? err.message : 'Não foi possível carregar as movimentações.');
+        setError(
+          err instanceof Error ? err.message : 'Não foi possível carregar as movimentações.'
+        );
       } finally {
         setLoading(false);
       }
@@ -151,7 +156,9 @@ export const useStockMoves = () => {
   };
 };
 
-const parseObservationMetadata = (observation: unknown): { status?: string; reversalReason?: string } => {
+const parseObservationMetadata = (
+  observation: unknown
+): { status?: string; reversalReason?: string } => {
   if (typeof observation !== 'string' || !observation.trim().startsWith('{')) return {};
   try {
     const parsed = JSON.parse(observation);
@@ -167,8 +174,13 @@ const parseObservationMetadata = (observation: unknown): { status?: string; reve
 
 const toStockMoveType = (type: string, quantity: number): StockMove['type'] => {
   switch (type) {
-    case 'in': case 'out': case 'entry': case 'exit':
-    case 'withdrawal': case 'adjustment': case 'balance':
+    case 'in':
+    case 'out':
+    case 'entry':
+    case 'exit':
+    case 'withdrawal':
+    case 'adjustment':
+    case 'balance':
       return type;
     default:
       return quantity > 0 ? 'in' : 'out';

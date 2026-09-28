@@ -1,16 +1,17 @@
-import FullAddress from "./fullAddress.type"
+import FullAddress from './fullAddress.type';
 
 type CustomerData = {
-    id?: string,
-    fullName: string,
-    phone: string,
-    email?: string,
-    cpfCnpj?: string,
-    noPhone?: boolean,
-    noAddress?: boolean,
-    fullAddress: FullAddress,
-    additionalContacts?: { name: string; phone: string }[],
-    observations?: string
-}
+  id?: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  cpfCnpj?: string;
+  document?: string; // Campo legado ainda presente em pedidos antigos.
+  noPhone?: boolean;
+  noAddress?: boolean;
+  fullAddress: FullAddress;
+  additionalContacts?: { name: string; phone: string }[];
+  observations?: string;
+};
 
-export default CustomerData
+export default CustomerData;

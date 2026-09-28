@@ -1,7 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ParsedFinancialIntent } from '../../../../services/financialAiAssistantService';
-import { buildDraftAnalysisChips, DraftAnalysisChip } from '../../../../services/financial/draftAnalysisChips';
+import {
+  buildDraftAnalysisChips,
+  DraftAnalysisChip,
+} from '../../../../services/financial/draftAnalysisChips';
 
 interface Props {
   draft?: ParsedFinancialIntent | null;
@@ -15,11 +18,9 @@ export const RealtimeDraftChips: React.FC<Props> = ({ draft, isDarkMode = false 
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-        ✦ Análise em Tempo Real
-      </Text>
+      <Text style={[styles.title, isDarkMode && styles.titleDark]}>✦ Análise em Tempo Real</Text>
       <View style={styles.chipsRow}>
-        {chips.map(chip => {
+        {chips.map((chip) => {
           const styleKey = getChipStyleKey(chip.type);
           return (
             <View

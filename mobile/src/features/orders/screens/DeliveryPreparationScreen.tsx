@@ -13,12 +13,23 @@ import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliver
 import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
 import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentSection';
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
-import { hasDeliveryExceeded12Hours, autoFulfillOrderIfExceeded12Hours } from '../utils/deliveryAutoFulfillment';
+import {
+  hasDeliveryExceeded12Hours,
+  autoFulfillOrderIfExceeded12Hours,
+} from '../utils/deliveryAutoFulfillment';
 
 import { DeliveryStartConfirmModal } from '../components/delivery/DeliveryStartConfirmModal';
-import { broadcastMyLocation, stopDeliveringBroadcast } from '../../../services/teamLocationService';
+import {
+  broadcastMyLocation,
+  stopDeliveringBroadcast,
+} from '../../../services/teamLocationService';
 
-type Props = { order: any; isDarkMode: boolean; onBack: (started?: boolean) => void; userProfile?: any };
+type Props = {
+  order: any;
+  isDarkMode: boolean;
+  onBack: (started?: boolean) => void;
+  userProfile?: any;
+};
 
 export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfile }: Props) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -32,7 +43,9 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     const data = order.order_data || order;
     if (Array.isArray(data.payments) && data.payments.length) return data.payments;
     const amount = Number(data.paymentsSummary?.totalOrderValue || data.totalValue || 0);
-    return [{ method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' }];
+    return [
+      { method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' },
+    ];
   });
 
   useEffect(() => {
@@ -59,15 +72,12 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
   // Status de entrega: 'not_started' | 'in_transit' | 'in_service'
   const deliveryStatus = data.deliveryStatus;
   const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
-  const isInTransit = (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
+  const isInTransit =
+    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
   const isInProgress = isInTransit || isInService;
   const paymentsConfirmed = areDeliveryPaymentsPaid(payments);
 
-  const headerTitle = isInService
-    ? 'Em Atendimento'
-    : isInTransit
-      ? 'Em Rota'
-      : 'Preparar Saída';
+  const headerTitle = isInService ? 'Em Atendimento' : isInTransit ? 'Em Rota' : 'Preparar Saída';
 
   // 1. Iniciar Rota
   const handleStartRoute = async () => {
@@ -77,7 +87,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     const payload = {
       deliveryStatus: 'in_progress',
       deliveryStartedAt: now,
-      deliveryChecklist: checklist.map(item => ({ ...item, checked: Boolean(checked[item.id]) })),
+      deliveryChecklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
     };
     const updatedData = {
       ...data,
@@ -89,12 +99,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setDeliveryData(updatedData);
 
     // Registra evento atômico na fila offline (tenta enviar em background)
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_START_ROUTE',
-      'order',
-      order.id,
-      payload
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', order.id, payload);
 
     // Notifica Supabase imediatamente que o entregador iniciou a rota e está compartilhando localização
     if (userProfile?.id) {
@@ -105,7 +110,10 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     }
 
     setSaving(false);
-    Alert.alert('Em Rota', 'A saída para entrega foi registrada. Sua localização agora está visível para a equipe.');
+    Alert.alert(
+      'Em Rota',
+      'A saída para entrega foi registrada. Sua localização agora está visível para a equipe.'
+    );
   };
 
   // 2. Cheguei no Destino
@@ -127,12 +135,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setDeliveryData(updatedData);
 
     // Registra evento atômico na fila offline
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_ARRIVE_DESTINATION',
-      'order',
-      order.id,
-      payload
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_ARRIVE_DESTINATION', 'order', order.id, payload);
 
     setSaving(false);
     Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
@@ -142,7 +145,10 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
   const handleFinishDelivery = async () => {
     if (saving) return;
     if (!paymentsConfirmed) {
-      Alert.alert('Pagamento pendente', 'Confirme todos os pagamentos como pagos antes de finalizar a entrega.');
+      Alert.alert(
+        'Pagamento pendente',
+        'Confirme todos os pagamentos como pagos antes de finalizar a entrega.'
+      );
       return;
     }
     setSaving(true);
@@ -151,7 +157,13 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
     const payload = {
       payments,
-      paymentsSummary: { ...data.paymentsSummary, totalOrderValue: totalValue, totalPaid: paidAmount, totalAmountPaid: paidAmount, amountRemaining: Math.max(0, totalValue - paidAmount) },
+      paymentsSummary: {
+        ...data.paymentsSummary,
+        totalOrderValue: totalValue,
+        totalPaid: paidAmount,
+        totalAmountPaid: paidAmount,
+        amountRemaining: Math.max(0, totalValue - paidAmount),
+      },
       status: 'fulfilled',
       deliveryStatus: 'completed',
       deliveryFinishedAt: now,
@@ -167,12 +179,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setDeliveryData(updatedData);
 
     // Registra evento atômico de finalização na fila offline
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_FINISH',
-      'order',
-      order.id,
-      payload
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', order.id, payload);
 
     // Encerra imediatamente o compartilhamento de localização da equipe
     if (userProfile?.id) {
@@ -180,11 +187,9 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     }
 
     setSaving(false);
-    Alert.alert(
-      '🎉 Entrega Finalizada!',
-      'O pedido foi marcado como ATENDIDO com sucesso.',
-      [{ text: 'OK', onPress: () => onBack(true) }]
-    );
+    Alert.alert('🎉 Entrega Finalizada!', 'O pedido foi marcado como ATENDIDO com sucesso.', [
+      { text: 'OK', onPress: () => onBack(true) },
+    ]);
   };
 
   // 4. Registrar Não Atendido
@@ -209,23 +214,16 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setShowUnattendedModal(false);
 
     // Registra evento de insucesso na fila offline
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_UNATTENDED',
-      'order',
-      order.id,
-      payload
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_UNATTENDED', 'order', order.id, payload);
 
     // Encerra imediatamente o compartilhamento de localização da equipe
     if (userProfile?.id) {
       void stopDeliveringBroadcast(userProfile.id);
     }
 
-    Alert.alert(
-      'Insucesso Registrado',
-      `O não atendimento foi registrado (${reason}).`,
-      [{ text: 'OK', onPress: () => onBack(true) }]
-    );
+    Alert.alert('Insucesso Registrado', `O não atendimento foi registrado (${reason}).`, [
+      { text: 'OK', onPress: () => onBack(true) },
+    ]);
   };
 
   // Retroceder da Etapa 2 (Em Rota) para a Etapa 1 (Preparação)
@@ -239,12 +237,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     order.order_data = updatedData;
     setDeliveryData(updatedData);
 
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_STEP_BACK',
-      'order',
-      order.id,
-      updatedData
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
 
     // Encerra compartilhamento ao voltar para preparação
     if (userProfile?.id) {
@@ -268,12 +261,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     order.order_data = updatedData;
     setDeliveryData(updatedData);
 
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_STEP_BACK',
-      'order',
-      order.id,
-      updatedData
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
 
     setSaving(false);
     Alert.alert('Etapa Retrocedida', 'O status voltou para Em Rota.');
@@ -295,11 +283,14 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
       delete updatedData.unattendedProofUrl;
       delete updatedData.unattendedProofUrls;
 
-      const { error } = await supabase.from('orders').update({
-        status: 'scheduled',
-        order_data: updatedData,
-        updated_at: now,
-      }).eq('id', order.id);
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'scheduled',
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', order.id);
 
       setCancelling(false);
       setShowCancelModal(false);
@@ -387,7 +378,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
             fullAddress={fullAddress}
             checklist={checklist}
             checked={checked}
-            onToggleChecklist={id => setChecked(c => ({ ...c, [id]: !c[id] }))}
+            onToggleChecklist={(id) => setChecked((c) => ({ ...c, [id]: !c[id] }))}
             onStartDelivery={() => setShowStartConfirmModal(true)}
             saving={saving}
             isDarkMode={isDarkMode}

@@ -108,7 +108,13 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     const intent = classifyMultiTurnIntent('Não, foi 250.', activeDraft);
     expect(intent).toBe('CORRECTION');
 
-    const { updatedDraft, isNewTransaction } = applyTurnPatch(activeDraft, 'Não, foi 250.', intent, mockCategories, todayStr);
+    const { updatedDraft, isNewTransaction } = applyTurnPatch(
+      activeDraft,
+      'Não, foi 250.',
+      intent,
+      mockCategories,
+      todayStr
+    );
     expect(isNewTransaction).toBe(false);
     expect(updatedDraft.amount).toBe(250);
     expect(updatedDraft.categoryName).toBe('Combustível');
@@ -131,7 +137,13 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     const intent = classifyMultiTurnIntent('E paguei 300 de internet.', activeDraft);
     expect(intent).toBe('NEW_TRANSACTION');
 
-    const { updatedDraft, isNewTransaction } = applyTurnPatch(activeDraft, 'E paguei 300 de internet.', intent, mockCategories, todayStr);
+    const { updatedDraft, isNewTransaction } = applyTurnPatch(
+      activeDraft,
+      'E paguei 300 de internet.',
+      intent,
+      mockCategories,
+      todayStr
+    );
     expect(isNewTransaction).toBe(true);
     expect(updatedDraft.description).toBe('E paguei 300 de internet.');
   });
@@ -159,7 +171,13 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     const intent = classifyMultiTurnIntent('Foi no Pix.', activeDraft, history);
     expect(intent).toBe('ANSWER_TO_QUESTION');
 
-    const { updatedDraft } = applyTurnPatch(activeDraft, 'Foi no Pix.', intent, mockCategories, todayStr);
+    const { updatedDraft } = applyTurnPatch(
+      activeDraft,
+      'Foi no Pix.',
+      intent,
+      mockCategories,
+      todayStr
+    );
     expect(updatedDraft.amount).toBe(500);
     expect(updatedDraft.supplier).toBe('Bechara');
     expect(updatedDraft.paymentMethod).toBe('Pix');
@@ -181,13 +199,24 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
 
     const history: ChatMessage[] = [
       { id: '1', sender: 'user', text: 'Comprei TV por 2 mil.', timestamp: '10:00' },
-      { id: '2', sender: 'assistant', text: 'Essa televisão é para a loja ou é uma compra pessoal?', timestamp: '10:00' },
+      {
+        id: '2',
+        sender: 'assistant',
+        text: 'Essa televisão é para a loja ou é uma compra pessoal?',
+        timestamp: '10:00',
+      },
     ];
 
     const intent = classifyMultiTurnIntent('É da loja.', activeDraft, history);
     expect(intent).toBe('ANSWER_TO_QUESTION');
 
-    const { updatedDraft } = applyTurnPatch(activeDraft, 'É da loja.', intent, mockCategories, todayStr);
+    const { updatedDraft } = applyTurnPatch(
+      activeDraft,
+      'É da loja.',
+      intent,
+      mockCategories,
+      todayStr
+    );
     expect(updatedDraft.businessPurpose).toBe('BUSINESS');
     expect(updatedDraft.categoryName).toBe('Equipamentos da Empresa');
   });
@@ -207,7 +236,13 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
     const intent = classifyMultiTurnIntent('Não, é pessoal.', activeDraft);
     expect(intent).toBe('CORRECTION');
 
-    const { updatedDraft } = applyTurnPatch(activeDraft, 'Não, é pessoal.', intent, mockCategories, todayStr);
+    const { updatedDraft } = applyTurnPatch(
+      activeDraft,
+      'Não, é pessoal.',
+      intent,
+      mockCategories,
+      todayStr
+    );
     expect(updatedDraft.businessPurpose).toBe('PERSONAL');
     expect(updatedDraft.categoryName).toBe('Pró-labore');
   });
@@ -325,7 +360,13 @@ describe('SUÍTE DE TESTES DO MICROFONE CONTÍNUO E AUTOENVIO (3s DE SILÊNCIO)'
 
     // Chega nova fala de correção "Não, foi 300."
     const intent = classifyMultiTurnIntent('Não, foi 300.', activeDraft);
-    const { updatedDraft } = applyTurnPatch(activeDraft, 'Não, foi 300.', intent, mockCategories, todayStr);
+    const { updatedDraft } = applyTurnPatch(
+      activeDraft,
+      'Não, foi 300.',
+      intent,
+      mockCategories,
+      todayStr
+    );
 
     expect(updatedDraft.amount).toBe(300);
     expect(updatedDraft.categoryName).toBe('Combustível');

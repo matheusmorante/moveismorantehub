@@ -1,6 +1,10 @@
 import { supabase } from '../../../services/supabaseClient';
 
-export interface MobileProductType { id: string; name: string; created_at?: string; }
+export interface MobileProductType {
+  id: string;
+  name: string;
+  created_at?: string;
+}
 
 export const fetchMobileProductTypes = async (): Promise<MobileProductType[]> => {
   const { data, error } = await supabase.from('product_types').select('*').order('name');

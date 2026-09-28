@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { PostCampaign } from '../../types/postCreator';
-import { ProductPost, ProductPostFormat, productPostFormatLabel } from '../../types/postSpecification';
+import {
+  ProductPost,
+  ProductPostFormat,
+  productPostFormatLabel,
+} from '../../types/postSpecification';
 import { productPostsService } from '../../services/productPostsService';
 import { PostCard } from './PostCard';
 import { UploadPostModal } from './UploadPostModal';
@@ -20,7 +24,11 @@ interface ProductOption {
   slug: string;
 }
 
-export function PostsLibraryPage({ campaigns, initialProductId, initialProductName }: PostsLibraryPageProps) {
+export function PostsLibraryPage({
+  campaigns,
+  initialProductId,
+  initialProductName,
+}: PostsLibraryPageProps) {
   const [posts, setPosts] = useState<ProductPost[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -36,7 +44,7 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
 
   // Mapa de nomes
   const [productNames, setProductNames] = useState<Record<string, string>>({});
-  const campaignMap = Object.fromEntries(campaigns.map(c => [c.id, c.name]));
+  const campaignMap = Object.fromEntries(campaigns.map((c) => [c.id, c.name]));
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -49,16 +57,20 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
       setPosts(results);
 
       // Carregar nomes dos produtos que ainda não temos
-      const missingIds = [...new Set(results.map(p => p.productId))].filter(id => !productNames[id]);
+      const missingIds = [...new Set(results.map((p) => p.productId))].filter(
+        (id) => !productNames[id]
+      );
       if (missingIds.length > 0) {
         const { data } = await supabase
           .from('products')
           .select('id, name, description')
           .in('id', missingIds);
         if (data) {
-          setProductNames(prev => ({
+          setProductNames((prev) => ({
             ...prev,
-            ...Object.fromEntries(data.map((p: any) => [p.id, p.name ?? p.description ?? 'Produto'])),
+            ...Object.fromEntries(
+              data.map((p: any) => [p.id, p.name ?? p.description ?? 'Produto'])
+            ),
           }));
         }
       }
@@ -69,7 +81,9 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
     }
   }, [filterProductId, filterCampaignId, filterFormat, productNames]);
 
-  useEffect(() => { void loadPosts(); }, [filterProductId, filterCampaignId, filterFormat]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void loadPosts();
+  }, [filterProductId, filterCampaignId, filterFormat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchProducts = useCallback(async (query: string): Promise<ProductOption[]> => {
     const { data } = await supabase
@@ -78,12 +92,19 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
       .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
       .eq('is_draft', false)
       .limit(10);
-    return (data ?? []).map((p: any) => ({ id: p.id, name: p.name ?? p.description ?? 'Produto', slug: p.slug ?? '' }));
+    return (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name ?? p.description ?? 'Produto',
+      slug: p.slug ?? '',
+    }));
   }, []);
 
   const handleProductSearch = async (q: string) => {
     setProductSearch(q);
-    if (!q.trim()) { setProductSuggestions([]); return; }
+    if (!q.trim()) {
+      setProductSuggestions([]);
+      return;
+    }
     const results = await handleSearchProducts(q);
     setProductSuggestions(results);
   };
@@ -111,8 +132,8 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
   };
 
   const totalByFormat = {
-    feed: posts.filter(p => p.format === 'FEED_4_5').length,
-    story: posts.filter(p => p.format === 'STORY_STATUS_9_16').length,
+    feed: posts.filter((p) => p.format === 'FEED_4_5').length,
+    story: posts.filter((p) => p.format === 'STORY_STATUS_9_16').length,
   };
 
   return (
@@ -126,7 +147,10 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
             <div className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2 text-sm text-white">
               <span className="truncate">{filterProductName}</span>
               <button
-                onClick={() => { setFilterProductId(''); setFilterProductName(''); }}
+                onClick={() => {
+                  setFilterProductId('');
+                  setFilterProductName('');
+                }}
                 className="ml-2 text-xs text-slate-400 hover:text-red-400"
               >
                 ✕
@@ -136,13 +160,13 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
             <div className="relative">
               <input
                 value={productSearch}
-                onChange={e => void handleProductSearch(e.target.value)}
+                onChange={(e) => void handleProductSearch(e.target.value)}
                 placeholder="Filtrar por produto..."
                 className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
               />
               {productSuggestions.length > 0 && (
                 <ul className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 shadow-xl">
-                  {productSuggestions.map(p => (
+                  {productSuggestions.map((p) => (
                     <li key={p.id}>
                       <button
                         onClick={() => {
@@ -168,13 +192,17 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
           <label className="mb-1 block text-xs font-semibold text-slate-400">Campanha</label>
           <select
             value={filterCampaignId}
-            onChange={e => setFilterCampaignId(e.target.value)}
+            onChange={(e) => setFilterCampaignId(e.target.value)}
             className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
           >
             <option value="">Todas</option>
-            {campaigns.filter(c => c.active).map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+            {campaigns
+              .filter((c) => c.active)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -183,7 +211,7 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
           <label className="mb-1 block text-xs font-semibold text-slate-400">Formato</label>
           <select
             value={filterFormat}
-            onChange={e => setFilterFormat(e.target.value as ProductPostFormat | '')}
+            onChange={(e) => setFilterFormat(e.target.value as ProductPostFormat | '')}
             className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
           >
             <option value="">Todos</option>
@@ -203,9 +231,15 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
       {/* Resumo */}
       {posts.length > 0 && (
         <div className="flex gap-3 text-xs text-slate-400">
-          <span>{posts.length} {posts.length === 1 ? 'arte' : 'artes'} na biblioteca</span>
-          {totalByFormat.feed > 0 && <span className="text-indigo-400">· {totalByFormat.feed} Feed 4:5</span>}
-          {totalByFormat.story > 0 && <span className="text-purple-400">· {totalByFormat.story} Story/Status 9:16</span>}
+          <span>
+            {posts.length} {posts.length === 1 ? 'arte' : 'artes'} na biblioteca
+          </span>
+          {totalByFormat.feed > 0 && (
+            <span className="text-indigo-400">· {totalByFormat.feed} Feed 4:5</span>
+          )}
+          {totalByFormat.story > 0 && (
+            <span className="text-purple-400">· {totalByFormat.story} Story/Status 9:16</span>
+          )}
         </div>
       )}
 
@@ -225,13 +259,15 @@ export function PostsLibraryPage({ campaigns, initialProductId, initialProductNa
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {posts.map(post => (
+          {posts.map((post) => (
             <PostCard
               key={post.id}
               post={post}
               productName={productNames[post.productId]}
               campaignName={post.campaignId ? campaignMap[post.campaignId] : undefined}
-              onDelete={p => { if (!deletingId) void handleDelete(p); }}
+              onDelete={(p) => {
+                if (!deletingId) void handleDelete(p);
+              }}
               onDownload={handleDownload}
             />
           ))}

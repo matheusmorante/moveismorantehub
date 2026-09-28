@@ -13,7 +13,9 @@ export function PostCard({ post, campaignName, productName, onDelete, onDownload
   const formatLabel = productPostFormatLabel[post.format];
   const isLandscape = false; // Todos os formatos são portrait
   const datePt = new Date(post.createdAt).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   });
 
   return (
@@ -27,8 +29,9 @@ export function PostCard({ post, campaignName, productName, onDelete, onDownload
           alt={post.title ?? `Post ${formatLabel}`}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
-          onError={e => {
-            (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%231e293b" width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="12">Sem imagem</text></svg>';
+          onError={(e) => {
+            (e.target as HTMLImageElement).src =
+              'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%231e293b" width="100" height="100"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2364748b" font-size="12">Sem imagem</text></svg>';
           }}
         />
         {/* Formato badge */}
@@ -57,9 +60,7 @@ export function PostCard({ post, campaignName, productName, onDelete, onDownload
         {productName && (
           <p className="truncate text-[11px] font-semibold text-slate-200">{productName}</p>
         )}
-        {campaignName && (
-          <p className="truncate text-[10px] text-indigo-400">{campaignName}</p>
-        )}
+        {campaignName && <p className="truncate text-[10px] text-indigo-400">{campaignName}</p>}
         <p className="text-[10px] text-slate-500">{datePt}</p>
       </div>
     </article>

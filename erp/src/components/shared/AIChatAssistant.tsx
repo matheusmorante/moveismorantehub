@@ -3,7 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { getSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { GeminiAgentService } from '@/services/aiAgent/geminiAgentService';
-import { GeminiContent, ExecutedToolRecord, AgentPageContext } from '@/services/aiAgent/geminiAgentTypes';
+import {
+  GeminiContent,
+  ExecutedToolRecord,
+  AgentPageContext,
+} from '@/services/aiAgent/geminiAgentTypes';
 
 interface ChatMessage {
   id: string;
@@ -55,11 +59,16 @@ export default function AIChatAssistant({
     const path = location.pathname;
     let currentModule = 'Geral';
     if (path.startsWith('/finance')) currentModule = 'Financeiro';
-    else if (path.startsWith('/estoque') || path.startsWith('/inventory')) currentModule = 'Estoque';
-    else if (path.startsWith('/orders') || path.startsWith('/pedidos')) currentModule = 'Vendas & Pedidos';
-    else if (path.startsWith('/purchases') || path.startsWith('/compras')) currentModule = 'Compras';
-    else if (path.startsWith('/customers') || path.startsWith('/clientes')) currentModule = 'Clientes';
-    else if (path.startsWith('/deliveries') || path.startsWith('/logistica')) currentModule = 'Logística & Entregas';
+    else if (path.startsWith('/estoque') || path.startsWith('/inventory'))
+      currentModule = 'Estoque';
+    else if (path.startsWith('/orders') || path.startsWith('/pedidos'))
+      currentModule = 'Vendas & Pedidos';
+    else if (path.startsWith('/purchases') || path.startsWith('/compras'))
+      currentModule = 'Compras';
+    else if (path.startsWith('/customers') || path.startsWith('/clientes'))
+      currentModule = 'Clientes';
+    else if (path.startsWith('/deliveries') || path.startsWith('/logistica'))
+      currentModule = 'Logística & Entregas';
     else if (path.startsWith('/catalog')) currentModule = 'Catálogo Digital';
     else if (path === '/' || path === '/dashboard') currentModule = 'Dashboard';
 
@@ -76,7 +85,7 @@ export default function AIChatAssistant({
   const [settings, setSettings] = useState<AppSettings>(getSettings());
 
   useEffect(() => {
-    const unsubscribe = subscribeToSettings(newSettings => setSettings(newSettings));
+    const unsubscribe = subscribeToSettings((newSettings) => setSettings(newSettings));
     return () => unsubscribe();
   }, []);
 
@@ -109,7 +118,11 @@ export default function AIChatAssistant({
   const [geminiHistory, setGeminiHistory] = useState<GeminiContent[]>(() => {
     const saved = localStorage.getItem(HISTORY_RAW_KEY);
     if (saved) {
-      try { return JSON.parse(saved); } catch { return []; }
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
     }
     return [];
   });
@@ -126,7 +139,9 @@ export default function AIChatAssistant({
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isCallMode, setIsCallMode] = useState(false);
-  const [isAutoSpeakEnabled, setIsAutoSpeakEnabled] = useState(() => localStorage.getItem('lisandro_auto_speak') === 'true');
+  const [isAutoSpeakEnabled, setIsAutoSpeakEnabled] = useState(
+    () => localStorage.getItem('lisandro_auto_speak') === 'true'
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -137,7 +152,8 @@ export default function AIChatAssistant({
   }, [isAutoSpeakEnabled]);
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
@@ -150,7 +166,7 @@ export default function AIChatAssistant({
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             const transcript = event.results[i][0].transcript;
-            setInput(prev => {
+            setInput((prev) => {
               const newText = (prev + ' ' + transcript).trim();
               if (isCallMode) {
                 if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -178,7 +194,11 @@ export default function AIChatAssistant({
 
       recognitionRef.current.onend = () => {
         if (isCallMode) {
-          try { recognitionRef.current.start(); } catch  { /* no-op: intencionalmente silencioso */ }
+          try {
+            recognitionRef.current.start();
+          } catch {
+            /* no-op: intencionalmente silencioso */
+          }
         } else {
           setIsListening(false);
         }
@@ -221,7 +241,9 @@ export default function AIChatAssistant({
     utterance.pitch = 0.9;
 
     const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(v => v.lang.includes('pt-BR') && (v.name.includes('Daniel') || v.name.includes('Google')));
+    const naturalVoice = voices.find(
+      (v) => v.lang.includes('pt-BR') && (v.name.includes('Daniel') || v.name.includes('Google'))
+    );
     if (naturalVoice) utterance.voice = naturalVoice;
 
     window.speechSynthesis.speak(utterance);
@@ -244,7 +266,7 @@ export default function AIChatAssistant({
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
@@ -264,13 +286,13 @@ export default function AIChatAssistant({
         executedTools: response.result.executedTools,
       };
 
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
       speak(response.result.answer);
     } catch (err: any) {
       console.error('Erro no assistente Gemini:', err);
       const errMsg = err?.message || 'Erro ao processar mensagem com a IA.';
       toast.error(errMsg);
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         {
           id: `err-${Date.now()}`,
@@ -328,7 +350,9 @@ export default function AIChatAssistant({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h4 className="font-black text-base sm:text-lg tracking-tight leading-none text-white">{aiName}</h4>
+                  <h4 className="font-black text-base sm:text-lg tracking-tight leading-none text-white">
+                    {aiName}
+                  </h4>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white/20 text-white border border-white/30">
                     Agente ERP
                   </span>
@@ -348,7 +372,9 @@ export default function AIChatAssistant({
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all flex items-center justify-center ${isCallMode ? 'bg-white text-red-600 shadow-lg' : 'bg-white/15 hover:bg-white/25 text-white'}`}
                 title={isCallMode ? 'Desligar Chamada' : 'Iniciar Chamada de Voz'}
               >
-                <i className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-sm sm:text-base`}></i>
+                <i
+                  className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-sm sm:text-base`}
+                ></i>
               </button>
               <button
                 onClick={handleClearHistory}
@@ -369,10 +395,18 @@ export default function AIChatAssistant({
           </header>
 
           {/* Messages Feed */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/30">
-            {messages.map(msg => (
-              <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`flex gap-3 max-w-[92%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/30"
+          >
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+              >
+                <div
+                  className={`flex gap-3 max-w-[92%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                >
                   {msg.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex flex-shrink-0 items-center justify-center overflow-hidden mt-1 shadow-sm">
                       {aiAvatar ? (
@@ -396,7 +430,9 @@ export default function AIChatAssistant({
                                 : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40'
                             }`}
                           >
-                            <i className={`bi ${tool.success ? 'bi-check2-circle' : 'bi-exclamation-triangle-fill'}`}></i>
+                            <i
+                              className={`bi ${tool.success ? 'bi-check2-circle' : 'bi-exclamation-triangle-fill'}`}
+                            ></i>
                             <span>{tool.label}</span>
                           </div>
                         ))}
@@ -414,7 +450,10 @@ export default function AIChatAssistant({
                         {msg.role === 'assistant'
                           ? msg.content.split(/(\*\*.*?\*\*)/).map((part, i) =>
                               part.startsWith('**') && part.endsWith('**') ? (
-                                <strong key={i} className="font-black text-indigo-700 dark:text-indigo-400">
+                                <strong
+                                  key={i}
+                                  className="font-black text-indigo-700 dark:text-indigo-400"
+                                >
                                   {part.slice(2, -2)}
                                 </strong>
                               ) : (
@@ -440,7 +479,9 @@ export default function AIChatAssistant({
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-400">Pensando e consultando ERP...</span>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    Pensando e consultando ERP...
+                  </span>
                 </div>
               </div>
             )}
@@ -452,9 +493,11 @@ export default function AIChatAssistant({
               <input
                 type="text"
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                placeholder={isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={
+                  isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'
+                }
                 className={`w-full pl-5 pr-20 py-3 bg-slate-100 dark:bg-slate-950 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all dark:text-slate-200 ${
                   isListening ? 'ring-2 ring-red-500 animate-pulse' : ''
                 }`}
@@ -469,7 +512,9 @@ export default function AIChatAssistant({
                   }`}
                   title="Falar"
                 >
-                  <i className={`bi ${isListening && !isCallMode ? 'bi-mic-fill' : 'bi-mic'} text-sm`}></i>
+                  <i
+                    className={`bi ${isListening && !isCallMode ? 'bi-mic-fill' : 'bi-mic'} text-sm`}
+                  ></i>
                 </button>
                 <button
                   onClick={() => handleSendMessage()}
@@ -506,7 +551,9 @@ export default function AIChatAssistant({
                 <h4 className="font-black text-lg tracking-tight leading-none mb-1">{aiName}</h4>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
-                  <span className="text-[9px] uppercase font-black tracking-widest text-white/80">Agente do ERP</span>
+                  <span className="text-[9px] uppercase font-black tracking-widest text-white/80">
+                    Agente do ERP
+                  </span>
                 </div>
               </div>
             </div>
@@ -517,7 +564,9 @@ export default function AIChatAssistant({
                 className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center ${isCallMode ? 'bg-white text-red-600 shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                 title={isCallMode ? 'Desligar Chamada' : 'Iniciar Chamada de Voz'}
               >
-                <i className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-base`}></i>
+                <i
+                  className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-base`}
+                ></i>
               </button>
               <button
                 onClick={handleClose}
@@ -529,10 +578,18 @@ export default function AIChatAssistant({
           </header>
 
           {/* Messages Feed */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/30">
-            {messages.map(msg => (
-              <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`flex gap-3 max-w-[92%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/30"
+          >
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+              >
+                <div
+                  className={`flex gap-3 max-w-[92%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                >
                   {msg.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex flex-shrink-0 items-center justify-center overflow-hidden mt-1 shadow-sm">
                       {aiAvatar ? (
@@ -556,7 +613,9 @@ export default function AIChatAssistant({
                                 : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40'
                             }`}
                           >
-                            <i className={`bi ${tool.success ? 'bi-check2-circle' : 'bi-exclamation-triangle-fill'}`}></i>
+                            <i
+                              className={`bi ${tool.success ? 'bi-check2-circle' : 'bi-exclamation-triangle-fill'}`}
+                            ></i>
                             <span>{tool.label}</span>
                           </div>
                         ))}
@@ -574,7 +633,10 @@ export default function AIChatAssistant({
                         {msg.role === 'assistant'
                           ? msg.content.split(/(\*\*.*?\*\*)/).map((part, i) =>
                               part.startsWith('**') && part.endsWith('**') ? (
-                                <strong key={i} className="font-black text-indigo-700 dark:text-indigo-400">
+                                <strong
+                                  key={i}
+                                  className="font-black text-indigo-700 dark:text-indigo-400"
+                                >
                                   {part.slice(2, -2)}
                                 </strong>
                               ) : (
@@ -600,7 +662,9 @@ export default function AIChatAssistant({
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-400">Pensando e consultando ERP...</span>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    Pensando e consultando ERP...
+                  </span>
                 </div>
               </div>
             )}
@@ -612,9 +676,11 @@ export default function AIChatAssistant({
               <input
                 type="text"
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                placeholder={isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={
+                  isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'
+                }
                 className={`w-full pl-5 pr-20 py-3 bg-slate-100 dark:bg-slate-950 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all dark:text-slate-200 ${
                   isListening ? 'ring-2 ring-red-500 animate-pulse' : ''
                 }`}
@@ -629,7 +695,9 @@ export default function AIChatAssistant({
                   }`}
                   title="Falar"
                 >
-                  <i className={`bi ${isListening && !isCallMode ? 'bi-mic-fill' : 'bi-mic'} text-sm`}></i>
+                  <i
+                    className={`bi ${isListening && !isCallMode ? 'bi-mic-fill' : 'bi-mic'} text-sm`}
+                  ></i>
                 </button>
                 <button
                   onClick={() => handleSendMessage()}
@@ -648,7 +716,9 @@ export default function AIChatAssistant({
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 overflow-hidden ${
-            isOpen ? 'bg-slate-800 dark:bg-slate-700 rotate-90' : 'bg-indigo-600 shadow-indigo-300 dark:shadow-none'
+            isOpen
+              ? 'bg-slate-800 dark:bg-slate-700 rotate-90'
+              : 'bg-indigo-600 shadow-indigo-300 dark:shadow-none'
           }`}
         >
           {isOpen ? (

@@ -1,7 +1,19 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { useDeliveryRoute, DeliveryRouteDateScope, DeliveryRouteItem } from '../hooks/useDeliveryRoute';
+import {
+  useDeliveryRoute,
+  DeliveryRouteDateScope,
+  DeliveryRouteItem,
+} from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { useTeamLocations } from '../hooks/useTeamLocations';
@@ -44,9 +56,13 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     tabsScrollMetrics.current = metrics;
     const edges = {
       left: metrics.offset > 1,
-      right: metrics.content > metrics.viewport + 1 && metrics.offset < metrics.content - metrics.viewport - 1,
+      right:
+        metrics.content > metrics.viewport + 1 &&
+        metrics.offset < metrics.content - metrics.viewport - 1,
     };
-    setTabsScrollEdges(current => current.left === edges.left && current.right === edges.right ? current : edges);
+    setTabsScrollEdges((current) =>
+      current.left === edges.left && current.right === edges.right ? current : edges
+    );
   };
   const scrollTabs = (direction: -1 | 1) => {
     if (direction > 0) {
@@ -55,7 +71,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     }
     const metrics = tabsScrollMetrics.current;
     const maxOffset = Math.max(0, metrics.content - metrics.viewport);
-    const nextOffset = Math.max(0, Math.min(maxOffset, metrics.offset + direction * Math.max(120, metrics.viewport * 0.75)));
+    const nextOffset = Math.max(
+      0,
+      Math.min(maxOffset, metrics.offset + direction * Math.max(120, metrics.viewport * 0.75))
+    );
     tabsScrollRef.current?.scrollTo({ x: nextOffset, animated: true });
   };
 
@@ -67,15 +86,21 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     if (layout.x < offset) {
       tabsScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 8), animated: true });
     } else if (layout.x + layout.width > offset + viewport) {
-      tabsScrollRef.current?.scrollTo({ x: layout.x + layout.width - viewport + 8, animated: true });
+      tabsScrollRef.current?.scrollTo({
+        x: layout.x + layout.width - viewport + 8,
+        animated: true,
+      });
     }
   }, []);
 
-  const recordTabLayout = useCallback((tab: DeliveriesSubTab, event: any) => {
-    const { x, width } = event.nativeEvent.layout;
-    tabLayouts.current[tab] = { x, width };
-    if (tab === activeTab) setTimeout(() => scrollTabIntoView(tab), 0);
-  }, [activeTab, scrollTabIntoView]);
+  const recordTabLayout = useCallback(
+    (tab: DeliveriesSubTab, event: any) => {
+      const { x, width } = event.nativeEvent.layout;
+      tabLayouts.current[tab] = { x, width };
+      if (tab === activeTab) setTimeout(() => scrollTabIntoView(tab), 0);
+    },
+    [activeTab, scrollTabIntoView]
+  );
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -87,12 +112,21 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   }, [activeTab, scrollTabIntoView]);
 
   // Hooks de Dados e Localização (unificado para as 3 abas: Resumo, Cronograma e Mapa)
-  const { orders, routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute(
-    scheduleDateScope,
-  );
+  const {
+    orders,
+    routeItems,
+    currentDelivery,
+    nextDelivery,
+    stats,
+    loading,
+    refreshing,
+    onRefresh,
+  } = useDeliveryRoute(scheduleDateScope);
   const { coords: driverCoords } = useDriverLocation();
   const isDelivering = Boolean(currentDelivery);
-  const activeOrder = currentDelivery ? { id: currentDelivery.id, code: currentDelivery.orderIndex } : null;
+  const activeOrder = currentDelivery
+    ? { id: currentDelivery.id, code: currentDelivery.orderIndex }
+    : null;
 
   const { teamMembers } = useTeamLocations({
     userProfile,
@@ -103,10 +137,13 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   });
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306 - Loja Física)
-  const storeCoords = useMemo(() => ({
-    latitude: -25.35212,
-    longitude: -49.16933,
-  }), []);
+  const storeCoords = useMemo(
+    () => ({
+      latitude: -25.35212,
+      longitude: -49.16933,
+    }),
+    []
+  );
 
   // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
   const activeDeliveryTarget = selectedMarkerItem;
@@ -132,41 +169,54 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark]}>
         <View style={styles.titleRow}>
           {/* Filtro Global de Período posicionado na linha do título: [ Hoje ] [ Dias seguintes ] */}
-          {activeTab !== 'assemblies' && <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
-            <TouchableOpacity
-              style={[styles.dateScopeBtn, scheduleDateScope === 'today' && styles.dateScopeBtnActive]}
-              onPress={() => setScheduleDateScope('today')}
-              activeOpacity={0.8}
-            >
-              <Text style={[
-                styles.dateScopeBtnText,
-                isDarkMode && styles.dateScopeBtnTextDark,
-                scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
-              ]}>
-                Hoje
-              </Text>
-            </TouchableOpacity>
+          {activeTab !== 'assemblies' && (
+            <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
+              <TouchableOpacity
+                style={[
+                  styles.dateScopeBtn,
+                  scheduleDateScope === 'today' && styles.dateScopeBtnActive,
+                ]}
+                onPress={() => setScheduleDateScope('today')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.dateScopeBtnText,
+                    isDarkMode && styles.dateScopeBtnTextDark,
+                    scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
+                  ]}
+                >
+                  Hoje
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.dateScopeBtn, scheduleDateScope === 'next_days' && styles.dateScopeBtnActive]}
-              onPress={() => setScheduleDateScope('next_days')}
-              activeOpacity={0.8}
-            >
-              <Text style={[
-                styles.dateScopeBtnText,
-                isDarkMode && styles.dateScopeBtnTextDark,
-                scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
-              ]}>
-                Dias Seguintes
-              </Text>
-            </TouchableOpacity>
-          </View>}
+              <TouchableOpacity
+                style={[
+                  styles.dateScopeBtn,
+                  scheduleDateScope === 'next_days' && styles.dateScopeBtnActive,
+                ]}
+                onPress={() => setScheduleDateScope('next_days')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.dateScopeBtnText,
+                    isDarkMode && styles.dateScopeBtnTextDark,
+                    scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
+                  ]}
+                >
+                  Dias Seguintes
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
         <View style={styles.tabsViewport}>
           <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.left && <TouchableOpacity
+            {tabsScrollEdges.left && (
+              <TouchableOpacity
                 style={[styles.tabArrow, isDarkMode && styles.tabArrowDark]}
                 onPress={() => scrollTabs(-1)}
                 accessibilityRole="button"
@@ -174,7 +224,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                 hitSlop={6}
               >
                 <ChevronLeft size={18} color={isDarkMode ? '#e2e8f0' : '#2563eb'} />
-              </TouchableOpacity>}
+              </TouchableOpacity>
+            )}
           </View>
           <ScrollView
             ref={tabsScrollRef}
@@ -188,63 +239,91 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               updateTabsScrollMetrics({ viewport: width });
             }}
             onContentSizeChange={(content) => updateTabsScrollMetrics({ content })}
-            onScroll={({ nativeEvent }) => updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })}
+            onScroll={({ nativeEvent }) =>
+              updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })
+            }
             scrollEventThrottle={32}
           >
-          <TouchableOpacity
-            style={[styles.tabBtn, { width: tabWidth }, activeTab === 'today' && styles.tabBtnActive]}
-            onLayout={(event) => recordTabLayout('today', event)}
-            onPress={() => setActiveTab('today')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'today' && styles.tabBtnTextActive]}>
-              Resumo
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                { width: tabWidth },
+                activeTab === 'today' && styles.tabBtnActive,
+              ]}
+              onLayout={(event) => recordTabLayout('today', event)}
+              onPress={() => setActiveTab('today')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'today' && styles.tabBtnTextActive]}>
+                Resumo
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, { width: tabWidth }, activeTab === 'schedule' && styles.tabBtnActive]}
-            onLayout={(event) => recordTabLayout('schedule', event)}
-            onPress={() => setActiveTab('schedule')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}>
-              Cronograma
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                { width: tabWidth },
+                activeTab === 'schedule' && styles.tabBtnActive,
+              ]}
+              onLayout={(event) => recordTabLayout('schedule', event)}
+              onPress={() => setActiveTab('schedule')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}
+              >
+                Cronograma
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, { width: tabWidth }, activeTab === 'assemblies' && styles.tabBtnActive]}
-            onLayout={(event) => recordTabLayout('assemblies', event)}
-            onPress={() => setActiveTab('assemblies')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'assemblies' && styles.tabBtnTextActive]}>
-              Montagens
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                { width: tabWidth },
+                activeTab === 'assemblies' && styles.tabBtnActive,
+              ]}
+              onLayout={(event) => recordTabLayout('assemblies', event)}
+              onPress={() => setActiveTab('assemblies')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[styles.tabBtnText, activeTab === 'assemblies' && styles.tabBtnTextActive]}
+              >
+                Montagens
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, { width: tabWidth }, activeTab === 'map' && styles.tabBtnActive]}
-            onLayout={(event) => recordTabLayout('map', event)}
-            onPress={() => setActiveTab('map')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'map' && styles.tabBtnTextActive]}>
-              Mapa
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                { width: tabWidth },
+                activeTab === 'map' && styles.tabBtnActive,
+              ]}
+              onLayout={(event) => recordTabLayout('map', event)}
+              onPress={() => setActiveTab('map')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'map' && styles.tabBtnTextActive]}>
+                Mapa
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
           <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.right && <TouchableOpacity
-                style={[styles.tabArrow, styles.tabArrowActive, isDarkMode && styles.tabArrowActiveDark]}
+            {tabsScrollEdges.right && (
+              <TouchableOpacity
+                style={[
+                  styles.tabArrow,
+                  styles.tabArrowActive,
+                  isDarkMode && styles.tabArrowActiveDark,
+                ]}
                 onPress={() => scrollTabs(1)}
                 accessibilityRole="button"
                 accessibilityLabel="Rolar abas para a direita"
                 hitSlop={6}
               >
                 <ChevronRight size={18} color={isDarkMode ? '#ffffff' : '#2563eb'} />
-              </TouchableOpacity>}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -261,7 +340,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           }
         >
           <TodaySummaryCard
-            orders={orders && orders.length > 0 ? orders : routeItems.map(item => item.order)}
+            orders={orders && orders.length > 0 ? orders : routeItems.map((item) => item.order)}
             onSelectOrder={onSelectOrder}
             periodFilter={scheduleDateScope}
             isDarkMode={isDarkMode}
@@ -272,7 +351,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando cronograma de operação...</Text>
+            <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
+              Carregando cronograma de operação...
+            </Text>
           </View>
         ) : (
           <DeliveryTimelineView
@@ -296,7 +377,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           {loading ? (
             <View style={styles.loadingCenter}>
               <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando mapa...</Text>
+              <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
+                Carregando mapa...
+              </Text>
             </View>
           ) : (
             <View style={{ flex: 1, position: 'relative' }}>

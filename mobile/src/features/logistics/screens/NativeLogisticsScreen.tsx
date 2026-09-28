@@ -1,9 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, StyleSheet, Modal } from 'react-native';
-import { Calendar, Truck, ChevronRight, ChevronDown, AlertCircle, Check, Map, MoreVertical } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  SectionList,
+  ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
+  Modal,
+} from 'react-native';
+import {
+  Calendar,
+  Truck,
+  ChevronRight,
+  ChevronDown,
+  AlertCircle,
+  Check,
+  Map,
+  MoreVertical,
+} from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
-import { groupOrdersByDate, isCancelledOrder, isDateInPeriod, formatGroupDateLabel } from '../../../utils/orderUtils';
+import {
+  groupOrdersByDate,
+  isCancelledOrder,
+  isDateInPeriod,
+  formatGroupDateLabel,
+} from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
@@ -47,7 +70,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
         const sData = data[0]?.data || data[0];
         const opts = [
           ...(sData.deliveryHandlingOptions || []),
-          ...(sData.pickupHandlingOptions || [])
+          ...(sData.pickupHandlingOptions || []),
         ];
         setHandlingOptions(opts);
       }
@@ -98,19 +121,21 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   };
 
   const toggleSection = (key: string) => {
-    setCollapsedSections(prev => ({
+    setCollapsedSections((prev) => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: !prev[key],
     }));
   };
 
-  const currentPeriodLabel = PERIOD_OPTIONS.find(p => p.id === selectedPeriod)?.label || 'A partir de hoje';
+  const currentPeriodLabel =
+    PERIOD_OPTIONS.find((p) => p.id === selectedPeriod)?.label || 'A partir de hoje';
 
   const deliveryOrders = orders.filter((o) => {
     const oData = o.order_data || {};
     if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
-    if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'drafts') return false;
+    if (orderStatus === 'draft' || orderStatus === 'rascunho' || orderStatus === 'drafts')
+      return false;
 
     const shipping = oData.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
@@ -137,7 +162,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   const getDatesInPeriod = (period: string): string[] => {
     const dates: string[] = [];
     const now = new Date();
-    
+
     if (period === 'today') {
       dates.push(now.toLocaleDateString('en-CA'));
     } else if (period === 'today_and_following') {
@@ -173,17 +198,17 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
         dates.push(d.toLocaleDateString('en-CA'));
       }
     }
-    
+
     return dates;
   };
 
   const datesInPeriod = getDatesInPeriod(selectedPeriod);
   const mergedGroupsMap: Record<string, any[]> = {};
-  rawGrouped.forEach(g => {
+  rawGrouped.forEach((g) => {
     mergedGroupsMap[g.dateKey] = g.orders;
   });
 
-  datesInPeriod.forEach(d => {
+  datesInPeriod.forEach((d) => {
     if (!mergedGroupsMap[d]) {
       mergedGroupsMap[d] = [];
     }
@@ -195,14 +220,13 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     return a.localeCompare(b);
   });
 
-  const sections = sortedKeys.map(key => {
+  const sections = sortedKeys.map((key) => {
     const isPending = key === 'sem_data';
     const ordersForDay = mergedGroupsMap[key];
     const count = ordersForDay.length;
-    
-    const isCollapsed = collapsedSections[key] === undefined
-      ? key !== todayStr
-      : !!collapsedSections[key];
+
+    const isCollapsed =
+      collapsedSections[key] === undefined ? key !== todayStr : !!collapsedSections[key];
 
     const label = isPending ? 'Agendamentos Pendentes' : formatGroupDateLabel(key);
 
@@ -212,9 +236,11 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       isPending,
       count,
       fullData: ordersForDay,
-      data: isCollapsed 
-        ? [] 
-        : (count === 0 ? [{ id: `empty-${key}`, isEmptyPlaceholder: true }] : ordersForDay),
+      data: isCollapsed
+        ? []
+        : count === 0
+          ? [{ id: `empty-${key}`, isEmptyPlaceholder: true }]
+          : ordersForDay,
     };
   });
 
@@ -222,21 +248,27 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     <View style={styles.headerPadding}>
       <View style={styles.topRow}>
         <View style={styles.titleContainer}>
-          <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>{title || 'Agenda'}</Text>
+          <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>
+            {title || 'Agenda'}
+          </Text>
           <TouchableOpacity
             style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
             onPress={() => setShowPeriodModal(true)}
             activeOpacity={0.75}
           >
             <Calendar size={13} color="#2563eb" style={{ marginRight: 6 }} />
-            <Text 
-              numberOfLines={1} 
+            <Text
+              numberOfLines={1}
               ellipsizeMode="tail"
               style={[styles.selectBtnText, isDarkMode && styles.textDark]}
             >
               {currentPeriodLabel}
             </Text>
-            <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 4 }} />
+            <ChevronDown
+              size={14}
+              color={isDarkMode ? '#cbd5e1' : '#64748b'}
+              style={{ marginLeft: 4 }}
+            />
           </TouchableOpacity>
         </View>
 
@@ -285,13 +317,23 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
               return (
                 <TouchableOpacity
                   key={opt.id}
-                  style={[styles.modalOptionBtn, isSel && styles.modalOptionActive, isDarkMode && isSel && styles.modalOptionActiveDark]}
+                  style={[
+                    styles.modalOptionBtn,
+                    isSel && styles.modalOptionActive,
+                    isDarkMode && isSel && styles.modalOptionActiveDark,
+                  ]}
                   onPress={() => {
                     setSelectedPeriod(opt.id);
                     setShowPeriodModal(false);
                   }}
                 >
-                  <Text style={[styles.modalOptionText, isSel && styles.modalOptionTextActive, isDarkMode && styles.textDark]}>
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      isSel && styles.modalOptionTextActive,
+                      isDarkMode && styles.textDark,
+                    ]}
+                  >
                     {opt.label}
                   </Text>
                   {isSel && <Check size={16} color="#2563eb" />}
@@ -305,26 +347,31 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       {loading && !refreshing ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 }}>Carregando cronograma logístico...</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 }}>
+            Carregando cronograma logístico...
+          </Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item, index) => item?.id ? String(item.id) : String(index)}
+          keyExtractor={(item, index) => (item?.id ? String(item.id) : String(index))}
           stickySectionHeadersEnabled={true}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Truck size={40} color="#cbd5e1" />
-              <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 }}>Nenhum agendamento logístico encontrado</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 }}>
+                Nenhum agendamento logístico encontrado
+              </Text>
             </View>
           }
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderSectionHeader={({ section }) => {
-            const isCollapsed = collapsedSections[section.key] === undefined
-              ? section.key !== todayStr
-              : !!collapsedSections[section.key];
+            const isCollapsed =
+              collapsedSections[section.key] === undefined
+                ? section.key !== todayStr
+                : !!collapsedSections[section.key];
             const isPending = section.isPending;
             const isEmpty = section.count === 0;
 
@@ -342,42 +389,57 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
                 style={[
                   styles.stickySectionHeader,
                   headerStyle,
-                  isDarkMode && styles.stickySectionHeaderDark
+                  isDarkMode && styles.stickySectionHeaderDark,
                 ]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                   {isPending ? (
                     <AlertCircle size={16} color="#d97706" />
                   ) : (
-                    <Calendar size={16} color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'} />
+                    <Calendar
+                      size={16}
+                      color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'}
+                    />
                   )}
-                  <Text style={[
-                    styles.stickySectionTitle,
-                    isPending && { color: '#92400e' },
-                    isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
-                    isDarkMode && styles.textDark
-                  ]}>
+                  <Text
+                    style={[
+                      styles.stickySectionTitle,
+                      isPending && { color: '#92400e' },
+                      isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
+                      isDarkMode && styles.textDark,
+                    ]}
+                  >
                     {section.title}
                   </Text>
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[
-                    styles.stickySectionBadge,
-                    isPending && { backgroundColor: '#d97706' },
-                    isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }
-                  ]}>
-                    <Text style={[
-                      styles.stickySectionBadgeText,
-                      isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' }
-                    ]}>
+                  <View
+                    style={[
+                      styles.stickySectionBadge,
+                      isPending && { backgroundColor: '#d97706' },
+                      isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.stickySectionBadgeText,
+                        isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' },
+                      ]}
+                    >
                       {section.count} {section.count === 1 ? 'item' : 'itens'}
                     </Text>
                   </View>
                   {isCollapsed ? (
-                    <ChevronRight size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
+                    <ChevronRight
+                      size={18}
+                      color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'}
+                    />
                   ) : (
-                    <ChevronDown size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
+                    <ChevronDown
+                      size={18}
+                      color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'}
+                    />
                   )}
                 </View>
               </TouchableOpacity>
@@ -410,11 +472,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   containerDark: { backgroundColor: '#0f172a' },
   headerPadding: { paddingVertical: 12, gap: 10 },
-  topRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-start', 
-    gap: 8 
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   titleContainer: {
     gap: 8,
@@ -490,7 +552,12 @@ const styles = StyleSheet.create({
   stickySectionHeaderEmpty: { backgroundColor: '#f1f5f9' },
   stickySectionHeaderDark: { backgroundColor: '#1e293b' },
   stickySectionTitle: { fontSize: 13, fontWeight: '900' },
-  stickySectionBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#2563eb' },
+  stickySectionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+  },
   stickySectionBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900' },
   emptyDayBox: {
     paddingVertical: 14,

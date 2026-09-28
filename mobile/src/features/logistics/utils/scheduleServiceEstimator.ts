@@ -64,7 +64,12 @@ export function analyzeOrderServiceHandlings(
       // Estimação por tipo de móvel
       if (name.includes('guarda-roupa') || name.includes('roupeiro')) {
         estimatedMinutes += 90 * qty;
-      } else if (name.includes('cômoda') || name.includes('comoda') || name.includes('armário') || name.includes('armario')) {
+      } else if (
+        name.includes('cômoda') ||
+        name.includes('comoda') ||
+        name.includes('armário') ||
+        name.includes('armario')
+      ) {
         estimatedMinutes += 40 * qty;
       } else if (name.includes('painel') || name.includes('rack') || name.includes('mesa')) {
         estimatedMinutes += 35 * qty;

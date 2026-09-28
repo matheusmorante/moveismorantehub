@@ -31,7 +31,8 @@ export function calculateDeliverySummaryMetrics(
     const oData = order.order_data || {};
 
     // Ignorar pedidos deletados ou cancelados
-    if (order.deleted || order.is_deleted || order.status === 'deleted' || oData.deleted) return false;
+    if (order.deleted || order.is_deleted || order.status === 'deleted' || oData.deleted)
+      return false;
     const orderStatus = (order.status || oData.status || '').toLowerCase();
     if (
       orderStatus === 'draft' ||
@@ -47,7 +48,8 @@ export function calculateDeliverySummaryMetrics(
     const shipping = oData.shipping || order.shipping || {};
     const deliveryMethod = shipping.deliveryMethod || order.delivery_method;
     const activityType = getOperationActivityType(order);
-    if (activityType === 'delivery' && deliveryMethod && deliveryMethod !== 'delivery') return false;
+    if (activityType === 'delivery' && deliveryMethod && deliveryMethod !== 'delivery')
+      return false;
 
     // Ignorar agendamentos pendentes
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || order.schedule || {};
@@ -89,12 +91,12 @@ export function calculateDeliverySummaryMetrics(
     const custData = oData.customerData || oData.customer || {};
     const clientFullName = String(
       order.customer_name ||
-      custData.fullName ||
-      custData.name ||
-      oData.customerName ||
-      order.client_name ||
-      order.shipping?.customerName ||
-      'Cliente'
+        custData.fullName ||
+        custData.name ||
+        oData.customerName ||
+        order.client_name ||
+        order.shipping?.customerName ||
+        'Cliente'
     ).trim();
 
     // Primeiro nome e sobrenome
@@ -102,22 +104,22 @@ export function calculateDeliverySummaryMetrics(
 
     const rawItems = order.items || order.order_items || oData.items || [];
     const itemsCount = Array.isArray(rawItems) && rawItems.length > 0 ? rawItems.length : 1;
-    const activityLabel = getOperationActivityType(order) === 'assistance'
-      ? 'Assistência'
-      : getOperationActivityType(order) === 'return' ? 'Devolução' : 'Entrega';
+    const activityLabel =
+      getOperationActivityType(order) === 'assistance'
+        ? 'Assistência'
+        : getOperationActivityType(order) === 'return'
+          ? 'Devolução'
+          : 'Entrega';
     const itemLabel = `${activityLabel}: ${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`;
 
     // Normalizar horário/período
     const shipping = oData.shipping || order.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || order.schedule || {};
     const periodStr = String(
-      sched.time ||
-      sched.period ||
-      sched.startTime ||
-      shipping.period ||
-      shipping.time ||
-      ''
-    ).toLowerCase().trim();
+      sched.time || sched.period || sched.startTime || shipping.period || shipping.time || ''
+    )
+      .toLowerCase()
+      .trim();
 
     let isMorning = false;
     let isAfternoon = false;
@@ -168,13 +170,9 @@ export function calculateDeliverySummaryMetrics(
         : 'Nenhuma atividade operacional agendada para os próximos dias.';
   } else {
     const morningPart =
-      morningClients.length > 0
-        ? `Manhã: ${morningClients.join(', ')}.`
-        : 'Manhã: sem atividades.';
+      morningClients.length > 0 ? `Manhã: ${morningClients.join(', ')}.` : 'Manhã: sem atividades.';
     const afternoonPart =
-      afternoonClients.length > 0
-        ? `Tarde: ${afternoonClients.join(', ')}.`
-        : '';
+      afternoonClients.length > 0 ? `Tarde: ${afternoonClients.join(', ')}.` : '';
     defaultSummaryText = `${morningPart} ${afternoonPart}`.trim();
   }
 

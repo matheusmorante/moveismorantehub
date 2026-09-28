@@ -1,13 +1,13 @@
-import Order from "@/pages/types/order.type";
+import Order from '@/pages/types/order.type';
 
 /**
  * Constrói o BLOCO 8: DADOS ADICIONAIS / RESERVADO AO FISCO do DANFE oficial A4.
  */
 export function buildDanfeAdditionalInfoOfficialHtml(order: Order): string {
-    const orderIdentifier = order.orderIndex || order.id;
-    const observationText = order.observation ? `Observações do Pedido: ${order.observation}` : '';
+  const orderIdentifier = order.orderIndex || order.id;
+  const observationText = order.observation ? `Observações do Pedido: ${order.observation}` : '';
 
-    return `
+  return `
         <!-- BLOCO 8: DADOS ADICIONAIS / RESERVADO AO FISCO -->
         <table style="width: 100%; border-collapse: collapse; margin-top: 3px;">
             <tr>

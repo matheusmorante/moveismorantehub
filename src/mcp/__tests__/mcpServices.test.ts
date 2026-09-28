@@ -1,8 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  mcpAssetService,
-  OFFICIAL_STORE_ASSETS,
-} from '../services/mcpAssetService.js';
+import { mcpAssetService, OFFICIAL_STORE_ASSETS } from '../services/mcpAssetService.js';
 import { mcpCampaignService } from '../services/mcpCampaignService.js';
 import {
   mcpPostContextService,
@@ -16,9 +13,13 @@ import {
 
 describe('MCP Specialized Services', () => {
   it('1. toAbsoluteHttpsUrl formata URLs relativas para HTTPS', () => {
-    expect(toAbsoluteHttpsUrl('/images/foto.webp')).toBe('https://www.moveismorante.com.br/images/foto.webp');
+    expect(toAbsoluteHttpsUrl('/images/foto.webp')).toBe(
+      'https://www.moveismorante.com.br/images/foto.webp'
+    );
     expect(toAbsoluteHttpsUrl('http://cdn.com/foto.jpg')).toBe('https://cdn.com/foto.jpg');
-    expect(toAbsoluteHttpsUrl('https://moveismorante.com.br/logo.png')).toBe('https://moveismorante.com.br/logo.png');
+    expect(toAbsoluteHttpsUrl('https://moveismorante.com.br/logo.png')).toBe(
+      'https://moveismorante.com.br/logo.png'
+    );
   });
 
   it('2. parseImagesList extrai arrays JSON e strings separadas por vírgula', () => {
@@ -34,7 +35,7 @@ describe('MCP Specialized Services', () => {
     const assets = await mcpAssetService.getStoreAssets();
     expect(assets.length).toBeGreaterThanOrEqual(2);
 
-    const logo = assets.find(a => a.category === 'logo');
+    const logo = assets.find((a) => a.category === 'logo');
     expect(logo).toBeDefined();
     expect(logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.svg');
     expect(logo?.strictInstructions).toContain('REGRA INVIOLÁVEL');
@@ -50,7 +51,7 @@ describe('MCP Specialized Services', () => {
     expect(campaign.availableFormats).toContain('4:5');
     expect(campaign.prompts.length).toBeGreaterThanOrEqual(3);
 
-    const keys = campaign.prompts.map(p => p.key);
+    const keys = campaign.prompts.map((p) => p.key);
     expect(keys).toContain('TITLE');
     expect(keys).toContain('PRICE');
   });
@@ -81,7 +82,10 @@ describe('MCP Specialized Services', () => {
           name: 'Freijó / Off White',
           active: true,
           attributes: { cor: 'Freijó / Off White' },
-          images: ['https://cdn.com/monza-freijo-1.webp', 'https://cdn.com/monza-freijo-interno.webp'],
+          images: [
+            'https://cdn.com/monza-freijo-1.webp',
+            'https://cdn.com/monza-freijo-interno.webp',
+          ],
         },
         {
           id: 'var-2',
@@ -171,7 +175,7 @@ describe('MCP Specialized Services', () => {
     expect(briefing.briefing.dimensions).toBe('1080 × 1920');
     expect(briefing.hardConstraints).toEqual(OFFICIAL_HARD_CONSTRAINTS);
     expect(briefing.hardConstraints).toContain(
-      'Preserve rigorosamente o número exato de portas, gavetas, pés, puxadores, espelhos e painéis ripados.',
+      'Preserve rigorosamente o número exato de portas, gavetas, pés, puxadores, espelhos e painéis ripados.'
     );
   });
 });

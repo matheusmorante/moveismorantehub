@@ -91,7 +91,10 @@ NÃO:
 O logo deve ser tratado como um asset gráfico pronto.
 Se a IA/ferramenta utilizada não conseguir inserir o asset fielmente, é preferível deixar reservado o espaço do logo do que inventar uma nova marca.`;
 
-export function buildOfficialBadgeStrictInstructions(badgeUrl: string, opportunityName = 'Oportunidade'): string {
+export function buildOfficialBadgeStrictInstructions(
+  badgeUrl: string,
+  opportunityName = 'Oportunidade'
+): string {
   return `SELO OFICIAL (${opportunityName.toUpperCase()}):
 ${badgeUrl}
 
@@ -159,14 +162,16 @@ export function resolveProductImages(params: {
   let primaryVarObj: any = null;
   if (Array.isArray(rawVariations) && rawVariations.length > 0) {
     if (selectedVariationId) {
-      primaryVarObj = rawVariations.find((v: any) => v.id === selectedVariationId) || rawVariations[0];
+      primaryVarObj =
+        rawVariations.find((v: any) => v.id === selectedVariationId) || rawVariations[0];
     } else {
       primaryVarObj = rawVariations[0];
     }
   }
 
   const primaryVarId = primaryVarObj?.id || selectedVariationId || product?.id || 'default';
-  const primaryVarName = primaryVarObj?.name || primaryVarObj?.variation_name || product?.name || 'Padrão';
+  const primaryVarName =
+    primaryVarObj?.name || primaryVarObj?.variation_name || product?.name || 'Padrão';
 
   let primaryVarImages: string[] = [];
   if (primaryVarObj) {
@@ -188,7 +193,9 @@ export function resolveProductImages(params: {
       sourceRole: 'PRIMARY',
     };
   } else {
-    errors.push(`Produto "${product?.name || product?.id}" não possui foto principal (PRIMARY_IMAGE).`);
+    errors.push(
+      `Produto "${product?.name || product?.id}" não possui foto principal (PRIMARY_IMAGE).`
+    );
   }
 
   let openViewSpec: PostImageItemSpec | null = null;
@@ -316,14 +323,18 @@ export function renderProductImagesPromptSection(
   lines.push(sep);
   lines.push('FIDELIDADE VISUAL OBRIGATÓRIA');
   lines.push(sep);
-  lines.push('A imagem PRIMARY e as imagens complementares são a fonte visual de verdade do móvel.');
+  lines.push(
+    'A imagem PRIMARY e as imagens complementares são a fonte visual de verdade do móvel.'
+  );
   lines.push('A IA pode criar:');
   lines.push('- ambiente;');
   lines.push('- decoração;');
   lines.push('- iluminação;');
   lines.push('- composição publicitária.');
   lines.push('A IA NÃO pode criar outro móvel.');
-  lines.push('Preservar exatamente as características visuais observáveis nas fotografias oficiais.');
+  lines.push(
+    'Preservar exatamente as características visuais observáveis nas fotografias oficiais.'
+  );
 
   return lines.join('\n');
 }

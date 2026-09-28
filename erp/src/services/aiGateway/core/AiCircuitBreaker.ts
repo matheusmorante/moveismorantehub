@@ -12,13 +12,13 @@ export class AiCircuitBreaker {
   private static globalState: CircuitState = {
     isOpen: false,
     consecutiveErrors: 0,
-    recentTimestamps: []
+    recentTimestamps: [],
   };
 
   private static categoryStates: Record<AiCategory, CircuitState> = {
     TEXT: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
     IMAGE: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
-    TTS: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] }
+    TTS: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
   };
 
   private static COOLDOWN_MS = 120000; // 2 minutos de isolamento ao abrir o circuit breaker
@@ -33,7 +33,7 @@ export class AiCircuitBreaker {
       if (this.globalState.openedAt && now - this.globalState.openedAt < this.COOLDOWN_MS) {
         return {
           isOpen: true,
-          reason: `Circuit Breaker Global Ativo: ${this.globalState.reason}. Cooldown de 2 minutos.`
+          reason: `Circuit Breaker Global Ativo: ${this.globalState.reason}. Cooldown de 2 minutos.`,
         };
       }
       this.resetGlobal();
@@ -45,7 +45,7 @@ export class AiCircuitBreaker {
       if (catState.openedAt && now - catState.openedAt < this.COOLDOWN_MS) {
         return {
           isOpen: true,
-          reason: `Circuit Breaker para ${category} Ativo: ${catState.reason}. Cooldown de 2 minutos.`
+          reason: `Circuit Breaker para ${category} Ativo: ${catState.reason}. Cooldown de 2 minutos.`,
         };
       }
       this.resetCategory(category);
@@ -68,7 +68,8 @@ export class AiCircuitBreaker {
     if (this.categoryStates[category].consecutiveErrors >= this.MAX_CONSECUTIVE_ERRORS) {
       this.categoryStates[category].isOpen = true;
       this.categoryStates[category].openedAt = now;
-      this.categoryStates[category].reason = `Sequência excessiva de ${this.MAX_CONSECUTIVE_ERRORS} erros em ${category}: ${errorMessage}`;
+      this.categoryStates[category].reason =
+        `Sequência excessiva de ${this.MAX_CONSECUTIVE_ERRORS} erros em ${category}: ${errorMessage}`;
     }
 
     if (this.globalState.consecutiveErrors >= this.MAX_CONSECUTIVE_ERRORS * 2) {
@@ -80,7 +81,7 @@ export class AiCircuitBreaker {
 
   private static trackBurst(category: AiCategory): void {
     const now = Date.now();
-    const globalRecent = this.globalState.recentTimestamps.filter(t => now - t < 10000);
+    const globalRecent = this.globalState.recentTimestamps.filter((t) => now - t < 10000);
     globalRecent.push(now);
     this.globalState.recentTimestamps = globalRecent;
 

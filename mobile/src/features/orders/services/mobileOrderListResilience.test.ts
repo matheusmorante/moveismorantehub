@@ -64,7 +64,12 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
   });
 
   it('filters out soft-deleted orders and computes order codes and totals accurately', async () => {
-    const result = await fetchMobileOrdersPage({ page: 1, pageSize: 15, search: '', status: 'all' });
+    const result = await fetchMobileOrdersPage({
+      page: 1,
+      pageSize: 15,
+      search: '',
+      status: 'all',
+    });
 
     expect(result.items.length).toBe(1);
     expect(result.items[0].id).toBe('order-1');
@@ -80,7 +85,9 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
 
   it('correctly extracts total value across multiple fallback sources without defaulting to zero', () => {
     // 1. From paymentsSummary
-    expect(getOrderTotalValue({ order_data: { paymentsSummary: { totalOrderValue: 1500 } } })).toBe(1500);
+    expect(getOrderTotalValue({ order_data: { paymentsSummary: { totalOrderValue: 1500 } } })).toBe(
+      1500
+    );
 
     // 2. From top-level total_value
     expect(getOrderTotalValue({ total_value: 850 })).toBe(850);
@@ -89,14 +96,16 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
     expect(getOrderTotalValue({ total_amount: 1200 })).toBe(1200);
 
     // 4. From item lines
-    expect(getOrderTotalValue({
-      order_data: {
-        items: [
-          { unitPrice: 200, quantity: 2 },
-          { price: 100, quantity: 1 },
-        ],
-      },
-    })).toBe(500);
+    expect(
+      getOrderTotalValue({
+        order_data: {
+          items: [
+            { unitPrice: 200, quantity: 2 },
+            { price: 100, quantity: 1 },
+          ],
+        },
+      })
+    ).toBe(500);
 
     // 5. From legacy total
     expect(getOrderTotalValue({ order_data: { total: 349 } })).toBe(349);

@@ -1,4 +1,12 @@
-export type OperationType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'RPC' | 'REALTIME' | 'STORAGE' | 'UNKNOWN';
+export type OperationType =
+  | 'SELECT'
+  | 'INSERT'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'RPC'
+  | 'REALTIME'
+  | 'STORAGE'
+  | 'UNKNOWN';
 export type AlertLevel = 'INFO' | 'WARNING' | 'CRITICAL';
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
@@ -39,9 +47,9 @@ export class CircuitBreakerError extends Error {
 }
 
 export const GUARD_CONFIG = {
-  WINDOW_MS: 5000,           // Janela de 5 segundos para analisar loops
-  MAX_READ_REQUESTS: 20,     // Mais de 20 chamadas idênticas de SELECT = OPEN
-  MAX_WRITE_REQUESTS: 10,    // Mais de 10 chamadas idênticas de WRITE/RPC = OPEN
-  COOLDOWN_MS: 30000,        // 30 segundos bloqueado
-  GLOBAL_KILL_SWITCH: 200,   // Mais de 200 chamadas globais na janela = EMERGENCY
+  WINDOW_MS: 5000, // Janela de 5 segundos para analisar loops
+  MAX_READ_REQUESTS: 20, // Mais de 20 chamadas idênticas de SELECT = OPEN
+  MAX_WRITE_REQUESTS: 10, // Mais de 10 chamadas idênticas de WRITE/RPC = OPEN
+  COOLDOWN_MS: 30000, // 30 segundos bloqueado
+  GLOBAL_KILL_SWITCH: 200, // Mais de 200 chamadas globais na janela = EMERGENCY
 };

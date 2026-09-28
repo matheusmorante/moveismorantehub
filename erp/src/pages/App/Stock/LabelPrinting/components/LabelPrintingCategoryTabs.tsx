@@ -8,9 +8,24 @@ interface Props {
 }
 
 const CATEGORIES: { id: CategoryType; label: string; icon: string; desc: string }[] = [
-  { id: 'logos', label: 'Logos da Loja', icon: '🏢', desc: 'Identidade visual e logotipo para embalagens' },
-  { id: 'precos', label: 'Etiquetas de Preço', icon: '🏷️', desc: 'Gôndola, ofertas e preços destacados' },
-  { id: 'identificacao', label: 'QR Code / Código de Barras', icon: '📱', desc: 'Rastreio de produto e SKU' },
+  {
+    id: 'logos',
+    label: 'Logos da Loja',
+    icon: '🏢',
+    desc: 'Identidade visual e logotipo para embalagens',
+  },
+  {
+    id: 'precos',
+    label: 'Etiquetas de Preço',
+    icon: '🏷️',
+    desc: 'Gôndola, ofertas e preços destacados',
+  },
+  {
+    id: 'identificacao',
+    label: 'QR Code / Código de Barras',
+    icon: '📱',
+    desc: 'Rastreio de produto e SKU',
+  },
   { id: 'posts', label: 'Redes Sociais & Mídias', icon: '📸', desc: 'Artes promocionais e mídias' },
 ];
 
@@ -36,7 +51,9 @@ export const LabelPrintingCategoryTabs: React.FC<Props> = ({
               <span>{cat.icon}</span>
               <span>{cat.label}</span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">{cat.desc}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+              {cat.desc}
+            </p>
           </button>
         );
       })}

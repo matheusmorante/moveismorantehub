@@ -19,14 +19,32 @@ export interface ExtractedProductFeatures {
 }
 
 const COMMON_COLORS = [
-  'branco', 'preto', 'off white', 'offwhite', 'nature', 'freijo', 'cinamomo',
-  'marfim', 'grafite', 'cinza', 'amadeirado', 'nobre', 'ripado', 'castanho',
-  'imbuia', 'tauari', 'carvalho', 'perola', 'bege', 'champagne', 'chumbo'
+  'branco',
+  'preto',
+  'off white',
+  'offwhite',
+  'nature',
+  'freijo',
+  'cinamomo',
+  'marfim',
+  'grafite',
+  'cinza',
+  'amadeirado',
+  'nobre',
+  'ripado',
+  'castanho',
+  'imbuia',
+  'tauari',
+  'carvalho',
+  'perola',
+  'bege',
+  'champagne',
+  'chumbo',
 ];
 
 export function extractProductFeatures(text: string): ExtractedProductFeatures {
   const norm = normalize(text);
-  const words = norm.split(' ').filter(w => w.length >= 2);
+  const words = norm.split(' ').filter((w) => w.length >= 2);
   const tokens = new Set(words);
 
   let doors: number | undefined;
@@ -50,7 +68,7 @@ export function extractProductFeatures(text: string): ExtractedProductFeatures {
     if (meterMatch) widthCm = Math.round(parseFloat(`${meterMatch[1]}.${meterMatch[2]}`) * 100);
   }
 
-  const detectedColors = COMMON_COLORS.filter(c => norm.includes(c));
+  const detectedColors = COMMON_COLORS.filter((c) => norm.includes(c));
 
   return { tokens, doors, drawers, widthCm, detectedColors };
 }
@@ -64,7 +82,9 @@ export function computeFeatureMatchScore(
   const divergences: string[] = [];
 
   // 1. Tokens em comum (Jaccard ponderado)
-  const commonTokens = [...nfFeatures.tokens].filter(t => t.length >= 3 && productFeatures.tokens.has(t));
+  const commonTokens = [...nfFeatures.tokens].filter(
+    (t) => t.length >= 3 && productFeatures.tokens.has(t)
+  );
   if (commonTokens.length > 0) {
     const tokenScore = Math.min(40, commonTokens.length * 8);
     score += tokenScore;
@@ -78,7 +98,9 @@ export function computeFeatureMatchScore(
       matches.push(`${nfFeatures.doors} Portas coincidente`);
     } else {
       score -= 10;
-      divergences.push(`NF indica ${nfFeatures.doors} portas, mas ERP indica ${productFeatures.doors}`);
+      divergences.push(
+        `NF indica ${nfFeatures.doors} portas, mas ERP indica ${productFeatures.doors}`
+      );
     }
   }
 
@@ -89,7 +111,9 @@ export function computeFeatureMatchScore(
       matches.push(`${nfFeatures.drawers} Gavetas coincidente`);
     } else {
       score -= 10;
-      divergences.push(`NF indica ${nfFeatures.drawers} gavetas, mas ERP indica ${productFeatures.drawers}`);
+      divergences.push(
+        `NF indica ${nfFeatures.drawers} gavetas, mas ERP indica ${productFeatures.drawers}`
+      );
     }
   }
 
@@ -104,7 +128,9 @@ export function computeFeatureMatchScore(
   }
 
   // 5. Cores
-  const commonColors = nfFeatures.detectedColors.filter(c => productFeatures.detectedColors.includes(c));
+  const commonColors = nfFeatures.detectedColors.filter((c) =>
+    productFeatures.detectedColors.includes(c)
+  );
   if (commonColors.length > 0) {
     score += 15;
     matches.push(`Cor detectada coincidente: ${commonColors.join(', ')}`);

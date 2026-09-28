@@ -82,7 +82,13 @@ export function useTeamLocations({
     if (shouldBroadcast) {
       lastBroadcastCoordsRef.current = { lat, lng };
       lastBroadcastTimeRef.current = now;
-      await broadcastMyLocation(userProfile, { latitude: lat, longitude: lng }, true, isDelivering, activeOrder);
+      await broadcastMyLocation(
+        userProfile,
+        { latitude: lat, longitude: lng },
+        true,
+        isDelivering,
+        activeOrder
+      );
     }
   }, [userProfile, myCoords, isGpsActive, isDelivering, activeOrder]);
 

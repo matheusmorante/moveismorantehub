@@ -11,7 +11,7 @@ export const fetchMobileSuppliers = async (): Promise<any[]> => {
       console.warn('[mobileSupplierService] Erro ao buscar fornecedores:', error);
       return [];
     }
-    return (data || []).map(s => ({
+    return (data || []).map((s) => ({
       ...s,
       name: s.nickname || s.full_name || s.social_name || 'Fornecedor',
     }));

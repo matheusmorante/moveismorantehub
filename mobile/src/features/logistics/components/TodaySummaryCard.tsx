@@ -1,14 +1,29 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Animated, View, Text, StyleSheet } from 'react-native';
 import { Truck, FileText, ChevronRight } from 'lucide-react-native';
-import { generateDeliveryAISummary, subscribeSummaryQuota } from '../../../services/aiSummaryService';
-import { playSummaryAudio, stopGeminiAudio, pauseGeminiAudio, resumeGeminiAudio, seekGeminiAudio } from '../../../services/geminiAudioService';
+import {
+  generateDeliveryAISummary,
+  subscribeSummaryQuota,
+} from '../../../services/aiSummaryService';
+import {
+  playSummaryAudio,
+  stopGeminiAudio,
+  pauseGeminiAudio,
+  resumeGeminiAudio,
+  seekGeminiAudio,
+} from '../../../services/geminiAudioService';
 import { getLocalDateString } from '../../../utils/orderUtils';
-import { calculateDeliverySummaryMetrics, type DeliveryPeriodFilter } from '../utils/deliverySummaryMetrics';
+import {
+  calculateDeliverySummaryMetrics,
+  type DeliveryPeriodFilter,
+} from '../utils/deliverySummaryMetrics';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { AISummaryAudioPlayer } from '../../dashboard/components/AISummaryAudioPlayer';
 import { supabase } from '../../../services/supabaseClient';
-import { getLatestSavedSummaryRecord, type DeliverySummaryRecord } from '../../../services/deliverySummaryService';
+import {
+  getLatestSavedSummaryRecord,
+  type DeliverySummaryRecord,
+} from '../../../services/deliverySummaryService';
 import { getCachedAudioRecord } from '../../../services/deliveryAudioCacheService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
@@ -116,7 +131,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     if (hasFuture && orders && orders.length > 0) {
       return orders;
     }
-    return fallbackOrders.length > 0 ? fallbackOrders : (orders || []);
+    return fallbackOrders.length > 0 ? fallbackOrders : orders || [];
   }, [orders, fallbackOrders]);
 
   useEffect(() => {
@@ -125,7 +140,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   const ordersFingerprint = useMemo(() => {
     return (effectiveOrders || [])
-      .map(o => `${o.id}_${o.status || o.order_data?.status || ''}_${getOperationalScheduleDate(o)}`)
+      .map(
+        (o) => `${o.id}_${o.status || o.order_data?.status || ''}_${getOperationalScheduleDate(o)}`
+      )
       .join('|');
   }, [effectiveOrders]);
 
@@ -137,12 +154,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     setTotalDuration(0);
   }, [periodFilter]);
 
-  const {
-    totalCount,
-    morningCount,
-    afternoonCount,
-    defaultSummaryText,
-  } = useMemo(
+  const { totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
     () => calculateDeliverySummaryMetrics(effectiveOrders, periodFilter),
     [effectiveOrders, periodFilter]
   );
@@ -158,13 +170,21 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     generateDeliveryAISummary(
       mode,
       false,
-      (text) => { if (isMounted && periodFilter === 'today') setAiSummaryText(text); },
-      (text) => { if (isMounted && periodFilter !== 'today') setAiSummaryText(text); },
-      (gen) => { if (isMounted) setIsGeneratingSummary(gen); },
+      (text) => {
+        if (isMounted && periodFilter === 'today') setAiSummaryText(text);
+      },
+      (text) => {
+        if (isMounted && periodFilter !== 'today') setAiSummaryText(text);
+      },
+      (gen) => {
+        if (isMounted) setIsGeneratingSummary(gen);
+      },
       effectiveOrdersRef.current
     );
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [periodFilter, ordersFingerprint]);
 
   useEffect(() => {
@@ -173,7 +193,8 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     const applySummaryRecord = async (record: DeliverySummaryRecord | null) => {
       if (!alive || !record) return;
       if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
-      const waitingForGeneration = record.audio_status === 'MISSING' || record.audio_status === 'GENERATING';
+      const waitingForGeneration =
+        record.audio_status === 'MISSING' || record.audio_status === 'GENERATING';
       setIsGeneratingAudio(waitingForGeneration);
       if (record.audio_status === 'READY' && record.audio_cache_key) {
         setIsLoadingNewAudio(true);
@@ -188,15 +209,19 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     let summaryDebounceTimer: NodeJS.Timeout | null = null;
     const channel = supabase
       .channel(`delivery-summary-${periodFilter}-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_summaries' }, (payload) => {
-        const record = payload.new as any;
-        if (record?.scope !== scope) return;
-        
-        if (summaryDebounceTimer) clearTimeout(summaryDebounceTimer);
-        summaryDebounceTimer = setTimeout(() => {
-          void applySummaryRecord(record as DeliverySummaryRecord);
-        }, 2000);
-      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_summaries' },
+        (payload) => {
+          const record = payload.new as any;
+          if (record?.scope !== scope) return;
+
+          if (summaryDebounceTimer) clearTimeout(summaryDebounceTimer);
+          summaryDebounceTimer = setTimeout(() => {
+            void applySummaryRecord(record as DeliverySummaryRecord);
+          }, 2000);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -229,27 +254,32 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       setIsPlayingAudio(true);
       setIsPaused(false);
 
-      await playSummaryAudio(textTarget, 'gemini', {
-        onStart: () => {
-          setIsPlayingAudio(true);
-          setIsPaused(false);
+      await playSummaryAudio(
+        textTarget,
+        'gemini',
+        {
+          onStart: () => {
+            setIsPlayingAudio(true);
+            setIsPaused(false);
+          },
+          onProgress: (currentSec, durSec) => {
+            setCurrentTime(currentSec);
+            if (durSec > 0) setTotalDuration(durSec);
+          },
+          onDone: () => {
+            setIsPlayingAudio(false);
+            setIsPaused(false);
+            setCurrentTime(0);
+          },
+          onError: (err) => {
+            console.warn('[TodaySummaryCard] Falha ao sintetizar áudio:', err);
+            setIsPlayingAudio(false);
+            setIsPaused(false);
+            setCurrentTime(0);
+          },
         },
-        onProgress: (currentSec, durSec) => {
-          setCurrentTime(currentSec);
-          if (durSec > 0) setTotalDuration(durSec);
-        },
-        onDone: () => {
-          setIsPlayingAudio(false);
-          setIsPaused(false);
-          setCurrentTime(0);
-        },
-        onError: (err) => {
-          console.warn('[TodaySummaryCard] Falha ao sintetizar áudio:', err);
-          setIsPlayingAudio(false);
-          setIsPaused(false);
-          setCurrentTime(0);
-        },
-      }, periodFilter);
+        periodFilter
+      );
     }
   };
 
@@ -276,8 +306,15 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         totalCount={totalCount}
       />
 
-      <View style={[styles.resumoBox, isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' }]}>
-        <View style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}>
+      <View
+        style={[
+          styles.resumoBox,
+          isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' },
+        ]}
+      >
+        <View
+          style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}
+        >
           <FileText size={18} color={isGeminiQuotaExceeded ? '#dc2626' : '#0055ff'} />
         </View>
 
@@ -287,13 +324,23 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
               {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
             </Text>
             {isGeminiQuotaExceeded && (
-              <Text style={{ fontSize: 10, fontWeight: '800', color: '#dc2626', textTransform: 'uppercase' }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: '800',
+                  color: '#dc2626',
+                  textTransform: 'uppercase',
+                }}
+              >
                 • Cota Indisponível
               </Text>
             )}
           </View>
           {isGeminiQuotaExceeded ? (
-            <Text style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]} numberOfLines={4}>
+            <Text
+              style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]}
+              numberOfLines={4}
+            >
               ⚠ Resumo de IA indisponível no momento por limite de cota de tokens.
             </Text>
           ) : (
@@ -312,7 +359,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         text={activeSummaryText}
         isLoadingText={isGeneratingSummary && !aiSummaryText}
         isGenerating={isGeneratingAudio || isLoadingNewAudio}
-        loadingMessage={isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'}
+        loadingMessage={
+          isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'
+        }
         isQuotaExceeded={isGeminiQuotaExceeded}
         isSpeaking={isPlayingAudio}
         isPaused={isPaused}
@@ -342,12 +391,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 6
+    elevation: 6,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 10,
   },
   iconBadge: {
     width: 44,
@@ -355,17 +404,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#ffffff',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   headerTitle: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '700'
+    fontWeight: '700',
   },
   headerSubtitle: {
     color: '#dbeafe',
     fontSize: 12,
-    marginTop: 2
+    marginTop: 2,
   },
   resumoBox: {
     backgroundColor: '#ffffff',
@@ -374,7 +423,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
-    minHeight: 76
+    minHeight: 76,
   },
   resumoIconBox: {
     width: 36,
@@ -382,18 +431,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#eff6ff',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   resumoTitle: {
     color: '#0f172a',
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: '700',
   },
   resumoText: {
     color: '#475569',
     fontSize: 11,
     marginTop: 2,
     lineHeight: 15,
-    minHeight: 32
+    minHeight: 32,
   },
 });

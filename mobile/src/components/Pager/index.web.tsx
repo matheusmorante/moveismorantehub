@@ -13,22 +13,18 @@ const PagerViewWeb = forwardRef((props: any, ref) => {
     },
     setPageWithoutAnimation: (page: number) => {
       setCurrentPage(page);
-    }
+    },
   }));
 
   const children = React.Children.toArray(props.children);
 
-  return (
-    <View style={[styles.container, props.style]}>
-      {children[currentPage]}
-    </View>
-  );
+  return <View style={[styles.container, props.style]}>{children[currentPage]}</View>;
 });
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  }
+  },
 });
 
 export default PagerViewWeb;

@@ -27,9 +27,11 @@ export const DEFAULT_THEME_STYLE: HtmlPostThemeStyle = {
   sloganColor: '#ffffff', // Branco elegante de alto contraste
   benefitsTextColor: '#F7B731', // Amarelo ouro
   cardBorderColor: '#ffffff', // Borda branca sólida solicitada pelo usuário
-  backgroundLightingOverlay: 'radial-gradient(ellipse at center, rgba(247,183,49,0.3) 0%, rgba(0,43,73,0.3) 60%, transparent 85%)',
+  backgroundLightingOverlay:
+    'radial-gradient(ellipse at center, rgba(247,183,49,0.3) 0%, rgba(0,43,73,0.3) 60%, transparent 85%)',
   contrastGrade: 'WCAG_AAA (Padrão Azul Institucional + Amarelo & Branco)',
-  rationale: 'Paleta oficial institucional da Móveis Morante: fundo azul escuro com tipografia branca e amarelo ouro.',
+  rationale:
+    'Paleta oficial institucional da Móveis Morante: fundo azul escuro com tipografia branca e amarelo ouro.',
 };
 
 export const WHITE_STUDIO_THEME_STYLE: HtmlPostThemeStyle = {
@@ -59,13 +61,19 @@ interface HarmonizeParams {
 export async function harmonizePostStylesWithGeminiFlash(
   params: HarmonizeParams
 ): Promise<HtmlPostThemeStyle> {
-  const { productName, category = 'Móvel', opportunityName, hasCustomBackground, isWhiteBackground } = params;
+  const {
+    productName,
+    category = 'Móvel',
+    opportunityName,
+    hasCustomBackground,
+    isWhiteBackground,
+  } = params;
 
   const bgDescription = isWhiteBackground
     ? 'um fundo branco puro (#ffffff) limpo e minimalista de estúdio fotográfico'
     : hasCustomBackground
-    ? 'uma imagem fotográfica de showroom contemporâneo com piso e parede'
-    : 'um estúdio sofisticado com tons escuros institucionais (grafite, amadeirado escuro e iluminação âmbar)';
+      ? 'uma imagem fotográfica de showroom contemporâneo com piso e parede'
+      : 'um estúdio sofisticado com tons escuros institucionais (grafite, amadeirado escuro e iluminação âmbar)';
 
   const prompt = `Você é um Diretor de Arte e Especialista em Cores & Tipografia Publicitária.
 O sistema renderiza um post comercial de varejo de móveis em HTML/CSS para Instagram (formato 4:5 ou 9:16).

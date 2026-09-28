@@ -6,7 +6,11 @@ export const styles = StyleSheet.create({
   textDark: { color: '#f8fafc' },
   textMutedDark: { color: '#94a3b8' },
   cardContainer: { paddingHorizontal: 16, paddingTop: 10 },
-  pageHeaderWrapper: { backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  pageHeaderWrapper: {
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
   pageHeaderWrapperDark: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
   pageHeader: {
     flexDirection: 'row',

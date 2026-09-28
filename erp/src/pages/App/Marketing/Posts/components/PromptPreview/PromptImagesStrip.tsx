@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import {
-  PostProductImagesSpec,
-  PostProductImagesValidation,
-} from '../../types/postSpecification';
+import { PostProductImagesSpec, PostProductImagesValidation } from '../../types/postSpecification';
 import { copyImageUrlToClipboard } from '../../services/imageClipboardUtils';
 
 interface PromptImagesStripProps {
@@ -71,8 +68,8 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
     const vars = Array.isArray(product.variations)
       ? product.variations
       : Array.isArray((product as any).product_variations)
-      ? (product as any).product_variations
-      : [];
+        ? (product as any).product_variations
+        : [];
     vars.forEach((v: any) => {
       const imgs = Array.isArray(v.images) ? v.images : [];
       imgs.forEach((img: any) => {
@@ -121,7 +118,11 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
           {opportunityName ? (
             <div className="flex items-center gap-1.5 bg-purple-950/60 border border-purple-800/60 px-2 py-0.5 rounded-md text-[10px] font-semibold text-purple-200">
               {opportunityBadgeUrl && (
-                <img src={opportunityBadgeUrl} alt="" className="w-3.5 h-3.5 rounded-full object-contain" />
+                <img
+                  src={opportunityBadgeUrl}
+                  alt=""
+                  className="w-3.5 h-3.5 rounded-full object-contain"
+                />
               )}
               <span>Oportunidade: {opportunityName}</span>
             </div>
@@ -130,8 +131,6 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
               Oportunidade: <span className="font-semibold text-slate-300">Nenhuma</span>
             </div>
           )}
-
-
 
           {hasManualOverrides && onResetOverrides && (
             <button
@@ -153,7 +152,8 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
           <div>
             <p className="font-semibold">Foto principal não encontrada</p>
             <p className="text-[10px] text-amber-300/80">
-              O produto selecionado não possui foto de capa. Clique em [ Trocar ] para selecionar uma imagem da galeria.
+              O produto selecionado não possui foto de capa. Clique em [ Trocar ] para selecionar
+              uma imagem da galeria.
             </p>
           </div>
         </div>
@@ -172,7 +172,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => void copyImageUrlToClipboard(productImages.primary!.url, 'Foto Principal')}
+                    onClick={() =>
+                      void copyImageUrlToClipboard(productImages.primary!.url, 'Foto Principal')
+                    }
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-1.5 py-0.5 rounded transition"
                     title="Copiar imagem para colar no ChatGPT com Ctrl+V"
                   >
@@ -183,7 +185,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
               )}
               <button
                 type="button"
-                onClick={() => setPickerTarget({ type: 'PRIMARY', title: 'Trocar Imagem Principal (PRIMARY)' })}
+                onClick={() =>
+                  setPickerTarget({ type: 'PRIMARY', title: 'Trocar Imagem Principal (PRIMARY)' })
+                }
                 className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-950/50 hover:bg-indigo-900/60 border border-indigo-700/50 px-1.5 py-0.5 rounded transition"
               >
                 <span>✎</span>
@@ -198,7 +202,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 src={productImages.primary!.url}
                 alt="Foto Principal"
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border-2 border-indigo-500 shrink-0 shadow bg-slate-900 cursor-pointer hover:opacity-90"
-                onClick={() => void copyImageUrlToClipboard(productImages.primary!.url, 'Foto Principal')}
+                onClick={() =>
+                  void copyImageUrlToClipboard(productImages.primary!.url, 'Foto Principal')
+                }
                 title="Clique para copiar a foto (Ctrl+V no ChatGPT)"
               />
             ) : (
@@ -207,8 +213,17 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
               </div>
             )}
             <div className="min-w-0 flex-1 text-left">
-              <p className="text-xs font-bold text-white leading-snug break-words" title={productImages.primary?.variationName || productImages.primaryVariation?.name || 'Variação Padrão'}>
-                {productImages.primary?.variationName || productImages.primaryVariation?.name || 'Variação Padrão'}
+              <p
+                className="text-xs font-bold text-white leading-snug break-words"
+                title={
+                  productImages.primary?.variationName ||
+                  productImages.primaryVariation?.name ||
+                  'Variação Padrão'
+                }
+              >
+                {productImages.primary?.variationName ||
+                  productImages.primaryVariation?.name ||
+                  'Variação Padrão'}
               </p>
               <p className="text-[10px] text-slate-400 leading-tight mt-1">
                 Foto prioritária do produto real
@@ -228,7 +243,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => void copyImageUrlToClipboard(productImages.openView!.url, 'Imagem Secundária')}
+                    onClick={() =>
+                      void copyImageUrlToClipboard(productImages.openView!.url, 'Imagem Secundária')
+                    }
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-1.5 py-0.5 rounded transition"
                     title="Copiar imagem para colar no ChatGPT com Ctrl+V"
                   >
@@ -259,7 +276,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 src={productImages.openView!.url}
                 alt="Imagem Secundária"
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border-2 border-amber-500 shrink-0 shadow bg-slate-900 cursor-pointer hover:opacity-90"
-                onClick={() => void copyImageUrlToClipboard(productImages.openView!.url, 'Imagem Secundária')}
+                onClick={() =>
+                  void copyImageUrlToClipboard(productImages.openView!.url, 'Imagem Secundária')
+                }
                 title="Clique para copiar a foto (Ctrl+V no ChatGPT)"
               />
             ) : (
@@ -272,7 +291,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 {hasOpenView ? 'Imagem Secundária' : 'Sem foto secundária'}
               </p>
               <p className="text-[10px] text-slate-400 leading-tight mt-1">
-                {hasOpenView ? 'Card secundário no post (ex: aberto ou ângulo)' : 'Opcional (clique em Trocar)'}
+                {hasOpenView
+                  ? 'Card secundário no post (ex: aberto ou ângulo)'
+                  : 'Opcional (clique em Trocar)'}
               </p>
             </div>
           </div>
@@ -290,21 +311,31 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
           {variations.length > 0 ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 gap-2 overflow-y-auto max-h-32 py-1 scrollbar-thin scrollbar-thumb-slate-700">
               {variations.map((v, i) => (
-                <div key={`${v.variationId}-${i}`} className="text-center flex flex-col items-center bg-slate-900/60 p-1.5 rounded-lg border border-slate-800">
+                <div
+                  key={`${v.variationId}-${i}`}
+                  className="text-center flex flex-col items-center bg-slate-900/60 p-1.5 rounded-lg border border-slate-800"
+                >
                   <img
                     src={v.url}
                     alt={v.variationName}
                     className="w-12 h-12 rounded object-cover border border-slate-700 hover:border-purple-400 transition shadow-sm bg-slate-950 cursor-pointer"
-                    onClick={() => void copyImageUrlToClipboard(v.url, `Foto Variação: ${v.variationName}`)}
+                    onClick={() =>
+                      void copyImageUrlToClipboard(v.url, `Foto Variação: ${v.variationName}`)
+                    }
                     title="Clique para copiar a foto (Ctrl+V no ChatGPT)"
                   />
-                  <span className="block text-[9px] text-slate-200 truncate max-w-[70px] mt-1 font-semibold" title={v.variationName}>
+                  <span
+                    className="block text-[9px] text-slate-200 truncate max-w-[70px] mt-1 font-semibold"
+                    title={v.variationName}
+                  >
                     {v.variationName}
                   </span>
                   <div className="flex items-center gap-1 mt-0.5">
                     <button
                       type="button"
-                      onClick={() => void copyImageUrlToClipboard(v.url, `Variação ${v.variationName}`)}
+                      onClick={() =>
+                        void copyImageUrlToClipboard(v.url, `Variação ${v.variationName}`)
+                      }
                       className="text-[9px] text-slate-400 hover:text-white"
                       title="Copiar imagem"
                     >
@@ -329,7 +360,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic py-3">Variação única (sem variações adicionais)</p>
+            <p className="text-xs text-slate-500 italic py-3">
+              Variação única (sem variações adicionais)
+            </p>
           )}
         </div>
       </div>
@@ -363,7 +396,11 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                   onClick={() => handleSelectPhoto(url)}
                   className="group relative aspect-square rounded-lg border border-slate-700 hover:border-indigo-500 overflow-hidden bg-slate-950 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-full object-cover group-hover:scale-105 transition"
+                  />
                   <span className="absolute bottom-1 right-1 text-[8px] bg-black/70 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition">
                     Escolher
                   </span>
@@ -385,7 +422,9 @@ export const PromptImagesStrip: React.FC<PromptImagesStripProps> = ({
                 >
                   Remover imagem secundária
                 </button>
-              ) : <div />}
+              ) : (
+                <div />
+              )}
 
               <button
                 type="button"

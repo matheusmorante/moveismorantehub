@@ -8,10 +8,20 @@ interface Props {
 export const SupabaseMonitorStatsCards: React.FC<Props> = ({ stats }) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-slide-in">
-      <StatCard title="Requisições Totais" value={stats.totalReqs} icon="bi-activity" color="blue" />
+      <StatCard
+        title="Requisições Totais"
+        value={stats.totalReqs}
+        icon="bi-activity"
+        color="blue"
+      />
       <StatCard title="Total SELECTs" value={stats.selects} icon="bi-search" color="emerald" />
       <StatCard title="Total Writes" value={stats.writes} icon="bi-pencil-square" color="amber" />
-      <StatCard title="Total Realtime" value={stats.realtime} icon="bi-lightning-charge" color="purple" />
+      <StatCard
+        title="Total Realtime"
+        value={stats.realtime}
+        icon="bi-lightning-charge"
+        color="purple"
+      />
     </div>
   );
 };
@@ -39,7 +49,9 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
         </div>
         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</span>
       </div>
-      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{value.toLocaleString()}</span>
+      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">
+        {value.toLocaleString()}
+      </span>
     </div>
   );
 }

@@ -1,17 +1,17 @@
-import Link from "next/link"
-import Image from "next/image"
-import { Pencil } from "lucide-react"
-import { toast } from "sonner"
+import Link from 'next/link';
+import Image from 'next/image';
+import { Pencil } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BrandLogoProps {
-  isAdminMode: boolean
+  isAdminMode: boolean;
 }
 
 export function BrandLogo({ isAdminMode }: BrandLogoProps) {
   function handleAdminClick(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    toast.info("Em breve: Upload de imagem direto aqui!")
+    e.preventDefault();
+    e.stopPropagation();
+    toast.info('Em breve: Upload de imagem direto aqui!');
   }
 
   return (
@@ -45,5 +45,5 @@ export function BrandLogo({ isAdminMode }: BrandLogoProps) {
         </button>
       )}
     </Link>
-  )
+  );
 }

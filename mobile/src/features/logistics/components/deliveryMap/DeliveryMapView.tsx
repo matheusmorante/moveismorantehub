@@ -33,13 +33,13 @@ export const DeliveryMapView: React.FC<Props> = ({
   const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
     return Boolean(
       c &&
-      typeof c.latitude === 'number' &&
-      !isNaN(c.latitude) &&
-      typeof c.longitude === 'number' &&
-      !isNaN(c.longitude) &&
-      Math.abs(c.latitude) <= 90 &&
-      Math.abs(c.longitude) <= 180 &&
-      (c.latitude !== 0 || c.longitude !== 0)
+        typeof c.latitude === 'number' &&
+        !isNaN(c.latitude) &&
+        typeof c.longitude === 'number' &&
+        !isNaN(c.longitude) &&
+        Math.abs(c.latitude) <= 90 &&
+        Math.abs(c.longitude) <= 180 &&
+        (c.latitude !== 0 || c.longitude !== 0)
     );
   };
 
@@ -122,36 +122,24 @@ export const DeliveryMapView: React.FC<Props> = ({
         onMapReady={() => setMapReady(true)}
       >
         {/* Marcador da Posição do Motorista / Entregador (🚚) */}
-        {isValidCoord(driverCoords) && (
-          <DeliveryMarker isDriver driverCoords={driverCoords!} />
-        )}
+        {isValidCoord(driverCoords) && <DeliveryMarker isDriver driverCoords={driverCoords!} />}
 
         {/* Marcador do Depósito / Loja */}
-        {isValidCoord(storeCoords) && (
-          <DeliveryMarker isStore storeCoords={storeCoords!} />
-        )}
+        {isValidCoord(storeCoords) && <DeliveryMarker isStore storeCoords={storeCoords!} />}
 
         {/* Marcadores das Entregas do Roteiro */}
-        {items.map((item) => (
+        {items.map((item) =>
           isValidCoord(item.coords) ? (
-            <DeliveryMarker
-              key={item.id}
-              item={item}
-              onPress={() => onSelectMarker(item)}
-            />
+            <DeliveryMarker key={item.id} item={item} onPress={() => onSelectMarker(item)} />
           ) : null
-        ))}
+        )}
 
         {/* Marcadores dos Outros Membros da Equipe (com ? vermelho se desligado/sem GPS) */}
-        {teamMembers.map((member) => (
+        {teamMembers.map((member) =>
           isValidCoord(member.coords) ? (
-            <DeliveryMarker
-              key={`team-${member.userId}`}
-              isTeamMember
-              teamMember={member}
-            />
+            <DeliveryMarker key={`team-${member.userId}`} isTeamMember teamMember={member} />
           ) : null
-        ))}
+        )}
 
         {/* Linha do Trajeto Recomendado (Routes API) */}
         {validPolyline.length > 1 && (

@@ -4,109 +4,133 @@ import { parse, format } from 'date-fns';
 import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
 
 export interface ABCResult {
-    product: string;
-    supplier: string;
-    totalQuantity: number;
-    totalRevenue: number;
-    totalProfit: number;
-    avgCost: number;
-    accumulatedPercentage: number;
-    classification: 'A' | 'B' | 'C';
+  product: string;
+  supplier: string;
+  totalQuantity: number;
+  totalRevenue: number;
+  totalProfit: number;
+  avgCost: number;
+  accumulatedPercentage: number;
+  classification: 'A' | 'B' | 'C';
 }
 
 export interface SaleItem {
-    date: Date;
-    product: string;
-    supplier: string;
-    quantity: number;
-    cost: number;
-    salesValue: number;
-    profit: number;
-    variationId?: string;
+  date: Date;
+  product: string;
+  supplier: string;
+  quantity: number;
+  cost: number;
+  salesValue: number;
+  profit: number;
+  variationId?: string;
 }
 
 export const useABCReport = () => {
-    const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState<ABCResult[]>([]);
-    const [totalProfit, setTotalProfit] = useState(0);
-    const [monthCount, setMonthCount] = useState(0);
-    const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<ABCResult[]>([]);
+  const [totalProfit, setTotalProfit] = useState(0);
+  const [monthCount, setMonthCount] = useState(0);
+  const [savedReports, setSavedReports] = useState<any[]>([]);
 
-    const calculateABC = (items: SaleItem[], basis: 'revenue' | 'profit' = 'revenue') => {
-        // Agrupar por produto
-        const productStats: Record<string, { product: string, supplier: string, qty: number, rev: number, profit: number, totalCost: number }> = {};
-        
-        let minDate = items.length > 0 ? items[0].date : new Date();
-        let maxDate = items.length > 0 ? items[0].date : new Date();
-        let currentTotalProfit = 0;
+  const calculateABC = (items: SaleItem[], basis: 'revenue' | 'profit' = 'revenue') => {
+    // Agrupar por produto
+    const productStats: Record<
+      string,
+      {
+        product: string;
+        supplier: string;
+        qty: number;
+        rev: number;
+        profit: number;
+        totalCost: number;
+      }
+    > = {};
 
-        items.forEach(item => {
-            if (item.date < minDate) minDate = item.date;
-            if (item.date > maxDate) maxDate = item.date;
+    let minDate = items.length > 0 ? items[0].date : new Date();
+    let maxDate = items.length > 0 ? items[0].date : new Date();
+    let currentTotalProfit = 0;
 
-            const key = `${item.variationId || item.product}-${item.supplier}`;
-            if (!productStats[key]) {
-                productStats[key] = { product: item.product, supplier: item.supplier, qty: 0, rev: 0, profit: 0, totalCost: 0 };
-            }
-            
-            const qty = isNaN(item.quantity) ? 0 : item.quantity;
-            const rev = isNaN(item.salesValue) ? 0 : item.salesValue;
-            const profit = isNaN(item.profit) ? 0 : item.profit;
-            const cost = isNaN(item.cost) ? 0 : item.cost;
+    items.forEach((item) => {
+      if (item.date < minDate) minDate = item.date;
+      if (item.date > maxDate) maxDate = item.date;
 
-            productStats[key].qty += qty;
-            productStats[key].rev += rev;
-            productStats[key].profit += profit;
-            productStats[key].totalCost += cost * qty;
-            currentTotalProfit += profit;
-        });
+      const key = `${item.variationId || item.product}-${item.supplier}`;
+      if (!productStats[key]) {
+        productStats[key] = {
+          product: item.product,
+          supplier: item.supplier,
+          qty: 0,
+          rev: 0,
+          profit: 0,
+          totalCost: 0,
+        };
+      }
 
-        // Calcular diferença em meses (mínimo 1)
-        const diffMonths = Math.max(1, (maxDate.getFullYear() - minDate.getFullYear()) * 12 + (maxDate.getMonth() - minDate.getMonth()));
-        setMonthCount(diffMonths);
-        setTotalProfit(currentTotalProfit);
+      const qty = isNaN(item.quantity) ? 0 : item.quantity;
+      const rev = isNaN(item.salesValue) ? 0 : item.salesValue;
+      const profit = isNaN(item.profit) ? 0 : item.profit;
+      const cost = isNaN(item.cost) ? 0 : item.cost;
 
-        const statsArray = Object.values(productStats);
-        const totalBasis = statsArray.reduce((acc, curr) => acc + (basis === 'revenue' ? curr.rev : curr.profit), 0);
+      productStats[key].qty += qty;
+      productStats[key].rev += rev;
+      productStats[key].profit += profit;
+      productStats[key].totalCost += cost * qty;
+      currentTotalProfit += profit;
+    });
 
-        if (totalBasis === 0) {
-            setResults([]);
-            return;
-        }
+    // Calcular diferença em meses (mínimo 1)
+    const diffMonths = Math.max(
+      1,
+      (maxDate.getFullYear() - minDate.getFullYear()) * 12 +
+        (maxDate.getMonth() - minDate.getMonth())
+    );
+    setMonthCount(diffMonths);
+    setTotalProfit(currentTotalProfit);
 
-        // Ordenar pela base escolhida (Receita ou Lucro)
-        statsArray.sort((a, b) => (basis === 'revenue' ? b.rev - a.rev : b.profit - a.profit));
+    const statsArray = Object.values(productStats);
+    const totalBasis = statsArray.reduce(
+      (acc, curr) => acc + (basis === 'revenue' ? curr.rev : curr.profit),
+      0
+    );
 
-        let currentSum = 0;
-        const finalResults: ABCResult[] = statsArray.map(stat => {
-            const val = (basis === 'revenue' ? stat.rev : stat.profit);
-            currentSum += val;
-            const accumulatedPercentage = (currentSum / totalBasis) * 100;
+    if (totalBasis === 0) {
+      setResults([]);
+      return;
+    }
 
-            let classification: 'A' | 'B' | 'C' = 'C';
-            if (accumulatedPercentage <= 70) classification = 'A';
-            else if (accumulatedPercentage <= 90) classification = 'B';
+    // Ordenar pela base escolhida (Receita ou Lucro)
+    statsArray.sort((a, b) => (basis === 'revenue' ? b.rev - a.rev : b.profit - a.profit));
 
-            return {
-                product: stat.product,
-                supplier: stat.supplier,
-                totalQuantity: stat.qty,
-                totalRevenue: stat.rev,
-                totalProfit: stat.profit,
-                avgCost: stat.qty > 0 ? stat.totalCost / stat.qty : 0,
-                accumulatedPercentage,
-                classification
-            };
-        });
+    let currentSum = 0;
+    const finalResults: ABCResult[] = statsArray.map((stat) => {
+      const val = basis === 'revenue' ? stat.rev : stat.profit;
+      currentSum += val;
+      const accumulatedPercentage = (currentSum / totalBasis) * 100;
 
-        setResults(finalResults);
-    };
+      let classification: 'A' | 'B' | 'C' = 'C';
+      if (accumulatedPercentage <= 70) classification = 'A';
+      else if (accumulatedPercentage <= 90) classification = 'B';
 
-    const fetchFromERP = async (): Promise<SaleItem[]> => {
-        try {
-            const { data: itemRows, error: itemError } = await supabase
-                .from('order_items')
-                .select(`
+      return {
+        product: stat.product,
+        supplier: stat.supplier,
+        totalQuantity: stat.qty,
+        totalRevenue: stat.rev,
+        totalProfit: stat.profit,
+        avgCost: stat.qty > 0 ? stat.totalCost / stat.qty : 0,
+        accumulatedPercentage,
+        classification,
+      };
+    });
+
+    setResults(finalResults);
+  };
+
+  const fetchFromERP = async (): Promise<SaleItem[]> => {
+    try {
+      const { data: itemRows, error: itemError } = await supabase
+        .from('order_items')
+        .select(`
                     id,
                     description,
                     quantity,
@@ -123,134 +147,138 @@ export const useABCReport = () => {
                         created_at
                     )
                 `)
-                .eq('orders.deleted', false)
-                .neq('orders.order_type', 'budget');
+        .eq('orders.deleted', false)
+        .neq('orders.order_type', 'budget');
 
-            if (!itemError && itemRows && itemRows.length > 0) {
-                const items: SaleItem[] = itemRows.map((row: any) => {
-                    const orderObj = row.orders;
-                    const rawDate = orderObj?.order_date || orderObj?.created_at;
-                    const date = rawDate ? new Date(rawDate) : new Date();
-                    const qty = Number(row.quantity) || 0;
-                    const unitPrice = Number(row.unit_price) || 0;
-                    const salesVal = qty * unitPrice;
-                    const cost = Number(row.cost_price) || 0;
-                    const profit = salesVal - (cost * qty);
-                    const snapshot = row.item_snapshot || {};
+      if (!itemError && itemRows && itemRows.length > 0) {
+        const items: SaleItem[] = itemRows.map((row: any) => {
+          const orderObj = row.orders;
+          const rawDate = orderObj?.order_date || orderObj?.created_at;
+          const date = rawDate ? new Date(rawDate) : new Date();
+          const qty = Number(row.quantity) || 0;
+          const unitPrice = Number(row.unit_price) || 0;
+          const salesVal = qty * unitPrice;
+          const cost = Number(row.cost_price) || 0;
+          const profit = salesVal - cost * qty;
+          const snapshot = row.item_snapshot || {};
 
-                    return {
-                        date,
-                        product: row.description || snapshot.description || 'Sem Descrição',
-                        supplier: snapshot.mainSupplierName || 'Sem Fornecedor',
-                        quantity: qty,
-                        cost: cost,
-                        salesValue: salesVal,
-                        profit: profit,
-                        variationId: row.variation_id || snapshot.variationId || undefined
-                    };
-                });
-
-                return resolveCanonicalVariationReportItems(items);
-            }
-        } catch (err) {
-            console.warn('Falha ao carregar curva ABC via order_items, ativando fallback JSONB:', err);
-        }
-
-        // LEGACY FALLBACK:
-        // remover após validação completa da migração JSONB
-        const { data, error } = await supabase
-            .from('orders')
-            .select('id, status, order_type, deleted, order_data')
-            .is('order_data->deleted', null);
-
-        if (error) throw error;
-
-        const items: SaleItem[] = [];
-        data.forEach((row: any) => {
-            const order = row.order_data;
-            if (!order || order.deleted || order.orderType === 'budget') return;
-
-            const date = order.date ? (order.date.includes('/') ? parse(order.date.split(',')[0], 'dd/MM/yyyy', new Date()) : new Date(order.date)) : new Date();
-
-            order.items?.forEach((item: any) => {
-                const qty = item.quantity || 0;
-                const salesVal = item.totalPrice || (qty * (item.unitPrice || 0));
-                const cost = item.unitCost || 0;
-                const profit = salesVal - (cost * qty);
-
-                items.push({
-                    date,
-                    product: item.description || 'Sem Descrição',
-                    supplier: item.mainSupplierName || 'Sem Fornecedor',
-                    quantity: qty,
-                    cost: cost,
-                    salesValue: salesVal,
-                    profit: profit,
-                    variationId: item.variationId || undefined
-                });
-            });
+          return {
+            date,
+            product: row.description || snapshot.description || 'Sem Descrição',
+            supplier: snapshot.mainSupplierName || 'Sem Fornecedor',
+            quantity: qty,
+            cost: cost,
+            salesValue: salesVal,
+            profit: profit,
+            variationId: row.variation_id || snapshot.variationId || undefined,
+          };
         });
 
         return resolveCanonicalVariationReportItems(items);
-    };
+      }
+    } catch (err) {
+      console.warn('Falha ao carregar curva ABC via order_items, ativando fallback JSONB:', err);
+    }
 
-    const saveReport = async (name: string, source: 'erp' | 'csv', config: any) => {
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('sales_order_reports')
-                .insert([{
-                    name,
-                    type: 'abc_curve',
-                    source,
-                    report_data: { results, totalProfit, monthCount },
-                    config,
-                    created_at: new Date().toISOString()
-                }]);
-            if (error) throw error;
-            await listSavedReports();
-        } finally {
-            setLoading(false);
-        }
-    };
+    // LEGACY FALLBACK:
+    // remover após validação completa da migração JSONB
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, status, order_type, deleted, order_data')
+      .is('order_data->deleted', null);
 
-    const listSavedReports = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('sales_order_reports')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            setSavedReports(data || []);
-        } catch (e) {
-            console.error("Erro ao listar relatórios", e);
-        }
-    };
+    if (error) throw error;
 
-    const deleteReport = async (id: string) => {
-        try {
-            const { error } = await supabase.from('sales_order_reports').delete().eq('id', id);
-            if (error) throw error;
-            await listSavedReports();
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    const items: SaleItem[] = [];
+    data.forEach((row: any) => {
+      const order = row.order_data;
+      if (!order || order.deleted || order.orderType === 'budget') return;
 
-    return {
-        loading,
-        setLoading,
-        results,
-        totalProfit,
-        monthCount,
-        savedReports,
-        calculateABC,
-        fetchFromERP,
-        saveReport,
-        listSavedReports,
-        deleteReport,
-        setResults,
-        setTotalProfit,
-        setMonthCount
-    };
+      const date = order.date
+        ? order.date.includes('/')
+          ? parse(order.date.split(',')[0], 'dd/MM/yyyy', new Date())
+          : new Date(order.date)
+        : new Date();
+
+      order.items?.forEach((item: any) => {
+        const qty = item.quantity || 0;
+        const salesVal = item.totalPrice || qty * (item.unitPrice || 0);
+        const cost = item.unitCost || 0;
+        const profit = salesVal - cost * qty;
+
+        items.push({
+          date,
+          product: item.description || 'Sem Descrição',
+          supplier: item.mainSupplierName || 'Sem Fornecedor',
+          quantity: qty,
+          cost: cost,
+          salesValue: salesVal,
+          profit: profit,
+          variationId: item.variationId || undefined,
+        });
+      });
+    });
+
+    return resolveCanonicalVariationReportItems(items);
+  };
+
+  const saveReport = async (name: string, source: 'erp' | 'csv', config: any) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('sales_order_reports').insert([
+        {
+          name,
+          type: 'abc_curve',
+          source,
+          report_data: { results, totalProfit, monthCount },
+          config,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      if (error) throw error;
+      await listSavedReports();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const listSavedReports = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sales_order_reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setSavedReports(data || []);
+    } catch (e) {
+      console.error('Erro ao listar relatórios', e);
+    }
+  };
+
+  const deleteReport = async (id: string) => {
+    try {
+      const { error } = await supabase.from('sales_order_reports').delete().eq('id', id);
+      if (error) throw error;
+      await listSavedReports();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return {
+    loading,
+    setLoading,
+    results,
+    totalProfit,
+    monthCount,
+    savedReports,
+    calculateABC,
+    fetchFromERP,
+    saveReport,
+    listSavedReports,
+    deleteReport,
+    setResults,
+    setTotalProfit,
+    setMonthCount,
+  };
 };

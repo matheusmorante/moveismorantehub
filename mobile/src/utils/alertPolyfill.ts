@@ -17,10 +17,10 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
     } else {
       const confirmed = window.confirm(text);
       if (confirmed) {
-        const confirmBtn = buttons.find(b => b.style !== 'cancel') || buttons[1];
+        const confirmBtn = buttons.find((b) => b.style !== 'cancel') || buttons[1];
         if (confirmBtn?.onPress) confirmBtn.onPress();
       } else {
-        const cancelBtn = buttons.find(b => b.style === 'cancel') || buttons[0];
+        const cancelBtn = buttons.find((b) => b.style === 'cancel') || buttons[0];
         if (cancelBtn?.onPress) cancelBtn.onPress();
       }
     }

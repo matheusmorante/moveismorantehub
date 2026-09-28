@@ -62,13 +62,21 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
 
   let [priorRes, currentRes]: any[] = await Promise.all([
     supabase.from('financial_transactions').select('type, amount, status').lt('date', startDate),
-    supabase.from('financial_transactions').select('type, amount, status').gte('date', startDate).lt('date', endDate),
+    supabase
+      .from('financial_transactions')
+      .select('type, amount, status')
+      .gte('date', startDate)
+      .lt('date', endDate),
   ]);
 
   if (priorRes.error || currentRes.error) {
     [priorRes, currentRes] = (await Promise.all([
       supabase.from('financial_transactions').select('type, amount').lt('date', startDate),
-      supabase.from('financial_transactions').select('type, amount').gte('date', startDate).lt('date', endDate),
+      supabase
+        .from('financial_transactions')
+        .select('type, amount')
+        .gte('date', startDate)
+        .lt('date', endDate),
     ])) as any[];
   }
 
@@ -104,7 +112,10 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
   };
 };
 
-export const fetchIncomeStatementReport = async (year: number, month: number): Promise<IncomeStatementReport> => {
+export const fetchIncomeStatementReport = async (
+  year: number,
+  month: number
+): Promise<IncomeStatementReport> => {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
@@ -115,7 +126,12 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
     supabase.from('financial_transactions').select('*').gte('date', startDate).lt('date', endDate),
   ]);
 
-  const catMap = new Map(categories.map(c => [c.name.toLowerCase(), c.result_nature || determineResultNature(c.name, c.type)]));
+  const catMap = new Map(
+    categories.map((c) => [
+      c.name.toLowerCase(),
+      c.result_nature || determineResultNature(c.name, c.type),
+    ])
+  );
 
   let grossRevenue = 0;
   let operatingExpenses = 0;
@@ -124,13 +140,21 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
   (data || []).forEach((row: any) => {
     if (row.status === 'REVERSED' || row.status === 'CANCELLED' || row.status === 'PENDING') return;
 
-    const nature = row.result_nature || catMap.get((row.category_name || '').toLowerCase()) || determineResultNature(row.category_name, row.type);
+    const nature =
+      row.result_nature ||
+      catMap.get((row.category_name || '').toLowerCase()) ||
+      determineResultNature(row.category_name, row.type);
     if (nature === 'NAO_AFETA_RESULTADO') return;
 
     const val = Number(row.amount) || 0;
     if (row.type === 'income' || nature === 'RECEITA') {
       grossRevenue += val;
-    } else if (nature === 'CUSTO' || nature === 'CMV' || (row.category_name || '').toLowerCase().includes('custo da mercadoria') || (row.category_name || '').toLowerCase().includes('cmv')) {
+    } else if (
+      nature === 'CUSTO' ||
+      nature === 'CMV' ||
+      (row.category_name || '').toLowerCase().includes('custo da mercadoria') ||
+      (row.category_name || '').toLowerCase().includes('cmv')
+    ) {
       cmv += val;
     } else if (row.type === 'expense' || nature === 'DESPESA') {
       operatingExpenses += val;
@@ -139,7 +163,8 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
 
   const grossMargin = grossRevenue - cmv;
   const netResult = grossMargin - operatingExpenses;
-  const marginPercent = grossRevenue > 0 ? Number(((netResult / grossRevenue) * 100).toFixed(1)) : 0;
+  const marginPercent =
+    grossRevenue > 0 ? Number(((netResult / grossRevenue) * 100).toFixed(1)) : 0;
 
   return {
     grossRevenue,
@@ -151,8 +176,23 @@ export const fetchIncomeStatementReport = async (year: number, month: number): P
   };
 };
 
-export const fetchMonthlyEvolutionReport = async (year: number): Promise<MonthlyEvolutionItem[]> => {
-  const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+export const fetchMonthlyEvolutionReport = async (
+  year: number
+): Promise<MonthlyEvolutionItem[]> => {
+  const monthNames = [
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
+  ];
   const items: MonthlyEvolutionItem[] = [];
 
   for (let m = 1; m <= 12; m++) {

@@ -26,7 +26,12 @@ export const RouteOptimizationModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
@@ -35,14 +40,15 @@ export const RouteOptimizationModal: React.FC<Props> = ({
             <View style={styles.iconCircle}>
               <Sparkles size={24} color="#2563eb" />
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+            >
               <X size={18} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>
-            Otimização do Roteiro
-          </Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Otimização do Roteiro</Text>
 
           {result.hasImprovement ? (
             <>
@@ -65,15 +71,24 @@ export const RouteOptimizationModal: React.FC<Props> = ({
               </Text>
               <ScrollView style={styles.listScroll} showsVerticalScrollIndicator={false}>
                 {result.optimizedItems.map((item, idx) => (
-                  <View key={item.id} style={[styles.listItemRow, isDarkMode && styles.listItemRowDark]}>
+                  <View
+                    key={item.id}
+                    style={[styles.listItemRow, isDarkMode && styles.listItemRowDark]}
+                  >
                     <View style={styles.sequenceBadge}>
                       <Text style={styles.sequenceBadgeText}>{idx + 1}</Text>
                     </View>
                     <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.itemCustomer, isDarkMode && styles.textLight]} numberOfLines={1}>
+                      <Text
+                        style={[styles.itemCustomer, isDarkMode && styles.textLight]}
+                        numberOfLines={1}
+                      >
                         {item.customerName}
                       </Text>
-                      <Text style={[styles.itemAddress, isDarkMode && styles.textMuted]} numberOfLines={1}>
+                      <Text
+                        style={[styles.itemAddress, isDarkMode && styles.textMuted]}
+                        numberOfLines={1}
+                      >
                         {item.fullAddress}
                       </Text>
                     </View>
@@ -88,7 +103,9 @@ export const RouteOptimizationModal: React.FC<Props> = ({
                   onPress={onClose}
                   disabled={applying}
                 >
-                  <Text style={[styles.cancelBtnText, isDarkMode && styles.textMuted]}>Manter Atual</Text>
+                  <Text style={[styles.cancelBtnText, isDarkMode && styles.textMuted]}>
+                    Manter Atual
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -97,7 +114,9 @@ export const RouteOptimizationModal: React.FC<Props> = ({
                   disabled={applying}
                 >
                   <Check size={16} color="#ffffff" strokeWidth={3} />
-                  <Text style={styles.applyBtnText}>{applying ? 'Aplicando...' : 'Aplicar Ordem'}</Text>
+                  <Text style={styles.applyBtnText}>
+                    {applying ? 'Aplicando...' : 'Aplicar Ordem'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </>

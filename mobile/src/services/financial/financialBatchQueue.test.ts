@@ -3,9 +3,14 @@ import type { ParsedFinancialIntent } from '../financialAiAssistantService';
 import { advanceFinancialBatch } from './financialBatchQueue';
 
 const draft = (description: string, amount: number, ready = false): ParsedFinancialIntent => ({
-  type: 'expense', amount, description, missingFields: ready ? [] : ['businessPurpose'],
+  type: 'expense',
+  amount,
+  description,
+  missingFields: ready ? [] : ['businessPurpose'],
   questionToUser: ready ? 'Confere?' : `A conta de ${description} é da loja ou pessoal?`,
-  confidence: 0.9, isReadyForConfirmation: ready, validationStatus: ready ? 'ready' : 'needs_input',
+  confidence: 0.9,
+  isReadyForConfirmation: ready,
+  validationStatus: ready ? 'ready' : 'needs_input',
 });
 
 describe('fila de movimentações financeiras', () => {
@@ -16,7 +21,11 @@ describe('fila de movimentações financeiras', () => {
     const next = advanceFinancialBatch(parent);
 
     expect(next?.batchDraftsList).toEqual([internet]);
-    expect(next).toMatchObject({ description: 'internet', amount: 300, questionToUser: 'A conta de internet é da loja ou pessoal?' });
+    expect(next).toMatchObject({
+      description: 'internet',
+      amount: 300,
+      questionToUser: 'A conta de internet é da loja ou pessoal?',
+    });
   });
 
   it('encerra a fila somente depois da última movimentação', () => {

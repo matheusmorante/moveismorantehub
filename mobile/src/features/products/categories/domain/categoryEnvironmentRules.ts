@@ -20,7 +20,7 @@ export function filterCategories(
   filterType: CategoryFilterType,
   searchTerm: string
 ): CategoryNode[] {
-  return categories.filter(c => {
+  return categories.filter((c) => {
     const hasEnv = Boolean(c.parents && c.parents.length > 0);
     if (filterType === 'com_ambiente' && !hasEnv) return false;
     if (filterType === 'sem_ambiente' && hasEnv) return false;
@@ -42,7 +42,7 @@ export function filterEnvironments(
 ): EnvironmentNode[] {
   if (!searchTerm || !searchTerm.trim()) return environments;
   const norm = searchTerm.trim().toLowerCase();
-  return environments.filter(e => e.name.toLowerCase().includes(norm));
+  return environments.filter((e) => e.name.toLowerCase().includes(norm));
 }
 
 /**
@@ -66,7 +66,7 @@ export function validateNodeName(
   }
 
   const isDuplicate = existingNodes.some(
-    n => n.name.trim().toUpperCase() === formatted && n.id !== editingId
+    (n) => n.name.trim().toUpperCase() === formatted && n.id !== editingId
   );
 
   if (isDuplicate) {
@@ -88,7 +88,7 @@ export function canDeleteEnvironment(
   env: EnvironmentNode,
   categories: CategoryNode[]
 ): { canDelete: boolean; reason?: string } {
-  const linkedCount = categories.filter(c => env.categories?.includes(c.id)).length;
+  const linkedCount = categories.filter((c) => env.categories?.includes(c.id)).length;
   if (linkedCount > 0) {
     return {
       canDelete: false,
@@ -102,9 +102,7 @@ export function canDeleteEnvironment(
  * Regra de Exclusão de Categoria:
  * Uma categoria só pode ser excluída se tiver 0 produtos vinculados a ela.
  */
-export function canDeleteCategory(
-  category: CategoryNode
-): { canDelete: boolean; reason?: string } {
+export function canDeleteCategory(category: CategoryNode): { canDelete: boolean; reason?: string } {
   const prodCount = category.productCount || 0;
   if (prodCount > 0) {
     return {
@@ -121,7 +119,7 @@ export function canDeleteCategory(
  */
 export function toggleNodeLink(selectedLinks: string[], targetId: string): string[] {
   if (selectedLinks.includes(targetId)) {
-    return selectedLinks.filter(id => id !== targetId);
+    return selectedLinks.filter((id) => id !== targetId);
   }
   return [...selectedLinks, targetId];
 }
@@ -134,9 +132,9 @@ export function toggleCategoryAttribute(
   currentAttributes: AttributeRef[],
   targetAttribute: AttributeRef
 ): AttributeRef[] {
-  const exists = currentAttributes.some(a => a.id === targetAttribute.id);
+  const exists = currentAttributes.some((a) => a.id === targetAttribute.id);
   if (exists) {
-    return currentAttributes.filter(a => a.id !== targetAttribute.id);
+    return currentAttributes.filter((a) => a.id !== targetAttribute.id);
   }
   return [...currentAttributes, targetAttribute];
 }
@@ -145,7 +143,7 @@ export function toggleCategoryAttribute(
  * Calcula a lista e o total de categorias órfãs (aquelas sem nenhum ambiente associado).
  */
 export function getOrphanCategories(categories: CategoryNode[]): CategoryNode[] {
-  return categories.filter(c => !c.parents || c.parents.length === 0);
+  return categories.filter((c) => !c.parents || c.parents.length === 0);
 }
 
 /**
@@ -156,7 +154,7 @@ export function unlinkCategoryFromEnvironment(
   category: CategoryNode,
   environmentId: string
 ): CategoryNode {
-  const newParents = (category.parents || []).filter(p => p !== environmentId);
+  const newParents = (category.parents || []).filter((p) => p !== environmentId);
   return {
     ...category,
     parents: newParents,
@@ -179,11 +177,14 @@ export function validateAttribute(
 
   const validTypes = ['text_short', 'integer', 'decimal', 'radio'];
   if (!validTypes.includes(dataType)) {
-    return { valid: false, error: `Tipo de dado inválido: ${dataType}. Permitidos: ${validTypes.join(', ')}.` };
+    return {
+      valid: false,
+      error: `Tipo de dado inválido: ${dataType}. Permitidos: ${validTypes.join(', ')}.`,
+    };
   }
 
   const isDuplicate = existingAttributes.some(
-    a => a.name.trim().toLowerCase() === trimmed.toLowerCase() && a.id !== editingId
+    (a) => a.name.trim().toLowerCase() === trimmed.toLowerCase() && a.id !== editingId
   );
 
   if (isDuplicate) {
@@ -210,7 +211,7 @@ export function validateAttributeOption(
   }
 
   const isDuplicate = existingOptions.some(
-    o => o.value.trim().toLowerCase() === trimmed.toLowerCase()
+    (o) => o.value.trim().toLowerCase() === trimmed.toLowerCase()
   );
 
   if (isDuplicate) {

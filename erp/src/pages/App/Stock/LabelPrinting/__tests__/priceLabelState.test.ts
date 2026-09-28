@@ -16,9 +16,7 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
   const mockConfig = { layoutId: 'layout_test', text: 'PRODUTO TESTE', price: '199,00' };
 
   it('inicializa com pilhas vazias e canUndo/canRedo falsos ao abrir', () => {
-    const { result } = renderHook(() =>
-      usePriceLabelState(mockProduct, mockConfig, true)
-    );
+    const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));
 
     expect(result.current.canUndo).toBe(false);
     expect(result.current.canRedo).toBe(false);
@@ -26,9 +24,7 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
   });
 
   it('registra snapshot após alteração de estado com debounce de 300ms', () => {
-    const { result } = renderHook(() =>
-      usePriceLabelState(mockProduct, mockConfig, true)
-    );
+    const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));
 
     act(() => {
       result.current.setTitlePos({ x: 50, y: 100 });
@@ -46,9 +42,7 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
   });
 
   it('handleUndo restaura posições, escala e rotação do snapshot anterior', () => {
-    const { result } = renderHook(() =>
-      usePriceLabelState(mockProduct, mockConfig, true)
-    );
+    const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));
 
     // Estado inicial com posição customizada
     act(() => {
@@ -90,9 +84,7 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
   });
 
   it('handleRedo reaplica a alteração desfeita com fidelidade', () => {
-    const { result } = renderHook(() =>
-      usePriceLabelState(mockProduct, mockConfig, true)
-    );
+    const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));
 
     act(() => {
       result.current.setNormalPrice('799,00');
@@ -117,9 +109,7 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
   });
 
   it('Ctrl+Z e Ctrl+Y não interferem quando o usuário está digitando em input ou textarea', () => {
-    const { result } = renderHook(() =>
-      usePriceLabelState(mockProduct, mockConfig, true)
-    );
+    const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));
 
     act(() => {
       result.current.setTitlePos({ x: 10, y: 20 });

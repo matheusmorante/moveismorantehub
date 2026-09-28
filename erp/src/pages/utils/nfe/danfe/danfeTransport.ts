@@ -1,13 +1,13 @@
-import Order from "@/pages/types/order.type";
+import Order from '@/pages/types/order.type';
 
 /**
  * Constrói o BLOCO 6: TRANSPORTADOR / VOLUMES TRANSPORTADOS do DANFE oficial A4.
  */
 export function buildDanfeTransportOfficialHtml(order: Order): string {
-    const isPickup = order.shipping?.deliveryMethod === 'pickup';
-    const volumeCount = order.items?.length || 1;
+  const isPickup = order.shipping?.deliveryMethod === 'pickup';
+  const volumeCount = order.items?.length || 1;
 
-    return `
+  return `
         <!-- BLOCO 6: TRANSPORTADOR / VOLUMES TRANSPORTADOS -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>

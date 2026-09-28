@@ -14,7 +14,7 @@ export const LayerControlPanel: React.FC<LayerControlPanelProps> = ({
   selectedLayerId,
   onSelectLayer,
   onUpdateLayer,
-  onDeleteLayer
+  onDeleteLayer,
 }) => {
   const sortedLayers = [...layers].sort((a, b) => b.zIndex - a.zIndex);
 
@@ -28,7 +28,7 @@ export const LayerControlPanel: React.FC<LayerControlPanelProps> = ({
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-        {sortedLayers.map(layer => {
+        {sortedLayers.map((layer) => {
           const isSelected = layer.id === selectedLayerId;
           return (
             <div
@@ -46,10 +46,10 @@ export const LayerControlPanel: React.FC<LayerControlPanelProps> = ({
                     layer.type === 'PRODUCT_MAIN_IMAGE'
                       ? 'bi-image text-emerald-400'
                       : layer.type === 'ASSET'
-                      ? 'bi-award-fill text-amber-400'
-                      : layer.type === 'VARIATION_GALLERY'
-                      ? 'bi-grid-fill text-sky-400'
-                      : 'bi-fonts text-purple-400'
+                        ? 'bi-award-fill text-amber-400'
+                        : layer.type === 'VARIATION_GALLERY'
+                          ? 'bi-grid-fill text-sky-400'
+                          : 'bi-fonts text-purple-400'
                   }`}
                 ></i>
                 <span className="truncate font-medium">{layer.name}</span>
@@ -57,7 +57,7 @@ export const LayerControlPanel: React.FC<LayerControlPanelProps> = ({
 
               <div className="flex items-center gap-1">
                 <button
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     onUpdateLayer({ ...layer, visible: !layer.visible });
                   }}
@@ -67,16 +67,29 @@ export const LayerControlPanel: React.FC<LayerControlPanelProps> = ({
                   <i className={`bi ${layer.visible ? 'bi-eye-fill' : 'bi-eye-slash'}`}></i>
                 </button>
                 <button
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     onUpdateLayer({ ...layer, locked: !layer.locked });
                   }}
                   className="p-1 text-slate-400 hover:text-white"
                   title="Bloquear Posição"
                 >
-                  <i className={`bi ${layer.locked ? 'bi-lock-fill text-amber-400' : 'bi-unlock'}`}></i>
+                  <i
+                    className={`bi ${layer.locked ? 'bi-lock-fill text-amber-400' : 'bi-unlock'}`}
+                  ></i>
                 </button>
-                {isSelected && <button onClick={e => { e.stopPropagation(); onDeleteLayer(layer.id); }} className="p-1 text-slate-400 hover:text-rose-400" title="Excluir camada selecionada"><i className="bi bi-trash"></i></button>}
+                {isSelected && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteLayer(layer.id);
+                    }}
+                    className="p-1 text-slate-400 hover:text-rose-400"
+                    title="Excluir camada selecionada"
+                  >
+                    <i className="bi bi-trash"></i>
+                  </button>
+                )}
               </div>
             </div>
           );

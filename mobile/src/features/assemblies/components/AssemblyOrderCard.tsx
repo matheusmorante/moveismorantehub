@@ -11,18 +11,24 @@ interface AssemblyOrderCardProps {
   onPress: () => void;
 }
 
-export const AssemblyOrderCard: React.FC<AssemblyOrderCardProps> = ({ order, item, isOutside, isDarkMode, onPress }) => {
+export const AssemblyOrderCard: React.FC<AssemblyOrderCardProps> = ({
+  order,
+  item,
+  isOutside,
+  isDarkMode,
+  onPress,
+}) => {
   const name = formatItemDisplayName(item);
   const quantity = Number(item?.quantity || item?.qty || 1);
   const productName = quantity > 1 ? `${quantity}x ${name}` : name;
   const customer = String(
     order?.order_data?.customerData?.fullName ||
-    order?.order_data?.customerData?.name ||
-    order?.order_data?.customer?.fullName ||
-    order?.order_data?.customer?.name ||
-    order?.order_data?.customerName ||
-    order?.customer_name ||
-    'Cliente',
+      order?.order_data?.customerData?.name ||
+      order?.order_data?.customer?.fullName ||
+      order?.order_data?.customer?.name ||
+      order?.order_data?.customerName ||
+      order?.customer_name ||
+      'Cliente'
   ).trim();
   return (
     <TouchableOpacity
@@ -38,7 +44,10 @@ export const AssemblyOrderCard: React.FC<AssemblyOrderCardProps> = ({ order, ite
       <View style={styles.cardContent}>
         <Text numberOfLines={2} style={[styles.primaryLine, isDarkMode && styles.primaryLineDark]}>
           <Text style={styles.productName}>{productName}</Text>
-          <Text style={[styles.customerName, isDarkMode && styles.customerNameDark]}> — {customer}</Text>
+          <Text style={[styles.customerName, isDarkMode && styles.customerNameDark]}>
+            {' '}
+            — {customer}
+          </Text>
         </Text>
         <ChevronRight size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
       </View>

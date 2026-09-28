@@ -1,75 +1,65 @@
-import React from "react";
-import { Payment, PaymentsSummary } from "../../../types/payments.type";
-import { sanitizePayment } from "../../../utils/sanitization";
-import BodyRow from "./BodyRow";
-import { ValidationErrors } from "../../../utils/validations";
+import React from 'react';
+import { Payment, PaymentsSummary } from '../../../types/payments.type';
+import { sanitizePayment } from '../../../utils/sanitization';
+import BodyRow from './BodyRow';
+import { ValidationErrors } from '../../../utils/validations';
 
 interface Props {
-    payments: Payment[];
-    setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
-    summary: PaymentsSummary;
-    isMobile?: boolean;
-    errors: ValidationErrors;
+  payments: Payment[];
+  setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
+  summary: PaymentsSummary;
+  isMobile?: boolean;
+  errors: ValidationErrors;
 }
 
 const Body = ({ payments, setPayments, summary, isMobile, errors }: Props) => {
-    const changeFee = (idx: number, fee: number, feeType: 'fixed' | 'percentage') => {
-        setPayments((prev: Payment[]) => {
-            const newPayments = [...prev];
-            let newPayment = { ...newPayments[idx], fee, feeType };
-            newPayment = sanitizePayment(newPayment);
-            newPayments[idx] = newPayment;
-            return newPayments;
-        });
-    };
+  const changeFee = (idx: number, fee: number, feeType: 'fixed' | 'percentage') => {
+    setPayments((prev: Payment[]) => {
+      const newPayments = [...prev];
+      let newPayment = { ...newPayments[idx], fee, feeType };
+      newPayment = sanitizePayment(newPayment);
+      newPayments[idx] = newPayment;
+      return newPayments;
+    });
+  };
 
-    const changePayments = (
-        idx: number,
-        key: keyof Payment,
-        value: string | number
-    ): void => {
-        setPayments((prev: Payment[]) => {
-            const newPayments = [...prev];
-            let newPayment = { ...newPayments[idx], [key]: value };
-            newPayment = sanitizePayment(newPayment);
+  const changePayments = (idx: number, key: keyof Payment, value: string | number): void => {
+    setPayments((prev: Payment[]) => {
+      const newPayments = [...prev];
+      let newPayment = { ...newPayments[idx], [key]: value };
+      newPayment = sanitizePayment(newPayment);
 
-            newPayments[idx] = newPayment;
+      newPayments[idx] = newPayment;
 
-            return newPayments;
-        });
-    };
+      return newPayments;
+    });
+  };
 
-    const deletePayment = (
-        targetIdx: number,
-    ) => {
-        setPayments((prev: Payment[]) => {
-            return [...prev].filter((_, idx) => idx !== targetIdx);
-        });
-    };
+  const deletePayment = (targetIdx: number) => {
+    setPayments((prev: Payment[]) => {
+      return [...prev].filter((_, idx) => idx !== targetIdx);
+    });
+  };
 
-    const content = payments.map((payment, idx) => (
-        <BodyRow
-            key={idx}
-            onChangeFee={changeFee}
-            onChange={changePayments}
-            onDelete={() => deletePayment(idx)}
-            payment={payment}
-            summary={summary}
-            idx={idx}
-            isMobile={isMobile}
-            errors={errors}
-        />
-    ));
+  const content = payments.map((payment, idx) => (
+    <BodyRow
+      key={idx}
+      onChangeFee={changeFee}
+      onChange={changePayments}
+      onDelete={() => deletePayment(idx)}
+      payment={payment}
+      summary={summary}
+      idx={idx}
+      isMobile={isMobile}
+      errors={errors}
+    />
+  ));
 
-    if (isMobile) {
-        return <div className="space-y-4">{content}</div>;
-    }
+  if (isMobile) {
+    return <div className="space-y-4">{content}</div>;
+  }
 
-    return (
-        <tbody>
-            {content}
-        </tbody>
-    )
-}
+  return <tbody>{content}</tbody>;
+};
 
 export default Body;

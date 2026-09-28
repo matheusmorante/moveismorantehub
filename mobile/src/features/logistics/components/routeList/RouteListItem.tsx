@@ -1,6 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Eye, Check, AlertTriangle, MapPin, Package, Truck, Wrench } from 'lucide-react-native';
+import {
+  Navigation,
+  Eye,
+  Check,
+  AlertTriangle,
+  MapPin,
+  Package,
+  Truck,
+  Wrench,
+} from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { openExternalNavigation } from '../../utils/externalMapsNavigation';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
@@ -25,17 +34,25 @@ export const RouteListItem: React.FC<Props> = ({
   const isInProgress = item.status === 'in_progress' || item.status === 'in_service';
   const isNext = item.isNext && !isInProgress;
 
-  const isAssistance = item.order?.orderType === 'assistance' || item.order?.taskType === 'assistance';
+  const isAssistance =
+    item.order?.orderType === 'assistance' || item.order?.taskType === 'assistance';
   const isPickup = item.order?.shipping?.deliveryMethod === 'pickup';
 
   const allItems = [...(item.order?.items || []), ...(item.order?.assistanceItems || [])];
-  const hasOutsideAssembly = allItems.some(i => {
+  const hasOutsideAssembly = allItems.some((i) => {
     const h = String(i?.handlingType || i?.handling || '').toLowerCase();
     return h.includes('fora') || h.includes('externa') || h.includes('cliente');
   });
-  const hasInternalAssembly = allItems.some(i => {
+  const hasInternalAssembly = allItems.some((i) => {
     const h = String(i?.handlingType || i?.handling || '').toLowerCase();
-    return (h.includes('loja') || h.includes('deposito') || h.includes('depósito') || h.includes('interna') || h.includes('montado')) && !h.includes('fora');
+    return (
+      (h.includes('loja') ||
+        h.includes('deposito') ||
+        h.includes('depósito') ||
+        h.includes('interna') ||
+        h.includes('montado')) &&
+      !h.includes('fora')
+    );
   });
 
   const handleOpenNav = () => {
@@ -59,9 +76,22 @@ export const RouteListItem: React.FC<Props> = ({
     >
       {/* Linha Superior de Badges Operacionais */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-        <View style={[styles.hBadge, isAssistance ? styles.hBadgeAssis : isPickup ? styles.hBadgePick : styles.hBadgeDeliv]}>
-          {isAssistance ? <Wrench size={10} color="#fff" /> : isPickup ? <Package size={10} color="#fff" /> : <Truck size={10} color="#fff" />}
-          <Text style={styles.hBadgeText}>{isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+        <View
+          style={[
+            styles.hBadge,
+            isAssistance ? styles.hBadgeAssis : isPickup ? styles.hBadgePick : styles.hBadgeDeliv,
+          ]}
+        >
+          {isAssistance ? (
+            <Wrench size={10} color="#fff" />
+          ) : isPickup ? (
+            <Package size={10} color="#fff" />
+          ) : (
+            <Truck size={10} color="#fff" />
+          )}
+          <Text style={styles.hBadgeText}>
+            {isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}
+          </Text>
         </View>
         {hasInternalAssembly && (
           <View style={[styles.hBadge, styles.hBadgeDepot]}>
@@ -101,21 +131,31 @@ export const RouteListItem: React.FC<Props> = ({
         </View>
 
         {/* Status Badge */}
-        <View style={[
-          styles.statusBadge,
-          isCompleted && styles.statusCompleted,
-          isUnattended && styles.statusUnattended,
-          isInProgress && styles.statusProgress,
-          (!isCompleted && !isUnattended && !isInProgress) && styles.statusPending,
-        ]}>
-          <Text style={[
-            styles.statusText,
-            isCompleted && { color: '#16a34a' },
-            isUnattended && { color: '#dc2626' },
-            isInProgress && { color: '#2563eb' },
-            (!isCompleted && !isUnattended && !isInProgress) && { color: '#64748b' },
-          ]}>
-            {isCompleted ? 'ENTREGUE' : isUnattended ? 'NÃO ATENDIDO' : isInProgress ? 'EM ROTA' : 'PENDENTE'}
+        <View
+          style={[
+            styles.statusBadge,
+            isCompleted && styles.statusCompleted,
+            isUnattended && styles.statusUnattended,
+            isInProgress && styles.statusProgress,
+            !isCompleted && !isUnattended && !isInProgress && styles.statusPending,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              isCompleted && { color: '#16a34a' },
+              isUnattended && { color: '#dc2626' },
+              isInProgress && { color: '#2563eb' },
+              !isCompleted && !isUnattended && !isInProgress && { color: '#64748b' },
+            ]}
+          >
+            {isCompleted
+              ? 'ENTREGUE'
+              : isUnattended
+                ? 'NÃO ATENDIDO'
+                : isInProgress
+                  ? 'EM ROTA'
+                  : 'PENDENTE'}
           </Text>
         </View>
       </View>
@@ -132,7 +172,12 @@ export const RouteListItem: React.FC<Props> = ({
       <View style={styles.footerRow}>
         <View style={styles.metricsGroup}>
           {item.periodLabel ? (
-            <Text style={[styles.metricText, item.isFixedTime ? { color: '#d97706' } : { color: '#2563eb' }]}>
+            <Text
+              style={[
+                styles.metricText,
+                item.isFixedTime ? { color: '#d97706' } : { color: '#2563eb' },
+              ]}
+            >
               {item.periodLabel}
             </Text>
           ) : null}

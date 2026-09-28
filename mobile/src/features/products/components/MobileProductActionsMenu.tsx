@@ -1,5 +1,13 @@
 import React from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { Copy, Pencil, EyeOff, Eye, Trash2, Share2, Clock3 } from 'lucide-react-native';
 
 interface MobileProductActionsMenuProps {
@@ -62,55 +70,85 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={[styles.menuContainer, dark && styles.darkMenuContainer]}>
               {/* 1. Editar Produto */}
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleEdit}
-              >
+              <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
                 <Pencil size={16} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                  Editar Produto
-                </Text>
+                <Text style={[styles.menuItemText, dark && styles.lightText]}>Editar Produto</Text>
               </TouchableOpacity>
 
               {onDuplicate && (
-                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onDuplicate(product); }}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onDuplicate(product);
+                  }}
+                >
                   <Copy size={16} color="#4f46e5" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Duplicar Produto</Text>
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Duplicar Produto
+                  </Text>
                 </TouchableOpacity>
               )}
               {onShare && (
-                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShare(product); }}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onShare(product);
+                  }}
+                >
                   <Share2 size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Compartilhar Produto</Text>
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Compartilhar Produto
+                  </Text>
                 </TouchableOpacity>
               )}
               {onLaunchStock && product.itemType !== 'service' && (
-                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onLaunchStock(product); }}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onLaunchStock(product);
+                  }}
+                >
                   <Share2 size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Movimentações de Estoque</Text>
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Movimentações de Estoque
+                  </Text>
                 </TouchableOpacity>
               )}
               {onShowHistory && (
-                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShowHistory(product); }}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onShowHistory(product);
+                  }}
+                >
                   <Clock3 size={16} color="#64748b" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Histórico de Preços</Text>
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Histórico de Preços
+                  </Text>
                 </TouchableOpacity>
               )}
               {onShowOrders && (
-                <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); onShowOrders(product); }}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onShowOrders(product);
+                  }}
+                >
                   <Share2 size={16} color="#2563eb" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>Pedidos Vinculados</Text>
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Pedidos Vinculados
+                  </Text>
                 </TouchableOpacity>
               )}
 
@@ -118,23 +156,15 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
               {isDraft ? (
                 <>
                   <View style={[styles.menuDivider, dark && styles.darkDivider]} />
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={handleDiscardDraft}
-                  >
+                  <TouchableOpacity style={styles.menuItem} onPress={handleDiscardDraft}>
                     <Trash2 size={16} color="#ef4444" />
-                    <Text style={[styles.menuItemText, styles.dangerText]}>
-                      Descartar Rascunho
-                    </Text>
+                    <Text style={[styles.menuItemText, styles.dangerText]}>Descartar Rascunho</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   {/* Desativar / Reativar */}
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={handleToggleActiveClick}
-                  >
+                  <TouchableOpacity style={styles.menuItem} onPress={handleToggleActiveClick}>
                     {isActive ? (
                       <>
                         <EyeOff size={16} color="#e11d48" />

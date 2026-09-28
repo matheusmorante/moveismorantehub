@@ -46,9 +46,7 @@ describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () =>
   });
 
   it('não renderiza conteúdo quando isOpen é false', () => {
-    const { container } = render(
-      <PriceLabelDataFillModal {...defaultProps} isOpen={false} />
-    );
+    const { container } = render(<PriceLabelDataFillModal {...defaultProps} isOpen={false} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -80,15 +78,21 @@ describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () =>
     const searchInput = screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...');
     fireEvent.change(searchInput, { target: { value: 'sofa' } });
 
-    await waitFor(() => {
-      expect(catalogService.searchProductsForLabel).toHaveBeenCalledWith('sofa');
-    }, { timeout: 1500 });
+    await waitFor(
+      () => {
+        expect(catalogService.searchProductsForLabel).toHaveBeenCalledWith('sofa');
+      },
+      { timeout: 1500 }
+    );
 
-    await waitFor(() => {
-      expect(screen.getByText('SOFÁ RETRÁTIL 3 LUGARES')).toBeDefined();
-      expect(screen.getByText('CÓD: SOF-001')).toBeDefined();
-      expect(screen.getByText('Puxar')).toBeDefined();
-    }, { timeout: 1500 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('SOFÁ RETRÁTIL 3 LUGARES')).toBeDefined();
+        expect(screen.getByText('CÓD: SOF-001')).toBeDefined();
+        expect(screen.getByText('Puxar')).toBeDefined();
+      },
+      { timeout: 1500 }
+    );
   });
 
   it('dispara onApplyProductTitle ao clicar em um produto retornado', async () => {
@@ -108,11 +112,16 @@ describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () =>
     const searchInput = screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...');
     fireEvent.change(searchInput, { target: { value: 'mesa' } });
 
-    await waitFor(() => {
-      expect(screen.getByText('MESA DE JANTAR 6 CADEIRAS')).toBeDefined();
-    }, { timeout: 1500 });
+    await waitFor(
+      () => {
+        expect(screen.getByText('MESA DE JANTAR 6 CADEIRAS')).toBeDefined();
+      },
+      { timeout: 1500 }
+    );
 
-    const productCard = screen.getByText('MESA DE JANTAR 6 CADEIRAS').closest('div[class*="cursor-pointer"]');
+    const productCard = screen
+      .getByText('MESA DE JANTAR 6 CADEIRAS')
+      .closest('div[class*="cursor-pointer"]');
     expect(productCard).not.toBeNull();
 
     fireEvent.click(productCard!);

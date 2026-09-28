@@ -48,13 +48,17 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
         move.type === 'adjustment' || move.type === 'balance'
           ? 'balance'
           : move.type === 'withdrawal' || move.type === 'exit' || move.type === 'out'
-          ? 'withdrawal'
-          : 'entry';
+            ? 'withdrawal'
+            : 'entry';
 
       setType(initialType);
       setQuantity(String(Math.abs(Number(move.quantity || 0))));
       const rawDate = move.created_at || move.date;
-      setDate(rawDate ? new Date(rawDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setDate(
+        rawDate
+          ? new Date(rawDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10)
+      );
       setObservation(move.observation || move.label || '');
     }
   }, [move, isOpen]);
@@ -68,7 +72,10 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
       return;
     }
     if (type !== 'balance' && numQty <= 0) {
-      Alert.alert('Quantidade inválida', 'Para entrada ou saída, a quantidade deve ser maior que zero.');
+      Alert.alert(
+        'Quantidade inválida',
+        'Para entrada ou saída, a quantidade deve ser maior que zero.'
+      );
       return;
     }
     if (type === 'balance' && numQty === 0) {
@@ -96,16 +103,24 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
 
   return (
     <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           <View style={styles.header}>
             <View>
-              <Text style={[styles.title, isDarkMode && styles.textLight]}>Editar movimentação</Text>
+              <Text style={[styles.title, isDarkMode && styles.textLight]}>
+                Editar movimentação
+              </Text>
               <Text style={[styles.productName, isDarkMode && styles.textMuted]} numberOfLines={1}>
                 {move.productDescription || move.productName || 'Produto'}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+            >
               <X size={18} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -116,7 +131,11 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
             <View style={styles.formGroup}>
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Quantidade *</Text>
               <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                  isDarkMode && styles.textLight,
+                ]}
                 value={quantity}
                 onChangeText={setQuantity}
                 keyboardType="numeric"
@@ -127,9 +146,15 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Data (AAAA-MM-DD) *</Text>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Data (AAAA-MM-DD) *
+              </Text>
               <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                  isDarkMode && styles.textLight,
+                ]}
                 value={date}
                 onChangeText={setDate}
                 placeholder="AAAA-MM-DD"
@@ -139,9 +164,15 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Motivo / Observação *</Text>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Motivo / Observação *
+              </Text>
               <TextInput
-                style={[styles.textArea, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
+                style={[
+                  styles.textArea,
+                  isDarkMode && styles.inputDark,
+                  isDarkMode && styles.textLight,
+                ]}
                 value={observation}
                 onChangeText={setObservation}
                 placeholder="Motivo da alteração..."
@@ -155,12 +186,24 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
           </View>
 
           <View style={styles.actions}>
-            <TouchableOpacity onPress={onClose} disabled={isSaving} style={[styles.cancelBtn, isDarkMode && styles.cancelBtnDark]}>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={isSaving}
+              style={[styles.cancelBtn, isDarkMode && styles.cancelBtnDark]}
+            >
               <Text style={[styles.cancelText, isDarkMode && styles.textLight]}>Cancelar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleSave} disabled={isSaving} style={[styles.saveBtn, { backgroundColor: themeColor }]}>
-              {isSaving ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.saveText}>Salvar alterações</Text>}
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={isSaving}
+              style={[styles.saveBtn, { backgroundColor: themeColor }]}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveText}>Salvar alterações</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -170,27 +213,93 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  card: { width: '100%', maxWidth: 440, backgroundColor: '#ffffff', borderRadius: 24, padding: 22, elevation: 8 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 22,
+    elevation: 8,
+  },
   cardDark: { backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
   title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   productName: { fontSize: 12, color: '#64748b', fontWeight: '600', marginTop: 2, maxWidth: 280 },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeBtnDark: { backgroundColor: '#334155' },
   form: { gap: 12 },
   formGroup: { gap: 4 },
-  label: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.6 },
+  label: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
   labelDark: { color: '#94a3b8' },
-  input: { height: 42, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: 12, fontSize: 13, color: '#0f172a', backgroundColor: '#f8fafc' },
-  textArea: { minHeight: 64, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, padding: 12, fontSize: 13, color: '#0f172a', backgroundColor: '#f8fafc' },
+  input: {
+    height: 42,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  textArea: {
+    minHeight: 64,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
   inputDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
   textLight: { color: '#f8fafc' },
   textMuted: { color: '#94a3b8' },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 18 },
-  cancelBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f1f5f9' },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 18,
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
   cancelBtnDark: { backgroundColor: '#334155' },
   cancelText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  saveBtn: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  saveBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   saveText: { fontSize: 12, fontWeight: '900', color: '#ffffff' },
 });

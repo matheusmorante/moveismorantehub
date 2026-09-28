@@ -1,16 +1,21 @@
 import { supabase } from './supabaseClient';
 
 export type ApiProvider = 'google' | 'gemini' | 'meta' | 'sefaz';
-export type ApiServiceId = 
-  | 'google_routes' 
-  | 'google_places' 
-  | 'google_geocoding' 
-  | 'google_route_optimization' 
-  | 'gemini_flash' 
-  | 'meta_whatsapp' 
+export type ApiServiceId =
+  | 'google_routes'
+  | 'google_places'
+  | 'google_geocoding'
+  | 'google_route_optimization'
+  | 'gemini_flash'
+  | 'meta_whatsapp'
   | 'sefaz_nfe';
 
-export type ApiUsageStatus = 'SUCCESS' | 'ERROR' | 'RATE_LIMITED' | 'BLOCKED_BY_INTERNAL_LIMIT' | 'CIRCUIT_BROKEN';
+export type ApiUsageStatus =
+  | 'SUCCESS'
+  | 'ERROR'
+  | 'RATE_LIMITED'
+  | 'BLOCKED_BY_INTERNAL_LIMIT'
+  | 'CIRCUIT_BROKEN';
 
 export interface RecordUsageOptions {
   provider: ApiProvider;

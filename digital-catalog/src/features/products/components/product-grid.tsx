@@ -1,272 +1,302 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useRef } from "react"
-import { supabase } from "@/lib/supabase/client"
-import { ProductCard } from "./product-card"
-import { ChevronLeft, ChevronRight, Loader2, Package } from "lucide-react"
-import { useAdminMode } from "@/hooks/use-admin-mode"
-import { defaultStoreDesignSettings, productGridStyleClasses, StoreDesignSettings } from "@/lib/product-card-style"
-import { cn } from "@/lib/utils"
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase/client';
+import { ProductCard } from './product-card';
+import { ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
+import { useAdminMode } from '@/hooks/use-admin-mode';
+import {
+  defaultStoreDesignSettings,
+  productGridStyleClasses,
+  StoreDesignSettings,
+} from '@/lib/product-card-style';
+import { cn } from '@/lib/utils';
 
-import { slugifyText } from "@/lib/slug-utils"
-import { hasPublicCatalogItem, isPublicCatalogVariation } from "../product-visibility"
-import { getCachedStoreStyleSettings } from "@/lib/store-settings-cache"
+import { slugifyText } from '@/lib/slug-utils';
+import { hasPublicCatalogItem, isPublicCatalogVariation } from '../product-visibility';
+import { getCachedStoreStyleSettings } from '@/lib/store-settings-cache';
 
 interface ProductGridProps {
   filters?: {
-    envs: string[]
-    cats: string[]
-    search: string
-    minPrice: number
-    maxPrice: number
-    type: string
-    sortBy: string
-  }
+    envs: string[];
+    cats: string[];
+    search: string;
+    minPrice: number;
+    maxPrice: number;
+    type: string;
+    sortBy: string;
+  };
 }
 
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE = 15;
 
 export function ProductGrid({ filters }: ProductGridProps) {
-  const [allProducts, setAllProducts] = useState<any[]>([])
-  const [rawDbProducts, setRawDbProducts] = useState<any[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalProducts, setTotalProducts] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings)
-  const { isAdminMode } = useAdminMode()
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [dbCategoriesList, setDbCategoriesList] = useState<any[]>([])
-  const gridRef = useRef<HTMLDivElement>(null)
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [rawDbProducts, setRawDbProducts] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings);
+  const { isAdminMode } = useAdminMode();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [dbCategoriesList, setDbCategoriesList] = useState<any[]>([]);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    const channel = new BroadcastChannel("catalog-updates")
+    if (typeof window === 'undefined') return;
+    const channel = new BroadcastChannel('catalog-updates');
     const handleMessage = (event: MessageEvent) => {
-      if (event.data === "catalog-updated") {
-        setRefreshTrigger(prev => prev + 1)
+      if (event.data === 'catalog-updated') {
+        setRefreshTrigger((prev) => prev + 1);
       }
-    }
-    channel.addEventListener("message", handleMessage)
+    };
+    channel.addEventListener('message', handleMessage);
     return () => {
-      channel.removeEventListener("message", handleMessage)
-      channel.close()
-    }
-  }, [])
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchProducts() {
-      setLoading(true)
+      setLoading(true);
       try {
-        let allowedCategoryIds: string[] = []
-        
+        let allowedCategoryIds: string[] = [];
+
         if (filters?.envs && filters.envs.length > 0) {
           const { data: rels } = await supabase
-            .from("category_relationships")
-            .select("child_id")
-            .in("parent_id", filters.envs)
-          
-          allowedCategoryIds = [...filters.envs, ...(rels?.map(r => r.child_id) || [])]
+            .from('category_relationships')
+            .select('child_id')
+            .in('parent_id', filters.envs);
+
+          allowedCategoryIds = [...filters.envs, ...(rels?.map((r) => r.child_id) || [])];
         }
 
         // Se type for um slug legível de Oportunidade, resolve para o UUID real
-        let resolvedOppId = filters?.type || "all"
-        if (resolvedOppId && resolvedOppId !== "all" && resolvedOppId !== "salvados" && resolvedOppId !== "promotion") {
-          const { data: dbOpps } = await supabase.from("opportunities").select("id, name, slug")
+        let resolvedOppId = filters?.type || 'all';
+        if (
+          resolvedOppId &&
+          resolvedOppId !== 'all' &&
+          resolvedOppId !== 'salvados' &&
+          resolvedOppId !== 'promotion'
+        ) {
+          const { data: dbOpps } = await supabase.from('opportunities').select('id, name, slug');
           if (dbOpps) {
-            const matchedOpp = dbOpps.find((o: any) => 
-              o.id === resolvedOppId || 
-              (o.slug && o.slug.toLowerCase().trim() === resolvedOppId.toLowerCase().trim()) ||
-              slugifyText(o.name) === slugifyText(resolvedOppId)
-            )
-            if (matchedOpp) resolvedOppId = matchedOpp.id
+            const matchedOpp = dbOpps.find(
+              (o: any) =>
+                o.id === resolvedOppId ||
+                (o.slug && o.slug.toLowerCase().trim() === resolvedOppId.toLowerCase().trim()) ||
+                slugifyText(o.name) === slugifyText(resolvedOppId)
+            );
+            if (matchedOpp) resolvedOppId = matchedOpp.id;
           }
         }
 
         function buildProductsQuery(hasDeletedAt: boolean, hasOpportunities: boolean) {
-          let q = supabase.from("products")
-          const searchTerm = filters?.search?.trim()
+          let q = supabase.from('products');
+          const searchTerm = filters?.search?.trim();
 
-          const selectedCategoryIds = Array.from(new Set([
-            ...(filters?.cats || []),
-            ...allowedCategoryIds,
-          ].filter(Boolean)))
+          const selectedCategoryIds = Array.from(
+            new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
+          );
 
           // Categorias são exclusivamente relacionais: um produto pode ter várias.
           // O !inner permite filtrar e paginar no servidor sem depender de category_id legado.
-          const productCategoriesSelect = selectedCategoryIds.length > 0
-            ? "product_categories!inner(category_id, categories(name))"
-            : "product_categories(category_id, categories(name))"
+          const productCategoriesSelect =
+            selectedCategoryIds.length > 0
+              ? 'product_categories!inner(category_id, categories(name))'
+              : 'product_categories(category_id, categories(name))';
           const categorySearchSelect = searchTerm
-            ? ", search_categories:product_categories(category_id, categories!inner(name))"
-            : ""
-          
-          const selColumns = `
+            ? ', search_categories:product_categories(category_id, categories!inner(name))'
+            : '';
+
+          const selColumns =
+            `
             id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
             product_images(image_url, is_main),
             product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
             ${productCategoriesSelect}${categorySearchSelect}
-          ` + (hasOpportunities ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)` : ``);
-          
-          q = q.select(selColumns, { count: "exact" })
-          q = q.eq("status", "published")
+          ` +
+            (hasOpportunities
+              ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)`
+              : ``);
+
+          q = q.select(selColumns, { count: 'exact' });
+          q = q.eq('status', 'published');
 
           if (hasDeletedAt) {
-            q = q.is("deleted_at", null)
+            q = q.is('deleted_at', null);
           }
 
           if (searchTerm) {
             // A relação com categorias participa da mesma busca textual. A alias
             // mantém a união (texto do produto OU nome da categoria) no servidor.
             q = q
-              .ilike("search_categories.categories.name", `%${searchTerm}%`)
-              .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,search_categories.not.is.null`)
+              .ilike('search_categories.categories.name', `%${searchTerm}%`)
+              .or(
+                `name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,search_categories.not.is.null`
+              );
           }
 
           if (selectedCategoryIds.length > 0) {
-            q = q.in("product_categories.category_id", selectedCategoryIds)
+            q = q.in('product_categories.category_id', selectedCategoryIds);
           }
 
-          if (resolvedOppId === "salvados") {
-            q = q.eq("is_salvado", true)
-          } else if (resolvedOppId === "promotion") {
-            q = q.not("promo_price", "is", null)
-          } else if (resolvedOppId && resolvedOppId !== "all") {
-            q = q.eq("opportunity_id", resolvedOppId)
+          if (resolvedOppId === 'salvados') {
+            q = q.eq('is_salvado', true);
+          } else if (resolvedOppId === 'promotion') {
+            q = q.not('promo_price', 'is', null);
+          } else if (resolvedOppId && resolvedOppId !== 'all') {
+            q = q.eq('opportunity_id', resolvedOppId);
           }
 
-          if ((filters?.minPrice ?? 0) > 0) q = q.gte("price", filters!.minPrice)
-          if ((filters?.maxPrice ?? 10000) < 10000) q = q.lte("price", filters!.maxPrice)
+          if ((filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
+          if ((filters?.maxPrice ?? 10000) < 10000) q = q.lte('price', filters!.maxPrice);
 
-          const sortBy = filters?.sortBy || "newest"
-          if (sortBy === "price-asc") q = q.order("price", { ascending: true })
-          else if (sortBy === "price-desc") q = q.order("price", { ascending: false })
-          else if (sortBy === "title-asc") q = q.order("name", { ascending: true })
-          else q = q.order("created_at", { ascending: false })
+          const sortBy = filters?.sortBy || 'newest';
+          if (sortBy === 'price-asc') q = q.order('price', { ascending: true });
+          else if (sortBy === 'price-desc') q = q.order('price', { ascending: false });
+          else if (sortBy === 'title-asc') q = q.order('name', { ascending: true });
+          else q = q.order('created_at', { ascending: false });
 
-          const from = (currentPage - 1) * ITEMS_PER_PAGE
-          return q
-            .range(from, from + ITEMS_PER_PAGE - 1)
+          const from = (currentPage - 1) * ITEMS_PER_PAGE;
+          return q.range(from, from + ITEMS_PER_PAGE - 1);
         }
 
-        const stylePromise = getCachedStoreStyleSettings()
-        
-        let hasDeletedAt = true
-        let hasOpportunities = true
-        let result = await buildProductsQuery(hasDeletedAt, hasOpportunities)
-        let data = result.data
-        let error = result.error
-        let count = result.count
+        const stylePromise = getCachedStoreStyleSettings();
+
+        let hasDeletedAt = true;
+        let hasOpportunities = true;
+        let result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
+        let data = result.data;
+        let error = result.error;
+        let count = result.count;
 
         if (error) {
-          console.warn("Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:", error)
-          
-          if (error.code === "42703" && error.message?.includes("deleted_at")) {
-            hasDeletedAt = false
+          console.warn(
+            'Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:',
+            error
+          );
+
+          if (error.code === '42703' && error.message?.includes('deleted_at')) {
+            hasDeletedAt = false;
           }
-          if (error.code === "42P01" && error.message?.includes("opportunities")) {
-            hasOpportunities = false
+          if (error.code === '42P01' && error.message?.includes('opportunities')) {
+            hasOpportunities = false;
           }
 
-          const secondAttempt = await buildProductsQuery(hasDeletedAt, hasOpportunities)
-          
+          const secondAttempt = await buildProductsQuery(hasDeletedAt, hasOpportunities);
+
           if (secondAttempt.error) {
-            if (secondAttempt.error.code === "42703" || secondAttempt.error.code === "42P01") {
-              const thirdAttempt = await buildProductsQuery(false, false)
-              if (thirdAttempt.error) throw thirdAttempt.error
-              data = thirdAttempt.data
-              count = thirdAttempt.count
-              hasOpportunities = false
+            if (secondAttempt.error.code === '42703' || secondAttempt.error.code === '42P01') {
+              const thirdAttempt = await buildProductsQuery(false, false);
+              if (thirdAttempt.error) throw thirdAttempt.error;
+              data = thirdAttempt.data;
+              count = thirdAttempt.count;
+              hasOpportunities = false;
             } else {
-              throw secondAttempt.error
+              throw secondAttempt.error;
             }
           } else {
-            data = secondAttempt.data
-            count = secondAttempt.count
+            data = secondAttempt.data;
+            count = secondAttempt.count;
           }
         }
 
-        const rawProducts = data || []
-        let results: any[] = []
+        const rawProducts = data || [];
+        let results: any[] = [];
 
         for (const p of rawProducts) {
-          if (!hasPublicCatalogItem(p)) continue
-          const allVariations = p.product_variations || []
-          const variations = p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || []
-          
-          const finalOpportunities = p.opportunities || (p.is_salvado ? {
-            name: "Salvados",
-            badge_color: "bg-red-600",
-            border_color: "border-orange-500",
-            border_style: "solid",
-            badge_animation: "pulse"
-          } : null)
+          if (!hasPublicCatalogItem(p)) continue;
+          const allVariations = p.product_variations || [];
+          const variations =
+            p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || [];
+
+          const finalOpportunities =
+            p.opportunities ||
+            (p.is_salvado
+              ? {
+                  name: 'Salvados',
+                  badge_color: 'bg-red-600',
+                  border_color: 'border-orange-500',
+                  border_style: 'solid',
+                  badge_animation: 'pulse',
+                }
+              : null);
 
           const mappedProduct = {
             ...p,
-            opportunities: finalOpportunities
-          }
+            opportunities: finalOpportunities,
+          };
 
           if (allVariations.length > 0) {
             for (const v of variations) {
-              const varPrice = v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price
-              const varPromoPrice = v.use_parent_promo_price === false && v.promo_price ? parseFloat(v.promo_price) : p.promo_price
-              const varImg = (v.image_url && v.image_url.includes(",") ? v.image_url.split(",")[0] : v.image_url) || p.product_images?.find((img: any) => img.is_main)?.image_url || p.product_images?.[0]?.image_url
+              const varPrice =
+                v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price;
+              const varPromoPrice =
+                v.use_parent_promo_price === false && v.promo_price
+                  ? parseFloat(v.promo_price)
+                  : p.promo_price;
+              const varImg =
+                (v.image_url && v.image_url.includes(',')
+                  ? v.image_url.split(',')[0]
+                  : v.image_url) ||
+                p.product_images?.find((img: any) => img.is_main)?.image_url ||
+                p.product_images?.[0]?.image_url;
 
-              const isParentName = v.use_parent_name !== false
+              const isParentName = v.use_parent_name !== false;
               const comboName = Object.values(v.attributes || {})
                 .map((attributeValue: any) => {
-                  if (attributeValue === null || attributeValue === undefined) return ""
-                  if (typeof attributeValue === "object") {
+                  if (attributeValue === null || attributeValue === undefined) return '';
+                  if (typeof attributeValue === 'object') {
                     return String(
-                      attributeValue.value ??
-                      attributeValue.label ??
-                      attributeValue.name ??
-                      ""
-                    )
+                      attributeValue.value ?? attributeValue.label ?? attributeValue.name ?? ''
+                    );
                   }
-                  return String(attributeValue)
+                  return String(attributeValue);
                 })
                 .filter(Boolean)
-                .join(" / ")
-              
-              const displayName = !isParentName && v.name 
-                ? v.name 
-                : (v.name || (comboName ? `${p.name} - ${comboName}` : p.name))
+                .join(' / ');
+
+              const displayName =
+                !isParentName && v.name
+                  ? v.name
+                  : v.name || (comboName ? `${p.name} - ${comboName}` : p.name);
 
               results.push({
                 ...mappedProduct,
-                id: `${p.id}-${v.id}`, 
+                id: `${p.id}-${v.id}`,
                 realProductId: p.id,
                 name: displayName,
-                sku: v.sku || p.code || "",
+                sku: v.sku || p.code || '',
                 price: varPrice,
                 promo_price: varPromoPrice,
                 image_url: varImg,
                 slug: `${p.slug}?var=${v.id}`,
-                is_variation: true
-              })
+                is_variation: true,
+              });
             }
           } else {
-            results.push(mappedProduct)
+            results.push(mappedProduct);
           }
         }
 
-        const { data: styleData, error: styleError } = await stylePromise
-        if (!styleError && styleData) setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings)
+        const { data: styleData, error: styleError } = await stylePromise;
+        if (!styleError && styleData)
+          setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings);
 
-        const { data: catsList } = await supabase.from("categories").select("id, name, slug, type")
-        setDbCategoriesList(catsList || [])
-        setRawDbProducts(results)
-        setTotalProducts(count || 0)
-
+        const { data: catsList } = await supabase.from('categories').select('id, name, slug, type');
+        setDbCategoriesList(catsList || []);
+        setRawDbProducts(results);
+        setTotalProducts(count || 0);
       } catch (error) {
-        console.error("Erro ao carregar produtos:", error)
+        console.error('Erro ao carregar produtos:', error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchProducts()
+    fetchProducts();
   }, [
     refreshTrigger,
     currentPage,
@@ -277,7 +307,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
     filters?.sortBy,
     filters?.envs,
     filters?.cats,
-  ])
+  ]);
 
   useEffect(() => {
     if (rawDbProducts.length === 0) return;
@@ -286,210 +316,242 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
     // Refazer os filtros locais que antes estavam misturados no fetch
     if (filters?.minPrice !== undefined) {
-      filtered = filtered.filter(p => (p.promo_price || p.price) >= filters.minPrice!)
+      filtered = filtered.filter((p) => (p.promo_price || p.price) >= filters.minPrice!);
     }
     if (filters?.maxPrice !== undefined) {
-      filtered = filtered.filter(p => (p.promo_price || p.price) <= filters.maxPrice!)
+      filtered = filtered.filter((p) => (p.promo_price || p.price) <= filters.maxPrice!);
     }
 
-    const SALVADOS_OPP_ID = "9d8bedae-b366-4f8c-ac49-74b85b882bde"
-    let typeFilter = filters?.type || "all"
+    const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
+    let typeFilter = filters?.type || 'all';
 
-    if (typeFilter === "salvados" || typeFilter === SALVADOS_OPP_ID) {
-      filtered = filtered.filter(p => p.opportunity_id === SALVADOS_OPP_ID || p.opportunities?.name === "Salvados")
-    } else if (typeFilter === "promotion" || typeFilter === "promocao") {
-      filtered = filtered.filter(p => p.promo_price != null)
-    } else if (typeFilter && typeFilter !== "all") {
-      filtered = filtered.filter(p => p.opportunity_id === typeFilter || p.opportunities?.slug === typeFilter || (p.opportunities && slugifyText(p.opportunities.name) === slugifyText(typeFilter)))
+    if (typeFilter === 'salvados' || typeFilter === SALVADOS_OPP_ID) {
+      filtered = filtered.filter(
+        (p) => p.opportunity_id === SALVADOS_OPP_ID || p.opportunities?.name === 'Salvados'
+      );
+    } else if (typeFilter === 'promotion' || typeFilter === 'promocao') {
+      filtered = filtered.filter((p) => p.promo_price != null);
+    } else if (typeFilter && typeFilter !== 'all') {
+      filtered = filtered.filter(
+        (p) =>
+          p.opportunity_id === typeFilter ||
+          p.opportunities?.slug === typeFilter ||
+          (p.opportunities && slugifyText(p.opportunities.name) === slugifyText(typeFilter))
+      );
     }
 
-    const sort = filters?.sortBy || "newest"
-    if (sort === "price-asc") filtered.sort((a, b) => (a.promo_price || a.price || 0) - (b.promo_price || b.price || 0))
-    if (sort === "price-desc") filtered.sort((a, b) => (b.promo_price || b.price || 0) - (a.promo_price || a.price || 0))
-    if (sort === "title-asc") filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+    const sort = filters?.sortBy || 'newest';
+    if (sort === 'price-asc')
+      filtered.sort((a, b) => (a.promo_price || a.price || 0) - (b.promo_price || b.price || 0));
+    if (sort === 'price-desc')
+      filtered.sort((a, b) => (b.promo_price || b.price || 0) - (a.promo_price || a.price || 0));
+    if (sort === 'title-asc') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     const normalizeSearch = (str: string) => {
-      if (!str) return ""
+      if (!str) return '';
       return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(/[-_/]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-    }
+        .replace(/[-_/]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
     const getSynonyms = (token: string): string[] => {
-          const norm = token.toLowerCase().trim().replace(/s$/, "")
-          if (norm === "roupa" || norm === "guarda" || norm === "roupeiro" || norm === "guardaroupa") {
-            return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros", "guarda-roupa", "guarda roupa"]
-          }
-          if (norm === "sofa" || norm === "estofado") {
-            return ["sofa", "sofas", "estofado", "estofados"]
-          }
-          if (norm === "colchao" || norm === "espuma" || norm === "mola") {
-            return ["colchao", "colchoes"]
-          }
-          if (norm === "cama" || norm === "box" || norm === "sommier") {
-            return ["cama", "camas", "box"]
-          }
-          if (norm === "mesa") {
-            return ["mesa", "mesas"]
-          }
-          if (norm === "painel") {
-            return ["painel", "paineis"]
-          }
-          if (norm === "rack") {
-            return ["rack", "racks"]
-          }
-          if (norm === "balcao") {
-            return ["balcao", "balcoes"]
-          }
-          if (norm === "pia") {
-            return ["pia", "pias"]
-          }
-          if (norm === "armario") {
-            return ["armario", "armarios"]
-          }
-          if (norm === "multiuso") {
-            return ["multiuso", "multiusos"]
-          }
-          if (norm === "cadeira") {
-            return ["cadeira", "cadeiras"]
-          }
-          if (norm === "banqueta") {
-            return ["banqueta", "banquetas"]
-          }
-          if (norm === "comoda") {
-            return ["comoda", "comodas"]
-          }
-          if (norm === "cabeceira") {
-            return ["cabeceira", "cabeceiras"]
-          }
-          if (norm === "sapateira") {
-            return ["sapateira", "sapateiras"]
-          }
-          if (norm === "cristaleira") {
-            return ["cristaleira", "cristaleiras"]
-          }
-          if (norm === "escrivaninha") {
-            return ["escrivaninha", "escrivaninhas", "mesa"]
-          }
-          return [token, `${token}s`, norm]
+      const norm = token.toLowerCase().trim().replace(/s$/, '');
+      if (norm === 'roupa' || norm === 'guarda' || norm === 'roupeiro' || norm === 'guardaroupa') {
+        return [
+          'roupa',
+          'roupas',
+          'guarda',
+          'roupeiro',
+          'roupeiros',
+          'guarda-roupa',
+          'guarda roupa',
+        ];
+      }
+      if (norm === 'sofa' || norm === 'estofado') {
+        return ['sofa', 'sofas', 'estofado', 'estofados'];
+      }
+      if (norm === 'colchao' || norm === 'espuma' || norm === 'mola') {
+        return ['colchao', 'colchoes'];
+      }
+      if (norm === 'cama' || norm === 'box' || norm === 'sommier') {
+        return ['cama', 'camas', 'box'];
+      }
+      if (norm === 'mesa') {
+        return ['mesa', 'mesas'];
+      }
+      if (norm === 'painel') {
+        return ['painel', 'paineis'];
+      }
+      if (norm === 'rack') {
+        return ['rack', 'racks'];
+      }
+      if (norm === 'balcao') {
+        return ['balcao', 'balcoes'];
+      }
+      if (norm === 'pia') {
+        return ['pia', 'pias'];
+      }
+      if (norm === 'armario') {
+        return ['armario', 'armarios'];
+      }
+      if (norm === 'multiuso') {
+        return ['multiuso', 'multiusos'];
+      }
+      if (norm === 'cadeira') {
+        return ['cadeira', 'cadeiras'];
+      }
+      if (norm === 'banqueta') {
+        return ['banqueta', 'banquetas'];
+      }
+      if (norm === 'comoda') {
+        return ['comoda', 'comodas'];
+      }
+      if (norm === 'cabeceira') {
+        return ['cabeceira', 'cabeceiras'];
+      }
+      if (norm === 'sapateira') {
+        return ['sapateira', 'sapateiras'];
+      }
+      if (norm === 'cristaleira') {
+        return ['cristaleira', 'cristaleiras'];
+      }
+      if (norm === 'escrivaninha') {
+        return ['escrivaninha', 'escrivaninhas', 'mesa'];
+      }
+      return [token, `${token}s`, norm];
+    };
+
+    if (filters?.envs && filters.envs.length > 0) {
+      const envCategoryNames = (dbCategoriesList || [])
+        .filter((c) => filters.envs.includes(c.id))
+        .map((c) => normalizeSearch(c.name));
+
+      filtered = filtered.filter((p) => {
+        const prodCatIds =
+          p.product_categories?.map((pc: any) => pc.category_id).filter(Boolean) || [];
+        if (prodCatIds.some((catId: string) => filters.envs.includes(catId))) {
+          return true;
         }
 
-        if (filters?.envs && filters.envs.length > 0) {
-          const envCategoryNames = (dbCategoriesList || [])
-            .filter(c => filters.envs.includes(c.id))
-            .map(c => normalizeSearch(c.name))
+        const cleanName = normalizeSearch(p.name || '');
+        const cleanDesc = normalizeSearch(p.description || '');
+        const fullText = `${cleanName} ${cleanDesc}`;
 
-          filtered = filtered.filter(p => {
-            const prodCatIds = p.product_categories
-              ?.map((pc: any) => pc.category_id)
-              .filter(Boolean) || []
-            if (prodCatIds.some((catId: string) => filters.envs.includes(catId))) {
-              return true
-            }
+        return envCategoryNames.some((envName) => {
+          const tokens = envName
+            .split(' ')
+            .filter(
+              (t) =>
+                t.length >= 2 && !['de', 'da', 'do', 'dos', 'das', 'para', 'com', 'em'].includes(t)
+            );
+          if (tokens.length === 0) return true;
+          return tokens.some((token) => {
+            const syns = getSynonyms(token);
+            return syns.some((syn) => fullText.includes(syn));
+          });
+        });
+      });
+    }
 
-            const cleanName = normalizeSearch(p.name || "")
-            const cleanDesc = normalizeSearch(p.description || "")
-            const fullText = `${cleanName} ${cleanDesc}`
+    if (filters?.cats && filters.cats.length > 0) {
+      const allCatTargetIds = new Set<string>();
 
-            return envCategoryNames.some(envName => {
-              const tokens = envName.split(" ").filter(t => t.length >= 2 && !["de", "da", "do", "dos", "das", "para", "com", "em"].includes(t))
-              if (tokens.length === 0) return true
-              return tokens.some(token => {
-                const syns = getSynonyms(token)
-                return syns.some(syn => fullText.includes(syn))
-              })
-            })
-          })
+      filters.cats.forEach((catItem: string) => {
+        if (!catItem) return;
+        const itemClean = catItem.toLowerCase().trim();
+        if (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(catItem)
+        ) {
+          allCatTargetIds.add(catItem);
         }
 
-        if (filters?.cats && filters.cats.length > 0) {
-          const allCatTargetIds = new Set<string>()
-          
-          filters.cats.forEach((catItem: string) => {
-            if (!catItem) return
-            const itemClean = catItem.toLowerCase().trim()
-            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(catItem)) {
-              allCatTargetIds.add(catItem)
-            }
+        // Tenta encontrar a categoria por ID, slug, nome ou versão sem 's' final
+        const matchedCats = (dbCategoriesList || []).filter((c) => {
+          if (c.type !== 'category') return false;
 
-            // Tenta encontrar a categoria por ID, slug, nome ou versão sem 's' final
-            const matchedCats = (dbCategoriesList || []).filter(c => {
-              if (c.type !== "category") return false
+          const cId = String(c.id).toLowerCase().trim();
+          const cSlug = (c.slug || '').toLowerCase().trim();
+          const genSlug = slugifyText(c.name);
+          const normName = normalizeSearch(c.name);
+          const normItem = normalizeSearch(catItem);
 
-              const cId = String(c.id).toLowerCase().trim()
-              const cSlug = (c.slug || "").toLowerCase().trim()
-              const genSlug = slugifyText(c.name)
-              const normName = normalizeSearch(c.name)
-              const normItem = normalizeSearch(catItem)
+          return (
+            cId === itemClean ||
+            cSlug === itemClean ||
+            genSlug === itemClean ||
+            (cSlug && cSlug.replace(/s$/, '') === itemClean.replace(/s$/, '')) ||
+            genSlug.replace(/s$/, '') === itemClean.replace(/s$/, '') ||
+            normName === normItem ||
+            normName.replace(/s$/, '') === normItem.replace(/s$/, '')
+          );
+        });
 
-              return (
-                cId === itemClean ||
-                cSlug === itemClean ||
-                genSlug === itemClean ||
-                (cSlug && cSlug.replace(/s$/, "") === itemClean.replace(/s$/, "")) ||
-                genSlug.replace(/s$/, "") === itemClean.replace(/s$/, "") ||
-                normName === normItem ||
-                normName.replace(/s$/, "") === normItem.replace(/s$/, "")
-              )
-            })
+        matchedCats.forEach((matchedCat) => {
+          allCatTargetIds.add(matchedCat.id);
+        });
+      });
 
-            matchedCats.forEach(matchedCat => {
-              allCatTargetIds.add(matchedCat.id)
-            })
-          })
+      // Categoria é um filtro exato pelos vínculos relacionais do produto.
+      if (allCatTargetIds.size === 0) {
+        filtered = [];
+      } else {
+        filtered = filtered.filter((product) => {
+          const productCategoryIds =
+            product.product_categories?.map((link: any) => link.category_id).filter(Boolean) || [];
+          return productCategoryIds.some((categoryId) => allCatTargetIds.has(categoryId));
+        });
+      }
+    }
 
-          // Categoria é um filtro exato pelos vínculos relacionais do produto.
-          if (allCatTargetIds.size === 0) {
-            filtered = []
-          } else {
-            filtered = filtered.filter(product => {
-              const productCategoryIds = product.product_categories
-                ?.map((link: any) => link.category_id)
-                .filter(Boolean) || []
-              return productCategoryIds.some(categoryId => allCatTargetIds.has(categoryId))
-            })
-          }
-        }
+    if (filters?.search) {
+      const rawSearch = normalizeSearch(filters.search);
+      const searchTokens = rawSearch.split(' ').filter((token) => token.length >= 2);
 
-        if (filters?.search) {
-          const rawSearch = normalizeSearch(filters.search)
-          const searchTokens = rawSearch.split(" ").filter(token => token.length >= 2)
+      filtered = filtered.filter((p) => {
+        const cleanName = normalizeSearch(p.name || '');
+        const cleanDesc = normalizeSearch(p.description || '');
+        const cleanCats = (p.product_categories || [])
+          .map((pc: any) => normalizeSearch(pc.categories?.name || ''))
+          .join(' ');
 
-          filtered = filtered.filter(p => {
-            const cleanName = normalizeSearch(p.name || "")
-            const cleanDesc = normalizeSearch(p.description || "")
-            const cleanCats = (p.product_categories || [])
-              .map((pc: any) => normalizeSearch(pc.categories?.name || ""))
-              .join(" ")
+        const cleanSku = normalizeSearch(p.sku || p.code || '');
+        const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats} ${cleanSku}`;
 
-            const cleanSku = normalizeSearch(p.sku || p.code || "")
-            const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats} ${cleanSku}`
+        return searchTokens.every((token) => {
+          const synonyms = getSynonyms(token);
+          return synonyms.some((syn) => fullSearchableText.includes(syn));
+        });
+      });
+    }
 
-            return searchTokens.every(token => {
-              const synonyms = getSynonyms(token)
-              return synonyms.some(syn => fullSearchableText.includes(syn))
-            })
-          })
-        }
-
-        setAllProducts(filtered)
-  }, [filters, rawDbProducts, dbCategoriesList])
+    setAllProducts(filtered);
+  }, [filters, rawDbProducts, dbCategoriesList]);
 
   useEffect(() => {
-    setCurrentPage(1)
-  }, [filters?.envs, filters?.cats, filters?.search, filters?.minPrice, filters?.maxPrice, filters?.type, filters?.sortBy])
+    setCurrentPage(1);
+  }, [
+    filters?.envs,
+    filters?.cats,
+    filters?.search,
+    filters?.minPrice,
+    filters?.maxPrice,
+    filters?.type,
+    filters?.sortBy,
+  ]);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] w-full gap-4 bg-transparent">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse font-medium text-sm">Atualizando produtos...</p>
+        <p className="text-muted-foreground animate-pulse font-medium text-sm">
+          Atualizando produtos...
+        </p>
       </div>
-    )
+    );
   }
 
   if (allProducts.length === 0) {
@@ -500,41 +562,49 @@ export function ProductGrid({ filters }: ProductGridProps) {
         </div>
         <p className="text-gray-600 font-bold text-lg">Nenhum produto encontrado</p>
         <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-          {isAdminMode ? (
-            'Certifique-se de que os produtos foram marcados como "Concluir Cadastro" no painel administrativo.'
-          ) : (
-            'Estamos preparando novidades incríveis para você! Tente selecionar outro filtro ou volte em alguns instantes.'
-          )}
+          {isAdminMode
+            ? 'Certifique-se de que os produtos foram marcados como "Concluir Cadastro" no painel administrativo.'
+            : 'Estamos preparando novidades incríveis para você! Tente selecionar outro filtro ou volte em alguns instantes.'}
         </p>
       </div>
-    )
+    );
   }
 
-  const totalPages = Math.ceil(totalProducts / ITEMS_PER_PAGE) || 1
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedProducts = allProducts
+  const totalPages = Math.ceil(totalProducts / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedProducts = allProducts;
 
   const handlePageChange = (p: number) => {
-    if (p < 1 || p > totalPages || p === currentPage) return
-    setCurrentPage(p)
+    if (p < 1 || p > totalPages || p === currentPage) return;
+    setCurrentPage(p);
     if (gridRef.current) {
-      const yOffset = -90
-      const y = gridRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+      const yOffset = -90;
+      const y = gridRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
     }
-  }
+  };
 
-  const columnsClass = productGridStyleClasses.columns[cardStyle.product_grid_columns] || productGridStyleClasses.columns["compact"]
-  const gapClass = productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap["tight"]
+  const columnsClass =
+    productGridStyleClasses.columns[cardStyle.product_grid_columns] ||
+    productGridStyleClasses.columns['compact'];
+  const gapClass =
+    productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap['tight'];
 
   return (
     <div ref={gridRef} className="space-y-8 scroll-mt-24">
-      <div className={cn("grid animate-in fade-in slide-in-from-bottom-4 duration-700", columnsClass, gapClass)}>
+      <div
+        className={cn(
+          'grid animate-in fade-in slide-in-from-bottom-4 duration-700',
+          columnsClass,
+          gapClass
+        )}
+      >
         {paginatedProducts.map((product) => {
-          const mainImg = product.image_url ||
-                          product.product_images?.find((img: any) => img.is_main)?.image_url || 
-                          product.product_images?.[0]?.image_url || 
-                          "https://images.unsplash.com/photo-1594462250122-b2d99d3d0f3c?q=80&w=800"
+          const mainImg =
+            product.image_url ||
+            product.product_images?.find((img: any) => img.is_main)?.image_url ||
+            product.product_images?.[0]?.image_url ||
+            'https://images.unsplash.com/photo-1594462250122-b2d99d3d0f3c?q=80&w=800';
 
           return (
             <ProductCard
@@ -545,22 +615,31 @@ export function ProductGrid({ filters }: ProductGridProps) {
                 slug: product.slug,
                 price: product.price,
                 promo_price: product.promo_price,
-                category: product.product_categories?.[0]?.categories?.name || "Móvel",
+                category: product.product_categories?.[0]?.categories?.name || 'Móvel',
                 image: mainImg,
                 promotion: !!product.promo_price,
-                opportunity: product.opportunities ? {
-                  name: product.opportunities.name,
-                  slug: product.opportunities.slug,
-                  badge_color: product.opportunities.badge_color,
-                  border_color: product.opportunities.border_color,
-                  border_style: product.opportunities.border_style,
-                  badge_animation: product.opportunities.badge_animation,
-                  title_color: product.opportunities.title_color,
-                } : (product.is_salvado ? { name: "Salvados", slug: "salvado", badge_color: "bg-orange-500", border_color: "border-orange-500" } : null),
+                opportunity: product.opportunities
+                  ? {
+                      name: product.opportunities.name,
+                      slug: product.opportunities.slug,
+                      badge_color: product.opportunities.badge_color,
+                      border_color: product.opportunities.border_color,
+                      border_style: product.opportunities.border_style,
+                      badge_animation: product.opportunities.badge_animation,
+                      title_color: product.opportunities.title_color,
+                    }
+                  : product.is_salvado
+                    ? {
+                        name: 'Salvados',
+                        slug: 'salvado',
+                        badge_color: 'bg-orange-500',
+                        border_color: 'border-orange-500',
+                      }
+                    : null,
               }}
               style={cardStyle}
             />
-          )
+          );
         })}
       </div>
 
@@ -568,7 +647,11 @@ export function ProductGrid({ filters }: ProductGridProps) {
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-4 border-t border-gray-100 mt-8">
           <span className="text-xs font-semibold text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
-            Mostrando <span className="font-bold text-gray-900">{startIndex + 1}</span> a <span className="font-bold text-gray-900">{Math.min(startIndex + paginatedProducts.length, totalProducts)}</span> de <span className="font-bold text-gray-900">{totalProducts}</span> produtos
+            Mostrando <span className="font-bold text-gray-900">{startIndex + 1}</span> a{' '}
+            <span className="font-bold text-gray-900">
+              {Math.min(startIndex + paginatedProducts.length, totalProducts)}
+            </span>{' '}
+            de <span className="font-bold text-gray-900">{totalProducts}</span> produtos
           </span>
 
           <div className="flex items-center justify-center gap-1.5 md:gap-2.5 order-1 sm:order-2 select-none">
@@ -578,10 +661,10 @@ export function ProductGrid({ filters }: ProductGridProps) {
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
               className={cn(
-                "h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1",
+                'h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1',
                 currentPage === 1
-                  ? "bg-gray-200/80 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95"
+                  ? 'bg-gray-200/80 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95'
               )}
               title="Página Anterior"
             >
@@ -590,39 +673,42 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
             {/* Números das Páginas */}
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
               .reduce((acc: (number | string)[], pageNum, index, array) => {
                 if (index > 0 && pageNum - (array[index - 1] as number) > 1) {
-                  acc.push("...")
+                  acc.push('...');
                 }
-                acc.push(pageNum)
-                return acc
+                acc.push(pageNum);
+                return acc;
               }, [])
               .map((p, idx) => {
-                if (p === "...") {
+                if (p === '...') {
                   return (
-                    <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs font-bold text-gray-400">
+                    <span
+                      key={`dots-${idx}`}
+                      className="w-8 h-8 flex items-center justify-center text-xs font-bold text-gray-400"
+                    >
                       ...
                     </span>
-                  )
+                  );
                 }
 
-                const isCurrent = p === currentPage
+                const isCurrent = p === currentPage;
                 return (
                   <button
                     key={p}
                     type="button"
                     onClick={() => handlePageChange(p as number)}
                     className={cn(
-                      "w-9 h-9 md:w-10 md:h-10 rounded-full font-black text-sm flex items-center justify-center transition-all cursor-pointer",
+                      'w-9 h-9 md:w-10 md:h-10 rounded-full font-black text-sm flex items-center justify-center transition-all cursor-pointer',
                       isCurrent
-                        ? "bg-[#004687] text-white shadow-md scale-105"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-primary font-bold"
+                        ? 'bg-[#004687] text-white shadow-md scale-105'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-primary font-bold'
                     )}
                   >
                     {p}
                   </button>
-                )
+                );
               })}
 
             {/* Botão Próximo (>) */}
@@ -631,10 +717,10 @@ export function ProductGrid({ filters }: ProductGridProps) {
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
               className={cn(
-                "h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1",
+                'h-10 px-3.5 md:px-4 rounded-full flex items-center justify-center transition-all text-xs font-bold gap-1',
                 currentPage === totalPages
-                  ? "bg-gray-200/80 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95"
+                  ? 'bg-gray-200/80 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800 cursor-pointer shadow-xs active:scale-95'
               )}
               title="Próxima Página"
             >
@@ -644,5 +730,5 @@ export function ProductGrid({ filters }: ProductGridProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

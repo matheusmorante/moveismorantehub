@@ -2,7 +2,7 @@ import type { ParsedFinancialIntent } from './financialTypes';
 
 export function rebuildFinancialBatch(
   parent: ParsedFinancialIntent,
-  remaining: ParsedFinancialIntent[],
+  remaining: ParsedFinancialIntent[]
 ): ParsedFinancialIntent | null {
   if (!remaining.length) return null;
   const current = remaining[0];
@@ -25,7 +25,7 @@ export function rebuildFinancialBatch(
 
 export function advanceFinancialBatch(
   parent: ParsedFinancialIntent,
-  completedIndex = 0,
+  completedIndex = 0
 ): ParsedFinancialIntent | null {
   const remaining = (parent.batchDraftsList || []).filter((_, index) => index !== completedIndex);
   return rebuildFinancialBatch(parent, remaining);

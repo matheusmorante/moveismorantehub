@@ -20,11 +20,10 @@ export const useAISummary = (rawOrders: any[] = []) => {
 
   useEffect(() => {
     if (rawOrders.length > 0) {
-      const todayOrders = rawOrders.filter(o => {
-        const isExplicitlyPending = (
-          o.status?.toLowerCase() === 'pending' || 
-          o.order_data?.status?.toLowerCase() === 'pending'
-        );
+      const todayOrders = rawOrders.filter((o) => {
+        const isExplicitlyPending =
+          o.status?.toLowerCase() === 'pending' ||
+          o.order_data?.status?.toLowerCase() === 'pending';
         if (isExplicitlyPending) return false;
         const rawSchedDate = getOperationalScheduleDate(o);
         if (!rawSchedDate || rawSchedDate === 'sem_data') return false;
@@ -34,8 +33,22 @@ export const useAISummary = (rawOrders: any[] = []) => {
       setHasTodayDeliveries(hasToday);
       if (!hasToday) setAiSummaryTab('tomorrow');
 
-      generateDeliveryAISummary('today', true, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
-      generateDeliveryAISummary('tomorrow', false, setAiSummaryToday, setAiSummaryTomorrow, setIsGeneratingAISummary, rawOrders);
+      generateDeliveryAISummary(
+        'today',
+        true,
+        setAiSummaryToday,
+        setAiSummaryTomorrow,
+        setIsGeneratingAISummary,
+        rawOrders
+      );
+      generateDeliveryAISummary(
+        'tomorrow',
+        false,
+        setAiSummaryToday,
+        setAiSummaryTomorrow,
+        setIsGeneratingAISummary,
+        rawOrders
+      );
     }
   }, [rawOrders]);
 
@@ -93,12 +106,12 @@ export const useAISummary = (rawOrders: any[] = []) => {
         setSpeechIsPaused(false);
         stopSpeechTimer();
         setSpeechCurrentTime(0);
-      }
+      },
     });
 
     stopSpeechTimer();
     speechIntervalRef.current = setInterval(() => {
-      setSpeechCurrentTime(prev => {
+      setSpeechCurrentTime((prev) => {
         if (prev >= estimatedSecs) {
           stopSpeechTimer();
           return estimatedSecs;
@@ -145,11 +158,11 @@ export const useAISummary = (rawOrders: any[] = []) => {
         setIsSpeakingSummary(false);
         setSpeechIsPaused(false);
         stopSpeechTimer();
-      }
+      },
     });
 
     speechIntervalRef.current = setInterval(() => {
-      setSpeechCurrentTime(prev => {
+      setSpeechCurrentTime((prev) => {
         if (prev >= speechTotalDuration) {
           stopSpeechTimer();
           return speechTotalDuration;
@@ -172,6 +185,6 @@ export const useAISummary = (rawOrders: any[] = []) => {
     speechTotalDuration,
     formatAudioTime,
     handleToggleSpeech,
-    finishSeekToPosition
+    finishSeekToPosition,
   };
 };

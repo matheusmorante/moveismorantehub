@@ -1,19 +1,6 @@
 import React, { useMemo } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Alert,
-} from 'react-native';
-import {
-  Edit2,
-  Trash2,
-  Package,
-  Layers,
-  Inbox,
-  AlertTriangle,
-} from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { Edit2, Trash2, Package, Layers, Inbox, AlertTriangle } from 'lucide-react-native';
 import { CategoryNode, EnvironmentNode, CategoryFilterType } from '../types/mobileCategory.types';
 import { filterCategories, getOrphanCategories } from '../domain/categoryEnvironmentRules';
 
@@ -54,42 +41,68 @@ export const MobileCategoriesList: React.FC<Props> = ({
       {/* Filtros Rápidos Segmentados */}
       <View style={[styles.filtersRow, dark && styles.filtersRowDark]}>
         <TouchableOpacity
-          style={[styles.filterChip, filterType === 'todas' && styles.filterChipActive, filterType === 'todas' && dark && styles.filterChipActiveDark]}
+          style={[
+            styles.filterChip,
+            filterType === 'todas' && styles.filterChipActive,
+            filterType === 'todas' && dark && styles.filterChipActiveDark,
+          ]}
           onPress={() => onFilterChange('todas')}
         >
-          <Text style={[styles.filterChipText, dark && styles.textMuted, filterType === 'todas' && styles.filterChipTextActive]}>
+          <Text
+            style={[
+              styles.filterChipText,
+              dark && styles.textMuted,
+              filterType === 'todas' && styles.filterChipTextActive,
+            ]}
+          >
             Todas ({counts.total})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterChip, filterType === 'com_ambiente' && styles.filterChipActive, filterType === 'com_ambiente' && dark && styles.filterChipActiveDark]}
+          style={[
+            styles.filterChip,
+            filterType === 'com_ambiente' && styles.filterChipActive,
+            filterType === 'com_ambiente' && dark && styles.filterChipActiveDark,
+          ]}
           onPress={() => onFilterChange('com_ambiente')}
         >
-          <Text style={[styles.filterChipText, dark && styles.textMuted, filterType === 'com_ambiente' && styles.filterChipTextActive]}>
+          <Text
+            style={[
+              styles.filterChipText,
+              dark && styles.textMuted,
+              filterType === 'com_ambiente' && styles.filterChipTextActive,
+            ]}
+          >
             Com ambiente ({counts.comAmbiente})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterChip, filterType === 'sem_ambiente' && styles.filterChipActive, filterType === 'sem_ambiente' && dark && styles.filterChipActiveDark]}
+          style={[
+            styles.filterChip,
+            filterType === 'sem_ambiente' && styles.filterChipActive,
+            filterType === 'sem_ambiente' && dark && styles.filterChipActiveDark,
+          ]}
           onPress={() => onFilterChange('sem_ambiente')}
         >
-          <Text style={[
-            styles.filterChipText,
-            dark && styles.textMuted,
-            filterType === 'sem_ambiente' && styles.filterChipTextWarning,
-          ]}>
+          <Text
+            style={[
+              styles.filterChipText,
+              dark && styles.textMuted,
+              filterType === 'sem_ambiente' && styles.filterChipTextWarning,
+            ]}
+          >
             Sem ambiente ({counts.semAmbiente})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Lista de Cards de Categoria */}
-      {filteredCategories.map(cat => {
+      {filteredCategories.map((cat) => {
         const envNames = environments
-          .filter(e => e.categories?.includes(cat.id))
-          .map(e => e.name);
+          .filter((e) => e.categories?.includes(cat.id))
+          .map((e) => e.name);
 
         const prodCount = cat.productCount || 0;
         const canDelete = prodCount === 0;
@@ -149,9 +162,20 @@ export const MobileCategoriesList: React.FC<Props> = ({
 
             {/* Metadados compactos: Produtos e Ambientes vinculados */}
             <View style={styles.tagsRow}>
-              <View style={[styles.productBadge, prodCount > 0 ? styles.productBadgeActive : styles.productBadgeZero, dark && styles.productBadgeDark]}>
+              <View
+                style={[
+                  styles.productBadge,
+                  prodCount > 0 ? styles.productBadgeActive : styles.productBadgeZero,
+                  dark && styles.productBadgeDark,
+                ]}
+              >
                 <Package size={11} color={prodCount > 0 ? '#2563eb' : '#059669'} />
-                <Text style={[styles.productBadgeText, { color: prodCount > 0 ? '#2563eb' : '#059669' }]}>
+                <Text
+                  style={[
+                    styles.productBadgeText,
+                    { color: prodCount > 0 ? '#2563eb' : '#059669' },
+                  ]}
+                >
                   {prodCount} {prodCount === 1 ? 'produto' : 'produtos'}
                 </Text>
               </View>

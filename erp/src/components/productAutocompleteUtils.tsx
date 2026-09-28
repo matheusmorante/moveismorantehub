@@ -4,23 +4,23 @@ import { fetchProductsPage } from '../pages/utils/productService';
 import { buildAccentInsensitiveRegex } from '../pages/utils/textUtils';
 
 export type SuggestionItem = {
-    product: Product;
-    variation?: Variation;
+  product: Product;
+  variation?: Variation;
 };
 
 export const getVariationDisplayName = (product: Product, variation?: Variation) => {
-    if (variation && variation.name && variation.name.trim()) {
-        return variation.name.trim();
-    }
-    const parentName = (product.name || product.title || '').trim();
-    if (!variation) return parentName;
+  if (variation && variation.name && variation.name.trim()) {
+    return variation.name.trim();
+  }
+  const parentName = (product.name || product.title || '').trim();
+  if (!variation) return parentName;
 
-    const attrValues = (variation.attributes || [])
-        .map((a: any) => (typeof a === 'object' ? a.value : a))
-        .filter(Boolean)
-        .join(' ');
+  const attrValues = (variation.attributes || [])
+    .map((a: any) => (typeof a === 'object' ? a.value : a))
+    .filter(Boolean)
+    .join(' ');
 
-    return [parentName, attrValues].filter(Boolean).join(' ');
+  return [parentName, attrValues].filter(Boolean).join(' ');
 };
 
 // Cache em memória de curta duração para digitação ágil (indexado por fornecedor e filtro de ativos)
@@ -28,53 +28,82 @@ const cachedProductsBySupplier = new Map<string, { data: Product[]; timestamp: n
 const CACHE_TTL_MS = 30 * 1000; // 30 segundos
 
 if (typeof window !== 'undefined') {
-    window.addEventListener('product-updated', () => {
-        cachedProductsBySupplier.clear();
-    });
+  window.addEventListener('product-updated', () => {
+    cachedProductsBySupplier.clear();
+  });
 }
 
-export const fetchAllProductSearchResults = async (search: string, supplierId?: string, includeDeactivated = false) => {
-    const products: Product[] = [];
-    let page = 1;
-    const pageSize = 100;
+export const fetchAllProductSearchResults = async (
+  search: string,
+  supplierId?: string,
+  includeDeactivated = false
+) => {
+  const products: Product[] = [];
+  let page = 1;
+  const pageSize = 100;
 
-    while (true) {
-        const result = await fetchProductsPage(page, pageSize, { search, activeOnly: includeDeactivated ? undefined : true, isDraft: false, supplierId });
-        products.push(...result.data);
-        if (!result.data.length || products.length >= result.total) break;
-        page += 1;
+  while (true) {
+    const result = await fetchProductsPage(page, pageSize, {
+      search,
+      activeOnly: includeDeactivated ? undefined : true,
+      isDraft: false,
+      supplierId,
+    });
+    products.push(...result.data);
+    if (!result.data.length || products.length >= result.total) break;
+    page += 1;
+  }
+
+  // Se a busca direta retornar vazia ou incompleta devido a variações de acentuação,
+  // utiliza a lista de produtos do fornecedor em cache para filtragem precisa no cliente
+  if (products.length === 0) {
+    const cacheKey = `${supplierId ? `supplier_${supplierId}` : '__all__'}:${includeDeactivated ? 'all' : 'active'}`;
+    const now = Date.now();
+    const cached = cachedProductsBySupplier.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
 
-    // Se a busca direta retornar vazia ou incompleta devido a variações de acentuação,
-    // utiliza a lista de produtos do fornecedor em cache para filtragem precisa no cliente
-    if (products.length === 0) {
-        const cacheKey = `${supplierId ? `supplier_${supplierId}` : '__all__'}:${includeDeactivated ? 'all' : 'active'}`;
-        const now = Date.now();
-        const cached = cachedProductsBySupplier.get(cacheKey);
-        if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-            return cached.data;
-        }
+    const fallback = await fetchProductsPage(1, 500, {
+      activeOnly: includeDeactivated ? undefined : true,
+      isDraft: false,
+      supplierId,
+    });
+    cachedProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
+    return fallback.data;
+  }
 
-        const fallback = await fetchProductsPage(1, 500, { activeOnly: includeDeactivated ? undefined : true, isDraft: false, supplierId });
-        cachedProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
-        return fallback.data;
-    }
-
-    return products;
+  return products;
 };
 
 export const normalizeProductSearch = (value: string) =>
-    value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
 export const renderHighlightedProductText = (text: string, query: string) => {
-    const words = query.trim().split(/\s+/).filter(Boolean);
-    if (!words.length) return <span>{text}</span>;
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return <span>{text}</span>;
 
-    const regexPatterns = words.map(w => buildAccentInsensitiveRegex(w)).filter(Boolean);
-    if (!regexPatterns.length) return <span>{text}</span>;
+  const regexPatterns = words.map((w) => buildAccentInsensitiveRegex(w)).filter(Boolean);
+  if (!regexPatterns.length) return <span>{text}</span>;
 
-    const expression = new RegExp(`(${regexPatterns.join('|')})`, 'gi');
-    return <span>{text.split(expression).map((part, index) => expression.test(part)
-        ? <span key={index} className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-200 rounded-sm px-0.5">{part}</span>
-        : <span key={index}>{part}</span>)}</span>;
+  const expression = new RegExp(`(${regexPatterns.join('|')})`, 'gi');
+  return (
+    <span>
+      {text.split(expression).map((part, index) =>
+        expression.test(part) ? (
+          <span
+            key={index}
+            className="bg-yellow-200 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-200 rounded-sm px-0.5"
+          >
+            {part}
+          </span>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </span>
+  );
 };

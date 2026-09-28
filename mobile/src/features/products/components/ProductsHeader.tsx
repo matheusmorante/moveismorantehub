@@ -8,14 +8,7 @@ import {
   View,
   ScrollView,
 } from 'react-native';
-import {
-  Search,
-  MoreVertical,
-  PlusCircle,
-  Settings,
-  X,
-  Tag,
-} from 'lucide-react-native';
+import { Search, MoreVertical, PlusCircle, Settings, X, Tag } from 'lucide-react-native';
 
 interface Props {
   mode?: 'standard' | 'composition' | 'categories';
@@ -80,7 +73,13 @@ export function ProductsHeader({
       {/* Topo com Título, Contador e Menu de 3 Pontinhos */}
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
-          <Text style={[styles.title, dark && styles.light]}>{mode === 'composition' ? 'Composições' : mode === 'categories' ? 'Ambientes e Categorias' : 'Produtos'}</Text>
+          <Text style={[styles.title, dark && styles.light]}>
+            {mode === 'composition'
+              ? 'Composições'
+              : mode === 'categories'
+                ? 'Ambientes e Categorias'
+                : 'Produtos'}
+          </Text>
           <View style={[styles.counterBadge, mode === 'categories' && { display: 'none' }]}>
             {mode !== 'categories' && <Text style={styles.counterText}>{totalCount}</Text>}
           </View>
@@ -100,15 +99,19 @@ export function ProductsHeader({
 
       {onModeChange && (
         <View style={styles.modeRow}>
-          {([
-            { key: 'standard', label: 'Produtos' },
-            { key: 'composition', label: 'Composições' },
-            { key: 'categories', label: 'Ambientes e Categorias' },
-          ] as const).map(({ key, label }) => (
-            <TouchableOpacity key={key} onPress={() => onModeChange(key)} style={[styles.modeButton, mode === key && styles.modeButtonActive]}>
-              <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>
-                {label}
-              </Text>
+          {(
+            [
+              { key: 'standard', label: 'Produtos' },
+              { key: 'composition', label: 'Composições' },
+              { key: 'categories', label: 'Ambientes e Categorias' },
+            ] as const
+          ).map(({ key, label }) => (
+            <TouchableOpacity
+              key={key}
+              onPress={() => onModeChange(key)}
+              style={[styles.modeButton, mode === key && styles.modeButtonActive]}
+            >
+              <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>{label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -117,32 +120,47 @@ export function ProductsHeader({
       {mode !== 'categories' && (
         <>
           {/* Barra de Pesquisa / Busca de Produtos */}
-      <View style={[styles.searchBox, dark && styles.darkSearch]}>
-        <Search size={16} color="#94a3b8" />
-        <TextInput
-          value={search}
-          onChangeText={onSearch}
-          placeholder={mode === 'composition' ? 'Buscar composições...' : 'Buscar por nome, código, SKU...'}
-          placeholderTextColor="#94a3b8"
-          style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
-        />
-        {Boolean(search) && (
-          <TouchableOpacity onPress={() => onSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <X size={16} color="#94a3b8" />
-          </TouchableOpacity>
-        )}
-      </View>
+          <View style={[styles.searchBox, dark && styles.darkSearch]}>
+            <Search size={16} color="#94a3b8" />
+            <TextInput
+              value={search}
+              onChangeText={onSearch}
+              placeholder={
+                mode === 'composition' ? 'Buscar composições...' : 'Buscar por nome, código, SKU...'
+              }
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
+            />
+            {Boolean(search) && (
+              <TouchableOpacity
+                onPress={() => onSearch('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-      <View style={styles.visibilityFilters}>
-        <TouchableOpacity
-          onPress={onToggleDeactivated}
-          style={[styles.visibilityButton, dark && styles.darkVisibilityButton, showDeactivated && styles.deactivatedSelected]}
-        >
-          <Text style={[styles.visibilityText, dark && styles.light, showDeactivated && styles.selectedVisibilityText]}>
-            {showDeactivated ? '☑' : '☐'} Mostrar desativados
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.visibilityFilters}>
+            <TouchableOpacity
+              onPress={onToggleDeactivated}
+              style={[
+                styles.visibilityButton,
+                dark && styles.darkVisibilityButton,
+                showDeactivated && styles.deactivatedSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.visibilityText,
+                  dark && styles.light,
+                  showDeactivated && styles.selectedVisibilityText,
+                ]}
+              >
+                {showDeactivated ? '☑' : '☐'} Mostrar desativados
+              </Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 
@@ -176,13 +194,18 @@ export function ProductsHeader({
                 }}
               >
                 <PlusCircle size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>{mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}</Text>
+                <Text style={[styles.menuItemText, dark && styles.light]}>
+                  {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                </Text>
               </TouchableOpacity>
 
               {onNewComposition && mode === 'standard' && (
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => { setShowMenu(false); onNewComposition(); }}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onNewComposition();
+                  }}
                 >
                   <PlusCircle size={18} color="#10b981" />
                   <Text style={[styles.menuItemText, dark && styles.light]}>Nova Composição</Text>
@@ -200,20 +223,30 @@ export function ProductsHeader({
                   }}
                 >
                   <Tag size={18} color="#2563eb" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>Ambientes e Categorias</Text>
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    Ambientes e Categorias
+                  </Text>
                 </TouchableOpacity>
               )}
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => { setShowMenu(false); onOpenConfigs(); }}
+                onPress={() => {
+                  setShowMenu(false);
+                  onOpenConfigs();
+                }}
               >
                 <Settings size={18} color="#475569" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Configurações de Produto</Text>
+                <Text style={[styles.menuItemText, dark && styles.light]}>
+                  Configurações de Produto
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => { setShowMenu(false); setShowFilters(true); }}
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowFilters(true);
+                }}
               >
                 <Settings size={18} color="#2563eb" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
@@ -223,43 +256,105 @@ export function ProductsHeader({
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+      <Modal
+        visible={showFilters}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilters(false)}
+      >
         <View style={styles.filterBackdrop}>
           <View style={[styles.filterSheet, dark && styles.darkMenu]}>
             <View style={styles.filterHeader}>
               <Text style={[styles.filterTitle, dark && styles.light]}>Filtros de produtos</Text>
-              <TouchableOpacity onPress={() => setShowFilters(false)}><X size={20} color={dark ? '#cbd5e1' : '#475569'} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowFilters(false)}>
+                <X size={20} color={dark ? '#cbd5e1' : '#475569'} />
+              </TouchableOpacity>
             </View>
             <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>
             <View style={styles.choiceRow}>
-              {([
-                ['all', 'Todos'], ['active', 'Ativos'], ['disabled', 'Desativados'], ['draft', 'Rascunhos'],
-              ] as const).map(([value, label]) => (
-                <TouchableOpacity key={value} onPress={() => onStatusFilterChange(value)} style={[styles.choice, statusFilter === value && styles.choiceActive]}>
-                  <Text style={[styles.choiceText, statusFilter === value && styles.choiceTextActive]}>{label}</Text>
+              {(
+                [
+                  ['all', 'Todos'],
+                  ['active', 'Ativos'],
+                  ['disabled', 'Desativados'],
+                  ['draft', 'Rascunhos'],
+                ] as const
+              ).map(([value, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => onStatusFilterChange(value)}
+                  style={[styles.choice, statusFilter === value && styles.choiceActive]}
+                >
+                  <Text
+                    style={[styles.choiceText, statusFilter === value && styles.choiceTextActive]}
+                  >
+                    {label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>
             <View style={styles.choiceRow}>
-              {([
-                ['all', 'Todos'], ['published', 'Publicados'], ['hidden', 'Ocultados'],
-              ] as const).map(([value, label]) => (
-                <TouchableOpacity key={value} onPress={() => onCatalogStatusFilterChange(value)} style={[styles.choice, catalogStatusFilter === value && styles.choiceActive]}>
-                  <Text style={[styles.choiceText, catalogStatusFilter === value && styles.choiceTextActive]}>{label}</Text>
+              {(
+                [
+                  ['all', 'Todos'],
+                  ['published', 'Publicados'],
+                  ['hidden', 'Ocultados'],
+                ] as const
+              ).map(([value, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => onCatalogStatusFilterChange(value)}
+                  style={[styles.choice, catalogStatusFilter === value && styles.choiceActive]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      catalogStatusFilter === value && styles.choiceTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-              <TouchableOpacity onPress={() => onCategoryFilterChange('')} style={[styles.choice, !categoryFilter && styles.choiceActive]}><Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>Todas</Text></TouchableOpacity>
-              {categories.map(category => (
-                <TouchableOpacity key={category.id} onPress={() => onCategoryFilterChange(String(category.id))} style={[styles.choice, categoryFilter === String(category.id) && styles.choiceActive]}>
-                  <Text style={[styles.choiceText, categoryFilter === String(category.id) && styles.choiceTextActive]}>{category.name}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.choiceRow}
+            >
+              <TouchableOpacity
+                onPress={() => onCategoryFilterChange('')}
+                style={[styles.choice, !categoryFilter && styles.choiceActive]}
+              >
+                <Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>
+                  Todas
+                </Text>
+              </TouchableOpacity>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  onPress={() => onCategoryFilterChange(String(category.id))}
+                  style={[
+                    styles.choice,
+                    categoryFilter === String(category.id) && styles.choiceActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      categoryFilter === String(category.id) && styles.choiceTextActive,
+                    ]}
+                  >
+                    {category.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.applyButton} onPress={() => setShowFilters(false)}><Text style={styles.applyButtonText}>Aplicar filtros</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.applyButton} onPress={() => setShowFilters(false)}>
+              <Text style={styles.applyButtonText}>Aplicar filtros</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -269,7 +364,16 @@ export function ProductsHeader({
 
 const styles = StyleSheet.create({
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  modeButton: { flex: 1, minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' },
+  modeButton: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
   modeButtonActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
   modeText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
   modeTextActive: { color: '#2563eb' },
@@ -336,7 +440,14 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   visibilityFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  visibilityButton: { borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  visibilityButton: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   darkVisibilityButton: { borderColor: '#334155', backgroundColor: '#1e293b' },
   deactivatedSelected: { borderColor: '#fda4af', backgroundColor: '#fff1f2' },
   mergedSelected: { borderColor: '#c4b5fd', backgroundColor: '#f5f3ff' },
@@ -399,12 +510,37 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   filterTitle: { fontSize: 17, fontWeight: '900', color: '#0f172a' },
-  filterLabel: { fontSize: 11, fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.8 },
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choice: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: '#f8fafc' },
+  choice: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    backgroundColor: '#f8fafc',
+  },
   choiceActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
   choiceText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   choiceTextActive: { color: '#1d4ed8' },
-  applyButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 13, marginTop: 4 },
-  applyButtonText: { color: '#fff', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
+  applyButton: {
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginTop: 4,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
 });

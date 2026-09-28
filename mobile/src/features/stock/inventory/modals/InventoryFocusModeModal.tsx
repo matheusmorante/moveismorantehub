@@ -1,5 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Dimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
@@ -40,7 +48,12 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 
   // Ao abrir, deve scrollar para o item inicial
   useEffect(() => {
-    if (visible && flatListRef.current && initialItemIndex >= 0 && initialItemIndex < items.length) {
+    if (
+      visible &&
+      flatListRef.current &&
+      initialItemIndex >= 0 &&
+      initialItemIndex < items.length
+    ) {
       setCurrentIndex(initialItemIndex);
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: initialItemIndex, animated: false });
@@ -60,13 +73,20 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: border, backgroundColor: surface }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.progressTitle, { color: textPrimary }]}>Modo Foco</Text>
             <Text style={[styles.progressSubtitle, { color: muted }]}>
-              Contados: <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedItemsCount}</Text> de {totalItemsCount}
+              Contados:{' '}
+              <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedItemsCount}</Text> de{' '}
+              {totalItemsCount}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -78,7 +98,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
         <FlatList
           ref={flatListRef}
           data={items}
-          keyExtractor={i => i.id}
+          keyExtractor={(i) => i.id}
           renderItem={({ item }) => (
             <InventoryFocusItemCard
               item={item}
@@ -96,7 +116,9 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
           getItemLayout={(data, index) => ({ length: width, offset: width * index, index })}
-          initialScrollIndex={initialItemIndex >= 0 && initialItemIndex < items.length ? initialItemIndex : 0}
+          initialScrollIndex={
+            initialItemIndex >= 0 && initialItemIndex < items.length ? initialItemIndex : 0
+          }
         />
 
         {/* Footer */}
@@ -105,7 +127,11 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
             <View style={styles.navigationHintRow}>
               <ChevronLeft size={20} color={muted} opacity={currentIndex > 0 ? 1 : 0} />
               <Text style={[styles.navigationHintText, { color: muted }]}>Deslize</Text>
-              <ChevronRight size={20} color={muted} opacity={currentIndex < items.length - 1 ? 1 : 0} />
+              <ChevronRight
+                size={20}
+                color={muted}
+                opacity={currentIndex < items.length - 1 ? 1 : 0}
+              />
             </View>
           )}
           <Text style={[styles.footerCounter, { color: muted }]}>

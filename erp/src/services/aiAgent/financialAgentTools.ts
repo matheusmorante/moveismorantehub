@@ -14,12 +14,14 @@ export interface ToolExecutionResponse {
 }
 
 export const financialAgentTools = {
-  async buscarCategoriasFinanceiras(args: { tipo?: 'income' | 'expense' }): Promise<ToolExecutionResponse> {
+  async buscarCategoriasFinanceiras(args: {
+    tipo?: 'income' | 'expense';
+  }): Promise<ToolExecutionResponse> {
     try {
       const categories = await financeService.getCategories(args.tipo);
       return {
         success: true,
-        data: (categories || []).map(c => ({
+        data: (categories || []).map((c) => ({
           id: c.id,
           nome: c.name,
           tipo: c.type === 'expense' ? 'despesa/saída' : 'receita/entrada',
@@ -48,16 +50,16 @@ export const financialAgentTools = {
       let filtered = txs || [];
 
       if (args.tipo) {
-        filtered = filtered.filter(t => t.type === args.tipo);
+        filtered = filtered.filter((t) => t.type === args.tipo);
       }
 
       if (args.categoriaId) {
-        filtered = filtered.filter(t => t.category_id === args.categoriaId);
+        filtered = filtered.filter((t) => t.category_id === args.categoriaId);
       }
 
       if (args.termo && args.termo.trim()) {
         const normTerm = normalizeSearchTerm(args.termo);
-        filtered = filtered.filter(t => {
+        filtered = filtered.filter((t) => {
           const desc = normalizeSearchTerm(t.description || '');
           const notes = normalizeSearchTerm(t.notes || '');
           const catName = normalizeSearchTerm((t as any).financial_categories?.name || '');
@@ -66,7 +68,7 @@ export const financialAgentTools = {
       }
 
       const limit = Math.min(Math.max(args.limite || 10, 1), 30);
-      const results = filtered.slice(0, limit).map(t => ({
+      const results = filtered.slice(0, limit).map((t) => ({
         id: t.id,
         tipo: t.type,
         valor: t.amount,
@@ -91,7 +93,10 @@ export const financialAgentTools = {
     }
   },
 
-  async obterResumoFinanceiro(args: { dataInicio?: string; dataFim?: string }): Promise<ToolExecutionResponse> {
+  async obterResumoFinanceiro(args: {
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<ToolExecutionResponse> {
     try {
       const summary = await financeService.getFinancialSummary(args.dataInicio, args.dataFim);
       return {
@@ -128,13 +133,25 @@ export const financialAgentTools = {
   }): Promise<ToolExecutionResponse> {
     try {
       if (!args.tipo || !['income', 'expense'].includes(args.tipo)) {
-        return { success: false, code: 'INVALID_TYPE', error: 'Tipo deve ser "income" ou "expense".' };
+        return {
+          success: false,
+          code: 'INVALID_TYPE',
+          error: 'Tipo deve ser "income" ou "expense".',
+        };
       }
       if (typeof args.valor !== 'number' || args.valor <= 0 || isNaN(args.valor)) {
-        return { success: false, code: 'INVALID_AMOUNT', error: 'O valor deve ser um número positivo maior que zero.' };
+        return {
+          success: false,
+          code: 'INVALID_AMOUNT',
+          error: 'O valor deve ser um número positivo maior que zero.',
+        };
       }
       if (!args.descricao || !args.descricao.trim()) {
-        return { success: false, code: 'INVALID_DESCRIPTION', error: 'A descrição da movimentação é obrigatória.' };
+        return {
+          success: false,
+          code: 'INVALID_DESCRIPTION',
+          error: 'A descrição da movimentação é obrigatória.',
+        };
       }
 
       const today = new Date().toISOString().split('T')[0];

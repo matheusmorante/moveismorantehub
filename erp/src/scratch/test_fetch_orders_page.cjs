@@ -9,9 +9,16 @@ async function testQuery() {
   console.log('Testing query with new columns on Supabase...');
 
   // 1. Listagem padrão (vendas ativas não canceladas, paginadas em 30)
-  const { data: sales, count, error } = await supabase
+  const {
+    data: sales,
+    count,
+    error,
+  } = await supabase
     .from('orders')
-    .select('id, order_number, status, order_type, customer_name, total_amount, created_at, scheduled_date', { count: 'exact' })
+    .select(
+      'id, order_number, status, order_type, customer_name, total_amount, created_at, scheduled_date',
+      { count: 'exact' }
+    )
     .or('deleted.is.null,deleted.eq.false')
     .not('order_type', 'in', '(budget,assistance,return)')
     .order('created_at', { ascending: false })
@@ -55,9 +62,15 @@ async function testQuery() {
   console.table(payments);
 
   // 4. Testar busca na view order_list_items
-  const { data: viewData, count: viewCount, error: viewErr } = await supabase
+  const {
+    data: viewData,
+    count: viewCount,
+    error: viewErr,
+  } = await supabase
     .from('order_list_items')
-    .select('id, order_number, status, order_type, customer_name, total_value, scheduled_date', { count: 'exact' })
+    .select('id, order_number, status, order_type, customer_name, total_value, scheduled_date', {
+      count: 'exact',
+    })
     .range(0, 4);
 
   if (viewErr) {

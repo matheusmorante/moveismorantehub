@@ -1,7 +1,19 @@
 import { supabase } from './supabaseClient';
-import { FinancialCategory, FinancialTransaction, findMatchingPayableAccount, fetchPayableAccounts } from './mobileFinanceService';
-import { extractMultipleFinancialFacts, processFinancialInput, validateParsedIntent } from './financial/financialIntentValidator';
-import { trySlotFillingFallback, extractUnknownFieldsFromText } from './financial/financialSlotFilling';
+import {
+  FinancialCategory,
+  FinancialTransaction,
+  findMatchingPayableAccount,
+  fetchPayableAccounts,
+} from './mobileFinanceService';
+import {
+  extractMultipleFinancialFacts,
+  processFinancialInput,
+  validateParsedIntent,
+} from './financial/financialIntentValidator';
+import {
+  trySlotFillingFallback,
+  extractUnknownFieldsFromText,
+} from './financial/financialSlotFilling';
 import { parsePtBrWrittenNumbers } from './financial/wordToNumberPtBr';
 import { fallbackHeuristicParser, parsePtBrNumber } from './financial/financialTextParser';
 
@@ -12,8 +24,15 @@ import {
   ChatMessage,
 } from './financial/financialTypes';
 
-export { validateParsedIntent, extractMultipleFinancialFacts, processFinancialInput } from './financial/financialIntentValidator';
-export { trySlotFillingFallback, extractUnknownFieldsFromText } from './financial/financialSlotFilling';
+export {
+  validateParsedIntent,
+  extractMultipleFinancialFacts,
+  processFinancialInput,
+} from './financial/financialIntentValidator';
+export {
+  trySlotFillingFallback,
+  extractUnknownFieldsFromText,
+} from './financial/financialSlotFilling';
 export { parsePtBrNumber, fallbackHeuristicParser } from './financial/financialTextParser';
 export {
   classifyMultiTurnIntent,
@@ -21,15 +40,14 @@ export {
   applyTurnPatchWithDraftList,
 } from './financial/multiTurnIntentClassifier';
 export { buildGroupedQuestion } from './financial/financialIntentValidator';
-export { AUTO_SEND_SILENCE_MS, MAX_VOICE_INACTIVITY_MS, PRE_ANALYSIS_DEBOUNCE_MS } from './financial/voiceConfig';
+export {
+  AUTO_SEND_SILENCE_MS,
+  MAX_VOICE_INACTIVITY_MS,
+  PRE_ANALYSIS_DEBOUNCE_MS,
+} from './financial/voiceConfig';
 export type { UtteranceStatus, TurnIntent, UtteranceSegment } from './financial/voiceConfig';
 
-export type {
-  IntentType,
-  InstallmentItemDraft,
-  ParsedFinancialIntent,
-  ChatMessage,
-};
+export type { IntentType, InstallmentItemDraft, ParsedFinancialIntent, ChatMessage };
 export type FinancialInstallment = InstallmentItemDraft;
 export type { FinancialCategory } from './financial/mobileFinanceTypes';
 
@@ -56,11 +74,15 @@ export const parseFinancialIntentWithGemini = async (
       if (patched.supplier && !patched.matchedAccount && patched.intentType === 'QUERY_OR_UPDATE') {
         const allPayables = await fetchPayableAccounts();
         const supplierQuery = (patched.supplier || patched.counterparty || '').toLowerCase();
-        const matched = allPayables.filter(p => {
+        const matched = allPayables.filter((p) => {
           const desc = p.description.toLowerCase();
           const party = (p.counterparty || '').toLowerCase();
           const lowerUserMsg = userMessage.toLowerCase();
-          return (party && party.includes(supplierQuery)) || (desc && desc.includes(supplierQuery)) || (supplierQuery && lowerUserMsg.includes(party));
+          return (
+            (party && party.includes(supplierQuery)) ||
+            (desc && desc.includes(supplierQuery)) ||
+            (supplierQuery && lowerUserMsg.includes(party))
+          );
         });
 
         if (matched.length === 1) {
@@ -86,12 +108,18 @@ export const parseFinancialIntentWithGemini = async (
   const deterministicFacts = extractMultipleFinancialFacts(userMessage, todayStr);
   if (deterministicFacts.length >= 2) {
     const deterministic = processFinancialInput(userMessage, todayStr).draft;
-    if (deterministic?.batchDraftsList?.length) return validateParsedIntent(deterministic, todayStr);
+    if (deterministic?.batchDraftsList?.length)
+      return validateParsedIntent(deterministic, todayStr);
   }
 
   // 2. Tentar verificar se é uma consulta ou alteração de conta existente
   const lowerMsg = userMessage.toLowerCase();
-  const normalizedMsg = lowerMsg.replace(/[áàâã]/g, 'a').replace(/[éèê]/g, 'e').replace(/[íï]/g, 'i').replace(/[óôõö]/g, 'o').replace(/[úü]/g, 'u');
+  const normalizedMsg = lowerMsg
+    .replace(/[áàâã]/g, 'a')
+    .replace(/[éèê]/g, 'e')
+    .replace(/[íï]/g, 'i')
+    .replace(/[óôõö]/g, 'o')
+    .replace(/[úü]/g, 'u');
   const hasEditOrQuery =
     lowerMsg.includes('editar') ||
     lowerMsg.includes('alterar') ||
@@ -141,7 +169,9 @@ export const parseFinancialIntentWithGemini = async (
     else if (lowerMsg.includes('copel')) supplierName = 'Copel';
     else if (lowerMsg.includes('sanepar')) supplierName = 'Sanepar';
     else {
-      const match = lowerMsg.match(/(?:da|do|de|fornecedor|fábrica|fabrica)\s+([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i);
+      const match = lowerMsg.match(
+        /(?:da|do|de|fornecedor|fábrica|fabrica)\s+([a-zA-ZáàâãéèêíïóôõöúçñA-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ]+)/i
+      );
       if (match && !['uma', 'um', 'compra', 'mercadoria'].includes(match[1].toLowerCase())) {
         supplierName = match[1].charAt(0).toUpperCase() + match[1].slice(1);
       }
@@ -149,7 +179,7 @@ export const parseFinancialIntentWithGemini = async (
 
     const allPayables = await fetchPayableAccounts();
 
-    const matchedPayables = allPayables.filter(p => {
+    const matchedPayables = allPayables.filter((p) => {
       const desc = p.description.toLowerCase();
       const party = (p.counterparty || '').toLowerCase();
       const cat = (p.category_name || '').toLowerCase();
@@ -162,65 +192,87 @@ export const parseFinancialIntentWithGemini = async (
       return (
         (party && lowerMsg.includes(party)) ||
         (desc && lowerMsg.includes(desc)) ||
-        lowerMsg.split(' ').some(word => word.length > 3 && (desc.includes(word) || party.includes(word) || cat.includes(word)))
+        lowerMsg
+          .split(' ')
+          .some(
+            (word) =>
+              word.length > 3 && (desc.includes(word) || party.includes(word) || cat.includes(word))
+          )
       );
     });
 
     if (matchedPayables.length === 1) {
       const single = matchedPayables[0];
-      return validateParsedIntent({
-        intentType: 'QUERY_OR_UPDATE',
-        matchedAccount: single,
-        supplier: single.counterparty || single.description || supplierName,
-        amount: single.amount,
-        dueDate: single.due_date,
-        unknownByUser: unknownFields,
-        missingFields: [],
-        confidence: 0.95,
-        isReadyForConfirmation: true,
-        questionToUser: `Encontrei esta compra de ${single.counterparty || single.description} no valor de R$ ${single.amount.toFixed(2)} (vencimento em ${single.due_date}). É essa que você quer editar?`,
-      }, todayStr);
+      return validateParsedIntent(
+        {
+          intentType: 'QUERY_OR_UPDATE',
+          matchedAccount: single,
+          supplier: single.counterparty || single.description || supplierName,
+          amount: single.amount,
+          dueDate: single.due_date,
+          unknownByUser: unknownFields,
+          missingFields: [],
+          confidence: 0.95,
+          isReadyForConfirmation: true,
+          questionToUser: `Encontrei esta compra de ${single.counterparty || single.description} no valor de R$ ${single.amount.toFixed(2)} (vencimento em ${single.due_date}). É essa que você quer editar?`,
+        },
+        todayStr
+      );
     } else if (matchedPayables.length > 1) {
-      return validateParsedIntent({
-        intentType: 'QUERY_OR_UPDATE',
-        supplier: supplierName || 'fornecedor',
-        candidateAccounts: matchedPayables,
-        unknownByUser: unknownFields,
-        missingFields: [],
-        confidence: 0.85,
-        isReadyForConfirmation: false,
-        questionToUser: `Encontrei ${matchedPayables.length} compras de ${supplierName || 'fornecedor'} no ERP. Qual delas você gostaria de verificar?`,
-      }, todayStr);
+      return validateParsedIntent(
+        {
+          intentType: 'QUERY_OR_UPDATE',
+          supplier: supplierName || 'fornecedor',
+          candidateAccounts: matchedPayables,
+          unknownByUser: unknownFields,
+          missingFields: [],
+          confidence: 0.85,
+          isReadyForConfirmation: false,
+          questionToUser: `Encontrei ${matchedPayables.length} compras de ${supplierName || 'fornecedor'} no ERP. Qual delas você gostaria de verificar?`,
+        },
+        todayStr
+      );
     } else {
-      return validateParsedIntent({
-        intentType: 'QUERY_OR_UPDATE',
-        supplier: supplierName || 'fornecedor',
-        unknownByUser: unknownFields,
-        missingFields: [],
-        confidence: 0.8,
-        isReadyForConfirmation: false,
-        questionToUser: `Nenhuma compra de ${supplierName || 'fornecedor'} foi encontrada no ERP com os dados disponíveis.`,
-      }, todayStr);
+      return validateParsedIntent(
+        {
+          intentType: 'QUERY_OR_UPDATE',
+          supplier: supplierName || 'fornecedor',
+          unknownByUser: unknownFields,
+          missingFields: [],
+          confidence: 0.8,
+          isReadyForConfirmation: false,
+          questionToUser: `Nenhuma compra de ${supplierName || 'fornecedor'} foi encontrada no ERP com os dados disponíveis.`,
+        },
+        todayStr
+      );
     }
   }
 
   // 3. Tentar verificar se é um pagamento de conta a pagar pendente já existente
   const matchedPayable = await findMatchingPayableAccount(null, userMessage);
-  if (matchedPayable && (userMessage.toLowerCase().includes('paguei') || userMessage.toLowerCase().includes('baixa') || userMessage.toLowerCase().includes('quitei'))) {
-    return validateParsedIntent({
-      intentType: 'MATCH_EXISTING',
-      type: 'expense',
-      amount: matchedPayable.amount,
-      description: matchedPayable.description,
-      categoryName: matchedPayable.category_name || 'Despesa',
-      categoryId: matchedPayable.category_id,
-      supplier: matchedPayable.counterparty || matchedPayable.description,
-      dueDate: matchedPayable.due_date || matchedPayable.date,
-      matchedAccount: matchedPayable,
-      missingFields: [],
-      confidence: 0.95,
-      isReadyForConfirmation: true,
-    }, todayStr);
+  if (
+    matchedPayable &&
+    (userMessage.toLowerCase().includes('paguei') ||
+      userMessage.toLowerCase().includes('baixa') ||
+      userMessage.toLowerCase().includes('quitei'))
+  ) {
+    return validateParsedIntent(
+      {
+        intentType: 'MATCH_EXISTING',
+        type: 'expense',
+        amount: matchedPayable.amount,
+        description: matchedPayable.description,
+        categoryName: matchedPayable.category_name || 'Despesa',
+        categoryId: matchedPayable.category_id,
+        supplier: matchedPayable.counterparty || matchedPayable.description,
+        dueDate: matchedPayable.due_date || matchedPayable.date,
+        matchedAccount: matchedPayable,
+        missingFields: [],
+        confidence: 0.95,
+        isReadyForConfirmation: true,
+      },
+      todayStr
+    );
   }
 
   const systemPrompt = `Você é o Assistente Financeiro IA do ERP Morante Hub.
@@ -257,7 +309,11 @@ REGRAS DE NEGÓCIO ABSOLUTAS:
    - SEMPRE separe as categorias: 1) "Combustível", 2) "Manutenção de Veículos".
 
 Histórico recente da conversa:
-${history.filter(h => !h.status || h.status === 'ACTIVE').slice(-4).map(h => `${h.sender}: ${h.text}`).join('\n')}
+${history
+  .filter((h) => !h.status || h.status === 'ACTIVE')
+  .slice(-4)
+  .map((h) => `${h.sender}: ${h.text}`)
+  .join('\n')}
 
 Nova mensagem do usuário: "${userMessage}"
 
@@ -332,7 +388,10 @@ Responda APENAS um JSON válido no formato:
     if (err.name === 'AbortError') {
       throw err;
     }
-    console.warn('Erro ao chamar Gemini no assistente financeiro, fallback determinístico acionado:', err);
+    console.warn(
+      'Erro ao chamar Gemini no assistente financeiro, fallback determinístico acionado:',
+      err
+    );
   }
 
   const rawHeuristic = fallbackHeuristicParser(userMessage, categories, todayStr, activeDraft);
@@ -358,7 +417,7 @@ export const extractLocalSemanticDelta = (text: string): LocalSemanticDelta => {
 
   const amountMatches = lower.match(/(?:r\$\s*|reais\s*)?(\d+(?:[.,]\d{1,2})?)(?:\s*mil|\s*k)?/g);
   if (amountMatches) {
-    amountMatches.forEach(m => {
+    amountMatches.forEach((m) => {
       const numMatch = m.match(/(\d+(?:[.,]\d{1,2})?)/);
       if (numMatch) {
         let val = parsePtBrNumber(numMatch[1], m.includes('mil') || m.includes('k'));
@@ -377,7 +436,11 @@ export const extractLocalSemanticDelta = (text: string): LocalSemanticDelta => {
   else if (lower.includes('frete')) categoryFound = 'Frete / Logística';
   else if (lower.includes('venda')) categoryFound = 'Vendas';
 
-  const isInstallment = lower.includes('boletos') || lower.includes('parcelas') || lower.includes('parcela') || lower.includes('vezes');
+  const isInstallment =
+    lower.includes('boletos') ||
+    lower.includes('parcelas') ||
+    lower.includes('parcela') ||
+    lower.includes('vezes');
 
   let installmentsCount: number | null = null;
   const countMatch = lower.match(/(?:em|em\s*até)?\s*(\d+)\s*(?:vezes|x|parcelas|boletos)/i);
@@ -385,7 +448,8 @@ export const extractLocalSemanticDelta = (text: string): LocalSemanticDelta => {
 
   let paymentMethod: string | null = null;
   if (lower.includes('pix')) paymentMethod = 'PIX';
-  else if (lower.includes('cartão') || lower.includes('cartao')) paymentMethod = 'Cartão de Crédito';
+  else if (lower.includes('cartão') || lower.includes('cartao'))
+    paymentMethod = 'Cartão de Crédito';
   else if (lower.includes('boleto')) paymentMethod = 'Boleto';
 
   return {

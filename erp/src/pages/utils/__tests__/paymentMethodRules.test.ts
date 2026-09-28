@@ -26,10 +26,10 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
         limit: () => Promise.resolve({ data: [] }),
       }),
       insert: () => ({
-        select: () => Object.assign(
-          Promise.resolve({ data: [{ id: 'tx-123' }], error: null }),
-          { single: () => Promise.resolve({ data: { id: 'tx-123' }, error: null }) }
-        ),
+        select: () =>
+          Object.assign(Promise.resolve({ data: [{ id: 'tx-123' }], error: null }), {
+            single: () => Promise.resolve({ data: { id: 'tx-123' }, error: null }),
+          }),
       }),
     }),
   },
@@ -476,7 +476,9 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
 
       expect(draft.batchDraftsList).not.toBeNull();
       expect(draft.batchDraftsList?.length).toBeGreaterThanOrEqual(2);
-      expect(draft.questionToUser).toMatch(/identifiquei 2 movimentações|essas contas de luz e internet são da loja/i);
+      expect(draft.questionToUser).toMatch(
+        /identifiquei 2 movimentações|essas contas de luz e internet são da loja/i
+      );
     });
 
     test('DECISION-002: "Paguei 500 no cartão." -> perguntar débito ou crédito (não assumir crédito)', async () => {
@@ -534,26 +536,42 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
 
   describe('8. TESTES OBRIGATÓRIOS — REGRA DE TRANSAÇÃO ÚNICA REALIZADA', () => {
     test('TESTE 1: "Comprei R$ 10.000 em 10 vezes." -> ZERO saídas financeiras automáticas', async () => {
-      const draft = await parseFinancialIntentWithGemini('Comprei R$ 10.000 em 10 vezes.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Comprei R$ 10.000 em 10 vezes.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBeNull();
       expect(draft.isReadyForConfirmation).toBe(false);
     });
 
     test('TESTE 2: "Tenho 10 parcelas de R$ 1.000 para pagar." -> ZERO saídas automáticas', async () => {
-      const draft = await parseFinancialIntentWithGemini('Tenho 10 parcelas de R$ 1.000 para pagar.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Tenho 10 parcelas de R$ 1.000 para pagar.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBeNull();
       expect(draft.isReadyForConfirmation).toBe(false);
     });
 
     test('TESTE 3: "Paguei uma parcela de R$ 1.000 hoje." -> UMA saída de R$ 1.000', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei uma parcela de R$ 1.000 hoje.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei uma parcela de R$ 1.000 hoje.',
+        [],
+        mockCategories
+      );
       expect(draft.type).toBe('expense');
       expect(draft.amount).toBe(1000);
       expect(draft.installmentList).toBeFalsy();
     });
 
     test('TESTE 4: "Paguei a terceira parcela da Bechara de R$ 1.000 no Pix." -> UMA saída com descrição de 3ª parcela', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei a terceira parcela da Bechara de R$ 1.000 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei a terceira parcela da Bechara de R$ 1.000 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.type).toBe('expense');
       expect(draft.amount).toBe(1000);
       expect(draft.supplier).toBe('Bechara');
@@ -563,25 +581,41 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
 
     test('TESTE 5: "Pago R$ 2.000 de aluguel todo mês." -> ZERO movimentações automáticas', async () => {
-      const draft = await parseFinancialIntentWithGemini('Pago R$ 2.000 de aluguel todo mês.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Pago R$ 2.000 de aluguel todo mês.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBeNull();
       expect(draft.isReadyForConfirmation).toBe(false);
     });
 
     test('TESTE 6: "Paguei R$ 2.000 do aluguel este mês." -> UMA saída de R$ 2.000', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei R$ 2.000 do aluguel este mês.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei R$ 2.000 do aluguel este mês.',
+        [],
+        mockCategories
+      );
       expect(draft.type).toBe('expense');
       expect(draft.amount).toBe(2000);
     });
 
     test('TESTE 7: "Vou pagar R$ 1.000 amanhã." -> ZERO saídas realizadas', async () => {
-      const draft = await parseFinancialIntentWithGemini('Vou pagar R$ 1.000 amanhã.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Vou pagar R$ 1.000 amanhã.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBeNull();
       expect(draft.isReadyForConfirmation).toBe(false);
     });
 
     test('TESTE 8: "Recebi a segunda parcela do João, R$ 800 no Pix." -> UMA entrada de R$ 800', async () => {
-      const draft = await parseFinancialIntentWithGemini('Recebi a segunda parcela do João, R$ 800 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Recebi a segunda parcela do João, R$ 800 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.type).toBe('income');
       expect(draft.amount).toBe(800);
       expect(draft.counterparty).toBe('João');
@@ -590,7 +624,11 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
 
     test('TESTE 9: "Paguei 200 de luz e 150 de internet." -> DUAS movimentações em batchDrafts', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 200 de luz e 150 de internet.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 200 de luz e 150 de internet.',
+        [],
+        mockCategories
+      );
       expect(draft.batchDraftsList).not.toBeNull();
       expect(draft.batchDraftsList?.length).toBe(2);
     });
@@ -598,13 +636,19 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
 
   describe('9. DESTINO DO GASTO (LOJA vs PESSOAL) E CATEGORIAS DE VEÍCULO', () => {
     test('9.1. "Comprei uma televisão de R$ 2.000 no Pix." -> Pergunta destino ("essa televisão é para a loja ou é uma compra pessoal?")', async () => {
-      const draft = await parseFinancialIntentWithGemini('Comprei uma televisão de R$ 2.000 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Comprei uma televisão de R$ 2.000 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(2000);
       expect(draft.paymentMethod).toBe('Pix');
       expect(draft.businessPurpose).toBe('UNKNOWN');
       expect(draft.missingFields).toContain('businessPurpose');
       expect(draft.isReadyForConfirmation).toBe(false);
-      expect(draft.questionToUser).toMatch(/essa televisão é para a loja ou é uma compra pessoal\?/i);
+      expect(draft.questionToUser).toMatch(
+        /essa televisão é para a loja ou é uma compra pessoal\?/i
+      );
     });
 
     test('9.2. Resposta "é para a loja" após pergunta de televisão -> BUSINESS, Categoria Equipamentos da Empresa', async () => {
@@ -648,17 +692,27 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
 
     test('9.4. "Comprei uma geladeira por R$ 2.500 no Pix." -> Pergunta destino ("essa geladeira é para a loja ou é uma compra pessoal?")', async () => {
-      const draft = await parseFinancialIntentWithGemini('Comprei uma geladeira por R$ 2.500 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Comprei uma geladeira por R$ 2.500 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(2500);
       expect(draft.paymentMethod).toBe('Pix');
       expect(draft.businessPurpose).toBe('UNKNOWN');
       expect(draft.missingFields).toContain('businessPurpose');
       expect(draft.isReadyForConfirmation).toBe(false);
-      expect(draft.questionToUser).toMatch(/essa geladeira é para a loja ou é uma compra pessoal\?/i);
+      expect(draft.questionToUser).toMatch(
+        /essa geladeira é para a loja ou é uma compra pessoal\?/i
+      );
     });
 
     test('9.5. Exceção de Combustível: "Abasteci 200 reais de gasolina no Pix." -> Categoria Combustível, BUSINESS, Sem pergunta loja x pessoal', async () => {
-      const draft = await parseFinancialIntentWithGemini('Abasteci 200 reais de gasolina no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Abasteci 200 reais de gasolina no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(200);
       expect(draft.categoryName).toBe('Combustível');
       expect(draft.businessPurpose).toBe('BUSINESS');
@@ -667,7 +721,11 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
 
     test('9.6. Exceção de Manutenção: "Troquei o óleo e deu 300 reais no Pix." -> Categoria Manutenção de Veículos, BUSINESS', async () => {
-      const draft = await parseFinancialIntentWithGemini('Troquei o óleo e deu 300 reais no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Troquei o óleo e deu 300 reais no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(300);
       expect(draft.categoryName).toBe('Manutenção de Veículos');
       expect(draft.businessPurpose).toBe('BUSINESS');
@@ -676,7 +734,11 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
 
     test('9.7. Exceção de Pneus: "Comprei dois pneus por 900 reais no Pix." -> Categoria Manutenção de Veículos, BUSINESS', async () => {
-      const draft = await parseFinancialIntentWithGemini('Comprei dois pneus por 900 reais no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Comprei dois pneus por 900 reais no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(900);
       expect(draft.categoryName).toBe('Manutenção de Veículos');
       expect(draft.businessPurpose).toBe('BUSINESS');
@@ -684,6 +746,3 @@ describe('Regras Obrigatórias de Forma de Pagamento e Recebimento no Assistente
     });
   });
 });
-
-
-

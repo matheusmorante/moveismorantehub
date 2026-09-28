@@ -4,16 +4,17 @@ import { generatePostContextZip } from './postZipPackageService';
 import { PostCreationSpecification } from '../types/postSpecification';
 
 describe('postZipPackageService — Pacote post-context.zip para IA', () => {
-  const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
-  const pngBytes = Uint8Array.from(
-    atob(pngBase64),
-    character => character.charCodeAt(0),
-  );
+  const pngBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  const pngBytes = Uint8Array.from(atob(pngBase64), (character) => character.charCodeAt(0));
   const imageResponse = (bytes = pngBytes, contentType = 'image/png') => ({
     ok: true,
     status: 200,
-    headers: { get: (name: string) => name.toLowerCase() === 'content-type' ? contentType : null },
-    arrayBuffer: () => Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)),
+    headers: {
+      get: (name: string) => (name.toLowerCase() === 'content-type' ? contentType : null),
+    },
+    arrayBuffer: () =>
+      Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)),
   });
 
   const badgeOnlySpec = (source: string): PostCreationSpecification => ({
@@ -83,7 +84,12 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
     },
     formats: [
       { key: 'FEED_4_5', name: 'Feed', aspectRatio: '4:5', referenceSize: '1080 × 1350' },
-      { key: 'STORY_STATUS_9_16', name: 'Story', aspectRatio: '9:16', referenceSize: '1080 × 1920' },
+      {
+        key: 'STORY_STATUS_9_16',
+        name: 'Story',
+        aspectRatio: '9:16',
+        referenceSize: '1080 × 1920',
+      },
     ],
     globalRules: 'Regras da loja',
     generatedAt: '2026-09-06T00:00:00Z',
@@ -110,13 +116,13 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
 
       // 1. Arquivo de instrução único obrigatório (exatamente 1 arquivo MD: prompt.md)
       expect(fileNames).toContain('prompt.md');
-      expect(fileNames.filter(name => name.endsWith('.md'))).toHaveLength(1);
+      expect(fileNames.filter((name) => name.endsWith('.md'))).toHaveLength(1);
       expect(fileNames).not.toContain('01_INDEX_INSTRUCOES_GERAIS.md');
       expect(fileNames).not.toContain('specification.json');
 
       // 2. Proibição absoluta de pastas e subpastas (Camada única flat)
-      expect(fileNames.some(name => name.includes('/'))).toBe(false);
-      const folders = fileNames.filter(f => unzipped.files[f].dir);
+      expect(fileNames.some((name) => name.includes('/'))).toBe(false);
+      const folders = fileNames.filter((f) => unzipped.files[f].dir);
       expect(folders).toHaveLength(0);
 
       // 3. Imagens na raiz com nomenclatura semântica e precisa
@@ -144,7 +150,9 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       expect(promptContent).toContain('variacao-03-freijo-grafite.png');
       expect(promptContent).toContain('logo-moveis-morante.png');
 
-      const packagedAssets = fileNames.filter(name => !unzipped.files[name].dir && !name.endsWith('.md'));
+      const packagedAssets = fileNames.filter(
+        (name) => !unzipped.files[name].dir && !name.endsWith('.md')
+      );
       for (const assetName of packagedAssets) {
         expect(promptContent).toContain(`\`${assetName}\``);
       }
@@ -162,14 +170,28 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
         ...dummySpec,
         campaign: {
           ...dummySpec.campaign,
-          elements: [{
-            elementType: 'TITLE',
-            prompt: 'Título com contraste e hierarquia.',
-            resources: [
-              { role: 'REFERENCE', elementType: 'TITLE', name: 'Referência', url: 'https://exemplo.com/a.jpg', mimeType: 'image/jpeg' },
-              { role: 'REFERENCE', elementType: 'TITLE', name: 'Referência', url: 'https://exemplo.com/b.jpg', mimeType: 'image/jpeg' },
-            ],
-          }],
+          elements: [
+            {
+              elementType: 'TITLE',
+              prompt: 'Título com contraste e hierarquia.',
+              resources: [
+                {
+                  role: 'REFERENCE',
+                  elementType: 'TITLE',
+                  name: 'Referência',
+                  url: 'https://exemplo.com/a.jpg',
+                  mimeType: 'image/jpeg',
+                },
+                {
+                  role: 'REFERENCE',
+                  elementType: 'TITLE',
+                  name: 'Referência',
+                  url: 'https://exemplo.com/b.jpg',
+                  mimeType: 'image/jpeg',
+                },
+              ],
+            },
+          ],
         },
       };
       const zipBlob = await generatePostContextZip({ specification });
@@ -181,7 +203,7 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       // Deve conter os anexos na camada raiz (sem pastas)
       expect(fileNames).toContain('referencia-01-referencia.png');
       expect(fileNames).toContain('referencia-02-referencia.png');
-      expect(fileNames.some(name => name.includes('/'))).toBe(false);
+      expect(fileNames.some((name) => name.includes('/'))).toBe(false);
 
       const promptContent = await unzipped.file('prompt.md')?.async('text');
       expect(promptContent).toContain(dummySpec.product.catalogUrl);
@@ -213,30 +235,34 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
         },
         campaign: {
           ...dummySpec.campaign,
-          elements: [{
-            elementType: 'BADGE',
-            prompt: 'Aplicar o selo da oportunidade no topo direito.',
-            resources: [{
-              role: 'OFFICIAL_ASSET',
+          elements: [
+            {
               elementType: 'BADGE',
-              name: 'Selo duplicado legado',
-              url: badgeUrl,
-              mimeType: 'image/png',
-            }],
-          }],
+              prompt: 'Aplicar o selo da oportunidade no topo direito.',
+              resources: [
+                {
+                  role: 'OFFICIAL_ASSET',
+                  elementType: 'BADGE',
+                  name: 'Selo duplicado legado',
+                  url: badgeUrl,
+                  mimeType: 'image/png',
+                },
+              ],
+            },
+          ],
         },
       };
 
       const zipBlob = await generatePostContextZip({ specification });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
       const fileNames = Object.keys(unzipped.files);
-      const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
+      const promptContent = (await unzipped.file('prompt.md')?.async('text')) || '';
 
       expect(fileNames).toContain('selo-oficial.png');
-      expect(fileNames.filter(name => name.includes('selo-oficial') && !unzipped.files[name].dir)).toEqual([
-        'selo-oficial.png',
-      ]);
-      expect(fileNames.some(name => name.includes('/'))).toBe(false);
+      expect(
+        fileNames.filter((name) => name.includes('selo-oficial') && !unzipped.files[name].dir)
+      ).toEqual(['selo-oficial.png']);
+      expect(fileNames.some((name) => name.includes('/'))).toBe(false);
       expect(promptContent.split('`selo-oficial.png`')).toHaveLength(2);
       expect(promptContent).not.toContain('Selo duplicado legado');
     } finally {
@@ -244,46 +270,90 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
     }
   });
 
-  const jpegBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46, 0x49, 0x46, 0xff, 0xd9]);
+  const jpegBytes = Uint8Array.from([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46, 0x49, 0x46, 0xff, 0xd9,
+  ]);
   const webpBytes = Uint8Array.from([
-    0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00,
-    0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20,
+    0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20,
   ]);
   const svgText = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>';
   const svgBytes = new TextEncoder().encode(svgText);
 
   it.each([
-    { label: 'data URL PNG', source: `data:image/png;base64,${pngBase64}`, bytes: pngBytes, mime: 'image/png', extension: 'png' },
+    {
+      label: 'data URL PNG',
+      source: `data:image/png;base64,${pngBase64}`,
+      bytes: pngBytes,
+      mime: 'image/png',
+      extension: 'png',
+    },
     { label: 'base64 puro', source: pngBase64, bytes: pngBytes, mime: '', extension: 'png' },
-    { label: 'data URL SVG codificada', source: `data:image/svg+xml,${encodeURIComponent(svgText)}`, bytes: svgBytes, mime: 'image/svg+xml', extension: 'svg' },
-    { label: 'blob URL', source: 'blob:https://morantehub.vercel.app/badge-id', bytes: pngBytes, mime: 'image/png', extension: 'png' },
-    { label: 'URL JPEG', source: 'https://example.com/badge', bytes: jpegBytes, mime: 'image/jpeg', extension: 'jpg' },
-    { label: 'JPEG com Content-Type incorreto', source: 'https://example.com/badge-mal-tipado', bytes: jpegBytes, mime: 'image/png', extension: 'jpg' },
-    { label: 'URL WebP', source: 'https://example.com/badge.webp', bytes: webpBytes, mime: 'image/webp', extension: 'webp' },
-  ])('deve preservar bytes e extensão real do selo vindo de $label', async ({ source, bytes, mime, extension }) => {
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockImplementation(() => Promise.resolve(imageResponse(bytes, mime) as any));
+    {
+      label: 'data URL SVG codificada',
+      source: `data:image/svg+xml,${encodeURIComponent(svgText)}`,
+      bytes: svgBytes,
+      mime: 'image/svg+xml',
+      extension: 'svg',
+    },
+    {
+      label: 'blob URL',
+      source: 'blob:https://morantehub.vercel.app/badge-id',
+      bytes: pngBytes,
+      mime: 'image/png',
+      extension: 'png',
+    },
+    {
+      label: 'URL JPEG',
+      source: 'https://example.com/badge',
+      bytes: jpegBytes,
+      mime: 'image/jpeg',
+      extension: 'jpg',
+    },
+    {
+      label: 'JPEG com Content-Type incorreto',
+      source: 'https://example.com/badge-mal-tipado',
+      bytes: jpegBytes,
+      mime: 'image/png',
+      extension: 'jpg',
+    },
+    {
+      label: 'URL WebP',
+      source: 'https://example.com/badge.webp',
+      bytes: webpBytes,
+      mime: 'image/webp',
+      extension: 'webp',
+    },
+  ])(
+    'deve preservar bytes e extensão real do selo vindo de $label',
+    async ({ source, bytes, mime, extension }) => {
+      const originalFetch = global.fetch;
+      global.fetch = vi
+        .fn()
+        .mockImplementation(() => Promise.resolve(imageResponse(bytes, mime) as any));
 
-    try {
-      const zipBlob = await generatePostContextZip({ specification: badgeOnlySpec(source) });
-      const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
-      const badgePath = `selo-oficial.${extension}`;
-      const packagedBytes = await unzipped.file(badgePath)?.async('uint8array');
-      const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
+      try {
+        const zipBlob = await generatePostContextZip({ specification: badgeOnlySpec(source) });
+        const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
+        const badgePath = `selo-oficial.${extension}`;
+        const packagedBytes = await unzipped.file(badgePath)?.async('uint8array');
+        const promptContent = (await unzipped.file('prompt.md')?.async('text')) || '';
 
-      expect(packagedBytes).toEqual(bytes);
-      expect(promptContent).toContain(`\`${badgePath}\``);
-      expect(promptContent.split(`\`${badgePath}\``)).toHaveLength(2);
-      expect(Object.keys(unzipped.files).some(name => name.includes('/'))).toBe(false);
-    } finally {
-      global.fetch = originalFetch;
+        expect(packagedBytes).toEqual(bytes);
+        expect(promptContent).toContain(`\`${badgePath}\``);
+        expect(promptContent.split(`\`${badgePath}\``)).toHaveLength(2);
+        expect(Object.keys(unzipped.files).some((name) => name.includes('/'))).toBe(false);
+      } finally {
+        global.fetch = originalFetch;
+      }
     }
-  });
+  );
 
   it('deve omitir HTML/JSON inválido e ainda gerar um ZIP íntegro sem referência órfã', async () => {
     const originalFetch = global.fetch;
     const htmlBytes = new TextEncoder().encode('<html><body>Access denied</body></html>');
-    global.fetch = vi.fn().mockImplementation(() => Promise.resolve(imageResponse(htmlBytes, 'image/png') as any));
+    global.fetch = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(imageResponse(htmlBytes, 'image/png') as any));
 
     try {
       const zipBlob = await generatePostContextZip({
@@ -291,9 +361,9 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
       });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
       const fileNames = Object.keys(unzipped.files);
-      const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
+      const promptContent = (await unzipped.file('prompt.md')?.async('text')) || '';
 
-      expect(fileNames.some(name => name.startsWith('selo-oficial.'))).toBe(false);
+      expect(fileNames.some((name) => name.startsWith('selo-oficial.'))).toBe(false);
       expect(promptContent).not.toContain('selo-oficial.');
       expect(promptContent).not.toContain('ELEMENTO: BADGE');
     } finally {
@@ -302,24 +372,35 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
   });
 
   it.each([
-    { label: 'HTTP 404', response: { ok: false, status: 404, headers: { get: () => 'text/html' }, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) } },
+    {
+      label: 'HTTP 404',
+      response: {
+        ok: false,
+        status: 404,
+        headers: { get: () => 'text/html' },
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      },
+    },
     { label: 'CORS/Failed to fetch', response: new TypeError('Failed to fetch') },
   ])('deve continuar gerando ZIP sem selo quando ocorrer $label', async ({ response }) => {
     const originalFetch = global.fetch;
-    global.fetch = response instanceof Error
-      ? vi.fn().mockRejectedValue(response)
-      : vi.fn().mockResolvedValue(response as any);
+    global.fetch =
+      response instanceof Error
+        ? vi.fn().mockRejectedValue(response)
+        : vi.fn().mockResolvedValue(response as any);
 
     try {
       const zipBlob = await generatePostContextZip({
-        specification: badgeOnlySpec('https://www.moveismorante.com.br/assets/queima-salvados-original.png'),
+        specification: badgeOnlySpec(
+          'https://www.moveismorante.com.br/assets/queima-salvados-original.png'
+        ),
       });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
       const fileNames = Object.keys(unzipped.files);
-      const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
+      const promptContent = (await unzipped.file('prompt.md')?.async('text')) || '';
 
       expect(fileNames).toContain('prompt.md');
-      expect(fileNames.some(name => name.startsWith('selo-oficial.'))).toBe(false);
+      expect(fileNames.some((name) => name.startsWith('selo-oficial.'))).toBe(false);
       expect(promptContent).not.toContain('selo-oficial.');
     } finally {
       global.fetch = originalFetch;
@@ -329,34 +410,41 @@ describe('postZipPackageService — Pacote post-context.zip para IA', () => {
   it('deve preferir bytes locais do referenceFiles quando a URL pública do selo estiver quebrada', async () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-    const specification = badgeOnlySpec('https://www.moveismorante.com.br/assets/queima-salvados-original.png');
+    const specification = badgeOnlySpec(
+      'https://www.moveismorante.com.br/assets/queima-salvados-original.png'
+    );
 
     try {
       const zipBlob = await generatePostContextZip({
         specification,
-        activeModels: [{
-          id: 'badge-model',
-          name: 'Selo Queima com Fogos',
-          elementType: 'BADGE',
-          contentKind: 'STATIC_VISUAL',
-          opportunityId: 'opp-queima',
-          prompt: 'Aplicar o selo oficial da oportunidade.',
-          referenceFiles: [{
-            id: 'badge-local',
-            name: 'Selo local',
-            fileUrl: `data:image/png;base64,${pngBase64}`,
-            mimeType: 'image/png',
-          }],
-          generatedAssetUrl: 'https://www.moveismorante.com.br/assets/queima-salvados-original.png',
-          generationVersion: 1,
-          status: 'UPDATED',
-          createdAt: '2026-09-09T00:00:00Z',
-          updatedAt: '2026-09-09T00:00:00Z',
-        }],
+        activeModels: [
+          {
+            id: 'badge-model',
+            name: 'Selo Queima com Fogos',
+            elementType: 'BADGE',
+            contentKind: 'STATIC_VISUAL',
+            opportunityId: 'opp-queima',
+            prompt: 'Aplicar o selo oficial da oportunidade.',
+            referenceFiles: [
+              {
+                id: 'badge-local',
+                name: 'Selo local',
+                fileUrl: `data:image/png;base64,${pngBase64}`,
+                mimeType: 'image/png',
+              },
+            ],
+            generatedAssetUrl:
+              'https://www.moveismorante.com.br/assets/queima-salvados-original.png',
+            generationVersion: 1,
+            status: 'UPDATED',
+            createdAt: '2026-09-09T00:00:00Z',
+            updatedAt: '2026-09-09T00:00:00Z',
+          },
+        ],
       });
       const unzipped = await JSZip.loadAsync(await zipBlob.arrayBuffer());
       const badgeBytes = await unzipped.file('selo-oficial.png')?.async('uint8array');
-      const promptContent = await unzipped.file('prompt.md')?.async('text') || '';
+      const promptContent = (await unzipped.file('prompt.md')?.async('text')) || '';
 
       expect(badgeBytes).toEqual(pngBytes);
       expect(promptContent.split('`selo-oficial.png`')).toHaveLength(2);

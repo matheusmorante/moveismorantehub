@@ -16,245 +16,248 @@ import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesSe
 import Purchase from '@/pages/types/purchase.type';
 
 export default function ReceiptsPage() {
-    const [searchParams] = useSearchParams();
-    const inboundKeyParam = searchParams.get('inboundKey');
+  const [searchParams] = useSearchParams();
+  const inboundKeyParam = searchParams.get('inboundKey');
 
-    const [isInboundPickerOpen, setIsInboundPickerOpen] = useState(false);
-    const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
-    const [selectedInboundInvoice, setSelectedInboundInvoice] = useState<InboundInvoice | null>(null);
-    const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
+  const [isInboundPickerOpen, setIsInboundPickerOpen] = useState(false);
+  const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
+  const [selectedInboundInvoice, setSelectedInboundInvoice] = useState<InboundInvoice | null>(null);
+  const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
 
-    const {
-        suppliers,
-        selectedSupplierId,
-        setSelectedSupplierId,
-        filteredReceipts,
-        period,
-        setPeriod,
-        customStartDate,
-        setCustomStartDate,
-        customEndDate,
-        setCustomEndDate,
-        isFormOpen,
-        setIsFormOpen,
-        isCopyingReceipt,
-        setIsCopyingReceipt,
-        selectedReceipt,
-        setSelectedReceipt,
-        isDetailsOpen,
-        setIsDetailsOpen,
-        detailsReceipt,
-        setDetailsReceipt,
-        openMenuId,
-        setOpenMenuId,
-        reverseCandidate,
-        setReverseCandidate,
-        isReversing,
-        unreverseCandidate,
-        setUnreverseCandidate,
-        isUnreversing,
-        handleOpenNew,
-        handleOpenEdit,
-        handleCopyReceipt,
-        handleOpenDetails,
-        handleRowClick,
-        handleDelete,
-        handleReverseRequest,
-        handleConfirmReverse,
-        handleUnreverseRequest,
-        handleConfirmUnreverse
-    } = useReceipts();
+  const {
+    suppliers,
+    selectedSupplierId,
+    setSelectedSupplierId,
+    filteredReceipts,
+    period,
+    setPeriod,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
+    isFormOpen,
+    setIsFormOpen,
+    isCopyingReceipt,
+    setIsCopyingReceipt,
+    selectedReceipt,
+    setSelectedReceipt,
+    isDetailsOpen,
+    setIsDetailsOpen,
+    detailsReceipt,
+    setDetailsReceipt,
+    openMenuId,
+    setOpenMenuId,
+    reverseCandidate,
+    setReverseCandidate,
+    isReversing,
+    unreverseCandidate,
+    setUnreverseCandidate,
+    isUnreversing,
+    handleOpenNew,
+    handleOpenEdit,
+    handleCopyReceipt,
+    handleOpenDetails,
+    handleRowClick,
+    handleDelete,
+    handleReverseRequest,
+    handleConfirmReverse,
+    handleUnreverseRequest,
+    handleConfirmUnreverse,
+  } = useReceipts();
 
-    // Pré-carrega NF-e de entrada se veio por query param da tela de Notas Fiscais de Entrada
-    useEffect(() => {
-        if (!inboundKeyParam) return;
-        const loadFromParam = async () => {
-            try {
-                const list = await fetchInboundInvoices();
-                const matched = list.find((inv) => inv.nfeKey === inboundKeyParam);
-                if (matched) {
-                    setSelectedInboundInvoice(matched);
-                    setSelectedPurchase(null);
-                    setIsFormOpen(true);
-                }
-            } catch (e) {
-                console.error('Erro ao buscar nota por parâmetro:', e);
-            }
-        };
-        loadFromParam();
-    }, [inboundKeyParam]);
-
-    const handleSelectInboundInvoice = (invoice: InboundInvoice) => {
-        setSelectedInboundInvoice(invoice);
-        setSelectedPurchase(null);
-        setSelectedReceipt(null);
-        setIsFormOpen(true);
+  // Pré-carrega NF-e de entrada se veio por query param da tela de Notas Fiscais de Entrada
+  useEffect(() => {
+    if (!inboundKeyParam) return;
+    const loadFromParam = async () => {
+      try {
+        const list = await fetchInboundInvoices();
+        const matched = list.find((inv) => inv.nfeKey === inboundKeyParam);
+        if (matched) {
+          setSelectedInboundInvoice(matched);
+          setSelectedPurchase(null);
+          setIsFormOpen(true);
+        }
+      } catch (e) {
+        console.error('Erro ao buscar nota por parâmetro:', e);
+      }
     };
+    loadFromParam();
+  }, [inboundKeyParam]);
 
-    const handleSelectPurchase = (purchase: Purchase) => {
-        setSelectedInboundInvoice(null);
-        setSelectedPurchase(purchase);
-        setSelectedReceipt(null);
-        setIsFormOpen(true);
-    };
+  const handleSelectInboundInvoice = (invoice: InboundInvoice) => {
+    setSelectedInboundInvoice(invoice);
+    setSelectedPurchase(null);
+    setSelectedReceipt(null);
+    setIsFormOpen(true);
+  };
 
-    const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
+  const handleSelectPurchase = (purchase: Purchase) => {
+    setSelectedInboundInvoice(null);
+    setSelectedPurchase(purchase);
+    setSelectedReceipt(null);
+    setIsFormOpen(true);
+  };
 
-    const ITEMS_PER_PAGE = 15;
-    const [currentPage, setCurrentPage] = useState(1);
+  const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
 
-    // Reinicia página ao mudar filtro de período ou fornecedor
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [period, selectedSupplierId, customStartDate, customEndDate]);
+  const ITEMS_PER_PAGE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
 
-    const totalItems = filteredReceipts.length;
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  // Reinicia página ao mudar filtro de período ou fornecedor
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [period, selectedSupplierId, customStartDate, customEndDate]);
 
-    const paginatedReceipts = React.useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
-    }, [filteredReceipts, currentPage]);
+  const totalItems = filteredReceipts.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-    return (
-        <div className="flex flex-col">
-            <ReceiptsHeader
-                suppliers={suppliers}
-                selectedSupplierId={selectedSupplierId}
-                onSelectSupplier={setSelectedSupplierId}
-                period={period}
-                onPeriodChange={setPeriod}
-                customStartDate={customStartDate}
-                onCustomStartDateChange={setCustomStartDate}
-                customEndDate={customEndDate}
-                onCustomEndDateChange={setCustomEndDate}
-                onSelectInboundNfe={() => setIsInboundPickerOpen(true)}
-                onSelectPurchase={() => setIsPurchasePickerOpen(true)}
-                onSelectManual={() => {
-                    setSelectedInboundInvoice(null);
-                    setSelectedPurchase(null);
-                    handleOpenNew();
-                }}
+  const paginatedReceipts = React.useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredReceipts, currentPage]);
+
+  return (
+    <div className="flex flex-col">
+      <ReceiptsHeader
+        suppliers={suppliers}
+        selectedSupplierId={selectedSupplierId}
+        onSelectSupplier={setSelectedSupplierId}
+        period={period}
+        onPeriodChange={setPeriod}
+        customStartDate={customStartDate}
+        onCustomStartDateChange={setCustomStartDate}
+        customEndDate={customEndDate}
+        onCustomEndDateChange={setCustomEndDate}
+        onSelectInboundNfe={() => setIsInboundPickerOpen(true)}
+        onSelectPurchase={() => setIsPurchasePickerOpen(true)}
+        onSelectManual={() => {
+          setSelectedInboundInvoice(null);
+          setSelectedPurchase(null);
+          handleOpenNew();
+        }}
+      />
+
+      <section className="overflow-hidden">
+        {filteredReceipts.length === 0 ? (
+          <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
+            <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">
+              Nenhum recebimento encontrado no período selecionado.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {selectedSupplierId
+                ? `Não há recebimentos para "${selectedSupplier?.fullName || 'o fornecedor selecionado'}" com os filtros atuais.`
+                : 'Utilize os botões acima para registrar um novo recebimento ou altere o período do filtro.'}
+            </p>
+            {selectedSupplierId && (
+              <button
+                type="button"
+                onClick={() => setSelectedSupplierId('')}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 rounded-xl transition-colors"
+              >
+                <i className="bi bi-x-circle" /> Limpar filtro de fornecedor
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Visualização em Tabela (Apenas telas XL ou maiores: >= 1280px) */}
+            <ReceiptsTable
+              receipts={paginatedReceipts}
+              openMenuId={openMenuId}
+              setOpenMenuId={setOpenMenuId}
+              onRowClick={handleRowClick}
+              onOpenDetails={handleOpenDetails}
+              onOpenEdit={handleOpenEdit}
+              onCopyReceipt={handleCopyReceipt}
+              onReverseRequest={handleReverseRequest}
+              onUnreverseRequest={handleUnreverseRequest}
+              onDelete={handleDelete}
             />
 
-            <section className="overflow-hidden">
-                {filteredReceipts.length === 0 ? (
-                    <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                        <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
-                        <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">
-                            Nenhum recebimento encontrado no período selecionado.
-                        </p>
-                        <p className="mt-1 text-xs text-slate-400">
-                            {selectedSupplierId 
-                                ? `Não há recebimentos para "${selectedSupplier?.fullName || 'o fornecedor selecionado'}" com os filtros atuais.` 
-                                : 'Utilize os botões acima para registrar um novo recebimento ou altere o período do filtro.'}
-                        </p>
-                        {selectedSupplierId && (
-                            <button
-                                type="button"
-                                onClick={() => setSelectedSupplierId('')}
-                                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 rounded-xl transition-colors"
-                            >
-                                <i className="bi bi-x-circle" /> Limpar filtro de fornecedor
-                            </button>
-                        )}
-                    </div>
-                ) : (
-                    <>
-                        {/* Visualização em Tabela (Apenas telas XL ou maiores: >= 1280px) */}
-                        <ReceiptsTable
-                            receipts={paginatedReceipts}
-                            openMenuId={openMenuId}
-                            setOpenMenuId={setOpenMenuId}
-                            onRowClick={handleRowClick}
-                            onOpenDetails={handleOpenDetails}
-                            onOpenEdit={handleOpenEdit}
-                            onCopyReceipt={handleCopyReceipt}
-                            onReverseRequest={handleReverseRequest}
-                            onUnreverseRequest={handleUnreverseRequest}
-                            onDelete={handleDelete}
-                        />
+            {/* Visualização em Cards (Telas menores que XL: < 1280px) */}
+            <div className="block xl:hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paginatedReceipts.map((receipt) => (
+                  <ReceiptCard
+                    key={receipt.id}
+                    receipt={receipt}
+                    onClick={handleRowClick}
+                    onEdit={handleOpenEdit}
+                    onCopyReceipt={handleCopyReceipt}
+                    onDelete={handleDelete}
+                    onReverse={handleReverseRequest}
+                    onUnreverse={handleUnreverseRequest}
+                    onViewDetails={handleOpenDetails}
+                  />
+                ))}
+              </div>
+            </div>
 
-                        {/* Visualização em Cards (Telas menores que XL: < 1280px) */}
-                        <div className="block xl:hidden">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {paginatedReceipts.map((receipt) => (
-                                    <ReceiptCard
-                                        key={receipt.id}
-                                        receipt={receipt}
-                                        onClick={handleRowClick}
-                                        onEdit={handleOpenEdit}
-                                        onCopyReceipt={handleCopyReceipt}
-                                        onDelete={handleDelete}
-                                        onReverse={handleReverseRequest}
-                                        onUnreverse={handleUnreverseRequest}
-                                        onViewDetails={handleOpenDetails}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Controles de Paginação (Tabela e Cards, telas desktop e mobile) */}
-                        <ReceiptsPagination
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            totalItems={totalItems}
-                            itemsPerPage={ITEMS_PER_PAGE}
-                            onPageChange={setCurrentPage}
-                        />
-                    </>
-                )}
-            </section>
-
-            <ReceiptFormModal
-                isOpen={isFormOpen}
-                onClose={() => {
-                    setIsFormOpen(false);
-                    setIsCopyingReceipt(false);
-                    setSelectedReceipt(null);
-                    setSelectedInboundInvoice(null);
-                    setSelectedPurchase(null);
-                }}
-                initialReceipt={selectedReceipt}
-                copyReceipt={isCopyingReceipt}
-                initialInboundInvoice={selectedInboundInvoice}
-                initialPurchase={selectedPurchase}
+            {/* Controles de Paginação (Tabela e Cards, telas desktop e mobile) */}
+            <ReceiptsPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
             />
+          </>
+        )}
+      </section>
 
-            <ReceiptDetailsModal
-                isOpen={isDetailsOpen}
-                onClose={() => { setIsDetailsOpen(false); setDetailsReceipt(null); }}
-                receipt={detailsReceipt}
-            />
+      <ReceiptFormModal
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setIsCopyingReceipt(false);
+          setSelectedReceipt(null);
+          setSelectedInboundInvoice(null);
+          setSelectedPurchase(null);
+        }}
+        initialReceipt={selectedReceipt}
+        copyReceipt={isCopyingReceipt}
+        initialInboundInvoice={selectedInboundInvoice}
+        initialPurchase={selectedPurchase}
+      />
 
-            <ConfirmReverseModal
-                isOpen={Boolean(reverseCandidate)}
-                onClose={() => setReverseCandidate(null)}
-                onConfirm={handleConfirmReverse}
-                receipt={reverseCandidate}
-                isProcessing={isReversing}
-            />
+      <ReceiptDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => {
+          setIsDetailsOpen(false);
+          setDetailsReceipt(null);
+        }}
+        receipt={detailsReceipt}
+      />
 
-            <ConfirmUnreverseModal
-                isOpen={Boolean(unreverseCandidate)}
-                onClose={() => setUnreverseCandidate(null)}
-                onConfirm={handleConfirmUnreverse}
-                receipt={unreverseCandidate}
-                isProcessing={isUnreversing}
-            />
+      <ConfirmReverseModal
+        isOpen={Boolean(reverseCandidate)}
+        onClose={() => setReverseCandidate(null)}
+        onConfirm={handleConfirmReverse}
+        receipt={reverseCandidate}
+        isProcessing={isReversing}
+      />
 
-            <InboundInvoiceReceiptPickerModal
-                isOpen={isInboundPickerOpen}
-                onClose={() => setIsInboundPickerOpen(false)}
-                onSelect={handleSelectInboundInvoice}
-                onCreate={handleSelectInboundInvoice}
-            />
+      <ConfirmUnreverseModal
+        isOpen={Boolean(unreverseCandidate)}
+        onClose={() => setUnreverseCandidate(null)}
+        onConfirm={handleConfirmUnreverse}
+        receipt={unreverseCandidate}
+        isProcessing={isUnreversing}
+      />
 
-            <PurchaseReceiptPickerModal
-                isOpen={isPurchasePickerOpen}
-                onClose={() => setIsPurchasePickerOpen(false)}
-                onSelect={handleSelectPurchase}
-            />
-        </div>
-    );
+      <InboundInvoiceReceiptPickerModal
+        isOpen={isInboundPickerOpen}
+        onClose={() => setIsInboundPickerOpen(false)}
+        onSelect={handleSelectInboundInvoice}
+        onCreate={handleSelectInboundInvoice}
+      />
+
+      <PurchaseReceiptPickerModal
+        isOpen={isPurchasePickerOpen}
+        onClose={() => setIsPurchasePickerOpen(false)}
+        onSelect={handleSelectPurchase}
+      />
+    </div>
+  );
 }

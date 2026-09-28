@@ -26,11 +26,17 @@ export const DeliveryHeader: React.FC<Props> = ({
   return (
     <View style={[styles.header, isDarkMode && styles.headerDark]}>
       <View style={styles.leftContainer}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <ArrowLeft size={20} color="#2563eb" />
         </TouchableOpacity>
         <View style={{ flexShrink: 1 }}>
-          <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>{title}</Text>
+          <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>
+            {title}
+          </Text>
           <Text style={styles.subtitle}>Pedido #{orderCode || '—'}</Text>
         </View>
       </View>

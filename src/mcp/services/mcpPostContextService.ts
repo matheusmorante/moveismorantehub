@@ -39,20 +39,27 @@ export class McpPostContextService {
     const campaign = await mcpCampaignService.getCampaignByIdOrName(campaignTarget);
     const allImages = await mcpProductService.getProductImages(productId, variationId);
 
-    const primaryImg = allImages.find(img => img.isPrimary) || allImages[0] || null;
-    const openViewImg = allImages.find(img => img.isOpenView) || null;
-    const secondaryImg = allImages.find(img => img.isSecondary) || null;
-    const variationGallery = allImages.filter(img => !img.isPrimary && img.variationId !== primaryImg?.variationId);
+    const primaryImg = allImages.find((img) => img.isPrimary) || allImages[0] || null;
+    const openViewImg = allImages.find((img) => img.isOpenView) || null;
+    const secondaryImg = allImages.find((img) => img.isSecondary) || null;
+    const variationGallery = allImages.filter(
+      (img) => !img.isPrimary && img.variationId !== primaryImg?.variationId
+    );
 
     const storeAssets = await mcpAssetService.getStoreAssets();
-    const opportunityBadge = await mcpAssetService.resolveBadgeForOpportunity(productDetails.commercialData.opportunity);
+    const opportunityBadge = await mcpAssetService.resolveBadgeForOpportunity(
+      productDetails.commercialData.opportunity
+    );
 
     const campaignAssets = [...storeAssets];
-    if (opportunityBadge && !campaignAssets.some(a => a.id === opportunityBadge.id)) {
+    if (opportunityBadge && !campaignAssets.some((a) => a.id === opportunityBadge.id)) {
       campaignAssets.push(opportunityBadge);
     }
 
-    const generatedReferences = await mcpCampaignService.getGeneratedPostReferences(productId, campaign.id);
+    const generatedReferences = await mcpCampaignService.getGeneratedPostReferences(
+      productId,
+      campaign.id
+    );
 
     return {
       product: productDetails.product,
@@ -96,12 +103,15 @@ export class McpPostContextService {
     const aspectRatio = isStory ? '9:16' : '4:5';
     const dimensions = isStory ? '1080 × 1920' : '1080 × 1350';
 
-    const priceFormatted = commercialData.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const priceFormatted = commercialData.price.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
     const oldPriceFormatted = commercialData.oldPrice
       ? commercialData.oldPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       : null;
 
-    const logoAsset = OFFICIAL_STORE_ASSETS.find(a => a.category === 'logo');
+    const logoAsset = OFFICIAL_STORE_ASSETS.find((a) => a.category === 'logo');
     const badgeAsset = await mcpAssetService.resolveBadgeForOpportunity(commercialData.opportunity);
 
     return {
@@ -121,17 +131,19 @@ export class McpPostContextService {
       visualAssets: {
         primaryProductImageUrl: productImages.primary?.url || '',
         openViewImageUrl: productImages.openView?.url || null,
-        otherVariationImages: productImages.variationGallery.map(img => ({
+        otherVariationImages: productImages.variationGallery.map((img) => ({
           name: img.variationName || 'Cor Alternativa',
           url: img.url,
         })),
         officialLogoUrl: logoAsset?.url || 'https://www.moveismorante.com.br/logo-morante.svg',
         officialBadgeUrl: badgeAsset?.url || null,
-        referencePostImages: context.generatedReferences.map(r => r.url),
+        referencePostImages: context.generatedReferences.map((r) => r.url),
       },
       campaignDirectives: {
-        generalRule: campaign.generalGuidelines || 'Composição rica, iluminação comercial elegante e forte hierarquia.',
-        elementInstructions: campaign.prompts.map(p => ({
+        generalRule:
+          campaign.generalGuidelines ||
+          'Composição rica, iluminação comercial elegante e forte hierarquia.',
+        elementInstructions: campaign.prompts.map((p) => ({
           element: p.name,
           instruction: p.prompt,
         })),

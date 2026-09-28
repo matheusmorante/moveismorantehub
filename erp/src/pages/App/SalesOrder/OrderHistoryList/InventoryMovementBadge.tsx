@@ -1,173 +1,192 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Check, Package, PackageMinus, PackagePlus, PackageX } from "lucide-react";
-import type Order from "../../../types/order.type";
-import { isPartialSaleStockMovement } from "../../../utils/saleInventoryRules";
-import { getInventoryBadgeContent } from "./inventoryBadgeContent";
-import { InventoryBadgePopover } from "./InventoryBadgePopover";
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Check, Package, PackageMinus, PackagePlus, PackageX } from 'lucide-react';
+import type Order from '../../../types/order.type';
+import { isPartialSaleStockMovement } from '../../../utils/saleInventoryRules';
+import { getInventoryBadgeContent } from './inventoryBadgeContent';
+import { InventoryBadgePopover } from './InventoryBadgePopover';
 
-type Props = { 
-    orderType?: string; 
-    hasMovement: boolean; 
-    isReversed?: boolean; 
-    isPartial?: boolean;
-    order?: Order;
+type Props = {
+  orderType?: string;
+  hasMovement: boolean;
+  isReversed?: boolean;
+  isPartial?: boolean;
+  order?: Order;
 };
 
-const InventoryMovementBadge = ({ orderType, hasMovement, isReversed, isPartial, order }: Props) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [coords, setCoords] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
-    const buttonRef = useRef<HTMLButtonElement>(null);
-    const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+const InventoryMovementBadge = ({
+  orderType,
+  hasMovement,
+  isReversed,
+  isPartial,
+  order,
+}: Props) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    placement: 'top' | 'bottom';
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const resolvedOrderType = orderType || order?.orderType;
-    const isReturn = resolvedOrderType === 'return';
-    const linkedReturnKind = !isReturn && order?.returnOrderId ? order.returnKind : undefined;
-    const hasPartialReturn = linkedReturnKind === 'partial';
-    const hasFullReturn = linkedReturnKind === 'complete';
-    const isPartialMovement = order 
-        ? isPartialSaleStockMovement(order, order.movedProductIds) 
-        : (isPartial ?? false);
+  const resolvedOrderType = orderType || order?.orderType;
+  const isReturn = resolvedOrderType === 'return';
+  const linkedReturnKind = !isReturn && order?.returnOrderId ? order.returnKind : undefined;
+  const hasPartialReturn = linkedReturnKind === 'partial';
+  const hasFullReturn = linkedReturnKind === 'complete';
+  const isPartialMovement = order
+    ? isPartialSaleStockMovement(order, order.movedProductIds)
+    : (isPartial ?? false);
 
-    const baseContent = getInventoryBadgeContent({
-        isReturn,
-        hasMovement,
-        isReversed,
-        isPartialMovement,
-    });
-    const content = hasFullReturn ? {
+  const baseContent = getInventoryBadgeContent({
+    isReturn,
+    hasMovement,
+    isReversed,
+    isPartialMovement,
+  });
+  const content = hasFullReturn
+    ? {
         ...baseContent,
         title: 'Saída devolvida integralmente',
-        explanation: 'Este pedido possui uma devolução total vinculada. Confira abaixo o estado real de movimentação de cada item.',
-        statusLabel: 'Devolução Total', statusTextColor: 'text-red-600 dark:text-red-400',
+        explanation:
+          'Este pedido possui uma devolução total vinculada. Confira abaixo o estado real de movimentação de cada item.',
+        statusLabel: 'Devolução Total',
+        statusTextColor: 'text-red-600 dark:text-red-400',
         badgeColorClass: 'border-red-700 bg-red-600 text-white hover:bg-red-700',
-    } : hasPartialReturn ? {
-        ...baseContent,
-        title: 'Saída devolvida parcialmente',
-        explanation: 'Este pedido possui uma devolução parcial vinculada. Confira abaixo o estado real de movimentação de cada item.',
-        statusLabel: 'Devolução Parcial', statusTextColor: 'text-amber-600 dark:text-amber-400',
-        badgeColorClass: 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600',
-    } : baseContent;
-
-    const updatePosition = useCallback(() => {
-        if (!buttonRef.current) return;
-        const rect = buttonRef.current.getBoundingClientRect();
-        const hasItems = Boolean(order?.items && order.items.length > 0);
-        const popoverWidth = Math.min(384, window.innerWidth - 24);
-        const popoverHeight = hasItems ? 280 : 160;
-
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const placement = spaceBelow < popoverHeight + 20 && rect.top > popoverHeight + 20 ? 'top' : 'bottom';
-        const top = placement === 'bottom' ? rect.bottom + 6 : rect.top - popoverHeight - 6;
-        let left = rect.left + rect.width / 2 - popoverWidth / 2;
-        left = Math.max(12, Math.min(window.innerWidth - popoverWidth - 12, left));
-
-        setCoords({ top, left, placement });
-    }, [order?.items]);
-
-    const handleMouseEnter = () => {
-        if (closeTimerRef.current) {
-            clearTimeout(closeTimerRef.current);
-            closeTimerRef.current = null;
+      }
+    : hasPartialReturn
+      ? {
+          ...baseContent,
+          title: 'Saída devolvida parcialmente',
+          explanation:
+            'Este pedido possui uma devolução parcial vinculada. Confira abaixo o estado real de movimentação de cada item.',
+          statusLabel: 'Devolução Parcial',
+          statusTextColor: 'text-amber-600 dark:text-amber-400',
+          badgeColorClass: 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600',
         }
-        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = setTimeout(() => {
-            updatePosition();
-            setIsOpen(true);
-        }, 500);
+      : baseContent;
+
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const hasItems = Boolean(order?.items && order.items.length > 0);
+    const popoverWidth = Math.min(384, window.innerWidth - 24);
+    const popoverHeight = hasItems ? 280 : 160;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placement =
+      spaceBelow < popoverHeight + 20 && rect.top > popoverHeight + 20 ? 'top' : 'bottom';
+    const top = placement === 'bottom' ? rect.bottom + 6 : rect.top - popoverHeight - 6;
+    let left = rect.left + rect.width / 2 - popoverWidth / 2;
+    left = Math.max(12, Math.min(window.innerWidth - popoverWidth - 12, left));
+
+    setCoords({ top, left, placement });
+  }, [order?.items]);
+
+  const handleMouseEnter = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      updatePosition();
+      setIsOpen(true);
+    }, 500);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    closeTimerRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
+  };
+
+  const handleClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (!isOpen) {
+      updatePosition();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleScrollOrResize = () => updatePosition();
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
     };
+  }, [isOpen, updatePosition]);
 
-    const handleMouseLeave = () => {
-        if (hoverTimerRef.current) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
-        }
-        closeTimerRef.current = setTimeout(() => {
-            setIsOpen(false);
-        }, 200);
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
+  }, []);
 
-    const handleClick = (event: React.MouseEvent) => {
-        event.stopPropagation();
-        if (hoverTimerRef.current) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
-        }
-        if (!isOpen) {
-            updatePosition();
-            setIsOpen(true);
-        } else {
-            setIsOpen(false);
-        }
-    };
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        ref={buttonRef}
+        type="button"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+        className={`relative flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition-all active:scale-95 ${content.badgeColorClass}`}
+        title={content.title}
+        aria-label={content.title}
+      >
+        {isReversed ? (
+          <PackageX className="h-3.5 w-3.5" />
+        ) : isReturn ? (
+          <PackagePlus className="h-3.5 w-3.5" />
+        ) : (
+          <PackageMinus className="h-3.5 w-3.5" />
+        )}
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleScrollOrResize = () => updatePosition();
-        window.addEventListener('scroll', handleScrollOrResize, true);
-        window.addEventListener('resize', handleScrollOrResize);
-        return () => {
-            window.removeEventListener('scroll', handleScrollOrResize, true);
-            window.removeEventListener('resize', handleScrollOrResize);
-        };
-    }, [isOpen, updatePosition]);
+        {hasMovement && !isReversed && (
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+            <Check className="h-2 w-2 stroke-[3]" />
+          </span>
+        )}
+      </button>
 
-    useEffect(() => {
-        return () => {
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-        };
-    }, []);
-
-    return (
-        <div className="relative inline-flex items-center">
-            <button
-                ref={buttonRef}
-                type="button"
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-                onClick={handleClick}
-                className={`relative flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition-all active:scale-95 ${content.badgeColorClass}`}
-                title={content.title}
-                aria-label={content.title}
-            >
-                {isReversed ? (
-                    <PackageX className="h-3.5 w-3.5" />
-                ) : isReturn ? (
-                    <PackagePlus className="h-3.5 w-3.5" />
-                ) : (
-                    <PackageMinus className="h-3.5 w-3.5" />
-                )}
-
-                {hasMovement && !isReversed && (
-                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-                        <Check className="h-2 w-2 stroke-[3]" />
-                    </span>
-                )}
-            </button>
-
-            {isOpen && coords && (
-                <InventoryBadgePopover
-                    coords={coords}
-                    content={content}
-                    isReturn={isReturn}
-                    hasMovement={hasMovement}
-                    isReversed={isReversed}
-                    isPartialReturn={hasPartialReturn}
-                    isFullReturn={hasFullReturn}
-                    order={order}
-                    onClose={() => setIsOpen(false)}
-                    onMouseEnter={() => {
-                        if (closeTimerRef.current) {
-                            clearTimeout(closeTimerRef.current);
-                            closeTimerRef.current = null;
-                        }
-                    }}
-                    onMouseLeave={handleMouseLeave}
-                />
-            )}
-        </div>
-    );
+      {isOpen && coords && (
+        <InventoryBadgePopover
+          coords={coords}
+          content={content}
+          isReturn={isReturn}
+          hasMovement={hasMovement}
+          isReversed={isReversed}
+          isPartialReturn={hasPartialReturn}
+          isFullReturn={hasFullReturn}
+          order={order}
+          onClose={() => setIsOpen(false)}
+          onMouseEnter={() => {
+            if (closeTimerRef.current) {
+              clearTimeout(closeTimerRef.current);
+              closeTimerRef.current = null;
+            }
+          }}
+          onMouseLeave={handleMouseLeave}
+        />
+      )}
+    </div>
+  );
 };
 
 export default InventoryMovementBadge;

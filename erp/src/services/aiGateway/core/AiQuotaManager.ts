@@ -42,7 +42,7 @@ export class AiQuotaManager {
     const categoryConfig = AI_LIMITS.categories[category];
     const budgetBRL = categoryConfig.monthlyBudgetBRL ?? 30.0;
     const limitCount = categoryConfig.perMonth ?? 150;
-    const unitCost = categoryConfig.estimatedCostPerUnitBRL ?? 0.20;
+    const unitCost = categoryConfig.estimatedCostPerUnitBRL ?? 0.2;
 
     try {
       const startOfMonth = this.getStartOfMonthIso();
@@ -63,7 +63,8 @@ export class AiQuotaManager {
 
       const remainingBRL = Math.max(0, budgetBRL - totalCost);
       const remainingCount = Math.max(0, limitCount - usedCount);
-      const percentUsed = budgetBRL > 0 ? Math.min(100, Math.round((totalCost / budgetBRL) * 100)) : 0;
+      const percentUsed =
+        budgetBRL > 0 ? Math.min(100, Math.round((totalCost / budgetBRL) * 100)) : 0;
 
       return {
         usedCount,
@@ -95,7 +96,7 @@ export class AiQuotaManager {
   public static async reserveQuota(category: AiCategory): Promise<QuotaReserveResult> {
     const categoryConfig = AI_LIMITS.categories[category];
     const globalConfig = AI_LIMITS.global;
-    const unitCost = categoryConfig.estimatedCostPerUnitBRL ?? 0.20;
+    const unitCost = categoryConfig.estimatedCostPerUnitBRL ?? 0.2;
 
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -116,19 +117,25 @@ export class AiQuotaManager {
           .eq('provider', 'gemini')
           .eq('status', 'SUCCESS')
           .eq('module_source', category)
-          .gte('created_at', startOfDay)
+          .gte('created_at', startOfDay),
       ]);
 
       if (globalRes.error || categoryRes.error) {
         const error = globalRes.error || categoryRes.error;
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ) {
           return { allowed: true, usedToday: 0, limitToday: categoryConfig.perDay };
         }
-        console.error('[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:', error?.message);
+        console.error(
+          '[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:',
+          error?.message
+        );
         return {
           allowed: false,
           errorCode: 'AI_FAIL_CLOSED_BLOCKED',
-          errorMessage: `FAIL CLOSED: Erro de comunicação com o sistema de cota (${error?.message}). Requisição IA bloqueada preventivamente.`
+          errorMessage: `FAIL CLOSED: Erro de comunicação com o sistema de cota (${error?.message}). Requisição IA bloqueada preventivamente.`,
         };
       }
 
@@ -137,7 +144,10 @@ export class AiQuotaManager {
 
       // 2. Validar Limite Global Diário
       if (globalTodayCount >= globalConfig.perDay) {
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ) {
           return { allowed: true, usedToday: globalTodayCount, limitToday: globalConfig.perDay };
         }
         return {
@@ -145,21 +155,28 @@ export class AiQuotaManager {
           errorCode: 'AI_DAILY_LIMIT_REACHED',
           errorMessage: `Limite Diário Global de IA Atingido: ${globalTodayCount}/${globalConfig.perDay} requisições utilizadas hoje. Tente novamente amanhã.`,
           usedToday: globalTodayCount,
-          limitToday: globalConfig.perDay
+          limitToday: globalConfig.perDay,
         };
       }
 
       // 3. Validar Limite da Categoria Diária
       if (categoryTodayCount >= categoryConfig.perDay) {
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          return { allowed: true, usedToday: categoryTodayCount, limitToday: categoryConfig.perDay };
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ) {
+          return {
+            allowed: true,
+            usedToday: categoryTodayCount,
+            limitToday: categoryConfig.perDay,
+          };
         }
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
           errorMessage: `Limite Diário de ${category} Atingido: ${categoryTodayCount}/${categoryConfig.perDay} requisições utilizadas hoje.`,
           usedToday: categoryTodayCount,
-          limitToday: categoryConfig.perDay
+          limitToday: categoryConfig.perDay,
         };
       }
 
@@ -174,11 +191,14 @@ export class AiQuotaManager {
           .gte('created_at', startOfMonth);
 
         if (monthError) {
-          console.error('[AiQuotaManager] FAIL CLOSED: Erro ao consultar cota mensal:', monthError.message);
+          console.error(
+            '[AiQuotaManager] FAIL CLOSED: Erro ao consultar cota mensal:',
+            monthError.message
+          );
           return {
             allowed: false,
             errorCode: 'AI_FAIL_CLOSED_BLOCKED',
-            errorMessage: `FAIL CLOSED: Erro ao verificar cota mensal. Requisição bloqueada preventivamente.`
+            errorMessage: `FAIL CLOSED: Erro ao verificar cota mensal. Requisição bloqueada preventivamente.`,
           };
         }
 
@@ -190,7 +210,10 @@ export class AiQuotaManager {
         }, 0);
         const totalCostThisMonth = Number(totalCostRaw.toFixed(2));
 
-        if (categoryConfig.monthlyBudgetBRL && totalCostThisMonth >= categoryConfig.monthlyBudgetBRL) {
+        if (
+          categoryConfig.monthlyBudgetBRL &&
+          totalCostThisMonth >= categoryConfig.monthlyBudgetBRL
+        ) {
           return {
             allowed: false,
             errorCode: 'AI_MONTHLY_LIMIT_REACHED',
@@ -199,7 +222,7 @@ export class AiQuotaManager {
             limitToday: categoryConfig.perDay,
             usedThisMonth: monthCount,
             monthlyBudgetBRL: categoryConfig.monthlyBudgetBRL,
-            costThisMonthBRL: totalCostThisMonth
+            costThisMonthBRL: totalCostThisMonth,
           };
         }
 
@@ -211,37 +234,42 @@ export class AiQuotaManager {
             usedToday: categoryTodayCount,
             limitToday: categoryConfig.perDay,
             usedThisMonth: monthCount,
-            monthlyLimit: categoryConfig.perMonth
+            monthlyLimit: categoryConfig.perMonth,
           };
         }
       }
 
       // 5. Reservar cota com registro atômico de pré-alocação com custo estimado persistido
-      await supabase.from('api_usage_logs').insert([{
-        provider: 'gemini',
-        service: categoryConfig.model,
-        operation: 'pre_allocation_reservation',
-        units: 1,
-        status: 'SUCCESS',
-        http_status: 200,
-        module_source: category,
-        cost_estimated: unitCost,
-        environment: typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'development' : 'production',
-        request_id: `pre_alloc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        created_at: new Date().toISOString()
-      }]);
+      await supabase.from('api_usage_logs').insert([
+        {
+          provider: 'gemini',
+          service: categoryConfig.model,
+          operation: 'pre_allocation_reservation',
+          units: 1,
+          status: 'SUCCESS',
+          http_status: 200,
+          module_source: category,
+          cost_estimated: unitCost,
+          environment:
+            typeof window !== 'undefined' && window.location.hostname === 'localhost'
+              ? 'development'
+              : 'production',
+          request_id: `pre_alloc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          created_at: new Date().toISOString(),
+        },
+      ]);
 
       return {
         allowed: true,
         usedToday: categoryTodayCount + 1,
-        limitToday: categoryConfig.perDay
+        limitToday: categoryConfig.perDay,
       };
     } catch (e: any) {
       console.error('[AiQuotaManager] FAIL CLOSED EXCEPTION:', e);
       return {
         allowed: false,
         errorCode: 'AI_FAIL_CLOSED_BLOCKED',
-        errorMessage: `FAIL CLOSED: Falha inesperada no validador de cota. Requisição bloqueada por segurança.`
+        errorMessage: `FAIL CLOSED: Falha inesperada no validador de cota. Requisição bloqueada por segurança.`,
       };
     }
   }

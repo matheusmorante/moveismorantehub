@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  copyLabelImageToClipboard,
-  downloadLabelImage,
-} from '../services/priceLabelExportService';
+import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
 import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
 
@@ -82,7 +79,9 @@ describe('priceLabelExportService', () => {
       await copyLabelImageToClipboard(mockElement);
 
       expect(mockWrite).toHaveBeenCalled();
-      expect(toast.success).toHaveBeenCalledWith('Imagem da etiqueta copiada para a área de transferência!');
+      expect(toast.success).toHaveBeenCalledWith(
+        'Imagem da etiqueta copiada para a área de transferência!'
+      );
     });
   });
 

@@ -18,7 +18,7 @@ export const TransactionVehicleSelector: React.FC<Props> = ({
     <View>
       <Text style={[styles.label, isDarkMode && styles.labelDark]}>Veículo</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-        {vehicles.map(v => (
+        {vehicles.map((v) => (
           <TouchableOpacity
             key={v}
             style={[styles.chip, selectedVehicleId === v && styles.chipActive]}

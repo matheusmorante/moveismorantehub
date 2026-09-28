@@ -1,10 +1,4 @@
-export type SyncQueueStatus =
-  | 'pending'
-  | 'syncing'
-  | 'synced'
-  | 'failed'
-  | 'conflict'
-  | 'rejected';
+export type SyncQueueStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict' | 'rejected';
 
 export type SyncOperationType = 'create' | 'update' | 'delete';
 

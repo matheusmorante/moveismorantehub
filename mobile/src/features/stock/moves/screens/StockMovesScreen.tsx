@@ -1,33 +1,14 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  ChevronDown,
-} from 'lucide-react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-react-native';
 import { useStockMoves } from '../hooks/useStockMoves';
 import { useStockMoveActions } from '../hooks/useStockMoveActions';
 import { styles } from './stockMovesStyles';
 import type { StockProductSelection } from '../domain/stockMoveTypes';
 import { StockMove } from '../../types/stock.types';
 import { useAuth } from '../../../../contexts/AuthContext';
-import {
-  StockMoveCard,
-  StockProductSearchFilter,
-  StockBalanceBadge,
-} from '../components';
-import {
-  InventoryMoveDeleteModal,
-  InventoryMoveEditModal,
-  StockPeriodModal,
-} from '../modals';
+import { StockMoveCard, StockProductSearchFilter, StockBalanceBadge } from '../components';
+import { InventoryMoveDeleteModal, InventoryMoveEditModal, StockPeriodModal } from '../modals';
 
 interface Props {
   isDarkMode: boolean;
@@ -58,8 +39,15 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
   const { canManageStock } = useAuth();
 
   const {
-    editingMove, setEditingMove, savingEdit, moveToDelete, setMoveToDelete,
-    isDeleting, requestReverse, confirmReverse, saveEdit,
+    editingMove,
+    setEditingMove,
+    savingEdit,
+    moveToDelete,
+    setMoveToDelete,
+    isDeleting,
+    requestReverse,
+    confirmReverse,
+    saveEdit,
   } = useStockMoveActions(() => goToPage(page));
 
   // Estados de Período
@@ -87,7 +75,6 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
     setCurrentStock(null);
   };
 
-
   const PageHeader = () => (
     <View style={[styles.pageHeaderWrapper, isDarkMode && styles.pageHeaderWrapperDark]}>
       <View style={styles.pageHeader}>
@@ -100,7 +87,9 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
             <Text style={[styles.periodLabel, isDarkMode && styles.textMutedDark]}>Período:</Text>
           </View>
           <View style={[styles.periodValueWrapper, isDarkMode && styles.periodValueWrapperDark]}>
-            <Text style={[styles.periodValue, isDarkMode && styles.textDark]}>{selectedPeriod}</Text>
+            <Text style={[styles.periodValue, isDarkMode && styles.textDark]}>
+              {selectedPeriod}
+            </Text>
             <ChevronDown size={14} color={isDarkMode ? '#94a3b8' : '#64748b'} />
           </View>
         </TouchableOpacity>
@@ -126,13 +115,13 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
   ];
   if (error) data.push({ type: 'ERROR', id: 'ERROR', message: error });
   if (!error && !loading && moves.length === 0) data.push({ type: 'EMPTY', id: 'EMPTY' });
-  data.push(...moves.map(move => ({ type: 'ITEM' as const, id: move.id, data: move })));
+  data.push(...moves.map((move) => ({ type: 'ITEM' as const, id: move.id, data: move })));
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <FlatList
         data={data}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         stickyHeaderIndices={[0]}
         renderItem={({ item }) => {
           if (item.type === 'MODULE_HEADER') return renderHeader();
@@ -191,8 +180,8 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
                           ? '#475569'
                           : '#94a3b8'
                         : isDarkMode
-                        ? '#cbd5e1'
-                        : '#334155'
+                          ? '#cbd5e1'
+                          : '#334155'
                     }
                   />
                 </TouchableOpacity>
@@ -218,8 +207,8 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
                           ? '#475569'
                           : '#94a3b8'
                         : isDarkMode
-                        ? '#cbd5e1'
-                        : '#334155'
+                          ? '#cbd5e1'
+                          : '#334155'
                     }
                   />
                 </TouchableOpacity>
@@ -235,13 +224,13 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
         selectedPeriod={selectedPeriod}
         customStartDate={customStartDate}
         customEndDate={customEndDate}
-        onSelectPeriod={p => {
+        onSelectPeriod={(p) => {
           setSelectedPeriod(p);
           changePeriod(p);
         }}
         onChangeCustomStartDate={setCustomStartDate}
         onChangeCustomEndDate={setCustomEndDate}
-        onApplyCustomPeriod={range => {
+        onApplyCustomPeriod={(range) => {
           changePeriod('Personalizado', range);
         }}
         onClose={() => setShowPeriodModal(false)}

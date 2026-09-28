@@ -47,7 +47,9 @@ describe('modelos estruturados de post', () => {
   });
 
   it('interpola apenas variáveis conhecidas e preserva regras sem texto', () => {
-    expect(interpolatePrompt('Produto: {{product.name}} / {{unknown}}', { 'product.name': 'Sofá' })).toBe('Produto: Sofá / ');
+    expect(
+      interpolatePrompt('Produto: {{product.name}} / {{unknown}}', { 'product.name': 'Sofá' })
+    ).toBe('Produto: Sofá / ');
   });
 
   it('monta prompt com preservação e áreas reservadas', async () => {

@@ -28,7 +28,11 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
   },
 }));
 
-import { extractMultipleFinancialFacts, applyTurnPatchWithDraftList, processFinancialInput } from '../../';
+import {
+  extractMultipleFinancialFacts,
+  applyTurnPatchWithDraftList,
+  processFinancialInput,
+} from '../../';
 
 describe('Bateria de Regressão — Múltiplas Movimentações na Mesma Fala (multiFactParsing.test.ts)', () => {
   it('TESTE 1 — "Paguei 200 de luz e 100 de internet." -> 2 drafts independentes', () => {
@@ -69,24 +73,51 @@ describe('Bateria de Regressão — Múltiplas Movimentações na Mesma Fala (mu
   });
 
   it('TESTE 4 — Patch específico: "A luz é da loja." altera apenas Luz, mantendo Internet UNKNOWN', () => {
-    const facts = extractMultipleFinancialFacts('Paguei 200 de luz e 100 de internet.', '2026-09-06');
-    const patchRes = applyTurnPatchWithDraftList(facts, 'A luz é da loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    const facts = extractMultipleFinancialFacts(
+      'Paguei 200 de luz e 100 de internet.',
+      '2026-09-06'
+    );
+    const patchRes = applyTurnPatchWithDraftList(
+      facts,
+      'A luz é da loja.',
+      'ANSWER_TO_QUESTION',
+      [],
+      '2026-09-06'
+    );
 
     expect(patchRes.updatedDrafts[0].businessPurpose).toBe('BUSINESS');
     expect(patchRes.updatedDrafts[1].businessPurpose).toBe('UNKNOWN');
   });
 
   it('TESTE 5 — Patch global: "As duas são da loja." altera Luz BUSINESS e Internet BUSINESS', () => {
-    const facts = extractMultipleFinancialFacts('Paguei 200 de luz e 100 de internet.', '2026-09-06');
-    const patchRes = applyTurnPatchWithDraftList(facts, 'As duas são da loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    const facts = extractMultipleFinancialFacts(
+      'Paguei 200 de luz e 100 de internet.',
+      '2026-09-06'
+    );
+    const patchRes = applyTurnPatchWithDraftList(
+      facts,
+      'As duas são da loja.',
+      'ANSWER_TO_QUESTION',
+      [],
+      '2026-09-06'
+    );
 
     expect(patchRes.updatedDrafts[0].businessPurpose).toBe('BUSINESS');
     expect(patchRes.updatedDrafts[1].businessPurpose).toBe('BUSINESS');
   });
 
   it('TESTE 6 — Patch combinado: "A luz é da loja e a internet é pessoal."', () => {
-    const facts = extractMultipleFinancialFacts('Paguei 200 de luz e 100 de internet.', '2026-09-06');
-    const patchRes = applyTurnPatchWithDraftList(facts, 'A luz é da loja e a internet é pessoal.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    const facts = extractMultipleFinancialFacts(
+      'Paguei 200 de luz e 100 de internet.',
+      '2026-09-06'
+    );
+    const patchRes = applyTurnPatchWithDraftList(
+      facts,
+      'A luz é da loja e a internet é pessoal.',
+      'ANSWER_TO_QUESTION',
+      [],
+      '2026-09-06'
+    );
 
     expect(patchRes.updatedDrafts[0].businessPurpose).toBe('BUSINESS');
     expect(patchRes.updatedDrafts[1].businessPurpose).toBe('PERSONAL');
@@ -111,7 +142,8 @@ describe('Bateria de Regressão — Múltiplas Movimentações na Mesma Fala (mu
   });
 
   it('TESTE 9 — INVARIANTE: missingFields(draft[0]) NUNCA pode interromper a extração de draft[1]', () => {
-    const text = 'Acabei de pagar uma conta de luz e uma conta de internet. A conta de luz foi R$ 200 e a conta de internet foi R$ 100.';
+    const text =
+      'Acabei de pagar uma conta de luz e uma conta de internet. A conta de luz foi R$ 200 e a conta de internet foi R$ 100.';
     const res = processFinancialInput(text);
 
     expect(res.draft?.batchDraftsList).toBeDefined();

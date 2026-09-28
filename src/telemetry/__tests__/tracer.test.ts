@@ -26,7 +26,8 @@ describe('OpenTelemetry Tracing & PII Guard', () => {
         'customer.cnpj': '12.345.678/0001-90',
         'customer.email': 'joao.silva@empresa.com.br',
         'customer.phone': '(44) 99876-5432',
-        'auth.token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+        'auth.token':
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
         'payment.secretKey': 'sk_live_verysecretstring',
         'product.sku': 'MOR-CRI-001',
         'order.total': 1500.5,

@@ -1,21 +1,21 @@
 type FeeType = 'percentage' | 'fixed';
 
 export type Payment = {
-    method: string;
-    amount: number;
-    fee: number;
-    feeType: FeeType;
-    status: string;
-}
+  method: string;
+  amount: number;
+  fee: number;
+  feeType: FeeType;
+  status: string;
+};
 
 export type PaymentsSummary = {
-    totalPaymentsFee: number;
-    totalOrderValue: number;
-    totalAmountPaid: number;
-    amountRemaining: number;
-    change?: number;
-    // Legacy support
-    totalValue?: number;
-    totalPaid?: number;
-    totalPending?: number;
-}
+  totalPaymentsFee: number;
+  totalOrderValue: number;
+  totalAmountPaid: number;
+  amountRemaining: number;
+  change?: number;
+  // Legacy support
+  totalValue?: number;
+  totalPaid?: number;
+  totalPending?: number;
+};

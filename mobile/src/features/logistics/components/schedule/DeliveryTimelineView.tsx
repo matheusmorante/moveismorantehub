@@ -21,8 +21,18 @@ interface Props {
 const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon') => {
   const label = item.periodLabel.toLowerCase();
   return period === 'morning'
-    ? label.includes('manhã') || label.includes('08:') || label.includes('09:') || label.includes('10:') || label.includes('11:')
-    : label.includes('tarde') || label.includes('13:') || label.includes('14:') || label.includes('15:') || label.includes('16:') || label.includes('17:') || label.includes('18:');
+    ? label.includes('manhã') ||
+        label.includes('08:') ||
+        label.includes('09:') ||
+        label.includes('10:') ||
+        label.includes('11:')
+    : label.includes('tarde') ||
+        label.includes('13:') ||
+        label.includes('14:') ||
+        label.includes('15:') ||
+        label.includes('16:') ||
+        label.includes('17:') ||
+        label.includes('18:');
 };
 
 export const DeliveryTimelineView: React.FC<Props> = ({
@@ -37,23 +47,30 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
 
-  const shiftCounts = useMemo(() => ({
-    morning: items.filter((item) => matchesPeriod(item, 'morning')).length,
-    afternoon: items.filter((item) => matchesPeriod(item, 'afternoon')).length,
-  }), [items]);
+  const shiftCounts = useMemo(
+    () => ({
+      morning: items.filter((item) => matchesPeriod(item, 'morning')).length,
+      afternoon: items.filter((item) => matchesPeriod(item, 'afternoon')).length,
+    }),
+    [items]
+  );
 
   // Usa as mesmas modalidades configuradas no ERP para identificar os selos.
   useEffect(() => {
     let active = true;
 
-    supabase.from('settings').select('*').limit(1).then(({ data }) => {
-      if (!active) return;
-      const settings = data?.[0]?.data || data?.[0] || {};
-      setHandlingOptions([
-        ...(settings.deliveryHandlingOptions || []),
-        ...(settings.pickupHandlingOptions || []),
-      ]);
-    });
+    supabase
+      .from('settings')
+      .select('*')
+      .limit(1)
+      .then(({ data }) => {
+        if (!active) return;
+        const settings = data?.[0]?.data || data?.[0] || {};
+        setHandlingOptions([
+          ...(settings.deliveryHandlingOptions || []),
+          ...(settings.pickupHandlingOptions || []),
+        ]);
+      });
 
     return () => {
       active = false;
@@ -72,36 +89,68 @@ export const DeliveryTimelineView: React.FC<Props> = ({
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
+        }
       >
         {/* Filtro local do Cronograma: rola junto com os cards da timeline. */}
         <View style={[styles.periodFilterRow, isDarkMode && styles.periodFilterRowDark]}>
           <TouchableOpacity
-            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'all' && styles.periodPillActive]}
+            style={[
+              styles.periodPill,
+              isDarkMode && styles.periodPillDark,
+              periodFilter === 'all' && styles.periodPillActive,
+            ]}
             onPress={() => setPeriodFilter('all')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'all' && styles.periodPillTextActive]}>
+            <Text
+              style={[
+                styles.periodPillText,
+                isDarkMode && styles.periodPillTextDark,
+                periodFilter === 'all' && styles.periodPillTextActive,
+              ]}
+            >
               Todas ({items.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'morning' && styles.periodPillActive]}
+            style={[
+              styles.periodPill,
+              isDarkMode && styles.periodPillDark,
+              periodFilter === 'morning' && styles.periodPillActive,
+            ]}
             onPress={() => setPeriodFilter('morning')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'morning' && styles.periodPillTextActive]}>
+            <Text
+              style={[
+                styles.periodPillText,
+                isDarkMode && styles.periodPillTextDark,
+                periodFilter === 'morning' && styles.periodPillTextActive,
+              ]}
+            >
               Manhã ({shiftCounts.morning})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.periodPill, isDarkMode && styles.periodPillDark, periodFilter === 'afternoon' && styles.periodPillActive]}
+            style={[
+              styles.periodPill,
+              isDarkMode && styles.periodPillDark,
+              periodFilter === 'afternoon' && styles.periodPillActive,
+            ]}
             onPress={() => setPeriodFilter('afternoon')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.periodPillText, isDarkMode && styles.periodPillTextDark, periodFilter === 'afternoon' && styles.periodPillTextActive]}>
+            <Text
+              style={[
+                styles.periodPillText,
+                isDarkMode && styles.periodPillTextDark,
+                periodFilter === 'afternoon' && styles.periodPillTextActive,
+              ]}
+            >
               Tarde ({shiftCounts.afternoon})
             </Text>
           </TouchableOpacity>
@@ -120,7 +169,9 @@ export const DeliveryTimelineView: React.FC<Props> = ({
             const travelKm = nextItem?.distanceKm || 8;
 
             // Análise de risco de atraso para o próximo compromisso fixo
-            const currentService = analyzeOrderServiceHandlings(item.order?.order_data?.items || item.order?.items || []);
+            const currentService = analyzeOrderServiceHandlings(
+              item.order?.order_data?.items || item.order?.items || []
+            );
             const hasDelayRisk = Boolean(
               nextItem?.isFixedTime && currentService.estimatedMinutes > 90
             );

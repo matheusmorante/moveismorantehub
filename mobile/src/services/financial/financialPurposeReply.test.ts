@@ -8,8 +8,16 @@ describe('resposta sobre conta pessoal ou da loja', () => {
 
   it('direciona a resposta somente ao draft de internet', () => {
     const drafts = [
-      { description: 'Pagamento de conta de luz', businessPurpose: 'UNKNOWN' as const, missingFields: ['businessPurpose'] },
-      { description: 'Pagamento de internet', businessPurpose: 'UNKNOWN' as const, missingFields: ['businessPurpose'] },
+      {
+        description: 'Pagamento de conta de luz',
+        businessPurpose: 'UNKNOWN' as const,
+        missingFields: ['businessPurpose'],
+      },
+      {
+        description: 'Pagamento de internet',
+        businessPurpose: 'UNKNOWN' as const,
+        missingFields: ['businessPurpose'],
+      },
     ];
     expect(findPurposeDraftTarget(drafts, 'esse pagamento da internet já é conta pessoal')).toBe(1);
   });

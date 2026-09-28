@@ -36,7 +36,7 @@ export const LogisticsOrderSectionHeader: React.FC<Props> = ({
       style={[
         styles.stickySectionHeader,
         headerStyle,
-        isDarkMode && styles.stickySectionHeaderDark
+        isDarkMode && styles.stickySectionHeaderDark,
       ]}
     >
       <View style={styles.titleRow}>
@@ -45,33 +45,39 @@ export const LogisticsOrderSectionHeader: React.FC<Props> = ({
         ) : (
           <Calendar size={16} color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'} />
         )}
-        <Text style={[
-          styles.stickySectionTitle,
-          isPending && { color: '#92400e' },
-          isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
-          isDarkMode && styles.textDark
-        ]}>
+        <Text
+          style={[
+            styles.stickySectionTitle,
+            isPending && { color: '#92400e' },
+            isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
+            isDarkMode && styles.textDark,
+          ]}
+        >
           {section.title}
         </Text>
       </View>
 
       <View style={styles.badgeRow}>
-        <View style={[
-          styles.stickySectionBadge,
-          isPending && { backgroundColor: '#d97706' },
-          isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }
-        ]}>
-          <Text style={[
-            styles.stickySectionBadgeText,
-            isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' }
-          ]}>
+        <View
+          style={[
+            styles.stickySectionBadge,
+            isPending && { backgroundColor: '#d97706' },
+            isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' },
+          ]}
+        >
+          <Text
+            style={[
+              styles.stickySectionBadgeText,
+              isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' },
+            ]}
+          >
             {section.count} {section.count === 1 ? 'item' : 'itens'}
           </Text>
         </View>
         {isCollapsed ? (
-          <ChevronRight size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
+          <ChevronRight size={18} color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'} />
         ) : (
-          <ChevronDown size={18} color={isPending ? '#d97706' : (isEmpty ? '#94a3b8' : '#2563eb')} />
+          <ChevronDown size={18} color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'} />
         )}
       </View>
     </TouchableOpacity>
@@ -92,28 +98,33 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4
+    shadowRadius: 4,
   },
   stickySectionHeaderDefault: {
     backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe'
+    borderColor: '#bfdbfe',
   },
   stickySectionHeaderPending: {
     backgroundColor: '#fef3c7',
-    borderColor: '#fde68a'
+    borderColor: '#fde68a',
   },
   stickySectionHeaderEmpty: {
     backgroundColor: '#f1f5f9',
-    borderColor: '#e2e8f0'
+    borderColor: '#e2e8f0',
   },
   stickySectionHeaderDark: {
     backgroundColor: '#1e293b',
-    borderColor: '#334155'
+    borderColor: '#334155',
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stickySectionTitle: { fontSize: 13, fontWeight: '900', color: '#1e3a8a' },
-  stickySectionBadge: { backgroundColor: '#2563eb', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  stickySectionBadge: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   stickySectionBadgeText: { fontSize: 10, fontWeight: '900', color: '#ffffff' },
   textDark: { color: '#f8fafc' },
 });

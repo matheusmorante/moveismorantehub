@@ -9,10 +9,10 @@ describe('scheduleSlots - Etapa 3.1: Semântica de agendamento', () => {
           scheduling: {
             type: 'morning',
             startTime: '08:00',
-            endTime: '12:00'
-          }
-        }
-      }
+            endTime: '12:00',
+          },
+        },
+      },
     };
 
     const result = extractScheduleSlot(order);
@@ -30,10 +30,10 @@ describe('scheduleSlots - Etapa 3.1: Semântica de agendamento', () => {
           scheduling: {
             type: 'tarde',
             startTime: '13:00',
-            endTime: '18:00'
-          }
-        }
-      }
+            endTime: '18:00',
+          },
+        },
+      },
     };
 
     const result = extractScheduleSlot(order);
@@ -49,10 +49,10 @@ describe('scheduleSlots - Etapa 3.1: Semântica de agendamento', () => {
         shipping: {
           scheduling: {
             type: 'fixed',
-            startTime: '15:30'
-          }
-        }
-      }
+            startTime: '15:30',
+          },
+        },
+      },
     };
 
     const result = extractScheduleSlot(order);
@@ -75,10 +75,10 @@ describe('scheduleSlots - Etapa 3.1: Semântica de agendamento', () => {
       order_data: {
         shipping: {
           scheduling: {
-            type: 'commercial'
-          }
-        }
-      }
+            type: 'commercial',
+          },
+        },
+      },
     };
 
     const result = extractScheduleSlot(order);
@@ -94,10 +94,10 @@ describe('scheduleSlots - Etapa 3.1: Semântica de agendamento', () => {
         shipping: {
           scheduling: {
             startTime: '10:00',
-            endTime: '14:00'
-          }
-        }
-      }
+            endTime: '14:00',
+          },
+        },
+      },
     };
 
     const result = extractScheduleSlot(order);

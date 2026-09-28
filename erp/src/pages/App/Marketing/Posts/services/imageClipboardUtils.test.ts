@@ -13,7 +13,8 @@ describe('imageClipboardUtils — fetchImageAsPngBlob', () => {
   });
 
   it('deve retornar diretamente o blob se a URL for data:image/png', async () => {
-    const pngDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     const blob = await fetchImageAsPngBlob(pngDataUrl);
     expect(blob).toBeDefined();
     expect(blob.type).toBe('image/png');
@@ -39,7 +40,7 @@ describe('imageClipboardUtils — fetchImageAsPngBlob', () => {
     expect(blob).toBeDefined();
     expect(blob.type).toBe('image/png');
     expect(attemptedUrls.length).toBeGreaterThan(1);
-    expect(attemptedUrls.some(u => u.includes('weserv.nl'))).toBe(true);
+    expect(attemptedUrls.some((u) => u.includes('weserv.nl'))).toBe(true);
   });
 
   it('não deve lançar erro contendo a palavra "canvas" em caso de falha completa', async () => {
@@ -61,9 +62,9 @@ describe('imageClipboardUtils — fetchImageAsPngBlob', () => {
     };
 
     try {
-      await expect(
-        fetchImageAsPngBlob('https://example.com/inexistente.jpg')
-      ).rejects.toThrowError(/Não foi possível carregar a imagem para cópia direta/);
+      await expect(fetchImageAsPngBlob('https://example.com/inexistente.jpg')).rejects.toThrowError(
+        /Não foi possível carregar a imagem para cópia direta/
+      );
     } finally {
       globalThis.Image = originalImage;
     }

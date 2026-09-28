@@ -15,7 +15,9 @@ function getInstalledAndroidBuild() {
   const nativeBuild = Number(Application.nativeBuildVersion);
   if (Number.isSafeInteger(nativeBuild) && nativeBuild > 0) return nativeBuild;
 
-  const configuredBuild = Number(Constants.expoConfig?.android?.versionCode || Constants.platform?.android?.versionCode);
+  const configuredBuild = Number(
+    Constants.expoConfig?.android?.versionCode || Constants.platform?.android?.versionCode
+  );
   return Number.isSafeInteger(configuredBuild) && configuredBuild > 0 ? configuredBuild : 0;
 }
 
@@ -35,12 +37,17 @@ export function useMandatoryAppUpdate() {
     try {
       const { data, error } = await supabase
         .from('app_release_current')
-        .select('platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,download_url,updated_at')
+        .select(
+          'platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,download_url,updated_at'
+        )
         .eq('platform', 'android')
         .maybeSingle();
 
       if (error) return;
-      const updateState = resolveAndroidReleaseUpdateState(installedBuild, data as AndroidReleaseRecord | null);
+      const updateState = resolveAndroidReleaseUpdateState(
+        installedBuild,
+        data as AndroidReleaseRecord | null
+      );
       setRelease(updateState.release);
     } catch {
       // Offline — mantém app utilizável; próxima abertura tenta de novo.
@@ -56,8 +63,9 @@ export function useMandatoryAppUpdate() {
   }, [checkRelease]);
 
   const updateState = resolveAndroidReleaseUpdateState(installedBuild, release);
-  const visible = updateState.available
-    && (updateState.required || dismissedBuild !== updateState.release?.build_number);
+  const visible =
+    updateState.available &&
+    (updateState.required || dismissedBuild !== updateState.release?.build_number);
 
   const dismissUpdate = useCallback(() => {
     if (!updateState.required && updateState.release) {
@@ -85,9 +93,11 @@ export function useMandatoryAppUpdate() {
         { headers: { 'Cache-Control': 'no-cache' } },
         ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
           if (totalBytesExpectedToWrite > 0) {
-            setDownloadProgress(Math.min(100, Math.floor((totalBytesWritten / totalBytesExpectedToWrite) * 100)));
+            setDownloadProgress(
+              Math.min(100, Math.floor((totalBytesWritten / totalBytesExpectedToWrite) * 100))
+            );
           }
-        },
+        }
       );
       const result = await task.downloadAsync();
       if (!result || result.status < 200 || result.status >= 300) {
@@ -110,13 +120,18 @@ export function useMandatoryAppUpdate() {
       } catch {
         const packageName = Application.applicationId || 'com.morante.mobile';
         try {
-          await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.MANAGE_UNKNOWN_APP_SOURCES, {
-            data: `package:${packageName}`,
-          });
+          await IntentLauncher.startActivityAsync(
+            IntentLauncher.ActivityAction.MANAGE_UNKNOWN_APP_SOURCES,
+            {
+              data: `package:${packageName}`,
+            }
+          );
         } catch {
           // Mantém o erro visível se configurações não puderem ser abertas.
         }
-        throw new Error('Permita que o App Morante instale aplicativos desta fonte e toque em baixar novamente.');
+        throw new Error(
+          'Permita que o App Morante instale aplicativos desta fonte e toque em baixar novamente.'
+        );
       }
     } catch (error) {
       setDownloadError(error instanceof Error ? error.message : 'Falha ao baixar a atualização.');

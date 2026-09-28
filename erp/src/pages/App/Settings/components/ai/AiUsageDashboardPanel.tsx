@@ -8,7 +8,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
     textToday: 0,
     imageToday: 0,
     ttsToday: 0,
-    globalToday: 0
+    globalToday: 0,
   });
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
           .eq('status', 'SUCCESS')
           .gte('created_at', startOfDay);
         if (mod) q = q.eq('module_source', mod);
-        
+
         const { count, error } = await q;
         if (error) console.warn('[AiUsageDashboardPanel] Erro ao contar uso:', error);
         return count || 0;
@@ -42,7 +42,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
         getCount('TEXT'),
         getCount('IMAGE'),
         getCount('TTS'),
-        getCount()
+        getCount(),
       ]);
 
       setCounts({ textToday, imageToday, ttsToday, globalToday });
@@ -69,7 +69,9 @@ export const AiUsageDashboardPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-bold text-white">Monitoramento de IA (Gemini Gateway)</h3>
-            <p className="text-xs text-slate-400">Proteção global contra consumo excessivo e controle conservador de cota</p>
+            <p className="text-xs text-slate-400">
+              Proteção global contra consumo excessivo e controle conservador de cota
+            </p>
           </div>
         </div>
 
@@ -77,12 +79,16 @@ export const AiUsageDashboardPanel: React.FC = () => {
           <span className="text-[11px] px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg font-semibold flex items-center gap-1">
             <i className="bi bi-shield-lock-fill"></i> Fail Closed Ativo
           </span>
-          <span className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 ${
-            isCircuitOpen
-              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-          }`}>
-            <i className={`bi ${isCircuitOpen ? 'bi-lightning-charge-fill text-rose-400' : 'bi-check-circle-fill'}`}></i>
+          <span
+            className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 ${
+              isCircuitOpen
+                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+            }`}
+          >
+            <i
+              className={`bi ${isCircuitOpen ? 'bi-lightning-charge-fill text-rose-400' : 'bi-check-circle-fill'}`}
+            ></i>
             {isCircuitOpen ? 'Circuit Breaker ABERTO' : 'Circuit Breaker OK'}
           </span>
         </div>
@@ -96,12 +102,16 @@ export const AiUsageDashboardPanel: React.FC = () => {
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <i className="bi bi-fonts text-purple-400"></i> Texto (Gemini 2.5)
             </span>
-            <strong className="text-white">{counts.textToday} / {AI_LIMITS.categories.TEXT.perDay}</strong>
+            <strong className="text-white">
+              {counts.textToday} / {AI_LIMITS.categories.TEXT.perDay}
+            </strong>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(counts.textToday, AI_LIMITS.categories.TEXT.perDay)} transition-all`}
-              style={{ width: `${Math.min(100, (counts.textToday / AI_LIMITS.categories.TEXT.perDay) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (counts.textToday / AI_LIMITS.categories.TEXT.perDay) * 100)}%`,
+              }}
             ></div>
           </div>
           <span className="text-[10px] text-slate-500 block">Max 3 simultâneas | 10/min</span>
@@ -113,12 +123,16 @@ export const AiUsageDashboardPanel: React.FC = () => {
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <i className="bi bi-image-fill text-amber-400"></i> Imagem (Ambientação)
             </span>
-            <strong className="text-white">{counts.imageToday} / {AI_LIMITS.categories.IMAGE.perDay}</strong>
+            <strong className="text-white">
+              {counts.imageToday} / {AI_LIMITS.categories.IMAGE.perDay}
+            </strong>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(counts.imageToday, AI_LIMITS.categories.IMAGE.perDay)} transition-all`}
-              style={{ width: `${Math.min(100, (counts.imageToday / AI_LIMITS.categories.IMAGE.perDay) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (counts.imageToday / AI_LIMITS.categories.IMAGE.perDay) * 100)}%`,
+              }}
             ></div>
           </div>
           <span className="text-[10px] text-slate-500 block">Max 1 simultânea | 2/min</span>
@@ -130,15 +144,21 @@ export const AiUsageDashboardPanel: React.FC = () => {
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <i className="bi bi-mic-fill text-sky-400"></i> Voz / TTS (Feminina)
             </span>
-            <strong className="text-white">{counts.ttsToday} / {AI_LIMITS.categories.TTS.perDay}</strong>
+            <strong className="text-white">
+              {counts.ttsToday} / {AI_LIMITS.categories.TTS.perDay}
+            </strong>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(counts.ttsToday, AI_LIMITS.categories.TTS.perDay)} transition-all`}
-              style={{ width: `${Math.min(100, (counts.ttsToday / AI_LIMITS.categories.TTS.perDay) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (counts.ttsToday / AI_LIMITS.categories.TTS.perDay) * 100)}%`,
+              }}
             ></div>
           </div>
-          <span className="text-[10px] text-slate-500 block">Voz 'Aoede' (Fallback p/ Google Maps)</span>
+          <span className="text-[10px] text-slate-500 block">
+            Voz 'Aoede' (Fallback p/ Google Maps)
+          </span>
         </div>
 
         {/* GLOBAL */}
@@ -147,12 +167,16 @@ export const AiUsageDashboardPanel: React.FC = () => {
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <i className="bi bi-globe text-emerald-400"></i> Teto Global Gemini
             </span>
-            <strong className="text-white">{counts.globalToday} / {AI_LIMITS.global.perDay}</strong>
+            <strong className="text-white">
+              {counts.globalToday} / {AI_LIMITS.global.perDay}
+            </strong>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className={`h-full ${getProgressColor(counts.globalToday, AI_LIMITS.global.perDay)} transition-all`}
-              style={{ width: `${Math.min(100, (counts.globalToday / AI_LIMITS.global.perDay) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (counts.globalToday / AI_LIMITS.global.perDay) * 100)}%`,
+              }}
             ></div>
           </div>
           <span className="text-[10px] text-slate-500 block">Prevalece sobre os individuais</span>

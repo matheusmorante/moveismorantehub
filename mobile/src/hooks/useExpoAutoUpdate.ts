@@ -20,9 +20,9 @@ export async function checkAndUpdateManually(onStatus?: (status: string) => void
 
     onStatus?.('downloading');
     Alert.alert('Nova Versão Encontrada', 'Baixando atualização...', [], { cancelable: false });
-    
+
     await Updates.fetchUpdateAsync();
-    
+
     Alert.alert(
       'Atualização Pronta',
       'A nova versão foi baixada. O app será reiniciado agora.',
@@ -39,7 +39,10 @@ export async function checkAndUpdateManually(onStatus?: (status: string) => void
     onStatus?.('ready');
   } catch (error: any) {
     console.warn('[Atualização Manual] Erro:', error);
-    Alert.alert('Verificação de Atualização', `Não foi possível verificar atualizações no momento: ${error?.message || error}`);
+    Alert.alert(
+      'Verificação de Atualização',
+      `Não foi possível verificar atualizações no momento: ${error?.message || error}`
+    );
     onStatus?.('error');
   }
 }
@@ -55,8 +58,8 @@ export function useExpoAutoUpdate() {
     checking.current = true;
     try {
       // Pequeno delay para garantir que a inicialização nativa do app concluiu
-      await new Promise(res => setTimeout(res, 1500));
-      
+      await new Promise((res) => setTimeout(res, 1500));
+
       const update = await Updates.checkForUpdateAsync();
       if (!update.isAvailable) return;
 

@@ -1,5 +1,14 @@
 import React, { useRef } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ShoppingBag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MobileOrderCard } from '../components/MobileOrderCard';
@@ -17,7 +26,8 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
   const insets = useSafeAreaInsets();
   const orders = useMobileOrders();
   const scrollViewRef = useRef<ScrollView>(null);
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
+  const topInset =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
   const handlePageChange = (page: number) => {
     orders.setCurrentPage(page);
@@ -36,10 +46,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
           ref={scrollViewRef}
           contentContainerStyle={styles.content}
           refreshControl={
-            <RefreshControl
-              refreshing={orders.refreshing}
-              onRefresh={() => orders.refresh(true)}
-            />
+            <RefreshControl refreshing={orders.refreshing} onRefresh={() => orders.refresh(true)} />
           }
         >
           <OrdersHeader
@@ -55,7 +62,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
               <Text style={styles.emptyText}>Nenhum pedido encontrado</Text>
             </View>
           ) : (
-            orders.paginatedOrders.map(order => (
+            orders.paginatedOrders.map((order) => (
               <MobileOrderCard
                 key={order.id}
                 order={order}

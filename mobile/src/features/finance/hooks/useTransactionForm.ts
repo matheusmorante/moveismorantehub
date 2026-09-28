@@ -65,8 +65,9 @@ export function useTransactionForm({
     if (transaction) {
       const editingIncomeCategories = buildIncomeCategories(categories);
       const isLoan = normalizeCategoryName(transaction.category_name || '').includes('emprestimo');
-      const isPersonalExpense = transaction.type === 'expense' && transaction.purpose === 'PERSONAL_PARTNER';
-      const incomeCategory = editingIncomeCategories.find(category =>
+      const isPersonalExpense =
+        transaction.type === 'expense' && transaction.purpose === 'PERSONAL_PARTNER';
+      const incomeCategory = editingIncomeCategories.find((category) =>
         isLoan
           ? normalizeCategoryName(category.name).includes('emprestimo')
           : normalizeCategoryName(category.name).includes('outra')
@@ -79,10 +80,14 @@ export function useTransactionForm({
       setDescription(transaction.description || '');
       setSelectedCatId(
         transaction.type === 'income'
-          ? (incomeCategory?.id || '')
+          ? incomeCategory?.id || ''
           : isPersonalExpense
-            ? (transaction.category_id || categories.find(category => category.type === 'expense' && isProLaboreCat(category.name))?.id || 'cat_pro_labore_default')
-            : (transaction.category_id || '')
+            ? transaction.category_id ||
+              categories.find(
+                (category) => category.type === 'expense' && isProLaboreCat(category.name)
+              )?.id ||
+              'cat_pro_labore_default'
+            : transaction.category_id || ''
       );
       setPaymentMethod(transaction.payment_method || '');
       setVehicleId(transaction.vehicle_id || '');
@@ -109,7 +114,7 @@ export function useTransactionForm({
         const { data } = await supabase.from('profiles').select('id, full_name, role').limit(50);
         if (data && data.length > 0) {
           setCollaboratorsList(
-            data.map(p => ({
+            data.map((p) => ({
               id: p.id,
               name: p.full_name || 'Colaborador',
             }))
@@ -123,14 +128,14 @@ export function useTransactionForm({
   }, []);
 
   const filteredCategories = useMemo(() => {
-    const byType = categories.filter(c => c.type === type);
+    const byType = categories.filter((c) => c.type === type);
 
     if (type === 'income') {
       return buildIncomeCategories(categories);
     }
 
     if (isExpense && purpose === 'PERSONAL_PARTNER') {
-      const proLaboreCats = byType.filter(c => isProLaboreCat(c.name));
+      const proLaboreCats = byType.filter((c) => isProLaboreCat(c.name));
       if (proLaboreCats.length > 0) {
         return proLaboreCats;
       }
@@ -143,19 +148,22 @@ export function useTransactionForm({
       ];
     }
 
-    const expenses = byType.filter(c => !isProLaboreCat(c.name));
+    const expenses = byType.filter((c) => !isProLaboreCat(c.name));
     return sortCategoriesWithOthersAtEnd(expenses);
   }, [categories, type, purpose, isExpense]);
 
   const selectedCategory = useMemo(() => {
-    return filteredCategories.find(c => c.id === selectedCatId) || categories.find(c => c.id === selectedCatId);
+    return (
+      filteredCategories.find((c) => c.id === selectedCatId) ||
+      categories.find((c) => c.id === selectedCatId)
+    );
   }, [filteredCategories, categories, selectedCatId]);
 
   const handlePurposeChange = (newPurpose: 'BUSINESS' | 'PERSONAL_PARTNER') => {
     setCategoryModalVisible(false);
     setPurpose(newPurpose);
     if (newPurpose === 'PERSONAL_PARTNER') {
-      const proLaboreCat = categories.find(c => c.type === type && isProLaboreCat(c.name));
+      const proLaboreCat = categories.find((c) => c.type === type && isProLaboreCat(c.name));
       if (proLaboreCat) {
         setSelectedCatId(proLaboreCat.id);
       } else {
@@ -170,7 +178,7 @@ export function useTransactionForm({
 
   const handleTypeChange = (newType: 'income' | 'expense') => {
     setType(newType);
-    setFieldErrors(prev => ({ ...prev, type: false }));
+    setFieldErrors((prev) => ({ ...prev, type: false }));
     if (newType === 'income') {
       setPurpose('BUSINESS');
       setSelectedCatId('');
@@ -178,7 +186,7 @@ export function useTransactionForm({
       return;
     }
     if (purpose === 'PERSONAL_PARTNER') {
-      const proLaboreCat = categories.find(c => c.type === newType && isProLaboreCat(c.name));
+      const proLaboreCat = categories.find((c) => c.type === newType && isProLaboreCat(c.name));
       setSelectedCatId(proLaboreCat?.id || 'cat_pro_labore_default');
       return;
     }
@@ -187,16 +195,30 @@ export function useTransactionForm({
 
   const isPersonnelCategory = Boolean(
     selectedCategory?.name &&
-      ['salário', 'salários', 'adiantamento', 'comissão', 'comissao', 'benefício', 'beneficio', 'reembolso'].some(term =>
-        selectedCategory.name.toLowerCase().includes(term)
-      )
+      [
+        'salário',
+        'salários',
+        'adiantamento',
+        'comissão',
+        'comissao',
+        'benefício',
+        'beneficio',
+        'reembolso',
+      ].some((term) => selectedCategory.name.toLowerCase().includes(term))
   );
 
   const isVehicleCategory = Boolean(
     selectedCategory?.name &&
-      ['combustível', 'gasolina', 'veículo', 'veiculo', 'pedágio', 'pedagio', 'manutenção de veículos', 'manutenção do carro'].some(term =>
-        selectedCategory.name.toLowerCase().includes(term)
-      )
+      [
+        'combustível',
+        'gasolina',
+        'veículo',
+        'veiculo',
+        'pedágio',
+        'pedagio',
+        'manutenção de veículos',
+        'manutenção do carro',
+      ].some((term) => selectedCategory.name.toLowerCase().includes(term))
   );
 
   const handleSave = async () => {
@@ -224,7 +246,10 @@ export function useTransactionForm({
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      Alert.alert('Campos Obrigatórios', 'Por favor, preencha todos os campos obrigatórios destacados em vermelho.');
+      Alert.alert(
+        'Campos Obrigatórios',
+        'Por favor, preencha todos os campos obrigatórios destacados em vermelho.'
+      );
       return;
     }
 

@@ -18,7 +18,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   // Configuração de CORS e Headers de Segurança
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-MCP-Client-Id, MCP-Protocol-Version, MCP-Session-Id, Last-Event-ID');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, Accept, X-MCP-Client-Id, MCP-Protocol-Version, MCP-Session-Id, Last-Event-ID'
+  );
   res.setHeader('Access-Control-Expose-Headers', 'MCP-Session-Id');
 
   if (req.method === 'OPTIONS') {
@@ -43,7 +46,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         },
         servers: [{ url: baseUrl }],
         paths: Object.fromEntries(
-          ALL_MCP_TOOLS.map(tool => [
+          ALL_MCP_TOOLS.map((tool) => [
             `/api/mcp?tool=${tool.name}`,
             {
               post: {
@@ -65,7 +68,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
                 },
               },
             },
-          ]),
+          ])
         ),
         components: {
           securitySchemes: {
@@ -89,7 +92,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   // 2. Execução de Tools (POST)
   if (req.method === 'POST') {
-    const isMcpProtocolRequest = req.body?.jsonrpc === '2.0' && typeof req.body?.method === 'string';
+    const isMcpProtocolRequest =
+      req.body?.jsonrpc === '2.0' && typeof req.body?.method === 'string';
     if (isMcpProtocolRequest) {
       const requestServer = new MoranteHubMcpServer();
       try {
@@ -98,7 +102,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           res,
           req.body,
           req.headers.authorization,
-          (req.headers['x-mcp-client-id'] as string) || undefined,
+          (req.headers['x-mcp-client-id'] as string) || undefined
         );
         return;
       } catch (err: any) {
@@ -117,7 +121,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
     }
 
-    const toolName = (req.query.tool as string) || req.body?.toolName || req.body?.method?.replace('tools/', '');
+    const toolName =
+      (req.query.tool as string) || req.body?.toolName || req.body?.method?.replace('tools/', '');
     const authHeader = req.headers.authorization;
     const requestedClient = (req.headers['x-mcp-client-id'] as string) || undefined;
     const args = req.body?.arguments || req.body?.params?.arguments || req.body || {};
@@ -125,15 +130,23 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (!toolName) {
       return res.status(400).json({
         error: 'MISSING_TOOL_NAME',
-        message: 'Informe a ferramenta desejada via query param (?tool=...) ou no corpo da requisição.',
+        message:
+          'Informe a ferramenta desejada via query param (?tool=...) ou no corpo da requisição.',
       });
     }
 
     try {
-      const result = await mcpServer.executeToolWithAuth(toolName, args, authHeader, requestedClient);
+      const result = await mcpServer.executeToolWithAuth(
+        toolName,
+        args,
+        authHeader,
+        requestedClient
+      );
       return res.status(200).json(result.data);
     } catch (err: any) {
-      const status = err.statusCode || (err.name === 'McpAuthError' ? 401 : err.code === 'RATE_LIMITED' ? 429 : 500);
+      const status =
+        err.statusCode ||
+        (err.name === 'McpAuthError' ? 401 : err.code === 'RATE_LIMITED' ? 429 : 500);
       return res.status(status).json({
         error: err.code || 'INTERNAL_ERROR',
         message: err.message || 'Erro ao processar requisição MCP.',

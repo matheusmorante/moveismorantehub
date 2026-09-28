@@ -1,41 +1,46 @@
-import Order from "@/pages/types/order.type";
-import { AppSettings } from "../../settingsService";
-import { escapeXml } from "./xmlEmitterBlock";
-import { composeServiceFiscalValues, fiscalMoneyFromCents } from "../serviceFiscalComposition";
+import Order from '@/pages/types/order.type';
+import { AppSettings } from '../../settingsService';
+import { escapeXml } from './xmlEmitterBlock';
+import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
 
 export interface BuildItemsResult {
-    itemsXml: string;
-    vProdTotal: number;
-    vDescTotal: number;
+  itemsXml: string;
+  vProdTotal: number;
+  vDescTotal: number;
 }
 
-export function buildItemsXml(order: Order, settings: AppSettings, isHomologacao: boolean): BuildItemsResult {
-    let vProdTotal = 0;
-    let vDescTotal = 0;
+export function buildItemsXml(
+  order: Order,
+  settings: AppSettings,
+  isHomologacao: boolean
+): BuildItemsResult {
+  let vProdTotal = 0;
+  let vDescTotal = 0;
 
-    const composition = composeServiceFiscalValues(order.items || []);
-    const itemsXml = composition.products.map(({ item, itemIndex: sourceIndex, vProdCents, vDescCents }, index) => {
-        const itemIndex = index + 1;
-        const qCom = item.quantity || 1;
-        const vProd = fiscalMoneyFromCents(vProdCents);
-        const itemDiscount = fiscalMoneyFromCents(vDescCents);
-        const vUnCom = vProd / qCom;
-        
-        vProdTotal += vProd;
-        vDescTotal += itemDiscount;
+  const composition = composeServiceFiscalValues(order.items || []);
+  const itemsXml = composition.products
+    .map(({ item, itemIndex: sourceIndex, vProdCents, vDescCents }, index) => {
+      const itemIndex = index + 1;
+      const qCom = item.quantity || 1;
+      const vProd = fiscalMoneyFromCents(vProdCents);
+      const itemDiscount = fiscalMoneyFromCents(vDescCents);
+      const vUnCom = vProd / qCom;
 
-        const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
-        const ncm = (String((item as any).fiscal?.ncm || '')).replace(/\D/g, '');
-        const cest = (fiscal.cest || '').replace(/\D/g, '');
-        const cfop = fiscal.cfop || '5102';
-        const csosn = fiscal.cst || '102';
-        const origem = fiscal.origem || '0';
-        const cProd = item.code || item.productId || String(sourceIndex + 1);
-        const xProd = isHomologacao 
-            ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${escapeXml(item.description)})`
-            : escapeXml(item.description);
+      vProdTotal += vProd;
+      vDescTotal += itemDiscount;
 
-        return `
+      const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
+      const ncm = String((item as any).fiscal?.ncm || '').replace(/\D/g, '');
+      const cest = (fiscal.cest || '').replace(/\D/g, '');
+      const cfop = fiscal.cfop || '5102';
+      const csosn = fiscal.cst || '102';
+      const origem = fiscal.origem || '0';
+      const cProd = item.code || item.productId || String(sourceIndex + 1);
+      const xProd = isHomologacao
+        ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${escapeXml(item.description)})`
+        : escapeXml(item.description);
+
+      return `
     <det nItem="${itemIndex}">
       <prod>
         <cProd>${escapeXml(cProd)}</cProd>
@@ -80,7 +85,8 @@ export function buildItemsXml(order: Order, settings: AppSettings, isHomologacao
         </COFINS>
       </imposto>
     </det>`;
-    }).join('');
+    })
+    .join('');
 
-    return { itemsXml, vProdTotal, vDescTotal };
+  return { itemsXml, vProdTotal, vDescTotal };
 }

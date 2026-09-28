@@ -45,20 +45,19 @@ describe('inboundMatchingRules (Domínio Puro)', () => {
 
   it('extrai a cor e acabamento de títulos moveleiros complexos', () => {
     expect(
-      extractColorCandidateFromTitle('SALA JANTAR VALDEMOVEIS DORA 120CM 4CAD AURIRA Cinamomo/off/veludo bege')
+      extractColorCandidateFromTitle(
+        'SALA JANTAR VALDEMOVEIS DORA 120CM 4CAD AURIRA Cinamomo/off/veludo bege'
+      )
     ).toBe('Cinamomo/Off/Veludo Bege');
 
-    expect(
-      extractColorCandidateFromTitle('BELICHE RUBIN ESPECIAL C/GRADE E ESCADA 1 Marfim')
-    ).toBe('Marfim');
+    expect(extractColorCandidateFromTitle('BELICHE RUBIN ESPECIAL C/GRADE E ESCADA 1 Marfim')).toBe(
+      'Marfim'
+    );
 
-    expect(
-      extractColorCandidateFromTitle('RACK BANCADA 1.80M NATURE/OFF WHITE')
-    ).toBe('Nature/Off White');
+    expect(extractColorCandidateFromTitle('RACK BANCADA 1.80M NATURE/OFF WHITE')).toBe(
+      'Nature/Off White'
+    );
 
-    expect(
-      extractColorCandidateFromTitle('ROUPEIRO CASAL 6PTS FREIJO')
-    ).toBe('Freijo');
+    expect(extractColorCandidateFromTitle('ROUPEIRO CASAL 6PTS FREIJO')).toBe('Freijo');
   });
 });
-

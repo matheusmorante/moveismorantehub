@@ -5,14 +5,16 @@ import { GeminiFunctionDeclaration, GeminiTool } from './geminiAgentTypes';
 export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   {
     name: 'buscarCategoriasFinanceiras',
-    description: 'Consulta as categorias financeiras de receitas e despesas cadastradas no ERP. Use esta ferramenta ANTES de criar ou buscar movimentações para obter o ID ou nome correto da categoria (ex: Combustível, Alimentação, Venda de Móveis, Salários).',
+    description:
+      'Consulta as categorias financeiras de receitas e despesas cadastradas no ERP. Use esta ferramenta ANTES de criar ou buscar movimentações para obter o ID ou nome correto da categoria (ex: Combustível, Alimentação, Venda de Móveis, Salários).',
     parameters: {
       type: 'OBJECT',
       properties: {
         tipo: {
           type: 'STRING',
           enum: ['income', 'expense'],
-          description: 'Filtrar por tipo: "income" para receitas/entradas ou "expense" para despesas/saídas.',
+          description:
+            'Filtrar por tipo: "income" para receitas/entradas ou "expense" para despesas/saídas.',
         },
       },
       required: [],
@@ -20,13 +22,15 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
   {
     name: 'buscarMovimentacoesFinanceiras',
-    description: 'Consulta lançamentos do fluxo de caixa/extrato no ERP com filtros por período, tipo, descrição ou categoria. Use para responder dúvidas sobre lançamentos existentes ou localizar uma movimentação específica.',
+    description:
+      'Consulta lançamentos do fluxo de caixa/extrato no ERP com filtros por período, tipo, descrição ou categoria. Use para responder dúvidas sobre lançamentos existentes ou localizar uma movimentação específica.',
     parameters: {
       type: 'OBJECT',
       properties: {
         termo: {
           type: 'STRING',
-          description: 'Termo de busca na descrição ou notas (ex: "gasolina", "fiorino", "aluguel").',
+          description:
+            'Termo de busca na descrição ou notas (ex: "gasolina", "fiorino", "aluguel").',
         },
         dataInicio: {
           type: 'STRING',
@@ -55,7 +59,8 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
   {
     name: 'obterResumoFinanceiro',
-    description: 'Calcula o resumo consolidado de fluxo de caixa (total de entradas, total de saídas, saldo final e quantidade de transações) para um período de datas específico.',
+    description:
+      'Calcula o resumo consolidado de fluxo de caixa (total de entradas, total de saídas, saldo final e quantidade de transações) para um período de datas específico.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -73,14 +78,16 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
   {
     name: 'criarMovimentacaoFinanceira',
-    description: 'Registra uma nova movimentação financeira (despesa/saída ou receita/entrada) diretamente no caixa do ERP. NUNCA invente categoriaId; se souber o contexto (ex: combustível), consulte primeiro com buscarCategoriasFinanceiras.',
+    description:
+      'Registra uma nova movimentação financeira (despesa/saída ou receita/entrada) diretamente no caixa do ERP. NUNCA invente categoriaId; se souber o contexto (ex: combustível), consulte primeiro com buscarCategoriasFinanceiras.',
     parameters: {
       type: 'OBJECT',
       properties: {
         tipo: {
           type: 'STRING',
           enum: ['income', 'expense'],
-          description: 'Tipo da transação: "expense" para saída/gasto/pagamento ou "income" para entrada/recebimento.',
+          description:
+            'Tipo da transação: "expense" para saída/gasto/pagamento ou "income" para entrada/recebimento.',
         },
         valor: {
           type: 'NUMBER',
@@ -88,7 +95,8 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
         },
         descricao: {
           type: 'STRING',
-          description: 'Descrição clara e objetiva do lançamento (ex: "Gasolina Fiorino Posto Shell", "Recebimento cliente João").',
+          description:
+            'Descrição clara e objetiva do lançamento (ex: "Gasolina Fiorino Posto Shell", "Recebimento cliente João").',
         },
         categoriaId: {
           type: 'STRING',
@@ -97,7 +105,8 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
         finalidade: {
           type: 'STRING',
           enum: ['BUSINESS', 'PERSONAL'],
-          description: 'Finalidade da movimentação: "BUSINESS" para loja/empresa ou "PERSONAL" para despesa pessoal/sócio.',
+          description:
+            'Finalidade da movimentação: "BUSINESS" para loja/empresa ou "PERSONAL" para despesa pessoal/sócio.',
         },
         data: {
           type: 'STRING',
@@ -105,7 +114,15 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
         },
         formaPagamento: {
           type: 'STRING',
-          enum: ['Pix', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Promissória', 'Manual'],
+          enum: [
+            'Pix',
+            'Dinheiro',
+            'Cartão de Crédito',
+            'Cartão de Débito',
+            'Boleto',
+            'Promissória',
+            'Manual',
+          ],
           description: 'Forma de pagamento utilizada.',
         },
         observacoes: {
@@ -118,7 +135,8 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
   },
   {
     name: 'cancelarOuExcluirMovimentacaoFinanceira',
-    description: 'Exclui ou cancela um lançamento do fluxo de caixa que foi registrado incorretamente. Use após localizar a movimentação via buscarMovimentacoesFinanceiras.',
+    description:
+      'Exclui ou cancela um lançamento do fluxo de caixa que foi registrado incorretamente. Use após localizar a movimentação via buscarMovimentacoesFinanceiras.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -161,7 +179,8 @@ export const financialToolDeclarations: GeminiFunctionDeclaration[] = [
         },
         campoDivergente: {
           type: 'STRING',
-          description: 'Nome do campo ou dado que gerou a divergência (ex: "data", "formaPagamento", "categoria", "valor", "tipo").',
+          description:
+            'Nome do campo ou dado que gerou a divergência (ex: "data", "formaPagamento", "categoria", "valor", "tipo").',
         },
         severidade: {
           type: 'STRING',
@@ -184,11 +203,13 @@ export const productToolDeclarations: GeminiFunctionDeclaration[] = [
       properties: {
         termo: {
           type: 'STRING',
-          description: 'Termo de busca pelo nome do produto, descrição, código oficial de 6 dígitos ou SKU da variação.',
+          description:
+            'Termo de busca pelo nome do produto, descrição, código oficial de 6 dígitos ou SKU da variação.',
         },
         categoria: {
           type: 'STRING',
-          description: 'Nome da categoria para filtrar produtos (ex: "Sofás", "Mesas", "Colchões").',
+          description:
+            'Nome da categoria para filtrar produtos (ex: "Sofás", "Mesas", "Colchões").',
         },
         apenasAtivos: {
           type: 'BOOLEAN',
@@ -211,7 +232,8 @@ export const productToolDeclarations: GeminiFunctionDeclaration[] = [
       properties: {
         codigoOuSku: {
           type: 'STRING',
-          description: 'Código oficial de 6 dígitos (ex: "100010") ou SKU de uma variação (ex: "100010-01") do produto.',
+          description:
+            'Código oficial de 6 dígitos (ex: "100010") ou SKU de uma variação (ex: "100010-01") do produto.',
         },
       },
       required: ['codigoOuSku'],
@@ -233,5 +255,3 @@ export const erpAgentTools: GeminiTool[] = [
     functionDeclarations: Object.values(erpDomainTools).flat(),
   },
 ];
-
-

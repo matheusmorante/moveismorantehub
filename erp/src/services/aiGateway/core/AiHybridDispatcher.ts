@@ -1,4 +1,7 @@
-import { processFinancialInput, validateParsedIntent } from '../../../../../mobile/src/services/financial/financialIntentValidator';
+import {
+  processFinancialInput,
+  validateParsedIntent,
+} from '../../../../../mobile/src/services/financial/financialIntentValidator';
 import { AiLatencyTracker } from './AiLatencyTracker';
 
 export interface HybridDispatchResult {
@@ -28,7 +31,15 @@ export class AiHybridDispatcher {
 
     // 1. Se houver contexto de ajuste/correção (ex: "na verdade foi 180", "não era 200, era 180")
     const allNumberMatches = Array.from(lower.matchAll(/(?:r\$\s*)?(\d+(?:[.,]\d{1,2})?)/g));
-    if ((lower.includes('na verdade') || lower.includes('corrig') || lower.includes('era') || lower.includes('muda') || lower.includes('troca')) && allNumberMatches.length > 0 && context) {
+    if (
+      (lower.includes('na verdade') ||
+        lower.includes('corrig') ||
+        lower.includes('era') ||
+        lower.includes('muda') ||
+        lower.includes('troca')) &&
+      allNumberMatches.length > 0 &&
+      context
+    ) {
       const lastMatch = allNumberMatches[allNumberMatches.length - 1];
       const newAmount = parseFloat(lastMatch[1].replace(',', '.'));
       const durationMs = Date.now() - startTime;
@@ -54,17 +65,18 @@ export class AiHybridDispatcher {
       const isBatch = Boolean(draft.batchDraftsList && draft.batchDraftsList.length >= 2);
       const isCompleteSingle = Boolean(
         draft.amount &&
-        draft.description &&
-        draft.paymentMethod &&
-        draft.paymentMethod !== 'UNKNOWN' &&
-        draft.paymentMethod !== 'UNKNOWN_BY_USER'
+          draft.description &&
+          draft.paymentMethod &&
+          draft.paymentMethod !== 'UNKNOWN' &&
+          draft.paymentMethod !== 'UNKNOWN_BY_USER'
       );
 
       const isReady = Boolean(isCompleteSingle && !draft.missingFields?.length);
-      const summary = draft.questionToUser || (isReady
-        ? `Identifiquei uma ${draft.type === 'income' ? 'entrada' : 'saída'} de R$ ${draft.amount?.toFixed(2)} (${draft.description} via ${draft.paymentMethod}). Deseja confirmar?`
-        : `Identifiquei ${draft.description || 'uma movimentação'}. ${draft.questionToUser || 'Faltam detalhes.'}`
-      );
+      const summary =
+        draft.questionToUser ||
+        (isReady
+          ? `Identifiquei uma ${draft.type === 'income' ? 'entrada' : 'saída'} de R$ ${draft.amount?.toFixed(2)} (${draft.description} via ${draft.paymentMethod}). Deseja confirmar?`
+          : `Identifiquei ${draft.description || 'uma movimentação'}. ${draft.questionToUser || 'Faltam detalhes.'}`);
 
       const durationMs = Date.now() - startTime;
       AiLatencyTracker.startCall('fast_path_financial', 'local-deterministic', 'TEXT');
@@ -111,7 +123,7 @@ export class AiHybridDispatcher {
       summary: 'Como posso te ajudar hoje?',
       data: {},
       e2eLatencyMs: Date.now() - startTime,
-      confidence: 0.50,
+      confidence: 0.5,
     };
   }
 }

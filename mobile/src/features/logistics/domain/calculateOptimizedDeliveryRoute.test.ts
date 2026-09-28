@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { calculateOptimizedDeliveryRoute } from './calculateOptimizedDeliveryRoute';
 import type { DeliveryRouteItem } from '../hooks/useDeliveryRoute';
 
-const item = (id: string, latitude: number, longitude: number, status: DeliveryRouteItem['status'] = 'pending'): DeliveryRouteItem => ({
+const item = (
+  id: string,
+  latitude: number,
+  longitude: number,
+  status: DeliveryRouteItem['status'] = 'pending'
+): DeliveryRouteItem => ({
   id,
   order: { order_data: {} },
   customerName: id,
@@ -24,16 +29,21 @@ describe('calculateOptimizedDeliveryRoute', () => {
     const far = item('far', -25.45, -49.26);
     const near = item('near', -25.36, -49.17);
 
-    const result = calculateOptimizedDeliveryRoute([completed, far, near], { latitude: -25.352, longitude: -49.169 });
+    const result = calculateOptimizedDeliveryRoute([completed, far, near], {
+      latitude: -25.352,
+      longitude: -49.169,
+    });
 
-    expect(result.optimizedItems.map(routeItem => routeItem.id)).toEqual(['done', 'near', 'far']);
-    expect(result.optimizedItems.map(routeItem => routeItem.sequence)).toEqual([1, 2, 3]);
+    expect(result.optimizedItems.map((routeItem) => routeItem.id)).toEqual(['done', 'near', 'far']);
+    expect(result.optimizedItems.map((routeItem) => routeItem.sequence)).toEqual([1, 2, 3]);
     expect(result.savedKm).toBeGreaterThan(0);
   });
 
   it('não propõe alteração para um único item pendente', () => {
     const pending = item('pending', -25.36, -49.17);
-    expect(calculateOptimizedDeliveryRoute([pending], { latitude: -25.352, longitude: -49.169 })).toMatchObject({
+    expect(
+      calculateOptimizedDeliveryRoute([pending], { latitude: -25.352, longitude: -49.169 })
+    ).toMatchObject({
       hasImprovement: false,
       optimizedItems: [pending],
     });

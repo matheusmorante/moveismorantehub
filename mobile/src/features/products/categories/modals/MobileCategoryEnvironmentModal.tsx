@@ -68,27 +68,33 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   const title = isEditing
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
     : isEnv
-    ? 'Novo Ambiente'
-    : 'Nova Categoria';
+      ? 'Novo Ambiente'
+      : 'Nova Categoria';
 
   const handleDeletePress = () => {
     if (!editingNode?.id || !onDelete) return;
 
     if (isEnv) {
-      const currentEnv = environments.find(e => e.id === editingNode.id);
+      const currentEnv = environments.find((e) => e.id === editingNode.id);
       if (currentEnv) {
         const check = canDeleteEnvironment(currentEnv, categories);
         if (!check.canDelete) {
-          Alert.alert('Exclusão bloqueada', check.reason || 'Este ambiente possui categorias vinculadas.');
+          Alert.alert(
+            'Exclusão bloqueada',
+            check.reason || 'Este ambiente possui categorias vinculadas.'
+          );
           return;
         }
       }
     } else {
-      const currentCat = categories.find(c => c.id === editingNode.id);
+      const currentCat = categories.find((c) => c.id === editingNode.id);
       if (currentCat) {
         const check = canDeleteCategory(currentCat);
         if (!check.canDelete) {
-          Alert.alert('Exclusão bloqueada', check.reason || 'Esta categoria possui produtos vinculados.');
+          Alert.alert(
+            'Exclusão bloqueada',
+            check.reason || 'Esta categoria possui produtos vinculados.'
+          );
           return;
         }
       }
@@ -130,7 +136,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
               <Text style={styles.label}>Nome d{isEnv ? 'o Ambiente' : 'a Categoria'} *</Text>
               <TextInput
                 value={nameInput}
-                onChangeText={text => onChangeNameInput(text.toUpperCase())}
+                onChangeText={(text) => onChangeNameInput(text.toUpperCase())}
                 placeholder={isEnv ? 'EX: SALA DE ESTAR' : 'EX: SOFÁ RETRÁTIL'}
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="characters"
@@ -239,7 +245,13 @@ const styles = StyleSheet.create({
   scrollArea: { maxHeight: 460 },
   scrollContent: { padding: 16, gap: 16 },
   formGroup: { gap: 6 },
-  label: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   input: {
     height: 42,
     borderWidth: 1,

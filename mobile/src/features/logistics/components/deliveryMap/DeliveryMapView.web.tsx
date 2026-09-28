@@ -116,20 +116,25 @@ export const DeliveryMapView: React.FC<Props> = ({
         };
       });
 
-    const polyData = (polylineCoords && polylineCoords.length > 0)
-      ? polylineCoords.map(p => [p.latitude, p.longitude])
-      : [];
+    const polyData =
+      polylineCoords && polylineCoords.length > 0
+        ? polylineCoords.map((p) => [p.latitude, p.longitude])
+        : [];
 
-    const hasDriverLocation = Boolean(driverCoords && driverCoords.latitude && driverCoords.longitude);
+    const hasDriverLocation = Boolean(
+      driverCoords && driverCoords.latitude && driverCoords.longitude
+    );
 
-    const teamData = (teamMembers || []).map(m => ({
+    const teamData = (teamMembers || []).map((m) => ({
       userId: m.userId,
       userName: String(m.userName || 'Membro da Equipe').replace(/'/g, "\\'"),
       shortName: String((m.userName || 'Membro').split(' ')[0]).replace(/'/g, "\\'"),
       lat: m.coords.latitude,
       lng: m.coords.longitude,
       isDisconnectedOrNoGps: m.isDisconnectedOrNoGps,
-      lastSeenTime: m.lastSeen ? new Date(m.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+      lastSeenTime: m.lastSeen
+        ? new Date(m.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : '',
     }));
 
     return `
@@ -342,7 +347,16 @@ export const DeliveryMapView: React.FC<Props> = ({
 </body>
 </html>
     `;
-  }, [items, driverCoords, storeCoords, polylineCoords, isDarkMode, defaultLat, defaultLng, teamMembers]);
+  }, [
+    items,
+    driverCoords,
+    storeCoords,
+    polylineCoords,
+    isDarkMode,
+    defaultLat,
+    defaultLng,
+    teamMembers,
+  ]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -423,4 +437,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
   },
 });
-

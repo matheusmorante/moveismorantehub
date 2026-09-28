@@ -1,7 +1,13 @@
 import { erpAgentTools } from './geminiToolDeclarations';
 import { GeminiToolDispatcher } from './geminiToolDispatcher';
 import { GeminiClient } from './geminiClient';
-import { GeminiContent, GeminiPart, AgentExecutionResult, ExecutedToolRecord, AgentPageContext } from './geminiAgentTypes';
+import {
+  GeminiContent,
+  GeminiPart,
+  AgentExecutionResult,
+  ExecutedToolRecord,
+  AgentPageContext,
+} from './geminiAgentTypes';
 
 // Orquestrador conversacional do Agente Lizandro com Function Calling nativo
 
@@ -11,7 +17,15 @@ export class GeminiAgentService {
   public static buildSystemInstruction(pageContext?: AgentPageContext): string {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const diasSemana = [
+      'Domingo',
+      'Segunda-feira',
+      'Terça-feira',
+      'Quarta-feira',
+      'Quinta-feira',
+      'Sexta-feira',
+      'Sábado',
+    ];
     const diaNome = diasSemana[now.getDay()];
 
     const contextSnippet = pageContext
@@ -145,11 +159,11 @@ SUAS REGRAS FUNDAMENTAIS:
       conversation.push(modelContent);
 
       const functionCalls = modelContent.parts
-        .filter(p => Boolean(p.functionCall))
-        .map(p => p.functionCall!);
+        .filter((p) => Boolean(p.functionCall))
+        .map((p) => p.functionCall!);
 
       if (functionCalls.length === 0) {
-        const textParts = modelContent.parts.map(p => p.text || '').filter(Boolean);
+        const textParts = modelContent.parts.map((p) => p.text || '').filter(Boolean);
         const finalAnswer = textParts.join('\n').trim();
         return {
           result: { answer: finalAnswer || 'Ação concluída com sucesso.', executedTools },

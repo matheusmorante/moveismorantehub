@@ -23,20 +23,19 @@ export const PendingApprovalScreen: React.FC<Props> = ({
         </View>
 
         <Text style={[styles.title, isDarkMode && styles.textLight]}>Aguardando Cargo</Text>
-        
+
         <Text style={styles.description}>
-          Olá, <Text style={styles.boldText}>{fullName || 'Colaborador'}</Text>! Sua conta ({userEmail}) foi criada no sistema, mas você ainda não possui um cargo atribuído.
+          Olá, <Text style={styles.boldText}>{fullName || 'Colaborador'}</Text>! Sua conta (
+          {userEmail}) foi criada no sistema, mas você ainda não possui um cargo atribuído.
         </Text>
 
         <Text style={styles.alertNote}>
-          Aguarde um administrador te dar um cargo para liberar o acesso às abas operacionais do aplicativo.
+          Aguarde um administrador te dar um cargo para liberar o acesso às abas operacionais do
+          aplicativo.
         </Text>
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.btnLogout}
-            onPress={onLogout}
-          >
+          <TouchableOpacity style={styles.btnLogout} onPress={onLogout}>
             <LogOut size={18} color="#ef4444" style={{ marginRight: 8 }} />
             <Text style={styles.btnTextLogout}>SAIR DO APLICATIVO</Text>
           </TouchableOpacity>

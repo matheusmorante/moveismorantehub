@@ -41,8 +41,16 @@ export function dbRowToTemplate(row: PostTemplateDbRow): PostTemplate {
     fields: row.fields || [],
     layout: row.layout || [],
     reservedAreas: row.reserved_areas || [],
-    imageRules: row.image_rules || { preserveProduct: true, generateEnvironment: true, fit: 'contain' },
-    generationConfig: row.generation_config || { provider: 'gemini', model: 'gemini-2.5-flash-image', referenceImageRequired: true },
+    imageRules: row.image_rules || {
+      preserveProduct: true,
+      generateEnvironment: true,
+      fit: 'contain',
+    },
+    generationConfig: row.generation_config || {
+      provider: 'gemini',
+      model: 'gemini-2.5-flash-image',
+      referenceImageRequired: true,
+    },
     assets: row.assets || [],
     extras: row.extras || [],
     status: (row.status || 'ACTIVE') as any,

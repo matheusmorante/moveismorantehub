@@ -1,9 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  Alert,
+} from 'react-native';
 import { useInventoryOperation } from '../hooks/useInventoryOperation';
 import { matchScannedProductItem } from '../../../../utils/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
-import { ensureOfflineInventoryCatalogSynced, findOfflineInventoryMatch, type OfflineInventoryMatch } from '../services/offlineInventoryCatalog';
+import {
+  ensureOfflineInventoryCatalogSynced,
+  findOfflineInventoryMatch,
+  type OfflineInventoryMatch,
+} from '../services/offlineInventoryCatalog';
 import { InventoryScannerScreen, type InventoryScanFeedback } from './InventoryScannerScreen';
 import { InventoryStagesView } from '../components/InventoryStagesView';
 import { InventoryFocusMode } from '../components/InventoryFocusMode';
@@ -51,21 +64,24 @@ export const InventoryOperationScreen: React.FC<Props> = ({
   const activeItems = React.useMemo(() => {
     if (scopeType !== 'full') return items;
     if (!activeStage) return [];
-    return items.filter(item => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
+    return items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
   }, [items, scopeType, activeStage]);
   const scannerItems = scopeType === 'full' && activeStage ? activeItems : items;
 
-  const { filter, setFilter, search, setSearch, filteredItems } = useInventoryOperation(activeItems);
+  const { filter, setFilter, search, setSearch, filteredItems } =
+    useInventoryOperation(activeItems);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const countedItems = activeItems.filter(i => i.physicalCount !== null);
-  const progressPercent = activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
+  const countedItems = activeItems.filter((i) => i.physicalCount !== null);
+  const progressPercent =
+    activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
   const isShowingStages = scopeType === 'full' && !activeStage;
 
   const handleScan = async (data: string): Promise<InventoryScanFeedback> => {
-    const findDirect = (source: AuditItem[]) => source.find(i => matchScannedProductItem(i, data));
+    const findDirect = (source: AuditItem[]) =>
+      source.find((i) => matchScannedProductItem(i, data));
     let item = findDirect(scannerItems);
     let otherSupplierItem = !item && activeStage ? findDirect(items) : undefined;
 
@@ -82,49 +98,72 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       }
     }
     if (catalogItem) {
-      const matchesCatalog = (candidate: AuditItem) => String(candidate.variationId || '') === catalogItem.variationId
-        || (String(candidate.productId) === catalogItem.productId && !candidate.variationId);
+      const matchesCatalog = (candidate: AuditItem) =>
+        String(candidate.variationId || '') === catalogItem.variationId ||
+        (String(candidate.productId) === catalogItem.productId && !candidate.variationId);
       item = scannerItems.find(matchesCatalog);
       if (!item && activeStage) otherSupplierItem = items.find(matchesCatalog);
     }
 
     if (!item) {
-      if (otherSupplierItem) return { kind: 'error', title: 'Produto de outro fornecedor', message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada.` };
+      if (otherSupplierItem)
+        return {
+          kind: 'error',
+          title: 'Produto de outro fornecedor',
+          message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada.`,
+        };
       return { kind: 'error', title: 'Produto não pertence a este inventário' };
     }
 
     try {
       const physicalLabelId = getPhysicalInventoryScanId(data);
       const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
-      if (nextCount === null) return { kind: 'warning', title: 'Unidade física já contabilizada', message: item.name };
+      if (nextCount === null)
+        return { kind: 'warning', title: 'Unidade física já contabilizada', message: item.name };
       await playInventoryCountSound();
-      return { kind: 'success', title: item.name, sku: item.sku || item.code || item.barcode || '—',
-        supplier: activeStage ? undefined : item.assignedSupplier || 'Sem fornecedor', quantity: nextCount, itemId: item.id,
-        message: item.isActive === false ? `Produto desativado — ${nextCount} ${nextCount === 1 ? 'unidade encontrada' : 'unidades encontradas'}` : undefined };
+      return {
+        kind: 'success',
+        title: item.name,
+        sku: item.sku || item.code || item.barcode || '—',
+        supplier: activeStage ? undefined : item.assignedSupplier || 'Sem fornecedor',
+        quantity: nextCount,
+        itemId: item.id,
+        message:
+          item.isActive === false
+            ? `Produto desativado — ${nextCount} ${nextCount === 1 ? 'unidade encontrada' : 'unidades encontradas'}`
+            : undefined,
+      };
     } catch (error) {
       console.error('[Inventory] Falha ao salvar leitura:', error);
-      return { kind: 'error', title: 'Falha ao salvar a contagem local', message: 'Verifique o armazenamento do aparelho antes de continuar.' };
+      return {
+        kind: 'error',
+        title: 'Falha ao salvar a contagem local',
+        message: 'Verifique o armazenamento do aparelho antes de continuar.',
+      };
     }
   };
 
   return (
-    <KeyboardAvoidingView style={[styles.container, { backgroundColor: bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <InventoryOperationHeader
         isDarkMode={isDarkMode}
         title={activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
         countedCount={countedItems.length}
         totalCount={activeItems.length}
         progressPercent={progressPercent}
-        onBack={activeStage ? () => setActiveStage(null) : (onCancel || (() => {}))}
+        onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
         onOpenScanner={() => setShowScanner(true)}
       />
 
       {isShowingStages ? (
         <View style={{ flex: 1 }}>
-          <InventoryStagesView 
-            items={items} 
-            isDarkMode={isDarkMode} 
-            onSelectStage={setActiveStage} 
+          <InventoryStagesView
+            items={items}
+            isDarkMode={isDarkMode}
+            onSelectStage={setActiveStage}
           />
         </View>
       ) : (
@@ -141,7 +180,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
 
           <FlatList
             data={filteredItems}
-            keyExtractor={i => i.id}
+            keyExtractor={(i) => i.id}
             renderItem={({ item }) => (
               <InventoryOperationItemCard
                 item={item}
@@ -150,7 +189,7 @@ export const InventoryOperationScreen: React.FC<Props> = ({
                 onUpdateCount={(it, count) => onUpdateCount(it.id, count)}
                 onOpenProductSearch={onOpenProductSearch}
                 onFocusItem={() => {
-                  const idx = activeItems.findIndex(i => i.id === item.id);
+                  const idx = activeItems.findIndex((i) => i.id === item.id);
                   if (idx >= 0) setFocusIndex(idx);
                 }}
               />
@@ -168,23 +207,41 @@ export const InventoryOperationScreen: React.FC<Props> = ({
       <InventoryOperationFooter
         isDarkMode={isDarkMode}
         activeStage={activeStage}
-        onBack={activeStage ? () => setActiveStage(null) : (onCancel || (() => {}))}
+        onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
         onReview={onReview}
       />
 
-      <Modal visible={showScanner} animationType="slide" onRequestClose={() => { void onFlushLocalWrites().then(() => setShowScanner(false)).catch(() => Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')); }}>
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        onRequestClose={() => {
+          void onFlushLocalWrites()
+            .then(() => setShowScanner(false))
+            .catch(() =>
+              Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')
+            );
+        }}
+      >
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
-          onClose={() => { void onFlushLocalWrites().then(() => setShowScanner(false)).catch(() => Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')); }}
+          onClose={() => {
+            void onFlushLocalWrites()
+              .then(() => setShowScanner(false))
+              .catch(() =>
+                Alert.alert('Falha ao salvar', 'Aguarde a contagem ser gravada antes de sair.')
+              );
+          }}
           onScan={handleScan}
           continuous
           title={activeStage ? `Contagem — ${activeStage}` : 'Contagem geral'}
-          subtitle={activeStage ? 'Somente produtos deste fornecedor' : 'Produtos de todos os fornecedores'}
+          subtitle={
+            activeStage ? 'Somente produtos deste fornecedor' : 'Produtos de todos os fornecedores'
+          }
           description="Aponte para o QR Code da etiqueta"
         />
       </Modal>
 
-      <InventoryFocusMode 
+      <InventoryFocusMode
         visible={focusIndex !== null}
         items={activeItems}
         initialItemIndex={focusIndex || 0}

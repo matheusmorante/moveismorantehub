@@ -15,13 +15,21 @@ export interface MobileEnvironment extends MobileCategory {
 }
 
 export const fetchMobileEnvironments = async (): Promise<MobileEnvironment[]> => {
-  const { data: envs, error } = await supabase.from('categories').select('*').eq('type', 'environment').order('name');
+  const { data: envs, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('type', 'environment')
+    .order('name');
   if (error) throw error;
-  const { data: links, error: linksError } = await supabase.from('category_relationships').select('parent_id, child_id');
+  const { data: links, error: linksError } = await supabase
+    .from('category_relationships')
+    .select('parent_id, child_id');
   if (linksError) throw linksError;
   return (envs || []).map((env: any) => ({
     ...env,
-    categoryIds: (links || []).filter((link: any) => link.parent_id === env.id).map((link: any) => link.child_id),
+    categoryIds: (links || [])
+      .filter((link: any) => link.parent_id === env.id)
+      .map((link: any) => link.child_id),
   }));
 };
 
@@ -30,25 +38,42 @@ export const saveMobileEnvironment = async (name: string, categoryIds: string[],
   if (!trimmed) return null;
   let environmentId = id;
   if (id) {
-    const { data, error } = await supabase.from('categories').update({ name: trimmed, type: 'environment' }).eq('id', id).select('*').single();
+    const { data, error } = await supabase
+      .from('categories')
+      .update({ name: trimmed, type: 'environment' })
+      .eq('id', id)
+      .select('*')
+      .single();
     if (error) throw error;
     environmentId = data.id;
   } else {
-    const { data, error } = await supabase.from('categories').insert([{ name: trimmed, type: 'environment' }]).select('*').single();
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([{ name: trimmed, type: 'environment' }])
+      .select('*')
+      .single();
     if (error) throw error;
     environmentId = data.id;
   }
-  const { error: deleteError } = await supabase.from('category_relationships').delete().eq('parent_id', environmentId);
+  const { error: deleteError } = await supabase
+    .from('category_relationships')
+    .delete()
+    .eq('parent_id', environmentId);
   if (deleteError) throw deleteError;
   if (categoryIds.length > 0) {
-    const { error: insertError } = await supabase.from('category_relationships').insert(categoryIds.map(child_id => ({ parent_id: environmentId, child_id })));
+    const { error: insertError } = await supabase
+      .from('category_relationships')
+      .insert(categoryIds.map((child_id) => ({ parent_id: environmentId, child_id })));
     if (insertError) throw insertError;
   }
   return environmentId;
 };
 
 export const deleteMobileEnvironment = async (id: string) => {
-  const { count, error: relationError } = await supabase.from('category_relationships').select('child_id', { count: 'exact', head: true }).eq('parent_id', id);
+  const { count, error: relationError } = await supabase
+    .from('category_relationships')
+    .select('child_id', { count: 'exact', head: true })
+    .eq('parent_id', id);
   if (relationError) throw relationError;
   if ((count || 0) > 0) throw new Error('Desvincule as categorias antes de excluir este ambiente.');
   const { error } = await supabase.from('categories').delete().eq('id', id);
@@ -79,7 +104,8 @@ export const fetchMobileCategories = async (): Promise<MobileCategory[]> => {
       .filter((cat: any) => cat.type !== 'environment')
       .map((cat: any) => ({
         ...cat,
-        parents: relData?.filter((r: any) => r.child_id === cat.id).map((r: any) => r.parent_id) || []
+        parents:
+          relData?.filter((r: any) => r.child_id === cat.id).map((r: any) => r.parent_id) || [],
       }));
 
     return categoriesWithParents;
@@ -93,7 +119,7 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
   try {
     const [pcRes, prodRes] = await Promise.all([
       supabase.from('product_categories').select('category_id, product_id'),
-      supabase.from('products').select('id, category_id').not('category_id', 'is', null)
+      supabase.from('products').select('id, category_id').not('category_id', 'is', null),
     ]);
 
     const countsMap: Record<string, Set<string>> = {};
@@ -113,7 +139,7 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
     });
 
     const result: Record<string, number> = {};
-    Object.keys(countsMap).forEach(key => {
+    Object.keys(countsMap).forEach((key) => {
       result[key] = countsMap[key].size;
     });
 
@@ -124,7 +150,9 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
   }
 };
 
-export const fetchMobileCategoryRequiredAttributes = async (categoryId: string): Promise<{ id: string; name: string }[]> => {
+export const fetchMobileCategoryRequiredAttributes = async (
+  categoryId: string
+): Promise<{ id: string; name: string }[]> => {
   try {
     const { data, error } = await supabase
       .from('category_attributes')
@@ -149,7 +177,10 @@ export const fetchMobileCategoryRequiredAttributes = async (categoryId: string):
   }
 };
 
-export const unlinkMobileCategoryFromEnvironment = async (environmentId: string, categoryId: string): Promise<void> => {
+export const unlinkMobileCategoryFromEnvironment = async (
+  environmentId: string,
+  categoryId: string
+): Promise<void> => {
   const { error } = await supabase
     .from('category_relationships')
     .delete()
@@ -208,7 +239,7 @@ export const saveMobileCategory = async (
     if (relDelErr) throw relDelErr;
 
     if (envIds.length > 0) {
-      const links = envIds.map(eid => ({ parent_id: eid, child_id: actualId }));
+      const links = envIds.map((eid) => ({ parent_id: eid, child_id: actualId }));
       const { error: relInsErr } = await supabase.from('category_relationships').insert(links);
       if (relInsErr) throw relInsErr;
     }
@@ -224,7 +255,7 @@ export const saveMobileCategory = async (
 
     const uniqueAttrIds = [...new Set(attributeIds)];
     if (uniqueAttrIds.length > 0) {
-      const attrLinks = uniqueAttrIds.map(attrId => ({
+      const attrLinks = uniqueAttrIds.map((attrId) => ({
         category_id: actualId,
         attribute_id: attrId,
         is_required: true,
@@ -243,14 +274,19 @@ export const deleteMobileCategory = async (id: string): Promise<void> => {
   }
 
   const [relationCheck, directCheck] = await Promise.all([
-    supabase.from('product_categories').select('product_id', { count: 'exact', head: true }).eq('category_id', id),
+    supabase
+      .from('product_categories')
+      .select('product_id', { count: 'exact', head: true })
+      .eq('category_id', id),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('category_id', id),
   ]);
   if (relationCheck.error) throw relationCheck.error;
   if (directCheck.error) throw directCheck.error;
   const count = (relationCheck.count || 0) + (directCheck.count || 0);
   if (count > 0) {
-    throw new Error(`Não é possível excluir esta categoria porque ela está sendo utilizada por ${count} produto${count > 1 ? 's' : ''}. Remova ou altere os vínculos antes de excluí-la.`);
+    throw new Error(
+      `Não é possível excluir esta categoria porque ela está sendo utilizada por ${count} produto${count > 1 ? 's' : ''}. Remova ou altere os vínculos antes de excluí-la.`
+    );
   }
 
   const { error: attrError } = await supabase

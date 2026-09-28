@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Calendar, CheckCircle2, AlertTriangle, CreditCard, DollarSign } from 'lucide-react-native';
 import {
   FinancialTransaction,
@@ -12,10 +20,7 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-export const PayableAccountsView: React.FC<Props> = ({
-  onAccountPaid,
-  isDarkMode = false,
-}) => {
+export const PayableAccountsView: React.FC<Props> = ({ onAccountPaid, isDarkMode = false }) => {
   const [payables, setPayables] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -89,14 +94,12 @@ export const PayableAccountsView: React.FC<Props> = ({
           <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
             Nenhuma conta a pagar pendente
           </Text>
-          <Text style={styles.emptySubtitle}>
-            Todas as contas e boletos estão em dia!
-          </Text>
+          <Text style={styles.emptySubtitle}>Todas as contas e boletos estão em dia!</Text>
         </View>
       ) : (
         <FlatList
           data={payables}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => {
             const isOverdue = new Date(item.due_date || item.date) < new Date();
@@ -110,9 +113,23 @@ export const PayableAccountsView: React.FC<Props> = ({
                     <Text style={styles.categoryName}>{item.category_name || 'Despesa'}</Text>
                   </View>
 
-                  <View style={[styles.statusBadge, isOverdue ? styles.badgeOverdue : styles.badgePending]}>
-                    {isOverdue ? <AlertTriangle size={12} color="#dc2626" /> : <Calendar size={12} color="#d97706" />}
-                    <Text style={[styles.statusBadgeText, isOverdue ? styles.textOverdue : styles.textPending]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      isOverdue ? styles.badgeOverdue : styles.badgePending,
+                    ]}
+                  >
+                    {isOverdue ? (
+                      <AlertTriangle size={12} color="#dc2626" />
+                    ) : (
+                      <Calendar size={12} color="#d97706" />
+                    )}
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isOverdue ? styles.textOverdue : styles.textPending,
+                      ]}
+                    >
                       {isOverdue ? 'Atrasado' : 'Pendente'}
                     </Text>
                   </View>

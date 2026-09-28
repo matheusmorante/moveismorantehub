@@ -63,7 +63,7 @@ export function toAbsoluteHttpsUrl(rawUrl: string, baseUrl = DEFAULT_BASE_URL): 
 
 export function isForbiddenProductImageUrl(url: string): boolean {
   if (!url) return true;
-  return FORBIDDEN_PATTERNS.some(pattern => pattern.test(url));
+  return FORBIDDEN_PATTERNS.some((pattern) => pattern.test(url));
 }
 
 export function extractVariationName(
@@ -78,9 +78,7 @@ export function extractVariationName(
   return `Variação ${index + 1}`;
 }
 
-export function resolveProductImages(
-  input: ResolveProductImagesInput
-): {
+export function resolveProductImages(input: ResolveProductImagesInput): {
   productImages: PostProductImagesSpec;
   validation: PostProductImagesValidation;
 } {
@@ -93,7 +91,11 @@ export function resolveProductImages(
   if (!product) {
     return {
       productImages: { primary: null, openView: null, variations: [], primaryVariation: null },
-      validation: { valid: false, errors: ['Produto não fornecido para resolução de imagens.'], warnings: [] },
+      validation: {
+        valid: false,
+        errors: ['Produto não fornecido para resolução de imagens.'],
+        warnings: [],
+      },
     };
   }
 
@@ -101,8 +103,8 @@ export function resolveProductImages(
   const rawVariationsList = Array.isArray(product.variations)
     ? product.variations
     : Array.isArray((product as any).product_variations)
-    ? (product as any).product_variations
-    : [];
+      ? (product as any).product_variations
+      : [];
 
   const rawVariations = rawVariationsList.filter((v: any) => v.active !== false);
 
@@ -118,8 +120,8 @@ export function resolveProductImages(
         ...extractPostProductImageUrls(v.photos),
       ];
       const validUrls = rawImgs
-        .map(u => toAbsoluteHttpsUrl(u, baseUrl))
-        .filter(u => Boolean(u) && !isForbiddenProductImageUrl(u));
+        .map((u) => toAbsoluteHttpsUrl(u, baseUrl))
+        .filter((u) => Boolean(u) && !isForbiddenProductImageUrl(u));
       variationsList.push({ id, name, images: validUrls });
     });
   } else {
@@ -133,15 +135,15 @@ export function resolveProductImages(
       ...extractPostProductImageUrls((product as any).product_images),
     ];
     const validUrls = rawImgs
-      .map(u => toAbsoluteHttpsUrl(u, baseUrl))
-      .filter(u => Boolean(u) && !isForbiddenProductImageUrl(u));
+      .map((u) => toAbsoluteHttpsUrl(u, baseUrl))
+      .filter((u) => Boolean(u) && !isForbiddenProductImageUrl(u));
     variationsList.push({ id, name, images: validUrls });
   }
 
   // Identificar variação primária
   let primaryVar = variationsList[0];
   if (input.selectedVariationId) {
-    const found = variationsList.find(v => v.id === input.selectedVariationId);
+    const found = variationsList.find((v) => v.id === input.selectedVariationId);
     if (found) primaryVar = found;
   }
 
@@ -212,7 +214,7 @@ export function resolveProductImages(
   // 3. Galeria de Demais Variações: Primeira foto de CADA UMA DAS OUTRAS variações
   // A 1ª variação (variação principal) já está representada em PRIMARY (foto 1) e OPEN_VIEW (foto 2).
   // Portanto, a lista de variações complementares deve conter apenas a 2ª, 3ª, etc. variações.
-  const additionalVariations = variationsList.filter(v => v.id !== primaryVar?.id);
+  const additionalVariations = variationsList.filter((v) => v.id !== primaryVar?.id);
   const variationImages: ProductVariationImageReference[] = [];
   const seenUrls = new Set<string>();
 
@@ -221,9 +223,12 @@ export function resolveProductImages(
       ? toAbsoluteHttpsUrl(overrides.variationUrls[v.id], baseUrl)
       : undefined;
 
-    const chosenUrl = (manualVarUrl && !isForbiddenProductImageUrl(manualVarUrl))
-      ? manualVarUrl
-      : (v.images.length > 0 ? v.images[0] : null);
+    const chosenUrl =
+      manualVarUrl && !isForbiddenProductImageUrl(manualVarUrl)
+        ? manualVarUrl
+        : v.images.length > 0
+          ? v.images[0]
+          : null;
 
     if (chosenUrl) {
       variationImages.push({
@@ -290,13 +295,13 @@ O PRODUTO NÃO.`;
 
 export function renderProductImagesPromptSection(
   productImages?: PostProductImagesSpec | null,
-  options: { localFilesOnly?: boolean } = {},
+  options: { localFilesOnly?: boolean } = {}
 ): string {
   if (!productImages) return '';
 
   /** Retorna a referência da imagem: arquivo local no ZIP ou URL apenas no preview comum. */
   function imageRef(
-    ref: { file?: string | null; url: string } | null | undefined,
+    ref: { file?: string | null; url: string } | null | undefined
   ): { label: 'Arquivo' | 'URL'; value: string } | null {
     if (!ref) return null;
     if (ref.file) return { label: 'Arquivo', value: ref.file };
@@ -343,7 +348,9 @@ export function renderProductImagesPromptSection(
     lines.push('');
     lines.push('Use esta fotografia como referência complementar do produto.');
     lines.push('Ela pode ser o móvel aberto, em ângulo diferente, detalhe ou espaço interno.');
-    lines.push('Quando presente na composição, deve aparecer flutuando, sem borda e de forma limpa.');
+    lines.push(
+      'Quando presente na composição, deve aparecer flutuando, sem borda e de forma limpa.'
+    );
     lines.push('NÃO sobreponha textos, setas ou rótulos como "material de qualidade",');
     lines.push('"amplo espaço interno", "design moderno" ou "mais organização para o seu dia".');
     lines.push('');
@@ -355,25 +362,39 @@ export function renderProductImagesPromptSection(
     lines.push('VARIAÇÕES DISPONÍVEIS (DEMAIS OPÇÕES DE CORES)');
     lines.push('');
     lines.push('REGRA OBRIGATÓRIA DA GALERIA DE CORES / VARIAÇÕES:');
-    lines.push(`- O móvel principal em destaque no post já é a Variação 1 (${productImages.primaryVariation?.name || 'Cor Principal'}).`);
-    lines.push('- Na galeria secundária ("Disponível nas Cores"), apresente EXCLUSIVAMENTE as DEMAIS variações listadas abaixo.');
-    lines.push('- É ESTRITAMENTE PROIBIDO incluir a Variação 1 (cor principal) na galeria secundária de cores.');
+    lines.push(
+      `- O móvel principal em destaque no post já é a Variação 1 (${productImages.primaryVariation?.name || 'Cor Principal'}).`
+    );
+    lines.push(
+      '- Na galeria secundária ("Disponível nas Cores"), apresente EXCLUSIVAMENTE as DEMAIS variações listadas abaixo.'
+    );
+    lines.push(
+      '- É ESTRITAMENTE PROIBIDO incluir a Variação 1 (cor principal) na galeria secundária de cores.'
+    );
     lines.push('- Aplique borda branca SOMENTE nas miniaturas destas variações adicionais.');
     lines.push('- Não aplique borda branca à imagem principal nem à imagem secundária.');
     lines.push('');
     for (const v of productImages.variations) {
       const vRef = v.file
         ? { label: 'Arquivo', value: v.file }
-        : (!options.localFilesOnly && v.url ? { label: 'URL', value: v.url } : null);
+        : !options.localFilesOnly && v.url
+          ? { label: 'URL', value: v.url }
+          : null;
       if (!vRef) continue;
       lines.push(`**Variação: ${v.variationName}**`);
       lines.push(`- Atributo (Cor / Acabamento): "${v.variationName}"`);
-      lines.push(`- Reconhecimento visual: identifique a foto correspondente observando o móvel com cor/acabamento "${v.variationName}".`);
+      lines.push(
+        `- Reconhecimento visual: identifique a foto correspondente observando o móvel com cor/acabamento "${v.variationName}".`
+      );
       lines.push(`- ${vRef.label}: \`${vRef.value}\``);
       lines.push('');
     }
-    lines.push('Cada imagem/arquivo acima pertence à respectiva variação indicada pelo atributo de cor/acabamento.');
-    lines.push('NÃO misture cores, acabamento, portas, puxadores ou estrutura entre variações diferentes.');
+    lines.push(
+      'Cada imagem/arquivo acima pertence à respectiva variação indicada pelo atributo de cor/acabamento.'
+    );
+    lines.push(
+      'NÃO misture cores, acabamento, portas, puxadores ou estrutura entre variações diferentes.'
+    );
     lines.push('');
   } else {
     lines.push(subSep);
@@ -381,20 +402,32 @@ export function renderProductImagesPromptSection(
     lines.push('PRODUTO DE COR ÚNICA (SEM OUTRAS VARIAÇÕES DISPONÍVEIS)');
     lines.push('');
     lines.push('REGRA MANDATÓRIA:');
-    lines.push('- Este produto NÃO possui outras cores disponíveis e nenhuma outra fotografia de variação foi enviada.');
-    lines.push('- É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES".');
-    lines.push('- É ESTRITAMENTE PROIBIDO inventar variações 2 ou 3 fictícias na arte ou no texto.');
-    lines.push('- A composição deve exibir EXCLUSIVAMENTE a fotografia da Variação 1 (e a secundária flutuante, se enviada).');
+    lines.push(
+      '- Este produto NÃO possui outras cores disponíveis e nenhuma outra fotografia de variação foi enviada.'
+    );
+    lines.push(
+      '- É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES".'
+    );
+    lines.push(
+      '- É ESTRITAMENTE PROIBIDO inventar variações 2 ou 3 fictícias na arte ou no texto.'
+    );
+    lines.push(
+      '- A composição deve exibir EXCLUSIVAMENTE a fotografia da Variação 1 (e a secundária flutuante, se enviada).'
+    );
     lines.push('');
   }
 
   lines.push(sep);
   lines.push('FIDELIDADE VISUAL OBRIGATÓRIA');
   lines.push(sep);
-  lines.push('A IMAGEM PRINCIPAL e as imagens complementares são a fonte visual de verdade do móvel.');
+  lines.push(
+    'A IMAGEM PRINCIPAL e as imagens complementares são a fonte visual de verdade do móvel.'
+  );
   lines.push('A IA pode criar: ambiente, decoração, iluminação e composição publicitária.');
   lines.push('A IA NÃO pode criar outro móvel.');
-  lines.push('Preservar exatamente as características visuais observáveis nas fotografias oficiais.');
+  lines.push(
+    'Preservar exatamente as características visuais observáveis nas fotografias oficiais.'
+  );
 
   return lines.join('\n');
 }

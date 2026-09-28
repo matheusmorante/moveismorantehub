@@ -7,16 +7,15 @@ import {
   resolveModelAssets,
   validateGenerationPreFlight,
 } from '../services/postModelAssetResolver';
-import {
-  assemblePreviewPrompt,
-} from '../services/postModelPreviewGenerator';
+import { assemblePreviewPrompt } from '../services/postModelPreviewGenerator';
 import { postGenerationGuidelines } from '../services/postGenerationGuidelines';
 import { buildPostTemplateDraft } from '../services/postTemplateDraft';
-import { getPostModelPreviewCacheKey, readPostModelPreviewCache, writePostModelPreviewCache } from '../services/postModelPreviewCache';
 import {
-  GenerationContextData,
-  GenerationContextModal,
-} from './GenerationContextModal';
+  getPostModelPreviewCacheKey,
+  readPostModelPreviewCache,
+  writePostModelPreviewCache,
+} from '../services/postModelPreviewCache';
+import { GenerationContextData, GenerationContextModal } from './GenerationContextModal';
 
 interface Props {
   value?: PostTemplate;
@@ -47,7 +46,9 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
   // Estados do Preview e Debug
   const [previewImage, setPreviewImage] = useState<string>();
   const [previewHash, setPreviewHash] = useState('');
-  const [previewStatus, setPreviewStatus] = useState<'updated' | 'stale' | 'incomplete' | 'none'>('none');
+  const [previewStatus, setPreviewStatus] = useState<'updated' | 'stale' | 'incomplete' | 'none'>(
+    'none'
+  );
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [debugModalOpen, setDebugModalOpen] = useState(false);
@@ -61,7 +62,17 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
   }, [value?.id]);
 
   const draft: PostTemplate = useMemo(
-    () => buildPostTemplateDraft({ value, name, description, prompt, format, assets, extras, now: new Date().toISOString() }),
+    () =>
+      buildPostTemplateDraft({
+        value,
+        name,
+        description,
+        prompt,
+        format,
+        assets,
+        extras,
+        now: new Date().toISOString(),
+      }),
     [value, name, description, prompt, format, assets, extras]
   );
 
@@ -92,7 +103,15 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
       assets: assets.map((a) => [a.id, a.name, a.fileUrl]),
       referenceUrl: resolvedAssets.primaryVisualReference?.fileUrl || '',
     });
-  }, [prompt, format, editor.opportunity?.name, editor.data, productImages, assets, resolvedAssets]);
+  }, [
+    prompt,
+    format,
+    editor.opportunity?.name,
+    editor.data,
+    productImages,
+    assets,
+    resolvedAssets,
+  ]);
 
   // Recupera preview salvo no localStorage
   useEffect(() => {
@@ -122,7 +141,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
             name: editor.data.name,
             price: editor.data.price,
             oldPrice: editor.data.oldPrice,
-              installmentValue: (editor.data as any).installmentValue,
+            installmentValue: (editor.data as any).installmentValue,
             mainImageUrl: productImages.primary,
             category: editor.product?.category,
             description: editor.product?.description,
@@ -155,13 +174,25 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
       hasInstallmentAsset: !!resolvedAssets.installmentAsset,
       finalPrompt: finalPromptStr || prompt,
     };
-  }, [draft, editor.data, editor.product, editor.opportunity, format, productImages, resolvedAssets, prompt]);
+  }, [
+    draft,
+    editor.data,
+    editor.product,
+    editor.opportunity,
+    format,
+    productImages,
+    resolvedAssets,
+    prompt,
+  ]);
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
     const added = await Promise.all(
       [...files]
-        .filter((file) => /^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type) || file.type === 'application/pdf')
+        .filter(
+          (file) =>
+            /^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type) || file.type === 'application/pdf'
+        )
         .map(async (file) => ({
           id: crypto.randomUUID(),
           name: file.name,
@@ -197,10 +228,10 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
       const key = getPostModelPreviewCacheKey(draft.id, editor.product?.id || '', format);
       writePostModelPreviewCache(key, {
-          image: result.imageUrl,
-          hash: currentHash,
-          generatedAt: new Date().toISOString(),
-          provider: 'gemini',
+        image: result.imageUrl,
+        hash: currentHash,
+        generatedAt: new Date().toISOString(),
+        provider: 'gemini',
       });
 
       setPreviewImage(result.imageUrl);
@@ -254,9 +285,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
           {/* Coluna Esquerda: Formulário de Configuração */}
           <div className="overflow-y-auto p-5 space-y-4 border-r border-slate-800">
             <div className="relative">
-              <label className="block text-xs font-semibold text-slate-300">
-                Nome do Modelo *
-              </label>
+              <label className="block text-xs font-semibold text-slate-300">Nome do Modelo *</label>
               <input
                 required
                 className="mt-1 w-full rounded-lg bg-slate-950 border border-slate-800 p-2.5 text-sm text-white focus:border-indigo-500 outline-none"
@@ -275,12 +304,35 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
                 placeholder="Buscar produto por nome..."
                 value={editor.search}
                 onFocus={() => setProductResultsOpen(true)}
-                onChange={(e) => { editor.setSearch(e.target.value); setProductResultsOpen(true); }}
+                onChange={(e) => {
+                  editor.setSearch(e.target.value);
+                  setProductResultsOpen(true);
+                }}
               />
-              {productResultsOpen && <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-xl">
-                {editor.products.filter((p) => p.id).map((p) => <button key={p.id} type="button" onClick={() => { void editor.selectProduct(p.id!); setProductResultsOpen(false); }} className="block w-full rounded px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800">{p.name || p.title}</button>)}
-                {!editor.loading && editor.products.length === 0 && <p className="p-3 text-center text-xs text-slate-500">Nenhum produto encontrado.</p>}
-              </div>}
+              {productResultsOpen && (
+                <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-xl">
+                  {editor.products
+                    .filter((p) => p.id)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          void editor.selectProduct(p.id!);
+                          setProductResultsOpen(false);
+                        }}
+                        className="block w-full rounded px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800"
+                      >
+                        {p.name || p.title}
+                      </button>
+                    ))}
+                  {!editor.loading && editor.products.length === 0 && (
+                    <p className="p-3 text-center text-xs text-slate-500">
+                      Nenhum produto encontrado.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -316,8 +368,30 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
                     key={asset.id}
                     className="overflow-hidden rounded border border-slate-700 bg-slate-950 text-[11px] text-slate-300"
                   >
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-2 py-1.5"><span className="truncate font-medium" title={asset.name}>{asset.name}</span><button type="button" onClick={() => setAssets((curr) => curr.filter((a) => a.id !== asset.id))} className="text-slate-400 hover:text-rose-300">×</button></div>
-                    {asset.mimeType === 'application/pdf' || /\.pdf$/i.test(asset.name) ? <div className="flex h-20 items-center justify-center gap-2 text-rose-300"><i className="bi bi-file-earmark-pdf text-2xl" /><b>PDF</b></div> : <img src={asset.fileUrl} alt={asset.name} className="h-20 w-full object-contain p-1" />}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-2 py-1.5">
+                      <span className="truncate font-medium" title={asset.name}>
+                        {asset.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAssets((curr) => curr.filter((a) => a.id !== asset.id))}
+                        className="text-slate-400 hover:text-rose-300"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {asset.mimeType === 'application/pdf' || /\.pdf$/i.test(asset.name) ? (
+                      <div className="flex h-20 items-center justify-center gap-2 text-rose-300">
+                        <i className="bi bi-file-earmark-pdf text-2xl" />
+                        <b>PDF</b>
+                      </div>
+                    ) : (
+                      <img
+                        src={asset.fileUrl}
+                        alt={asset.name}
+                        className="h-20 w-full object-contain p-1"
+                      />
+                    )}
                   </article>
                 ))}
               </div>
@@ -355,7 +429,9 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
           <aside className="flex flex-col items-center justify-between bg-slate-950/80 p-5 overflow-y-auto">
             <div className="w-full flex items-center justify-between border-b border-slate-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <b className="text-xs uppercase tracking-wider text-slate-400">Preview Multimodal</b>
+                <b className="text-xs uppercase tracking-wider text-slate-400">
+                  Preview Multimodal
+                </b>
                 {previewStatus === 'updated' && (
                   <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
                     ✓ Atualizado
@@ -412,7 +488,8 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
               <span className="text-[11px] text-slate-400">
                 {productImages.primary ? (
                   <>
-                    Variações: <strong className="text-white">{productImages.variations.length}</strong>
+                    Variações:{' '}
+                    <strong className="text-white">{productImages.variations.length}</strong>
                     {productImages.secondary ? ' · 2ª foto inclusa' : ''}
                   </>
                 ) : (
@@ -429,8 +506,19 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
                 {previewBusy ? (
                   <>
                     <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
                     </svg>
                     <span>Gerando preview...</span>
                   </>
@@ -445,10 +533,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
       {/* Modal de Debug / Inspeção do Contexto da Geração */}
       {debugModalOpen && (
-        <GenerationContextModal
-          data={currentDebugData}
-          onClose={() => setDebugModalOpen(false)}
-        />
+        <GenerationContextModal data={currentDebugData} onClose={() => setDebugModalOpen(false)} />
       )}
     </div>
   );

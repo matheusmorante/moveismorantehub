@@ -51,5 +51,9 @@ const footer = `
 `;
 
 const fullContent = header + modalsLines.join('\n') + footer;
-fs.writeFileSync('erp/src/pages/App/Stock/LabelPrinting/sections/ModalsSection.tsx', fullContent, 'utf8');
+fs.writeFileSync(
+  'erp/src/pages/App/Stock/LabelPrinting/sections/ModalsSection.tsx',
+  fullContent,
+  'utf8'
+);
 console.log('ModalsSection re-written successfully!');

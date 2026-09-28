@@ -1,6 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Navigation, Play, Eye, CheckCircle2, MapPin, Package, Clock, Check, X, Truck, Wrench, RotateCcw } from 'lucide-react-native';
+import {
+  Navigation,
+  Play,
+  Eye,
+  CheckCircle2,
+  MapPin,
+  Package,
+  Clock,
+  Check,
+  X,
+  Truck,
+  Wrench,
+  RotateCcw,
+} from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
 
@@ -56,7 +69,8 @@ export const NextDeliveryCard: React.FC<Props> = ({
     onStartDelivery(activeItem);
   };
 
-  const isAssistance = activeItem.order?.orderType === 'assistance' || activeItem.order?.taskType === 'assistance';
+  const isAssistance =
+    activeItem.order?.orderType === 'assistance' || activeItem.order?.taskType === 'assistance';
   const isReturn =
     activeItem.order?.orderType === 'return' ||
     activeItem.order?.order_type === 'return' ||
@@ -65,14 +79,24 @@ export const NextDeliveryCard: React.FC<Props> = ({
     activeItem.order?.taskType === 'return';
   const isPickup = activeItem.order?.shipping?.deliveryMethod === 'pickup';
 
-  const allItems = [...(activeItem.order?.items || []), ...(activeItem.order?.assistanceItems || [])];
-  const hasOutsideAssembly = allItems.some(i => {
+  const allItems = [
+    ...(activeItem.order?.items || []),
+    ...(activeItem.order?.assistanceItems || []),
+  ];
+  const hasOutsideAssembly = allItems.some((i) => {
     const h = String(i?.handlingType || i?.handling || '').toLowerCase();
     return h.includes('fora') || h.includes('externa') || h.includes('cliente');
   });
-  const hasInternalAssembly = allItems.some(i => {
+  const hasInternalAssembly = allItems.some((i) => {
     const h = String(i?.handlingType || i?.handling || '').toLowerCase();
-    return (h.includes('loja') || h.includes('deposito') || h.includes('depósito') || h.includes('interna') || h.includes('montado')) && !h.includes('fora');
+    return (
+      (h.includes('loja') ||
+        h.includes('deposito') ||
+        h.includes('depósito') ||
+        h.includes('interna') ||
+        h.includes('montado')) &&
+      !h.includes('fora')
+    );
   });
 
   return (
@@ -81,11 +105,11 @@ export const NextDeliveryCard: React.FC<Props> = ({
       <View style={styles.headerRow}>
         {isInProgress ? (
           <View style={[styles.badge, styles.badgeProgress]}>
-            <Text style={[styles.badgeText, styles.badgeTextProgress]}>
-              EM ANDAMENTO
-            </Text>
+            <Text style={[styles.badgeText, styles.badgeTextProgress]}>EM ANDAMENTO</Text>
           </View>
-        ) : <View />}
+        ) : (
+          <View />
+        )}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {activeItem.orderIndex && (
@@ -115,10 +139,10 @@ export const NextDeliveryCard: React.FC<Props> = ({
             isReturn
               ? styles.opBadgeReturn
               : isAssistance
-              ? styles.opBadgeAssis
-              : isPickup
-              ? styles.opBadgePick
-              : styles.opBadgeDeliv,
+                ? styles.opBadgeAssis
+                : isPickup
+                  ? styles.opBadgePick
+                  : styles.opBadgeDeliv,
           ]}
         >
           {isReturn ? (
@@ -131,16 +155,34 @@ export const NextDeliveryCard: React.FC<Props> = ({
             <Truck size={10} color="#fff" />
           )}
           <Text style={styles.opBadgeText}>
-            {isReturn ? 'COLETA DE DEVOLUÇÃO' : isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}
+            {isReturn
+              ? 'COLETA DE DEVOLUÇÃO'
+              : isAssistance
+                ? 'ASSISTÊNCIA'
+                : isPickup
+                  ? 'RETIRADA'
+                  : 'ENTREGA'}
           </Text>
         </View>
         {hasInternalAssembly && (
-          <View style={[styles.opBadge, styles.opBadgeDepot, { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' }]}>
+          <View
+            style={[
+              styles.opBadge,
+              styles.opBadgeDepot,
+              { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' },
+            ]}
+          >
             <MobileDrill size={11} color="#fff" />
           </View>
         )}
         {hasOutsideAssembly && (
-          <View style={[styles.opBadge, styles.opBadgeOutside, { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' }]}>
+          <View
+            style={[
+              styles.opBadge,
+              styles.opBadgeOutside,
+              { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' },
+            ]}
+          >
             <MobileDrill size={11} color="#fff" />
           </View>
         )}
@@ -161,7 +203,12 @@ export const NextDeliveryCard: React.FC<Props> = ({
       {/* Métricas: Período/Janela, Distância, Duração e Itens */}
       <View style={styles.metricsRow}>
         {activeItem.periodLabel ? (
-          <View style={[styles.metricPill, activeItem.isFixedTime ? { backgroundColor: '#fffbeb' } : null]}>
+          <View
+            style={[
+              styles.metricPill,
+              activeItem.isFixedTime ? { backgroundColor: '#fffbeb' } : null,
+            ]}
+          >
             <Clock size={11} color={activeItem.isFixedTime ? '#d97706' : '#2563eb'} />
             <Text style={[styles.metricText, activeItem.isFixedTime ? { color: '#d97706' } : null]}>
               {activeItem.periodLabel}
@@ -179,7 +226,9 @@ export const NextDeliveryCard: React.FC<Props> = ({
         {activeItem.durationMin ? (
           <View style={styles.metricPill}>
             <Clock size={11} color="#64748b" />
-            <Text style={[styles.metricText, { color: '#64748b' }]}>~{activeItem.durationMin} min</Text>
+            <Text style={[styles.metricText, { color: '#64748b' }]}>
+              ~{activeItem.durationMin} min
+            </Text>
           </View>
         ) : null}
 
@@ -210,7 +259,9 @@ export const NextDeliveryCard: React.FC<Props> = ({
               activeOpacity={0.85}
             >
               <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Detalhes do pedido</Text>
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>
+                Detalhes do pedido
+              </Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -230,7 +281,9 @@ export const NextDeliveryCard: React.FC<Props> = ({
               activeOpacity={0.85}
             >
               <Eye size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>Detalhes do pedido</Text>
+              <Text style={[styles.compactSecondaryText, isDarkMode && styles.textMuted]}>
+                Detalhes do pedido
+              </Text>
             </TouchableOpacity>
           </>
         )}

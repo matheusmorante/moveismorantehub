@@ -33,9 +33,7 @@ export const DeliveryStepProgressIndicator: React.FC<Props> = ({ currentStep, is
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Título de Status da Etapa Atual */}
       <View style={styles.headerInfo}>
-        <Text style={styles.stepCounterText}>
-          ETAPA {currentStep} DE 3
-        </Text>
+        <Text style={styles.stepCounterText}>ETAPA {currentStep} DE 3</Text>
         <Text style={[styles.stepCurrentTitle, isDarkMode && styles.textLight]}>
           {currentStep === 1 && '📦 1. Preparação e Conferência de Mercadorias'}
           {currentStep === 2 && '🚚 2. Em Deslocamento / Rota para o Destino'}
@@ -67,11 +65,7 @@ export const DeliveryStepProgressIndicator: React.FC<Props> = ({ currentStep, is
 
               <View style={styles.stepItem}>
                 <View style={[styles.circleBadge, { backgroundColor: badgeBg }]}>
-                  {isDone ? (
-                    <Check size={14} color="#ffffff" strokeWidth={3} />
-                  ) : (
-                    step.icon
-                  )}
+                  {isDone ? <Check size={14} color="#ffffff" strokeWidth={3} /> : step.icon}
                 </View>
                 <Text
                   style={[

@@ -1,9 +1,13 @@
 export interface NcmClassificationInput {
-    title: string;
-    description?: string;
-    category?: string;
-    material?: string;
-    shortlistCandidates?: { code: string; official_description: string; alias_match: string | null }[];
+  title: string;
+  description?: string;
+  category?: string;
+  material?: string;
+  shortlistCandidates?: {
+    code: string;
+    official_description: string;
+    alias_match: string | null;
+  }[];
 }
 
 export const NCM_PRODUCT_CLASSIFICATION_RULES = `PROCESSO OBRIGATÓRIO DE ANÁLISE:
@@ -38,11 +42,17 @@ export const NCM_PRODUCT_CLASSIFICATION_RULES = `PROCESSO OBRIGATÓRIO DE ANÁLI
 17. Não invente NCM. Se faltarem características determinantes (e não houver presunção autorizada) ou a confiança for baixa, retorne suggestedNcm: null e needsReview: true.`;
 
 export function buildNcmClassificationPrompt(input: NcmClassificationInput): string {
-    const candidatesStr = input.shortlistCandidates && input.shortlistCandidates.length > 0 
-        ? input.shortlistCandidates.map(c => `- ${c.code}: ${c.official_description} (Alias que casou: ${c.alias_match || 'N/A'})`).join('\n')
-        : "Nenhum candidato encontrado na base local. Utilize seu conhecimento.";
+  const candidatesStr =
+    input.shortlistCandidates && input.shortlistCandidates.length > 0
+      ? input.shortlistCandidates
+          .map(
+            (c) =>
+              `- ${c.code}: ${c.official_description} (Alias que casou: ${c.alias_match || 'N/A'})`
+          )
+          .join('\n')
+      : 'Nenhum candidato encontrado na base local. Utilize seu conhecimento.';
 
-    return `CLASSIFICADOR FISCAL DE PRODUTOS — NCM
+  return `CLASSIFICADOR FISCAL DE PRODUTOS — NCM
 
 Você é um especialista em classificação fiscal de mercadorias brasileiras, especializado principalmente em móveis, colchões, estofados, utilidades e produtos relacionados ao varejo de móveis.
 
@@ -55,9 +65,9 @@ ${NCM_PRODUCT_CLASSIFICATION_RULES}
 DADOS DO PRODUTO:
 <produto>
 - Nome/Título: ${input.title}
-- Categoria: ${input.category || "Não informada"}
-- Material informado: ${input.material || "Não informado"}
-- Descrição completa: ${input.description || "Não informada"}
+- Categoria: ${input.category || 'Não informada'}
+- Material informado: ${input.material || 'Não informado'}
+- Descrição completa: ${input.description || 'Não informada'}
 </produto>
 
 CANDIDATOS (SHORTLIST GERADA PELO BANCO OFICIAL DA EMPRESA):

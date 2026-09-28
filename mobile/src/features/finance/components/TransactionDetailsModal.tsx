@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { X, ArrowUpRight, ArrowDownLeft, Bot, User, RotateCcw } from 'lucide-react-native';
-import { FinancialTransaction, reverseFinancialTransaction } from '../../../services/mobileFinanceService';
+import {
+  FinancialTransaction,
+  reverseFinancialTransaction,
+} from '../../../services/mobileFinanceService';
 
 interface Props {
   visible: boolean;
@@ -50,7 +62,10 @@ export const TransactionDetailsModal: React.FC<Props> = ({
               onSuccess();
               onClose();
             } else {
-              Alert.alert('Erro ao Estornar', res.error || 'Não foi possível estornar a movimentação.');
+              Alert.alert(
+                'Erro ao Estornar',
+                res.error || 'Não foi possível estornar a movimentação.'
+              );
             }
           },
         },
@@ -60,7 +75,12 @@ export const TransactionDetailsModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
@@ -71,7 +91,9 @@ export const TransactionDetailsModal: React.FC<Props> = ({
                   <ArrowDownLeft size={18} color="#dc2626" />
                 )}
               </View>
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>Detalhes da Transação</Text>
+              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
+                Detalhes da Transação
+              </Text>
             </View>
 
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -105,19 +127,20 @@ export const TransactionDetailsModal: React.FC<Props> = ({
                   {transaction.result_nature === 'NAO_AFETA_RESULTADO'
                     ? 'Não afeta resultado'
                     : transaction.result_nature === 'RECEITA'
-                    ? 'Receita'
-                    : transaction.result_nature === 'DESPESA'
-                    ? 'Despesa'
-                    : isIncome
-                    ? 'Receita'
-                    : 'Despesa'}
+                      ? 'Receita'
+                      : transaction.result_nature === 'DESPESA'
+                        ? 'Despesa'
+                        : isIncome
+                          ? 'Receita'
+                          : 'Despesa'}
                 </Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Data e Horário</Text>
                 <Text style={[styles.detailValue, isDarkMode && styles.detailValueDark]}>
-                  {transaction.date} {transaction.transaction_time ? `às ${transaction.transaction_time}` : ''}
+                  {transaction.date}{' '}
+                  {transaction.transaction_time ? `às ${transaction.transaction_time}` : ''}
                 </Text>
               </View>
 

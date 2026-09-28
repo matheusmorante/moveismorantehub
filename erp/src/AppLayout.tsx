@@ -1,22 +1,32 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
-import { useTheme } from "./context/ThemeContext";
-import { useAuth } from "./context/AuthContext";
-import DesktopNav from "./components/layout/DesktopNav";
-import MobileNav from "./components/layout/MobileNav";
-import GlobalAutoScroll from "./components/shared/GlobalAutoScroll";
-import NotificationBell from "./components/shared/NotificationBell";
-import AssistanceOrderModal from "./pages/App/SalesOrder/AssistanceOrderModal";
-import { crmIntelligenceService } from "./pages/utils/crmIntelligenceService";
+import { useState, useEffect, useRef } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
+import DesktopNav from './components/layout/DesktopNav';
+import MobileNav from './components/layout/MobileNav';
+import GlobalAutoScroll from './components/shared/GlobalAutoScroll';
+import NotificationBell from './components/shared/NotificationBell';
+import AssistanceOrderModal from './pages/App/SalesOrder/AssistanceOrderModal';
+import { crmIntelligenceService } from './pages/utils/crmIntelligenceService';
 import { redeConciliationService } from '@/pages/services/redeConciliationService';
-import FloatingActionsHub from "./components/shared/FloatingActionsHub";
-import AIChatAssistant from "./components/shared/AIChatAssistant";
-import AiQuotaHeaderNotice from "./components/shared/AiQuotaHeaderNotice";
-import logoMoranteHorizontal from "./assets/logo-morante-horizontal.svg";
-import logoMoranteMark from "./assets/brand-mark.svg";
+import FloatingActionsHub from './components/shared/FloatingActionsHub';
+import AIChatAssistant from './components/shared/AIChatAssistant';
+import AiQuotaHeaderNotice from './components/shared/AiQuotaHeaderNotice';
+import logoMoranteHorizontal from './assets/logo-morante-horizontal.svg';
+import logoMoranteMark from './assets/brand-mark.svg';
 
-export type MenuKey = 'products' | 'stock' | 'salesOrder' | 'fiscal' | 'logistics' | 'registrations' | 'finance' | 'marketing' | 'assembly' | null;
+export type MenuKey =
+  | 'products'
+  | 'stock'
+  | 'salesOrder'
+  | 'fiscal'
+  | 'logistics'
+  | 'registrations'
+  | 'finance'
+  | 'marketing'
+  | 'assembly'
+  | null;
 
 export default function AppLayout() {
   const location = useLocation();
@@ -59,13 +69,13 @@ export default function AppLayout() {
         await crmIntelligenceService.registerProductDesire(e.detail);
         toast.success(`Desejo registrado: ${e.detail.product_name} ✨`);
       } catch (err) {
-        toast.error("Erro ao registrar desejo.");
+        toast.error('Erro ao registrar desejo.');
       }
     };
 
     window.addEventListener('OPEN_ASSISTANCE_MODAL', handleOpenAssistance);
     window.addEventListener('REGISTER_CUSTOMER_DESIRE', handleRegisterDesire);
-    
+
     return () => {
       window.removeEventListener('OPEN_ASSISTANCE_MODAL', handleOpenAssistance);
       window.removeEventListener('REGISTER_CUSTOMER_DESIRE', handleRegisterDesire);
@@ -97,14 +107,13 @@ export default function AppLayout() {
     return () => clearInterval(syncInterval);
   }, []);
 
-  const isMobileAppView = (
-    typeof window !== 'undefined' && (
-      window.location.search.includes('auth_email') || 
-      window.location.pathname.includes('/mobile') || 
-      Boolean((window as any).ReactNativeWebView)
-    )
-  );
-  const isTemplateEditor = location.pathname === '/templates/price-label' ||
+  const isMobileAppView =
+    typeof window !== 'undefined' &&
+    (window.location.search.includes('auth_email') ||
+      window.location.pathname.includes('/mobile') ||
+      Boolean((window as any).ReactNativeWebView));
+  const isTemplateEditor =
+    location.pathname === '/templates/price-label' ||
     ['/templates/posts', '/marketing/posts', '/marketing'].includes(location.pathname);
 
   return (
@@ -123,19 +132,30 @@ export default function AppLayout() {
 
       {/* Top Banner Alertas Supabase (Admin Only) */}
       {isAdmin && anomaly && !isMobileAppView && !isTemplateEditor && (
-        <div className={`w-full ${anomaly.level === 'CRITICAL' ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-2 flex items-center justify-between text-xs font-bold animate-slide-down z-[999999]`}>
+        <div
+          className={`w-full ${anomaly.level === 'CRITICAL' ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-2 flex items-center justify-between text-xs font-bold animate-slide-down z-[999999]`}
+        >
           <div className="flex items-center gap-3">
-            <i className={`bi ${anomaly.level === 'CRITICAL' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} text-lg`}></i>
+            <i
+              className={`bi ${anomaly.level === 'CRITICAL' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} text-lg`}
+            ></i>
             <div>
               <span className="block font-black uppercase tracking-wide">{anomaly.title}</span>
               <span className="block opacity-90 font-medium">{anomaly.message}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/settings/supabase-monitor" onClick={() => setAnomaly(null)} className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors border border-white/20 backdrop-blur-sm shadow-sm whitespace-nowrap">
+            <Link
+              to="/settings/supabase-monitor"
+              onClick={() => setAnomaly(null)}
+              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors border border-white/20 backdrop-blur-sm shadow-sm whitespace-nowrap"
+            >
               Ver Diagnóstico
             </Link>
-            <button onClick={() => setAnomaly(null)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+            <button
+              onClick={() => setAnomaly(null)}
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+            >
               <i className="bi bi-x-lg"></i>
             </button>
           </div>
@@ -146,165 +166,184 @@ export default function AppLayout() {
       {!isMobileAppView && !isTemplateEditor && (
         <div className="relative z-[99999]">
           <AiQuotaHeaderNotice />
-          <header className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between z-[99999] shadow-premium transition-all duration-500`}>
-          <div className="flex items-center gap-6 xl:gap-12 h-full">
-            <button
-              className="block xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <i className="bi bi-list text-2xl"></i>
-            </button>
-
-            <Link to="/" className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible">
-              <picture>
-                <source media="(max-width: 639px)" srcSet={logoMoranteMark} />
-                <img src={logoMoranteHorizontal} alt="ERP Móveis Morante" className="h-10 md:h-12 w-auto max-w-[240px] object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300 pointer-events-auto" />
-              </picture>
-            </Link>
-
-            <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
-          </div>
-
-          <div className="flex items-center gap-2 lg:gap-4">
-            <GlobalAutoScroll />
-            <NotificationBell />
-
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
-              title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            >
-              <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-amber-500' : 'bi-moon-stars-fill text-blue-600'} text-lg`}></i>
-            </button>
-
-            {/* User Profile Container com hover seguro (delay de 500ms antes de fechar) */}
-            <div
-              className="relative"
-              onMouseEnter={handleProfileMouseEnter}
-              onMouseLeave={handleProfileMouseLeave}
-            >
+          <header
+            className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between z-[99999] shadow-premium transition-all duration-500`}
+          >
+            <div className="flex items-center gap-6 xl:gap-12 h-full">
               <button
-                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
+                className="block xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-md shadow-blue-500/20">
-                  {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                </div>
-                <div className="hidden md:flex flex-col text-left mr-1">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
-                    {profile?.full_name || user?.email?.split('@')[0]}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
-                    {isAdmin ? 'Administrador' : 'Usuário'}
-                  </span>
-                </div>
-                <i className={`bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}></i>
+                <i className="bi bi-list text-2xl"></i>
               </button>
 
-              {/* Profile Dropdown */}
-              {isProfileMenuOpen && (
-                <div
-                  className="absolute right-0 top-full mt-2 w-64 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 transition-all z-[99999] animate-slide-up"
-                  onMouseEnter={handleProfileMouseEnter}
-                  onMouseLeave={handleProfileMouseLeave}
+              <Link
+                to="/"
+                className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible"
+              >
+                <picture>
+                  <source media="(max-width: 639px)" srcSet={logoMoranteMark} />
+                  <img
+                    src={logoMoranteHorizontal}
+                    alt="ERP Móveis Morante"
+                    className="h-10 md:h-12 w-auto max-w-[240px] object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300 pointer-events-auto"
+                  />
+                </picture>
+              </Link>
+
+              <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
+            </div>
+
+            <div className="flex items-center gap-2 lg:gap-4">
+              <GlobalAutoScroll />
+              <NotificationBell />
+
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+                title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+              >
+                <i
+                  className={`bi ${theme === 'dark' ? 'bi-sun-fill text-amber-500' : 'bi-moon-stars-fill text-blue-600'} text-lg`}
+                ></i>
+              </button>
+
+              {/* User Profile Container com hover seguro (delay de 500ms antes de fechar) */}
+              <div
+                className="relative"
+                onMouseEnter={handleProfileMouseEnter}
+                onMouseLeave={handleProfileMouseLeave}
+              >
+                <button
+                  onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
                 >
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{profile?.full_name || 'Usuário'}</p>
-                    <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                    <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                      {isAdmin ? 'Administrador' : 'Colaborador'}
+                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-md shadow-blue-500/20">
+                    {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  </div>
+                  <div className="hidden md:flex flex-col text-left mr-1">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
+                      {profile?.full_name || user?.email?.split('@')[0]}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
+                      {isAdmin ? 'Administrador' : 'Usuário'}
                     </span>
                   </div>
+                  <i
+                    className={`bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}
+                  ></i>
+                </button>
 
-                  <div className="p-2 space-y-1">
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                    >
-                      <i className="bi bi-person text-base"></i>
-                      Meu Perfil
-                    </Link>
-
-                    <Link
-                      to="/system-docs"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                    >
-                      <i className="bi bi-book-half text-base text-indigo-500"></i>
-                      Documentação do Sistema
-                    </Link>
-
-                    {isAdmin && (
-                      <>
-                        <Link
-                          to="/settings"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                        >
-                          <i className="bi bi-gear-fill text-base"></i>
-                          Configurações do ERP
-                        </Link>
-                        <Link
-                          to="/acessos-e-usuarios"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                        >
-                          <i className="bi bi-shield-lock-fill text-base text-blue-500"></i>
-                          Gerenciar Cargos de Usuários
-                        </Link>
-                        <Link
-                          to="/finance/dashboard"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                        >
-                          <i className="bi bi-bank2 text-lg"></i>
-                          Financeiro e Rede
-                        </Link>
-                        
-                        <a
-                          href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
-                        >
-                          <i className="bi bi-android2 text-blue-400"></i>
-                          <span>Baixar App Android</span>
-                        </a>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-2 mx-4"></div>
-
-                  <button
-                    onClick={() => {
-                      setIsProfileMenuOpen(false);
-                      logout();
-                    }}
-                    className="w-full flex items-center gap-4 p-3 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+                {/* Profile Dropdown */}
+                {isProfileMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-2 w-64 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 transition-all z-[99999] animate-slide-up"
+                    onMouseEnter={handleProfileMouseEnter}
+                    onMouseLeave={handleProfileMouseLeave}
                   >
-                    <i className="bi bi-box-arrow-right text-lg"></i>
-                    Encerrar Sessão
-                  </button>
-                </div>
-              )}
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                      <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">
+                        {profile?.full_name || 'Usuário'}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                      <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        {isAdmin ? 'Administrador' : 'Colaborador'}
+                      </span>
+                    </div>
+
+                    <div className="p-2 space-y-1">
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                      >
+                        <i className="bi bi-person text-base"></i>
+                        Meu Perfil
+                      </Link>
+
+                      <Link
+                        to="/system-docs"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                      >
+                        <i className="bi bi-book-half text-base text-indigo-500"></i>
+                        Documentação do Sistema
+                      </Link>
+
+                      {isAdmin && (
+                        <>
+                          <Link
+                            to="/settings"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                          >
+                            <i className="bi bi-gear-fill text-base"></i>
+                            Configurações do ERP
+                          </Link>
+                          <Link
+                            to="/acessos-e-usuarios"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                          >
+                            <i className="bi bi-shield-lock-fill text-base text-blue-500"></i>
+                            Gerenciar Cargos de Usuários
+                          </Link>
+                          <Link
+                            to="/finance/dashboard"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
+                          >
+                            <i className="bi bi-bank2 text-lg"></i>
+                            Financeiro e Rede
+                          </Link>
+
+                          <a
+                            href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
+                          >
+                            <i className="bi bi-android2 text-blue-400"></i>
+                            <span>Baixar App Android</span>
+                          </a>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-2 mx-4"></div>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-4 p-3 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+                    >
+                      <i className="bi bi-box-arrow-right text-lg"></i>
+                      Encerrar Sessão
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </header>
-      </div>
+          </header>
+        </div>
       )}
 
       {/* Mobile Nav — visível em telas < xl (< 1280px) */}
-      {!isTemplateEditor && <MobileNav
+      {!isTemplateEditor && (
+        <MobileNav
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
-      />}
+        />
+      )}
 
-      <main className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-2' : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'} overflow-x-clip`}>
+      <main
+        className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-2' : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'} overflow-x-clip`}
+      >
         <Outlet />
       </main>
 
@@ -312,14 +351,10 @@ export default function AppLayout() {
       <FloatingActionsHub />
 
       {/* Agente Geral do ERP — Drawer Lateral Global */}
-      <AIChatAssistant
-        isOpen={isAgentOpen}
-        onClose={() => setIsAgentOpen(false)}
-        mode="drawer"
-      />
+      <AIChatAssistant isOpen={isAgentOpen} onClose={() => setIsAgentOpen(false)} mode="drawer" />
 
       {isAssistanceModalOpen && (
-        <AssistanceOrderModal 
+        <AssistanceOrderModal
           onClose={() => setIsAssistanceModalOpen(false)}
           onSaveSuccess={() => {
             setIsAssistanceModalOpen(false);
@@ -328,13 +363,16 @@ export default function AppLayout() {
         />
       )}
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @keyframes slide-up { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes slide-right { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-up { animation: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .animate-slide-right { animation: slide-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-      `}} />
+      `,
+        }}
+      />
     </div>
   );
 }

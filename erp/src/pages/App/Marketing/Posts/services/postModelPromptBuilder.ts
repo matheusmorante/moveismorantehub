@@ -12,9 +12,7 @@ export interface ProductPromptContext {
 export function assertNoUnresolvedPlaceholders(text: string): void {
   const unresolved = text.match(/{{[\s\S]*?}}/g);
   if (unresolved && unresolved.length > 0) {
-    throw new Error(
-      `Existem variáveis não resolvidas no prompt: ${unresolved.join(', ')}`
-    );
+    throw new Error(`Existem variáveis não resolvidas no prompt: ${unresolved.join(', ')}`);
   }
 }
 
@@ -79,7 +77,10 @@ export function resolveOpportunityRules(opportunityName?: string): {
   };
 }
 
-export function interpolateTemplatePrompt(rawPrompt: string, context: ProductPromptContext): string {
+export function interpolateTemplatePrompt(
+  rawPrompt: string,
+  context: ProductPromptContext
+): string {
   let resolved = rawPrompt;
 
   const map: Record<string, string> = {

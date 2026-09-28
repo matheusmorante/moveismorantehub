@@ -6,7 +6,9 @@ const campaign: any = { id: 'campaign', name: 'Campanha', active: true };
 describe('prompt final — fatos literais do produto e benefícios', () => {
   it('preserva quatro benefícios sem inventar, reordenar ou duplicar', async () => {
     const product = {
-      id: 'p1', name: 'Produto Exato', unitPrice: 1000,
+      id: 'p1',
+      name: 'Produto Exato',
+      unitPrice: 1000,
       benefits: [
         { id: 'one', title: 'Benefício Um', subtitle: 'Detalhe Um' },
         { id: 'two', title: 'Benefício Dois' },
@@ -16,7 +18,10 @@ describe('prompt final — fatos literais do produto e benefícios', () => {
     };
     const spec = await buildSingleSpecification({
       productCatalogUrl: 'https://www.moveismorante.com.br/produto/produto-exato',
-      campaign, activeModels: [], globalRules: '', product,
+      campaign,
+      activeModels: [],
+      globalRules: '',
+      product,
     });
     const prompt = renderSpecificationAsPrompt(spec);
 
@@ -35,7 +40,9 @@ describe('prompt final — fatos literais do produto e benefícios', () => {
   it('omite o rodapé quando a lista estruturada está vazia', async () => {
     const spec = await buildSingleSpecification({
       productCatalogUrl: 'https://www.moveismorante.com.br/produto/sem-beneficios',
-      campaign, activeModels: [], globalRules: '',
+      campaign,
+      activeModels: [],
+      globalRules: '',
       product: { id: 'p2', name: 'Sem benefícios', unitPrice: 900, benefits: [] },
     });
     const prompt = renderSpecificationAsPrompt(spec);
@@ -47,13 +54,26 @@ describe('prompt final — fatos literais do produto e benefícios', () => {
   it('mantém preço anterior, atual, parcelamento e medidas nos campos corretos', async () => {
     const spec = await buildSingleSpecification({
       productCatalogUrl: 'https://www.moveismorante.com.br/produto/sofa-exato',
-      campaign, activeModels: [], globalRules: '', selectedVariationId: 'v2',
+      campaign,
+      activeModels: [],
+      globalRules: '',
+      selectedVariationId: 'v2',
       product: {
-        id: 'p3', name: 'Sofá Pai', unitPrice: 3000,
-        variations: [{
-          id: 'v2', title: 'Sofá Exato Linho', unitPrice: 2599.9, promoPrice: 2199.9,
-          installmentText: '10x de R$ 219,99 sem juros', width: 210, height: 95, depth: 110,
-        }],
+        id: 'p3',
+        name: 'Sofá Pai',
+        unitPrice: 3000,
+        variations: [
+          {
+            id: 'v2',
+            title: 'Sofá Exato Linho',
+            unitPrice: 2599.9,
+            promoPrice: 2199.9,
+            installmentText: '10x de R$ 219,99 sem juros',
+            width: 210,
+            height: 95,
+            depth: 110,
+          },
+        ],
       },
     });
     const prompt = renderSpecificationAsPrompt(spec);
@@ -70,13 +90,17 @@ describe('prompt final — fatos literais do produto e benefícios', () => {
   it('não inventa preço anterior nem parcelamento quando ausentes', async () => {
     const spec = await buildSingleSpecification({
       productCatalogUrl: 'https://www.moveismorante.com.br/produto/preco-unico',
-      campaign, activeModels: [], globalRules: '',
+      campaign,
+      activeModels: [],
+      globalRules: '',
       product: { id: 'p4', name: 'Preço Único', unitPrice: 799.5 },
     });
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('| Preço atual/promocional (destacar) | R$ 799,50 |');
     expect(prompt).not.toContain('| Preço anterior/de referência (riscar) |');
     expect(prompt).not.toContain('| Condição/parcelamento |');
-    expect(prompt).toContain('Se um campo não existir na página nem no fallback literal abaixo, omita');
+    expect(prompt).toContain(
+      'Se um campo não existir na página nem no fallback literal abaixo, omita'
+    );
   });
 });

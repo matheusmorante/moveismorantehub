@@ -12,29 +12,29 @@ vi.mock('../../../pages/utils/supabaseConfig', () => ({
             eq: vi.fn(() => ({
               gte: vi.fn((_col: string, val: string) =>
                 Promise.resolve({
-                  data: mockLogs.filter(item => !item.created_at || item.created_at >= val),
-                  error: null
+                  data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
+                  error: null,
                 })
-              )
+              ),
             })),
             gte: vi.fn((_col: string, val: string) =>
               Promise.resolve({
-                data: mockLogs.filter(item => !item.created_at || item.created_at >= val),
-                error: null
+                data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
+                error: null,
               })
-            )
+            ),
           })),
           gte: vi.fn((_col: string, val: string) =>
             Promise.resolve({
-              data: mockLogs.filter(item => !item.created_at || item.created_at >= val),
-              error: null
+              data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
+              error: null,
             })
-          )
-        }))
+          ),
+        })),
       })),
-      insert: mockInsertFn
-    }))
-  }
+      insert: mockInsertFn,
+    })),
+  },
 }));
 
 import { AiQuotaManager } from '../core/AiQuotaManager';
@@ -63,9 +63,9 @@ describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', (
   it('deve calcular corretamente o custo consumido e o saldo restante no mês', async () => {
     // Simular 10 imagens geradas a R$ 0,20 cada = R$ 2,00
     mockLogs = Array.from({ length: 10 }).map(() => ({
-      cost_estimated: 0.20,
+      cost_estimated: 0.2,
       units: 1,
-      module_source: 'IMAGE'
+      module_source: 'IMAGE',
     }));
 
     const usage = await AiQuotaManager.getMonthlyUsage('IMAGE');
@@ -76,9 +76,7 @@ describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', (
   });
 
   it('deve permitir reserva de cota quando o consumo estiver abaixo de R$ 30,00', async () => {
-    mockLogs = [
-      { cost_estimated: 0.20, units: 1, module_source: 'IMAGE' }
-    ];
+    mockLogs = [{ cost_estimated: 0.2, units: 1, module_source: 'IMAGE' }];
 
     const result = await AiQuotaManager.reserveQuota('IMAGE');
     expect(result.allowed).toBe(true);
@@ -91,8 +89,18 @@ describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', (
     const earlierThisMonth = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
     mockLogs = [
-      ...Array.from({ length: 5 }).map(() => ({ cost_estimated: 0.20, units: 1, module_source: 'IMAGE', created_at: today })),
-      ...Array.from({ length: 145 }).map(() => ({ cost_estimated: 0.20, units: 1, module_source: 'IMAGE', created_at: earlierThisMonth }))
+      ...Array.from({ length: 5 }).map(() => ({
+        cost_estimated: 0.2,
+        units: 1,
+        module_source: 'IMAGE',
+        created_at: today,
+      })),
+      ...Array.from({ length: 145 }).map(() => ({
+        cost_estimated: 0.2,
+        units: 1,
+        module_source: 'IMAGE',
+        created_at: earlierThisMonth,
+      })),
     ];
 
     const result = await AiQuotaManager.reserveQuota('IMAGE');

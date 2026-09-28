@@ -1,23 +1,23 @@
-import { formatCurrency } from "../../formatters";
+import { formatCurrency } from '../../formatters';
 
 export interface DanfeTaxesAndTotalsParams {
-    totalOrder: number;
-    totalProd: number;
-    freight: number;
-    discount: number;
+  totalOrder: number;
+  totalProd: number;
+  freight: number;
+  discount: number;
 }
 
 /**
  * Constrói os BLOCOS 4 (FATURA/DUPLICATAS) e 5 (CÁLCULO DO IMPOSTO) do DANFE oficial A4.
  */
 export function buildDanfeTaxesAndTotalsOfficialHtml(params: DanfeTaxesAndTotalsParams): string {
-    const { totalOrder, totalProd, freight, discount } = params;
+  const { totalOrder, totalProd, freight, discount } = params;
 
-    const formattedTotalProd = formatCurrency(totalProd).replace('R$', '').trim();
-    const formattedFreight = formatCurrency(freight).replace('R$', '').trim();
-    const formattedDiscount = formatCurrency(discount).replace('R$', '').trim();
+  const formattedTotalProd = formatCurrency(totalProd).replace('R$', '').trim();
+  const formattedFreight = formatCurrency(freight).replace('R$', '').trim();
+  const formattedDiscount = formatCurrency(discount).replace('R$', '').trim();
 
-    return `
+  return `
         <!-- BLOCO 4: FATURA / DUPLICATAS -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>

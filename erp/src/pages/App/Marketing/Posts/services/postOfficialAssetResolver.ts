@@ -70,7 +70,9 @@ export function resolveOfficialAssets(params: {
       (/logo|marca/i.test(m.name || '') && !/selo|badge/i.test(m.name || ''))
   );
   if (logoModel?.generatedAssetUrl || logoModel?.generated_asset_url) {
-    logoUrl = normalizeOfficialAssetUrl(logoModel.generatedAssetUrl || logoModel.generated_asset_url);
+    logoUrl = normalizeOfficialAssetUrl(
+      logoModel.generatedAssetUrl || logoModel.generated_asset_url
+    );
   }
 
   // 2. Resolver BADGE oficial (SOMENTE se o produto tiver oportunidade correspondente)
@@ -79,7 +81,9 @@ export function resolveOfficialAssets(params: {
     product?.opportunity_id ??
     product?.opportunityId ??
     (typeof product?.opportunity === 'object' ? product?.opportunity?.id : null) ??
-    (typeof product?.opportunity === 'string' && product.opportunity.trim() ? product.opportunity.trim() : null) ??
+    (typeof product?.opportunity === 'string' && product.opportunity.trim()
+      ? product.opportunity.trim()
+      : null) ??
     (product?.opportunityName?.trim() ? 'opp-by-name' : null);
 
   if (oppId) {
@@ -103,8 +107,12 @@ export function resolveOfficialAssets(params: {
       const urlB = resolveConfiguredBadgeAssetUrl(b);
       if (urlA && !urlB) return -1;
       if (!urlA && urlB) return 1;
-      const dateA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime();
-      const dateB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime();
+      const dateA = new Date(
+        a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0
+      ).getTime();
+      const dateB = new Date(
+        b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0
+      ).getTime();
       return dateB - dateA;
     });
 
@@ -115,7 +123,12 @@ export function resolveOfficialAssets(params: {
       let badgeUrl = resolveConfiguredBadgeAssetUrl(exactBadgeModel);
 
       // Se o asset for a imagem antiga retangular sem fogo ou nulo para Queima dos Salvados:
-      if (isQueimaSalvados && (!badgeUrl || badgeUrl.includes('1787790409290.png') || badgeUrl.includes('1787790000192.png'))) {
+      if (
+        isQueimaSalvados &&
+        (!badgeUrl ||
+          badgeUrl.includes('1787790409290.png') ||
+          badgeUrl.includes('1787790000192.png'))
+      ) {
         badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
       }
 
@@ -129,7 +142,9 @@ export function resolveOfficialAssets(params: {
 
       if (badgeUrl) {
         badge = {
-          name: exactBadgeModel.name || (isQueimaSalvados ? 'Selo Queima dos Salvados' : 'Selo de Oportunidade'),
+          name:
+            exactBadgeModel.name ||
+            (isQueimaSalvados ? 'Selo Queima dos Salvados' : 'Selo de Oportunidade'),
           url: badgeUrl,
           role: 'OFFICIAL_ASSET',
           opportunityId: oppId,
@@ -154,7 +169,7 @@ const SUB_SEP = '-'.repeat(50);
 
 export function renderOfficialAssetsPromptSection(
   assets: ResolvedOfficialAssets,
-  options: { localFilesOnly?: boolean } = {},
+  options: { localFilesOnly?: boolean } = {}
 ): string {
   const lines: string[] = [
     SEP,
@@ -176,7 +191,7 @@ export function renderOfficialAssetsPromptSection(
       buildOfficialBadgeStrictInstructions(
         assets.badge.url,
         assets.badge.opportunityName || 'Oportunidade',
-        assets.badge.file || null,
+        assets.badge.file || null
       )
     );
   }

@@ -1,7 +1,7 @@
 import React from 'react';
 
 const GlobalAutoScroll: React.FC = () => {
-    return null;
+  return null;
 };
 
 export default GlobalAutoScroll;

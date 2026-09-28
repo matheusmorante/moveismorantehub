@@ -144,14 +144,18 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(canCancelOrderDirectly(orderAtendido)).toBe(false);
       // 2. Pode desfazer atendimento
       expect(canUndoFulfillment(orderAtendido)).toBe(true);
-      expect(validateOrderStatusTransition(orderAtendido.status, 'scheduled')).toEqual({ allowed: true });
+      expect(validateOrderStatusTransition(orderAtendido.status, 'scheduled')).toEqual({
+        allowed: true,
+      });
 
       // 3. Após desfazer e voltar para scheduled
       const orderAgendado = { status: 'scheduled' as Order['status'], orderType: 'sale' };
       // 4. Agora sim pode cancelar diretamente
       expect(canCancelOrderDirectly(orderAgendado)).toBe(true);
       expect(canUndoFulfillment(orderAgendado)).toBe(false);
-      expect(validateOrderStatusTransition(orderAgendado.status, 'cancelled')).toEqual({ allowed: true });
+      expect(validateOrderStatusTransition(orderAgendado.status, 'cancelled')).toEqual({
+        allowed: true,
+      });
     });
   });
 });

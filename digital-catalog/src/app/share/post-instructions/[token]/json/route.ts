@@ -19,7 +19,10 @@ export async function GET(request: Request, context: RouteContext) {
 
   if (!shareToken || shareToken.revoked_at) {
     return NextResponse.json(
-      { error: 'TOKEN_INVALID_OR_REVOKED', message: 'Este link de compartilhamento não é mais válido.' },
+      {
+        error: 'TOKEN_INVALID_OR_REVOKED',
+        message: 'Este link de compartilhamento não é mais válido.',
+      },
       {
         status: 404,
         headers: {
@@ -43,9 +46,7 @@ export async function GET(request: Request, context: RouteContext) {
     .select('*')
     .eq('active', true);
 
-  const { data: models } = await supabase
-    .from('campaign_element_models')
-    .select('*');
+  const { data: models } = await supabase.from('campaign_element_models').select('*');
 
   const {
     resolveProductImages,
@@ -67,10 +68,18 @@ export async function GET(request: Request, context: RouteContext) {
     return true;
   });
 
-  let officialBadge: { name: string; url: string; role: 'OFFICIAL_ASSET'; opportunityId: string } | null = null;
+  let officialBadge: {
+    name: string;
+    url: string;
+    role: 'OFFICIAL_ASSET';
+    opportunityId: string;
+  } | null = null;
   if (productOpportunityId) {
     const oppBadgeModel = filteredModels.find((m) => m.element_type === 'BADGE');
-    const badgeUrl = oppBadgeModel?.generated_asset_url || product?.opportunity?.image_url || OFFICIAL_QUEIMA_BADGE_URL;
+    const badgeUrl =
+      oppBadgeModel?.generated_asset_url ||
+      product?.opportunity?.image_url ||
+      OFFICIAL_QUEIMA_BADGE_URL;
     officialBadge = {
       name: oppBadgeModel?.name || product?.opportunity?.name || 'Selo Oficial',
       url: badgeUrl,

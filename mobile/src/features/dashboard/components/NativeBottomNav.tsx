@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+  Modal,
+  ScrollView,
+  Image,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  ShoppingBag, 
+import {
+  ShoppingBag,
   Package,
-  Calendar, 
+  Calendar,
   Truck,
-  BarChart3, 
+  BarChart3,
   Wallet,
-  MoreHorizontal, 
-  X, 
+  MoreHorizontal,
+  X,
   ChevronRight,
   Sparkles,
-  Route
+  Route,
 } from 'lucide-react-native';
 
 export interface NavItemConfig {
@@ -110,13 +119,13 @@ export const NativeBottomNav: React.FC<Props> = ({
   ];
 
   // Filtra apenas abas visíveis para o perfil do usuário
-  const visibleTabs = (customTabs || allTabs).filter(t => t.visible !== false);
+  const visibleTabs = (customTabs || allTabs).filter((t) => t.visible !== false);
 
   const hasOverflow = visibleTabs.length > 5;
   const primaryTabs = hasOverflow ? visibleTabs.slice(0, 4) : visibleTabs;
   const overflowTabs = hasOverflow ? visibleTabs.slice(4) : [];
 
-  const isOverflowTabActive = overflowTabs.some(t => {
+  const isOverflowTabActive = overflowTabs.some((t) => {
     if (t.key === 'agenda' || t.key === 'logistica') {
       return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
     }
@@ -133,11 +142,13 @@ export const NativeBottomNav: React.FC<Props> = ({
 
   return (
     <>
-      <View style={[
-        styles.bottomNav,
-        { height: totalNavHeight, paddingBottom: bottomInset },
-        isDarkMode && styles.bottomNavDark
-      ]}>
+      <View
+        style={[
+          styles.bottomNav,
+          { height: totalNavHeight, paddingBottom: bottomInset },
+          isDarkMode && styles.bottomNavDark,
+        ]}
+      >
         {primaryTabs.map((tab) => {
           const IconComponent = tab.icon;
           const active = isTabActive(tab.key);
@@ -153,7 +164,10 @@ export const NativeBottomNav: React.FC<Props> = ({
             >
               {isAgent ? (
                 <View style={styles.agentAvatarPrimaryFrame}>
-                  <Image source={require('../../../../assets/lizandro-small.png')} style={styles.agentAvatarPrimary} />
+                  <Image
+                    source={require('../../../../assets/lizandro-small.png')}
+                    style={styles.agentAvatarPrimary}
+                  />
                 </View>
               ) : (
                 <IconComponent
@@ -163,9 +177,7 @@ export const NativeBottomNav: React.FC<Props> = ({
                 />
               )}
               {!isAgent && (
-                <Text style={[styles.navText, active && styles.navTextActive]}>
-                  {tab.label}
-                </Text>
+                <Text style={[styles.navText, active && styles.navTextActive]}>{tab.label}</Text>
               )}
             </TouchableOpacity>
           );
@@ -177,14 +189,12 @@ export const NativeBottomNav: React.FC<Props> = ({
             style={[styles.navItem, isOverflowTabActive && styles.navItemActive]}
             onPress={() => setShowMoreSheet(true)}
           >
-            <MoreHorizontal 
-              size={22} 
-              color={isOverflowTabActive ? '#2563eb' : '#94a3b8'} 
-              strokeWidth={isOverflowTabActive ? 2.5 : 2} 
+            <MoreHorizontal
+              size={22}
+              color={isOverflowTabActive ? '#2563eb' : '#94a3b8'}
+              strokeWidth={isOverflowTabActive ? 2.5 : 2}
             />
-            <Text style={[styles.navText, isOverflowTabActive && styles.navTextActive]}>
-              Mais
-            </Text>
+            <Text style={[styles.navText, isOverflowTabActive && styles.navTextActive]}>Mais</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -201,11 +211,11 @@ export const NativeBottomNav: React.FC<Props> = ({
           activeOpacity={1}
           onPress={() => setShowMoreSheet(false)}
         >
-          <View 
+          <View
             style={[
-              styles.sheetContent, 
+              styles.sheetContent,
               isDarkMode && styles.sheetContentDark,
-              { paddingBottom: bottomInset + 16 }
+              { paddingBottom: bottomInset + 16 },
             ]}
           >
             {/* Linha de pegador (Handle) do Bottom Sheet */}
@@ -243,7 +253,8 @@ export const NativeBottomNav: React.FC<Props> = ({
                       style={[
                         styles.sheetItem,
                         isDarkMode && styles.sheetItemDark,
-                        active && (isDarkMode ? styles.sheetItemActiveDark : styles.sheetItemActive)
+                        active &&
+                          (isDarkMode ? styles.sheetItemActiveDark : styles.sheetItemActive),
                       ]}
                       onPress={() => {
                         setShowMoreSheet(false);
@@ -252,30 +263,41 @@ export const NativeBottomNav: React.FC<Props> = ({
                     >
                       {tab.key === 'agente' ? (
                         <View style={styles.agentAvatarFrame}>
-                          <Image source={require('../../../../assets/lizandro-small.png')} style={styles.agentAvatar} />
+                          <Image
+                            source={require('../../../../assets/lizandro-small.png')}
+                            style={styles.agentAvatar}
+                          />
                         </View>
                       ) : (
-                        <View style={[
-                          styles.sheetIconWrapper,
-                          active ? styles.sheetIconWrapperActive : (isDarkMode ? styles.sheetIconWrapperDark : styles.sheetIconWrapperLight)
-                        ]}>
+                        <View
+                          style={[
+                            styles.sheetIconWrapper,
+                            active
+                              ? styles.sheetIconWrapperActive
+                              : isDarkMode
+                                ? styles.sheetIconWrapperDark
+                                : styles.sheetIconWrapperLight,
+                          ]}
+                        >
                           <IconComponent
                             size={20}
-                            color={active ? '#2563eb' : (isDarkMode ? '#cbd5e1' : '#475569')}
+                            color={active ? '#2563eb' : isDarkMode ? '#cbd5e1' : '#475569'}
                             strokeWidth={active ? 2.5 : 2}
                           />
                         </View>
                       )}
-                      <Text style={[
-                        styles.sheetItemLabel,
-                        isDarkMode && styles.sheetTextDark,
-                        active && styles.sheetItemLabelActive
-                      ]}>
+                      <Text
+                        style={[
+                          styles.sheetItemLabel,
+                          isDarkMode && styles.sheetTextDark,
+                          active && styles.sheetItemLabelActive,
+                        ]}
+                      >
                         {tab.label}
                       </Text>
-                      <ChevronRight 
-                        size={18} 
-                        color={active ? '#2563eb' : (isDarkMode ? '#64748b' : '#94a3b8')} 
+                      <ChevronRight
+                        size={18}
+                        color={active ? '#2563eb' : isDarkMode ? '#64748b' : '#94a3b8'}
                       />
                     </TouchableOpacity>
                   );

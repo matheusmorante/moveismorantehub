@@ -38,11 +38,15 @@ export const TransactionItemCard: React.FC<Props> = ({
         </View>
 
         <View style={styles.textDetails}>
-          <Text style={[styles.description, isDarkMode && styles.descriptionDark]} numberOfLines={1}>
+          <Text
+            style={[styles.description, isDarkMode && styles.descriptionDark]}
+            numberOfLines={1}
+          >
             {transaction.description}
           </Text>
           <Text style={[styles.category, isDarkMode && styles.categoryDark]} numberOfLines={1}>
-            {transaction.category_name || (isIncome ? 'Outras entradas' : 'Outras saídas')} • {transaction.payment_method}
+            {transaction.category_name || (isIncome ? 'Outras entradas' : 'Outras saídas')} •{' '}
+            {transaction.payment_method}
           </Text>
         </View>
       </View>

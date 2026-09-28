@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 
 interface Props {
   visible: boolean;
@@ -53,7 +45,7 @@ export const StockPeriodModal: React.FC<Props> = ({
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           <Text style={[styles.title, isDarkMode && styles.textLight]}>Selecione o Período</Text>
-          {PERIOD_OPTIONS.map(option => (
+          {PERIOD_OPTIONS.map((option) => (
             <TouchableOpacity
               key={option}
               style={styles.option}
@@ -83,14 +75,22 @@ export const StockPeriodModal: React.FC<Props> = ({
                 onChangeText={onChangeCustomStartDate}
                 placeholder="Início AAAA-MM-DD"
                 placeholderTextColor="#94a3b8"
-                style={[styles.input, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                  isDarkMode && styles.textLight,
+                ]}
               />
               <TextInput
                 value={customEndDate}
                 onChangeText={onChangeCustomEndDate}
                 placeholder="Fim AAAA-MM-DD"
                 placeholderTextColor="#94a3b8"
-                style={[styles.input, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                  isDarkMode && styles.textLight,
+                ]}
               />
               <TouchableOpacity style={styles.applyBtn} onPress={handleApplyCustom}>
                 <Text style={styles.applyBtnText}>Aplicar período</Text>
@@ -119,13 +119,26 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   cardDark: { backgroundColor: '#1e293b' },
-  title: { fontSize: 17, fontWeight: '800', color: '#0f172a', marginBottom: 14, textAlign: 'center' },
+  title: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 14,
+    textAlign: 'center',
+  },
   textLight: { color: '#f8fafc' },
   option: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   optionText: { fontSize: 15, color: '#334155', textAlign: 'center', fontWeight: '600' },
   optionTextActive: { color: '#2563eb', fontWeight: '800' },
   customBox: { marginTop: 10, gap: 8 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, padding: 10, color: '#0f172a', fontSize: 13 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    padding: 10,
+    color: '#0f172a',
+    fontSize: 13,
+  },
   inputDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
   applyBtn: { backgroundColor: '#2563eb', borderRadius: 10, padding: 11, alignItems: 'center' },
   applyBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 12 },

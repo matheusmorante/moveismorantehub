@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { Check, AlertTriangle, Store, Truck, Wrench, Package, RotateCcw, Navigation } from 'lucide-react-native';
+import {
+  Check,
+  AlertTriangle,
+  Store,
+  Truck,
+  Wrench,
+  Package,
+  RotateCcw,
+  Navigation,
+} from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
 import { TeamMemberLocation } from '../../../../services/teamLocationService';
@@ -59,13 +68,13 @@ export const DeliveryMarker: React.FC<Props> = ({
   const isValidCoord = (c?: { latitude?: number; longitude?: number } | null): boolean => {
     return Boolean(
       c &&
-      typeof c.latitude === 'number' &&
-      !isNaN(c.latitude) &&
-      typeof c.longitude === 'number' &&
-      !isNaN(c.longitude) &&
-      Math.abs(c.latitude) <= 90 &&
-      Math.abs(c.longitude) <= 180 &&
-      (c.latitude !== 0 || c.longitude !== 0)
+        typeof c.latitude === 'number' &&
+        !isNaN(c.latitude) &&
+        typeof c.longitude === 'number' &&
+        !isNaN(c.longitude) &&
+        Math.abs(c.latitude) <= 90 &&
+        Math.abs(c.longitude) <= 180 &&
+        (c.latitude !== 0 || c.longitude !== 0)
     );
   };
 
@@ -80,12 +89,7 @@ export const DeliveryMarker: React.FC<Props> = ({
         tracksViewChanges={tracksViewChanges}
       >
         <View style={styles.googleMapsNavWrapper}>
-          <Navigation
-            size={28}
-            color="#0f172a"
-            fill="#ffffff"
-            style={styles.googleMapsNavArrow}
-          />
+          <Navigation size={28} color="#0f172a" fill="#ffffff" style={styles.googleMapsNavArrow} />
         </View>
       </Marker>
     );
@@ -94,7 +98,10 @@ export const DeliveryMarker: React.FC<Props> = ({
   // Marcador de Outro Membro da Equipe em Processo de Entrega (Caminhão com nome no hover/toque)
   if (isTeamMember && teamMember && isValidCoord(teamMember.coords)) {
     const lastSeenTime = teamMember.lastSeen
-      ? new Date(teamMember.lastSeen).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      ? new Date(teamMember.lastSeen).toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : '';
     const statusDesc = teamMember.isDisconnectedOrNoGps
       ? `Última localização às ${lastSeenTime} • Sem sinal de GPS / Desligado`

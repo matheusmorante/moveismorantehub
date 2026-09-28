@@ -31,13 +31,21 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
   const getWarningFlags = (item: DrillDownItem, isActionLevel: boolean) => {
     const flags: Array<{ title: string; desc: string; color: string }> = [];
     if (item.avgRows > 500) {
-      flags.push({ title: `Média de ${item.avgRows} registros/req`, desc: 'Possível consulta sem paginação.', color: 'amber' });
+      flags.push({
+        title: `Média de ${item.avgRows} registros/req`,
+        desc: 'Possível consulta sem paginação.',
+        color: 'amber',
+      });
     }
     const minutes = period === '15m' ? 15 : period === '1h' ? 60 : 0;
     if (minutes > 0 && isActionLevel) {
       const rpm = item.count / minutes;
       if (rpm > 20) {
-        flags.push({ title: `${Math.round(rpm)} reqs/minuto`, desc: 'Possível loop/polling agressivo.', color: 'red' });
+        flags.push({
+          title: `${Math.round(rpm)} reqs/minuto`,
+          desc: 'Possível loop/polling agressivo.',
+          color: 'red',
+        });
       }
     }
     return flags;
@@ -104,12 +112,12 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
             {!activeModule
               ? 'Distribuição por Módulo'
               : !activeOperation
-              ? `Operações em: ${activeModule}`
-              : !activeTable
-              ? `Recursos/Tabelas (Tipo: ${activeOperation})`
-              : !activeAction
-              ? `Ações de Origem (${activeTable})`
-              : `Origem Técnica (${activeAction})`}
+                ? `Operações em: ${activeModule}`
+                : !activeTable
+                  ? `Recursos/Tabelas (Tipo: ${activeOperation})`
+                  : !activeAction
+                    ? `Ações de Origem (${activeTable})`
+                    : `Origem Técnica (${activeAction})`}
           </h3>
           <span className="text-xs font-bold text-slate-400">
             Total no nível: {drillDownView.reduce((a, b) => a + b.count, 0)} reqs
@@ -136,7 +144,9 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
                     )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{item.name}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {item.name}
+                        </span>
                         {warnings.map((w, wIdx) => (
                           <span
                             key={wIdx}
@@ -150,7 +160,8 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
 
                       <div className="mt-2 flex items-center gap-6 text-xs text-slate-500">
                         <span title="Volume de execução">
-                          <i className="bi bi-arrow-repeat mr-1"></i> {item.count} reqs ({Math.round(item.percent)}%)
+                          <i className="bi bi-arrow-repeat mr-1"></i> {item.count} reqs (
+                          {Math.round(item.percent)}%)
                         </span>
                         {item.avgRows > 0 && (
                           <span title="Média de Registros por Requisição">

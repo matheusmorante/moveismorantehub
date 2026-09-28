@@ -20,7 +20,10 @@ export const getInventoryScans = async (inventoryId: string): Promise<InventoryS
   );
 };
 
-export const getProductScanCount = async (inventoryId: string, productId: string): Promise<number> => {
+export const getProductScanCount = async (
+  inventoryId: string,
+  productId: string
+): Promise<number> => {
   const db = await getSQLiteDatabase();
   const rows = await db.getAllAsync<{ count: number }>(
     `SELECT COUNT(*) as count FROM inventory_scans_local WHERE inventory_id = ? AND product_id = ?;`,
@@ -47,14 +50,21 @@ export const addInventoryScan = async (
     );
     return { success: true };
   } catch (err: any) {
-    if (err?.message?.includes('UNIQUE constraint failed') || err?.message?.includes('ConstraintError')) {
+    if (
+      err?.message?.includes('UNIQUE constraint failed') ||
+      err?.message?.includes('ConstraintError')
+    ) {
       return { success: false, error: 'duplicate' };
     }
     return { success: false, error: err?.message || 'unknown' };
   }
 };
 
-export const removeLatestScanForProduct = async (inventoryId: string, productId: string, variationId: string | null = null): Promise<void> => {
+export const removeLatestScanForProduct = async (
+  inventoryId: string,
+  productId: string,
+  variationId: string | null = null
+): Promise<void> => {
   const db = await getSQLiteDatabase();
   const latest = await db.getFirstAsync<{ id: string }>(
     `SELECT id FROM inventory_scans_local WHERE inventory_id = ? AND product_id = ? AND (variation_id = ? OR (variation_id IS NULL AND ? IS NULL)) ORDER BY scanned_at DESC LIMIT 1;`,

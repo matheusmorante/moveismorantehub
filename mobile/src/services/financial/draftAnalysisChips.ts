@@ -34,7 +34,9 @@ export const buildDraftAnalysisChips = (
     const chips: DraftAnalysisChip[] = [];
     draft.batchDraftsList.forEach((item, idx) => {
       const typeText = item.type === 'expense' ? 'Saída' : 'Entrada';
-      const amtText = item.amount ? `R$ ${item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Valor a definir';
+      const amtText = item.amount
+        ? `R$ ${item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : 'Valor a definir';
       chips.push({
         id: `batch_${idx}`,
         key: `batch_${idx}`,
@@ -136,11 +138,16 @@ export const buildDraftAnalysisChips = (
       priority: 4,
     });
   } else if (draft.categoryName) {
-    const isLoanCategory = draft.isLoan || draft.categoryName.toLowerCase().includes('empréstimo') || draft.categoryName.toLowerCase().includes('emprestimo');
+    const isLoanCategory =
+      draft.isLoan ||
+      draft.categoryName.toLowerCase().includes('empréstimo') ||
+      draft.categoryName.toLowerCase().includes('emprestimo');
     chips.push({
       id: 'category',
       key: 'category',
-      label: isLoanCategory ? `Natureza: ${draft.categoryName}` : `Categoria: ${draft.categoryName}`,
+      label: isLoanCategory
+        ? `Natureza: ${draft.categoryName}`
+        : `Categoria: ${draft.categoryName}`,
       type: isLoanCategory ? 'loan' : 'neutral',
       priority: 4,
     });
@@ -169,10 +176,7 @@ export const buildDraftAnalysisChips = (
       type: 'neutral',
       priority: 6,
     });
-  } else if (
-    draft.missingFields?.includes('paymentMethod') ||
-    draft.paymentMethod === 'UNKNOWN'
-  ) {
+  } else if (draft.missingFields?.includes('paymentMethod') || draft.paymentMethod === 'UNKNOWN') {
     chips.push({
       id: 'paymentMethod',
       key: 'paymentMethod',

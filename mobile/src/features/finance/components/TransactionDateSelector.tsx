@@ -29,7 +29,12 @@ export const TransactionDateSelector: React.FC<Props> = ({
           onPress={() => onSelectDate(yesterdayStr)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.dateOptionText, transactionDate === yesterdayStr && styles.dateOptionTextActive]}>
+          <Text
+            style={[
+              styles.dateOptionText,
+              transactionDate === yesterdayStr && styles.dateOptionTextActive,
+            ]}
+          >
             Ontem
           </Text>
         </TouchableOpacity>
@@ -39,7 +44,12 @@ export const TransactionDateSelector: React.FC<Props> = ({
           onPress={() => onSelectDate(todayStr)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.dateOptionText, transactionDate === todayStr && styles.dateOptionTextActive]}>
+          <Text
+            style={[
+              styles.dateOptionText,
+              transactionDate === todayStr && styles.dateOptionTextActive,
+            ]}
+          >
             Hoje
           </Text>
         </TouchableOpacity>
@@ -47,19 +57,27 @@ export const TransactionDateSelector: React.FC<Props> = ({
         <TouchableOpacity
           style={[
             styles.dateOption,
-            transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionActive,
+            transactionDate !== todayStr &&
+              transactionDate !== yesterdayStr &&
+              styles.dateOptionActive,
           ]}
           onPress={onOpenDatePicker}
           activeOpacity={0.7}
         >
           <CalendarDays
             size={15}
-            color={transactionDate !== todayStr && transactionDate !== yesterdayStr ? '#ffffff' : '#64748b'}
+            color={
+              transactionDate !== todayStr && transactionDate !== yesterdayStr
+                ? '#ffffff'
+                : '#64748b'
+            }
           />
           <Text
             style={[
               styles.dateOptionText,
-              transactionDate !== todayStr && transactionDate !== yesterdayStr && styles.dateOptionTextActive,
+              transactionDate !== todayStr &&
+                transactionDate !== yesterdayStr &&
+                styles.dateOptionTextActive,
             ]}
           >
             Personalizado

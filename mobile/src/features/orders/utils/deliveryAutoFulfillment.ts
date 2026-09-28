@@ -12,7 +12,12 @@ export function hasDeliveryExceeded12Hours(order: any): boolean {
   const status = String(order.status || data.status || '').toLowerCase();
 
   // Se já está atendido ou cancelado, não precisa de auto-atendimento
-  if (status === 'fulfilled' || status === 'atendido' || status === 'cancelled' || status === 'cancelado') {
+  if (
+    status === 'fulfilled' ||
+    status === 'atendido' ||
+    status === 'cancelled' ||
+    status === 'cancelado'
+  ) {
     return false;
   }
 
@@ -61,12 +66,7 @@ export async function autoFulfillOrderIfExceeded12Hours(order: any): Promise<boo
 
   // 2. Registro na fila offline-first
   try {
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_FINISH',
-      'order',
-      order.id,
-      payload
-    );
+    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', order.id, payload);
   } catch (err) {
     console.warn('[AutoFulfill] Erro ao registrar evento offline:', err);
   }

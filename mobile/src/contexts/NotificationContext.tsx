@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { registerPushToken, triggerLocalNotification, initPushTokenListeners } from '../services/notificationService';
+import {
+  registerPushToken,
+  triggerLocalNotification,
+  initPushTokenListeners,
+} from '../services/notificationService';
 
 interface NotificationContextProps {
   notifications: any[];
@@ -29,10 +33,13 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           message: n.message,
           type: n.type,
           createdAt: n.created_at,
-          timestamp: new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date(n.created_at).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
           scheduleText: n.schedule_text,
           order: n.order_id ? { id: n.order_id, __notificationOrderReference: true } : null,
-          read: n.read
+          read: n.read,
         }));
         setNotifications(formatted);
         setUnreadCount(data.filter((n: any) => !n.read).length);
@@ -42,7 +49,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const handleOpenNotificationsModal = async () => {
     setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
       await supabase.from('app_notifications').update({ read: true }).eq('read', false);
     } catch (err) {}
@@ -58,29 +65,41 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     // Listener Realtime
     const notifChannel = supabase
       .channel('realtime-app-notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_notifications' }, async (payload) => {
-        const newNotif = payload.new;
-        if (!newNotif) return;
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'app_notifications' },
+        async (payload) => {
+          const newNotif = payload.new;
+          if (!newNotif) return;
 
-        setNotifications(prev => [{
-          id: newNotif.id,
-          title: newNotif.title,
-          message: newNotif.message,
-          type: newNotif.type,
-          createdAt: newNotif.created_at || new Date().toISOString(),
-          timestamp: new Date(newNotif.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          scheduleText: newNotif.schedule_text,
-          order: newNotif.order_id ? { id: newNotif.order_id, __notificationOrderReference: true } : null,
-          read: false
-        }, ...prev]);
-        setUnreadCount(prev => prev + 1);
+          setNotifications((prev) => [
+            {
+              id: newNotif.id,
+              title: newNotif.title,
+              message: newNotif.message,
+              type: newNotif.type,
+              createdAt: newNotif.created_at || new Date().toISOString(),
+              timestamp: new Date(newNotif.created_at || Date.now()).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              scheduleText: newNotif.schedule_text,
+              order: newNotif.order_id
+                ? { id: newNotif.order_id, __notificationOrderReference: true }
+                : null,
+              read: false,
+            },
+            ...prev,
+          ]);
+          setUnreadCount((prev) => prev + 1);
 
-        triggerLocalNotification(
-          newNotif.title || 'Móveis Morante',
-          newNotif.message || 'Nova notificação de pedido',
-          newNotif
-        );
-      })
+          triggerLocalNotification(
+            newNotif.title || 'Móveis Morante',
+            newNotif.message || 'Nova notificação de pedido',
+            newNotif
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -90,12 +109,14 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   return (
-    <NotificationContext.Provider value={{
-      notifications,
-      unreadCount,
-      handleOpenNotificationsModal,
-      fetchNotifications
-    }}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        handleOpenNotificationsModal,
+        fetchNotifications,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );

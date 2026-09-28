@@ -15,8 +15,13 @@ describe('postBenefitsResolver', () => {
     });
 
     expect(benefits).toHaveLength(4);
-    expect(benefits.map(item => item.id)).toEqual(['b-4', 'b-1', 'ERP.product.benefits-3', 'b-x']);
-    expect(benefits.map(item => [item.title, item.subtitle])).toEqual([
+    expect(benefits.map((item) => item.id)).toEqual([
+      'b-4',
+      'b-1',
+      'ERP.product.benefits-3',
+      'b-x',
+    ]);
+    expect(benefits.map((item) => [item.title, item.subtitle])).toEqual([
       ['Quarto benefício literal', 'Sem reescrever'],
       ['Primeiro depois', 'Ordem do ERP'],
       ['Texto integral com pontuação: sim!', undefined],

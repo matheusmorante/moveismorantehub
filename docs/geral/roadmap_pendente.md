@@ -2,6 +2,8 @@
 > **Última atualização:** Setembro de 2026  
 > **Status:** Documento vivo de planejamento operacional e técnico.
 
+> **Aviso fiscal:** O status e as pendências de NF-e/NFC-e de saída foram migrados para o roadmap canônico [docs/fiscal/roadmap-configuracao-emissao-producao.md](../fiscal/roadmap-configuracao-emissao-producao.md). Consulte-o como fonte de verdade; os itens fiscais abaixo podem estar desatualizados e não devem ser usados para determinar prontidão de produção.
+
 ---
 
 ## 🎯 Status Geral das Entregas

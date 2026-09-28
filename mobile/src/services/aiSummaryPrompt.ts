@@ -2,7 +2,9 @@
  * Mantém as instruções de linguagem do resumo logístico fora da orquestração
  * de cache, persistência e chamada HTTP.
  */
-export const buildDeliverySummaryPrompt = (baseText: string): string => `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas.
+export const buildDeliverySummaryPrompt = (
+  baseText: string
+): string => `Você é o supervisor de logística da Móveis Morante conversando por áudio no WhatsApp com a equipe de entregas.
 Sua única função é transformar o texto base fornecido em um áudio 100% natural, fluido e conversacional, perfeito para sintetizador de voz (Audio TTS).
 
 REGRAS ABSOLUTAS:

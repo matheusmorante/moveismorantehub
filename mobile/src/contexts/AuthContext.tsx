@@ -26,7 +26,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');
-      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+      if (
+        authEmail &&
+        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
+      ) {
         return {
           ...MASTER_DEFAULT_PROFILE,
           email: authEmail,
@@ -59,7 +62,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');
-      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+      if (
+        authEmail &&
+        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
+      ) {
         setUserProfile({
           ...MASTER_DEFAULT_PROFILE,
           email: authEmail,
@@ -86,7 +92,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!url) return;
     console.log('[DeepLink] Recebido URL:', url);
     try {
-      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error=')) return;
+      if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error='))
+        return;
 
       setLoadingProfile(true);
       const session = await completeGoogleSignIn(url);
@@ -105,9 +112,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     // On web, use the browser URL directly.
-    const initialUrlPromise = Platform.OS === 'web' && typeof window !== 'undefined'
-      ? Promise.resolve(window.location.href)
-      : Linking.getInitialURL();
+    const initialUrlPromise =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? Promise.resolve(window.location.href)
+        : Linking.getInitialURL();
     initialUrlPromise.then((url) => {
       if (url) handleDeepLinkUrl(url);
     });
@@ -116,9 +124,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (event.url) handleDeepLinkUrl(event.url);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[AuthChange] Event:', event);
-      setTimeout(() => { void syncAuthProfile(session); }, 0);
+      setTimeout(() => {
+        void syncAuthProfile(session);
+      }, 0);
     });
 
     const authTimeout = setTimeout(() => {
@@ -128,7 +140,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');
-      if (authEmail && (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)) {
+      if (
+        authEmail &&
+        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
+      ) {
         clearTimeout(authTimeout);
         setUserProfile({
           ...MASTER_DEFAULT_PROFILE,
@@ -141,7 +156,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
-    supabase.auth.getSession()
+    supabase.auth
+      .getSession()
       .then(({ data: { session } }) => {
         clearTimeout(authTimeout);
         return syncAuthProfile(session);
@@ -158,33 +174,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'master' || userProfile?.role === 'administrator';
-  const isAssemblerDriver = userProfile?.role === 'assembler' || userProfile?.role === 'driver' || userProfile?.role === 'entregador' || userProfile?.role === 'deliverer';
+  const isAdmin =
+    userProfile?.role === 'admin' ||
+    userProfile?.role === 'master' ||
+    userProfile?.role === 'administrator';
+  const isAssemblerDriver =
+    userProfile?.role === 'assembler' ||
+    userProfile?.role === 'driver' ||
+    userProfile?.role === 'entregador' ||
+    userProfile?.role === 'deliverer';
   const isSeller = Boolean(
-    userProfile?.roles?.includes('seller') || 
-    userProfile?.role === 'seller' || 
-    userProfile?.roles?.includes('vendedor') || 
-    userProfile?.role === 'vendedor'
+    userProfile?.roles?.includes('seller') ||
+      userProfile?.role === 'seller' ||
+      userProfile?.roles?.includes('vendedor') ||
+      userProfile?.role === 'vendedor'
   );
   const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
   const canSeeProducts = isAdmin || isSeller || userProfile?.role === 'manager';
-  const canSeeFinance = isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
-  const canManageStock = isAdmin || userProfile?.permissions?.manualStockMovement === true || userProfile?.permissions?.includes?.('manualStockMovement');
+  const canSeeFinance =
+    isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
+  const canManageStock =
+    isAdmin ||
+    userProfile?.permissions?.manualStockMovement === true ||
+    userProfile?.permissions?.includes?.('manualStockMovement');
 
   return (
-    <AuthContext.Provider value={{
-      userProfile,
-      setUserProfile,
-      loadingProfile,
-      handleLogout,
-      isAdmin,
-      isAssemblerDriver,
-      isSeller,
-      canSeeReports,
-      canSeeProducts,
-      canSeeFinance,
-      canManageStock
-    }}>
+    <AuthContext.Provider
+      value={{
+        userProfile,
+        setUserProfile,
+        loadingProfile,
+        handleLogout,
+        isAdmin,
+        isAssemblerDriver,
+        isSeller,
+        canSeeReports,
+        canSeeProducts,
+        canSeeFinance,
+        canManageStock,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -12,11 +12,14 @@ class ConnectivityService {
   }
 
   subscribe(listener: ConnectivityListener): () => void {
-    this.listeners.add(listener); listener(this.isOnline);
+    this.listeners.add(listener);
+    listener(this.isOnline);
     return () => this.listeners.delete(listener);
   }
 
-  get connected(): boolean { return this.isOnline; }
+  get connected(): boolean {
+    return this.isOnline;
+  }
 
   private apply(state: NetInfoState): void {
     const next = state.isConnected === true && state.isInternetReachable !== false;

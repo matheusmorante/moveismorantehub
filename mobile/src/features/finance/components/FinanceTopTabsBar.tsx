@@ -22,7 +22,10 @@ export const FinanceTopTabsBar: React.FC<Props> = ({
         onPress={() => onSelectTab('transactions')}
         activeOpacity={0.7}
       >
-        <Receipt size={15} color={activeTab === 'transactions' ? '#3b82f6' : isDarkMode ? '#94a3b8' : '#64748b'} />
+        <Receipt
+          size={15}
+          color={activeTab === 'transactions' ? '#3b82f6' : isDarkMode ? '#94a3b8' : '#64748b'}
+        />
         <Text
           style={[
             styles.topTabText,
@@ -39,7 +42,10 @@ export const FinanceTopTabsBar: React.FC<Props> = ({
         onPress={() => onSelectTab('assistant')}
         activeOpacity={0.7}
       >
-        <Sparkles size={15} color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'} />
+        <Sparkles
+          size={15}
+          color={activeTab === 'assistant' ? '#7c3aed' : isDarkMode ? '#94a3b8' : '#64748b'}
+        />
         <Text
           style={[
             styles.topTabText,

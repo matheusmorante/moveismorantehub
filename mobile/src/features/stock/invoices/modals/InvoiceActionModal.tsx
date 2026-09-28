@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import { Download, Link2, Trash2, CloudDownload } from 'lucide-react-native';
 import { Invoice } from '../../types/stock.types';
 
@@ -14,7 +21,16 @@ interface Props {
   onDelete?: (invoice: Invoice) => void;
 }
 
-export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activeInvoice, onClose, onDownloadXML, onManageMappings, onFetchXml, onDelete }) => {
+export const InvoiceActionModal: React.FC<Props> = ({
+  visible,
+  isDarkMode,
+  activeInvoice,
+  onClose,
+  onDownloadXML,
+  onManageMappings,
+  onFetchXml,
+  onDelete,
+}) => {
   if (!activeInvoice) return null;
   const isSummaryOnly = activeInvoice.itemsCount === 0;
 
@@ -30,22 +46,57 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
               </Text>
 
               {isSummaryOnly ? (
-                <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onFetchXml?.(activeInvoice); onClose(); }}>
+                <TouchableOpacity
+                  style={styles.bsActionBtn}
+                  onPress={() => {
+                    onFetchXml?.(activeInvoice);
+                    onClose();
+                  }}
+                >
                   <CloudDownload size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                  <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Obter XML da SEFAZ</Text>
+                  <Text
+                    style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}
+                  >
+                    Obter XML da SEFAZ
+                  </Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onManageMappings?.(activeInvoice); onClose(); }}>
+                <TouchableOpacity
+                  style={styles.bsActionBtn}
+                  onPress={() => {
+                    onManageMappings?.(activeInvoice);
+                    onClose();
+                  }}
+                >
                   <Link2 size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                  <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Gerenciar vínculos</Text>
+                  <Text
+                    style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}
+                  >
+                    Gerenciar vínculos
+                  </Text>
                 </TouchableOpacity>
               )}
-              
-              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDownloadXML?.(activeInvoice); onClose(); }}>
+
+              <TouchableOpacity
+                style={styles.bsActionBtn}
+                onPress={() => {
+                  onDownloadXML?.(activeInvoice);
+                  onClose();
+                }}
+              >
                 <Download size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>Baixar XML</Text>
+                <Text style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}>
+                  Baixar XML
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.bsActionBtn} onPress={() => { onDelete?.(activeInvoice); onClose(); }} accessibilityRole="button">
+              <TouchableOpacity
+                style={styles.bsActionBtn}
+                onPress={() => {
+                  onDelete?.(activeInvoice);
+                  onClose();
+                }}
+                accessibilityRole="button"
+              >
                 <Trash2 size={20} color="#dc2626" />
                 <Text style={[styles.bsActionText, styles.deleteText]}>Remover nota fiscal</Text>
               </TouchableOpacity>
@@ -59,12 +110,25 @@ export const InvoiceActionModal: React.FC<Props> = ({ visible, isDarkMode, activ
 
 const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  bottomSheet: { backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingTop: 12 },
+  bottomSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingTop: 12,
+  },
   bottomSheetDark: { backgroundColor: '#1e293b' },
-  bsHandle: { width: 40, height: 4, backgroundColor: '#cbd5e1', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  bsHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
   bsTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 16 },
   bsActionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
   bsActionText: { fontSize: 16, fontWeight: '600', color: '#334155' },
   textDark: { color: '#f8fafc' },
-  deleteText: { color: '#dc2626' }
+  deleteText: { color: '#dc2626' },
 });

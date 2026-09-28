@@ -29,10 +29,14 @@ function saveLocalFeedback(item: AgentFeedbackItem): void {
     const current = getLocalFeedbacks();
     current.unshift(item);
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current.slice(0, 100)));
-  } catch  { /* no-op: intencionalmente silencioso */ }
+  } catch {
+    /* no-op: intencionalmente silencioso */
+  }
 }
 
-export async function saveAgentFeedback(input: SaveAgentFeedbackInput): Promise<{ success: boolean; id: string }> {
+export async function saveAgentFeedback(
+  input: SaveAgentFeedbackInput
+): Promise<{ success: boolean; id: string }> {
   const generatedId = `fb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const nowIso = new Date().toISOString();
 
@@ -76,22 +80,33 @@ export async function saveAgentFeedback(input: SaveAgentFeedbackInput): Promise<
       .single();
 
     if (error || !data?.id) {
-      console.warn('[aiFeedbackService] Falha no Supabase, salvando em fallback local:', error?.message);
+      console.warn(
+        '[aiFeedbackService] Falha no Supabase, salvando em fallback local:',
+        error?.message
+      );
       saveLocalFeedback(record);
       return { success: true, id: generatedId };
     }
 
     return { success: true, id: data.id };
   } catch (err: any) {
-    console.warn('[aiFeedbackService] Erro ao salvar feedback da IA, ativando fallback local:', err?.message);
+    console.warn(
+      '[aiFeedbackService] Erro ao salvar feedback da IA, ativando fallback local:',
+      err?.message
+    );
     saveLocalFeedback(record);
     return { success: true, id: generatedId };
   }
 }
 
-export async function listAgentFeedbacks(filter: AgentFeedbackFilter = {}): Promise<AgentFeedbackItem[]> {
+export async function listAgentFeedbacks(
+  filter: AgentFeedbackFilter = {}
+): Promise<AgentFeedbackItem[]> {
   try {
-    let query = supabase.from('ai_agent_feedback').select('*').order('created_at', { ascending: false });
+    let query = supabase
+      .from('ai_agent_feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
 
     if (filter.status && filter.status !== 'all') {
       query = query.eq('status', filter.status);
@@ -142,7 +157,7 @@ export async function updateAgentFeedbackStatus(
     if (error) {
       // Atualiza no cache local se for fallback
       const local = getLocalFeedbacks();
-      const item = local.find(i => i.id === id);
+      const item = local.find((i) => i.id === id);
       if (item) {
         item.status = status;
         item.reviewed_at = nowIso;

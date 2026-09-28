@@ -6,14 +6,19 @@ import { decodeTemplateLayers, encodeTemplateLayers } from './templateMetadata';
 
 const LOCAL_STORAGE_TEMPLATES_KEY = 'morante_marketing_templates_v1';
 function localTemplates(): MarketingTemplate[] {
-  try { const value = JSON.parse(localStorage.getItem(LOCAL_STORAGE_TEMPLATES_KEY) || '[]'); return Array.isArray(value) ? value : []; }
-  catch { return []; }
+  try {
+    const value = JSON.parse(localStorage.getItem(LOCAL_STORAGE_TEMPLATES_KEY) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 function mergeTemplates(remote: MarketingTemplate[]) {
   const merged = new Map<string, MarketingTemplate>();
   for (const item of [...SYSTEM_DEFAULT_TEMPLATES, ...remote, ...localTemplates()]) {
     const previous = merged.get(item.id);
-    if (!previous || String(item.updatedAt) >= String(previous.updatedAt)) merged.set(item.id, item);
+    if (!previous || String(item.updatedAt) >= String(previous.updatedAt))
+      merged.set(item.id, item);
   }
   return [...merged.values()];
 }
@@ -23,9 +28,12 @@ export const SYSTEM_DEFAULT_TEMPLATES = [compositionTemplate, ...LEGACY_TEMPLATE
 export const templateService = {
   cache(template: MarketingTemplate) {
     const current = localTemplates();
-    const previous = current.find(t => t.id === template.id);
+    const previous = current.find((t) => t.id === template.id);
     if (previous && previous.updatedAt > template.updatedAt) return;
-    localStorage.setItem(LOCAL_STORAGE_TEMPLATES_KEY, JSON.stringify([...current.filter(t => t.id !== template.id), template]));
+    localStorage.setItem(
+      LOCAL_STORAGE_TEMPLATES_KEY,
+      JSON.stringify([...current.filter((t) => t.id !== template.id), template])
+    );
   },
   async getAll(): Promise<MarketingTemplate[]> {
     try {
@@ -46,9 +54,9 @@ export const templateService = {
           backgroundColor: t.background_color || '#ffffff',
           isDefault: t.is_default,
           createdAt: t.created_at,
-          updatedAt: t.updated_at
+          updatedAt: t.updated_at,
         }));
-        
+
         return mergeTemplates(dbTemplates);
       }
     } catch (e) {
@@ -68,7 +76,12 @@ export const templateService = {
     return mergeTemplates([]);
   },
 
-  async save(template: Omit<MarketingTemplate, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; updatedAt?: string }): Promise<MarketingTemplate> {
+  async save(
+    template: Omit<MarketingTemplate, 'id' | 'createdAt' | 'updatedAt'> & {
+      id?: string;
+      updatedAt?: string;
+    }
+  ): Promise<MarketingTemplate> {
     const now = template.updatedAt || new Date().toISOString();
     const newTpl: MarketingTemplate = {
       id: template.id || crypto.randomUUID(),
@@ -83,7 +96,7 @@ export const templateService = {
       backgroundColor: template.backgroundColor || '#ffffff',
       isDefault: template.isDefault || false,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     this.cache(newTpl);
@@ -98,7 +111,7 @@ export const templateService = {
         layers_json: encodeTemplateLayers(newTpl.layers, newTpl.editorSettings, newTpl.layouts),
         background_color: newTpl.backgroundColor,
         is_default: newTpl.isDefault,
-        updated_at: now
+        updated_at: now,
       });
       newTpl.persistedRemotely = !error;
     } catch (e) {
@@ -109,5 +122,5 @@ export const templateService = {
     this.cache(newTpl);
 
     return newTpl;
-  }
+  },
 };

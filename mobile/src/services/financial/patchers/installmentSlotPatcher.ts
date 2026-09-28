@@ -19,7 +19,9 @@ export function tryPatchInstallmentSlots(
     !text.includes('total');
 
   if (isComplementingBill && draft.installmentList && draft.installmentList.length > 0) {
-    const missingBillMatch = text.match(/(?:outro|mais|mais\s+um|faltou)\s*(?:boleto|parcela)?\s*(?:de\s*)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
+    const missingBillMatch = text.match(
+      /(?:outro|mais|mais\s+um|faltou)\s*(?:boleto|parcela)?\s*(?:de\s*)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i
+    );
     if (missingBillMatch) {
       const amt = parsePtBrNumber(missingBillMatch[1], text.includes('mil') || text.includes('k'));
       if (amt > 0) {
@@ -36,17 +38,20 @@ export function tryPatchInstallmentSlots(
   }
 
   // 3. Patching Incremental Preservativo de Parcela/Grupo (ex: "eu quis dizer 2 de 5.000")
-  const patchMatch = text.match(/(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/i);
+  const patchMatch = text.match(
+    /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/i
+  );
   if (patchMatch && draft.installmentList && draft.installmentList.length > 0) {
     const rawQ = patchMatch[1].toLowerCase();
-    const newQty = rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
+    const newQty =
+      rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
     const targetVal = parsePtBrNumber(patchMatch[2], text.includes('mil') || text.includes('k'));
 
     if (newQty > 0 && targetVal > 0) {
-      const existingTargetItems = draft.installmentList.filter(item => item.amount === targetVal);
+      const existingTargetItems = draft.installmentList.filter((item) => item.amount === targetVal);
 
       if (existingTargetItems.length > 0) {
-        const otherItems = draft.installmentList.filter(item => item.amount !== targetVal);
+        const otherItems = draft.installmentList.filter((item) => item.amount !== targetVal);
         const newTargetItems = Array.from({ length: newQty }, (_, i) => ({
           number: 0,
           amount: targetVal,
@@ -63,7 +68,11 @@ export function tryPatchInstallmentSlots(
 
         if (draft.dueDay) {
           const today = new Date(todayStr || Date.now());
-          const isNextMonth = text.includes('próximo mês') || text.includes('proximo mes') || draft.dueDate?.includes('-10-') || draft.dueDate?.includes('-11-');
+          const isNextMonth =
+            text.includes('próximo mês') ||
+            text.includes('proximo mes') ||
+            draft.dueDate?.includes('-10-') ||
+            draft.dueDate?.includes('-11-');
           let startMonth = today.getMonth() + (isNextMonth ? 1 : 0);
           let startYear = today.getFullYear();
 
@@ -91,19 +100,23 @@ export function tryPatchInstallmentSlots(
   // C) Extração de valores detalhados de parcelas
   const parsedAmounts: number[] = [];
   const cleanText = text.replace(/^de\s*\d+\s*(?:mil)?\s*são/gi, '');
-  const amountsRegex = /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/gi;
+  const amountsRegex =
+    /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = amountsRegex.exec(cleanText)) !== null) {
     const rawQ = match[1].toLowerCase();
-    const qty = rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
+    const qty =
+      rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
     const val = parsePtBrNumber(match[2], cleanText.includes('mil') || cleanText.includes('k'));
     if (qty <= 10) {
       for (let i = 0; i < qty; i++) parsedAmounts.push(val);
     }
   }
 
-  const singleLeftover = text.match(/\be\s+(?:outro|um|1)\s+(?:de\s+)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i);
+  const singleLeftover = text.match(
+    /\be\s+(?:outro|um|1)\s+(?:de\s+)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i
+  );
   if (singleLeftover && parsedAmounts.length > 0) {
     const val2 = parsePtBrNumber(singleLeftover[1], text.includes('mil') || text.includes('k'));
     parsedAmounts.push(val2);

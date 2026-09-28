@@ -18,20 +18,18 @@ import {
   OFFICIAL_FORMATS,
 } from '../types/postSpecification';
 import { ElementModel, PostCampaign } from '../types/postCreator';
-import {
-  resolveProductImages,
-} from './postProductImageResolver';
-import {
-  resolveOfficialAssets,
-  resolveConfiguredBadgeAssetUrl,
-} from './postOfficialAssetResolver';
+import { resolveProductImages } from './postProductImageResolver';
+import { resolveOfficialAssets, resolveConfiguredBadgeAssetUrl } from './postOfficialAssetResolver';
 import {
   normalizeConfiguredAssetUrl,
   normalizeOfficialAssetUrl,
 } from './postOfficialAssetConstants';
 import { resolvePostBenefits } from './postBenefitsResolver';
 import { resolvePostProductLiteralData } from './postProductLiteralDataResolver';
-export { renderShareSpecificationAsPrompt, renderSpecificationAsPrompt } from './postSpecificationPromptRenderer';
+export {
+  renderShareSpecificationAsPrompt,
+  renderSpecificationAsPrompt,
+} from './postSpecificationPromptRenderer';
 
 // ---------------------------------------------------------------------------
 // Constantes de marca
@@ -78,7 +76,10 @@ export async function computeConfigHash(data: unknown): Promise<string> {
   try {
     const text = JSON.stringify(data);
     const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-    return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+    return Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 16);
   } catch {
     // Fallback determinístico sem crypto.subtle
     return String(JSON.stringify(data).length) + '_' + Date.now().toString(36);
@@ -93,25 +94,27 @@ function buildElementSpec(model: ElementModel): PostElementSpec {
   const normalizedGeneratedUrl = model.generatedAssetUrl
     ? normalizeOfficialAssetUrl(model.generatedAssetUrl)
     : undefined;
-  const centralizedBadgeUrl = model.elementType === 'BADGE'
-    ? resolveConfiguredBadgeAssetUrl(model)
-    : null;
+  const centralizedBadgeUrl =
+    model.elementType === 'BADGE' ? resolveConfiguredBadgeAssetUrl(model) : null;
 
   // Filtrar referências visuais para NÃO duplicar arquivos que já sejam o asset oficial do modelo
   const resources: PostFileResource[] = (model.referenceFiles || [])
-    .filter(ref => {
-      const normalizedRefUrl = model.elementType === 'BADGE'
-        ? normalizeConfiguredAssetUrl(ref.fileUrl)
-        : normalizeOfficialAssetUrl(ref.fileUrl);
+    .filter((ref) => {
+      const normalizedRefUrl =
+        model.elementType === 'BADGE'
+          ? normalizeConfiguredAssetUrl(ref.fileUrl)
+          : normalizeOfficialAssetUrl(ref.fileUrl);
       if (
-        (normalizedGeneratedUrl && (normalizedRefUrl === normalizedGeneratedUrl || ref.fileUrl === model.generatedAssetUrl)) ||
+        (normalizedGeneratedUrl &&
+          (normalizedRefUrl === normalizedGeneratedUrl ||
+            ref.fileUrl === model.generatedAssetUrl)) ||
         (centralizedBadgeUrl && normalizedRefUrl === centralizedBadgeUrl)
       ) {
         return false;
       }
       return true;
     })
-    .map(ref => ({
+    .map((ref) => ({
       role: (ref as any).role ?? 'REFERENCE',
       elementType: model.elementType,
       name: ref.name,
@@ -154,25 +157,23 @@ export function buildCampaignSpec(
     opportunityId?: string | null;
     hasOpenView?: boolean;
     hasVariations?: boolean;
-  },
+  }
 ): PostCampaignSpec {
   const oppId = context?.opportunityId || null;
 
   // Filtragem estrita de BADGE:
   // Se o produto NÃO possui oportunidade (oppId == null), NENHUM modelo de BADGE é incluído.
   // Se possui oportunidade, SOMENTE o modelo vinculado exatamente a essa oportunidade é incluído.
-  const nonBadgeModels = activeModels.filter(model => model.elementType !== 'BADGE');
+  const nonBadgeModels = activeModels.filter((model) => model.elementType !== 'BADGE');
   const applicableBadge = oppId
-    ? activeModels.find(model => model.elementType === 'BADGE' && model.opportunityId === oppId)
+    ? activeModels.find((model) => model.elementType === 'BADGE' && model.opportunityId === oppId)
     : undefined;
-  const filteredModels = applicableBadge
-    ? [...nonBadgeModels, applicableBadge]
-    : nonBadgeModels;
+  const filteredModels = applicableBadge ? [...nonBadgeModels, applicableBadge] : nonBadgeModels;
 
   const elements: PostElementSpec[] = filteredModels.map(buildElementSpec);
 
   // OPEN_VIEW é mantido como identificador técnico legado; na interface e no prompt é "imagem secundária".
-  if (context?.hasOpenView && !elements.some(e => e.elementType === 'OPEN_VIEW')) {
+  if (context?.hasOpenView && !elements.some((e) => e.elementType === 'OPEN_VIEW')) {
     elements.push({
       elementType: 'OPEN_VIEW',
       prompt:
@@ -182,7 +183,7 @@ export function buildCampaignSpec(
   }
 
   // Adicionar elemento estrutural VARIATION_GALLERY se houver mais de uma variação
-  if (context?.hasVariations && !elements.some(e => e.elementType === 'VARIATION_GALLERY')) {
+  if (context?.hasVariations && !elements.some((e) => e.elementType === 'VARIATION_GALLERY')) {
     elements.push({
       elementType: 'VARIATION_GALLERY',
       prompt:
@@ -241,8 +242,14 @@ export async function buildSingleSpecification(params: {
     activeModels: params.activeModels,
     elementModels: params.elementModels,
   });
-  const benefits = resolvePostBenefits({ product: params.product, activeModels: params.activeModels });
-  const productLiteralData = resolvePostProductLiteralData(params.product, params.selectedVariationId);
+  const benefits = resolvePostBenefits({
+    product: params.product,
+    activeModels: params.activeModels,
+  });
+  const productLiteralData = resolvePostProductLiteralData(
+    params.product,
+    params.selectedVariationId
+  );
 
   const configHash = await computeConfigHash({
     campaign: campaignSpec,
@@ -310,16 +317,19 @@ export async function buildShareSpecification(params: {
       opportunityId: oppId,
       hasOpenView,
       hasVariations,
-    }),
+    })
   );
 
-  const allActiveModels = params.campaigns.flatMap(c => c.activeModels);
+  const allActiveModels = params.campaigns.flatMap((c) => c.activeModels);
   const officialAssets = resolveOfficialAssets({
     product: params.product,
     activeModels: allActiveModels,
   });
   const benefits = resolvePostBenefits({ product: params.product, activeModels: allActiveModels });
-  const productLiteralData = resolvePostProductLiteralData(params.product, params.selectedVariationId);
+  const productLiteralData = resolvePostProductLiteralData(
+    params.product,
+    params.selectedVariationId
+  );
 
   const configHash = await computeConfigHash({
     campaigns: campaignSpecs,
@@ -355,4 +365,3 @@ export async function buildShareSpecification(params: {
     configurationVersion: configHash,
   };
 }
-

@@ -28,7 +28,11 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
   },
 }));
 
-import { applyTurnPatchWithDraftList, classifyMultiTurnIntent, processFinancialInput } from '../../';
+import {
+  applyTurnPatchWithDraftList,
+  classifyMultiTurnIntent,
+  processFinancialInput,
+} from '../../';
 
 describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationState.test.ts)', () => {
   it('Grupo 1 — Sessão Longa de 20 Turnos Sequenciais', () => {
@@ -62,7 +66,10 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     for (let i = 0; i < turns.length; i++) {
       const text = turns[i];
       const intent = classifyMultiTurnIntent(text, drafts as any);
-      const isNew = intent === 'NEW_TRANSACTION' || i === 0 || /\b(paguei|recebi|comprei|abasteci|também\s+paguei)\b/i.test(text);
+      const isNew =
+        intent === 'NEW_TRANSACTION' ||
+        i === 0 ||
+        /\b(paguei|recebi|comprei|abasteci|também\s+paguei)\b/i.test(text);
       if (isNew) {
         const res = processFinancialInput(text);
         if (res.draft) {
@@ -99,58 +106,76 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
           }
         }
       } else {
-        const patchResult = applyTurnPatchWithDraftList(drafts as any, text, 'CORRECTION', [], '2026-09-06');
+        const patchResult = applyTurnPatchWithDraftList(
+          drafts as any,
+          text,
+          'CORRECTION',
+          [],
+          '2026-09-06'
+        );
         drafts = patchResult.updatedDrafts;
       }
     }
 
     expect(drafts.length).toBeGreaterThanOrEqual(7);
-    
+
     // Gasolina 1: 230 Pix
-    const gas1 = drafts.find(d => d.amount === 230);
+    const gas1 = drafts.find((d) => d.amount === 230);
     expect(gas1).toBeDefined();
     expect(gas1?.paymentMethod).toBe('Pix');
 
     // Internet: 150 loja
-    const net = drafts.find(d => d.description.toLowerCase().includes('internet'));
+    const net = drafts.find((d) => d.description.toLowerCase().includes('internet'));
     expect(net?.amount).toBe(150);
     expect(net?.businessPurpose).toBe('BUSINESS');
 
     // Bechara: 500 Pix
-    const bechara = drafts.find(d => d.counterparty?.toLowerCase().includes('bechara'));
+    const bechara = drafts.find((d) => d.counterparty?.toLowerCase().includes('bechara'));
     expect(bechara?.amount).toBe(500);
     expect(bechara?.paymentMethod?.toUpperCase()).toBe('PIX');
 
     // João: 800 dinheiro entrada
-    const joao = drafts.find(d => d.counterparty?.toLowerCase().includes('joão') || d.description.toLowerCase().includes('joão'));
+    const joao = drafts.find(
+      (d) =>
+        d.counterparty?.toLowerCase().includes('joão') ||
+        d.description.toLowerCase().includes('joão')
+    );
     expect(joao?.amount).toBe(800);
     expect(joao?.type?.toLowerCase()).toBe('income');
     expect(joao?.paymentMethod).toMatch(/dinheiro|cash/i);
 
     // TV: 2000 loja débito
-    const tv = drafts.find(d => d.description.toLowerCase().includes('televisão') || d.description.toLowerCase().includes('tv'));
+    const tv = drafts.find(
+      (d) =>
+        d.description.toLowerCase().includes('televisão') ||
+        d.description.toLowerCase().includes('tv')
+    );
     expect(tv?.amount).toBe(2000);
     expect(tv?.businessPurpose).toBe('BUSINESS');
     expect(tv?.paymentMethod).toMatch(/débito|debito|debit/i);
 
     // Oficina: 300 dinheiro
-    const oficina = drafts.find(d => d.description.toLowerCase().includes('oficina'));
+    const oficina = drafts.find((d) => d.description.toLowerCase().includes('oficina'));
     expect(oficina?.amount).toBe(300);
     expect(oficina?.paymentMethod).toMatch(/dinheiro|cash/i);
 
     // Lucas: 1250 Pix entrada
-    const lucas = drafts.find(d => d.counterparty?.toLowerCase().includes('lucas') || d.description.toLowerCase().includes('lucas'));
+    const lucas = drafts.find(
+      (d) =>
+        d.counterparty?.toLowerCase().includes('lucas') ||
+        d.description.toLowerCase().includes('lucas')
+    );
     expect(lucas?.amount).toBe(1250);
     expect(lucas?.type?.toLowerCase()).toBe('income');
 
     // Luz: 237.89 loja Pix
-    const luz = drafts.find(d => d.description.toLowerCase().includes('luz'));
+    const luz = drafts.find((d) => d.description.toLowerCase().includes('luz'));
     expect(luz?.amount).toBe(237.89);
     expect(luz?.businessPurpose).toBe('BUSINESS');
     expect(luz?.paymentMethod?.toUpperCase()).toBe('PIX');
 
     // Abasteci: 180 débito
-    const gas2 = drafts.find(d => d.amount === 180);
+    const gas2 = drafts.find((d) => d.amount === 180);
     expect(gas2?.paymentMethod).toMatch(/débito|debito|debit/i);
   });
 
@@ -162,7 +187,13 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(drafts[0].amount).toBe(200);
     expect(drafts[0].paymentMethod).toBe('Pix');
 
-    const patchResult = applyTurnPatchWithDraftList(drafts as any, 'Não, foi 230.', 'CORRECTION', [], '2026-09-06');
+    const patchResult = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Não, foi 230.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     drafts = patchResult.updatedDrafts;
 
     expect(drafts[0].amount).toBe(230);
@@ -171,7 +202,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
 
   it('Grupo 3 — Previne Vazamento de Forma de Pagamento', () => {
     let drafts: any[] = [];
-    
+
     // Turn 1
     const d1 = processFinancialInput('Paguei 200 de gasolina no Pix.');
     if (d1.draft) drafts.push({ ...d1.draft, id: 'd1', paymentMethod: 'PIX', version: 1 });
@@ -184,7 +215,13 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(drafts[1].paymentMethod).toBe('UNKNOWN'); // NÃO herda PIX
 
     // Turn 3
-    const patchResult = applyTurnPatchWithDraftList(drafts as any, 'Foi em dinheiro.', 'CORRECTION', [], '2026-09-06');
+    const patchResult = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Foi em dinheiro.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     drafts = patchResult.updatedDrafts;
 
     expect(drafts[0].paymentMethod).toBe('PIX');
@@ -210,7 +247,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
     const d2 = processFinancialInput('Comprei uma geladeira.');
@@ -237,16 +274,28 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
         missingFields: ['businessPurpose'],
         questions: ['Essa internet é da loja ou de casa?'],
         version: 1,
-      }
+      },
     ];
 
     // Pergunta ativa era sobre TV
-    let patchRes = applyTurnPatchWithDraftList(drafts as any, 'É para a loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    let patchRes = applyTurnPatchWithDraftList(
+      drafts as any,
+      'É para a loja.',
+      'ANSWER_TO_QUESTION',
+      [],
+      '2026-09-06'
+    );
     drafts = patchRes.updatedDrafts;
     expect(drafts[0].businessPurpose).toBe('BUSINESS');
 
     // Pergunta seguinte sobre Internet
-    patchRes = applyTurnPatchWithDraftList(drafts as any, 'É da loja.', 'ANSWER_TO_QUESTION', [], '2026-09-06');
+    patchRes = applyTurnPatchWithDraftList(
+      drafts as any,
+      'É da loja.',
+      'ANSWER_TO_QUESTION',
+      [],
+      '2026-09-06'
+    );
     drafts = patchRes.updatedDrafts;
     expect(drafts[1].businessPurpose).toBe('BUSINESS');
   });
@@ -271,11 +320,17 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
     // Fala: "Na Bechara foi 550."
-    const patchRes = applyTurnPatchWithDraftList(drafts as any, 'Na Bechara foi 550.', 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Na Bechara foi 550.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     drafts = patchRes.updatedDrafts;
 
     expect(drafts[0].amount).toBe(550);
@@ -284,7 +339,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
 
   it('Grupo 10 — Correções Múltiplas sobre a Mesma Movimentação', () => {
     let drafts: any[] = [];
-    
+
     // Turn 1: Paguei 200 de gasolina no Pix.
     const res = processFinancialInput('Paguei 200 de gasolina no Pix.');
     drafts.push({
@@ -300,15 +355,33 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     });
 
     // Turn 2: Não, foi 220.
-    drafts = applyTurnPatchWithDraftList(drafts as any, 'Não, foi 220.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Não, foi 220.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    ).updatedDrafts;
     expect(drafts[0].amount).toBe(220);
 
     // Turn 3: Na verdade foi 230.
-    drafts = applyTurnPatchWithDraftList(drafts as any, 'Na verdade foi 230.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Na verdade foi 230.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    ).updatedDrafts;
     expect(drafts[0].amount).toBe(230);
 
     // Turn 4: E foi no débito, não no Pix.
-    drafts = applyTurnPatchWithDraftList(drafts as any, 'E foi no débito, não no Pix.', 'CORRECTION', [], '2026-09-06').updatedDrafts;
+    drafts = applyTurnPatchWithDraftList(
+      drafts as any,
+      'E foi no débito, não no Pix.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    ).updatedDrafts;
     expect(drafts[0].paymentMethod).toBe('Cartão de Débito');
     expect(drafts[0].amount).toBe(230);
     expect(drafts.length).toBe(1);
@@ -325,7 +398,7 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
     const input = 'Na gasolina foi 250, e também paguei 300 de internet.';
@@ -335,7 +408,13 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
     expect(res.draft?.batchDraftsList?.[1].amount).toBe(300);
 
     // Aplica correção na gasolina
-    const patchRes = applyTurnPatchWithDraftList(drafts as any, input, 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(
+      drafts as any,
+      input,
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     expect(patchRes.updatedDrafts[0].amount).toBe(250);
   });
 
@@ -349,10 +428,16 @@ describe('Bateria E2E/Estresse — Estado de Conversa Longa (longConversationSta
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
-    const patchRes = applyTurnPatchWithDraftList(drafts as any, 'Foi 250.', 'CORRECTION' as any, [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(
+      drafts as any,
+      'Foi 250.',
+      'CORRECTION' as any,
+      [],
+      '2026-09-06'
+    );
     expect(patchRes.updatedDrafts[0].amount).toBe(250);
   });
 });

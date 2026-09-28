@@ -3,7 +3,10 @@ import { TelemetryEvent, AggregatedMetric } from './types';
 export class TelemetryBuffer {
   private buffer: Map<string, AggregatedMetric> = new Map();
 
-  public track(event: TelemetryEvent, currentContext: { module: string, screen: string, action: string }) {
+  public track(
+    event: TelemetryEvent,
+    currentContext: { module: string; screen: string; action: string }
+  ) {
     const mod = event.module || currentContext.module;
     const scr = event.screen || currentContext.screen;
     const act = event.action || currentContext.action;

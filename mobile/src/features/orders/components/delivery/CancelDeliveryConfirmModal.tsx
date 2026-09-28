@@ -20,17 +20,8 @@ export const CancelDeliveryConfirmModal: React.FC<Props> = ({
   orderNumber,
 }) => {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        style={styles.backdrop}
-        activeOpacity={1}
-        onPress={onClose}
-      >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
         <View
           style={[styles.modalCard, isDarkMode && styles.modalCardDark]}
           onStartShouldSetResponder={() => true}
@@ -45,12 +36,13 @@ export const CancelDeliveryConfirmModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>
-            Cancelar Entrega
-          </Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Cancelar Entrega</Text>
 
           <Text style={styles.description}>
-            Deseja realmente cancelar o processo de entrega do pedido <Text style={{ fontWeight: '900', color: '#0f172a' }}>#{orderNumber}</Text>? O status do pedido retornará para <Text style={{ fontWeight: '900', color: '#2563eb' }}>Agendado</Text>.
+            Deseja realmente cancelar o processo de entrega do pedido{' '}
+            <Text style={{ fontWeight: '900', color: '#0f172a' }}>#{orderNumber}</Text>? O status do
+            pedido retornará para{' '}
+            <Text style={{ fontWeight: '900', color: '#2563eb' }}>Agendado</Text>.
           </Text>
 
           {/* Botões de Ação */}
@@ -63,11 +55,7 @@ export const CancelDeliveryConfirmModal: React.FC<Props> = ({
               <Text style={[styles.cancelBtnText, isDarkMode && styles.textLight]}>Voltar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={onConfirm}
-              disabled={loading}
-              style={styles.confirmBtn}
-            >
+            <TouchableOpacity onPress={onConfirm} disabled={loading} style={styles.confirmBtn}>
               {loading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (

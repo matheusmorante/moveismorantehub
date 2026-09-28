@@ -11,7 +11,8 @@ import {
   shouldProcessSaleStock,
 } from '../saleInventoryRules';
 
-const sale = (status: string, item: any): Order => ({ orderType: 'sale', status, items: [item] } as Order);
+const sale = (status: string, item: any): Order =>
+  ({ orderType: 'sale', status, items: [item] }) as Order;
 
 describe('regras de estoque de pedido de venda', () => {
   it('mantém estoque somente para venda agendada ou atendida', () => {
@@ -22,7 +23,15 @@ describe('regras de estoque de pedido de venda', () => {
   });
 
   it('não considera item temporário como produto apto a movimentar', () => {
-    const temporary = { description: 'TESTE_ERP_temporário', quantity: 1, unitPrice: 1, unitDiscount: 0, discountType: 'fixed' as const, handlingType: '', isTemporaryProduct: true };
+    const temporary = {
+      description: 'TESTE_ERP_temporário',
+      quantity: 1,
+      unitPrice: 1,
+      unitDiscount: 0,
+      discountType: 'fixed' as const,
+      handlingType: '',
+      isTemporaryProduct: true,
+    };
     const linked = { ...temporary, productId: 'produto-de-teste', isTemporaryProduct: false };
 
     expect(hasTemporarySaleItem(sale('scheduled', temporary))).toBe(true);
@@ -34,7 +43,11 @@ describe('regras de estoque de pedido de venda', () => {
   });
 
   it('define a data da movimentação de saída com base na data de cadastro do pedido', () => {
-    const saleWithDate = { orderType: 'sale', status: 'scheduled', date: '2026-09-08T14:30:00.000Z' } as any;
+    const saleWithDate = {
+      orderType: 'sale',
+      status: 'scheduled',
+      date: '2026-09-08T14:30:00.000Z',
+    } as any;
     expect(getSaleInventoryDate(saleWithDate)).toBe('2026-09-08T14:30:00.000Z');
 
     const fakeNow = new Date('2026-09-10T12:00:00.000Z');
@@ -52,16 +65,31 @@ describe('regras de estoque de pedido de venda', () => {
   });
 
   it('identifica corretamente quando apenas alguns itens tiveram movimentação de saída gerada', () => {
-    const itemReal1 = { productId: 'prod-1', isTemporaryProduct: false, quantity: 1, unitPrice: 100 };
-    const itemReal2 = { productId: 'prod-2', isTemporaryProduct: false, quantity: 2, unitPrice: 50 };
-    const itemTemp = { description: 'Item sem cadastro', isTemporaryProduct: true, quantity: 1, unitPrice: 30 };
+    const itemReal1 = {
+      productId: 'prod-1',
+      isTemporaryProduct: false,
+      quantity: 1,
+      unitPrice: 100,
+    };
+    const itemReal2 = {
+      productId: 'prod-2',
+      isTemporaryProduct: false,
+      quantity: 2,
+      unitPrice: 50,
+    };
+    const itemTemp = {
+      description: 'Item sem cadastro',
+      isTemporaryProduct: true,
+      quantity: 1,
+      unitPrice: 30,
+    };
 
     // Pedido com 2 itens reais que gerou saída para todos: NÃO é parcial (saída completa)
     const orderCompleto: Order = {
       orderType: 'sale',
       status: 'scheduled',
       stockProcessed: true,
-      items: [itemReal1, itemReal2]
+      items: [itemReal1, itemReal2],
     } as Order;
     expect(isPartialSaleStockMovement(orderCompleto)).toBe(false);
 
@@ -70,7 +98,7 @@ describe('regras de estoque de pedido de venda', () => {
       orderType: 'sale',
       status: 'scheduled',
       stockProcessed: true,
-      items: [itemReal1, itemTemp]
+      items: [itemReal1, itemTemp],
     } as Order;
     expect(isPartialSaleStockMovement(orderMisto)).toBe(true);
 
@@ -83,9 +111,11 @@ describe('regras de estoque de pedido de venda', () => {
       status: 'scheduled',
       stockProcessed: true,
       isPartialStockProcessed: true, // flag antigo defasado
-      items: [itemReal1, itemReal2]
+      items: [itemReal1, itemReal2],
     } as Order;
-    expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto, new Set(['prod-1', 'prod-2']))).toBe(false);
+    expect(
+      isPartialSaleStockMovement(orderAntesParcialAgoraCompleto, new Set(['prod-1', 'prod-2']))
+    ).toBe(false);
     expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto)).toBe(false);
 
     // Pedido sem saída processada: NÃO é parcial
@@ -93,7 +123,7 @@ describe('regras de estoque de pedido de venda', () => {
       orderType: 'sale',
       status: 'scheduled',
       stockProcessed: false,
-      items: [itemReal1, itemTemp]
+      items: [itemReal1, itemTemp],
     } as Order;
     expect(isPartialSaleStockMovement(orderSemSaida)).toBe(false);
 
@@ -103,7 +133,7 @@ describe('regras de estoque de pedido de venda', () => {
       status: 'cancelled',
       stockProcessed: true,
       stockReversed: true,
-      items: [itemReal1, itemTemp]
+      items: [itemReal1, itemTemp],
     } as Order;
     expect(isPartialSaleStockMovement(orderCancelado)).toBe(false);
 
@@ -113,7 +143,7 @@ describe('regras de estoque de pedido de venda', () => {
       status: 'fulfilled',
       returnStockProcessed: true,
       returnKind: 'partial',
-      items: [itemReal1]
+      items: [itemReal1],
     } as Order;
     expect(isPartialSaleStockMovement(devolucaoParcial)).toBe(true);
   });

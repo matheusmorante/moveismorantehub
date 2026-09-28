@@ -85,7 +85,7 @@ export const StockProductSearchFilter: React.FC<Props> = ({
           placeholder="Buscar por produto ou variação..."
           placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
           value={searchQuery}
-          onChangeText={text => {
+          onChangeText={(text) => {
             setSearchQuery(text);
             setShowSuggestions(text.length >= 2);
           }}
@@ -100,7 +100,7 @@ export const StockProductSearchFilter: React.FC<Props> = ({
           {isSearching ? (
             <ActivityIndicator size="small" color="#2563eb" style={{ padding: 14 }} />
           ) : suggestions.length > 0 ? (
-            suggestions.map(item => (
+            suggestions.map((item) => (
               <TouchableOpacity
                 key={`${item.id}-${item.variation_id || 'main'}`}
                 style={styles.suggestionItem}

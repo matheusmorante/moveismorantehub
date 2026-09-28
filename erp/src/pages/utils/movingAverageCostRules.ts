@@ -17,16 +17,27 @@ export type AppliedCostMove = CostMove & { resolvedUnitCost?: number };
 
 const isExit = (type: string) => type === 'exit' || type === 'withdrawal';
 
-export const isEffectiveInventoryMove = (move: Pick<CostMove, 'status' | 'observation'> & { reason?: string | null }) => {
+export const isEffectiveInventoryMove = (
+  move: Pick<CostMove, 'status' | 'observation'> & { reason?: string | null }
+) => {
   try {
-    const metadata = typeof move.observation === 'string' && (move.observation.startsWith('{') || move.observation.startsWith('[')) ? JSON.parse(move.observation) : null;
-    const isReversed = move.status === 'reversed' || move.status === 'cancelled'
-      || metadata?.status === 'reversed' || metadata?.status === 'cancelled'
-      || (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
+    const metadata =
+      typeof move.observation === 'string' &&
+      (move.observation.startsWith('{') || move.observation.startsWith('['))
+        ? JSON.parse(move.observation)
+        : null;
+    const isReversed =
+      move.status === 'reversed' ||
+      move.status === 'cancelled' ||
+      metadata?.status === 'reversed' ||
+      metadata?.status === 'cancelled' ||
+      (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
     return !isReversed;
   } catch {
-    const isReversed = move.status === 'reversed' || move.status === 'cancelled'
-      || (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
+    const isReversed =
+      move.status === 'reversed' ||
+      move.status === 'cancelled' ||
+      (typeof move.reason === 'string' && move.reason.startsWith('Cancelamento da venda'));
     return !isReversed;
   }
 };
@@ -34,17 +45,19 @@ export const isEffectiveInventoryMove = (move: Pick<CostMove, 'status' | 'observ
 export const applyMovingAverageMove = (
   state: CostState,
   move: CostMove,
-  recalculateExitCost = false,
+  recalculateExitCost = false
 ): { state: CostState; resolvedUnitCost?: number } => {
   const quantity = Number(move.quantity || 0);
   const previous = { ...state };
 
   if (move.type === 'entry') {
-    const unitCost = move.unitCost === null || move.unitCost === undefined ? undefined : Number(move.unitCost);
+    const unitCost =
+      move.unitCost === null || move.unitCost === undefined ? undefined : Number(move.unitCost);
     const nextQuantity = previous.quantity + quantity;
-    const nextValue = unitCost !== undefined && unitCost > 0
-      ? previous.inventoryValue + quantity * unitCost
-      : previous.inventoryValue;
+    const nextValue =
+      unitCost !== undefined && unitCost > 0
+        ? previous.inventoryValue + quantity * unitCost
+        : previous.inventoryValue;
     return {
       state: {
         quantity: nextQuantity,
@@ -55,15 +68,20 @@ export const applyMovingAverageMove = (
   }
 
   if (isExit(move.type)) {
-    const currentUnitCost = previous.quantity > 0 && previous.inventoryValue > 0
-      ? previous.inventoryValue / previous.quantity
-      : undefined;
-    const storedUnitCost = move.unitCost === null || move.unitCost === undefined ? undefined : Number(move.unitCost);
-    const resolvedUnitCost = recalculateExitCost ? currentUnitCost : storedUnitCost ?? currentUnitCost;
+    const currentUnitCost =
+      previous.quantity > 0 && previous.inventoryValue > 0
+        ? previous.inventoryValue / previous.quantity
+        : undefined;
+    const storedUnitCost =
+      move.unitCost === null || move.unitCost === undefined ? undefined : Number(move.unitCost);
+    const resolvedUnitCost = recalculateExitCost
+      ? currentUnitCost
+      : (storedUnitCost ?? currentUnitCost);
     const nextQuantity = previous.quantity - quantity;
-    const nextValue = resolvedUnitCost === undefined
-      ? previous.inventoryValue
-      : previous.inventoryValue - quantity * resolvedUnitCost;
+    const nextValue =
+      resolvedUnitCost === undefined
+        ? previous.inventoryValue
+        : previous.inventoryValue - quantity * resolvedUnitCost;
     return {
       state: {
         quantity: nextQuantity,
@@ -79,14 +97,17 @@ export const applyMovingAverageMove = (
     state: {
       quantity: nextQuantity,
       inventoryValue: previous.inventoryValue,
-      unitCost: nextQuantity > 0 && previous.inventoryValue > 0 ? previous.inventoryValue / nextQuantity : undefined,
+      unitCost:
+        nextQuantity > 0 && previous.inventoryValue > 0
+          ? previous.inventoryValue / nextQuantity
+          : undefined,
     },
   };
 };
 
 export const replayMovingAverageMoves = (
   moves: CostMove[],
-  recalculateExitCosts = false,
+  recalculateExitCosts = false
 ): { state: CostState; moves: AppliedCostMove[] } => {
   let state: CostState = { quantity: 0, inventoryValue: 0, unitCost: undefined };
   const appliedMoves: AppliedCostMove[] = [];

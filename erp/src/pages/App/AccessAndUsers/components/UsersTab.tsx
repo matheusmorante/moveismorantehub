@@ -13,13 +13,41 @@ interface Props {
 }
 
 const ROLE_BADGE_STYLES: Record<UserRole, { bg: string; text: string; icon: string }> = {
-  administrator: { bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', icon: 'bi-shield-shaded' },
-  manager: { bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300', icon: 'bi-briefcase-fill' },
-  stockist: { bg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800', text: 'text-teal-700 dark:text-teal-300', icon: 'bi-boxes' },
-  seller: { bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', icon: 'bi-tag-fill' },
-  deliverer: { bg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800', text: 'text-purple-700 dark:text-purple-300', icon: 'bi-truck' },
-  accountant: { bg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-indigo-300', icon: 'bi-calculator' },
-  pending: { bg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800', text: 'text-rose-700 dark:text-rose-300', icon: 'bi-slash-circle' },
+  administrator: {
+    bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800',
+    text: 'text-blue-700 dark:text-blue-300',
+    icon: 'bi-shield-shaded',
+  },
+  manager: {
+    bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800',
+    text: 'text-amber-700 dark:text-amber-300',
+    icon: 'bi-briefcase-fill',
+  },
+  stockist: {
+    bg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800',
+    text: 'text-teal-700 dark:text-teal-300',
+    icon: 'bi-boxes',
+  },
+  seller: {
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800',
+    text: 'text-emerald-700 dark:text-emerald-300',
+    icon: 'bi-tag-fill',
+  },
+  deliverer: {
+    bg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800',
+    text: 'text-purple-700 dark:text-purple-300',
+    icon: 'bi-truck',
+  },
+  accountant: {
+    bg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800',
+    text: 'text-indigo-700 dark:text-indigo-300',
+    icon: 'bi-calculator',
+  },
+  pending: {
+    bg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800',
+    text: 'text-rose-700 dark:text-rose-300',
+    icon: 'bi-slash-circle',
+  },
 };
 
 export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
@@ -41,24 +69,25 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
 
   const filteredPeople = people.filter((p) => {
     const term = search.toLowerCase().trim();
-    const matchesSearch = !term ||
+    const matchesSearch =
+      !term ||
       (p.fullName || '').toLowerCase().includes(term) ||
       (p.email || '').toLowerCase().includes(term) ||
       (p.phone || '').includes(term);
 
-    const rolesList = p.roles && p.roles.length > 0 ? p.roles : (p.role ? [p.role] : ['pending']);
+    const rolesList = p.roles && p.roles.length > 0 ? p.roles : p.role ? [p.role] : ['pending'];
     const matchesRole = selectedRole === 'all' || rolesList.includes(selectedRole as UserRole);
 
     return matchesSearch && matchesRole;
   });
 
   const isSemAcesso = (p: Person) => {
-      const rolesList = p.roles && p.roles.length > 0 ? p.roles : (p.role ? [p.role] : ['pending']);
-      return rolesList.includes('pending') || rolesList.includes('sem acesso' as any);
+    const rolesList = p.roles && p.roles.length > 0 ? p.roles : p.role ? [p.role] : ['pending'];
+    return rolesList.includes('pending') || rolesList.includes('sem acesso' as any);
   };
 
-  const usersWithRole = filteredPeople.filter(p => !isSemAcesso(p));
-  const usersWithoutRole = filteredPeople.filter(p => isSemAcesso(p));
+  const usersWithRole = filteredPeople.filter((p) => !isSemAcesso(p));
+  const usersWithoutRole = filteredPeople.filter((p) => isSemAcesso(p));
 
   const handleOpenAdd = () => {
     setEditingPerson(null);
@@ -81,7 +110,12 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   };
 
   // Helper render method for tables
-  const renderTable = (data: Person[], title: string, page: number, setPage: (p: number) => void) => {
+  const renderTable = (
+    data: Person[],
+    title: string,
+    page: number,
+    setPage: (p: number) => void
+  ) => {
     if (data.length === 0) return null;
 
     const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
@@ -90,7 +124,12 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
     return (
       <div className="mb-6 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-          <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">{title} <span className="text-slate-400 font-medium normal-case text-xs ml-2">({data.length})</span></h3>
+          <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+            {title}{' '}
+            <span className="text-slate-400 font-medium normal-case text-xs ml-2">
+              ({data.length})
+            </span>
+          </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -105,11 +144,21 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {paginatedData.map((person) => {
-                const rolesList = person.roles && person.roles.length > 0 ? person.roles : (person.role ? [person.role] : ['pending']);
-                const initials = (person.fullName || person.email || 'U').substring(0, 2).toUpperCase();
+                const rolesList =
+                  person.roles && person.roles.length > 0
+                    ? person.roles
+                    : person.role
+                      ? [person.role]
+                      : ['pending'];
+                const initials = (person.fullName || person.email || 'U')
+                  .substring(0, 2)
+                  .toUpperCase();
 
                 return (
-                  <tr key={person.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                  <tr
+                    key={person.id}
+                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                  >
                     {/* Usuário e Email */}
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -118,7 +167,9 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{person.fullName || 'Sem nome'}</p>
+                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">
+                              {person.fullName || 'Sem nome'}
+                            </p>
                             {person.position && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
                                 <i className="bi bi-briefcase text-[9px] text-slate-400" />
@@ -126,7 +177,9 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{person.email}</p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                            {person.email}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -135,7 +188,8 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1.5">
                         {rolesList.map((r) => {
-                          const badge = ROLE_BADGE_STYLES[r as UserRole] || ROLE_BADGE_STYLES.pending;
+                          const badge =
+                            ROLE_BADGE_STYLES[r as UserRole] || ROLE_BADGE_STYLES.pending;
                           return (
                             <span
                               key={r}
@@ -157,13 +211,16 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
                     {/* Endereço */}
                     <td className="py-3 px-4 hidden lg:table-cell text-slate-500 dark:text-slate-400 text-[11px]">
                       {person.fullAddress?.street ? (
-                        <span className="truncate block max-w-xs">{person.fullAddress.street}, {person.fullAddress.number} - {person.fullAddress.city}</span>
+                        <span className="truncate block max-w-xs">
+                          {person.fullAddress.street}, {person.fullAddress.number} -{' '}
+                          {person.fullAddress.city}
+                        </span>
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-600 italic">Não informado</span>
+                        <span className="text-slate-300 dark:text-slate-600 italic">
+                          Não informado
+                        </span>
                       )}
                     </td>
-
-
 
                     {/* Ações */}
                     <td className="py-3 px-4 text-right">
@@ -188,7 +245,9 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
         {/* Paginação */}
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
-            <span className="text-xs text-slate-500 font-medium">Página {page} de {totalPages}</span>
+            <span className="text-xs text-slate-500 font-medium">
+              Página {page} de {totalPages}
+            </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -227,7 +286,10 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
             className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none w-full placeholder-slate-400"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs">
+            <button
+              onClick={() => setSearch('')}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+            >
               <i className="bi bi-x-circle-fill" />
             </button>
           )}
@@ -267,13 +329,15 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
       ) : filteredPeople.length === 0 ? (
         <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm py-16 text-center space-y-2">
           <i className="bi bi-people text-4xl text-slate-300 dark:text-slate-600" />
-          <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Nenhum usuário ou colaborador encontrado</p>
+          <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+            Nenhum usuário ou colaborador encontrado
+          </p>
           <p className="text-xs text-slate-400">Tente ajustar os termos de busca ou filtros.</p>
         </div>
       ) : (
         <>
-          {renderTable(usersWithRole, "Usuários com Cargo", pageWithRole, setPageWithRole)}
-          {renderTable(usersWithoutRole, "Sem Cargo", pageWithoutRole, setPageWithoutRole)}
+          {renderTable(usersWithRole, 'Usuários com Cargo', pageWithRole, setPageWithRole)}
+          {renderTable(usersWithoutRole, 'Sem Cargo', pageWithoutRole, setPageWithoutRole)}
         </>
       )}
 
@@ -281,11 +345,18 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
       {isModalOpen && (
         <PersonFormModal
           isOpen={isModalOpen}
-          onClose={() => { setIsModalOpen(false); setEditingPerson(null); }}
-          onSuccess={() => { setIsModalOpen(false); setEditingPerson(null); onRefresh(); }}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingPerson(null);
+          }}
+          onSuccess={() => {
+            setIsModalOpen(false);
+            setEditingPerson(null);
+            onRefresh();
+          }}
           person={editingPerson}
           collectionName="employees"
-          title={editingPerson ? "Editar Usuário e Perfis de Acesso" : "Colaborador"}
+          title={editingPerson ? 'Editar Usuário e Perfis de Acesso' : 'Colaborador'}
         />
       )}
     </div>

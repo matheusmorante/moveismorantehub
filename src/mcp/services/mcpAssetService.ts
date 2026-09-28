@@ -28,7 +28,9 @@ export class McpAssetService {
   /**
    * Obtém todos os assets oficiais da loja e campanhas.
    */
-  async getStoreAssets(category?: 'logo' | 'badge' | 'installment' | 'seal' | 'other'): Promise<McpStoreAsset[]> {
+  async getStoreAssets(
+    category?: 'logo' | 'badge' | 'installment' | 'seal' | 'other'
+  ): Promise<McpStoreAsset[]> {
     const assets = [...OFFICIAL_STORE_ASSETS];
 
     // Busca assets adicionais cadastrados no módulo de marketing do Supabase se houver
@@ -40,15 +42,21 @@ export class McpAssetService {
 
       if (data) {
         data.forEach((row: any) => {
-          if (row.generated_asset_url && !assets.some(a => a.url === row.generated_asset_url)) {
+          if (row.generated_asset_url && !assets.some((a) => a.url === row.generated_asset_url)) {
             assets.push({
               id: `asset-model-${row.id}`,
               name: row.name || 'Asset de Campanha',
               kind: 'asset',
-              category: row.element_type === 'BADGE' ? 'badge' : row.element_type === 'LOGO' ? 'logo' : 'other',
+              category:
+                row.element_type === 'BADGE'
+                  ? 'badge'
+                  : row.element_type === 'LOGO'
+                    ? 'logo'
+                    : 'other',
               url: row.generated_asset_url,
               mimeType: 'image/png',
-              strictInstructions: 'Asset oficial fornecido pela campanha. Preserve sem estilização artificial.',
+              strictInstructions:
+                'Asset oficial fornecido pela campanha. Preserve sem estilização artificial.',
             });
           }
         });
@@ -56,7 +64,7 @@ export class McpAssetService {
     } catch {}
 
     if (category) {
-      return assets.filter(a => a.category === category);
+      return assets.filter((a) => a.category === category);
     }
 
     return assets;
@@ -70,11 +78,11 @@ export class McpAssetService {
 
     const lower = opportunityName.toLowerCase();
     if (lower.includes('queima') || lower.includes('salvado')) {
-      return OFFICIAL_STORE_ASSETS.find(a => a.id === 'asset-badge-queima-salvados') || null;
+      return OFFICIAL_STORE_ASSETS.find((a) => a.id === 'asset-badge-queima-salvados') || null;
     }
 
     const allAssets = await this.getStoreAssets('badge');
-    const matched = allAssets.find(a => a.name.toLowerCase().includes(lower));
+    const matched = allAssets.find((a) => a.name.toLowerCase().includes(lower));
     return matched || null;
   }
 }

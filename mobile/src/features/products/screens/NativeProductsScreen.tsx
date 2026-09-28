@@ -32,7 +32,11 @@ interface Props {
   onLaunchStock?: (product: any) => void;
 }
 
-export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'standard', onLaunchStock }) => {
+export const NativeProductsScreen: React.FC<Props> = ({
+  isDarkMode,
+  mode = 'standard',
+  onLaunchStock,
+}) => {
   const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -40,13 +44,16 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'stan
 
   const [categories, setCategories] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
-  const [newProductInitialData, setNewProductInitialData] = useState<Record<string, any> | undefined>(undefined);
+  const [newProductInitialData, setNewProductInitialData] = useState<
+    Record<string, any> | undefined
+  >(undefined);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<any | null>(null);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
 
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0) + 8;
+  const topInset =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
   const loadCategories = async () => {
     const cats = await fetchMobileCategories();
@@ -74,13 +81,23 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'stan
   };
 
   const handleDuplicate = async (prod: any) => {
-    try { await duplicateMobileProduct(prod); await productsHook.refresh(); Alert.alert('Produto duplicado', 'A cópia foi criada como rascunho.'); }
-    catch (error: any) { Alert.alert('Não foi possível duplicar', error?.message || 'Tente novamente.'); }
+    try {
+      await duplicateMobileProduct(prod);
+      await productsHook.refresh();
+      Alert.alert('Produto duplicado', 'A cópia foi criada como rascunho.');
+    } catch (error: any) {
+      Alert.alert('Não foi possível duplicar', error?.message || 'Tente novamente.');
+    }
   };
 
   const handleShare = async (prod: any) => {
-    const price = Number(prod.promoPrice || prod.unitPrice || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    await Share.share({ message: `${prod.name || 'Produto'}\nCódigo: ${prod.code || prod.sku || 'sem código'}\nPreço: ${price}` });
+    const price = Number(prod.promoPrice || prod.unitPrice || 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+    await Share.share({
+      message: `${prod.name || 'Produto'}\nCódigo: ${prod.code || prod.sku || 'sem código'}\nPreço: ${price}`,
+    });
   };
 
   return (
@@ -149,25 +166,33 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'stan
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
             showDeactivated={productsHook.showDeactivated}
             showMerged={productsHook.showMerged}
-            onToggleDeactivated={() => productsHook.setShowDeactivated(value => !value)}
-            onToggleMerged={() => productsHook.setShowMerged(value => !value)}
+            onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
+            onToggleMerged={() => productsHook.setShowMerged((value) => !value)}
           />
 
           {productsHook.loadError ? (
             <View style={styles.empty}>
               <Package size={40} color="#dc2626" />
               <Text style={styles.emptyText}>{productsHook.loadError}</Text>
-              <TouchableOpacity onPress={() => productsHook.refresh()} style={styles.retryButton} accessibilityRole="button">
+              <TouchableOpacity
+                onPress={() => productsHook.refresh()}
+                style={styles.retryButton}
+                accessibilityRole="button"
+              >
                 <Text style={styles.retryButtonText}>Tentar novamente</Text>
               </TouchableOpacity>
             </View>
           ) : productsHook.products.length === 0 ? (
             <View style={styles.empty}>
               <Package size={40} color="#cbd5e1" />
-              <Text style={styles.emptyText}>{screenMode === 'composition' ? 'Nenhuma composição encontrada' : 'Nenhum produto encontrado'}</Text>
+              <Text style={styles.emptyText}>
+                {screenMode === 'composition'
+                  ? 'Nenhuma composição encontrada'
+                  : 'Nenhum produto encontrado'}
+              </Text>
             </View>
           ) : (
-            productsHook.products.map(product => (
+            productsHook.products.map((product) => (
               <MobileProductCard
                 key={product.id}
                 product={product}
@@ -202,7 +227,10 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'stan
         product={editingProduct}
         initialData={newProductInitialData}
         dark={isDarkMode}
-        onClose={() => { setShowFormModal(false); setNewProductInitialData(undefined); }}
+        onClose={() => {
+          setShowFormModal(false);
+          setNewProductInitialData(undefined);
+        }}
         onSave={productsHook.handleSave}
       />
 
@@ -217,8 +245,18 @@ export const NativeProductsScreen: React.FC<Props> = ({ isDarkMode, mode = 'stan
           setScreenMode('categories');
         }}
       />
-      <ProductPriceHistoryModal visible={Boolean(historyProduct)} dark={isDarkMode} product={historyProduct} onClose={() => setHistoryProduct(null)} />
-      <ProductLinkedOrdersModal visible={Boolean(ordersProduct)} dark={isDarkMode} product={ordersProduct} onClose={() => setOrdersProduct(null)} />
+      <ProductPriceHistoryModal
+        visible={Boolean(historyProduct)}
+        dark={isDarkMode}
+        product={historyProduct}
+        onClose={() => setHistoryProduct(null)}
+      />
+      <ProductLinkedOrdersModal
+        visible={Boolean(ordersProduct)}
+        dark={isDarkMode}
+        product={ordersProduct}
+        onClose={() => setOrdersProduct(null)}
+      />
     </View>
   );
 };
@@ -231,6 +269,12 @@ const styles = StyleSheet.create({
   loading: { fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 },
-  retryButton: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: '#2563eb' },
+  retryButton: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+  },
   retryButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
 });

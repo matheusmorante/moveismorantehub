@@ -39,21 +39,25 @@ export function SlideHoldToStart({
     onComplete();
   };
 
-  const responder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => !disabled,
-    onMoveShouldSetPanResponder: () => !disabled,
-    onPanResponderMove: (_, gesture) => {
-      const distance = direction === 'left' ? -gesture.dx : gesture.dx;
-      x.setValue(Math.max(0, Math.min(maxX, distance)));
-    },
-    onPanResponderRelease: (_, gesture) => {
-      const distance = direction === 'left' ? -gesture.dx : gesture.dx;
-      const reachedEnd = maxX > 0 && distance >= maxX * 0.88;
-      if (reachedEnd) finishSlide();
-      else returnToStart();
-    },
-    onPanResponderTerminate: () => returnToStart(),
-  }), [disabled, completedSlides, maxX, direction]);
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !disabled,
+        onMoveShouldSetPanResponder: () => !disabled,
+        onPanResponderMove: (_, gesture) => {
+          const distance = direction === 'left' ? -gesture.dx : gesture.dx;
+          x.setValue(Math.max(0, Math.min(maxX, distance)));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const distance = direction === 'left' ? -gesture.dx : gesture.dx;
+          const reachedEnd = maxX > 0 && distance >= maxX * 0.88;
+          if (reachedEnd) finishSlide();
+          else returnToStart();
+        },
+        onPanResponderTerminate: () => returnToStart(),
+      }),
+    [disabled, completedSlides, maxX, direction]
+  );
 
   const label = disabled
     ? 'Aguarde...'
@@ -63,14 +67,12 @@ export function SlideHoldToStart({
 
   return (
     <View
-      style={[
-        styles.track,
-        { backgroundColor: trackColor },
-        disabled && styles.disabled,
-      ]}
-      onLayout={event => setTrackWidth(event.nativeEvent.layout.width)}
+      style={[styles.track, { backgroundColor: trackColor }, disabled && styles.disabled]}
+      onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
     >
-      <Text style={[styles.label, direction === 'left' ? styles.labelLeft : styles.labelRight]}>{label}</Text>
+      <Text style={[styles.label, direction === 'left' ? styles.labelLeft : styles.labelRight]}>
+        {label}
+      </Text>
       <Animated.View
         style={[
           styles.knob,

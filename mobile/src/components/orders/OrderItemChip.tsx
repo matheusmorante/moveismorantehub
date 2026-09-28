@@ -9,28 +9,33 @@ interface OrderItemChipProps {
   dark?: boolean;
 }
 
-const wrappedDecoration = Platform.OS === 'web'
-  ? ({ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as any)
-  : undefined;
+const wrappedDecoration =
+  Platform.OS === 'web'
+    ? ({ boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone' } as any)
+    : undefined;
 
 export function OrderItemChip({ item, handlingOptions = [], dark = false }: OrderItemChipProps) {
   const quantity = Number(item?.quantity || item?.qty || 1);
-  const handlingType = String(item?.handlingType || item?.handling || item?.manuseio || item?.handling_type || '').trim();
+  const handlingType = String(
+    item?.handlingType || item?.handling || item?.manuseio || item?.handling_type || ''
+  ).trim();
   const isOutside = isAssemblyOutsideType(handlingType, handlingOptions);
   const isInternal = isAssemblyInternalType(handlingType, handlingOptions);
 
   return (
-    <Text style={[
-      styles.chip,
-      wrappedDecoration,
-      isOutside ? styles.outside : isInternal ? styles.internal : styles.default,
-      dark && styles.dark,
-      styles.chipText,
-      isOutside ? styles.outsideText : isInternal ? styles.internalText : styles.defaultText,
-      dark && isOutside && styles.outsideTextDark,
-      dark && isInternal && styles.internalTextDark,
-      dark && !isOutside && !isInternal && styles.defaultTextDark,
-    ]}>
+    <Text
+      style={[
+        styles.chip,
+        wrappedDecoration,
+        isOutside ? styles.outside : isInternal ? styles.internal : styles.default,
+        dark && styles.dark,
+        styles.chipText,
+        isOutside ? styles.outsideText : isInternal ? styles.internalText : styles.defaultText,
+        dark && isOutside && styles.outsideTextDark,
+        dark && isInternal && styles.internalTextDark,
+        dark && !isOutside && !isInternal && styles.defaultTextDark,
+      ]}
+    >
       <Text style={styles.quantity}>{quantity}x</Text>
       <Text> {formatItemDisplayName(item)}</Text>
     </Text>

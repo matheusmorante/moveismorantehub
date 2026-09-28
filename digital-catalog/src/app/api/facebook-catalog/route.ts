@@ -1,5 +1,5 @@
-import { GET as getFeed } from "../facebook-catalog.csv/route"
+import { GET as getFeed } from '../facebook-catalog.csv/route';
 
-export const dynamic = "force-dynamic"
+export const dynamic = 'force-dynamic';
 
-export { getFeed as GET }
+export { getFeed as GET };

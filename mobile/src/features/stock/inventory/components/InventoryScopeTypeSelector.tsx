@@ -51,7 +51,9 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
           </View>
           <View style={styles.flex1}>
             <Text style={[styles.typeTitle, { color: textPrimary }]}>Estoque Completo</Text>
-            <Text style={[styles.typeDesc, { color: muted }]}>Todas as variações ativas cadastradas no sistema.</Text>
+            <Text style={[styles.typeDesc, { color: muted }]}>
+              Todas as variações ativas cadastradas no sistema.
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -72,14 +74,18 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
             </View>
             <View style={styles.flex1}>
               <Text style={[styles.typeTitle, { color: textPrimary }]}>Por Fornecedor</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Selecione um fornecedor e conte as variações relacionadas.</Text>
+              <Text style={[styles.typeDesc, { color: muted }]}>
+                Selecione um fornecedor e conte as variações relacionadas.
+              </Text>
             </View>
           </View>
         </TouchableOpacity>
 
         {expandedType === 'supplier' && (
           <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>Selecione o fornecedor para iniciar:</Text>
+            <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+              Selecione o fornecedor para iniciar:
+            </Text>
             <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
               <Search size={18} color={muted} />
               <TextInput
@@ -92,7 +98,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
               />
             </View>
             <View style={styles.chipsRow}>
-              {visibleSuppliers.map(s => {
+              {visibleSuppliers.map((s) => {
                 const isSelected = selectedSupplierId === s.id;
                 return (
                   <TouchableOpacity
@@ -111,7 +117,12 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
                     ]}
                     onPress={() => onSelectSupplier(isSelected ? null : s.id)}
                   >
-                    <Text style={{ color: isSelected ? '#2563eb' : textPrimary, fontWeight: isSelected ? '700' : '500' }}>
+                    <Text
+                      style={{
+                        color: isSelected ? '#2563eb' : textPrimary,
+                        fontWeight: isSelected ? '700' : '500',
+                      }}
+                    >
                       {s.full_name}
                     </Text>
                   </TouchableOpacity>
@@ -120,7 +131,9 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
             </View>
             {visibleSuppliers.length === 0 && (
               <Text style={{ color: muted, marginTop: 12 }}>
-                {suppliers.length === 0 ? 'Nenhum fornecedor disponível no catálogo local.' : 'Nenhum fornecedor encontrado.'}
+                {suppliers.length === 0
+                  ? 'Nenhum fornecedor disponível no catálogo local.'
+                  : 'Nenhum fornecedor encontrado.'}
               </Text>
             )}
             {selectedSupplierId && (
@@ -130,7 +143,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
                 onPress={() => onConfirmType('supplier', selectedSupplierId)}
               >
                 <Text style={styles.actionButtonText}>
-                  Continuar com {suppliers.find(s => s.id === selectedSupplierId)?.full_name}
+                  Continuar com {suppliers.find((s) => s.id === selectedSupplierId)?.full_name}
                 </Text>
               </TouchableOpacity>
             )}
@@ -154,32 +167,49 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
             </View>
             <View style={styles.flex1}>
               <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>Pesquise e adicione manualmente produtos ou variações específicas ao escopo.</Text>
+              <Text style={[styles.typeDesc, { color: muted }]}>
+                Pesquise e adicione manualmente produtos ou variações específicas ao escopo.
+              </Text>
             </View>
           </View>
         </TouchableOpacity>
 
         {expandedType === 'custom' && (
           <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
-            <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>Selecione produtos ou variações antes de iniciar a contagem.</Text>
+            <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>
+              Selecione produtos ou variações antes de iniciar a contagem.
+            </Text>
             <TouchableOpacity style={styles.customAddButton} onPress={onOpenSearch}>
               <Text style={styles.actionButtonText}>+ Adicionar produto ou variação</Text>
             </TouchableOpacity>
-            {customProducts.map(product => (
-              <View key={`${product.id}-${product.variation_id || 'main'}`} style={[styles.customProductRow, { borderBottomColor: border }]}>
-                <Text numberOfLines={2} style={[{ color: textPrimary }, styles.flex1]}>{product.name}</Text>
-                <TouchableOpacity onPress={() => onRemoveCustomProduct(product)} accessibilityLabel={`Remover ${product.name}`}>
+            {customProducts.map((product) => (
+              <View
+                key={`${product.id}-${product.variation_id || 'main'}`}
+                style={[styles.customProductRow, { borderBottomColor: border }]}
+              >
+                <Text numberOfLines={2} style={[{ color: textPrimary }, styles.flex1]}>
+                  {product.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => onRemoveCustomProduct(product)}
+                  accessibilityLabel={`Remover ${product.name}`}
+                >
                   <X size={18} color={muted} />
                 </TouchableOpacity>
               </View>
             ))}
             <TouchableOpacity
               testID="continue-custom-btn"
-              style={[styles.actionButton, { backgroundColor: '#7c3aed', opacity: customProducts.length ? 1 : 0.5 }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: '#7c3aed', opacity: customProducts.length ? 1 : 0.5 },
+              ]}
               disabled={!customProducts.length}
               onPress={() => onConfirmType('custom')}
             >
-              <Text style={styles.actionButtonText}>Continuar com {customProducts.length} item(ns)</Text>
+              <Text style={styles.actionButtonText}>
+                Continuar com {customProducts.length} item(ns)
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -222,7 +252,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 13, marginBottom: 12, fontWeight: '700' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginBottom: 12 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
   searchInput: { flex: 1, paddingVertical: 9, fontSize: 14 },
   chip: {
     paddingHorizontal: 16,
@@ -232,6 +270,17 @@ const styles = StyleSheet.create({
   },
   actionButton: { alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 14 },
   actionButtonText: { color: '#fff', fontWeight: '800' },
-  customAddButton: { alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#7c3aed', marginBottom: 8 },
-  customProductRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1 },
+  customAddButton: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#7c3aed',
+    marginBottom: 8,
+  },
+  customProductRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+  },
 });

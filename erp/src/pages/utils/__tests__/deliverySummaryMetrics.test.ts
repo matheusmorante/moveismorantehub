@@ -19,9 +19,14 @@ export function calculateDeliverySummaryMetrics(
 ): DeliverySummaryMetrics {
   const todayStr = referenceDateStr;
 
-  const filteredOrders = (orders || []).filter(order => {
+  const filteredOrders = (orders || []).filter((order) => {
     const oData = order.order_data || {};
-    const dDate = order.delivery_date || order.scheduled_date || order.shipping?.scheduledDate || oData.shipping?.scheduledDate || '';
+    const dDate =
+      order.delivery_date ||
+      order.scheduled_date ||
+      order.shipping?.scheduledDate ||
+      oData.shipping?.scheduledDate ||
+      '';
     if (!dDate) return periodFilter === 'today';
     if (periodFilter === 'today') {
       return dDate.startsWith(todayStr) || dDate === todayStr;
@@ -35,14 +40,27 @@ export function calculateDeliverySummaryMetrics(
   const morningClients: string[] = [];
   const afternoonClients: string[] = [];
 
-  filteredOrders.forEach(order => {
+  filteredOrders.forEach((order) => {
     const oData = order.order_data || {};
     const customer = oData.customerData || oData.customer || {};
-    const clientName = (order.customer_name || order.client_name || order.shipping?.customerName || customer.name || customer.fullName || 'Cliente').split(' ')[0];
+    const clientName = (
+      order.customer_name ||
+      order.client_name ||
+      order.shipping?.customerName ||
+      customer.name ||
+      customer.fullName ||
+      'Cliente'
+    ).split(' ')[0];
     const rawItems = order.items || order.order_items || oData.items || [];
     const itemsCount = Array.isArray(rawItems) && rawItems.length > 0 ? rawItems.length : 1;
 
-    const period = (order.shipping?.period || order.shipping?.scheduling?.time || oData.shipping?.scheduling?.period || oData.shipping?.period || '').toLowerCase();
+    const period = (
+      order.shipping?.period ||
+      order.shipping?.scheduling?.time ||
+      oData.shipping?.scheduling?.period ||
+      oData.shipping?.period ||
+      ''
+    ).toLowerCase();
     if (period.includes('manhã') || period.includes('manha')) {
       morningCount++;
       morningClients.push(`${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`);
@@ -55,7 +73,9 @@ export function calculateDeliverySummaryMetrics(
         morningClients.push(`${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`);
       } else {
         afternoonCount++;
-        afternoonClients.push(`${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`);
+        afternoonClients.push(
+          `${clientName} (${itemsCount} ${itemsCount === 1 ? 'item' : 'itens'})`
+        );
       }
     }
   });
@@ -64,16 +84,17 @@ export function calculateDeliverySummaryMetrics(
 
   let defaultSummaryText: string;
   if (totalCount === 0) {
-    defaultSummaryText = periodFilter === 'today'
-      ? 'Nenhuma entrega programada para o dia de hoje.'
-      : 'Nenhuma entrega agendada para os próximos dias.';
+    defaultSummaryText =
+      periodFilter === 'today'
+        ? 'Nenhuma entrega programada para o dia de hoje.'
+        : 'Nenhuma entrega agendada para os próximos dias.';
   } else {
-    const morningPart = morningClients.length > 0
-      ? `Manhã: entregas para ${morningClients.join(', ')}.`
-      : 'Manhã: sem entregas.';
-    const afternoonPart = afternoonClients.length > 0
-      ? `Tarde: entregas para ${afternoonClients.join(', ')}.`
-      : '';
+    const morningPart =
+      morningClients.length > 0
+        ? `Manhã: entregas para ${morningClients.join(', ')}.`
+        : 'Manhã: sem entregas.';
+    const afternoonPart =
+      afternoonClients.length > 0 ? `Tarde: entregas para ${afternoonClients.join(', ')}.` : '';
     defaultSummaryText = `${morningPart} ${afternoonPart}`.trim();
   }
 
@@ -95,7 +116,12 @@ export function hasDeliveryExceeded12Hours(order: any, nowMs: number = Date.now(
   const data = order.order_data || order;
   const status = String(order.status || data.status || '').toLowerCase();
 
-  if (status === 'fulfilled' || status === 'atendido' || status === 'cancelled' || status === 'cancelado') {
+  if (
+    status === 'fulfilled' ||
+    status === 'atendido' ||
+    status === 'cancelled' ||
+    status === 'cancelado'
+  ) {
     return false;
   }
 
@@ -114,7 +140,10 @@ export function hasDeliveryExceeded12Hours(order: any, nowMs: number = Date.now(
   return elapsed >= TWELVE_HOURS_MS;
 }
 
-export function autoFulfillOrderIfExceeded12HoursMock(order: any, nowIso: string = new Date().toISOString()): boolean {
+export function autoFulfillOrderIfExceeded12HoursMock(
+  order: any,
+  nowIso: string = new Date().toISOString()
+): boolean {
   if (!hasDeliveryExceeded12Hours(order, new Date(nowIso).getTime())) return false;
 
   const data = order.order_data || order;
@@ -164,7 +193,10 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
         customer_name: 'Carlos Alberto Ferreira',
         scheduled_date: TODAY,
         shipping: { period: 'Manhã' },
-        items: [{ id: 'it-1', description: 'Guarda-Roupa Casal' }, { id: 'it-2', description: 'Cômoda' }],
+        items: [
+          { id: 'it-1', description: 'Guarda-Roupa Casal' },
+          { id: 'it-2', description: 'Cômoda' },
+        ],
       },
       {
         id: 'ord-2',
@@ -199,7 +231,9 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
     expect(metrics.morningCount).toBe(0);
     expect(metrics.afternoonCount).toBe(1);
     expect(metrics.afternoonClients).toEqual(['Marcos (1 item)']);
-    expect(metrics.defaultSummaryText).toBe('Manhã: sem entregas. Tarde: entregas para Marcos (1 item).');
+    expect(metrics.defaultSummaryText).toBe(
+      'Manhã: sem entregas. Tarde: entregas para Marcos (1 item).'
+    );
   });
 
   it('5. Deve distribuir e formatar corretamente ambos os turnos (Manhã e Tarde)', () => {
@@ -224,7 +258,9 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
     expect(metrics.totalCount).toBe(2);
     expect(metrics.morningCount).toBe(1);
     expect(metrics.afternoonCount).toBe(1);
-    expect(metrics.defaultSummaryText).toBe('Manhã: entregas para Beatriz (1 item). Tarde: entregas para Rodrigo (3 itens).');
+    expect(metrics.defaultSummaryText).toBe(
+      'Manhã: entregas para Beatriz (1 item). Tarde: entregas para Rodrigo (3 itens).'
+    );
   });
 
   it('6. Deve distribuir de forma balanceada entregas sem turno explícito', () => {
@@ -269,7 +305,10 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
     };
 
     expect(hasDeliveryExceeded12Hours(orderInProgress, now)).toBe(false);
-    const fulfilled = autoFulfillOrderIfExceeded12HoursMock(orderInProgress, new Date(now).toISOString());
+    const fulfilled = autoFulfillOrderIfExceeded12HoursMock(
+      orderInProgress,
+      new Date(now).toISOString()
+    );
     expect(fulfilled).toBe(false);
     expect(orderInProgress.status).toBe('scheduled');
   });
@@ -288,7 +327,10 @@ describe('Testes de Interface e Negócio: Resumo de Entregas, Contadores e Auto-
     };
 
     expect(hasDeliveryExceeded12Hours(orderStuck, now)).toBe(true);
-    const fulfilled = autoFulfillOrderIfExceeded12HoursMock(orderStuck, new Date(now).toISOString());
+    const fulfilled = autoFulfillOrderIfExceeded12HoursMock(
+      orderStuck,
+      new Date(now).toISOString()
+    );
     expect(fulfilled).toBe(true);
     expect(orderStuck.status).toBe('fulfilled');
     expect(orderStuck.order_data.deliveryStatus).toBe('completed');

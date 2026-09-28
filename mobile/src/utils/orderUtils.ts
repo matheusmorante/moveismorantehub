@@ -3,14 +3,14 @@
 export const formatOrderCode = (order: any): string => {
   if (!order) return '—';
   const data = order?.order_data || order || {};
-  const rawValue = 
-    data.orderIndex ?? 
-    order.orderIndex ?? 
-    order.order_index ?? 
-    data.order_index ?? 
-    order.order_number ?? 
-    data.order_number ?? 
-    order.orderNumber ?? 
+  const rawValue =
+    data.orderIndex ??
+    order.orderIndex ??
+    order.order_index ??
+    data.order_index ??
+    order.order_number ??
+    data.order_number ??
+    order.orderNumber ??
     data.orderNumber;
 
   if (rawValue == null || rawValue === '') return '—';
@@ -32,7 +32,10 @@ export const getOrderTotalValue = (item: any): number => {
   if (!item) return 0;
   const orderData = item.order_data || {};
 
-  if (orderData.paymentsSummary?.totalOrderValue != null && Number(orderData.paymentsSummary.totalOrderValue) > 0) {
+  if (
+    orderData.paymentsSummary?.totalOrderValue != null &&
+    Number(orderData.paymentsSummary.totalOrderValue) > 0
+  ) {
     return Number(orderData.paymentsSummary.totalOrderValue);
   }
 
@@ -52,7 +55,10 @@ export const getOrderTotalValue = (item: any): number => {
     return Number(item.totalAmount);
   }
 
-  if (orderData.paymentsSummary?.totalAmountPaid != null && Number(orderData.paymentsSummary.totalAmountPaid) > 0) {
+  if (
+    orderData.paymentsSummary?.totalAmountPaid != null &&
+    Number(orderData.paymentsSummary.totalAmountPaid) > 0
+  ) {
     return Number(orderData.paymentsSummary.totalAmountPaid);
   }
 
@@ -69,7 +75,7 @@ export const getOrderTotalValue = (item: any): number => {
     const sum = items.reduce((acc: number, i: any) => {
       const price = Number(i.unitPrice ?? i.price ?? i.total ?? 0);
       const qty = Number(i.quantity ?? 1);
-      return acc + (price * qty);
+      return acc + price * qty;
     }, 0);
     if (sum > 0) return sum;
   }
@@ -84,19 +90,51 @@ export const formatOrderTotal = (item: any): string => {
 
 export const formatItemNameExact = (item: any): string => {
   if (!item) return 'Móvel';
-  const raw = item.description || item.name || item.title || item.productName || item.product_name || item.product || '';
+  const raw =
+    item.description ||
+    item.name ||
+    item.title ||
+    item.productName ||
+    item.product_name ||
+    item.product ||
+    '';
   if (!raw) return 'Móvel';
-  const itemName = String(raw).replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim() || String(raw);
-  const observation = typeof item.observation === 'string'
-    ? item.observation.trim()
-    : typeof item.observations === 'string'
-      ? item.observations.trim()
-      : '';
+  const itemName =
+    String(raw)
+      .replace(/\(.*?\)/g, '')
+      .replace(/\[.*?\]/g, '')
+      .trim() || String(raw);
+  const observation =
+    typeof item.observation === 'string'
+      ? item.observation.trim()
+      : typeof item.observations === 'string'
+        ? item.observations.trim()
+        : '';
 
   return observation ? `${itemName} - ${observation}` : itemName;
 };
 
-const PRODUCT_NAME_SMALL_WORDS = new Set(['a', 'as', 'o', 'os', 'e', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'para', 'por', 'com', 'sem']);
+const PRODUCT_NAME_SMALL_WORDS = new Set([
+  'a',
+  'as',
+  'o',
+  'os',
+  'e',
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'para',
+  'por',
+  'com',
+  'sem',
+]);
 const PRODUCT_NAME_ACRONYMS: Record<string, string> = {
   abnt: 'ABNT',
   led: 'LED',
@@ -113,16 +151,21 @@ export const formatItemDisplayName = (item: any): string => {
   const rawName = formatItemNameExact(item).trim();
   if (!rawName) return rawName;
 
-  return rawName.split(/\s+/).map((word, index) => {
-    const lowerWord = word.toLocaleLowerCase('pt-BR');
-    const acronym = PRODUCT_NAME_ACRONYMS[lowerWord];
-    if (acronym) return acronym;
-    if (index > 0 && PRODUCT_NAME_SMALL_WORDS.has(lowerWord)) return lowerWord;
+  return rawName
+    .split(/\s+/)
+    .map((word, index) => {
+      const lowerWord = word.toLocaleLowerCase('pt-BR');
+      const acronym = PRODUCT_NAME_ACRONYMS[lowerWord];
+      if (acronym) return acronym;
+      if (index > 0 && PRODUCT_NAME_SMALL_WORDS.has(lowerWord)) return lowerWord;
 
-    return lowerWord.replace(/(^|[-/])([a-zà-öø-ÿ])/g, (_match, separator: string, letter: string) =>
-      `${separator}${letter.toLocaleUpperCase('pt-BR')}`,
-    );
-  }).join(' ');
+      return lowerWord.replace(
+        /(^|[-/])([a-zà-öø-ÿ])/g,
+        (_match, separator: string, letter: string) =>
+          `${separator}${letter.toLocaleUpperCase('pt-BR')}`
+      );
+    })
+    .join(' ');
 };
 
 export const formatItemsListSummary = (items: any[]): string => {
@@ -142,11 +185,23 @@ export const formatFullAddress = (shipping: any, customerData: any): string => {
   const deliveryAddr = shipping?.deliveryAddress || shipping?.address || {};
   const custAddr = customerData?.address || customerData?.fullAddress || {};
 
-  const street = (deliveryAddr.street || deliveryAddr.address || custAddr.street || custAddr.address || '').trim();
+  const street = (
+    deliveryAddr.street ||
+    deliveryAddr.address ||
+    custAddr.street ||
+    custAddr.address ||
+    ''
+  ).trim();
   const number = (deliveryAddr.number || custAddr.number || '').trim();
   const neighborhood = (deliveryAddr.neighborhood || custAddr.neighborhood || '').trim();
   const complement = (deliveryAddr.complement || custAddr.complement || '').trim();
-  const city = (deliveryAddr.city || shipping?.city || custAddr.city || customerData?.city || 'Colombo').trim();
+  const city = (
+    deliveryAddr.city ||
+    shipping?.city ||
+    custAddr.city ||
+    customerData?.city ||
+    'Colombo'
+  ).trim();
 
   const parts: string[] = [];
 
@@ -165,7 +220,9 @@ export const formatFullAddress = (shipping: any, customerData: any): string => {
 };
 
 // Extrai coordenadas (lat, lng) de URLs do Google Maps/Apple Maps via regex
-export const parseCoordinatesFromMapsUrl = (url?: string | null): { latitude: number; longitude: number } | null => {
+export const parseCoordinatesFromMapsUrl = (
+  url?: string | null
+): { latitude: number; longitude: number } | null => {
   if (!url || typeof url !== 'string') return null;
   const cleanUrl = url.trim();
   if (cleanUrl.length < 5) return null;
@@ -214,7 +271,7 @@ export const getLocationMapsUrl = (orderOrData: any): string | null => {
   const shippingAddr = shipping.deliveryAddress || shipping.address || {};
 
   // Prioridade Absoluta: 1º shippingAddr.mapsUrl -> 2º shipping.mapsUrl -> 3º custAddr.mapsUrl
-  const url = (
+  const url =
     shippingAddr.mapsUrl ||
     shippingAddr.googleMapsUrl ||
     shippingAddr.mapsLink ||
@@ -229,8 +286,7 @@ export const getLocationMapsUrl = (orderOrData: any): string | null => {
     customer.mapsLink ||
     data.mapsUrl ||
     orderOrData.mapsUrl ||
-    ''
-  );
+    '';
 
   return url && typeof url === 'string' && url.trim().length > 5 ? url.trim() : null;
 };
@@ -295,7 +351,15 @@ export const formatGroupDateLabel = (dateStr: string): string => {
   const tomorrowStr = getLocalDateString(tomorrow);
 
   const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-  const dayOfWeekNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const dayOfWeekNames = [
+    'Domingo',
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado',
+  ];
   const dayName = dayOfWeekNames[d.getDay()] || '';
 
   if (clean === todayStr) {
@@ -313,16 +377,17 @@ export const groupOrdersByDate = (ordersList: any[]): DateGroupedOrders[] => {
     const shipping = oData.shipping || {};
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
 
-    const isPendingScheduling = (
+    const isPendingScheduling =
       sched.pendingScheduling === true ||
       sched.notInformed === true ||
       oData.pendingScheduling === true ||
       o.pending_scheduling === true ||
-      o.pendingScheduling === true
-    );
+      o.pendingScheduling === true;
 
-    const rawDate = isPendingScheduling ? 'sem_data' : (sched.date || sched.startDate || o.scheduled_date || o.date || '');
-    const dateKey = isPendingScheduling ? 'sem_data' : (parseOrderDateStr(rawDate) || 'sem_data');
+    const rawDate = isPendingScheduling
+      ? 'sem_data'
+      : sched.date || sched.startDate || o.scheduled_date || o.date || '';
+    const dateKey = isPendingScheduling ? 'sem_data' : parseOrderDateStr(rawDate) || 'sem_data';
 
     if (!groupsMap[dateKey]) {
       groupsMap[dateKey] = [];
@@ -416,7 +481,19 @@ export const formatOrderDate = (rawDate?: string): string => {
 };
 
 export const numWord = (n: number): string => {
-  const words = ['zero', 'uma', 'duas', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez'];
+  const words = [
+    'zero',
+    'uma',
+    'duas',
+    'três',
+    'quatro',
+    'cinco',
+    'seis',
+    'sete',
+    'oito',
+    'nove',
+    'dez',
+  ];
   return words[n] || String(n);
 };
 
@@ -427,24 +504,70 @@ export const simplifyProductName = (rawName: string): string => {
     .replace(/\(.*?\)/g, '')
     .replace(/\[.*?\]/g, '')
     .replace(/\b[\w\u00C0-\u024F]+(?:\/[\w\u00C0-\u024F]+)+\b/g, '')
-    .replace(/\b\d+([.,]\d+)?([xX]\d+([.,]\d+)?)?\s*(cm|m|mm|kg|l|portas|gavetas|lugares|cadeiras)?\b/gi, '')
+    .replace(
+      /\b\d+([.,]\d+)?([xX]\d+([.,]\d+)?)?\s*(cm|m|mm|kg|l|portas|gavetas|lugares|cadeiras)?\b/gi,
+      ''
+    )
     .replace(/\b\d+\b/g, '')
     .replace(/[-–—]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const colorWords = new Set([
-    'freijo', 'freijó', 'off', 'white', 'offwhite', 'preto', 'preta',
-    'branco', 'branca', 'cinamomo', 'grafite', 'nobre', 'imbuia', 'carvalho',
-    'nogueira', 'amêndoa', 'amendoa', 'patina', 'pátina', 'cacau', 'savana',
-    'nature', 'jequitiba', 'jequitibá', 'cedro', 'marrom', 'cinza', 'bege',
-    'areia', 'champagne', 'champanhe', 'castanho', 'fendi', 'ébano', 'ebano',
-    'mel', 'amarelo', 'azul', 'verde', 'rosa', 'vermelho', 'dourado', 'prata',
-    'portas', 'gavetas', 'lugares', 'cadeiras', 'cm', 'mm', 'm'
+    'freijo',
+    'freijó',
+    'off',
+    'white',
+    'offwhite',
+    'preto',
+    'preta',
+    'branco',
+    'branca',
+    'cinamomo',
+    'grafite',
+    'nobre',
+    'imbuia',
+    'carvalho',
+    'nogueira',
+    'amêndoa',
+    'amendoa',
+    'patina',
+    'pátina',
+    'cacau',
+    'savana',
+    'nature',
+    'jequitiba',
+    'jequitibá',
+    'cedro',
+    'marrom',
+    'cinza',
+    'bege',
+    'areia',
+    'champagne',
+    'champanhe',
+    'castanho',
+    'fendi',
+    'ébano',
+    'ebano',
+    'mel',
+    'amarelo',
+    'azul',
+    'verde',
+    'rosa',
+    'vermelho',
+    'dourado',
+    'prata',
+    'portas',
+    'gavetas',
+    'lugares',
+    'cadeiras',
+    'cm',
+    'mm',
+    'm',
   ]);
 
   const words = cleaned.split(/\s+/).filter(Boolean);
-  const filteredWords = words.filter(w => !colorWords.has(w.toLowerCase().trim()));
+  const filteredWords = words.filter((w) => !colorWords.has(w.toLowerCase().trim()));
 
   if (filteredWords.length === 0) return 'móvel';
   return filteredWords.slice(0, 3).join(' ');
@@ -468,8 +591,10 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
 
   let shiftPart = '';
   if (sched.type === 'morning' || sched.period === 'morning') shiftPart = 'Manhã (09h-12h)';
-  else if (sched.type === 'afternoon' || sched.period === 'afternoon') shiftPart = 'Tarde (13h-18h)';
-  else if (sched.type === 'full_day' || sched.period === 'full_day') shiftPart = 'Comercial (09h-18h)';
+  else if (sched.type === 'afternoon' || sched.period === 'afternoon')
+    shiftPart = 'Tarde (13h-18h)';
+  else if (sched.type === 'full_day' || sched.period === 'full_day')
+    shiftPart = 'Comercial (09h-18h)';
   else if (sched.startTime && sched.endTime) shiftPart = `${sched.startTime} às ${sched.endTime}`;
   else if (sched.startTime) shiftPart = `A partir das ${sched.startTime}`;
 
@@ -482,9 +607,23 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
 export const isCancelledOrder = (order: any): boolean => {
   if (!order) return false;
   const data = order?.order_data || {};
-  const status = String(order?.status || data.status || order?.order_status || data.order_status || '').toLowerCase().trim();
-  if (status === 'cancelled' || status === 'cancelado' || status === 'canceled' || status.includes('cancel')) {
+  const status = String(
+    order?.status || data.status || order?.order_status || data.order_status || ''
+  )
+    .toLowerCase()
+    .trim();
+  if (
+    status === 'cancelled' ||
+    status === 'cancelado' ||
+    status === 'canceled' ||
+    status.includes('cancel')
+  ) {
     return true;
   }
-  return order.cancelled === true || data.cancelled === true || order.deleted === true || data.deleted === true;
+  return (
+    order.cancelled === true ||
+    data.cancelled === true ||
+    order.deleted === true ||
+    data.deleted === true
+  );
 };

@@ -15,7 +15,13 @@ export const CardTotalBlock: React.FC<Props> = ({
   return (
     <View style={styles.totalBlock}>
       <Text style={styles.totalLabel}>TOTAL</Text>
-      <Text style={[styles.totalAmountText, { color: isIncome ? '#16a34a' : '#0f172a' }, isDarkMode && styles.textDark]}>
+      <Text
+        style={[
+          styles.totalAmountText,
+          { color: isIncome ? '#16a34a' : '#0f172a' },
+          isDarkMode && styles.textDark,
+        ]}
+      >
         {formattedTotal}
       </Text>
     </View>

@@ -28,7 +28,7 @@ describe('Mobile AI Agent - Function Calling & Declarations', () => {
     const declarations = mobileAgentTools[0].functionDeclarations;
     expect(declarations.length).toBe(11);
 
-    const names = declarations.map(d => d.name);
+    const names = declarations.map((d) => d.name);
     expect(names).toContain('buscarCategoriasFinanceiras');
     expect(names).toContain('buscarContasAPagar');
     expect(names).toContain('buscarMovimentacoesFinanceiras');
@@ -64,12 +64,16 @@ describe('Mobile AI Agent - Function Calling & Declarations', () => {
   it('deve exigir finalidade e forma de pagamento antes de criar a movimentação', async () => {
     // Turno 1: Envia despesa sem finalidade e sem forma de pagamento
     const turno1 = await MobileAgentService.sendMessage('COTNA DE LUZ 200');
-    expect(turno1.result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira')).toBeUndefined();
+    expect(
+      turno1.result.executedTools.find((t) => t.name === 'criarMovimentacaoFinanceira')
+    ).toBeUndefined();
     expect(turno1.result.answer.toLowerCase()).toMatch(/loja|pessoal|empresa/);
 
     // Turno 2: Usuário responde "loja no pix" informando finalidade e forma de pagamento
     const turno2 = await MobileAgentService.sendMessage('loja no pix', turno1.updatedHistory);
-    const created = turno2.result.executedTools.find(t => t.name === 'criarMovimentacaoFinanceira');
+    const created = turno2.result.executedTools.find(
+      (t) => t.name === 'criarMovimentacaoFinanceira'
+    );
 
     expect(created).toBeDefined();
     expect(created?.args.valor).toBe(200);
@@ -80,7 +84,7 @@ describe('Mobile AI Agent - Function Calling & Declarations', () => {
 
   it('deve ter campos e opções de criarMovimentacaoFinanceira estritamente iguais ao formulário de transações', () => {
     const declarations = mobileAgentTools[0].functionDeclarations;
-    const criarTx = declarations.find(d => d.name === 'criarMovimentacaoFinanceira');
+    const criarTx = declarations.find((d) => d.name === 'criarMovimentacaoFinanceira');
     expect(criarTx).toBeDefined();
 
     const props = (criarTx!.parameters as any).properties;

@@ -19,7 +19,7 @@ interface AppendTimelineCardInput {
 
 export function appendFinancialTimelineCard(
   current: FinancialCardTimelineEntry[],
-  input: AppendTimelineCardInput,
+  input: AppendTimelineCardInput
 ): FinancialCardTimelineEntry[] {
   return [
     ...current,
@@ -33,8 +33,8 @@ export function appendFinancialTimelineCard(
 export function updateFinancialTimelineCardState(
   current: FinancialCardTimelineEntry[],
   cardId: string | null,
-  cardState: CardVisualState,
+  cardState: CardVisualState
 ): FinancialCardTimelineEntry[] {
   if (!cardId) return current;
-  return current.map(card => card.id === cardId ? { ...card, cardState } : card);
+  return current.map((card) => (card.id === cardId ? { ...card, cardState } : card));
 }

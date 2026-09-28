@@ -1,5 +1,5 @@
 ---
-name: principios-de-programacao
+name: modularizacao_codigo
 description: Engenharia de Software, SOLID, Código Limpo, Princípios de Programação, Clareza Arquitetural e Refatoração Segura. Garante arquivos coesos, responsabilidade única, código limpo, legível, intuitivo, contratos TypeScript estritos, eliminação de duplicidades e estratégias conservadoras de refatoração sem perda de lógica.
 ---
 

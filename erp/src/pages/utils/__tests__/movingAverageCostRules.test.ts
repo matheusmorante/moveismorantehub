@@ -3,9 +3,14 @@ import { applyMovingAverageMove, replayMovingAverageMoves } from '../movingAvera
 
 describe('regras de CMPM e CMV', () => {
   it('calcula recebimento inicial e mantém a média após venda', () => {
-    const receipt = applyMovingAverageMove({ quantity: 0, inventoryValue: 0 }, {
-      type: 'entry', quantity: 10, unitCost: 100,
-    });
+    const receipt = applyMovingAverageMove(
+      { quantity: 0, inventoryValue: 0 },
+      {
+        type: 'entry',
+        quantity: 10,
+        unitCost: 100,
+      }
+    );
     const sale = applyMovingAverageMove(receipt.state, { type: 'withdrawal', quantity: 6 });
 
     expect(receipt.state).toMatchObject({ quantity: 10, unitCost: 100 });
@@ -15,12 +20,22 @@ describe('regras de CMPM e CMV', () => {
   });
 
   it('recalcula a média no novo recebimento e ignora custo antigo com saldo zerado', () => {
-    const afterReceipt = applyMovingAverageMove({ quantity: 4, inventoryValue: 400, unitCost: 100 }, {
-      type: 'entry', quantity: 8, unitCost: 200,
-    });
-    const afterZeroStock = applyMovingAverageMove({ quantity: 0, inventoryValue: 0, unitCost: 100 }, {
-      type: 'entry', quantity: 5, unitCost: 300,
-    });
+    const afterReceipt = applyMovingAverageMove(
+      { quantity: 4, inventoryValue: 400, unitCost: 100 },
+      {
+        type: 'entry',
+        quantity: 8,
+        unitCost: 200,
+      }
+    );
+    const afterZeroStock = applyMovingAverageMove(
+      { quantity: 0, inventoryValue: 0, unitCost: 100 },
+      {
+        type: 'entry',
+        quantity: 5,
+        unitCost: 300,
+      }
+    );
 
     expect(afterReceipt.state.quantity).toBe(12);
     expect(afterReceipt.state.unitCost).toBeCloseTo(166.666667, 6);
@@ -38,7 +53,7 @@ describe('regras de CMPM e CMV', () => {
     const lastSale = replay.moves.find((move) => move.id === 'sale-2');
     const materialized = (history as any[]).reduce(
       (state: any, move: any) => applyMovingAverageMove(state, move, true).state,
-      { quantity: 0, inventoryValue: 0, unitCost: undefined as number | undefined },
+      { quantity: 0, inventoryValue: 0, unitCost: undefined as number | undefined }
     );
 
     expect(lastSale?.resolvedUnitCost).toBeCloseTo(614.285714, 6);

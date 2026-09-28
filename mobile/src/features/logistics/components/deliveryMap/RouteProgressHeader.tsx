@@ -33,28 +33,28 @@ export const RouteProgressHeader: React.FC<Props> = ({
           </Text>
         </View>
 
-        <Text style={[styles.pendingText, isDarkMode && styles.textMuted]}>
-          {percent}%
-        </Text>
+        <Text style={[styles.pendingText, isDarkMode && styles.textMuted]}>{percent}%</Text>
       </View>
 
       {/* Barra de Progresso */}
       <View style={[styles.progressBarTrack, isDarkMode && styles.progressBarTrackDark]}>
-        <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(0, percent))}%` }]} />
+        <View
+          style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(0, percent))}%` }]}
+        />
       </View>
 
       {/* Estimativas do Roteiro Restante Inteiro */}
-      {(remainingKm || remainingMin) ? (
+      {remainingKm || remainingMin ? (
         <View style={styles.metricsRow}>
           <Text style={[styles.estimateText, isDarkMode && styles.textMuted]} numberOfLines={2}>
             <Text style={{ fontWeight: '800' }}>Roteiro restante:</Text>{' '}
             {remainingKm ? `${remainingKm.toFixed(1)} km` : ''}
             {remainingKm && remainingMin ? ' · ' : ''}
-            {remainingMin ? (
-              remainingMin >= 60 
-                ? `~${Math.floor(remainingMin / 60)}h${remainingMin % 60 ? `${remainingMin % 60}min` : ''}` 
+            {remainingMin
+              ? remainingMin >= 60
+                ? `~${Math.floor(remainingMin / 60)}h${remainingMin % 60 ? `${remainingMin % 60}min` : ''}`
                 : `~${remainingMin} min`
-            ) : ''}
+              : ''}
           </Text>
         </View>
       ) : null}

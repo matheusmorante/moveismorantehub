@@ -7,6 +7,6 @@ const GENERIC_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
  * para colunas ou parâmetros Postgres do tipo UUID.
  */
 export const isValidUuid = (value?: string | null): value is string => {
-    if (!value || typeof value !== 'string') return false;
-    return GENERIC_UUID_REGEX.test(value);
+  if (!value || typeof value !== 'string') return false;
+  return GENERIC_UUID_REGEX.test(value);
 };

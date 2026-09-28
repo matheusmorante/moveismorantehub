@@ -15,7 +15,10 @@ export function evaluateDisconnectedState(isGpsActive: boolean, lastSeenIso: str
 /**
  * Formata o texto de status do membro da equipe para exibição no popup ou lista.
  */
-export function formatTeamMemberStatusLabel(isDisconnectedOrNoGps: boolean, lastSeenIso: string): {
+export function formatTeamMemberStatusLabel(
+  isDisconnectedOrNoGps: boolean,
+  lastSeenIso: string
+): {
   badge: 'active' | 'disconnected';
   title: string;
   subtitle: string;

@@ -36,7 +36,7 @@ export class AiDeduplicator {
     this.activeRequests.set(hash, {
       hash,
       timestamp: Date.now(),
-      promise
+      promise,
     });
 
     promise.finally(() => {

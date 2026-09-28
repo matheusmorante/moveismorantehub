@@ -1,4 +1,7 @@
-const normalize = (value: unknown) => String(value || '').trim().toLowerCase();
+const normalize = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 export const getOperationalScheduleDate = (order: any): string => {
   // 1. Fonte de verdade primária: Coluna física normalizada no PostgreSQL
@@ -8,17 +11,20 @@ export const getOperationalScheduleDate = (order: any): string => {
   // 2. Fallback temporário para registros legados no JSONB
   const data = order?.order_data || {};
   const shipping = data.shipping || order?.shipping || {};
-  const scheduling = shipping.scheduling || data.schedule || data.scheduling || order?.schedule || {};
+  const scheduling =
+    shipping.scheduling || data.schedule || data.scheduling || order?.schedule || {};
 
-  return scheduling.date
-    || scheduling.startDate
-    || scheduling.scheduledDate
-    || scheduling.scheduled_date
-    || data.scheduledDate
-    || data.scheduled_date
-    || data.date
-    || order?.date
-    || '';
+  return (
+    scheduling.date ||
+    scheduling.startDate ||
+    scheduling.scheduledDate ||
+    scheduling.scheduled_date ||
+    data.scheduledDate ||
+    data.scheduled_date ||
+    data.date ||
+    order?.date ||
+    ''
+  );
 };
 
 export const isScheduledAssistanceOrReturn = (order: any): boolean => {
@@ -27,7 +33,9 @@ export const isScheduledAssistanceOrReturn = (order: any): boolean => {
   const rawStatus = normalize(order?.status || data.status);
   const status = rawStatus === 'agendado' ? 'scheduled' : rawStatus;
 
-  return ['assistance', 'return'].includes(type)
-    && status === 'scheduled'
-    && Boolean(getOperationalScheduleDate(order));
+  return (
+    ['assistance', 'return'].includes(type) &&
+    status === 'scheduled' &&
+    Boolean(getOperationalScheduleDate(order))
+  );
 };

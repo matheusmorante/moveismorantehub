@@ -14,21 +14,35 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Plus, Trash2, Star, RefreshCw, X, Camera, Crop } from 'lucide-react-native';
 
 const MAX_PRODUCT_IMAGES = 75;
-const CATALOG_API_URL = (process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br').replace(/\/$/, '');
+const CATALOG_API_URL = (
+  process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
+).replace(/\/$/, '');
 
-const uploadProductPhoto = async (blob: Blob, fileName: string, contentType: string): Promise<string> => {
+const uploadProductPhoto = async (
+  blob: Blob,
+  fileName: string,
+  contentType: string
+): Promise<string> => {
   const credentialResponse = await fetch(`${CATALOG_API_URL}/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileName: `products/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '-')}`, contentType }),
+    body: JSON.stringify({
+      fileName: `products/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '-')}`,
+      contentType,
+    }),
   });
   if (!credentialResponse.ok) {
     const details = await credentialResponse.json().catch(() => ({}));
     throw new Error(details.error || 'Não foi possível preparar o envio da foto.');
   }
   const { uploadUrl, fileUrl } = await credentialResponse.json();
-  const uploadResponse = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: blob });
-  if (!uploadResponse.ok) throw new Error('Falha ao enviar a foto para o armazenamento do catálogo.');
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: blob,
+  });
+  if (!uploadResponse.ok)
+    throw new Error('Falha ao enviar a foto para o armazenamento do catálogo.');
   return fileUrl;
 };
 
@@ -66,7 +80,11 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         try {
           const uploadedUrls: string[] = [];
           for (const file of files) {
-            const url = await uploadProductPhoto(file, file.name || 'produto.jpg', file.type || 'image/jpeg');
+            const url = await uploadProductPhoto(
+              file,
+              file.name || 'produto.jpg',
+              file.type || 'image/jpeg'
+            );
             uploadedUrls.push(url);
           }
           if (uploadedUrls.length > 0) {
@@ -84,28 +102,35 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         type: 'image/*',
         copyToCacheDirectory: true,
         multiple,
-      }).then(async result => {
-        if (result.canceled || !result.assets || result.assets.length === 0) return;
-        const assets = multiple ? result.assets : [result.assets[0]];
-        setUploading(true);
-        try {
-          const uploadedUrls: string[] = [];
-          for (const asset of assets) {
-            const response = await fetch(asset.uri);
-            const blob = await response.blob();
-            const type = asset.mimeType || blob.type || 'image/jpeg';
-            const url = await uploadProductPhoto(blob, asset.name || 'produto.jpg', type);
-            uploadedUrls.push(url);
+      })
+        .then(async (result) => {
+          if (result.canceled || !result.assets || result.assets.length === 0) return;
+          const assets = multiple ? result.assets : [result.assets[0]];
+          setUploading(true);
+          try {
+            const uploadedUrls: string[] = [];
+            for (const asset of assets) {
+              const response = await fetch(asset.uri);
+              const blob = await response.blob();
+              const type = asset.mimeType || blob.type || 'image/jpeg';
+              const url = await uploadProductPhoto(blob, asset.name || 'produto.jpg', type);
+              uploadedUrls.push(url);
+            }
+            if (uploadedUrls.length > 0) {
+              onImagesPicked(uploadedUrls);
+            }
+          } catch (error: any) {
+            Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
+          } finally {
+            setUploading(false);
           }
-          if (uploadedUrls.length > 0) {
-            onImagesPicked(uploadedUrls);
-          }
-        } catch (error: any) {
-          Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
-        } finally {
-          setUploading(false);
-        }
-      }).catch((error: any) => Alert.alert('Erro ao selecionar foto(s)', error?.message || 'Não foi possível abrir a galeria.'));
+        })
+        .catch((error: any) =>
+          Alert.alert(
+            'Erro ao selecionar foto(s)',
+            error?.message || 'Não foi possível abrir a galeria.'
+          )
+        );
     }
   };
 
@@ -127,7 +152,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
             `Foram adicionadas ${availableSlots} foto(s) respeitando o limite máximo de ${MAX_PRODUCT_IMAGES}.`
           );
         }
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           images: [...(prev.images || []), ...urlsToAdd],
         }));
@@ -140,7 +165,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       multiple: false,
       onImagesPicked: ([dataUrl]) => {
         if (!dataUrl) return;
-        setFormData(prev => {
+        setFormData((prev) => {
           const next = [...(prev.images || [])];
           next[idx] = dataUrl;
           return { ...prev, images: next };
@@ -152,7 +177,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
 
   const handleMakeCover = (idx: number) => {
     if (idx === 0) return;
-    setFormData(prev => {
+    setFormData((prev) => {
       const imgs = [...(prev.images || [])];
       const [target] = imgs.splice(idx, 1);
       imgs.unshift(target);
@@ -162,7 +187,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   };
 
   const handleRemovePhoto = (idx: number) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const next = (prev.images || []).filter((_: string, i: number) => i !== idx);
       return { ...prev, images: next };
     });
@@ -237,7 +262,11 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
             {/* Imagem de Preview no Modal (1:1) */}
             {activePhotoUrl && (
               <View style={styles.modalPreviewWrapper}>
-                <Image source={{ uri: activePhotoUrl }} style={styles.modalPreviewImg} resizeMode="cover" />
+                <Image
+                  source={{ uri: activePhotoUrl }}
+                  style={styles.modalPreviewImg}
+                  resizeMode="cover"
+                />
                 {selectedPhotoIdx === 0 && (
                   <View style={styles.coverBadgeModal}>
                     <Star size={10} color="#ffffff" fill="#ffffff" />
@@ -257,7 +286,12 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
                 accessibilityRole="button"
                 accessibilityLabel="Recortar foto em formato quadrado"
                 style={[styles.modalBtn, styles.modalBtnCrop]}
-                onPress={() => Alert.alert('Recortar foto', 'O editor de recorte será conectado na etapa de funcionalidades.')}
+                onPress={() =>
+                  Alert.alert(
+                    'Recortar foto',
+                    'O editor de recorte será conectado na etapa de funcionalidades.'
+                  )
+                }
               >
                 <Crop size={16} color="#7e22ce" />
                 <Text style={styles.modalBtnCropText}>Recortar foto (1:1)</Text>
@@ -381,11 +415,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  descriptionCard: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  descriptionCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
   sectionTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
   sectionHint: { fontSize: 11, color: '#64748b' },
   label: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
-  descriptionInput: { minHeight: 110, backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 12, color: '#0f172a' },
+  descriptionInput: {
+    minHeight: 110,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    fontSize: 12,
+    color: '#0f172a',
+  },
   shortDescription: { minHeight: 88 },
   coverBadge: {
     position: 'absolute',

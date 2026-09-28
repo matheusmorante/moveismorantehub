@@ -134,12 +134,29 @@ describe('calculateDeliverySummaryMetrics - Resumo de Entregas Hoje vs Dias Segu
     const operationOrders = [
       ...mockOrders.slice(0, 1),
       {
-        id: 'assistance-today', customer_name: 'Cliente Assistência', status: 'scheduled',
-        order_data: { orderType: 'assistance', customerData: { fullName: 'Cliente Assistência' }, shipping: { scheduling: { date: referenceToday, time: '14:00' } }, assistanceItems: [] },
+        id: 'assistance-today',
+        customer_name: 'Cliente Assistência',
+        status: 'scheduled',
+        order_data: {
+          orderType: 'assistance',
+          customerData: { fullName: 'Cliente Assistência' },
+          shipping: { scheduling: { date: referenceToday, time: '14:00' } },
+          assistanceItems: [],
+        },
       },
       {
-        id: 'return-today', customer_name: 'Cliente Devolução', status: 'scheduled',
-        order_data: { orderType: 'return', customerData: { fullName: 'Cliente Devolução' }, shipping: { deliveryMethod: 'pickup', scheduling: { date: referenceToday, time: '09:00' } }, items: [] },
+        id: 'return-today',
+        customer_name: 'Cliente Devolução',
+        status: 'scheduled',
+        order_data: {
+          orderType: 'return',
+          customerData: { fullName: 'Cliente Devolução' },
+          shipping: {
+            deliveryMethod: 'pickup',
+            scheduling: { date: referenceToday, time: '09:00' },
+          },
+          items: [],
+        },
       },
     ];
 

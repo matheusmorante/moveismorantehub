@@ -1,14 +1,14 @@
-import { ShoppingCart } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { CartDrawer } from "../cart-drawer"
+import { ShoppingCart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CartDrawer } from '../cart-drawer';
 
 interface CartButtonProps {
-  mounted: boolean
-  itemCount: number
+  mounted: boolean;
+  itemCount: number;
 }
 
 export function CartButton({ mounted, itemCount }: CartButtonProps) {
-  const showBadge = mounted && itemCount > 0
+  const showBadge = mounted && itemCount > 0;
 
   return (
     <CartDrawer>
@@ -22,5 +22,5 @@ export function CartButton({ mounted, itemCount }: CartButtonProps) {
         <span className="sr-only">Carrinho</span>
       </Button>
     </CartDrawer>
-  )
+  );
 }

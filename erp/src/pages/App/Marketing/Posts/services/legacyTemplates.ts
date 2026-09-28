@@ -18,13 +18,13 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         name: 'Foto Ambientada do Produto',
         x: 0.05,
         y: 0.12,
-        width: 0.90,
+        width: 0.9,
         height: 0.52,
         rotation: 0,
         zIndex: 1,
         opacity: 1,
         locked: false,
-        visible: true
+        visible: true,
       },
       {
         id: 'layer-badge-queima',
@@ -40,7 +40,7 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         zIndex: 10,
         opacity: 1,
         locked: false,
-        visible: true
+        visible: true,
       },
       {
         id: 'layer-title',
@@ -49,7 +49,7 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         textBinding: '{{product.name}}',
         x: 0.05,
         y: 0.67,
-        width: 0.90,
+        width: 0.9,
         rotation: 0,
         zIndex: 5,
         opacity: 1,
@@ -59,7 +59,7 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         fontSizeRelative: 0.034,
         color: '#111827',
         fontWeight: 'bold',
-        textAlign: 'left'
+        textAlign: 'left',
       },
       {
         id: 'layer-price-por',
@@ -78,7 +78,7 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         fontSizeRelative: 0.055,
         color: '#dc2626',
         fontWeight: '900',
-        textAlign: 'right'
+        textAlign: 'right',
       },
       {
         id: 'layer-installment',
@@ -97,7 +97,7 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         fontSizeRelative: 0.024,
         color: '#173f7a',
         fontWeight: 'bold',
-        textAlign: 'right'
+        textAlign: 'right',
       },
       {
         id: 'layer-variation-gallery',
@@ -117,8 +117,8 @@ export const LEGACY_TEMPLATES: MarketingTemplate[] = [
         gapRelative: 0.02,
         borderRadius: 8,
         borderWidth: 3,
-        borderColor: '#ffffff'
-      }
-    ]
-  }
+        borderColor: '#ffffff',
+      },
+    ],
+  },
 ];

@@ -1,19 +1,6 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import {
-  Tag,
-  LayoutGrid,
-  Plus,
-  AlertTriangle,
-  Search,
-  X,
-} from 'lucide-react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Tag, LayoutGrid, Plus, AlertTriangle, Search, X } from 'lucide-react-native';
 import { ActiveViewType } from '../types/mobileCategory.types';
 
 interface Props {
@@ -39,11 +26,11 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
   searchTerm,
   onSearchChange,
 }) => {
-  const searchPlaceholder = activeView === 'ambiente' ? 'Buscar ambiente...' : 'Buscar categoria...';
+  const searchPlaceholder =
+    activeView === 'ambiente' ? 'Buscar ambiente...' : 'Buscar categoria...';
 
   return (
     <View style={styles.container}>
-
       {/* Alerta de Categorias Sem Ambiente */}
       {totalOrphans > 0 && (
         <View style={[styles.orphanAlert, dark && styles.orphanAlertDark]}>
@@ -51,10 +38,15 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
             <AlertTriangle size={15} color="#d97706" />
             <Text style={[styles.orphanAlertText, dark && styles.orphanAlertTextDark]}>
               <Text style={{ fontWeight: '800' }}>{totalOrphans}</Text>{' '}
-              {totalOrphans === 1 ? 'categoria sem ambiente vinculado.' : 'categorias sem ambiente vinculado.'}
+              {totalOrphans === 1
+                ? 'categoria sem ambiente vinculado.'
+                : 'categorias sem ambiente vinculado.'}
             </Text>
           </View>
-          <TouchableOpacity onPress={onViewOrphans} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={onViewOrphans}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.orphanAlertLink}>Ver categorias →</Text>
           </TouchableOpacity>
         </View>
@@ -63,29 +55,47 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
       {/* Alternância de Abas: Por ambiente vs Por categoria */}
       <View style={[styles.tabsWrapper, dark && styles.tabsWrapperDark]}>
         <TouchableOpacity
-          style={[styles.tabButton, activeView === 'ambiente' && styles.tabButtonActive, activeView === 'ambiente' && dark && styles.tabButtonActiveDark]}
+          style={[
+            styles.tabButton,
+            activeView === 'ambiente' && styles.tabButtonActive,
+            activeView === 'ambiente' && dark && styles.tabButtonActiveDark,
+          ]}
           onPress={() => onViewChange('ambiente')}
         >
-          <LayoutGrid size={14} color={activeView === 'ambiente' ? '#2563eb' : (dark ? '#94a3b8' : '#64748b')} />
-          <Text style={[
-            styles.tabButtonText,
-            dark && styles.textMuted,
-            activeView === 'ambiente' && styles.tabButtonTextActive,
-          ]}>
+          <LayoutGrid
+            size={14}
+            color={activeView === 'ambiente' ? '#2563eb' : dark ? '#94a3b8' : '#64748b'}
+          />
+          <Text
+            style={[
+              styles.tabButtonText,
+              dark && styles.textMuted,
+              activeView === 'ambiente' && styles.tabButtonTextActive,
+            ]}
+          >
             Por ambiente
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabButton, activeView === 'categoria' && styles.tabButtonActive, activeView === 'categoria' && dark && styles.tabButtonActiveDark]}
+          style={[
+            styles.tabButton,
+            activeView === 'categoria' && styles.tabButtonActive,
+            activeView === 'categoria' && dark && styles.tabButtonActiveDark,
+          ]}
           onPress={() => onViewChange('categoria')}
         >
-          <Tag size={14} color={activeView === 'categoria' ? '#2563eb' : (dark ? '#94a3b8' : '#64748b')} />
-          <Text style={[
-            styles.tabButtonText,
-            dark && styles.textMuted,
-            activeView === 'categoria' && styles.tabButtonTextActive,
-          ]}>
+          <Tag
+            size={14}
+            color={activeView === 'categoria' ? '#2563eb' : dark ? '#94a3b8' : '#64748b'}
+          />
+          <Text
+            style={[
+              styles.tabButtonText,
+              dark && styles.textMuted,
+              activeView === 'categoria' && styles.tabButtonTextActive,
+            ]}
+          >
             Por categoria
           </Text>
         </TouchableOpacity>
@@ -123,7 +133,10 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
           style={[styles.searchInput, dark && styles.textLight]}
         />
         {Boolean(searchTerm) && (
-          <TouchableOpacity onPress={() => onSearchChange('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={() => onSearchChange('')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <X size={15} color="#94a3b8" />
           </TouchableOpacity>
         )}

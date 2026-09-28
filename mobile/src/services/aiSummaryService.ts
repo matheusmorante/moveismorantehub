@@ -34,8 +34,12 @@ export function isSummaryQuotaExceeded(): boolean {
 export function setSummaryQuotaExceeded(exceeded: boolean) {
   if (isAiQuotaExceededState !== exceeded) {
     isAiQuotaExceededState = exceeded;
-    quotaListeners.forEach(cb => {
-      try { cb(exceeded); } catch { /* listener seguro */ }
+    quotaListeners.forEach((cb) => {
+      try {
+        cb(exceeded);
+      } catch {
+        /* listener seguro */
+      }
     });
   }
 }
@@ -62,7 +66,9 @@ export const generateDeliveryAISummary = async (
       const { data } = await supabase
         .from('orders')
         .select('id, status, deleted, scheduled_date, created_at, order_data')
-        .or('deleted.is.null,deleted.eq.false,order_data->>deleted.is.null,order_data->>deleted.eq.false')
+        .or(
+          'deleted.is.null,deleted.eq.false,order_data->>deleted.is.null,order_data->>deleted.eq.false'
+        )
         .order('created_at', { ascending: false })
         .limit(300);
       rawOrders = data || [];
@@ -81,14 +87,19 @@ export const generateDeliveryAISummary = async (
     const geminiKey = await MobileAgentClient.getApiKey();
 
     // 1. Montar payload canônico e calcular a fingerprint determinística dos dados
-    const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(rawOrders || [], mode, handlingOptions);
+    const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(
+      rawOrders || [],
+      mode,
+      handlingOptions
+    );
     const currentFingerprint = generateCanonicalFingerprint(canonicalPayload);
     const memoryCacheKey = `${mode}:${currentFingerprint}`;
     const memoryText = summaryTextMemoryCache.get(memoryCacheKey);
 
     if (!forceRefresh && memoryText) {
       if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(memoryText);
-      else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(memoryText);
+      else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+        setAiSummaryTomorrow(memoryText);
       return memoryText;
     }
 
@@ -101,15 +112,20 @@ export const generateDeliveryAISummary = async (
         // ZERO chamadas adicionais de Gemini e ZERO chamadas de TTS!
         summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
         if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
-        else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
+        else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+          setAiSummaryTomorrow(savedRecord.text);
         return savedRecord.text;
       }
 
-      if (savedRecord.text_status === 'GENERATING' && !isLeaseExpired(savedRecord.generation_started_at)) {
+      if (
+        savedRecord.text_status === 'GENERATING' &&
+        !isLeaseExpired(savedRecord.generation_started_at)
+      ) {
         // Geração já em andamento em outro dispositivo -> Aguarda sem duplicar requisição
         if (savedRecord.text) {
           if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
-          else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(savedRecord.text);
+          else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+            setAiSummaryTomorrow(savedRecord.text);
         }
         return savedRecord.text || '';
       }
@@ -129,7 +145,8 @@ export const generateDeliveryAISummary = async (
 
     // Se já tiver um texto válido prévio com apenas o áudio pendente, reutiliza o texto!
     let smartText = '';
-    const shouldReuseText = savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
+    const shouldReuseText =
+      savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
 
     if (shouldReuseText && savedRecord?.text) {
       smartText = savedRecord.text;
@@ -173,7 +190,10 @@ export const generateDeliveryAISummary = async (
           if (/429|quota|resource_exhausted/i.test(errMsg)) {
             setSummaryQuotaExceeded(true);
           }
-          console.warn('Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):', geminiErr);
+          console.warn(
+            'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):',
+            geminiErr
+          );
         }
       }
     }
@@ -197,7 +217,8 @@ export const generateDeliveryAISummary = async (
     summaryTextMemoryCache.set(memoryCacheKey, smartText);
 
     if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(smartText);
-    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(smartText);
+    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+      setAiSummaryTomorrow(smartText);
 
     return smartText;
   } catch (err: any) {
@@ -206,7 +227,8 @@ export const generateDeliveryAISummary = async (
     const fallbackText = `Não foi possível atualizar o resumo agora. ${detail}`;
 
     if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
-    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow) setAiSummaryTomorrow(fallbackText);
+    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+      setAiSummaryTomorrow(fallbackText);
 
     return fallbackText;
   } finally {
@@ -214,7 +236,11 @@ export const generateDeliveryAISummary = async (
   }
 };
 
-export function formatExtendDateLabel(dateStr: string, todayStr: string, tomorrowStr: string): string {
+export function formatExtendDateLabel(
+  dateStr: string,
+  todayStr: string,
+  tomorrowStr: string
+): string {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return `Para a data ${dateStr}`;
   const year = parseInt(parts[0], 10);
@@ -232,8 +258,18 @@ export function formatExtendDateLabel(dateStr: string, todayStr: string, tomorro
     'sábado',
   ];
   const months = [
-    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
   ];
 
   const weekDayName = weekDays[d.getDay()];
@@ -253,9 +289,7 @@ function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
       /^(06|07|08|09|10|11):/.test(o.scheduledTime)
   );
   const afternoonOrders = orders.filter(
-    (o) =>
-      o.period.includes('tarde') ||
-      /^(12|13|14|15|16|17|18):/.test(o.scheduledTime)
+    (o) => o.period.includes('tarde') || /^(12|13|14|15|16|17|18):/.test(o.scheduledTime)
   );
   const unspecOrders = orders.filter(
     (o) => !morningOrders.includes(o) && !afternoonOrders.includes(o)
@@ -281,7 +315,12 @@ function formatOrdersGroup(orders: CanonicalSummaryPayload['orders']): string {
         .filter((it) => it.isAssemblyOutside)
         .map((it) => formatProductNameWithArticle(it.name, it.quantity));
 
-      const activityName = o.activityType === 'assistance' ? 'assistência' : o.activityType === 'return' ? 'devolução' : 'entrega';
+      const activityName =
+        o.activityType === 'assistance'
+          ? 'assistência'
+          : o.activityType === 'return'
+            ? 'devolução'
+            : 'entrega';
       let base = '';
       if (assemblyItems.length > 0) {
         base = `uma ${activityName}${custPart}${cityPart}${distPart}, de ${itemsText}, sendo ${assemblyItems.join(' e ')}, com montagem no endereço`;
@@ -346,13 +385,17 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
       if (dayOrders.length === 0) continue;
 
       const dateLabel = formatExtendDateLabel(dateKey, todayStr, firstScheduledDate || tomorrowStr);
-      const countByType = (type: string) => dayOrders.filter(order => (order.activityType || 'delivery') === type).length;
-      const describe = (count: number, singular: string, plural: string) => count ? `${count} ${count === 1 ? singular : plural}` : '';
+      const countByType = (type: string) =>
+        dayOrders.filter((order) => (order.activityType || 'delivery') === type).length;
+      const describe = (count: number, singular: string, plural: string) =>
+        count ? `${count} ${count === 1 ? singular : plural}` : '';
       const dayActivities = [
         describe(countByType('delivery'), 'entrega', 'entregas'),
         describe(countByType('assistance'), 'assistência', 'assistências'),
         describe(countByType('return'), 'devolução', 'devoluções'),
-      ].filter(Boolean).join(', ');
+      ]
+        .filter(Boolean)
+        .join(', ');
       const dayOverview = `${dateLabel}, temos ${dayActivities}.`;
       const dayDetails = formatOrdersGroup(dayOrders);
 
@@ -364,13 +407,17 @@ export function generateLocalSmartText(payload: CanonicalSummaryPayload): string
 
   // Escopo de Hoje ou Amanhã individual
   const isToday = payload.scope === 'today';
-  const countByType = (type: string) => orders.filter(order => (order.activityType || 'delivery') === type).length;
-  const describe = (count: number, singular: string, plural: string) => count ? `${count} ${count === 1 ? singular : plural}` : '';
+  const countByType = (type: string) =>
+    orders.filter((order) => (order.activityType || 'delivery') === type).length;
+  const describe = (count: number, singular: string, plural: string) =>
+    count ? `${count} ${count === 1 ? singular : plural}` : '';
   const activities = [
     describe(countByType('delivery'), 'entrega', 'entregas'),
     describe(countByType('assistance'), 'assistência', 'assistências'),
     describe(countByType('return'), 'devolução', 'devoluções'),
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(', ');
   const overview = `Para ${isToday ? 'hoje' : 'amanhã'}, temos ${activities}.`;
   const details = formatOrdersGroup(orders);
 

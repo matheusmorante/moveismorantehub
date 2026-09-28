@@ -46,5 +46,5 @@ export const FONT_OPTIONS = [
   { label: 'Roboto (Limpa)', value: 'Roboto, sans-serif' },
   { label: 'Poppins (Arredondada)', value: 'Poppins, sans-serif' },
   { label: 'Playfair (Clássica)', value: '"Playfair Display", Georgia, serif' },
-  { label: 'Monospace (Digital)', value: 'ui-monospace, monospace' }
+  { label: 'Monospace (Digital)', value: 'ui-monospace, monospace' },
 ];

@@ -31,7 +31,9 @@ export const TransactionPurposeSelector: React.FC<Props> = ({
           onPress={() => onPurposeChange('PERSONAL_PARTNER')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.typeBtnText, purpose === 'PERSONAL_PARTNER' && styles.typeBtnTextActive]}>
+          <Text
+            style={[styles.typeBtnText, purpose === 'PERSONAL_PARTNER' && styles.typeBtnTextActive]}
+          >
             👤 Uso Particular
           </Text>
         </TouchableOpacity>

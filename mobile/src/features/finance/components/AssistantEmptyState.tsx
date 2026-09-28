@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { Fuel, ArrowDownLeft, FileCheck, Layers, ChevronRight, Package, Truck, Wrench, RotateCcw } from 'lucide-react-native';
+import {
+  Fuel,
+  ArrowDownLeft,
+  FileCheck,
+  Layers,
+  ChevronRight,
+  Package,
+  Truck,
+  Wrench,
+  RotateCcw,
+} from 'lucide-react-native';
 import { FinanceExamplesModal } from './FinanceExamplesModal';
 
 const SEU_LIZANDRO_IMG = require('../../../../assets/lizandro-small.png');
@@ -9,9 +19,7 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-export const AssistantEmptyState: React.FC<Props> = ({
-  isDarkMode = false,
-}) => {
+export const AssistantEmptyState: React.FC<Props> = ({ isDarkMode = false }) => {
   const [showExamplesModal, setShowExamplesModal] = useState(false);
 
   return (
@@ -24,12 +32,11 @@ export const AssistantEmptyState: React.FC<Props> = ({
         />
       </View>
 
-      <Text style={[styles.title, isDarkMode && styles.textDark]}>
-        Seu Lizandro
-      </Text>
+      <Text style={[styles.title, isDarkMode && styles.textDark]}>Seu Lizandro</Text>
 
       <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-        Consulte produtos, pedidos e operações ou registre movimentações financeiras. Digite naturalmente sua dúvida.
+        Consulte produtos, pedidos e operações ou registre movimentações financeiras. Digite
+        naturalmente sua dúvida.
       </Text>
 
       {/* Container de Exemplos Práticos Rápidos (Apenas para Leitura) */}

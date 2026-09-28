@@ -60,7 +60,9 @@ export function PromptPreview({
   const [catalogUrl, setCatalogUrl] = useState<string>('');
   const [resolvedImages, setResolvedImages] = useState<PostProductImagesSpec | null>(null);
   const [officialAssets, setOfficialAssets] = useState<PostOfficialAssetsSpec | null>(null);
-  const [imagesValidation, setImagesValidation] = useState<PostProductImagesValidation | null>(null);
+  const [imagesValidation, setImagesValidation] = useState<PostProductImagesValidation | null>(
+    null
+  );
   const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [openPromptText, setOpenPromptText] = useState(false);
@@ -71,7 +73,7 @@ export function PromptPreview({
     // Combina modelos com o mesmo ID ou configurados para o elemento, mantendo-os disponíveis
     const combined = [...list];
     for (const em of elements) {
-      if (!combined.some(c => c.id === em.id)) {
+      if (!combined.some((c) => c.id === em.id)) {
         combined.push(em);
       }
     }
@@ -95,8 +97,9 @@ export function PromptPreview({
 
   // Reconstruir o prompt localmente sempre que os dados mudarem
   const specKey = useMemo(
-    () => `${campaign?.id}|${effectiveProductSlug}|${variationId}|${product?.opportunity_id || product?.opportunityId || 'none'}|${JSON.stringify(manualSelection)}|${product?.images?.length || 0}|${product?.variations?.length || 0}|${effectiveModels.map(m => `${m.id}:${m.updatedAt || ''}`).join(',')}`,
-    [campaign?.id, effectiveProductSlug, variationId, product, manualSelection, effectiveModels],
+    () =>
+      `${campaign?.id}|${effectiveProductSlug}|${variationId}|${product?.opportunity_id || product?.opportunityId || 'none'}|${JSON.stringify(manualSelection)}|${product?.images?.length || 0}|${product?.variations?.length || 0}|${effectiveModels.map((m) => `${m.id}:${m.updatedAt || ''}`).join(',')}`,
+    [campaign?.id, effectiveProductSlug, variationId, product, manualSelection, effectiveModels]
   );
 
   useEffect(() => {
@@ -134,17 +137,18 @@ export function PromptPreview({
       productCatalogUrl: url,
       campaign,
       activeModels: effectiveModels,
-      elementModels: (elementModels as ElementModel[]) || (models as ElementModel[]) || effectiveModels,
+      elementModels:
+        (elementModels as ElementModel[]) || (models as ElementModel[]) || effectiveModels,
       globalRules,
       product,
       selectedVariationId: variationId || undefined,
       manualOverrides: manualSelection,
-    }).then(spec => {
+    }).then((spec) => {
       setCurrentSpec(spec);
       setOfficialAssets(spec.officialAssets || null);
       setPromptText(renderSpecificationAsPrompt(spec));
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specKey, globalRules, propResolvedImages, propImagesValidation]);
 
   const handleDownloadZip = async () => {
@@ -173,10 +177,12 @@ export function PromptPreview({
 
   const handleOpenChatGptInBackground = (e: React.MouseEvent) => {
     e.preventDefault();
-    const url = 'https://chatgpt.com/g/g-p-6a9d93e0c74c8191ade047ff2bc6c334-criador-de-post/project';
-    
+    const url =
+      'https://chatgpt.com/g/g-p-6a9d93e0c74c8191ade047ff2bc6c334-criador-de-post/project';
+
     // Dispara clique com ctrlKey (ou metaKey no Mac) para que o navegador abra a aba em segundo plano (background tab)
-    const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent || navigator.platform);
+    const isMac =
+      typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent || navigator.platform);
     const link = document.createElement('a');
     link.href = url;
     link.target = '_blank';
@@ -195,7 +201,11 @@ export function PromptPreview({
     if (!dispatched) {
       const win = window.open(url, '_blank');
       if (win) {
-        try { win.blur(); } catch { /* ignore */ }
+        try {
+          win.blur();
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -204,9 +214,12 @@ export function PromptPreview({
     setTimeout(() => window.focus(), 50);
     setTimeout(() => window.focus(), 200);
 
-    toast.info('Projeto ChatGPT aberto em segundo plano! Você continua aqui para copiar as imagens e o prompt.', {
-      autoClose: 3500,
-    });
+    toast.info(
+      'Projeto ChatGPT aberto em segundo plano! Você continua aqui para copiar as imagens e o prompt.',
+      {
+        autoClose: 3500,
+      }
+    );
   };
 
   return (
@@ -225,7 +238,11 @@ export function PromptPreview({
               type="button"
               onClick={onToggleFocus}
               className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition"
-              title={isFocused ? 'Restaurar layout padrão em duas colunas' : 'Expandir Preview (Modo Foco)'}
+              title={
+                isFocused
+                  ? 'Restaurar layout padrão em duas colunas'
+                  : 'Expandir Preview (Modo Foco)'
+              }
             >
               <span>{isFocused ? '⤡ Restaurar' : '⤢ Expandir'}</span>
             </button>
@@ -279,7 +296,10 @@ export function PromptPreview({
               <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
                 Produto Selecionado
               </span>
-              <p className="font-bold text-slate-100 truncate text-sm mt-0.5" title={product?.name || propProductName}>
+              <p
+                className="font-bold text-slate-100 truncate text-sm mt-0.5"
+                title={product?.name || propProductName}
+              >
                 {product?.name || propProductName || 'Produto'}
               </p>
               {catalogUrl && (
@@ -321,9 +341,9 @@ export function PromptPreview({
             <div
               role="button"
               tabIndex={0}
-              onClick={() => setOpenPromptText(prev => !prev)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') setOpenPromptText(prev => !prev);
+              onClick={() => setOpenPromptText((prev) => !prev)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setOpenPromptText((prev) => !prev);
               }}
               className="flex w-full items-center justify-between p-3.5 sm:p-4 text-xs font-bold text-slate-200 hover:bg-slate-900/60 transition cursor-pointer select-none"
             >
@@ -340,7 +360,7 @@ export function PromptPreview({
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     if (!promptText) return;
                     navigator.clipboard.writeText(promptText).then(() => {

@@ -58,8 +58,12 @@ describe('Fluxo de Navegação Externa (Google Maps Delivery)', () => {
 
   describe('openExternalNavigation', () => {
     it('deve abrir a mapsUrl diretamente (prioridade 1) ignorando plataforma', async () => {
-      const target = { mapsUrl: 'https://maps.app.goo.gl/directLink', latitude: -25, longitude: -49 };
-      
+      const target = {
+        mapsUrl: 'https://maps.app.goo.gl/directLink',
+        latitude: -25,
+        longitude: -49,
+      };
+
       await openExternalNavigation(target);
 
       expect(Linking.openURL).toHaveBeenCalledWith('https://maps.app.goo.gl/directLink');
@@ -71,10 +75,12 @@ describe('Fluxo de Navegação Externa (Google Maps Delivery)', () => {
       (Linking.canOpenURL as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
 
       const target = { latitude: -25.4284, longitude: -49.2733 };
-      
+
       await openExternalNavigation(target);
 
-      expect(Linking.canOpenURL).toHaveBeenCalledWith('google.navigation:q=-25.4284,-49.2733&mode=d');
+      expect(Linking.canOpenURL).toHaveBeenCalledWith(
+        'google.navigation:q=-25.4284,-49.2733&mode=d'
+      );
       expect(Linking.openURL).toHaveBeenCalledWith('google.navigation:q=-25.4284,-49.2733&mode=d');
     });
 
@@ -83,20 +89,24 @@ describe('Fluxo de Navegação Externa (Google Maps Delivery)', () => {
       (Linking.canOpenURL as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
 
       const target = { latitude: -25.4284, longitude: -49.2733 };
-      
+
       await openExternalNavigation(target);
 
-      expect(Linking.openURL).toHaveBeenCalledWith('https://www.google.com/maps/dir/?api=1&destination=-25.4284,-49.2733&travelmode=driving');
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        'https://www.google.com/maps/dir/?api=1&destination=-25.4284,-49.2733&travelmode=driving'
+      );
     });
 
     it('deve realizar fallback para o link universal se a plataforma for iOS com coordenadas', async () => {
       Platform.OS = 'ios';
 
       const target = { latitude: -25.4284, longitude: -49.2733 };
-      
+
       await openExternalNavigation(target);
 
-      expect(Linking.openURL).toHaveBeenCalledWith('https://www.google.com/maps/dir/?api=1&destination=-25.4284,-49.2733&travelmode=driving');
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        'https://www.google.com/maps/dir/?api=1&destination=-25.4284,-49.2733&travelmode=driving'
+      );
     });
 
     it('deve buscar por endereço textual via intenção Nativa no Android (prioridade 3) caso não haja coordenadas nem mapsUrl', async () => {
@@ -105,10 +115,12 @@ describe('Fluxo de Navegação Externa (Google Maps Delivery)', () => {
 
       const target = { fullAddress: 'Rua Teste, 123, Curitiba' };
       const encodedAddress = encodeURIComponent('Rua Teste, 123, Curitiba');
-      
+
       await openExternalNavigation(target);
 
-      expect(Linking.canOpenURL).toHaveBeenCalledWith(`google.navigation:q=${encodedAddress}&mode=d`);
+      expect(Linking.canOpenURL).toHaveBeenCalledWith(
+        `google.navigation:q=${encodedAddress}&mode=d`
+      );
       expect(Linking.openURL).toHaveBeenCalledWith(`google.navigation:q=${encodedAddress}&mode=d`);
     });
   });

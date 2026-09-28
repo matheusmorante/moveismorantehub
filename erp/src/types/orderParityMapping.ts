@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * MATRIZ DE MAPEAMENTO CAMPO A CAMPO
  * Auditoria Definitiva de Paridade: Legado (order_data / orders.items) vs Normalizado (orders, order_items, order_payments)
- * 
+ *
  * Classificação:
  * Categoria A: Dado operacional normalizado (deve existir em coluna/tabela normalizada)
  * Categoria B: Snapshot histórico legítimo (deve permanecer em JSON/snapshot porque representa o estado histórico no momento da venda)
@@ -31,7 +31,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Todos os módulos (PK do pedido)',
     paridade: 'TOTAL',
-    justificativa: 'Identificador primário do pedido mantido idêntico em ambas as estruturas.'
+    justificativa: 'Identificador primário do pedido mantido idêntico em ambas as estruturas.',
   },
   {
     campoLegado: 'orderNumber / orderIndex',
@@ -40,7 +40,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Listagem, buscas, relatórios, impressão de comprovantes',
     paridade: 'TOTAL',
-    justificativa: 'Código sequencial de 6 dígitos espelhado em colunas dedicadas indexadas.'
+    justificativa: 'Código sequencial de 6 dígitos espelhado em colunas dedicadas indexadas.',
   },
   {
     campoLegado: 'status',
@@ -49,7 +49,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Esteira logística, filtros, agenda, relatórios de vendas, estoque',
     paridade: 'TOTAL',
-    justificativa: 'Máquina de estados (draft, scheduled, fulfilled, cancelled) mantida em orders.status.'
+    justificativa:
+      'Máquina de estados (draft, scheduled, fulfilled, cancelled) mantida em orders.status.',
   },
   {
     campoLegado: 'orderType',
@@ -58,7 +59,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'PDV, relatórios, devoluções, orçamentos, assistências',
     paridade: 'TOTAL',
-    justificativa: 'Tipo da operação (sale, budget, return, assistance) em coluna dedicada indexada.'
+    justificativa:
+      'Tipo da operação (sale, budget, return, assistance) em coluna dedicada indexada.',
   },
   {
     campoLegado: 'date',
@@ -67,7 +69,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Linha do tempo, relatórios, ordenação cronológica',
     paridade: 'TOTAL',
-    justificativa: 'Timestamp da venda refletido fielmente em created_at com fuso e precisão.'
+    justificativa: 'Timestamp da venda refletido fielmente em created_at com fuso e precisão.',
   },
   {
     campoLegado: 'observation',
@@ -76,7 +78,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Agenda, romaneio de entrega, montadores, detalhe do pedido',
     paridade: 'TOTAL',
-    justificativa: 'Observações e avisos gerais do pedido refletidos na coluna notes.'
+    justificativa: 'Observações e avisos gerais do pedido refletidos na coluna notes.',
   },
 
   // ── CLIENTE & CRM ──
@@ -87,7 +89,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'CRM, histórico do cliente, busca por CPF/CNPJ',
     paridade: 'TOTAL',
-    justificativa: 'FK para a tabela people (type=customers).'
+    justificativa: 'FK para a tabela people (type=customers).',
   },
   {
     campoLegado: 'customerData.fullName',
@@ -96,7 +98,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Listagem de pedidos, cards da agenda, buscas textuais',
     paridade: 'TOTAL',
-    justificativa: 'Nome congelado do cliente em orders.customer_name para pesquisas de alta performance.'
+    justificativa:
+      'Nome congelado do cliente em orders.customer_name para pesquisas de alta performance.',
   },
   {
     campoLegado: 'customerData (snapshot completo)',
@@ -105,7 +108,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'B',
     consumidores: 'Impressão de contrato, romaneio de entrega, CRM',
     paridade: 'SNAPSHOT_LEGITIMO',
-    justificativa: 'Snapshot do cliente no instante da venda. Preservado para impedir que alterações cadastrais futuras no CRM alterem notas fiscais ou romaneios históricos já emitidos.'
+    justificativa:
+      'Snapshot do cliente no instante da venda. Preservado para impedir que alterações cadastrais futuras no CRM alterem notas fiscais ou romaneios históricos já emitidos.',
   },
 
   // ── VENDEDOR & EQUIPE ──
@@ -116,7 +120,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Comissões, filtros por vendedor, relatórios',
     paridade: 'TOTAL',
-    justificativa: 'Nome do vendedor mantido em coluna dedicada.'
+    justificativa: 'Nome do vendedor mantido em coluna dedicada.',
   },
   {
     campoLegado: 'sellerId',
@@ -125,7 +129,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Comissões, autenticação, permissões por filial/vendedor',
     paridade: 'TOTAL',
-    justificativa: 'FK para a tabela employees / people.'
+    justificativa: 'FK para a tabela employees / people.',
   },
 
   // ── LOGÍSTICA, ENTREGA & AGENDAMENTO ──
@@ -136,7 +140,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Agenda, romaneio, separação de pedidos, filtros',
     paridade: 'TOTAL',
-    justificativa: 'Modalidade (delivery vs pickup) mantida em orders.delivery_method.'
+    justificativa: 'Modalidade (delivery vs pickup) mantida em orders.delivery_method.',
   },
   {
     campoLegado: 'shipping.scheduling.date',
@@ -145,7 +149,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Calendário de rotas, agenda logística, kanban de entregas',
     paridade: 'TOTAL',
-    justificativa: 'Data operacional da entrega/retirada mantida em coluna DATE indexada.'
+    justificativa: 'Data operacional da entrega/retirada mantida em coluna DATE indexada.',
   },
   {
     campoLegado: 'shipping.scheduling.startTime / endTime',
@@ -154,7 +158,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Roteirização de frotas, janelas de entrega na agenda',
     paridade: 'TOTAL',
-    justificativa: 'Janelas horárias (ex: 14:00 - 18:00) normalizadas em colunas dedicadas.'
+    justificativa: 'Janelas horárias (ex: 14:00 - 18:00) normalizadas em colunas dedicadas.',
   },
   {
     campoLegado: 'shipping.deliveryStatus',
@@ -163,7 +167,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Tracking de motoristas mobile, painel de rotas',
     paridade: 'TOTAL',
-    justificativa: 'Status da viagem (pending, in_transit, delivered) em coluna física.'
+    justificativa: 'Status da viagem (pending, in_transit, delivered) em coluna física.',
   },
   {
     campoLegado: 'shipping.routeGeoJSON / destinationCoords / distance',
@@ -172,7 +176,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'B',
     consumidores: 'Roteirizador de mapas Leaflet/OSRM, auditoria de trajeto',
     paridade: 'SNAPSHOT_LEGITIMO',
-    justificativa: 'Polígono do trajeto e coordenadas calculadas no momento do agendamento. Dado pesado de telemetria que deve permanecer em snapshot sem onerar consultas relacionais.'
+    justificativa:
+      'Polígono do trajeto e coordenadas calculadas no momento do agendamento. Dado pesado de telemetria que deve permanecer em snapshot sem onerar consultas relacionais.',
   },
 
   // ── ITENS DO PEDIDO (order_items) ──
@@ -183,7 +188,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Estoque, movimentações, relatórios de CMV, catálogo',
     paridade: 'TOTAL',
-    justificativa: 'FK para a tabela products.'
+    justificativa: 'FK para a tabela products.',
   },
   {
     campoLegado: 'items[].variationId',
@@ -192,7 +197,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Estoque de variações, cores, voltagens',
     paridade: 'TOTAL',
-    justificativa: 'Identificador da variação do produto normalizado em coluna física.'
+    justificativa: 'Identificador da variação do produto normalizado em coluna física.',
   },
   {
     campoLegado: 'items[].code / SKU',
@@ -201,7 +206,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Busca por código, etiqueta, conferência física',
     paridade: 'TOTAL',
-    justificativa: 'Código comercial do produto no item do pedido.'
+    justificativa: 'Código comercial do produto no item do pedido.',
   },
   {
     campoLegado: 'items[].description',
@@ -210,7 +215,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Romaneio, lista de itens, relatórios de vendas, nota fiscal',
     paridade: 'TOTAL',
-    justificativa: 'Descrição do item normalizada em coluna indexada.'
+    justificativa: 'Descrição do item normalizada em coluna indexada.',
   },
   {
     campoLegado: 'items[].quantity',
@@ -219,7 +224,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Baixa de estoque, cálculo de totais, relatórios',
     paridade: 'TOTAL',
-    justificativa: 'Quantidade numérica do item.'
+    justificativa: 'Quantidade numérica do item.',
   },
   {
     campoLegado: 'items[].unitPrice',
@@ -228,7 +233,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Financeiro, faturamento, batimento de valores',
     paridade: 'TOTAL',
-    justificativa: 'Preço unitário em NUMERIC(12,2).'
+    justificativa: 'Preço unitário em NUMERIC(12,2).',
   },
   {
     campoLegado: 'items[].unitDiscount / discountType',
@@ -237,7 +242,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'DRE, margem de contribuição, auditoria de descontos',
     paridade: 'TOTAL',
-    justificativa: 'Desconto comercial unitário e tipo (fixed/percentage).'
+    justificativa: 'Desconto comercial unitário e tipo (fixed/percentage).',
   },
   {
     campoLegado: 'items[].costPrice',
@@ -246,7 +251,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'CMV, Lucro Bruto, relatório de rentabilidade',
     paridade: 'TOTAL',
-    justificativa: 'Custo histórico unitário do produto na data da venda.'
+    justificativa: 'Custo histórico unitário do produto na data da venda.',
   },
   {
     campoLegado: 'items[].handlingType',
@@ -255,7 +260,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Módulo de montagens, comissão de montadores',
     paridade: 'TOTAL',
-    justificativa: 'Regra operacional (montagem_inclusa, entrega_sem_montagem, etc.).'
+    justificativa: 'Regra operacional (montagem_inclusa, entrega_sem_montagem, etc.).',
   },
   {
     campoLegado: 'items[].condition',
@@ -264,7 +269,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Classificação de avarias, saldo de mostruário',
     paridade: 'TOTAL',
-    justificativa: 'Condição do item (novo, mostruario, com_avaria).'
+    justificativa: 'Condição do item (novo, mostruario, com_avaria).',
   },
   {
     campoLegado: 'items[].observation',
@@ -273,7 +278,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Instruções de montagem, romaneio',
     paridade: 'TOTAL',
-    justificativa: 'Observações específicas do produto/montagem.'
+    justificativa: 'Observações específicas do produto/montagem.',
   },
   {
     campoLegado: 'items[].itemSnapshot',
@@ -282,7 +287,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'B',
     consumidores: 'Histórico de especificações (cor, tecido, medidas originais)',
     paridade: 'SNAPSHOT_LEGITIMO',
-    justificativa: 'Snapshot com as especificações do catálogo na data da venda.'
+    justificativa: 'Snapshot com as especificações do catálogo na data da venda.',
   },
   {
     campoLegado: 'orders.items (coluna JSONB na tabela orders)',
@@ -291,7 +296,8 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'C',
     consumidores: 'Leitores legados em transição para order_items',
     paridade: 'TOTAL',
-    justificativa: 'Coluna JSONB mantida pelo dual-write para compatibilidade até o desligamento do READ legado.'
+    justificativa:
+      'Coluna JSONB mantida pelo dual-write para compatibilidade até o desligamento do READ legado.',
   },
 
   // ── PAGAMENTOS DO PEDIDO (order_payments) ──
@@ -302,7 +308,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Fluxo de caixa, conciliação bancária, relatórios financeiros',
     paridade: 'TOTAL',
-    justificativa: 'Forma de pagamento (Dinheiro, Pix, Cartão de Crédito, etc.).'
+    justificativa: 'Forma de pagamento (Dinheiro, Pix, Cartão de Crédito, etc.).',
   },
   {
     campoLegado: 'payments[].amount',
@@ -311,7 +317,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Contas a receber, totalizadores financeiros, fluxo de caixa',
     paridade: 'TOTAL',
-    justificativa: 'Valor pago/faturado em NUMERIC(12,2).'
+    justificativa: 'Valor pago/faturado em NUMERIC(12,2).',
   },
   {
     campoLegado: 'payments[].fee / feeType',
@@ -320,7 +326,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'DRE, despesas com taxas de cartão e intermediadores',
     paridade: 'TOTAL',
-    justificativa: 'Taxa da operadora de pagamento.'
+    justificativa: 'Taxa da operadora de pagamento.',
   },
   {
     campoLegado: 'payments[].status',
@@ -329,7 +335,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Contas a receber, inadimplência, conciliação',
     paridade: 'TOTAL',
-    justificativa: 'Status do pagamento (PAGO, PENDENTE, etc.).'
+    justificativa: 'Status do pagamento (PAGO, PENDENTE, etc.).',
   },
   {
     campoLegado: 'payments[].installments',
@@ -338,7 +344,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Contas a receber, projeção de fluxo futuro',
     paridade: 'TOTAL',
-    justificativa: 'Número de parcelas.'
+    justificativa: 'Número de parcelas.',
   },
   {
     campoLegado: 'payments[].date',
@@ -347,7 +353,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Relatório diário de caixa, extrato bancário',
     paridade: 'TOTAL',
-    justificativa: 'Data da quitação ou vencimento.'
+    justificativa: 'Data da quitação ou vencimento.',
   },
 
   // ── VALORES TOTAIS & RESUMOS ──
@@ -358,7 +364,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Faturamento total, dashboard, comissões',
     paridade: 'TOTAL',
-    justificativa: 'Valor final líquido do pedido mantido em orders.total_amount.'
+    justificativa: 'Valor final líquido do pedido mantido em orders.total_amount.',
   },
   {
     campoLegado: 'itemsSummary.itemsSubtotal',
@@ -367,7 +373,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Relatórios de vendas, cálculos de margem',
     paridade: 'TOTAL',
-    justificativa: 'Soma dos itens antes de frete e descontos.'
+    justificativa: 'Soma dos itens antes de frete e descontos.',
   },
   {
     campoLegado: 'itemsSummary.totalFixedDiscount',
@@ -376,7 +382,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Auditoria fiscal, DRE',
     paridade: 'TOTAL',
-    justificativa: 'Total de descontos concedidos no pedido.'
+    justificativa: 'Total de descontos concedidos no pedido.',
   },
   {
     campoLegado: 'itemsSummary.totalItemsCost',
@@ -385,7 +391,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Relatórios de CMV, Lucro Operacional',
     paridade: 'TOTAL',
-    justificativa: 'Custo total dos produtos do pedido.'
+    justificativa: 'Custo total dos produtos do pedido.',
   },
   {
     campoLegado: 'paymentsSummary.amountRemaining',
@@ -394,7 +400,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'D',
     consumidores: 'Cobrança, alerta de saldo pendente',
     paridade: 'DERIVAVEL',
-    justificativa: 'Dado derivável matematicamente do cabeçalho e dos pagamentos.'
+    justificativa: 'Dado derivável matematicamente do cabeçalho e dos pagamentos.',
   },
 
   // ── VÍNCULOS & DEVOLUÇÕES ──
@@ -405,7 +411,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Módulo de devoluções, troca de produtos, estorno financeiro',
     paridade: 'TOTAL',
-    justificativa: 'FK que amarra a devolução ao pedido de venda de origem.'
+    justificativa: 'FK que amarra a devolução ao pedido de venda de origem.',
   },
   {
     campoLegado: 'returnOrderId',
@@ -414,7 +420,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Pedido original avisando que possui devolução gerada',
     paridade: 'TOTAL',
-    justificativa: 'Referência inversa de devolução.'
+    justificativa: 'Referência inversa de devolução.',
   },
 
   // ── CONTROLE OPERACIONAL DE ESTOQUE ──
@@ -425,7 +431,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Garantia de que o pedido deu baixa física no almoxarifado',
     paridade: 'TOTAL',
-    justificativa: 'Flag booleana indicando processamento de saída no estoque.'
+    justificativa: 'Flag booleana indicando processamento de saída no estoque.',
   },
   {
     campoLegado: 'isStockChecked',
@@ -434,7 +440,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'A',
     consumidores: 'Conferência física na expedição',
     paridade: 'TOTAL',
-    justificativa: 'Flag booleana de conferência física de estoque.'
+    justificativa: 'Flag booleana de conferência física de estoque.',
   },
 
   // ── CONTROLES DE INTERFACE & METADADOS (isButtonsClicked) ──
@@ -445,6 +451,7 @@ export const ORDER_PARITY_FIELD_MATRIX: FieldMapping[] = [
     categoria: 'B',
     consumidores: 'Indicadores visuais de cliques na UI (recibo impresso, WhatsApp enviado)',
     paridade: 'SNAPSHOT_LEGITIMO',
-    justificativa: 'Metadados visuais de conveniência da UI. Não possuem relevância relacional nem impacto fiscal/contábil/estoque; mantidos no snapshot JSON.'
-  }
+    justificativa:
+      'Metadados visuais de conveniência da UI. Não possuem relevância relacional nem impacto fiscal/contábil/estoque; mantidos no snapshot JSON.',
+  },
 ];

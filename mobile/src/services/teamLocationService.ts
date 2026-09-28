@@ -57,7 +57,10 @@ export async function fetchTeamLocations(excludeUserId?: string): Promise<TeamMe
         },
         isGpsActive: Boolean(row.is_gps_active),
         lastSeen: row.last_seen || row.updated_at,
-        isDisconnectedOrNoGps: evaluateDisconnectedState(row.is_gps_active, row.last_seen || row.updated_at),
+        isDisconnectedOrNoGps: evaluateDisconnectedState(
+          row.is_gps_active,
+          row.last_seen || row.updated_at
+        ),
         isDelivering: Boolean(row.is_delivering),
         activeOrderId: row.active_order_id || undefined,
         activeOrderCode: row.active_order_code || undefined,
@@ -77,7 +80,7 @@ export async function broadcastMyLocation(
   coords: { latitude: number; longitude: number } | null,
   isGpsActive: boolean,
   isDelivering: boolean = false,
-  activeOrder?: { id: string; code?: string } | null,
+  activeOrder?: { id: string; code?: string } | null
 ): Promise<void> {
   if (!user?.id) return;
 
@@ -94,8 +97,8 @@ export async function broadcastMyLocation(
         longitude: coords.longitude,
         is_gps_active: true,
         is_delivering: Boolean(isDelivering),
-        active_order_id: isDelivering ? (activeOrder?.id || null) : null,
-        active_order_code: isDelivering ? (activeOrder?.code || null) : null,
+        active_order_id: isDelivering ? activeOrder?.id || null : null,
+        active_order_code: isDelivering ? activeOrder?.code || null : null,
         last_seen: nowIso,
         updated_at: nowIso,
       });
@@ -106,8 +109,8 @@ export async function broadcastMyLocation(
         .update({
           is_gps_active: false,
           is_delivering: Boolean(isDelivering),
-          active_order_id: isDelivering ? (activeOrder?.id || null) : null,
-          active_order_code: isDelivering ? (activeOrder?.code || null) : null,
+          active_order_id: isDelivering ? activeOrder?.id || null : null,
+          active_order_code: isDelivering ? activeOrder?.code || null : null,
           updated_at: nowIso,
         })
         .eq('user_id', user.id);
@@ -142,18 +145,12 @@ export async function stopDeliveringBroadcast(userId: string): Promise<void> {
 /**
  * Escuta atualizações de localização de outros membros da equipe em tempo real.
  */
-export function subscribeToTeamLocations(
-  onUpdate: () => void
-): () => void {
+export function subscribeToTeamLocations(onUpdate: () => void): () => void {
   const channel = supabase
     .channel('team-locations-realtime')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'team_locations' },
-      () => {
-        onUpdate();
-      }
-    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'team_locations' }, () => {
+      onUpdate();
+    })
     .subscribe();
 
   return () => {

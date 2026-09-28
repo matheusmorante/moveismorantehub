@@ -37,7 +37,7 @@ export const AI_LIMITS: AiLimitsConfig = {
     concurrent: 3,
     perMinute: 10,
     perHour: 50,
-    perDay: 120
+    perDay: 120,
   },
   categories: {
     TEXT: {
@@ -45,7 +45,7 @@ export const AI_LIMITS: AiLimitsConfig = {
       perMinute: 10,
       perHour: 30,
       perDay: 100,
-      model: AI_MODELS.LITE
+      model: AI_MODELS.LITE,
     },
     IMAGE: {
       concurrent: 1,
@@ -53,9 +53,9 @@ export const AI_LIMITS: AiLimitsConfig = {
       perHour: 15,
       perDay: 30,
       perMonth: 150, // ~150 gerações 1K @ ~R$ 0,20 = R$ 30,00/mês
-      monthlyBudgetBRL: 30.00, // Cota financeira máxima mensal de R$ 30,00
-      estimatedCostPerUnitBRL: 0.20,
-      model: AI_MODELS.IMAGE
+      monthlyBudgetBRL: 30.0, // Cota financeira máxima mensal de R$ 30,00
+      estimatedCostPerUnitBRL: 0.2,
+      model: AI_MODELS.IMAGE,
     },
     TTS: {
       concurrent: 1,
@@ -63,7 +63,7 @@ export const AI_LIMITS: AiLimitsConfig = {
       perHour: 30,
       perDay: 30,
       voice: 'Aoede', // Voz feminina informativa e profissional do Gemini
-      model: AI_MODELS.TTS
-    }
-  }
+      model: AI_MODELS.TTS,
+    },
+  },
 };

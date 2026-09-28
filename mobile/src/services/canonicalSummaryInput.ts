@@ -1,6 +1,15 @@
-import { getLocalDateString, isCancelledOrder, isDateInPeriod, parseOrderDateStr } from '../utils/orderUtils';
+import {
+  getLocalDateString,
+  isCancelledOrder,
+  isDateInPeriod,
+  parseOrderDateStr,
+} from '../utils/orderUtils';
 import { getOperationalScheduleDate } from '../utils/operationalSchedule';
-import { getOperationActivityPresentation, getOperationActivityType, type OperationActivityType } from '../features/schedule/utils/operationActivity';
+import {
+  getOperationActivityPresentation,
+  getOperationActivityType,
+  type OperationActivityType,
+} from '../features/schedule/utils/operationActivity';
 
 export const SUMMARY_GENERATOR_VERSION = 'v1';
 export const TTS_VERSION = 'v1';
@@ -73,8 +82,11 @@ export function buildCanonicalSummaryPayload(
     if (!handlingTypeStr) return false;
     const hLower = handlingTypeStr.toLowerCase().trim();
     if (Array.isArray(handlingOptions) && handlingOptions.length > 0) {
-      const matched = handlingOptions.find((opt: any) => opt.label && opt.label.toLowerCase().trim() === hLower);
-      if (matched && typeof matched.isAssemblyOutside === 'boolean') return matched.isAssemblyOutside;
+      const matched = handlingOptions.find(
+        (opt: any) => opt.label && opt.label.toLowerCase().trim() === hLower
+      );
+      if (matched && typeof matched.isAssemblyOutside === 'boolean')
+        return matched.isAssemblyOutside;
     }
     if (
       hLower.includes('depósito') ||
@@ -97,7 +109,14 @@ export function buildCanonicalSummaryPayload(
   const operationOrders = activeOrders.filter((o: any) => {
     const oData = o.order_data || {};
     const orderStatus = (o.status || oData.status || '').toLowerCase();
-    if (o.deleted || o.is_deleted || o.status === 'deleted' || oData.deleted || orderStatus === 'draft' || orderStatus === 'rascunho') {
+    if (
+      o.deleted ||
+      o.is_deleted ||
+      o.status === 'deleted' ||
+      oData.deleted ||
+      orderStatus === 'draft' ||
+      orderStatus === 'rascunho'
+    ) {
       return false;
     }
 
@@ -105,13 +124,22 @@ export function buildCanonicalSummaryPayload(
     const activityType = getOperationActivityType(o);
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
     const isPendingScheduling = Boolean(
-      sched.pendingScheduling || oData.pendingScheduling || o.pending_scheduling ||
-      orderStatus === 'pending_scheduling' || orderStatus === 'agendar_depois'
+      sched.pendingScheduling ||
+        oData.pendingScheduling ||
+        o.pending_scheduling ||
+        orderStatus === 'pending_scheduling' ||
+        orderStatus === 'agendar_depois'
     );
     const schedDate = getOperationalScheduleDate(o);
 
     // Entregas, assistências e devoluções agendadas participam do resumo operacional.
-    if (!['delivery', 'assistance', 'return'].includes(activityType) || isPendingScheduling || !schedDate || schedDate === 'sem_data') return false;
+    if (
+      !['delivery', 'assistance', 'return'].includes(activityType) ||
+      isPendingScheduling ||
+      !schedDate ||
+      schedDate === 'sem_data'
+    )
+      return false;
 
     const cleanSchedDate = parseOrderDateStr(schedDate);
     if (!cleanSchedDate || cleanSchedDate === 'sem_data') return false;
@@ -128,81 +156,132 @@ export function buildCanonicalSummaryPayload(
     return false;
   });
 
-  const canonicalOrders: CanonicalOrder[] = operationOrders.map((o: any) => {
-    const oData = o.order_data || {};
-    const shipping = oData.shipping || o.shipping || {};
-    const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
-    const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
-    const custData = oData.customerData || oData.customer || {};
-    const custAddr = custData.address || custData.fullAddress || {};
+  const canonicalOrders: CanonicalOrder[] = operationOrders
+    .map((o: any) => {
+      const oData = o.order_data || {};
+      const shipping = oData.shipping || o.shipping || {};
+      const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
+      const deliveryAddr = shipping.deliveryAddress || shipping.address || {};
+      const custData = oData.customerData || oData.customer || {};
+      const custAddr = custData.address || custData.fullAddress || {};
 
-    const obsText = (
-      oData.observations || oData.notes || oData.observation ||
-      shipping.observations || shipping.notes || shipping.observation ||
-      o.observations || o.notes || o.observation || ''
-    ).toString().trim();
+      const obsText = (
+        oData.observations ||
+        oData.notes ||
+        oData.observation ||
+        shipping.observations ||
+        shipping.notes ||
+        shipping.observation ||
+        o.observations ||
+        o.notes ||
+        o.observation ||
+        ''
+      )
+        .toString()
+        .trim();
 
-    const customerNameRaw = String(
-      custData.name || custData.fullName || custData.customerName ||
-      oData.customerName || o.customer_name || o.customerName || ''
-    ).trim();
-    const customerName = customerNameRaw.split(/\s+/).slice(0, 2).join(' ');
+      const customerNameRaw = String(
+        custData.name ||
+          custData.fullName ||
+          custData.customerName ||
+          oData.customerName ||
+          o.customer_name ||
+          o.customerName ||
+          ''
+      ).trim();
+      const customerName = customerNameRaw.split(/\s+/).slice(0, 2).join(' ');
 
-    const city = (deliveryAddr.city || shipping.city || custAddr.city || custData.city || o.city || '').trim();
-    const neighborhood = (deliveryAddr.neighborhood || shipping.neighborhood || custAddr.neighborhood || custData.neighborhood || '').trim();
-    const street = (deliveryAddr.street || deliveryAddr.address || shipping.address || custAddr.address || '').trim();
-    const number = (deliveryAddr.number || '').trim();
-    const addressText = `${street} ${number}`.trim();
+      const city = (
+        deliveryAddr.city ||
+        shipping.city ||
+        custAddr.city ||
+        custData.city ||
+        o.city ||
+        ''
+      ).trim();
+      const neighborhood = (
+        deliveryAddr.neighborhood ||
+        shipping.neighborhood ||
+        custAddr.neighborhood ||
+        custData.neighborhood ||
+        ''
+      ).trim();
+      const street = (
+        deliveryAddr.street ||
+        deliveryAddr.address ||
+        shipping.address ||
+        custAddr.address ||
+        ''
+      ).trim();
+      const number = (deliveryAddr.number || '').trim();
+      const addressText = `${street} ${number}`.trim();
 
-    const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
-    const distanceKm = typeof distRaw === 'number' ? distRaw : (parseFloat(distRaw) || null);
+      const distRaw = shipping.distance ?? shipping.distanceKm ?? o.distance ?? o.distanceKm;
+      const distanceKm = typeof distRaw === 'number' ? distRaw : parseFloat(distRaw) || null;
 
-    const rawItems = oData.items || o.items || [];
-    const items: CanonicalOrderItem[] = rawItems.map((it: any) => ({
-      name: (it.description || it.name || it.title || 'móvel').trim().toLowerCase(),
-      quantity: Number(it.quantity || it.qty || 1),
-      handlingType: String(it.handlingType || it.handling || '').trim().toLowerCase(),
-      isAssemblyOutside: isAssemblyOutsideType(String(it.handlingType || it.handling || '')),
-    })).sort((a: CanonicalOrderItem, b: CanonicalOrderItem) => a.name.localeCompare(b.name));
+      const rawItems = oData.items || o.items || [];
+      const items: CanonicalOrderItem[] = rawItems
+        .map((it: any) => ({
+          name: (it.description || it.name || it.title || 'móvel').trim().toLowerCase(),
+          quantity: Number(it.quantity || it.qty || 1),
+          handlingType: String(it.handlingType || it.handling || '')
+            .trim()
+            .toLowerCase(),
+          isAssemblyOutside: isAssemblyOutsideType(String(it.handlingType || it.handling || '')),
+        }))
+        .sort((a: CanonicalOrderItem, b: CanonicalOrderItem) => a.name.localeCompare(b.name));
 
-    const notices: string[] = [];
-    const obsLower = obsText.toLowerCase();
-    if (obsLower.includes('maquina') || obsLower.includes('máquina') || obsLower.includes('cartao') || obsLower.includes('cartão')) notices.push('máquina de cartão');
-    if (obsLower.includes('cooktop')) notices.push('cooktop');
-    if (obsLower.includes('serra copo') || obsLower.includes('cerra copo')) notices.push('serra copo');
-    if (obsLower.includes('ligar antes') || obsLower.includes('avisar antes')) notices.push('ligar antes');
-    if (obsLower.includes('nota fiscal') || /\bnf\b/.test(obsLower)) notices.push('nota fiscal');
+      const notices: string[] = [];
+      const obsLower = obsText.toLowerCase();
+      if (
+        obsLower.includes('maquina') ||
+        obsLower.includes('máquina') ||
+        obsLower.includes('cartao') ||
+        obsLower.includes('cartão')
+      )
+        notices.push('máquina de cartão');
+      if (obsLower.includes('cooktop')) notices.push('cooktop');
+      if (obsLower.includes('serra copo') || obsLower.includes('cerra copo'))
+        notices.push('serra copo');
+      if (obsLower.includes('ligar antes') || obsLower.includes('avisar antes'))
+        notices.push('ligar antes');
+      if (obsLower.includes('nota fiscal') || /\bnf\b/.test(obsLower)) notices.push('nota fiscal');
 
-    const cleanDate = parseOrderDateStr(getOperationalScheduleDate(o)) || '';
-    const activity = getOperationActivityPresentation(o);
+      const cleanDate = parseOrderDateStr(getOperationalScheduleDate(o)) || '';
+      const activity = getOperationActivityPresentation(o);
 
-    return {
-      id: String(o.id || o.order_id || '').trim(),
-      orderIndex: o.orderIndex || o.order_number || null,
-      customerName,
-      city: city.toLowerCase(),
-      neighborhood: neighborhood.toLowerCase(),
-      addressText: addressText.toLowerCase(),
-      handlingType: String(oData.handlingType || shipping.handlingType || '').trim().toLowerCase(),
-      scheduledDate: cleanDate,
-      scheduledTime: String(sched.startTime || sched.time || '').trim(),
-      period: String(sched.period || sched.shift || '').trim().toLowerCase(),
-      distanceKm,
-      observations: obsText,
-      items,
-      notices: notices.sort(),
-      activityType: activity.type,
-      activityLabel: activity.label,
-    };
-  }).sort((a: CanonicalOrder, b: CanonicalOrder) => {
-    if (a.scheduledDate !== b.scheduledDate) {
-      return a.scheduledDate.localeCompare(b.scheduledDate);
-    }
-    return a.id.localeCompare(b.id);
-  });
+      return {
+        id: String(o.id || o.order_id || '').trim(),
+        orderIndex: o.orderIndex || o.order_number || null,
+        customerName,
+        city: city.toLowerCase(),
+        neighborhood: neighborhood.toLowerCase(),
+        addressText: addressText.toLowerCase(),
+        handlingType: String(oData.handlingType || shipping.handlingType || '')
+          .trim()
+          .toLowerCase(),
+        scheduledDate: cleanDate,
+        scheduledTime: String(sched.startTime || sched.time || '').trim(),
+        period: String(sched.period || sched.shift || '')
+          .trim()
+          .toLowerCase(),
+        distanceKm,
+        observations: obsText,
+        items,
+        notices: notices.sort(),
+        activityType: activity.type,
+        activityLabel: activity.label,
+      };
+    })
+    .sort((a: CanonicalOrder, b: CanonicalOrder) => {
+      if (a.scheduledDate !== b.scheduledDate) {
+        return a.scheduledDate.localeCompare(b.scheduledDate);
+      }
+      return a.id.localeCompare(b.id);
+    });
 
   if (mode === 'next_days') {
-    targetDates = Array.from(new Set(canonicalOrders.map(o => o.scheduledDate))).sort();
+    targetDates = Array.from(new Set(canonicalOrders.map((o) => o.scheduledDate))).sort();
   }
 
   return {

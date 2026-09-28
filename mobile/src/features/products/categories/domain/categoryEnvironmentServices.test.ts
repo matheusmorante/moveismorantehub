@@ -34,7 +34,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     it('AC-04: Cria novo ambiente persistindo nome, tipo environment e vínculos', async () => {
       const mockInsert = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'env-new-1', name: 'SALA VIP' }, error: null }),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'env-new-1', name: 'SALA VIP' }, error: null }),
         }),
       });
 
@@ -69,7 +71,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const mockUpdate = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { id: 'env-1', name: 'SALA ATUALIZADA' }, error: null }),
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: { id: 'env-1', name: 'SALA ATUALIZADA' }, error: null }),
           }),
         }),
       });
@@ -80,7 +84,8 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'categories') return { update: mockUpdate };
-        if (table === 'category_relationships') return { delete: mockDeleteRel, insert: vi.fn().mockResolvedValue({ error: null }) };
+        if (table === 'category_relationships')
+          return { delete: mockDeleteRel, insert: vi.fn().mockResolvedValue({ error: null }) };
         return {};
       });
 
@@ -149,19 +154,27 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     it('AC-08 / AC-12: Cria categoria vinculada a múltiplos ambientes e com características associadas', async () => {
       const mockInsertCat = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' }, error: null }),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' }, error: null }),
         }),
       });
 
-      const mockDeleteRel = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteRel = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
       const mockInsertRel = vi.fn().mockResolvedValue({ error: null });
-      const mockDeleteAttr = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteAttr = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
       const mockInsertAttr = vi.fn().mockResolvedValue({ error: null });
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'categories') return { insert: mockInsertCat };
-        if (table === 'category_relationships') return { delete: mockDeleteRel, insert: mockInsertRel };
-        if (table === 'category_attributes') return { delete: mockDeleteAttr, insert: mockInsertAttr };
+        if (table === 'category_relationships')
+          return { delete: mockDeleteRel, insert: mockInsertRel };
+        if (table === 'category_attributes')
+          return { delete: mockDeleteAttr, insert: mockInsertAttr };
         return {};
       });
 
@@ -191,7 +204,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         }),
       });
 
-      const mockDeleteAttr = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteAttr = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
       const mockInsertAttr = vi.fn().mockResolvedValue({ error: null });
 
       (supabase.from as any).mockImplementation((table: string) => {
@@ -202,7 +217,8 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
             insert: vi.fn().mockResolvedValue({ error: null }),
           };
         }
-        if (table === 'category_attributes') return { delete: mockDeleteAttr, insert: mockInsertAttr };
+        if (table === 'category_attributes')
+          return { delete: mockDeleteAttr, insert: mockInsertAttr };
         return {};
       });
 
@@ -215,10 +231,18 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     it('AC-14: Bloqueia exclusão de categoria quando possuir produtos (relacional + direto)', async () => {
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'product_categories') {
-          return { select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 2, error: null }) }) };
+          return {
+            select: vi
+              .fn()
+              .mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 2, error: null }) }),
+          };
         }
         if (table === 'products') {
-          return { select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 1, error: null }) }) };
+          return {
+            select: vi
+              .fn()
+              .mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 1, error: null }) }),
+          };
         }
         return {};
       });
@@ -229,13 +253,23 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     });
 
     it('AC-15: Exclui categoria sem produtos com cascata em relacionamentos e características', async () => {
-      const mockDeleteAttr = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-      const mockDeleteRel = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-      const mockDeleteCat = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteAttr = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteRel = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteCat = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'product_categories' || table === 'products') {
-          return { select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 0, error: null }) }) };
+          return {
+            select: vi
+              .fn()
+              .mockReturnValue({ eq: vi.fn().mockResolvedValue({ count: 0, error: null }) }),
+          };
         }
         if (table === 'category_attributes') return { delete: mockDeleteAttr };
         if (table === 'category_relationships') return { delete: mockDeleteRel };
@@ -243,14 +277,18 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         return {};
       });
 
-      await expect(deleteMobileCategory('00000000-0000-4000-8000-000000000015')).resolves.toBeUndefined();
+      await expect(
+        deleteMobileCategory('00000000-0000-4000-8000-000000000015')
+      ).resolves.toBeUndefined();
       expect(mockDeleteAttr).toHaveBeenCalled();
       expect(mockDeleteRel).toHaveBeenCalled();
       expect(mockDeleteCat).toHaveBeenCalled();
     });
 
     it('Rejeita ID sintético antes de consultar colunas UUID no Supabase', async () => {
-      await expect(deleteMobileCategory('node-1790342264516-0')).rejects.toThrow(/identificador de categoria inválido/i);
+      await expect(deleteMobileCategory('node-1790342264516-0')).rejects.toThrow(
+        /identificador de categoria inválido/i
+      );
       expect(supabase.from).not.toHaveBeenCalled();
     });
 
@@ -379,9 +417,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       });
 
       await addMobileAttributeValue('attr-1', '  Azul Royal  ');
-      expect(mockInsert).toHaveBeenCalledWith([
-        { attribute_id: 'attr-1', value: 'Azul Royal' },
-      ]);
+      expect(mockInsert).toHaveBeenCalledWith([{ attribute_id: 'attr-1', value: 'Azul Royal' }]);
     });
 
     it('AT-08: Exclui opção/valor de uma característica', async () => {
@@ -399,8 +435,12 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     });
 
     it('AT-09: Exclui característica global com limpeza em cascata de seus valores', async () => {
-      const mockDeleteValues = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-      const mockDeleteAttr = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteValues = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteAttr = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'attribute_values') return { delete: mockDeleteValues };

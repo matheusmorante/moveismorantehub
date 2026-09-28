@@ -1,27 +1,32 @@
-"use client"
+'use client';
 
-import { useCart } from "@/hooks/use-cart"
-import { formatCurrency } from "@/lib/utils"
-import { sendCartInterest } from "@/services/whatsapp"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet"
-import { ShoppingCart, Trash2, Plus, Minus } from "lucide-react"
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon"
-import Image from "next/image"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { useCart } from '@/hooks/use-cart';
+import { formatCurrency } from '@/lib/utils';
+import { sendCartInterest } from '@/services/whatsapp';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+} from '@/components/ui/sheet';
+import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
+import Image from 'next/image';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
-  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart()
+  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
 
   const handleCheckout = () => {
-    sendCartInterest(items, totalPrice())
-  }
+    sendCartInterest(items, totalPrice());
+  };
 
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        {children}
-      </SheetTrigger>
+      <SheetTrigger asChild>{children}</SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col h-full">
         <SheetHeader className="border-b pb-4">
           <SheetTitle className="flex items-center gap-2">
@@ -42,17 +47,14 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-4">
                     <div className="relative h-20 w-20 rounded-md overflow-hidden border">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
+                      <Image src={item.image} alt={item.name} fill className="object-cover" />
                     </div>
                     <div className="flex-1 flex flex-col justify-between">
                       <div>
                         <h4 className="font-bold text-sm line-clamp-2">{item.name}</h4>
-                        <p className="text-primary font-bold text-sm">{formatCurrency(item.price)}</p>
+                        <p className="text-primary font-bold text-sm">
+                          {formatCurrency(item.price)}
+                        </p>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center border rounded-md">
@@ -92,12 +94,14 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
             <SheetFooter className="border-t pt-6 flex-col gap-4">
               <div className="flex items-center justify-between w-full">
                 <span className="font-medium text-muted-foreground">Subtotal</span>
-                <span className="font-bold text-xl text-primary">{formatCurrency(totalPrice())}</span>
+                <span className="font-bold text-xl text-primary">
+                  {formatCurrency(totalPrice())}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground text-center">
                 O fechamento do pedido será realizado via WhatsApp.
               </p>
-              <Button 
+              <Button
                 className="w-full gap-3 bg-[#25D366] hover:bg-[#128C7E] text-white py-6 text-lg font-bold"
                 onClick={handleCheckout}
               >
@@ -109,5 +113,5 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
         )}
       </SheetContent>
     </Sheet>
-  )
+  );
 }

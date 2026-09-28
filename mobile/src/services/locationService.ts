@@ -9,14 +9,19 @@ export interface DriverCoordinates {
 /**
  * Calcula a dist├óncia em metros entre duas coordenadas usando a f├│rmula de Haversine.
  */
-export function calculateDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+export function calculateDistanceInMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
   const R = 6371e3; // Raio da Terra em metros
-  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -62,7 +67,11 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
     if (!isGranted) {
       const requested = await requestLocationPermission();
       if (!requested) {
-        return { coords: null, permissionGranted: false, error: 'Permissão de localização não concedida' };
+        return {
+          coords: null,
+          permissionGranted: false,
+          error: 'Permissão de localização não concedida',
+        };
       }
     }
 

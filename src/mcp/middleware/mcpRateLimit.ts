@@ -32,7 +32,10 @@ export function getRateLimitLimit(): number {
 /**
  * Verifica e aplica rate limiting por cliente.
  */
-export function checkRateLimit(clientId: string, windowMs = 60_000): { remaining: number; resetAt: number } {
+export function checkRateLimit(
+  clientId: string,
+  windowMs = 60_000
+): { remaining: number; resetAt: number } {
   const now = Date.now();
   const maxRequests = getRateLimitLimit();
   const bucket = buckets.get(clientId);
@@ -47,7 +50,7 @@ export function checkRateLimit(clientId: string, windowMs = 60_000): { remaining
     const retryAfterSeconds = Math.ceil((bucket.resetAt - now) / 1000);
     throw new McpRateLimitError(
       `Limite de requisições excedido para o cliente "${clientId}". Tente novamente em ${retryAfterSeconds} segundos.`,
-      retryAfterSeconds,
+      retryAfterSeconds
     );
   }
 

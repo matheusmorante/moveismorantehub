@@ -1,15 +1,15 @@
-import { formatToBRDate } from "../formatters";
-import { formatAccessKey } from "./nfeAccessKey";
+import { formatToBRDate } from '../formatters';
+import { formatAccessKey } from './nfeAccessKey';
 import {
-    DanfeData,
-    getDanfeOfficialStyles,
-    buildDanfeHeaderOfficialHtml,
-    buildDanfeRecipientOfficialHtml,
-    buildDanfeTaxesAndTotalsOfficialHtml,
-    buildDanfeTransportOfficialHtml,
-    buildDanfeItemsOfficialHtml,
-    buildDanfeAdditionalInfoOfficialHtml,
-} from "./danfe";
+  DanfeData,
+  getDanfeOfficialStyles,
+  buildDanfeHeaderOfficialHtml,
+  buildDanfeRecipientOfficialHtml,
+  buildDanfeTaxesAndTotalsOfficialHtml,
+  buildDanfeTransportOfficialHtml,
+  buildDanfeItemsOfficialHtml,
+  buildDanfeAdditionalInfoOfficialHtml,
+} from './danfe';
 
 export type { DanfeData };
 
@@ -17,38 +17,59 @@ export type { DanfeData };
  * Gera o documento HTML do DANFE oficial A4 Retrato 100% conforme MOC 7.0 (Anexo II)
  */
 export function generateDanfeHtml(data: DanfeData): string {
-    const { order, settings, accessKey, nfeNumber, series, protocolNumber, protocolDate, model, environment } = data;
-    const isHomologacao = environment === 2;
-    const formattedKey = formatAccessKey(accessKey);
-    const docTitle = model === '65' ? 'DANFE NFC-e' : 'DANFE NF-e';
+  const {
+    order,
+    settings,
+    accessKey,
+    nfeNumber,
+    series,
+    protocolNumber,
+    protocolDate,
+    model,
+    environment,
+  } = data;
+  const isHomologacao = environment === 2;
+  const formattedKey = formatAccessKey(accessKey);
+  const docTitle = model === '65' ? 'DANFE NFC-e' : 'DANFE NF-e';
 
-    const totalOrder = Number(order.paymentsSummary?.totalOrderValue || 0);
-    const freight = Number(order.shipping?.value || 0);
-    const discount = Number(order.itemsSummary?.totalFixedDiscount || 0);
-    const totalProd = Math.max(0, totalOrder - freight + discount);
+  const totalOrder = Number(order.paymentsSummary?.totalOrderValue || 0);
+  const freight = Number(order.shipping?.value || 0);
+  const discount = Number(order.itemsSummary?.totalFixedDiscount || 0);
+  const totalProd = Math.max(0, totalOrder - freight + discount);
 
-    const nowIso = new Date().toISOString();
-    const dtEmi = formatToBRDate(nowIso);
-    const dtSaida = formatToBRDate(nowIso);
-    const hrSaida = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const nowIso = new Date().toISOString();
+  const dtEmi = formatToBRDate(nowIso);
+  const dtSaida = formatToBRDate(nowIso);
+  const hrSaida = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    const styles = getDanfeOfficialStyles(isHomologacao);
-    const headerHtml = buildDanfeHeaderOfficialHtml({
-        settings,
-        nfeNumber,
-        series,
-        formattedKey,
-        protocolNumber,
-        protocolDate,
-        natOp: data.natOp || 'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS',
-    });
-    const recipientHtml = buildDanfeRecipientOfficialHtml({ order, isHomologacao, dtEmi, dtSaida, hrSaida });
-    const taxesAndTotalsHtml = buildDanfeTaxesAndTotalsOfficialHtml({ totalOrder, totalProd, freight, discount });
-    const transportHtml = buildDanfeTransportOfficialHtml(order);
-    const itemsTableHtml = buildDanfeItemsOfficialHtml(order, settings);
-    const additionalInfoHtml = buildDanfeAdditionalInfoOfficialHtml(order);
+  const styles = getDanfeOfficialStyles(isHomologacao);
+  const headerHtml = buildDanfeHeaderOfficialHtml({
+    settings,
+    nfeNumber,
+    series,
+    formattedKey,
+    protocolNumber,
+    protocolDate,
+    natOp: data.natOp || 'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS',
+  });
+  const recipientHtml = buildDanfeRecipientOfficialHtml({
+    order,
+    isHomologacao,
+    dtEmi,
+    dtSaida,
+    hrSaida,
+  });
+  const taxesAndTotalsHtml = buildDanfeTaxesAndTotalsOfficialHtml({
+    totalOrder,
+    totalProd,
+    freight,
+    discount,
+  });
+  const transportHtml = buildDanfeTransportOfficialHtml(order);
+  const itemsTableHtml = buildDanfeItemsOfficialHtml(order, settings);
+  const additionalInfoHtml = buildDanfeAdditionalInfoOfficialHtml(order);
 
-    return `
+  return `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -96,24 +117,24 @@ export function generateDanfeHtml(data: DanfeData): string {
  * Imprime o DANFE diretamente via agente local ou abre em uma nova janela para impressão/visualização.
  */
 export function openDanfePrintWindow(data: DanfeData): void {
-    import('../printing/printService')
-        .then(({ printDanfe }) => {
-            printDanfe(data).catch(() => {
-                fallbackDanfeWindow(data);
-            });
-        })
-        .catch(() => {
-            fallbackDanfeWindow(data);
-        });
+  import('../printing/printService')
+    .then(({ printDanfe }) => {
+      printDanfe(data).catch(() => {
+        fallbackDanfeWindow(data);
+      });
+    })
+    .catch(() => {
+      fallbackDanfeWindow(data);
+    });
 }
 
 function fallbackDanfeWindow(data: DanfeData): void {
-    const html = generateDanfeHtml(data);
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-    }
+  const html = generateDanfeHtml(data);
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
 }
 
 export * from './danfe';

@@ -12,7 +12,9 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
   const shipping = oData.shipping || order?.shipping || {};
   const sched = shipping.scheduling || oData.schedule || oData.scheduling || order?.schedule || {};
 
-  const rawType = String(sched.type || sched.period || sched.shift || '').toLowerCase().trim();
+  const rawType = String(sched.type || sched.period || sched.shift || '')
+    .toLowerCase()
+    .trim();
   const startTime = String(sched.startTime || sched.time || sched.start_time || '').trim();
   const endTime = String(sched.endTime || sched.end_time || '').trim();
   const isExplicitFixed = rawType === 'fixed' || sched.isFixed === true || sched.fixedTime === true;
@@ -22,7 +24,12 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
     rawType.includes('morn') ||
     rawType === 'manha' ||
     rawType === 'manhã' ||
-    (!isExplicitFixed && startTime >= '07:00' && startTime <= '11:00' && endTime && endTime <= '13:00' && startTime !== endTime)
+    (!isExplicitFixed &&
+      startTime >= '07:00' &&
+      startTime <= '11:00' &&
+      endTime &&
+      endTime <= '13:00' &&
+      startTime !== endTime)
   ) {
     const formatted = endTime ? `${startTime}–${endTime}` : '08:00–12:00';
     return {
@@ -39,7 +46,12 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
   if (
     rawType.includes('after') ||
     rawType === 'tarde' ||
-    (!isExplicitFixed && startTime >= '12:00' && startTime <= '15:00' && endTime && endTime >= '17:00' && startTime !== endTime)
+    (!isExplicitFixed &&
+      startTime >= '12:00' &&
+      startTime <= '15:00' &&
+      endTime &&
+      endTime >= '17:00' &&
+      startTime !== endTime)
   ) {
     const formatted = endTime ? `${startTime}–${endTime}` : '13:00–18:00';
     return {
@@ -53,7 +65,12 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
   }
 
   // 3. Período da Noite (ex: 18:00–21:00)
-  if (!isExplicitFixed && (rawType.includes('night') || rawType === 'noite' || (startTime >= '18:00' && endTime && startTime !== endTime))) {
+  if (
+    !isExplicitFixed &&
+    (rawType.includes('night') ||
+      rawType === 'noite' ||
+      (startTime >= '18:00' && endTime && startTime !== endTime))
+  ) {
     const formatted = endTime ? `${startTime}–${endTime}` : '18:00–21:00';
     return {
       type: 'night',
@@ -66,7 +83,13 @@ export const extractScheduleSlot = (order: any): ScheduleSlot => {
   }
 
   // 4. Comercial / Integral (08:00–18:00)
-  if (!isExplicitFixed && (rawType.includes('full') || rawType.includes('comercial') || rawType.includes('commercial') || (startTime <= '09:00' && endTime >= '17:00' && startTime !== endTime))) {
+  if (
+    !isExplicitFixed &&
+    (rawType.includes('full') ||
+      rawType.includes('comercial') ||
+      rawType.includes('commercial') ||
+      (startTime <= '09:00' && endTime >= '17:00' && startTime !== endTime))
+  ) {
     const formatted = endTime ? `${startTime}–${endTime}` : '08:00–18:00';
     return {
       type: 'commercial',

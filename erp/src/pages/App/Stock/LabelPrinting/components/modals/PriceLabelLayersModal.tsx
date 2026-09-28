@@ -54,7 +54,7 @@ export const PriceLabelLayersModal: React.FC<PriceLabelLayersModalProps> = ({
         </div>
 
         <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-          {layers.map(layer => (
+          {layers.map((layer) => (
             <div
               key={layer.key}
               className={`w-full p-3 rounded-2xl flex items-center justify-between border transition-all ${
@@ -71,9 +71,7 @@ export const PriceLabelLayersModal: React.FC<PriceLabelLayersModalProps> = ({
                 <i className={`bi ${layer.icon} text-base text-blue-500`} />
                 <div>
                   <span className="text-xs font-black uppercase">{layer.label}</span>
-                  <p className="text-[9px] font-normal lowercase text-slate-400">
-                    {layer.desc}
-                  </p>
+                  <p className="text-[9px] font-normal lowercase text-slate-400">{layer.desc}</p>
                 </div>
               </button>
 
@@ -106,7 +104,9 @@ export const PriceLabelLayersModal: React.FC<PriceLabelLayersModalProps> = ({
                       }`}
                       title={layer.isVisible ? 'Ocultar camada' : 'Exibir camada'}
                     >
-                      <i className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
+                      <i
+                        className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}
+                      />
                     </button>
                   </>
                 )}

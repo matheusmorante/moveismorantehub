@@ -1,20 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Alert,
-} from 'react-native';
-import {
-  ChevronDown,
-  ChevronRight,
-  Edit2,
-  Trash2,
-  X,
-  Plus,
-  Inbox,
-} from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { ChevronDown, ChevronRight, Edit2, Trash2, X, Plus, Inbox } from 'lucide-react-native';
 import { EnvironmentNode, CategoryNode } from '../types/mobileCategory.types';
 
 interface Props {
@@ -43,24 +29,24 @@ export const MobileEnvironmentsList: React.FC<Props> = ({
   const [collapsedMap, setCollapsedMap] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => {
-    setCollapsedMap(prev => ({ ...prev, [id]: !prev[id] }));
+    setCollapsedMap((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const filteredEnvironments = useMemo(() => {
     if (!searchTerm.trim()) return environments;
     const norm = searchTerm.toLowerCase();
-    return environments.filter(env => {
+    return environments.filter((env) => {
       if (env.name.toLowerCase().includes(norm)) return true;
-      const envCats = categories.filter(c => env.categories?.includes(c.id));
-      return envCats.some(c => c.name.toLowerCase().includes(norm));
+      const envCats = categories.filter((c) => env.categories?.includes(c.id));
+      return envCats.some((c) => c.name.toLowerCase().includes(norm));
     });
   }, [environments, categories, searchTerm]);
 
   return (
     <View style={styles.container}>
-      {filteredEnvironments.map(env => {
+      {filteredEnvironments.map((env) => {
         const isExpanded = !collapsedMap[env.id];
-        const envCategories = categories.filter(c => env.categories?.includes(c.id));
+        const envCategories = categories.filter((c) => env.categories?.includes(c.id));
         const count = envCategories.length;
         const canDelete = count === 0;
 
@@ -131,10 +117,13 @@ export const MobileEnvironmentsList: React.FC<Props> = ({
             {isExpanded && (
               <View style={[styles.cardBody, dark && styles.cardBodyDark]}>
                 <View style={styles.chipsContainer}>
-                  {envCategories.map(cat => (
+                  {envCategories.map((cat) => (
                     <View key={cat.id} style={[styles.chip, dark && styles.chipDark]}>
                       <TouchableOpacity onPress={() => onEditCategory(cat)} activeOpacity={0.7}>
-                        <Text style={[styles.chipText, dark && styles.chipTextDark]} numberOfLines={1}>
+                        <Text
+                          style={[styles.chipText, dark && styles.chipTextDark]}
+                          numberOfLines={1}
+                        >
                           {cat.name}
                         </Text>
                       </TouchableOpacity>

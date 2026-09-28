@@ -1,146 +1,163 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { supabase } from "@/lib/supabase/client"
-import { toast } from "sonner"
-import { LogIn, KeyRound, Mail, Loader2, CheckCircle2, Send, ArrowLeft } from "lucide-react"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
+import { LogIn, KeyRound, Mail, Loader2, CheckCircle2, Send, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   // Redireciona automaticamente se já houver sessão ativa
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.push("/")
-        router.refresh()
+        router.push('/');
+        router.refresh();
       }
-    })
+    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        router.push("/")
-        router.refresh()
+        router.push('/');
+        router.refresh();
       }
-    })
+    });
 
-    return () => subscription.unsubscribe()
-  }, [router])
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   // Modal e estados de Recuperação de Senha (Esqueceu a Senha)
-  const [isResetOpen, setIsResetOpen] = useState(false)
-  const [resetStep, setResetStep] = useState<1 | 2>(1)
-  const [resetEmail, setResetEmail] = useState("")
-  const [resetCode, setResetCode] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [sendingReset, setSendingReset] = useState(false)
-  const [verifyingReset, setVerifyingReset] = useState(false)
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
+  const [verifyingReset, setVerifyingReset] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
-      toast.success("Login realizado com sucesso!")
-      router.push("/")
-      router.refresh()
+      toast.success('Login realizado com sucesso!');
+      router.push('/');
+      router.refresh();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao realizar login")
+      toast.error(error.message || 'Erro ao realizar login');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // 1. Enviar código no e-mail para recuperação de senha esquecida
   const handleSendResetCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = resetEmail.trim().toLowerCase()
+    e.preventDefault();
+    const trimmed = resetEmail.trim().toLowerCase();
     if (!trimmed) {
-      toast.error("Informe seu e-mail cadastrado.")
-      return
+      toast.error('Informe seu e-mail cadastrado.');
+      return;
     }
 
-    setSendingReset(true)
+    setSendingReset(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmed)
-      if (error) throw error
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed);
+      if (error) throw error;
 
-      toast.success(`Código de recuperação enviado para ${trimmed}! Verifique sua caixa de entrada.`)
-      setResetStep(2)
+      toast.success(
+        `Código de recuperação enviado para ${trimmed}! Verifique sua caixa de entrada.`
+      );
+      setResetStep(2);
     } catch (error: any) {
-      console.error("Erro ao solicitar código:", error)
-      toast.error(error.message || "Erro ao enviar código de recuperação.")
+      console.error('Erro ao solicitar código:', error);
+      toast.error(error.message || 'Erro ao enviar código de recuperação.');
     } finally {
-      setSendingReset(false)
+      setSendingReset(false);
     }
-  }
+  };
 
   // 2. Validar código OTP e redefinir senha esquecida
   const handleVerifyCodeAndResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const code = resetCode.trim()
+    e.preventDefault();
+    const code = resetCode.trim();
 
     if (!code) {
-      toast.error("Digite o código de 6 dígitos recebido por e-mail.")
-      return
+      toast.error('Digite o código de 6 dígitos recebido por e-mail.');
+      return;
     }
 
     if (newPassword.length < 6) {
-      toast.error("A nova senha deve ter no mínimo 6 caracteres.")
-      return
+      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("As senhas digitadas não coincidem.")
-      return
+      toast.error('As senhas digitadas não coincidem.');
+      return;
     }
 
-    setVerifyingReset(true)
+    setVerifyingReset(true);
     try {
       const { error: otpError } = await supabase.auth.verifyOtp({
         email: resetEmail.trim().toLowerCase(),
         token: code,
-        type: "recovery"
-      })
+        type: 'recovery',
+      });
 
-      if (otpError) throw otpError
+      if (otpError) throw otpError;
 
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
-      })
+        password: newPassword,
+      });
 
-      if (updateError) throw updateError
+      if (updateError) throw updateError;
 
-      toast.success("Senha redefinida com sucesso! Você já está conectado.")
-      setIsResetOpen(false)
-      setResetStep(1)
-      router.push("/")
-      router.refresh()
+      toast.success('Senha redefinida com sucesso! Você já está conectado.');
+      setIsResetOpen(false);
+      setResetStep(1);
+      router.push('/');
+      router.refresh();
     } catch (error: any) {
-      console.error("Erro ao validar código:", error)
-      toast.error(error.message || "Código inválido ou expirado. Tente novamente.")
+      console.error('Erro ao validar código:', error);
+      toast.error(error.message || 'Código inválido ou expirado. Tente novamente.');
     } finally {
-      setVerifyingReset(false)
+      setVerifyingReset(false);
     }
-  }
+  };
 
   return (
     <div className="container flex items-center justify-center min-h-[calc(100vh-200px)] py-12">
@@ -170,9 +187,9 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setResetEmail(email)
-                    setResetStep(1)
-                    setIsResetOpen(true)
+                    setResetEmail(email);
+                    setResetStep(1);
+                    setIsResetOpen(true);
                   }}
                   className="text-xs text-primary hover:underline font-bold"
                 >
@@ -188,14 +205,14 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full font-bold h-11" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
+              {loading ? 'Entrando...' : 'Entrar'}
               <LogIn className="ml-2 h-4 w-4" />
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <div className="text-center text-sm">
-            Não tem uma conta?{" "}
+            Não tem uma conta?{' '}
             <Link href="/auth/signup" className="text-primary font-bold hover:underline">
               Cadastre-se agora
             </Link>
@@ -213,8 +230,8 @@ export default function LoginPage() {
             </DialogTitle>
             <DialogDescription>
               {resetStep === 1
-                ? "Digite seu e-mail para receber um código de segurança."
-                : "Digite o código recebido por e-mail e sua nova senha."}
+                ? 'Digite seu e-mail para receber um código de segurança.'
+                : 'Digite o código recebido por e-mail e sua nova senha.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -233,7 +250,11 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full font-bold h-12 bg-primary text-white rounded-xl gap-2" disabled={sendingReset}>
+              <Button
+                type="submit"
+                className="w-full font-bold h-12 bg-primary text-white rounded-xl gap-2"
+                disabled={sendingReset}
+              >
                 {sendingReset ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -303,7 +324,11 @@ export default function LoginPage() {
                 >
                   Voltar
                 </Button>
-                <Button type="submit" className="flex-1 rounded-xl h-12 bg-green-600 hover:bg-green-700 text-white font-bold gap-2 text-xs" disabled={verifyingReset}>
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-xl h-12 bg-green-600 hover:bg-green-700 text-white font-bold gap-2 text-xs"
+                  disabled={verifyingReset}
+                >
                   {verifyingReset ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -322,5 +347,5 @@ export default function LoginPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

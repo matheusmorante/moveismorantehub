@@ -54,12 +54,12 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
 
       if (error) throw error;
 
-      setOpportunities(prev =>
-        prev.map(item => (item.id === opportunity.id ? { ...item, image_url: url } : item))
+      setOpportunities((prev) =>
+        prev.map((item) => (item.id === opportunity.id ? { ...item, image_url: url } : item))
       );
       onSelect({ ...opportunity, image_url: url });
       if (editingOpportunity?.id === opportunity.id) {
-        setEditingOpportunity(prev => (prev ? { ...prev, image_url: url } : null));
+        setEditingOpportunity((prev) => (prev ? { ...prev, image_url: url } : null));
       }
       toast.success(`Imagem do selo "${opportunity.name}" salva com sucesso!`);
     } catch (e) {
@@ -79,8 +79,8 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
 
       if (error) throw error;
 
-      setOpportunities(prev =>
-        prev.map(item => (item.id === opportunity.id ? { ...item, image_url: undefined } : item))
+      setOpportunities((prev) =>
+        prev.map((item) => (item.id === opportunity.id ? { ...item, image_url: undefined } : item))
       );
       onSelect({ ...opportunity, image_url: undefined });
       setEditingOpportunity(null);
@@ -93,7 +93,9 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
 
   return (
     <>
-      <div className={`rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20 ${className || ''}`}>
+      <div
+        className={`rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20 ${className || ''}`}
+      >
         <button
           type="button"
           onClick={onToggle}
@@ -105,15 +107,24 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
 
         {open && (
           <div className="space-y-2 px-2 pb-2">
-            {loading && <p className="py-2 text-center text-[10px] font-bold text-slate-400">Carregando selos...</p>}
+            {loading && (
+              <p className="py-2 text-center text-[10px] font-bold text-slate-400">
+                Carregando selos...
+              </p>
+            )}
 
             {!loading &&
-              opportunities.map(opportunity => (
+              opportunities.map((opportunity) => (
                 <div
                   key={opportunity.id}
                   className="group relative rounded-lg bg-white/80 p-2 shadow-sm hover:ring-2 hover:ring-orange-300 dark:bg-slate-900/70"
                 >
-                  <p className="mb-1.5 truncate text-[10px] font-black text-slate-700 dark:text-slate-200" title={opportunity.name}>{opportunity.name}</p>
+                  <p
+                    className="mb-1.5 truncate text-[10px] font-black text-slate-700 dark:text-slate-200"
+                    title={opportunity.name}
+                  >
+                    {opportunity.name}
+                  </p>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -130,7 +141,7 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
 
                     <button
                       type="button"
-                      onClick={e => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         setEditingOpportunity(opportunity);
                       }}
@@ -144,7 +155,9 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
               ))}
 
             {!loading && opportunities.length === 0 && (
-              <p className="py-2 text-center text-[10px] font-bold text-slate-400">Nenhum selo cadastrado.</p>
+              <p className="py-2 text-center text-[10px] font-bold text-slate-400">
+                Nenhum selo cadastrado.
+              </p>
             )}
           </div>
         )}
@@ -154,7 +167,7 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
         <OpportunitySealImageEditor
           image={editingOpportunity.image_url || ''}
           uploading={uploading}
-          onImageChange={file => handleUploadImage(editingOpportunity, file)}
+          onImageChange={(file) => handleUploadImage(editingOpportunity, file)}
           onRemoveImage={() => handleRemoveImage(editingOpportunity)}
           onClose={() => setEditingOpportunity(null)}
         />

@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole } from '@/context/AuthContext';
-import { AppSettings, getSettings, subscribeToSettings, saveSettings } from '@/pages/utils/settingsService';
-import { ROLES, PERMISSION_AREAS, PermissionAreaDef, PermissionActionDef } from '@/pages/utils/permissionConfig';
+import {
+  AppSettings,
+  getSettings,
+  subscribeToSettings,
+  saveSettings,
+} from '@/pages/utils/settingsService';
+import {
+  ROLES,
+  PERMISSION_AREAS,
+  PermissionAreaDef,
+  PermissionActionDef,
+} from '@/pages/utils/permissionConfig';
 import { toast } from 'react-toastify';
 
 export const RolePermissionsTab: React.FC = () => {
@@ -23,7 +33,7 @@ export const RolePermissionsTab: React.FC = () => {
     }
     // Fallback to default definition
     for (const area of PERMISSION_AREAS) {
-      const act = area.actions.find(a => a.id === actionId);
+      const act = area.actions.find((a) => a.id === actionId);
       if (act) return act.defaultRoles.includes(role);
     }
     return false;
@@ -34,11 +44,11 @@ export const RolePermissionsTab: React.FC = () => {
 
     const currentGranted = isGranted(actionId, role);
     let currentList: string[] = settings.rolePermissions?.[actionId] ?? [];
-    
+
     // If setting was never initialized, initialize from default definition
     if (settings.rolePermissions?.[actionId] === undefined) {
       for (const area of PERMISSION_AREAS) {
-        const act = area.actions.find(a => a.id === actionId);
+        const act = area.actions.find((a) => a.id === actionId);
         if (act) {
           currentList = [...act.defaultRoles];
           break;
@@ -47,7 +57,7 @@ export const RolePermissionsTab: React.FC = () => {
     }
 
     const nextList = currentGranted
-      ? currentList.filter(r => r !== role)
+      ? currentList.filter((r) => r !== role)
       : [...new Set([...currentList, role])];
 
     const nextPermissions = {
@@ -55,7 +65,7 @@ export const RolePermissionsTab: React.FC = () => {
       [actionId]: nextList,
     };
 
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       rolePermissions: nextPermissions,
     }));
@@ -65,7 +75,10 @@ export const RolePermissionsTab: React.FC = () => {
         ...settings,
         rolePermissions: nextPermissions,
       });
-      toast.success(`Ação ${currentGranted ? 'bloqueada' : 'permitida'} para ${ROLES.find(r => r.value === role)?.label || role}`, { autoClose: 1200 });
+      toast.success(
+        `Ação ${currentGranted ? 'bloqueada' : 'permitida'} para ${ROLES.find((r) => r.value === role)?.label || role}`,
+        { autoClose: 1200 }
+      );
     } catch (err) {
       toast.error('Erro ao salvar permissão.');
     }
@@ -76,17 +89,17 @@ export const RolePermissionsTab: React.FC = () => {
 
     const nextPermissions = { ...(settings.rolePermissions || {}) };
 
-    area.actions.forEach(action => {
+    area.actions.forEach((action) => {
       let currentList: string[] = nextPermissions[action.id] ?? [...action.defaultRoles];
       if (enable) {
         currentList = [...new Set([...currentList, role])];
       } else {
-        currentList = currentList.filter(r => r !== role);
+        currentList = currentList.filter((r) => r !== role);
       }
       nextPermissions[action.id] = currentList;
     });
 
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       rolePermissions: nextPermissions,
     }));
@@ -96,7 +109,10 @@ export const RolePermissionsTab: React.FC = () => {
         ...settings,
         rolePermissions: nextPermissions,
       });
-      toast.success(`${enable ? 'Todas as ações permitidas' : 'Todas as ações revogadas'} em ${area.name}`, { autoClose: 1500 });
+      toast.success(
+        `${enable ? 'Todas as ações permitidas' : 'Todas as ações revogadas'} em ${area.name}`,
+        { autoClose: 1500 }
+      );
     } catch (err) {
       toast.error('Erro ao atualizar área.');
     }
@@ -105,7 +121,7 @@ export const RolePermissionsTab: React.FC = () => {
   // Count active actions for selected role
   const totalActions = PERMISSION_AREAS.reduce((acc, area) => acc + area.actions.length, 0);
   const activeActionsCount = PERMISSION_AREAS.reduce((acc, area) => {
-    return acc + area.actions.filter(act => isGranted(act.id, selectedRole)).length;
+    return acc + area.actions.filter((act) => isGranted(act.id, selectedRole)).length;
   }, 0);
 
   return (
@@ -122,7 +138,10 @@ export const RolePermissionsTab: React.FC = () => {
             </h3>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-            Selecione um <strong>Perfil de Acesso (Tópico Principal)</strong> e configure detalhadamente cada <strong>Ação permitida em cada Área do sistema (Subtópico)</strong>. Usuários com múltiplos perfis possuem permissões acumulativas. Administradores possuem acesso total irrestrito.
+            Selecione um <strong>Perfil de Acesso (Tópico Principal)</strong> e configure
+            detalhadamente cada <strong>Ação permitida em cada Área do sistema (Subtópico)</strong>.
+            Usuários com múltiplos perfis possuem permissões acumulativas. Administradores possuem
+            acesso total irrestrito.
           </p>
         </div>
 
@@ -135,7 +154,7 @@ export const RolePermissionsTab: React.FC = () => {
             {ROLES.map((role) => {
               const isSelected = selectedRole === role.value;
               const count = PERMISSION_AREAS.reduce((acc, area) => {
-                return acc + area.actions.filter(act => isGranted(act.id, role.value)).length;
+                return acc + area.actions.filter((act) => isGranted(act.id, role.value)).length;
               }, 0);
 
               return (
@@ -149,9 +168,13 @@ export const RolePermissionsTab: React.FC = () => {
                       : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                    isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
                     <i className={`bi ${role.icon} text-base`} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -162,14 +185,18 @@ export const RolePermissionsTab: React.FC = () => {
                       {role.description}
                     </div>
                     <div className="mt-2.5 flex items-center gap-1.5">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                        role.value === 'administrator'
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                          : isSelected
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                      }`}>
-                        {role.value === 'administrator' ? 'Acesso Total' : `${count} de ${totalActions} ações`}
+                      <span
+                        className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          role.value === 'administrator'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                            : isSelected
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {role.value === 'administrator'
+                          ? 'Acesso Total'
+                          : `${count} de ${totalActions} ações`}
                       </span>
                     </div>
                   </div>
@@ -191,7 +218,9 @@ export const RolePermissionsTab: React.FC = () => {
               Administrador possui Acesso Irrestrito
             </h4>
             <p className="text-xs mt-1 leading-relaxed text-amber-800 dark:text-amber-300">
-              O cargo de Administrador possui controle total sobre todas as áreas, menus, ações e relatórios do ERP e do aplicativo móvel. As permissões deste cargo são mantidas ativas permanentemente por segurança.
+              O cargo de Administrador possui controle total sobre todas as áreas, menus, ações e
+              relatórios do ERP e do aplicativo móvel. As permissões deste cargo são mantidas ativas
+              permanentemente por segurança.
             </p>
           </div>
         </div>
@@ -202,7 +231,7 @@ export const RolePermissionsTab: React.FC = () => {
         <div className="space-y-6">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Áreas do Sistema (Subtópicos de {ROLES.find(r => r.value === selectedRole)?.label})
+              Áreas do Sistema (Subtópicos de {ROLES.find((r) => r.value === selectedRole)?.label})
             </span>
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl">
               {activeActionsCount} de {totalActions} ações liberadas
@@ -210,7 +239,9 @@ export const RolePermissionsTab: React.FC = () => {
           </div>
 
           {PERMISSION_AREAS.map((area) => {
-            const areaActionsGranted = area.actions.filter(act => isGranted(act.id, selectedRole)).length;
+            const areaActionsGranted = area.actions.filter((act) =>
+              isGranted(act.id, selectedRole)
+            ).length;
             const allGranted = areaActionsGranted === area.actions.length;
 
             return (
@@ -268,25 +299,31 @@ export const RolePermissionsTab: React.FC = () => {
                         }`}
                       >
                         {/* Custom Checkbox */}
-                        <div className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                          granted
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                            : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-transparent group-hover:border-slate-400'
-                        }`}>
+                        <div
+                          className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+                            granted
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                              : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-transparent group-hover:border-slate-400'
+                          }`}
+                        >
                           <i className="bi bi-check-lg text-xs font-black" />
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                              <i className={`bi ${action.icon} text-xs ${granted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} />
+                              <i
+                                className={`bi ${action.icon} text-xs ${granted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}
+                              />
                               {action.label}
                             </span>
-                            <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                              granted
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                            }`}>
+                            <span
+                              className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                granted
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                  : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                              }`}
+                            >
                               {granted ? 'Permitido' : 'Bloqueado'}
                             </span>
                           </div>

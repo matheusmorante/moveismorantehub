@@ -13,7 +13,9 @@ export default function FloatingActionsHub() {
         <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white rounded-2xl shadow-xl border border-slate-700/50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap flex items-center gap-2 transform translate-x-2 group-hover:translate-x-0">
           <div className="flex flex-col text-left">
             <span className="text-xs font-black text-white leading-tight">Seu Lizandro</span>
-            <span className="text-[10px] font-semibold text-indigo-300 dark:text-indigo-400">Agente IA do ERP</span>
+            <span className="text-[10px] font-semibold text-indigo-300 dark:text-indigo-400">
+              Agente IA do ERP
+            </span>
           </div>
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>

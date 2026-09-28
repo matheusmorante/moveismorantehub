@@ -16,7 +16,7 @@ export const playInventoryCountSound = async () => {
     activePlayer?.release();
     activePlayer = createAudioPlayer(INVENTORY_COUNT_SOUND);
     activePlayer.volume = 1;
-    activePlayer.addListener('playbackStatusUpdate', status => {
+    activePlayer.addListener('playbackStatusUpdate', (status) => {
       if (status.isLoaded && status.didJustFinish) {
         activePlayer?.release();
         activePlayer = null;
@@ -25,6 +25,7 @@ export const playInventoryCountSound = async () => {
     activePlayer.play();
   } catch (error) {
     // O som é feedback; nunca deve impedir a contagem já salva.
-    if (Platform.OS !== 'web') console.warn('[Inventory] Não foi possível reproduzir o bipe:', error);
+    if (Platform.OS !== 'web')
+      console.warn('[Inventory] Não foi possível reproduzir o bipe:', error);
   }
 };

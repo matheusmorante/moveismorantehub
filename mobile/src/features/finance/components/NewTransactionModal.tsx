@@ -58,7 +58,12 @@ export const NewTransactionModal: React.FC<Props> = ({
   return (
     <>
       <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-        <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View
+          style={[
+            styles.overlay,
+            { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+          ]}
+        >
           <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
             {/* Cabeçalho */}
             <View style={styles.header}>
@@ -115,10 +120,10 @@ export const NewTransactionModal: React.FC<Props> = ({
                       form.fieldErrors.amount && styles.inputError,
                     ]}
                     value={form.amount}
-                    onChangeValue={val => {
+                    onChangeValue={(val) => {
                       form.setAmount(val);
                       if (form.fieldErrors.amount) {
-                        form.setFieldErrors(prev => ({ ...prev, amount: false }));
+                        form.setFieldErrors((prev) => ({ ...prev, amount: false }));
                       }
                     }}
                     color={isDarkMode ? '#f8fafc' : '#1e293b'}
@@ -138,10 +143,10 @@ export const NewTransactionModal: React.FC<Props> = ({
                     placeholder="Ex: Abastecimento da Strada, Conta de Luz, Retirada..."
                     placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
                     value={form.description}
-                    onChangeText={text => {
+                    onChangeText={(text) => {
                       form.setDescription(text);
                       if (form.fieldErrors.description) {
-                        form.setFieldErrors(prev => ({ ...prev, description: false }));
+                        form.setFieldErrors((prev) => ({ ...prev, description: false }));
                       }
                     }}
                   />
@@ -155,7 +160,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                     onOpenCategoryModal={() => {
                       form.handleOpenCategoryModal('');
                       if (form.fieldErrors.category) {
-                        form.setFieldErrors(prev => ({ ...prev, category: false }));
+                        form.setFieldErrors((prev) => ({ ...prev, category: false }));
                       }
                     }}
                     isDarkMode={isDarkMode}
@@ -178,10 +183,10 @@ export const NewTransactionModal: React.FC<Props> = ({
                   <PaymentMethodChips
                     options={PAYMENT_METHODS}
                     selectedMethod={form.paymentMethod}
-                    onSelectMethod={m => {
+                    onSelectMethod={(m) => {
                       form.setPaymentMethod(m);
                       if (form.fieldErrors.paymentMethod) {
-                        form.setFieldErrors(prev => ({ ...prev, paymentMethod: false }));
+                        form.setFieldErrors((prev) => ({ ...prev, paymentMethod: false }));
                       }
                     }}
                     hasError={form.fieldErrors.paymentMethod}
@@ -207,11 +212,17 @@ export const NewTransactionModal: React.FC<Props> = ({
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.saveBtn} onPress={form.handleSave} disabled={form.saving}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={form.handleSave}
+                disabled={form.saving}
+              >
                 {form.saving ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <Text style={styles.saveBtnText}>{transaction ? 'Salvar alterações' : 'Finalizar'}</Text>
+                  <Text style={styles.saveBtnText}>
+                    {transaction ? 'Salvar alterações' : 'Finalizar'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -225,7 +236,7 @@ export const NewTransactionModal: React.FC<Props> = ({
         onClose={() => form.setCategoryModalVisible(false)}
         categories={form.filteredCategories}
         selectedCategoryId={form.selectedCatId}
-        onSelectCategory={cat => {
+        onSelectCategory={(cat) => {
           form.setSelectedCatId(cat.id);
         }}
         initialSearchText={form.categorySearchQuery}

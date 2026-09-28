@@ -65,18 +65,24 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
   const lower = text.toLowerCase().trim();
 
   // 1. Caso especial: "um milhão e meio" / "1 milhão e meio" / "2 milhões e meio"
-  const millionHalfMatch = lower.match(/(?:(\d+|um|uma|dois|duas|três|tres|quatro|cinco)\s*)?(?:milhão|milhao|milhões|milhoes)\s*(?:e\s*)?meio/i);
+  const millionHalfMatch = lower.match(
+    /(?:(\d+|um|uma|dois|duas|três|tres|quatro|cinco)\s*)?(?:milhão|milhao|milhões|milhoes)\s*(?:e\s*)?meio/i
+  );
   if (millionHalfMatch) {
     const rawQ = (millionHalfMatch[1] || 'um').toLowerCase();
-    const qty = !isNaN(parseInt(rawQ, 10)) ? parseInt(rawQ, 10) : (wordValueMap[rawQ] || 1);
+    const qty = !isNaN(parseInt(rawQ, 10)) ? parseInt(rawQ, 10) : wordValueMap[rawQ] || 1;
     return qty * 1000000 + 500000;
   }
 
   // 2. Caso especial: "mil e quinhentos" / "dois mil e quinhentos" / "vinte mil"
-  const thousandHalfMatch = lower.match(/(?:(\d+|[a-zçãéêíóôõú]+)\s*)?mil\s*(?:e\s*)?([a-zçãéêíóôõú\s]+)?/i);
+  const thousandHalfMatch = lower.match(
+    /(?:(\d+|[a-zçãéêíóôõú]+)\s*)?mil\s*(?:e\s*)?([a-zçãéêíóôõú\s]+)?/i
+  );
   if (thousandHalfMatch && !lower.includes('reais e') && !lower.includes('centavos')) {
     const rawMultiplier = (thousandHalfMatch[1] || 'um').trim().toLowerCase();
-    const multiplier = !isNaN(parseInt(rawMultiplier, 10)) ? parseInt(rawMultiplier, 10) : (wordValueMap[rawMultiplier] || (rawMultiplier === '' ? 1 : null));
+    const multiplier = !isNaN(parseInt(rawMultiplier, 10))
+      ? parseInt(rawMultiplier, 10)
+      : wordValueMap[rawMultiplier] || (rawMultiplier === '' ? 1 : null);
 
     if (multiplier !== null) {
       let remainder = 0;
@@ -89,7 +95,9 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
   }
 
   // 3. Processamento de Reais e Centavos escritos por extenso (ex: "duzentos e trinta e sete reais e oitenta e nove centavos")
-  const reaisCentavosMatch = lower.match(/(?:([a-zçãéêíóôõú\s]+)\s*(?:reais|real))?\s*(?:e\s*)?(?:([a-zçãéêíóôõú\s]+)\s*centavos?)?/i);
+  const reaisCentavosMatch = lower.match(
+    /(?:([a-zçãéêíóôõú\s]+)\s*(?:reais|real))?\s*(?:e\s*)?(?:([a-zçãéêíóôõú\s]+)\s*centavos?)?/i
+  );
 
   if (reaisCentavosMatch && (reaisCentavosMatch[1] || reaisCentavosMatch[2])) {
     const reaisWords = (reaisCentavosMatch[1] || '').trim();
@@ -112,7 +120,10 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
 }
 
 function parseSimpleWordsToNumber(wordsStr: string): number {
-  const words = wordsStr.split(/\s+|e\s+/).map(w => w.trim()).filter(Boolean);
+  const words = wordsStr
+    .split(/\s+|e\s+/)
+    .map((w) => w.trim())
+    .filter(Boolean);
   let total = 0;
 
   for (const w of words) {

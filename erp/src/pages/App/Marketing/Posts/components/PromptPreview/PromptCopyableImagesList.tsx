@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  PostProductImagesSpec,
-  PostOfficialAssetsSpec,
-} from '../../types/postSpecification';
+import { PostProductImagesSpec, PostOfficialAssetsSpec } from '../../types/postSpecification';
 import { ElementModel } from '../../types/postCreator';
 import { copyImageUrlToClipboard } from '../../services/imageClipboardUtils';
 import {
@@ -78,8 +75,8 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
     const vars = Array.isArray(product.variations)
       ? product.variations
       : Array.isArray(product.product_variations)
-      ? product.product_variations
-      : [];
+        ? product.product_variations
+        : [];
     vars.forEach((v: any) => {
       const imgs = Array.isArray(v.images) ? v.images : [];
       imgs.forEach((img: any) => {
@@ -106,7 +103,10 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
       label: 'Foto Principal',
       badge: '1. PRINCIPAL',
       badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-      title: productImages.primary.variationName || productImages.primaryVariation?.name || 'Variação Principal',
+      title:
+        productImages.primary.variationName ||
+        productImages.primaryVariation?.name ||
+        'Variação Principal',
       subtitle: 'Móvel fechado (protagonista da arte)',
       url: productImages.primary.url,
       aspectClass: 'object-cover',
@@ -140,7 +140,7 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
         if (primaryUrl && v.url === primaryUrl) return false;
         return true;
       })
-      .forEach(variation => {
+      .forEach((variation) => {
         items.push({
           id: `var-${variation.variationId}`,
           order: orderIndex++,
@@ -175,7 +175,9 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
     product?.opportunity_id ??
     product?.opportunityId ??
     (typeof product?.opportunity === 'object' ? product?.opportunity?.id : null) ??
-    (typeof product?.opportunity === 'string' && product.opportunity.trim() ? product.opportunity.trim() : null);
+    (typeof product?.opportunity === 'string' && product.opportunity.trim()
+      ? product.opportunity.trim()
+      : null);
 
   if (oppId) {
     const oppNameRaw =
@@ -199,25 +201,33 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
       const urlB = resolveConfiguredBadgeAssetUrl(b);
       if (urlA && !urlB) return -1;
       if (!urlA && urlB) return 1;
-      const dateA = new Date(a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0).getTime();
-      const dateB = new Date(b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0).getTime();
+      const dateA = new Date(
+        a.updatedAt || a.updated_at || a.createdAt || a.created_at || 0
+      ).getTime();
+      const dateB = new Date(
+        b.updatedAt || b.updated_at || b.createdAt || b.created_at || 0
+      ).getTime();
       return dateB - dateA;
     });
 
     const configuredBadgeModel = sortedBadgeModels[0] || null;
-    const modelBadgeUrl = configuredBadgeModel ? resolveConfiguredBadgeAssetUrl(configuredBadgeModel) : null;
+    const modelBadgeUrl = configuredBadgeModel
+      ? resolveConfiguredBadgeAssetUrl(configuredBadgeModel)
+      : null;
 
     const isQueimaSalvados = /queima|salvad/i.test(`${oppNameRaw} ${oppId}`);
 
     // A imagem configurada no elemento da campanha (modelBadgeUrl ou officialAssets?.badge?.url)
     // tem PRIORIDADE MÁXIMA e NUNCA é sobreposta por fallbacks forçados legados.
-    let badgeUrl =
-      modelBadgeUrl ||
-      officialAssets?.badge?.url ||
-      null;
+    let badgeUrl = modelBadgeUrl || officialAssets?.badge?.url || null;
 
     // Se o asset retornado for o selo retangular antigo sem fogo ou se for queima dos salvados sem asset personalizado:
-    if (isQueimaSalvados && (!badgeUrl || badgeUrl.includes('1787790409290.png') || badgeUrl.includes('1787790000192.png'))) {
+    if (
+      isQueimaSalvados &&
+      (!badgeUrl ||
+        badgeUrl.includes('1787790409290.png') ||
+        badgeUrl.includes('1787790000192.png'))
+    ) {
       badgeUrl = OFFICIAL_QUEIMA_BADGE_URL;
     }
 
@@ -252,7 +262,9 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
         label: 'Selo de Oportunidade',
         badge: 'SELO DE OPORTUNIDADE',
         badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-        title: configuredBadgeModel?.name || (isQueimaSalvados ? 'Selo Queima dos Salvados' : 'Selo de Oportunidade'),
+        title:
+          configuredBadgeModel?.name ||
+          (isQueimaSalvados ? 'Selo Queima dos Salvados' : 'Selo de Oportunidade'),
         subtitle: oppNameRaw ? `Oportunidade: ${oppNameRaw}` : 'Selo oficial da oportunidade',
         url: badgeUrl,
         fallbackUrl: fallbackUrl !== badgeUrl ? fallbackUrl : undefined,
@@ -288,7 +300,9 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
   });
 
   return (
-    <div className={`rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 space-y-3 shadow-md ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 space-y-3 shadow-md ${className}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-base">📸</span>
@@ -297,7 +311,8 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
               Assets para colar no ChatGPT/Gemini
             </h4>
             <p className="text-[11px] text-slate-400">
-              Clique em <strong>Copiar Imagem</strong> e cole com <strong>Ctrl+V</strong> no chat. O prompt já informa à IA o que cada foto colada é.
+              Clique em <strong>Copiar Imagem</strong> e cole com <strong>Ctrl+V</strong> no chat. O
+              prompt já informa à IA o que cada foto colada é.
             </p>
           </div>
         </div>
@@ -330,15 +345,15 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
             </div>
 
             <div className="min-w-0 flex-1 text-left">
-              <span className={`inline-block text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${item.badgeColor}`}>
+              <span
+                className={`inline-block text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${item.badgeColor}`}
+              >
                 {item.badge}
               </span>
               <p className="text-xs font-bold text-slate-100 truncate mt-0.5" title={item.title}>
                 {item.title}
               </p>
-              <p className="text-[10px] text-slate-400 truncate leading-tight">
-                {item.subtitle}
-              </p>
+              <p className="text-[10px] text-slate-400 truncate leading-tight">{item.subtitle}</p>
               <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
@@ -385,7 +400,8 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
             </div>
 
             <p className="text-xs text-slate-300">
-              Selecione uma das fotos oficiais do produto para usar como imagem secundária (aberto, ângulo alternativo ou detalhe):
+              Selecione uma das fotos oficiais do produto para usar como imagem secundária (aberto,
+              ângulo alternativo ou detalhe):
             </p>
 
             <div className="grid grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-slate-700">
@@ -399,7 +415,11 @@ export const PromptCopyableImagesList: React.FC<PromptCopyableImagesListProps> =
                   }}
                   className="group relative aspect-square rounded-lg border border-slate-700 hover:border-amber-500 overflow-hidden bg-slate-950 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 >
-                  <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-full object-cover group-hover:scale-105 transition"
+                  />
                   <span className="absolute bottom-1 right-1 text-[8px] bg-black/70 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition">
                     Escolher
                   </span>

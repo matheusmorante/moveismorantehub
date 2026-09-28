@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import {
   searchProductsForLabel,
-  PriceLabelCatalogProduct
+  PriceLabelCatalogProduct,
 } from '../../services/priceLabelCatalogService';
 
 export interface PriceLabelDataFillModalProps {
@@ -158,9 +158,10 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                   </p>
                 </div>
               ) : (
-                (searchResults || []).map(prod => {
+                (searchResults || []).map((prod) => {
                   const hasPromo = Number(prod.promo_price || 0) > 0;
-                  const mainImage = Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
+                  const mainImage =
+                    Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
 
                   return (
                     <div
@@ -171,7 +172,11 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
                           {mainImage ? (
-                            <img src={mainImage} alt={prod.name} className="w-full h-full object-cover" />
+                            <img
+                              src={mainImage}
+                              alt={prod.name}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             <i className="bi bi-image text-slate-300 text-lg" />
                           )}
@@ -195,15 +200,24 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                           {hasPromo ? (
                             <>
                               <span className="text-[10px] text-slate-400 line-through block font-bold">
-                                R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                R${' '}
+                                {Number(prod.unit_price || 0).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                })}
                               </span>
                               <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 block">
-                                R$ {Number(prod.promo_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                R${' '}
+                                {Number(prod.promo_price || 0).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                })}
                               </span>
                             </>
                           ) : (
                             <span className="text-sm font-black text-slate-800 dark:text-white block">
-                              R$ {Number(prod.unit_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              R${' '}
+                              {Number(prod.unit_price || 0).toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                              })}
                             </span>
                           )}
                         </div>
@@ -227,7 +241,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
         {dataFillTab === 'manual' && (
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1 min-h-[220px]">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Nome / Título do Produto</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase">
+                Nome / Título do Produto
+              </label>
               <input
                 type="text"
                 value={title}
@@ -239,7 +255,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Preço Normal (DE:)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase">
+                  Preço Normal (DE:)
+                </label>
                 <input
                   type="text"
                   value={normalPrice}
@@ -250,7 +268,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Preço Principal Reais (POR:)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase">
+                  Preço Principal Reais (POR:)
+                </label>
                 <input
                   type="text"
                   value={promoPrice}
@@ -274,7 +294,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Símbolo da Moeda</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase">
+                  Símbolo da Moeda
+                </label>
                 <input
                   type="text"
                   value={currencySymbol}
@@ -286,7 +308,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Frase de Parcelamento</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase">
+                Frase de Parcelamento
+              </label>
               <input
                 type="text"
                 value={installments}

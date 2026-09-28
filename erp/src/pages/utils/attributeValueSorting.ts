@@ -1,15 +1,16 @@
 export interface AttributeValueLike {
-    readonly value: string;
+  readonly value: string;
 }
 
 export const compareAttributeValuesNaturally = (
-    left: AttributeValueLike,
-    right: AttributeValueLike
-): number => left.value.localeCompare(right.value, 'pt-BR', {
+  left: AttributeValueLike,
+  right: AttributeValueLike
+): number =>
+  left.value.localeCompare(right.value, 'pt-BR', {
     numeric: true,
-    sensitivity: 'base'
-});
+    sensitivity: 'base',
+  });
 
 export const sortAttributeValuesNaturally = <T extends AttributeValueLike>(
-    values: readonly T[]
+  values: readonly T[]
 ): T[] => [...values].sort(compareAttributeValuesNaturally);

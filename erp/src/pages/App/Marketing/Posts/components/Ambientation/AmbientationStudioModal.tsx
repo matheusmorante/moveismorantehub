@@ -18,7 +18,7 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
   productName,
   productId,
   originalImageUrl,
-  onSelectAmbientedImage
+  onSelectAmbientedImage,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,7 +34,12 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
   const handleSimulateAmbientation = async () => {
     setIsGenerating(true);
     try {
-      const resultUrl = await generateRoom(originalImageUrl, productName, 'vermelho e dourado', prompt);
+      const resultUrl = await generateRoom(
+        originalImageUrl,
+        productName,
+        'vermelho e dourado',
+        prompt
+      );
       setPreviewUrl(resultUrl);
       setIsGenerating(false);
 
@@ -42,10 +47,13 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
         productId,
         originalImageUrl,
         ambientedImageUrl: resultUrl,
-        promptUsed: prompt
+        promptUsed: prompt,
       });
-    } catch (error) { window.alert((error as Error).message); }
-    finally { setIsGenerating(false); }
+    } catch (error) {
+      window.alert((error as Error).message);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -64,14 +72,26 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
-              <span className="text-xs font-semibold text-slate-400 block mb-2">Foto Real do Produto</span>
-              <img src={originalImageUrl} alt={productName} className="h-40 mx-auto object-contain rounded-lg" />
+              <span className="text-xs font-semibold text-slate-400 block mb-2">
+                Foto Real do Produto
+              </span>
+              <img
+                src={originalImageUrl}
+                alt={productName}
+                className="h-40 mx-auto object-contain rounded-lg"
+              />
             </div>
 
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center flex flex-col items-center justify-center">
-              <span className="text-xs font-semibold text-slate-400 block mb-2">Resultado Ambientado</span>
+              <span className="text-xs font-semibold text-slate-400 block mb-2">
+                Resultado Ambientado
+              </span>
               {previewUrl ? (
-                <img src={previewUrl} alt="Ambientado" className="h-40 mx-auto object-contain rounded-lg" />
+                <img
+                  src={previewUrl}
+                  alt="Ambientado"
+                  className="h-40 mx-auto object-contain rounded-lg"
+                />
               ) : (
                 <div className="text-slate-600 text-xs p-4 border border-dashed border-slate-800 rounded-lg w-full h-40 flex flex-col items-center justify-center">
                   <i className="bi bi-magic text-2xl mb-1"></i>
@@ -82,10 +102,12 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1">Prompt de Instrução para IA (Fundo):</label>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Prompt de Instrução para IA (Fundo):
+            </label>
             <textarea
               value={prompt}
-              onChange={e => setPrompt(e.target.value)}
+              onChange={(e) => setPrompt(e.target.value)}
               placeholder="Descreva o ambiente para o produto (ex: quarto moderno iluminado)..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 h-20 resize-none"
             />
@@ -100,7 +122,8 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
           <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-[11px] text-amber-300 flex items-start gap-2">
             <i className="bi bi-shield-check text-base mt-0.5"></i>
             <span>
-              A IA gera apenas o ambiente de fundo. O produto original (formato, cores, espelhos e puxadores) é estritamente preservado sem alterações.
+              A IA gera apenas o ambiente de fundo. O produto original (formato, cores, espelhos e
+              puxadores) é estritamente preservado sem alterações.
             </span>
           </div>
         </div>
@@ -111,7 +134,11 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
             disabled={isGenerating}
             className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 disabled:opacity-50"
           >
-            {isGenerating ? <i className="bi bi-arrow-repeat animate-spin"></i> : <i className="bi bi-stars"></i>}
+            {isGenerating ? (
+              <i className="bi bi-arrow-repeat animate-spin"></i>
+            ) : (
+              <i className="bi bi-stars"></i>
+            )}
             Gerar Ambiente por IA
           </button>
           {previewUrl && (

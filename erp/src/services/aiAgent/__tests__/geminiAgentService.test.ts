@@ -44,7 +44,11 @@ describe('GeminiAgentService - Agente Conversacional & Loop de Tool Calling', ()
         {
           content: {
             role: 'model',
-            parts: [{ text: 'Olá! Sou Lizandro, posso ajudar com lançamentos financeiros e gestão do ERP.' }],
+            parts: [
+              {
+                text: 'Olá! Sou Lizandro, posso ajudar com lançamentos financeiros e gestão do ERP.',
+              },
+            ],
           },
         },
       ],

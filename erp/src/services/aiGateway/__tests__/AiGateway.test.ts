@@ -6,14 +6,14 @@ vi.mock('../../../pages/utils/supabaseConfig', () => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           eq: vi.fn(() => ({
-            gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
+            gte: vi.fn(() => Promise.resolve({ data: [], error: null })),
           })),
-          gte: vi.fn(() => Promise.resolve({ data: [], error: null }))
-        }))
+          gte: vi.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
       })),
-      insert: vi.fn(() => Promise.resolve({ data: null, error: null }))
-    }))
-  }
+      insert: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    })),
+  },
 }));
 
 import { AiGateway } from '../AiGateway';
@@ -39,17 +39,35 @@ describe('AiGateway - Camada Global de Proteção de IA', () => {
 
     // Bloquear chamadas de rede reais
     vi.spyOn(AiGateway as any, 'callGeminiApiProxied').mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve('OK'), 200))
+      () => new Promise((resolve) => setTimeout(() => resolve('OK'), 200))
     );
 
     // Disparar 4 requisições paralelas
-    const req1 = AiGateway.requestText({ operation: 'op1', payload: 'p1', bypassDeduplication: true });
-    const req2 = AiGateway.requestText({ operation: 'op2', payload: 'p2', bypassDeduplication: true });
-    const req3 = AiGateway.requestText({ operation: 'op3', payload: 'p3', bypassDeduplication: true });
-    const req4 = AiGateway.requestText({ operation: 'op4', payload: 'p4', bypassDeduplication: true });
+    const req1 = AiGateway.requestText({
+      operation: 'op1',
+      payload: 'p1',
+      bypassDeduplication: true,
+    });
+    const req2 = AiGateway.requestText({
+      operation: 'op2',
+      payload: 'p2',
+      bypassDeduplication: true,
+    });
+    const req3 = AiGateway.requestText({
+      operation: 'op3',
+      payload: 'p3',
+      bypassDeduplication: true,
+    });
+    const req4 = AiGateway.requestText({
+      operation: 'op4',
+      payload: 'p4',
+      bypassDeduplication: true,
+    });
 
     const results = await Promise.all([req1, req2, req3, req4]);
-    const blockedCount = results.filter(r => r.errorCode === 'AI_CONCURRENCY_LIMIT_REACHED').length;
+    const blockedCount = results.filter(
+      (r) => r.errorCode === 'AI_CONCURRENCY_LIMIT_REACHED'
+    ).length;
 
     expect(blockedCount).toBeGreaterThanOrEqual(1);
   });
@@ -58,7 +76,7 @@ describe('AiGateway - Camada Global de Proteção de IA', () => {
     vi.spyOn(AiQuotaManager, 'reserveQuota').mockResolvedValue({
       allowed: false,
       errorCode: 'AI_FAIL_CLOSED_BLOCKED',
-      errorMessage: 'FAIL CLOSED: Erro de banco de dados.'
+      errorMessage: 'FAIL CLOSED: Erro de banco de dados.',
     });
 
     const res = await AiGateway.requestText({ operation: 'test_fail_closed', payload: 'test' });
@@ -89,7 +107,7 @@ describe('AiGateway - Camada Global de Proteção de IA', () => {
     vi.spyOn(AiQuotaManager, 'reserveQuota').mockResolvedValue({
       allowed: false,
       errorCode: 'AI_DAILY_LIMIT_REACHED',
-      errorMessage: 'Limite Diário de TTS Atingido: 30/30'
+      errorMessage: 'Limite Diário de TTS Atingido: 30/30',
     });
 
     const ttsRes = await AiGateway.requestTts('Mensagem de aviso importante');

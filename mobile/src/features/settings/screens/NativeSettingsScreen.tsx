@@ -1,22 +1,177 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { ChevronLeft, MoreVertical, Search, ShieldCheck, UserCog } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 
 type Profile = { id: string; email: string; full_name?: string; role: string };
-const ROLES = [['administrator', 'Administrador'], ['manager', 'Gestor'], ['stockist', 'Estoquista'], ['seller', 'Vendedor'], ['deliverer', 'Entregador / Montador'], ['pending', 'Sem acesso']];
-const AREAS = [['manualStockMovement', 'Estoque'], ['productConfig', 'Produtos'], ['viewFinancials', 'Financeiro'], ['deleteOrders', 'Excluir pedidos'], ['startDelivery', 'Iniciar entrega']];
+const ROLES = [
+  ['administrator', 'Administrador'],
+  ['manager', 'Gestor'],
+  ['stockist', 'Estoquista'],
+  ['seller', 'Vendedor'],
+  ['deliverer', 'Entregador / Montador'],
+  ['pending', 'Sem acesso'],
+];
+const AREAS = [
+  ['manualStockMovement', 'Estoque'],
+  ['productConfig', 'Produtos'],
+  ['viewFinancials', 'Financeiro'],
+  ['deleteOrders', 'Excluir pedidos'],
+  ['startDelivery', 'Iniciar entrega'],
+];
 
-export function NativeSettingsScreen({ isDarkMode, setIsDarkMode, onBack }: { isDarkMode: boolean; setIsDarkMode: (value: boolean) => void; isAdmin?: boolean; onBack: () => void }) {
+export function NativeSettingsScreen({
+  isDarkMode,
+  setIsDarkMode,
+  onBack,
+}: {
+  isDarkMode: boolean;
+  setIsDarkMode: (value: boolean) => void;
+  isAdmin?: boolean;
+  onBack: () => void;
+}) {
   const updateTheme = async (darkMode: boolean) => {
     setIsDarkMode(darkMode);
     const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
-    const { error } = await supabase.from('settings').upsert({ id: 'app', data: { ...(data?.data || {}), mobileSettings: { ...(data?.data?.mobileSettings || {}), darkMode } } });
+    const { error } = await supabase
+      .from('settings')
+      .upsert({
+        id: 'app',
+        data: {
+          ...(data?.data || {}),
+          mobileSettings: { ...(data?.data?.mobileSettings || {}), darkMode },
+        },
+      });
     if (error) Alert.alert('Não foi possível salvar a aparência', error.message);
   };
-  return <View style={[styles.page, isDarkMode && styles.dark]}><View style={[styles.header, isDarkMode && styles.darkBorder]}><TouchableOpacity onPress={onBack} style={styles.back}><ChevronLeft size={24} color={isDarkMode ? '#e2e8f0' : '#0f172a'} /></TouchableOpacity><View><Text style={[styles.title, isDarkMode && styles.light]}>Configurações</Text><Text style={styles.subtitle}>Preferências do aplicativo</Text></View></View><ScrollView contentContainerStyle={styles.content}>
-    <View style={[styles.card, isDarkMode && styles.cardDark]}><Text style={[styles.sectionTitle, isDarkMode && styles.light]}>Aparência</Text><View style={styles.row}><View><Text style={[styles.label, isDarkMode && styles.light]}>Modo escuro</Text><Text style={styles.hint}>Usar o tema escuro no aplicativo</Text></View><Switch value={isDarkMode} onValueChange={value => void updateTheme(value)} trackColor={{ false: '#cbd5e1', true: '#2563eb' }} /></View></View>
-  </ScrollView></View>;
+  return (
+    <View style={[styles.page, isDarkMode && styles.dark]}>
+      <View style={[styles.header, isDarkMode && styles.darkBorder]}>
+        <TouchableOpacity onPress={onBack} style={styles.back}>
+          <ChevronLeft size={24} color={isDarkMode ? '#e2e8f0' : '#0f172a'} />
+        </TouchableOpacity>
+        <View>
+          <Text style={[styles.title, isDarkMode && styles.light]}>Configurações</Text>
+          <Text style={styles.subtitle}>Preferências do aplicativo</Text>
+        </View>
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          <Text style={[styles.sectionTitle, isDarkMode && styles.light]}>Aparência</Text>
+          <View style={styles.row}>
+            <View>
+              <Text style={[styles.label, isDarkMode && styles.light]}>Modo escuro</Text>
+              <Text style={styles.hint}>Usar o tema escuro no aplicativo</Text>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={(value) => void updateTheme(value)}
+              trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
+            />
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
 
-const styles = StyleSheet.create({ page: { flex: 1, backgroundColor: '#f8fafc' }, dark: { backgroundColor: '#0f172a' }, header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderBottomWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff' }, darkBorder: { borderColor: '#334155' }, back: { padding: 4 }, title: { fontSize: 20, fontWeight: '900', color: '#0f172a' }, subtitle: { fontSize: 11, color: '#64748b' }, content: { padding: 16, gap: 14, paddingBottom: 36 }, card: { backgroundColor: '#fff', padding: 16, borderRadius: 18, borderWidth: 1, borderColor: '#e2e8f0' }, cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' }, light: { color: '#f8fafc' }, sectionTitle: { fontSize: 15, fontWeight: '900', color: '#0f172a', textTransform: 'uppercase' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }, label: { fontSize: 13, fontWeight: '800', color: '#334155' }, hint: { fontSize: 11, color: '#64748b', marginTop: 2 }, adminHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }, search: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f1f5f9', borderRadius: 12, paddingHorizontal: 12 }, searchDark: { backgroundColor: '#0f172a' }, input: { flex: 1, paddingVertical: 10, fontSize: 13, color: '#0f172a' }, user: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#f1f5f9', position: 'relative' }, userIcon: { backgroundColor: '#eff6ff', padding: 9, borderRadius: 10, marginRight: 10 }, role: { fontSize: 10, color: '#2563eb', fontWeight: '900', marginTop: 4, textTransform: 'uppercase' }, menu: { padding: 6 }, menuBox: { position: 'absolute', right: 4, top: 46, zIndex: 5, width: 190, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', padding: 6, elevation: 5 }, menuItem: { padding: 10 }, menuText: { fontSize: 12, fontWeight: '700', color: '#334155' }, danger: { color: '#e11d48' }, permission: { paddingVertical: 12, borderBottomWidth: 1, borderColor: '#e2e8f0' }, permissionRoles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }, chip: { paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#e2e8f0', borderRadius: 20 }, chipOn: { backgroundColor: '#2563eb' }, chipText: { fontSize: 10, fontWeight: '800', color: '#475569' }, chipTextOn: { color: '#fff' } });
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#f8fafc' },
+  dark: { backgroundColor: '#0f172a' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 18,
+    borderBottomWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  darkBorder: { borderColor: '#334155' },
+  back: { padding: 4 },
+  title: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
+  subtitle: { fontSize: 11, color: '#64748b' },
+  content: { padding: 16, gap: 14, paddingBottom: 36 },
+  card: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  light: { color: '#f8fafc' },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: '#0f172a', textTransform: 'uppercase' },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  label: { fontSize: 13, fontWeight: '800', color: '#334155' },
+  hint: { fontSize: 11, color: '#64748b', marginTop: 2 },
+  adminHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  searchDark: { backgroundColor: '#0f172a' },
+  input: { flex: 1, paddingVertical: 10, fontSize: 13, color: '#0f172a' },
+  user: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#f1f5f9',
+    position: 'relative',
+  },
+  userIcon: { backgroundColor: '#eff6ff', padding: 9, borderRadius: 10, marginRight: 10 },
+  role: {
+    fontSize: 10,
+    color: '#2563eb',
+    fontWeight: '900',
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  menu: { padding: 6 },
+  menuBox: {
+    position: 'absolute',
+    right: 4,
+    top: 46,
+    zIndex: 5,
+    width: 190,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    padding: 6,
+    elevation: 5,
+  },
+  menuItem: { padding: 10 },
+  menuText: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  danger: { color: '#e11d48' },
+  permission: { paddingVertical: 12, borderBottomWidth: 1, borderColor: '#e2e8f0' },
+  permissionRoles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  chip: { paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#e2e8f0', borderRadius: 20 },
+  chipOn: { backgroundColor: '#2563eb' },
+  chipText: { fontSize: 10, fontWeight: '800', color: '#475569' },
+  chipTextOn: { color: '#fff' },
+});

@@ -1,77 +1,100 @@
-"use client"
-import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from "react"
-import { SlidersHorizontal, X, ArrowUpDown } from "lucide-react"
+'use client';
+import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from 'react';
+import { SlidersHorizontal, X, ArrowUpDown } from 'lucide-react';
 
-import { HeroBanner } from "@/components/layout"
-import { FeaturedProducts } from "@/features/products/components/featured-products"
-import { ProductGrid } from "@/features/products/components/product-grid"
-import { AdvantagesSection } from "@/components/sections/advantages-section"
-import { FilterContent } from "@/features/products/components/filter-sidebar"
-import { GoogleReviews } from "@/components/sections/google-reviews"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/lib/supabase/client"
-import { ProductFilter } from "@/features/products/components/product-filter"
+import { HeroBanner } from '@/components/layout';
+import { FeaturedProducts } from '@/features/products/components/featured-products';
+import { ProductGrid } from '@/features/products/components/product-grid';
+import { AdvantagesSection } from '@/components/sections/advantages-section';
+import { FilterContent } from '@/features/products/components/filter-sidebar';
+import { GoogleReviews } from '@/components/sections/google-reviews';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { supabase } from '@/lib/supabase/client';
+import { ProductFilter } from '@/features/products/components/product-filter';
 
-import { useSearchParams, useRouter } from "next/navigation"
-import { resolveCategoryIdsFromSlugsOrIds, resolveSlugsFromCategoryIds, resolveOpportunityIdFromSlug, resolveSlugFromOpportunityId, slugifyText } from "@/lib/slug-utils"
+import { useSearchParams, useRouter } from 'next/navigation';
+import {
+  resolveCategoryIdsFromSlugsOrIds,
+  resolveSlugsFromCategoryIds,
+  resolveOpportunityIdFromSlug,
+  resolveSlugFromOpportunityId,
+  slugifyText,
+} from '@/lib/slug-utils';
 
 const INITIAL_FILTERS = {
   envs: [] as string[],
   cats: [] as string[],
-  search: "",
+  search: '',
   minPrice: 0,
   maxPrice: 10000,
-  type: "all",
-  sortBy: "newest",
-}
+  type: 'all',
+  sortBy: 'newest',
+};
 
 function HomeContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [categories, setCategories] = useState<any[]>([])
-  const [relationships, setRelationships] = useState<any[]>([])
-  const [opportunities, setOpportunities] = useState<any[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [filters, setFilters] = useState(INITIAL_FILTERS)
-  const sidebarRef = useRef<HTMLDivElement>(null)
+  const [categories, setCategories] = useState<any[]>([]);
+  const [relationships, setRelationships] = useState<any[]>([]);
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Bloqueia scroll do body quando sidebar aberta
   useEffect(() => {
     if (isSidebarOpen) {
-      document.body.style.overflow = "hidden"
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = ""
+      document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = "" }
-  }, [isSidebarOpen])
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
 
   // Sincroniza a URL com o estado de filtros
   useEffect(() => {
-    const envsParam = searchParams.get("ambientes") || searchParams.get("envs")
-    const catsParam = searchParams.get("categorias") || searchParams.get("cats")
-    const searchParam = searchParams.get("search") || ""
-    const rawType = searchParams.get("type") || "all"
-    const sortByParam = searchParams.get("sortBy") || "newest"
-    const minPriceParam = searchParams.get("minPrice")
-    const maxPriceParam = searchParams.get("maxPrice")
+    const envsParam = searchParams.get('ambientes') || searchParams.get('envs');
+    const catsParam = searchParams.get('categorias') || searchParams.get('cats');
+    const searchParam = searchParams.get('search') || '';
+    const rawType = searchParams.get('type') || 'all';
+    const sortByParam = searchParams.get('sortBy') || 'newest';
+    const minPriceParam = searchParams.get('minPrice');
+    const maxPriceParam = searchParams.get('maxPrice');
 
-    const rawEnvs = envsParam ? envsParam.split(",") : []
-    const rawCats = catsParam ? catsParam.split(",") : []
+    const rawEnvs = envsParam ? envsParam.split(',') : [];
+    const rawCats = catsParam ? catsParam.split(',') : [];
 
     // Converte slugs legíveis da URL para os IDs das categorias (ou mantém retrocompatibilidade de UUID)
     // Resolve cada filtro apenas dentro do seu tipo. Alguns ambientes e
     // categorias podem ter nomes/slug parecidos; sem essa separação uma
     // categoria poderia ser resolvida como ambiente e abrir seus itens filhos.
-    const envs = categories.length > 0
-      ? resolveCategoryIdsFromSlugsOrIds(rawEnvs, categories.filter(category => category.type === "environment"))
-      : rawEnvs
-    const cats = categories.length > 0
-      ? resolveCategoryIdsFromSlugsOrIds(rawCats, categories.filter(category => category.type === "category"))
-      : rawCats
-    const type = opportunities.length > 0 ? resolveOpportunityIdFromSlug(rawType, opportunities) : rawType
+    const envs =
+      categories.length > 0
+        ? resolveCategoryIdsFromSlugsOrIds(
+            rawEnvs,
+            categories.filter((category) => category.type === 'environment')
+          )
+        : rawEnvs;
+    const cats =
+      categories.length > 0
+        ? resolveCategoryIdsFromSlugsOrIds(
+            rawCats,
+            categories.filter((category) => category.type === 'category')
+          )
+        : rawCats;
+    const type =
+      opportunities.length > 0 ? resolveOpportunityIdFromSlug(rawType, opportunities) : rawType;
 
     setFilters({
       envs,
@@ -81,183 +104,200 @@ function HomeContent() {
       sortBy: sortByParam,
       minPrice: minPriceParam ? parseInt(minPriceParam) : 0,
       maxPrice: maxPriceParam ? parseInt(maxPriceParam) : 10000,
-    })
+    });
+  }, [searchParams, categories, opportunities]);
 
-  }, [searchParams, categories, opportunities])
+  const handleFilterChange = useCallback(
+    (newFilters: any) => {
+      const isProductSearch =
+        typeof newFilters.search === 'string' && newFilters.search.trim().length > 0;
+      const nextFilters = isProductSearch ? { ...newFilters, envs: [], cats: [] } : newFilters;
+      const params = new URLSearchParams(searchParams.toString());
 
-  const handleFilterChange = useCallback((newFilters: any) => {
-    const isProductSearch = typeof newFilters.search === "string" && newFilters.search.trim().length > 0
-    const nextFilters = isProductSearch ? { ...newFilters, envs: [], cats: [] } : newFilters
-    const params = new URLSearchParams(searchParams.toString())
-
-    if (nextFilters.search !== undefined) {
-      if (nextFilters.search) {
-        params.set("search", nextFilters.search)
-        params.delete("ambientes")
-        params.delete("categorias")
-        params.delete("envs")
-        params.delete("cats")
-      } else {
-        params.delete("search")
+      if (nextFilters.search !== undefined) {
+        if (nextFilters.search) {
+          params.set('search', nextFilters.search);
+          params.delete('ambientes');
+          params.delete('categorias');
+          params.delete('envs');
+          params.delete('cats');
+        } else {
+          params.delete('search');
+        }
       }
-    }
-    if (nextFilters.envs !== undefined) {
-      if (nextFilters.envs.length > 0) {
-        const envSlugs = resolveSlugsFromCategoryIds(nextFilters.envs, categories)
-        params.set("ambientes", envSlugs.join(","))
-        params.delete("envs")
-      } else {
-        params.delete("ambientes")
-        params.delete("envs")
+      if (nextFilters.envs !== undefined) {
+        if (nextFilters.envs.length > 0) {
+          const envSlugs = resolveSlugsFromCategoryIds(nextFilters.envs, categories);
+          params.set('ambientes', envSlugs.join(','));
+          params.delete('envs');
+        } else {
+          params.delete('ambientes');
+          params.delete('envs');
+        }
+        if (newFilters.cats === undefined) {
+          params.delete('categorias');
+          params.delete('cats');
+        }
       }
-      if (newFilters.cats === undefined) {
-        params.delete("categorias")
-        params.delete("cats")
+      if (nextFilters.cats !== undefined) {
+        if (nextFilters.cats.length > 0) {
+          const catSlugs = resolveSlugsFromCategoryIds(nextFilters.cats, categories);
+          params.set('categorias', catSlugs.join(','));
+          params.delete('cats');
+        } else {
+          params.delete('categorias');
+          params.delete('cats');
+        }
       }
-    }
-    if (nextFilters.cats !== undefined) {
-      if (nextFilters.cats.length > 0) {
-        const catSlugs = resolveSlugsFromCategoryIds(nextFilters.cats, categories)
-        params.set("categorias", catSlugs.join(","))
-        params.delete("cats")
-      } else {
-        params.delete("categorias")
-        params.delete("cats")
+      if (nextFilters.type !== undefined) {
+        if (nextFilters.type && nextFilters.type !== 'all') {
+          const oppSlug = resolveSlugFromOpportunityId(nextFilters.type, opportunities);
+          params.set('type', oppSlug);
+        } else {
+          params.delete('type');
+        }
       }
-    }
-    if (nextFilters.type !== undefined) {
-      if (nextFilters.type && nextFilters.type !== "all") {
-        const oppSlug = resolveSlugFromOpportunityId(nextFilters.type, opportunities)
-        params.set("type", oppSlug)
-      } else {
-        params.delete("type")
+      if (nextFilters.sortBy !== undefined) {
+        if (nextFilters.sortBy && nextFilters.sortBy !== 'newest')
+          params.set('sortBy', nextFilters.sortBy);
+        else params.delete('sortBy');
       }
-    }
-    if (nextFilters.sortBy !== undefined) {
-      if (nextFilters.sortBy && nextFilters.sortBy !== "newest") params.set("sortBy", nextFilters.sortBy)
-      else params.delete("sortBy")
-    }
-    if (nextFilters.minPrice !== undefined) {
-      if (nextFilters.minPrice > 0) params.set("minPrice", String(nextFilters.minPrice))
-      else params.delete("minPrice")
-    }
-    if (nextFilters.maxPrice !== undefined) {
-      if (nextFilters.maxPrice < 10000) params.set("maxPrice", String(nextFilters.maxPrice))
-      else params.delete("maxPrice")
-    }
+      if (nextFilters.minPrice !== undefined) {
+        if (nextFilters.minPrice > 0) params.set('minPrice', String(nextFilters.minPrice));
+        else params.delete('minPrice');
+      }
+      if (nextFilters.maxPrice !== undefined) {
+        if (nextFilters.maxPrice < 10000) params.set('maxPrice', String(nextFilters.maxPrice));
+        else params.delete('maxPrice');
+      }
 
-    const queryString = params.toString()
-    const targetUrl = queryString ? `/?${queryString}` : "/"
+      const queryString = params.toString();
+      const targetUrl = queryString ? `/?${queryString}` : '/';
 
-    setFilters(prev => ({
-      ...prev,
-      ...(nextFilters.envs !== undefined && { envs: nextFilters.envs }),
-      ...(nextFilters.cats !== undefined && { cats: nextFilters.cats }),
-      ...(nextFilters.search !== undefined && { search: nextFilters.search }),
-      ...(nextFilters.type !== undefined && { type: nextFilters.type }),
-      ...(nextFilters.sortBy !== undefined && { sortBy: nextFilters.sortBy }),
-      ...(nextFilters.minPrice !== undefined && { minPrice: nextFilters.minPrice }),
-      ...(nextFilters.maxPrice !== undefined && { maxPrice: nextFilters.maxPrice }),
-    }))
+      setFilters((prev) => ({
+        ...prev,
+        ...(nextFilters.envs !== undefined && { envs: nextFilters.envs }),
+        ...(nextFilters.cats !== undefined && { cats: nextFilters.cats }),
+        ...(nextFilters.search !== undefined && { search: nextFilters.search }),
+        ...(nextFilters.type !== undefined && { type: nextFilters.type }),
+        ...(nextFilters.sortBy !== undefined && { sortBy: nextFilters.sortBy }),
+        ...(nextFilters.minPrice !== undefined && { minPrice: nextFilters.minPrice }),
+        ...(nextFilters.maxPrice !== undefined && { maxPrice: nextFilters.maxPrice }),
+      }));
 
-    router.push(targetUrl, { scroll: false })
-  }, [searchParams, router, categories, opportunities])
+      router.push(targetUrl, { scroll: false });
+    },
+    [searchParams, router, categories, opportunities]
+  );
 
   const clearFilters = useCallback(() => {
     const baseFilters = {
       envs: filters.envs,
       cats: filters.cats,
-      search: "",
+      search: '',
       minPrice: 0,
       maxPrice: 10000,
-      type: "all",
-      sortBy: "newest",
-    }
-    setFilters(baseFilters)
-    const params = new URLSearchParams()
-    if (filters.envs.length > 0) params.set("ambientes", resolveSlugsFromCategoryIds(filters.envs, categories).join(","))
-    if (filters.cats.length > 0) params.set("categorias", resolveSlugsFromCategoryIds(filters.cats, categories).join(","))
-    router.push(params.toString() ? `/?${params.toString()}` : "/", { scroll: false })
-  }, [router, filters.envs, filters.cats, categories])
+      type: 'all',
+      sortBy: 'newest',
+    };
+    setFilters(baseFilters);
+    const params = new URLSearchParams();
+    if (filters.envs.length > 0)
+      params.set('ambientes', resolveSlugsFromCategoryIds(filters.envs, categories).join(','));
+    if (filters.cats.length > 0)
+      params.set('categorias', resolveSlugsFromCategoryIds(filters.cats, categories).join(','));
+    router.push(params.toString() ? `/?${params.toString()}` : '/', { scroll: false });
+  }, [router, filters.envs, filters.cats, categories]);
 
   useEffect(() => {
     async function loadData() {
       const [catRes, relRes, oppRes] = await Promise.all([
-        supabase.from("categories").select("id, name, slug, type").order("name"),
-        supabase.from("category_relationships").select("parent_id, child_id"),
-        supabase.from("opportunities").select("id, name, slug, badge_color, border_color, border_style, badge_animation, title_color").eq("active", true),
-      ])
-      if (catRes.data) setCategories(catRes.data)
-      if (relRes.data) setRelationships(relRes.data)
-      if (oppRes.data) setOpportunities(oppRes.data)
+        supabase.from('categories').select('id, name, slug, type').order('name'),
+        supabase.from('category_relationships').select('parent_id, child_id'),
+        supabase
+          .from('opportunities')
+          .select(
+            'id, name, slug, badge_color, border_color, border_style, badge_animation, title_color'
+          )
+          .eq('active', true),
+      ]);
+      if (catRes.data) setCategories(catRes.data);
+      if (relRes.data) setRelationships(relRes.data);
+      if (oppRes.data) setOpportunities(oppRes.data);
     }
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
-  const environments = categories.filter(c => c.type === "environment")
-  const hasActiveFilters = filters.envs.length > 0 || filters.cats.length > 0 || !!filters.search || filters.type !== "all"
+  const environments = categories.filter((c) => c.type === 'environment');
+  const hasActiveFilters =
+    filters.envs.length > 0 ||
+    filters.cats.length > 0 ||
+    !!filters.search ||
+    filters.type !== 'all';
 
   const filterBadges = useMemo(() => {
-    const badges: Array<{ id: string; label: string; onRemove: () => void }> = []
+    const badges: Array<{ id: string; label: string; onRemove: () => void }> = [];
     if (filters.search) {
       badges.push({
-        id: "search",
+        id: 'search',
         label: `Busca: "${filters.search}"`,
-        onRemove: () => handleFilterChange({ search: "" })
-      })
+        onRemove: () => handleFilterChange({ search: '' }),
+      });
     }
 
-    if (filters.type !== "all") {
-      let typeLabel = filters.type
-      if (filters.type === "salvados") {
-        typeLabel = "Queima dos Salvados"
-      } else if (filters.type === "promotion") {
-        typeLabel = "Promoções"
+    if (filters.type !== 'all') {
+      let typeLabel = filters.type;
+      if (filters.type === 'salvados') {
+        typeLabel = 'Queima dos Salvados';
+      } else if (filters.type === 'promotion') {
+        typeLabel = 'Promoções';
       } else {
-        const opp = opportunities.find(o => o.id === filters.type)
-        if (opp) typeLabel = opp.name
+        const opp = opportunities.find((o) => o.id === filters.type);
+        if (opp) typeLabel = opp.name;
       }
 
       badges.push({
-        id: "type",
+        id: 'type',
         label: `Tipo: ${typeLabel}`,
-        onRemove: () => handleFilterChange({ type: "all" })
-      })
+        onRemove: () => handleFilterChange({ type: 'all' }),
+      });
     }
 
-    return badges
-  }, [filters, categories, relationships, opportunities, handleFilterChange])
+    return badges;
+  }, [filters, categories, relationships, opportunities, handleFilterChange]);
 
-  const activeFilterCount = filterBadges.length
-  const hasBaseNavigationFilter = filters.envs.length > 0 || filters.cats.length > 0
-  const showHeroAndAdvantages = !filters.search && !hasBaseNavigationFilter
+  const activeFilterCount = filterBadges.length;
+  const hasBaseNavigationFilter = filters.envs.length > 0 || filters.cats.length > 0;
+  const showHeroAndAdvantages = !filters.search && !hasBaseNavigationFilter;
   const baseFilterTitle = useMemo(() => {
     const selectedCategories = categories
-      .filter(category => filters.cats.includes(category.id))
-      .map(category => category.name)
+      .filter((category) => filters.cats.includes(category.id))
+      .map((category) => category.name);
     const selectedEnvironments = categories
-      .filter(category => filters.envs.includes(category.id))
-      .map(category => category.name)
-    const labels = [...selectedCategories, ...selectedEnvironments]
-    return labels.length > 0 ? `Produtos em ${labels.join(", ")}` : "Resultados da pesquisa"
-  }, [categories, filters.cats, filters.envs])
+      .filter((category) => filters.envs.includes(category.id))
+      .map((category) => category.name);
+    const labels = [...selectedCategories, ...selectedEnvironments];
+    return labels.length > 0 ? `Produtos em ${labels.join(', ')}` : 'Resultados da pesquisa';
+  }, [categories, filters.cats, filters.envs]);
 
   return (
     <div className="flex flex-col gap-0">
       {showHeroAndAdvantages && (
         <>
-          <HeroBanner onAction={type => handleFilterChange({ type })} />
+          <HeroBanner onAction={(type) => handleFilterChange({ type })} />
           <AdvantagesSection />
         </>
       )}
 
-      <div id="produtos" className={`w-full px-4 md:px-8 lg:px-12 scroll-mt-36 ${!showHeroAndAdvantages ? "pt-6" : ""}`}>
+      <div
+        id="produtos"
+        className={`w-full px-4 md:px-8 lg:px-12 scroll-mt-36 ${!showHeroAndAdvantages ? 'pt-6' : ''}`}
+      >
         <div className="space-y-6 pb-20">
-
           {/* Barra de filtros */}
           <div className="space-y-4 pb-6 mb-8 pt-4">
             <h2 className="text-2xl md:text-3xl font-black text-primary">
-              {hasBaseNavigationFilter ? baseFilterTitle : "Catálogo de Produtos"}
+              {hasBaseNavigationFilter ? baseFilterTitle : 'Catálogo de Produtos'}
             </h2>
 
             {/* Busca + ambientes (ProductFilter sem o select de ordenação duplicado) */}
@@ -267,7 +307,7 @@ function HomeContent() {
               relationships={relationships}
               onFilterChange={handleFilterChange}
               isSidebarOpen={isSidebarOpen}
-              onToggleSidebar={() => setIsSidebarOpen(v => !v)}
+              onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
             />
 
             {/* Filtros ativos + ordenação */}
@@ -278,13 +318,13 @@ function HomeContent() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setIsSidebarOpen(v => !v)}
+                  onClick={() => setIsSidebarOpen((v) => !v)}
                   className={`lg:hidden h-8 w-8 rounded-full border-2 shrink-0 transition-all ${
                     isSidebarOpen
-                      ? "bg-primary border-primary text-white hover:bg-primary/95"
-                      : "border-primary/30 text-primary hover:border-primary hover:bg-primary/5"
+                      ? 'bg-primary border-primary text-white hover:bg-primary/95'
+                      : 'border-primary/30 text-primary hover:border-primary hover:bg-primary/5'
                   }`}
-                  title={isSidebarOpen ? "Fechar Filtros" : "Abrir Filtros"}
+                  title={isSidebarOpen ? 'Fechar Filtros' : 'Abrir Filtros'}
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                 </Button>
@@ -292,12 +332,21 @@ function HomeContent() {
                 <div className="flex-1 overflow-x-auto overflow-y-hidden min-w-0">
                   <div className="flex flex-row flex-nowrap items-center gap-2 py-0.5">
                     {filterBadges.length === 0 && (
-                      <span className="text-xs text-muted-foreground italic whitespace-nowrap">Nenhum filtro ativo</span>
+                      <span className="text-xs text-muted-foreground italic whitespace-nowrap">
+                        Nenhum filtro ativo
+                      </span>
                     )}
-                    {filterBadges.map(badge => (
-                      <Badge key={badge.id} variant="secondary" className="bg-white border text-gray-800 gap-1.5 py-1.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:bg-gray-50 h-8 flex items-center shrink-0">
+                    {filterBadges.map((badge) => (
+                      <Badge
+                        key={badge.id}
+                        variant="secondary"
+                        className="bg-white border text-gray-800 gap-1.5 py-1.5 px-3 rounded-xl font-bold text-xs shadow-sm hover:bg-gray-50 h-8 flex items-center shrink-0"
+                      >
                         <span>{badge.label}</span>
-                        <button onClick={badge.onRemove} className="hover:text-destructive transition-colors flex items-center">
+                        <button
+                          onClick={badge.onRemove}
+                          className="hover:text-destructive transition-colors flex items-center"
+                        >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </Badge>
@@ -317,7 +366,10 @@ function HomeContent() {
 
               {/* Ordenação */}
               <div className="w-full sm:w-44 shrink-0">
-                <Select value={filters.sortBy} onValueChange={(val) => handleFilterChange({ sortBy: val })}>
+                <Select
+                  value={filters.sortBy}
+                  onValueChange={(val) => handleFilterChange({ sortBy: val })}
+                >
                   <SelectTrigger className="h-12 rounded-2xl border-2 bg-white px-4 font-bold text-sm">
                     <div className="flex items-center gap-2">
                       <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -341,7 +393,7 @@ function HomeContent() {
             <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
               <FilterContent
                 filters={filters}
-                categories={categories.filter(c => c.type === "category")}
+                categories={categories.filter((c) => c.type === 'category')}
                 environments={environments}
                 relationships={relationships}
                 onApply={handleFilterChange}
@@ -371,22 +423,22 @@ function HomeContent() {
       <div
         ref={sidebarRef}
         className={`fixed top-0 left-0 z-50 h-full w-full sm:w-96 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Painel de filtros"
       >
         <div className="relative h-full w-full bg-white flex flex-col">
           {/* Botão de Fechar no topo do Drawer */}
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
             className="absolute top-5 right-5 z-50 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
-          
+
           <FilterContent
             filters={filters}
-            categories={categories.filter(c => c.type === "category")}
+            categories={categories.filter((c) => c.type === 'category')}
             environments={environments}
             relationships={relationships}
             onApply={handleFilterChange}
@@ -395,13 +447,19 @@ function HomeContent() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold text-primary animate-pulse">Carregando...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold text-primary animate-pulse">
+          Carregando...
+        </div>
+      }
+    >
       <HomeContent />
     </Suspense>
-  )
+  );
 }

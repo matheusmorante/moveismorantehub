@@ -1,5 +1,5 @@
 export function getDanfeOfficialStyles(isHomologacao: boolean): string {
-    return `
+  return `
         * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact !important;
@@ -88,7 +88,9 @@ export function getDanfeOfficialStyles(isHomologacao: boolean): string {
         }
         
         .watermark-homologacao {
-            ${isHomologacao ? `
+            ${
+              isHomologacao
+                ? `
                 border: 2px dashed #dc2626;
                 background: #fef2f2;
                 color: #b91c1c;
@@ -99,7 +101,9 @@ export function getDanfeOfficialStyles(isHomologacao: boolean): string {
                 margin-bottom: 4px;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-            ` : 'display: none;'}
+            `
+                : 'display: none;'
+            }
         }
         
         @media print {

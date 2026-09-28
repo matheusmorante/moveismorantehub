@@ -15,7 +15,8 @@ export const OFFICIAL_QUEIMA_BADGE_URL =
 export const OFFICIAL_LIQUIDACAO_BADGE_URL =
   'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/344ad767-a385-4854-8042-52c2623f4aef-1787791058007.png';
 
-export const OFFICIAL_PRICING_CONTAINER_EXAMPLE_URL = '/images/pricing-installment-badge-example.png';
+export const OFFICIAL_PRICING_CONTAINER_EXAMPLE_URL =
+  '/images/pricing-installment-badge-example.png';
 
 export const OFFICIAL_FOOTER_BENEFITS_URL = '/images/footer-benefits-morante-official.png';
 
@@ -27,7 +28,10 @@ Não recrie por aproximação.
 Se a ferramenta de geração não conseguir incorporar o asset com fidelidade,
 não substitua por uma versão inventada. É preferível deixar reservado o espaço do que inventar uma nova marca ou selo.`;
 
-export function buildOfficialLogoStrictInstructions(logoUrl: string, logoFilePath?: string | null): string {
+export function buildOfficialLogoStrictInstructions(
+  logoUrl: string,
+  logoFilePath?: string | null
+): string {
   const ref = logoFilePath
     ? `Arquivo: \`${logoFilePath}\`\n(Este arquivo foi enviado junto com este prompt. Utilize-o diretamente.)`
     : `URL: ${logoUrl}`;
@@ -55,7 +59,11 @@ O logo deve ser tratado como um asset gráfico pronto.
 Se a IA/ferramenta utilizada não conseguir inserir o asset fielmente, é preferível deixar reservado o espaço do logo do que inventar uma nova marca.`;
 }
 
-export function buildOfficialBadgeStrictInstructions(badgeUrl: string, opportunityName = 'Oportunidade', badgeFilePath?: string | null): string {
+export function buildOfficialBadgeStrictInstructions(
+  badgeUrl: string,
+  opportunityName = 'Oportunidade',
+  badgeFilePath?: string | null
+): string {
   const ref = badgeFilePath
     ? `Arquivo: \`${badgeFilePath}\`\n(Este arquivo foi enviado junto com este prompt. Utilize-o diretamente.)`
     : `URL: ${badgeUrl}`;
@@ -85,7 +93,8 @@ export function normalizeConfiguredAssetUrl(rawUrl: string): string {
   // Se for referência local ao selo de Queima dos Salvados ou URL antiga em moveismorante.com.br:
   if (
     trimmed === '/assets/queima-salvados-original.png' ||
-    trimmed.endsWith('/assets/queima-salvados-original.png') && trimmed.includes('moveismorante.com.br')
+    (trimmed.endsWith('/assets/queima-salvados-original.png') &&
+      trimmed.includes('moveismorante.com.br'))
   ) {
     return OFFICIAL_QUEIMA_BADGE_URL;
   }
@@ -106,14 +115,19 @@ export function normalizeOfficialAssetUrl(rawUrl: string): string {
   const trimmed = rawUrl.trim();
 
   // Caso específico do logo Morante
-  if (trimmed.includes('logo-morante.png') || trimmed.includes('logo-morante.svg') || trimmed.endsWith('/logo.png')) {
+  if (
+    trimmed.includes('logo-morante.png') ||
+    trimmed.includes('logo-morante.svg') ||
+    trimmed.endsWith('/logo.png')
+  ) {
     return OFFICIAL_MORANTE_LOGO_URL;
   }
 
   // Caso específico do selo Queima dos Salvados oficial
   if (
     trimmed === '/assets/queima-salvados-original.png' ||
-    trimmed.endsWith('/assets/queima-salvados-original.png') && (trimmed.includes('moveismorante.com.br') || !trimmed.startsWith('http'))
+    (trimmed.endsWith('/assets/queima-salvados-original.png') &&
+      (trimmed.includes('moveismorante.com.br') || !trimmed.startsWith('http')))
   ) {
     return OFFICIAL_QUEIMA_BADGE_URL;
   }

@@ -23,9 +23,8 @@ export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
   }
 
   // 2. Coletar candidatos de URL para contornar problemas de CORS / CDN
-  const candidates = (url.startsWith('data:') || url.startsWith('blob:'))
-    ? [url]
-    : buildImageFetchCandidates(url);
+  const candidates =
+    url.startsWith('data:') || url.startsWith('blob:') ? [url] : buildImageFetchCandidates(url);
 
   // 3. Tenta via fetch nos candidatos
   for (const candidate of candidates) {
@@ -47,7 +46,7 @@ export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(bmp, 0, 0);
-              const pngBlob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'));
+              const pngBlob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
               if (pngBlob) return pngBlob;
             }
           } catch {
@@ -78,7 +77,7 @@ export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
               throw new Error('Falha ao processar dimensões da imagem.');
             }
             ctx.drawImage(img, 0, 0);
-            canvas.toBlob(b => {
+            canvas.toBlob((b) => {
               if (b) {
                 resolve(b);
               } else {
@@ -89,7 +88,8 @@ export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
             reject(err);
           }
         };
-        img.onerror = () => reject(new Error('Falha ao carregar a imagem na resolução solicitada.'));
+        img.onerror = () =>
+          reject(new Error('Falha ao carregar a imagem na resolução solicitada.'));
         img.src = candidate;
       });
 
@@ -99,7 +99,9 @@ export async function fetchImageAsPngBlob(url: string): Promise<Blob> {
     }
   }
 
-  throw new Error('Não foi possível carregar a imagem para cópia direta. Verifique a conexão com a imagem.');
+  throw new Error(
+    'Não foi possível carregar a imagem para cópia direta. Verifique a conexão com a imagem.'
+  );
 }
 
 /**
@@ -157,7 +159,7 @@ export async function downloadFileFromUrl(url: string, filename: string): Promis
  */
 export async function downloadAllPostImages(
   productImages: PostProductImagesSpec,
-  productBaseName = 'produto',
+  productBaseName = 'produto'
 ): Promise<void> {
   const sanitize = (str: string) =>
     str
@@ -213,7 +215,7 @@ export async function downloadAllPostImages(
     const item = queue[i];
     await downloadFileFromUrl(item.url, item.filename);
     if (i < queue.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
 

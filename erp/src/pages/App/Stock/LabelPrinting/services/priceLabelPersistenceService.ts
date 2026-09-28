@@ -4,7 +4,9 @@ import { Opportunity } from '../types/PriceLabelArtEditorTypes';
 /**
  * Serviço de persistência remota para configurações de arte de etiqueta de preço no Supabase.
  */
-export async function fetchPriceLabelArtConfig(layoutId: string): Promise<Record<string, any> | null> {
+export async function fetchPriceLabelArtConfig(
+  layoutId: string
+): Promise<Record<string, any> | null> {
   try {
     const { data, error } = await supabase
       .from('label_art_configs')
@@ -24,15 +26,19 @@ export async function fetchPriceLabelArtConfig(layoutId: string): Promise<Record
   }
 }
 
-export async function savePriceLabelArtConfig(layoutId: string, artConfig: Record<string, any>): Promise<boolean> {
+export async function savePriceLabelArtConfig(
+  layoutId: string,
+  artConfig: Record<string, any>
+): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('label_art_configs')
-      .upsert({
+    const { error } = await supabase.from('label_art_configs').upsert(
+      {
         layout_id: layoutId,
         art_config: artConfig,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'layout_id' });
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'layout_id' }
+    );
 
     if (error) {
       console.error('[PriceLabelPersistence] Erro ao salvar art_config no Supabase:', error);

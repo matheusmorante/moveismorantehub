@@ -15,12 +15,17 @@ export const confirmFinancialDraft = async (
     if (draft.intentType && blockedIntentTypes.includes(draft.intentType)) {
       return {
         success: false,
-        error: 'O Assistente Financeiro registra apenas fatos realizados. Parcelamentos, boletos futuros e recorrências não são suportados.',
+        error:
+          'O Assistente Financeiro registra apenas fatos realizados. Parcelamentos, boletos futuros e recorrências não são suportados.',
       };
     }
 
     const rawPaymentMethod = String(draft.paymentMethod || draft.payment_method || '').trim();
-    if (!rawPaymentMethod || rawPaymentMethod === 'UNKNOWN' || rawPaymentMethod === 'UNKNOWN_BY_USER') {
+    if (
+      !rawPaymentMethod ||
+      rawPaymentMethod === 'UNKNOWN' ||
+      rawPaymentMethod === 'UNKNOWN_BY_USER'
+    ) {
       const isIncome = draft.type === 'income';
       return {
         success: false,
@@ -46,7 +51,10 @@ export const confirmFinancialDraft = async (
       return { success: false, error: 'O valor da movimentação deve ser maior que zero.' };
     }
 
-    if ((draft.intentType === 'QUERY_OR_UPDATE' || draft.intentType === 'MATCH_EXISTING') && draft.matchedAccount) {
+    if (
+      (draft.intentType === 'QUERY_OR_UPDATE' || draft.intentType === 'MATCH_EXISTING') &&
+      draft.matchedAccount
+    ) {
       const res = await payPayableAccount(
         draft.matchedAccount.id,
         rawPaymentMethod,
@@ -85,7 +93,11 @@ export const confirmFinancialDraft = async (
     const res = await createFinancialTransaction(insertPayload);
 
     if (!res.success) {
-      if ((res as any).pgCode === '23505' || (res.error || '').includes('duplicate key') || (res.error || '').includes('unique')) {
+      if (
+        (res as any).pgCode === '23505' ||
+        (res.error || '').includes('duplicate key') ||
+        (res.error || '').includes('unique')
+      ) {
         if (idempotencyKey) {
           const { data: existing } = await supabase
             .from('financial_transactions')

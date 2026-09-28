@@ -37,9 +37,9 @@ import {
 import { FinancialCategory } from '../../';
 
 const mockCategories: FinancialCategory[] = [
-  { id: '1', name: 'Compra de mercadoria', type: 'expense',  },
-  { id: '2', name: 'Combustível', type: 'expense',  },
-  { id: '3', name: 'Outras receitas', type: 'income',  },
+  { id: '1', name: 'Compra de mercadoria', type: 'expense' },
+  { id: '2', name: 'Combustível', type: 'expense' },
+  { id: '3', name: 'Outras receitas', type: 'income' },
 ];
 
 describe('Incremental Voice Processing & Semantic Debounce Architecture', () => {

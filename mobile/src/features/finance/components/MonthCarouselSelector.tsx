@@ -10,8 +10,18 @@ interface Props {
 }
 
 const MONTH_NAMES = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
 ];
 
 export const MonthCarouselSelector: React.FC<Props> = ({
@@ -43,11 +53,7 @@ export const MonthCarouselSelector: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Botão Mês Anterior */}
-      <TouchableOpacity
-        style={styles.sideButton}
-        onPress={handlePrev}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.sideButton} onPress={handlePrev} activeOpacity={0.7}>
         <ChevronLeft size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
         <Text style={[styles.sideText, isDarkMode && styles.sideTextDark]} numberOfLines={1}>
           {prevLabel}
@@ -56,17 +62,11 @@ export const MonthCarouselSelector: React.FC<Props> = ({
 
       {/* Mês Selecionado (Destaque Central) */}
       <View style={[styles.centerBadge, isDarkMode && styles.centerBadgeDark]}>
-        <Text style={[styles.centerText, isDarkMode && styles.centerTextDark]}>
-          {currentLabel}
-        </Text>
+        <Text style={[styles.centerText, isDarkMode && styles.centerTextDark]}>{currentLabel}</Text>
       </View>
 
       {/* Botão Próximo Mês */}
-      <TouchableOpacity
-        style={styles.sideButton}
-        onPress={handleNext}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.sideButton} onPress={handleNext} activeOpacity={0.7}>
         <Text style={[styles.sideText, isDarkMode && styles.sideTextDark]} numberOfLines={1}>
           {nextLabel}
         </Text>

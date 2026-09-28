@@ -27,7 +27,11 @@ describe('linha do tempo de cards financeiros', () => {
       cardState: 'NEEDS_INPUT',
     });
 
-    const ready = { ...incomplete, businessPurpose: 'BUSINESS' as const, isReadyForConfirmation: true };
+    const ready = {
+      ...incomplete,
+      businessPurpose: 'BUSINESS' as const,
+      isReadyForConfirmation: true,
+    };
     const timeline = appendFinancialTimelineCard(first, {
       id: 'card-2',
       afterMessageId: 'message-2',
@@ -36,7 +40,7 @@ describe('linha do tempo de cards financeiros', () => {
       cardState: 'READY_TO_CONFIRM',
     });
 
-    expect(timeline.map(item => [item.id, item.afterMessageId, item.cardState])).toEqual([
+    expect(timeline.map((item) => [item.id, item.afterMessageId, item.cardState])).toEqual([
       ['card-1', 'message-1', 'NEEDS_INPUT'],
       ['card-2', 'message-2', 'READY_TO_CONFIRM'],
     ]);
@@ -46,12 +50,18 @@ describe('linha do tempo de cards financeiros', () => {
   it('atualiza apenas o card ativo sem substituir os cards anteriores', () => {
     const timeline = [
       ...appendFinancialTimelineCard([], {
-        id: 'card-1', afterMessageId: 'message-1', timestamp: '16:35',
-        intent: intent('luz', false), cardState: 'NEEDS_INPUT',
+        id: 'card-1',
+        afterMessageId: 'message-1',
+        timestamp: '16:35',
+        intent: intent('luz', false),
+        cardState: 'NEEDS_INPUT',
       }),
       ...appendFinancialTimelineCard([], {
-        id: 'card-2', afterMessageId: 'message-2', timestamp: '16:36',
-        intent: intent('internet', true), cardState: 'READY_TO_CONFIRM',
+        id: 'card-2',
+        afterMessageId: 'message-2',
+        timestamp: '16:36',
+        intent: intent('internet', true),
+        cardState: 'READY_TO_CONFIRM',
       }),
     ];
 
@@ -67,18 +77,24 @@ describe('linha do tempo de cards financeiros', () => {
     const maintenance = { ...intent('Mecânica', true), categoryName: 'Manutenção de Veículos' };
     const timeline = [
       ...appendFinancialTimelineCard([], {
-        id: 'card-fuel', afterMessageId: 'message-batch', timestamp: '16:40',
-        intent: gasoline, cardState: 'READY_TO_CONFIRM',
+        id: 'card-fuel',
+        afterMessageId: 'message-batch',
+        timestamp: '16:40',
+        intent: gasoline,
+        cardState: 'READY_TO_CONFIRM',
       }),
       ...appendFinancialTimelineCard([], {
-        id: 'card-maintenance', afterMessageId: 'message-batch', timestamp: '16:40',
-        intent: maintenance, cardState: 'READY_TO_CONFIRM',
+        id: 'card-maintenance',
+        afterMessageId: 'message-batch',
+        timestamp: '16:40',
+        intent: maintenance,
+        cardState: 'READY_TO_CONFIRM',
       }),
     ];
 
     const saved = updateFinancialTimelineCardState(timeline, 'card-fuel', 'SAVED');
 
-    expect(saved.map(card => [card.intent.categoryName, card.cardState])).toEqual([
+    expect(saved.map((card) => [card.intent.categoryName, card.cardState])).toEqual([
       ['Combustível', 'SAVED'],
       ['Manutenção de Veículos', 'READY_TO_CONFIRM'],
     ]);

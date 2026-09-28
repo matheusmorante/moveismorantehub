@@ -41,7 +41,8 @@ export class MapErrorBoundary extends Component<Props, State> {
               Não foi possível carregar o Mapa
             </Text>
             <Text style={[styles.subtitle, isDarkMode && styles.textMuted]}>
-              O serviço de mapas nativo encontrou uma oscilação. O restante do aplicativo continua funcionando normalmente.
+              O serviço de mapas nativo encontrou uma oscilação. O restante do aplicativo continua
+              funcionando normalmente.
             </Text>
             <TouchableOpacity
               style={styles.retryBtn}

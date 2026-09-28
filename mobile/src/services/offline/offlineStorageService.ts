@@ -147,7 +147,7 @@ export const offlineStorageService = {
       if (e?.name === 'QuotaExceededError' || e?.message?.includes('exceeded the quota')) {
         try {
           const keys = await AsyncStorage.getAllKeys();
-          const oldCacheKeys = keys.filter(k => k.startsWith(WORKING_SET_CACHE_KEY_PREFIX));
+          const oldCacheKeys = keys.filter((k) => k.startsWith(WORKING_SET_CACHE_KEY_PREFIX));
           for (const k of oldCacheKeys) {
             await AsyncStorage.removeItem(k);
           }

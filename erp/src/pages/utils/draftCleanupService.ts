@@ -5,34 +5,33 @@ import { supabase } from '@/pages/utils/supabaseConfig';
  * Se estiverem sem alterações por mais de 10 dias, move para a lixeira (deleted = true).
  */
 export const runDraftCleanup = async () => {
+  try {
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+    const isoDate = tenDaysAgo.toISOString();
+
+    // Limpar Produtos
+    await supabase
+      .from('products')
+      .update({ deleted: true, active: false })
+      .eq('is_draft', true)
+      .lt('updated_at', isoDate);
+
+    // Limpar Pessoas
+    await supabase
+      .from('people')
+      .update({ deleted: true, active: false })
+      .eq('is_draft', true)
+      .lt('updated_at', isoDate);
+
+    // Limpar Serviços (tabela opcional — suprime 404 se não existir)
     try {
-        const tenDaysAgo = new Date();
-        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-        const isoDate = tenDaysAgo.toISOString();
+      await supabase.from('services').delete().eq('is_draft', true).lt('updated_at', isoDate);
+    } catch {
+      // tabela services não existe neste ambiente — ignorado
+    }
 
-        // Limpar Produtos
-        await supabase.from('products')
-            .update({ deleted: true, active: false })
-            .eq('is_draft', true)
-            .lt('updated_at', isoDate);
-
-        // Limpar Pessoas
-        await supabase.from('people')
-            .update({ deleted: true, active: false })
-            .eq('is_draft', true)
-            .lt('updated_at', isoDate);
-
-        // Limpar Serviços (tabela opcional — suprime 404 se não existir)
-        try {
-            await supabase.from('services')
-                .delete()
-                .eq('is_draft', true)
-                .lt('updated_at', isoDate);
-        } catch {
-            // tabela services não existe neste ambiente — ignorado
-        }
-
-        /* 
+    /* 
         // Limpar Pedidos de Venda Rascunhos abandonados
         // ATENÇÃO: Desativado temporariamente. O campo 'status' está dentro de 'order_data' (JSONB).
         // Filtrar na raiz por 'updated_at' deletaria pedidos reias finalizados.
@@ -43,8 +42,8 @@ export const runDraftCleanup = async () => {
         }
         */
 
-        console.log("Cleanup de rascunhos antigos finalizado com sucesso.");
-    } catch (err) {
-        console.error("Erro ao limpar rascunhos antigos:", err);
-    }
+    console.log('Cleanup de rascunhos antigos finalizado com sucesso.');
+  } catch (err) {
+    console.error('Erro ao limpar rascunhos antigos:', err);
+  }
 };

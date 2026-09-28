@@ -13,8 +13,10 @@ type ApiResponse = ServerResponse & {
   json(body: unknown): void;
 };
 
-const SEFAZ_DFE_URL_PROD = 'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
-const SEFAZ_DFE_URL_HOM = 'https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
+const SEFAZ_DFE_URL_PROD =
+  'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
+const SEFAZ_DFE_URL_HOM =
+  'https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
 
 function validateAuthToken(authHeader?: string): boolean {
   if (!authHeader) return false;
@@ -62,7 +64,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'METHOD_NOT_ALLOWED', message: 'Apenas POST é permitido.' });
+    return res
+      .status(405)
+      .json({ error: 'METHOD_NOT_ALLOWED', message: 'Apenas POST é permitido.' });
   }
 
   // 1. Autenticação obrigatória
@@ -75,12 +79,26 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   try {
     const payload = req.body || {};
-    let { certPem, privateKeyPem, soapEnvelope, cleanCnpj, ultNsu, tpAmb = '1', environment = 'production' } = payload;
+    let {
+      certPem,
+      privateKeyPem,
+      soapEnvelope,
+      cleanCnpj,
+      ultNsu,
+      tpAmb = '1',
+      environment = 'production',
+    } = payload;
 
     // 2. Se as chaves PEM não forem passadas, carrega do Supabase com segurança
     if (!certPem || !privateKeyPem) {
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
+      const supabaseUrl =
+        process.env.VITE_SUPABASE_URL ||
+        process.env.SUPABASE_URL ||
+        'https://hkoxhourxwlddgsfdgws.supabase.co';
+      const supabaseKey =
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.VITE_SUPABASE_ANON_KEY ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
 
       const supabase = createClient(supabaseUrl, supabaseKey);
       const { data: settingsRow, error: settingsError } = await supabase
@@ -90,16 +108,31 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         .single();
 
       if (settingsError || !settingsRow?.data) {
-        return res.status(500).json({ error: 'FALHA_CONFIGURACOES', message: 'Configurações fiscais não encontradas.' });
+        return res
+          .status(500)
+          .json({
+            error: 'FALHA_CONFIGURACOES',
+            message: 'Configurações fiscais não encontradas.',
+          });
       }
 
       const { certificateBase64, certificatePassword, companyCnpj } = settingsRow.data;
       if (!certificateBase64 || !certificatePassword) {
-        return res.status(400).json({ error: 'CERTIFICADO_NAO_CONFIGURADO', message: 'Certificado A1 ou senha ausentes no banco.' });
+        return res
+          .status(400)
+          .json({
+            error: 'CERTIFICADO_NAO_CONFIGURADO',
+            message: 'Certificado A1 ou senha ausentes no banco.',
+          });
       }
 
-      const cleanB64 = certificateBase64.includes(',') ? certificateBase64.split(',')[1] : certificateBase64;
-      const extracted = extractCertificateAndKey(cleanB64.trim().replace(/[\r\n\s]/g, ''), certificatePassword);
+      const cleanB64 = certificateBase64.includes(',')
+        ? certificateBase64.split(',')[1]
+        : certificateBase64;
+      const extracted = extractCertificateAndKey(
+        cleanB64.trim().replace(/[\r\n\s]/g, ''),
+        certificatePassword
+      );
       certPem = extracted.certPem;
       privateKeyPem = extracted.privateKeyPem;
 
@@ -111,7 +144,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     // 3. Monta o envelope se não foi passado pronto
     if (!soapEnvelope) {
       if (!cleanCnpj) {
-        return res.status(400).json({ error: 'CNPJ_OBRIGATORIO', message: 'CNPJ emitente não informado.' });
+        return res
+          .status(400)
+          .json({ error: 'CNPJ_OBRIGATORIO', message: 'CNPJ emitente não informado.' });
       }
       soapEnvelope = buildDefaultSoapEnvelope(cleanCnpj, ultNsu || '0', tpAmb);
     }

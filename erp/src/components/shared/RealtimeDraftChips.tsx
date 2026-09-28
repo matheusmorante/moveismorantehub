@@ -13,7 +13,9 @@ export const RealtimeDraftChips: React.FC<Props> = ({ draft, className = '' }) =
   if (chips.length === 0) return null;
 
   return (
-    <div className={`mt-2 mb-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${className}`}>
+    <div
+      className={`mt-2 mb-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${className}`}
+    >
       <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-bold tracking-wider uppercase text-purple-600 dark:text-purple-400">
         <span>✦</span>
         <span>Análise em Tempo Real</span>

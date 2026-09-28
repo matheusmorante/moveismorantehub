@@ -3,7 +3,10 @@ import { StyleSheet, Text, TouchableOpacity, View, Linking, Platform } from 'rea
 import { Clock, AlertTriangle, PackageCheck, MapPin, Navigation, User } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
 import { DeliveryPaymentSection } from './DeliveryPaymentSection';
-import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
+import {
+  openGoogleMapsNavigation,
+  extractNavigationTarget,
+} from '../../../logistics/utils/externalMapsNavigation';
 
 interface Props {
   order: any;
@@ -57,7 +60,9 @@ export const DeliveryServiceStep: React.FC<Props> = ({
           <Text style={{ fontSize: 24 }}>📍</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.bannerTitle, isDarkMode && styles.textLight]}>No Local • Em Atendimento</Text>
+          <Text style={[styles.bannerTitle, isDarkMode && styles.textLight]}>
+            No Local • Em Atendimento
+          </Text>
           <View style={styles.timeRow}>
             <Clock size={12} color="#64748b" />
             <Text style={styles.bannerSubtitle}>Chegada registrada às {formattedArrivalTime}</Text>
@@ -92,7 +97,9 @@ export const DeliveryServiceStep: React.FC<Props> = ({
         <View style={[styles.itemsCard, isDarkMode && styles.itemsCardDark]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <PackageCheck size={16} color="#16a34a" />
-            <Text style={[styles.itemsTitle, isDarkMode && styles.textLight]}>Conferência de Produtos:</Text>
+            <Text style={[styles.itemsTitle, isDarkMode && styles.textLight]}>
+              Conferência de Produtos:
+            </Text>
           </View>
           {items.map((item, idx) => (
             <View key={idx} style={[styles.itemRow, isDarkMode && styles.itemRowDark]}>
@@ -115,12 +122,18 @@ export const DeliveryServiceStep: React.FC<Props> = ({
         <Text style={styles.unattendedButtonText}>Cliente Não Atendeu / Insucesso</Text>
       </TouchableOpacity>
 
-      <DeliveryPaymentSection payments={payments} onChange={onPaymentsChange} isDarkMode={isDarkMode} />
+      <DeliveryPaymentSection
+        payments={payments}
+        onChange={onPaymentsChange}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Finalizar Entrega (Slide 2x - Direita para Esquerda) */}
       <View style={{ marginTop: 8 }}>
         <Text style={styles.safetyText}>
-          {paymentsConfirmed ? 'Para confirmar a entrega realizada com sucesso, deslize 2 vezes da direita para a esquerda:' : 'Confirme todos os pagamentos como pagos para liberar a finalização.'}
+          {paymentsConfirmed
+            ? 'Para confirmar a entrega realizada com sucesso, deslize 2 vezes da direita para a esquerda:'
+            : 'Confirme todos os pagamentos como pagos para liberar a finalização.'}
         </Text>
         <SlideHoldToStart
           disabled={finishing || !paymentsConfirmed}

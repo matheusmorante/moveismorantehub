@@ -35,10 +35,24 @@ export const formatTimeNatural = (timeStr: string, endTimeStr?: string): string 
     if (h === 1 || h === 13) return 'uma';
     if (h === 2 || h === 14) return 'duas';
     const words: Record<number, string> = {
-      3: 'três', 4: 'quatro', 5: 'cinco', 6: 'seis', 7: 'sete',
-      8: 'oito', 9: 'nove', 10: 'dez', 11: 'onze', 15: 'três',
-      16: 'quatro', 17: 'cinco', 18: 'seis', 19: 'sete', 20: 'oito',
-      21: 'nove', 22: 'dez', 23: 'onze'
+      3: 'três',
+      4: 'quatro',
+      5: 'cinco',
+      6: 'seis',
+      7: 'sete',
+      8: 'oito',
+      9: 'nove',
+      10: 'dez',
+      11: 'onze',
+      15: 'três',
+      16: 'quatro',
+      17: 'cinco',
+      18: 'seis',
+      19: 'sete',
+      20: 'oito',
+      21: 'nove',
+      22: 'dez',
+      23: 'onze',
     };
     return words[h] || String(h);
   };
@@ -80,12 +94,31 @@ export const formatDistanceNatural = (distNum: number | null): string => {
 
   const rounded = Math.round(distNum);
   const words: Record<number, string> = {
-    9: 'nove', 10: 'dez', 11: 'onze', 12: 'doze', 13: 'treze', 14: 'quatorze',
-    15: 'quinze', 16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove',
-    20: 'vinte', 21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três',
-    24: 'vinte e quatro', 25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete',
-    28: 'vinte e oito', 29: 'vinte e nove', 30: 'trinta', 35: 'trinta e cinco',
-    40: 'quarenta', 50: 'cinquenta'
+    9: 'nove',
+    10: 'dez',
+    11: 'onze',
+    12: 'doze',
+    13: 'treze',
+    14: 'quatorze',
+    15: 'quinze',
+    16: 'dezesseis',
+    17: 'dezessete',
+    18: 'dezoito',
+    19: 'dezenove',
+    20: 'vinte',
+    21: 'vinte e um',
+    22: 'vinte e dois',
+    23: 'vinte e três',
+    24: 'vinte e quatro',
+    25: 'vinte e cinco',
+    26: 'vinte e seis',
+    27: 'vinte e sete',
+    28: 'vinte e oito',
+    29: 'vinte e nove',
+    30: 'trinta',
+    35: 'trinta e cinco',
+    40: 'quarenta',
+    50: 'cinquenta',
   };
   const distWord = words[rounded] || `${rounded}`;
   return `a cerca de ${distWord} quilômetros`;
@@ -97,11 +130,25 @@ export const formatProductNameWithArticle = (rawName: string, itemQty: number = 
   const firstWord = short.split(' ')[0];
 
   const feminineFirstWords = [
-    'escrivaninha', 'cômoda', 'comoda', 'pia', 'mesa', 'cadeira',
-    'poltrona', 'cozinha', 'cama', 'sapateira', 'cristaleira', 'bancada',
-    'prateleira', 'estante', 'estação', 'banheira', 'penteadeira'
+    'escrivaninha',
+    'cômoda',
+    'comoda',
+    'pia',
+    'mesa',
+    'cadeira',
+    'poltrona',
+    'cozinha',
+    'cama',
+    'sapateira',
+    'cristaleira',
+    'bancada',
+    'prateleira',
+    'estante',
+    'estação',
+    'banheira',
+    'penteadeira',
   ];
-  const isFeminine = feminineFirstWords.some(fw => firstWord === fw || firstWord.startsWith(fw));
+  const isFeminine = feminineFirstWords.some((fw) => firstWord === fw || firstWord.startsWith(fw));
 
   if (itemQty === 1) {
     return `${isFeminine ? 'uma' : 'um'} ${short}`;
@@ -116,12 +163,20 @@ export const formatProductNameWithArticle = (rawName: string, itemQty: number = 
 export const isAssemblyOutsideType = (handlingType?: string, optionsConfig?: any[]): boolean => {
   if (!handlingType) return false;
   const h = handlingType.trim().toLowerCase();
-  if (!h || h === 'sem montagem' || h.includes('sem montagem') || h.includes('sem_montagem') || h.includes('apenas entrega') || h.includes('não necessita') || h.includes('nao necessita')) {
+  if (
+    !h ||
+    h === 'sem montagem' ||
+    h.includes('sem montagem') ||
+    h.includes('sem_montagem') ||
+    h.includes('apenas entrega') ||
+    h.includes('não necessita') ||
+    h.includes('nao necessita')
+  ) {
     return false;
   }
 
   if (Array.isArray(optionsConfig) && optionsConfig.length > 0) {
-    const matched = optionsConfig.find(opt => (opt?.label || '').trim().toLowerCase() === h);
+    const matched = optionsConfig.find((opt) => (opt?.label || '').trim().toLowerCase() === h);
     if (matched) {
       return matched.isAssemblyOutside === true;
     }
@@ -142,12 +197,20 @@ export const isAssemblyOutsideType = (handlingType?: string, optionsConfig?: any
 export const isAssemblyInternalType = (handlingType?: string, optionsConfig?: any[]): boolean => {
   if (!handlingType) return false;
   const h = handlingType.trim().toLowerCase();
-  if (!h || h === 'sem montagem' || h.includes('sem montagem') || h.includes('sem_montagem') || h.includes('apenas entrega') || h.includes('não necessita') || h.includes('nao necessita')) {
+  if (
+    !h ||
+    h === 'sem montagem' ||
+    h.includes('sem montagem') ||
+    h.includes('sem_montagem') ||
+    h.includes('apenas entrega') ||
+    h.includes('não necessita') ||
+    h.includes('nao necessita')
+  ) {
     return false;
   }
 
   if (Array.isArray(optionsConfig) && optionsConfig.length > 0) {
-    const matched = optionsConfig.find(opt => (opt?.label || '').trim().toLowerCase() === h);
+    const matched = optionsConfig.find((opt) => (opt?.label || '').trim().toLowerCase() === h);
     if (matched) {
       return matched.includeInAssemblySchedule === true && !matched.isAssemblyOutside;
     }
@@ -165,4 +228,3 @@ export const isAssemblyInternalType = (handlingType?: string, optionsConfig?: an
     h.includes('montado')
   );
 };
-

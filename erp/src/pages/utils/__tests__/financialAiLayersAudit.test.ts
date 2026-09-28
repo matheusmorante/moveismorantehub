@@ -32,10 +32,7 @@ import {
   extractUnknownFieldsFromText,
   ParsedFinancialIntent,
 } from '../../';
-import {
-  extractMultipleFinancialFacts,
-  processFinancialInput,
-} from '../../';
+import { extractMultipleFinancialFacts, processFinancialInput } from '../../';
 import { FinancialCategory } from '../../';
 import { buildDraftAnalysisChips } from '../../';
 
@@ -52,7 +49,6 @@ const mockCategories: FinancialCategory[] = [
 const todayStr = '2026-09-06';
 
 describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', () => {
-
   // =========================================================================
   // CASO OBRIGATÓRIO: "tem uma despesa de conta de luz de 200 e uma conta de internet 100 reais"
   // =========================================================================
@@ -138,11 +134,15 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
 
       const chips = buildDraftAnalysisChips(envelope);
       expect(chips.length).toBeGreaterThanOrEqual(2);
-      
-      const chipLabels = chips.map(c => c.label);
-      expect(chipLabels.some(t => t.includes('200,00') || t.includes('200'))).toBe(true);
-      expect(chipLabels.some(t => t.includes('100,00') || t.includes('100'))).toBe(true);
-      expect(chipLabels.every(t => !t.includes('NaN') && !t.includes('undefined') && !t.includes('null'))).toBe(true);
+
+      const chipLabels = chips.map((c) => c.label);
+      expect(chipLabels.some((t) => t.includes('200,00') || t.includes('200'))).toBe(true);
+      expect(chipLabels.some((t) => t.includes('100,00') || t.includes('100'))).toBe(true);
+      expect(
+        chipLabels.every(
+          (t) => !t.includes('NaN') && !t.includes('undefined') && !t.includes('null')
+        )
+      ).toBe(true);
     });
 
     test('CAMADA D: Invariantes do Card e Ausência de Colapso para R$ 0,00', () => {
@@ -177,7 +177,7 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
       };
 
       // O envelope batch DEVE expor seus itens sem perda de dados
-      envelope.batchDraftsList!.forEach(item => {
+      envelope.batchDraftsList!.forEach((item) => {
         expect(item.amount).toBeDefined();
         expect(item.amount).not.toBeNull();
         expect(item.amount).not.toBe(0);
@@ -204,7 +204,7 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
         },
       ];
 
-      const batchItems: ParsedFinancialIntent[] = mockAiRawResponse.map(item => ({
+      const batchItems: ParsedFinancialIntent[] = mockAiRawResponse.map((item) => ({
         intentType: 'SINGLE_TRANSACTION' as const,
         type: item.type as 'expense' | 'income',
         amount: item.amount,
@@ -273,7 +273,11 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
     });
 
     test('Valores em milhares ("10 mil")', async () => {
-      const res = await parseFinancialIntentWithGemini('paguei 10 mil de estoque', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'paguei 10 mil de estoque',
+        [],
+        mockCategories
+      );
       expect(res.amount).toBe(10000);
       expect(res.type).toBe('expense');
     });
@@ -310,7 +314,11 @@ describe('AUDITORIA POR CAMADAS DO ASSISTENTE FINANCEIRO (CAMADAS A, B, C, D)', 
         isReadyForConfirmation: true,
       };
 
-      const patched = trySlotFillingFallback('na verdade o fornecedor é Bertolini', draft, todayStr);
+      const patched = trySlotFillingFallback(
+        'na verdade o fornecedor é Bertolini',
+        draft,
+        todayStr
+      );
       expect(patched?.supplier).toBe('Bertolini');
       expect(patched?.amount).toBe(30000);
     });

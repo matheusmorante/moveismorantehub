@@ -3,13 +3,17 @@ import { supabase } from '../../../services/supabaseClient';
 export const parseLocalizedPrice = (value: unknown): number => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (!value) return 0;
-  const raw = String(value).trim().replace(/[^\d.,-]/g, '');
+  const raw = String(value)
+    .trim()
+    .replace(/[^\d.,-]/g, '');
   const comma = raw.lastIndexOf(',');
   const dot = raw.lastIndexOf('.');
   let normalized = raw;
   if (comma >= 0 && dot >= 0) {
     const decimalSeparator = comma > dot ? ',' : '.';
-    normalized = raw.replace(decimalSeparator === ',' ? /\./g : /,/g, '').replace(decimalSeparator, '.');
+    normalized = raw
+      .replace(decimalSeparator === ',' ? /\./g : /,/g, '')
+      .replace(decimalSeparator, '.');
   } else if (comma >= 0) {
     normalized = raw.replace(/\./g, '').replace(',', '.');
   } else if ((raw.match(/\./g) || []).length > 1) {
@@ -116,7 +120,7 @@ export const generateVariationSku = (
   const variations = Array.isArray(indexOrVariations) ? indexOrVariations : [];
   let maxSuffix = variations.length;
 
-  variations.forEach(v => {
+  variations.forEach((v) => {
     if (!v || !v.sku) return;
     const skuStr = String(v.sku).trim();
     const match = skuStr.match(/-(\d+)$/);

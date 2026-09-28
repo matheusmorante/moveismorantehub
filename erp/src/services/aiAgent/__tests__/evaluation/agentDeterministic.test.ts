@@ -4,7 +4,10 @@ import { EvaluatorEngine } from './evaluatorEngine';
 import { ReportFormatter } from './reportFormatter';
 import { TestCase, EvalResult } from './types';
 import { AgentExecutionResult, ExecutedToolRecord } from '../../geminiAgentTypes';
-import { validateParsedIntent, processFinancialInput } from '../../../../../../mobile/src/services/financial/financialIntentValidator';
+import {
+  validateParsedIntent,
+  processFinancialInput,
+} from '../../../../../../mobile/src/services/financial/financialIntentValidator';
 import { GeminiAgentService } from '../../geminiAgentService';
 import { MobileAgentService } from '../../../../../../mobile/src/services/aiAgent/mobileAgentService';
 
@@ -17,7 +20,10 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
   });
 
   // Função adaptadora que simula a resolução determinística de cada caso
-  function runDeterministicCase(tc: TestCase): { result: AgentExecutionResult; executedTools: ExecutedToolRecord[] } {
+  function runDeterministicCase(tc: TestCase): {
+    result: AgentExecutionResult;
+    executedTools: ExecutedToolRecord[];
+  } {
     const executedTools: ExecutedToolRecord[] = [];
     let lastUserMessage: string;
 
@@ -29,10 +35,15 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
     }
 
     // 1. Casos Informativos / Adversariais (Perguntas ou cancelamento)
-    if (tc.expected.intent === 'general_question' || tc.id === 'INTENT-QUESTION-001' || tc.id === 'ADVERSARIAL-CANCEL-001') {
+    if (
+      tc.expected.intent === 'general_question' ||
+      tc.id === 'INTENT-QUESTION-001' ||
+      tc.id === 'ADVERSARIAL-CANCEL-001'
+    ) {
       return {
         result: {
-          answer: 'Para cadastrar uma nova movimentação ou despesa, basta me informar o valor, a descrição e como foi pago.',
+          answer:
+            'Para cadastrar uma nova movimentação ou despesa, basta me informar o valor, a descrição e como foi pago.',
           executedTools: [],
         },
         executedTools: [],
@@ -50,7 +61,8 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
       });
       return {
         result: {
-          answer: 'Neste mês, o total de despesas foi de R$ 8.500,00 e o saldo atual é de R$ 3.500,00.',
+          answer:
+            'Neste mês, o total de despesas foi de R$ 8.500,00 e o saldo atual é de R$ 3.500,00.',
           executedTools,
         },
         executedTools,
@@ -105,7 +117,8 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
       // NÃO pode ter valor 1200 nem boleto.
       return {
         result: {
-          answer: 'Qual foi o valor gasto no café da loja e qual foi a forma de pagamento utilizada?',
+          answer:
+            'Qual foi o valor gasto no café da loja e qual foi a forma de pagamento utilizada?',
           executedTools: [],
         },
         executedTools: [],
@@ -156,7 +169,8 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
     if (missingPurpose) {
       return {
         result: {
-          answer: 'Essa conta de luz é da loja ou é despesa particular de casa? E qual foi a forma de pagamento?',
+          answer:
+            'Essa conta de luz é da loja ou é despesa particular de casa? E qual foi a forma de pagamento?',
           executedTools: [],
         },
         executedTools: [],
@@ -224,7 +238,10 @@ describe('Suíte Profissional de Regressão do Agente IA - Nível A (Determinís
         console.error(diagnostic);
       }
 
-      expect(evalResult.passed, `Falha no caso ${testCase.id}: ${evalResult.divergences.join('; ')}`).toBe(true);
+      expect(
+        evalResult.passed,
+        `Falha no caso ${testCase.id}: ${evalResult.divergences.join('; ')}`
+      ).toBe(true);
     });
   });
 

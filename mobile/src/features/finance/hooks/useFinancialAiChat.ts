@@ -88,7 +88,11 @@ export function useFinancialAiChat({
     }, 100);
   };
 
-  const publishTimelineCard = (intent: ParsedFinancialIntent, cardState: CardVisualState, afterMessageId: string) => {
+  const publishTimelineCard = (
+    intent: ParsedFinancialIntent,
+    cardState: CardVisualState,
+    afterMessageId: string
+  ) => {
     const entry = {
       id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       afterMessageId,
@@ -96,13 +100,15 @@ export function useFinancialAiChat({
       intent,
       cardState,
     };
-    setTimelineCards(current => appendFinancialTimelineCard(current, entry));
+    setTimelineCards((current) => appendFinancialTimelineCard(current, entry));
     setActiveTimelineCardId(entry.id);
     scrollToBottom();
   };
 
   const markActiveTimelineCard = (cardState: CardVisualState) => {
-    setTimelineCards(current => updateFinancialTimelineCardState(current, activeTimelineCardId, cardState));
+    setTimelineCards((current) =>
+      updateFinancialTimelineCardState(current, activeTimelineCardId, cardState)
+    );
   };
 
   const finishActiveTimelineCard = (cardState: 'SAVED' | 'DISCARDED') => {
@@ -111,7 +117,7 @@ export function useFinancialAiChat({
   };
 
   const latestTimelineAnchor = () => {
-    const activeMsgs = messages.filter(message => !message.status || message.status === 'ACTIVE');
+    const activeMsgs = messages.filter((message) => !message.status || message.status === 'ACTIVE');
     return (
       (activeMsgs.length ? activeMsgs[activeMsgs.length - 1]?.id : null) ||
       (timelineCards.length ? timelineCards[timelineCards.length - 1]?.afterMessageId : '') ||
@@ -167,7 +173,7 @@ export function useFinancialAiChat({
     const txData = createdTx.result?.data || createdTx.args;
     if (!txData) return;
 
-    const matchedCat = categories.find(c => c.id === txData.categoriaId);
+    const matchedCat = categories.find((c) => c.id === txData.categoriaId);
     const catName = txData.categoriaNome || matchedCat?.name || 'Categoria não informada';
     const intent: ParsedFinancialIntent = {
       type: txData.tipo,
@@ -188,10 +194,13 @@ export function useFinancialAiChat({
     publishTimelineCard(intent, 'READY_TO_CONFIRM', asstMsgId);
   };
 
-  const publishPreparedTransactionCards = (executedTools: ExecutedToolRecord[], asstMsgId: string) => {
+  const publishPreparedTransactionCards = (
+    executedTools: ExecutedToolRecord[],
+    asstMsgId: string
+  ) => {
     executedTools
-      .filter(tool => tool.name === 'criarMovimentacaoFinanceira' && tool.result?.success)
-      .forEach(tool => publishPreparedTransactionCard(tool, asstMsgId));
+      .filter((tool) => tool.name === 'criarMovimentacaoFinanceira' && tool.result?.success)
+      .forEach((tool) => publishPreparedTransactionCard(tool, asstMsgId));
   };
 
   const handleSaveAndResend = async (targetMsg: ChatMessage) => {
@@ -201,7 +210,7 @@ export function useFinancialAiChat({
     setEditingMessageId(null);
     setEditText('');
 
-    const targetIndex = messages.findIndex(m => m.id === targetMsg.id);
+    const targetIndex = messages.findIndex((m) => m.id === targetMsg.id);
     if (targetIndex === -1) return;
 
     const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -240,7 +249,7 @@ export function useFinancialAiChat({
         timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       };
 
-      setMessages(prev => [...prev, asstMsg]);
+      setMessages((prev) => [...prev, asstMsg]);
 
       publishPreparedTransactionCards(result.executedTools, asstMsg.id);
     } catch (err: any) {
@@ -266,7 +275,7 @@ export function useFinancialAiChat({
       timestamp: timeStr,
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
     scrollToBottom();
 
@@ -284,18 +293,29 @@ export function useFinancialAiChat({
         timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       };
 
-      setMessages(prev => [...prev, asstMsg]);
+      setMessages((prev) => [...prev, asstMsg]);
 
       publishPreparedTransactionCards(result.executedTools, asstMsg.id);
     } catch (err: any) {
       console.warn('Erro ao processar mensagem com o agente Gemini no mobile:', err);
       const errorMsg = err?.message || '';
-      let userFriendlyText = 'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.';
+      let userFriendlyText =
+        'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.';
 
-      if (errorMsg.includes('Chave de API do Gemini não configurada') || errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('403')) {
-        userFriendlyText = 'A chave da API do Gemini não foi encontrada ou é inválida. Verifique as configurações do sistema.';
-      } else if (errorMsg.includes('Network') || errorMsg.includes('Failed to fetch') || errorMsg.includes('network')) {
-        userFriendlyText = 'Não foi possível conectar ao servidor do Gemini. Verifique a sua conexão com a internet.';
+      if (
+        errorMsg.includes('Chave de API do Gemini não configurada') ||
+        errorMsg.includes('API_KEY_INVALID') ||
+        errorMsg.includes('403')
+      ) {
+        userFriendlyText =
+          'A chave da API do Gemini não foi encontrada ou é inválida. Verifique as configurações do sistema.';
+      } else if (
+        errorMsg.includes('Network') ||
+        errorMsg.includes('Failed to fetch') ||
+        errorMsg.includes('network')
+      ) {
+        userFriendlyText =
+          'Não foi possível conectar ao servidor do Gemini. Verifique a sua conexão com a internet.';
       }
 
       const asstMsg: ChatMessage = {
@@ -305,7 +325,7 @@ export function useFinancialAiChat({
         timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         isAlert: true,
       };
-      setMessages(prev => [...prev, asstMsg]);
+      setMessages((prev) => [...prev, asstMsg]);
     } finally {
       setLoading(false);
       scrollToBottom();
@@ -345,11 +365,13 @@ export function useFinancialAiChat({
           setVoiceState('IDLE');
         }
       },
-      onSpeechResult: transcript => {
+      onSpeechResult: (transcript) => {
         if (voiceSessionIdRef.current !== currentSessionId) return;
 
         speechSessionTextRef.current = transcript;
-        const fullText = (baseInputTextRef.current ? `${baseInputTextRef.current} ${transcript}` : transcript).trim();
+        const fullText = (
+          baseInputTextRef.current ? `${baseInputTextRef.current} ${transcript}` : transcript
+        ).trim();
         setInputText(fullText);
 
         const liveDelta = extractLocalSemanticDelta(fullText);
@@ -362,7 +384,9 @@ export function useFinancialAiChat({
         silenceTimerRef.current = setTimeout(async () => {
           if (voiceSessionIdRef.current !== currentSessionId) return;
           const currentFullText = (
-            baseInputTextRef.current ? `${baseInputTextRef.current} ${speechSessionTextRef.current}` : speechSessionTextRef.current
+            baseInputTextRef.current
+              ? `${baseInputTextRef.current} ${speechSessionTextRef.current}`
+              : speechSessionTextRef.current
           ).trim();
           if (currentFullText) {
             const semanticDelta = extractLocalSemanticDelta(currentFullText);
@@ -371,7 +395,7 @@ export function useFinancialAiChat({
           }
         }, PRE_ANALYSIS_DEBOUNCE_MS);
       },
-      onError: err => {
+      onError: (err) => {
         if (voiceSessionIdRef.current === currentSessionId) {
           if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -403,14 +427,26 @@ export function useFinancialAiChat({
       return;
     }
     const session = new GeminiLiveSession({
-      onState: state => { setLiveState(state === 'ended' ? null : state); if (state === 'ended') liveSessionRef.current = null; },
-      onTranscript: (role, text) => setMessages(current => [...current, {
-        id: `live_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        sender: role === 'user' ? 'user' : 'assistant', text,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), status: 'ACTIVE',
-      }]),
+      onState: (state) => {
+        setLiveState(state === 'ended' ? null : state);
+        if (state === 'ended') liveSessionRef.current = null;
+      },
+      onTranscript: (role, text) =>
+        setMessages((current) => [
+          ...current,
+          {
+            id: `live_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            sender: role === 'user' ? 'user' : 'assistant',
+            text,
+            timestamp: new Date().toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            status: 'ACTIVE',
+          },
+        ]),
       onQuota: setLiveQuota,
-      onError: error => Alert.alert('Gemini Live', error.message),
+      onError: (error) => Alert.alert('Gemini Live', error.message),
     });
     liveSessionRef.current = session;
     setLiveState('connecting');
@@ -420,17 +456,26 @@ export function useFinancialAiChat({
       liveSessionRef.current = null;
       setLiveState(null);
       await session.end();
-      Alert.alert('Gemini Live', error instanceof Error ? error.message : 'Não foi possível iniciar a ligação.');
+      Alert.alert(
+        'Gemini Live',
+        error instanceof Error ? error.message : 'Não foi possível iniciar a ligação.'
+      );
     }
   };
 
   const handleToggleLivePause = () => {
     const session = liveSessionRef.current;
     if (!session) return;
-    void (liveState === 'paused' ? session.resume() : session.pause()).catch(error => Alert.alert('Gemini Live', error.message));
+    void (liveState === 'paused' ? session.resume() : session.pause()).catch((error) =>
+      Alert.alert('Gemini Live', error.message)
+    );
   };
-  const handleToggleLiveMute = () => { void liveSessionRef.current?.toggleMute(); };
-  const handleEndLive = () => { void liveSessionRef.current?.end(); };
+  const handleToggleLiveMute = () => {
+    void liveSessionRef.current?.toggleMute();
+  };
+  const handleEndLive = () => {
+    void liveSessionRef.current?.end();
+  };
 
   const handleCancelVoice = async () => {
     voiceSessionIdRef.current += 1;
@@ -473,18 +518,18 @@ export function useFinancialAiChat({
     if (confirmingTimelineCardIdsRef.current.has(cardId)) return;
 
     confirmingTimelineCardIdsRef.current.add(cardId);
-    setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'SAVING'));
+    setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVING'));
 
     try {
       const res = await confirmFinancialDraft(intent, `agent-card_${cardId}`, userName);
 
       if (res.success) {
-        setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'SAVED'));
+        setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVED'));
         onTransactionRegistered();
         return;
       }
 
-      setTimelineCards(current => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
+      setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
       Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
     } finally {
       confirmingTimelineCardIdsRef.current.delete(cardId);
@@ -512,7 +557,10 @@ export function useFinancialAiChat({
       const amountValue = draftToRegister.amount || draftToRegister.totalAmount || 0;
 
       if (amountValue <= 0) {
-        Alert.alert('Valor Invalido', 'Esta movimentacao nao possui valor informado e nao pode ser registrada.');
+        Alert.alert(
+          'Valor Invalido',
+          'Esta movimentacao nao possui valor informado e nao pode ser registrada.'
+        );
         return;
       }
 

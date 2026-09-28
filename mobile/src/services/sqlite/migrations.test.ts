@@ -3,12 +3,17 @@ import { runMigrations } from './migrations';
 
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
 
-type RunAsync = (sql: string, params?: unknown[]) => Promise<{ changes: number; lastInsertRowId: number }>;
+type RunAsync = (
+  sql: string,
+  params?: unknown[]
+) => Promise<{ changes: number; lastInsertRowId: number }>;
 
 const makeDriver = (runAsync: RunAsync = async () => ({ changes: 1, lastInsertRowId: 1 })) => {
   const statements: string[] = [];
   const driver = {
-    execAsync: vi.fn(async (sql: string) => { statements.push(sql); }),
+    execAsync: vi.fn(async (sql: string) => {
+      statements.push(sql);
+    }),
     runAsync: vi.fn(runAsync),
     getAllAsync: vi.fn(async () => []),
     getFirstAsync: vi.fn(async () => null),
@@ -30,11 +35,11 @@ describe('migrações SQLite do inventário', () => {
     expect(schema).not.toMatch(/\b(?:DROP|DELETE)\s+(?:TABLE|FROM)\b/i);
     expect(driver.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO schema_migrations'),
-      expect.arrayContaining([2, 'inventory_outbox_local']),
+      expect.arrayContaining([2, 'inventory_outbox_local'])
     );
     expect(driver.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO schema_migrations'),
-      expect.arrayContaining([3, 'inventory_draft_scope_local']),
+      expect.arrayContaining([3, 'inventory_draft_scope_local'])
     );
   });
 

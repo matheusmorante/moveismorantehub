@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { MobileOpportunity } from '../../services/mobileOpportunityService';
 
@@ -29,11 +22,7 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
 }) => {
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.modalContent, dark && styles.darkModalContent]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, dark && styles.lightText]}>
@@ -65,9 +54,7 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
               >
                 Nenhuma (Produto Normal)
               </Text>
-              {!selectedOpportunityId && (
-                <Check size={16} color="#2563eb" strokeWidth={2.5} />
-              )}
+              {!selectedOpportunityId && <Check size={16} color="#2563eb" strokeWidth={2.5} />}
             </TouchableOpacity>
 
             {opportunities.map((opp) => {
@@ -94,9 +81,7 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
                   >
                     {opp.name}
                   </Text>
-                  {isSelected && (
-                    <Check size={16} color="#2563eb" strokeWidth={2.5} />
-                  )}
+                  {isSelected && <Check size={16} color="#2563eb" strokeWidth={2.5} />}
                 </TouchableOpacity>
               );
             })}

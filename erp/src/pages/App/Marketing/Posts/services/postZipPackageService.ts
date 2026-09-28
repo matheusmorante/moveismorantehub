@@ -48,13 +48,17 @@ async function fetchValidatedImage(rawSource: string): Promise<ValidatedImageAss
   if (inline) {
     const validated = validateImageBytes(inline.buffer, inline.contentType);
     if (validated) return validated;
-    throw new Error(`O conteúdo de ${sourceLabel(rawSource)} não é uma imagem válida ou está incompleto.`);
+    throw new Error(
+      `O conteúdo de ${sourceLabel(rawSource)} não é uma imagem válida ou está incompleto.`
+    );
   }
   if (rawSource.startsWith('data:')) {
     throw new Error('A data URL do asset está malformada ou não pôde ser decodificada.');
   }
 
-  const candidates = rawSource.startsWith('blob:') ? [rawSource] : buildImageFetchCandidates(rawSource);
+  const candidates = rawSource.startsWith('blob:')
+    ? [rawSource]
+    : buildImageFetchCandidates(rawSource);
   const failures: string[] = [];
   for (const candidate of candidates) {
     try {
@@ -74,7 +78,9 @@ async function fetchValidatedImage(rawSource: string): Promise<ValidatedImageAss
   }
 
   const details = Array.from(new Set(failures)).slice(0, 3).join('; ');
-  throw new Error(`Não foi possível obter uma imagem válida de ${sourceLabel(rawSource)}${details ? `: ${details}` : ''}.`);
+  throw new Error(
+    `Não foi possível obter uma imagem válida de ${sourceLabel(rawSource)}${details ? `: ${details}` : ''}.`
+  );
 }
 
 async function tryFetchValidatedImage(rawSource: string): Promise<ValidatedImageAsset | null> {
@@ -125,20 +131,27 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   if (specClone.officialAssets?.badge?.url && totalImageCount < MAX_IMAGES) {
     onProgress?.(25, 'Baixando selo oficial...');
     const badge = specClone.officialAssets.badge;
-    const matchingModel = activeModels.find(model =>
-      model.elementType === 'BADGE' && model.opportunityId === badge.opportunityId,
+    const matchingModel = activeModels.find(
+      (model) => model.elementType === 'BADGE' && model.opportunityId === badge.opportunityId
     );
-    const references = matchingModel?.referenceFiles.map(reference => reference.fileUrl).filter(Boolean) || [];
-    const locallyPackableReferences = references.filter(source =>
-      source.startsWith('data:') || source.startsWith('blob:') || !source.includes(':'),
+    const references =
+      matchingModel?.referenceFiles.map((reference) => reference.fileUrl).filter(Boolean) || [];
+    const locallyPackableReferences = references.filter(
+      (source) => source.startsWith('data:') || source.startsWith('blob:') || !source.includes(':')
     );
-    const remoteReferences = references.filter(source => !locallyPackableReferences.includes(source));
-    const badgeSources = Array.from(new Set([
-      ...locallyPackableReferences,
-      badge.url,
-      matchingModel?.generatedAssetUrl || '',
-      ...remoteReferences,
-    ].filter(Boolean)));
+    const remoteReferences = references.filter(
+      (source) => !locallyPackableReferences.includes(source)
+    );
+    const badgeSources = Array.from(
+      new Set(
+        [
+          ...locallyPackableReferences,
+          badge.url,
+          matchingModel?.generatedAssetUrl || '',
+          ...remoteReferences,
+        ].filter(Boolean)
+      )
+    );
 
     let resolvedBadge: { asset: ValidatedImageAsset; source: string } | null = null;
     for (const source of badgeSources) {
@@ -160,7 +173,9 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
     } else {
       onProgress?.(30, 'Selo indisponível; continuando o pacote sem esse asset.');
       specClone.officialAssets.badge = null;
-      specClone.campaign.elements = specClone.campaign.elements.filter(element => element.elementType !== 'BADGE');
+      specClone.campaign.elements = specClone.campaign.elements.filter(
+        (element) => element.elementType !== 'BADGE'
+      );
     }
   }
 
@@ -212,7 +227,7 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
   // 6. Baixar anexos de referência se restarem vagas até o teto de 10 imagens
   onProgress?.(75, 'Processando anexos de referência...');
   const centralizedAssetUrls = new Set(
-    [specClone.officialAssets?.logo?.url, specClone.officialAssets?.badge?.url].filter(Boolean),
+    [specClone.officialAssets?.logo?.url, specClone.officialAssets?.badge?.url].filter(Boolean)
   );
   let refCount = 0;
   for (let elementIndex = 0; elementIndex < specClone.campaign.elements.length; elementIndex++) {
@@ -257,9 +272,12 @@ export async function generatePostContextZip(options: GenerateZipOptions): Promi
 
 function validatePackageReferences(zip: JSZip, prompt: string): void {
   const urls = prompt.match(/https?:\/\/[^\s)]+/gi) ?? [];
-  const allowedCatalogUrl = /^https:\/\/(?:www\.)?moveismorante\.com\.br\/produto\/[a-z0-9][a-z0-9-]*(?:\?var=[^\s)]+)?$/i;
-  if (urls.some(url => !allowedCatalogUrl.test(url))) {
-    throw new Error('O prompt do pacote contém URL externa não permitida; somente a página pública do produto pode permanecer.');
+  const allowedCatalogUrl =
+    /^https:\/\/(?:www\.)?moveismorante\.com\.br\/produto\/[a-z0-9][a-z0-9-]*(?:\?var=[^\s)]+)?$/i;
+  if (urls.some((url) => !allowedCatalogUrl.test(url))) {
+    throw new Error(
+      'O prompt do pacote contém URL externa não permitida; somente a página pública do produto pode permanecer.'
+    );
   }
 
   // Validação estrita: subpastas e diretórios são terminantemente proibidos no pacote ZIP (camada única flat)
@@ -270,14 +288,16 @@ function validatePackageReferences(zip: JSZip, prompt: string): void {
   }
 
   const fileNames = Object.values(zip.files)
-    .filter(entry => !entry.dir && !entry.name.endsWith('.md'))
-    .map(entry => entry.name);
+    .filter((entry) => !entry.dir && !entry.name.endsWith('.md'))
+    .map((entry) => entry.name);
 
   const referencedFiles = new Set(
     Array.from(
-      prompt.matchAll(/`([a-z0-9_-]+\.(?:png|jpg|jpeg|webp|svg|gif))`|`((?:foto-|variacao-|logo-|selo-|referencia-)[^`]+)`/gi),
-      match => match[1] || match[2],
-    ),
+      prompt.matchAll(
+        /`([a-z0-9_-]+\.(?:png|jpg|jpeg|webp|svg|gif))`|`((?:foto-|variacao-|logo-|selo-|referencia-)[^`]+)`/gi
+      ),
+      (match) => match[1] || match[2]
+    )
   );
 
   for (const fileName of fileNames) {

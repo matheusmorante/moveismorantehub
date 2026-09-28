@@ -1,53 +1,53 @@
-import Order from "../types/order.type";
+import Order from '../types/order.type';
 import { formatOrderSchedulingText, resolveCompletedOrderStatus } from './orderSchedulingStatus';
 import { handleStockAndBusinessRules, manuallyReverseStock } from './orderStockOperations';
-import { 
-    getNoticeFrequency, 
-    getOrdersByProductId, 
-    getOrdersByCustomerInfo, 
-    getOrdersCustomerDataOnly, 
-    fetchOrderById 
+import {
+  getNoticeFrequency,
+  getOrdersByProductId,
+  getOrdersByCustomerInfo,
+  getOrdersCustomerDataOnly,
+  fetchOrderById,
 } from './orderSearchQueries';
-import { 
-    fetchOrdersPage, 
-    fetchAllOrdersForDashboard,
-    fetchRecentOrders,
-    fetchGeoMapOrders,
-    fetchDashboardAggregates,
-    subscribeToOrders, 
-    subscribeToOrderChanges,
-    fetchScheduledAndDraftOrders
+import {
+  fetchOrdersPage,
+  fetchAllOrdersForDashboard,
+  fetchRecentOrders,
+  fetchGeoMapOrders,
+  fetchDashboardAggregates,
+  subscribeToOrders,
+  subscribeToOrderChanges,
+  fetchScheduledAndDraftOrders,
 } from './orderSyncQueries';
-import { 
-    moveToTrash as moveToTrashOp, 
-    restoreOrder as restoreOrderOp, 
-    permanentDeleteDraftOrder, 
-    undoReturn as undoReturnOp 
+import {
+  moveToTrash as moveToTrashOp,
+  restoreOrder as restoreOrderOp,
+  permanentDeleteDraftOrder,
+  undoReturn as undoReturnOp,
 } from './orderLifecycleOperations';
 import { saveOrder, updateOrder } from './orderMutationService';
 
 // Re-exports canônicos mantendo retrocompatibilidade 100% dos consumidores
 export {
-    formatOrderSchedulingText,
-    resolveCompletedOrderStatus,
-    handleStockAndBusinessRules,
-    manuallyReverseStock,
-    getNoticeFrequency,
-    getOrdersByProductId,
-    getOrdersByCustomerInfo,
-    getOrdersCustomerDataOnly,
-    fetchOrderById,
-    fetchOrdersPage,
-    fetchAllOrdersForDashboard,
-    fetchRecentOrders,
-    fetchGeoMapOrders,
-    fetchDashboardAggregates,
-    subscribeToOrders,
-    subscribeToOrderChanges,
-    fetchScheduledAndDraftOrders,
-    permanentDeleteDraftOrder,
-    saveOrder,
-    updateOrder
+  formatOrderSchedulingText,
+  resolveCompletedOrderStatus,
+  handleStockAndBusinessRules,
+  manuallyReverseStock,
+  getNoticeFrequency,
+  getOrdersByProductId,
+  getOrdersByCustomerInfo,
+  getOrdersCustomerDataOnly,
+  fetchOrderById,
+  fetchOrdersPage,
+  fetchAllOrdersForDashboard,
+  fetchRecentOrders,
+  fetchGeoMapOrders,
+  fetchDashboardAggregates,
+  subscribeToOrders,
+  subscribeToOrderChanges,
+  fetchScheduledAndDraftOrders,
+  permanentDeleteDraftOrder,
+  saveOrder,
+  updateOrder,
 };
 
 export const moveToTrash = (id: string): Promise<void> => moveToTrashOp(id, updateOrder);
@@ -55,7 +55,7 @@ export const moveToTrash = (id: string): Promise<void> => moveToTrashOp(id, upda
 export const restoreOrder = (id: string): Promise<void> => restoreOrderOp(id, updateOrder);
 
 export const permanentDeleteOrder = async (id: string): Promise<void> => {
-    await moveToTrash(id);
+  await moveToTrash(id);
 };
 
 export const undoReturn = (order: Order): Promise<void> => undoReturnOp(order, updateOrder);

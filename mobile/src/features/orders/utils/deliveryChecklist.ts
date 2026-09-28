@@ -1,7 +1,10 @@
 export type DeliveryChecklistItem = { id: string; label: string };
 
-const normalize = (value: unknown) => String(value || '')
-  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const normalize = (value: unknown) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
 /**
  * O pedido pode trazer os mesmos itens tanto em `order_data.items` quanto em
@@ -17,7 +20,8 @@ const collectOrderItems = (order: any): any[] => {
   const uniqueItems = new Map<string, any>();
 
   [...primaryItems, ...assistanceItems].forEach((item, index) => {
-    const productId = item?.id || item?.product_id || item?.productId || item?.variation_id || item?.variationId;
+    const productId =
+      item?.id || item?.product_id || item?.productId || item?.variation_id || item?.variationId;
     const name = normalize(item?.description || item?.name || item?.title);
     const quantity = Number(item?.quantity || item?.qty || 1);
     const key = productId
@@ -36,19 +40,31 @@ const collectRawNotes = (order: any): string => {
   const address = shipping.deliveryAddress || shipping.address || {};
   const customer = data.customerData || {};
   return [
-    data.observation, data.observations, data.notes,
-    shipping.observation, shipping.observations, shipping.notes,
-    shipping.deliveryObservation, address.observation, address.notes,
-    customer.observation, customer.notes,
-  ].filter(Boolean).join(' ');
+    data.observation,
+    data.observations,
+    data.notes,
+    shipping.observation,
+    shipping.observations,
+    shipping.notes,
+    shipping.deliveryObservation,
+    address.observation,
+    address.notes,
+    customer.observation,
+    customer.notes,
+  ]
+    .filter(Boolean)
+    .join(' ');
 };
 
 const extractCallAdvanceTime = (rawText: string): string | null => {
   if (!rawText) return null;
   // Procura padrões de tempo antes da entrega (ex: "30 min antes", "1 hora antes", "15 minutos antes")
-  const match = rawText.match(/(\d+\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b))\s*(?:antes|de anteced[eê]ncia)/i) ||
-                rawText.match(/(?:com|em|de)\s*(\d+\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b))\s*antes/i) ||
-                rawText.match(/(\d+)\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b)\s*antes/i);
+  const match =
+    rawText.match(
+      /(\d+\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b))\s*(?:antes|de anteced[eê]ncia)/i
+    ) ||
+    rawText.match(/(?:com|em|de)\s*(\d+\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b))\s*antes/i) ||
+    rawText.match(/(\d+)\s*(?:minutos?|mins?|m\b|horas?|hrs?|h\b)\s*antes/i);
   if (match && match[1]) {
     let t = match[1].trim();
     if (/^\d+\s*m$/i.test(t) || /^\d+\s*min$/i.test(t)) {
@@ -61,7 +77,9 @@ const extractCallAdvanceTime = (rawText: string): string | null => {
   return null;
 };
 
-const getPendingCardInfo = (order: any): { hasPending: boolean; methods: string[]; pendingAmount: number } => {
+const getPendingCardInfo = (
+  order: any
+): { hasPending: boolean; methods: string[]; pendingAmount: number } => {
   const data = order.order_data || order;
   const payments = Array.isArray(data.payments) ? data.payments : [];
   let pendingAmount = 0;
@@ -73,7 +91,9 @@ const getPendingCardInfo = (order: any): { hasPending: boolean; methods: string[
     const amount = Number(payment.amount || payment.value || 0);
 
     const isCard = /credito|debito|cartao|credit|debit/.test(method);
-    const isPending = /pendente|pending|a receber|aguardando/.test(status) || (!/pago|recebido|concluido|aprovado/.test(status) && status.length > 0);
+    const isPending =
+      /pendente|pending|a receber|aguardando/.test(status) ||
+      (!/pago|recebido|concluido|aprovado/.test(status) && status.length > 0);
 
     if (isCard && isPending) {
       methodsFound.push(String(payment.method || payment.paymentMethod || 'Cartão').trim());
@@ -84,7 +104,10 @@ const getPendingCardInfo = (order: any): { hasPending: boolean; methods: string[
   if (methodsFound.length === 0 && payments.length === 0) {
     const fallbackMethod = normalize(data.paymentMethod || data.payment_method);
     const orderStatus = normalize(data.status || order.status);
-    if (/credito|debito|cartao/.test(fallbackMethod) && !/pago|recebido|concluido/.test(orderStatus)) {
+    if (
+      /credito|debito|cartao/.test(fallbackMethod) &&
+      !/pago|recebido|concluido/.test(orderStatus)
+    ) {
       methodsFound.push(String(data.paymentMethod || data.payment_method || 'Cartão').trim());
       pendingAmount = Number(data.total || order.total || 0);
     }
@@ -94,11 +117,14 @@ const getPendingCardInfo = (order: any): { hasPending: boolean; methods: string[
   return {
     hasPending: uniqueMethods.length > 0,
     methods: uniqueMethods,
-    pendingAmount
+    pendingAmount,
   };
 };
 
-const checkHoleSawRequirement = (order: any, rawNotes: string): { needed: boolean; detail?: string } => {
+const checkHoleSawRequirement = (
+  order: any,
+  rawNotes: string
+): { needed: boolean; detail?: string } => {
   const normalizedNotes = normalize(rawNotes);
   if (/serra[ -]?copo|cerra[ -]?copo/.test(normalizedNotes)) {
     return { needed: true, detail: 'solicitado nas observações' };
@@ -107,19 +133,20 @@ const checkHoleSawRequirement = (order: any, rawNotes: string): { needed: boolea
   const items = collectOrderItems(order);
 
   for (const item of items) {
-    const desc = normalize([
-      item.description,
-      item.name,
-      item.handlingType,
-      item.observation,
-      item.notes
-    ].filter(Boolean).join(' '));
+    const desc = normalize(
+      [item.description, item.name, item.handlingType, item.observation, item.notes]
+        .filter(Boolean)
+        .join(' ')
+    );
 
     if (/serra[ -]?copo|cerra[ -]?copo/.test(desc)) {
       return { needed: true, detail: String(item.description || item.name || 'item do pedido') };
     }
     if (/passa[ -]?fio|passa fio|recorte/.test(desc)) {
-      return { needed: true, detail: `recorte/passa-fio (${item.description || item.name || 'item'})` };
+      return {
+        needed: true,
+        detail: `recorte/passa-fio (${item.description || item.name || 'item'})`,
+      };
     }
   }
 
@@ -140,33 +167,37 @@ export const buildDeliveryChecklist = (order: any): DeliveryChecklistItem[] => {
       const name = String(it.description || it.name || it.title || `Item ${idx + 1}`).trim();
       const qtyText = qty > 1 ? `${qty}x ` : '';
       const volText = it.volumes ? ` (${it.volumes} vol)` : '';
-      
+
       checklist.push({
         id: `item_${it.id || idx}_${name.slice(0, 12)}`,
-        label: `Carregado: ${qtyText}${name}${volText}`
+        label: `Carregado: ${qtyText}${name}${volText}`,
       });
     });
   } else {
     checklist.push({
       id: 'loaded',
-      label: 'Conferir e carregar os itens do pedido'
+      label: 'Conferir e carregar os itens do pedido',
     });
   }
 
   // 2. Maquininha de Cartão se houver débito/crédito pendente
   const cardInfo = getPendingCardInfo(order);
   if (cardInfo.hasPending) {
-    const amountText = cardInfo.pendingAmount > 0
-      ? ` (R$ ${cardInfo.pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
-      : '';
+    const amountText =
+      cardInfo.pendingAmount > 0
+        ? ` (R$ ${cardInfo.pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+        : '';
     checklist.push({
       id: 'card_machine',
-      label: `Levar maquininha de cartão — pendente: ${cardInfo.methods.join(' / ')}${amountText}`
+      label: `Levar maquininha de cartão — pendente: ${cardInfo.methods.join(' / ')}${amountText}`,
     });
   }
 
   // 3. Ligar / Avisar antes de ir com mensuração de tempo
-  const hasCallRequest = /ligar antes|avisar antes|chamar antes|whatsapp antes|msg antes|mensagem antes/.test(normalizedNotes);
+  const hasCallRequest =
+    /ligar antes|avisar antes|chamar antes|whatsapp antes|msg antes|mensagem antes/.test(
+      normalizedNotes
+    );
   if (hasCallRequest) {
     const advanceTime = extractCallAdvanceTime(rawNotes);
     const label = advanceTime
@@ -182,7 +213,7 @@ export const buildDeliveryChecklist = (order: any): DeliveryChecklistItem[] => {
       id: 'hole_saw',
       label: holeSaw.detail
         ? `Levar serra-copo — ${holeSaw.detail}`
-        : 'Levar serra-copo para recortes / montagem'
+        : 'Levar serra-copo para recortes / montagem',
     });
   }
 

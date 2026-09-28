@@ -41,7 +41,7 @@ export function recordAuditLog(log: Omit<McpAuditLog, 'id' | 'timestamp'>): McpA
 export function getAuditLogs(limit = 50, clientId?: McpClientId): McpAuditLog[] {
   let filtered = auditHistory;
   if (clientId) {
-    filtered = filtered.filter(item => item.clientId === clientId);
+    filtered = filtered.filter((item) => item.clientId === clientId);
   }
   return filtered.slice(0, Math.min(limit, 100));
 }

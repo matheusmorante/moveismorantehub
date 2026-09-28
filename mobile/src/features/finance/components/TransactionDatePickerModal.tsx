@@ -13,8 +13,18 @@ interface Props {
 
 const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
 ];
 
 const toIsoDate = (date: Date) => {
@@ -55,7 +65,7 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
   }, [visibleMonth]);
 
   const changeMonth = (offset: number) => {
-    setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };
 
   const chooseDay = (day: number) => {
@@ -65,7 +75,12 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.content, isDarkMode && styles.contentDark]}>
           <View style={styles.header}>
             <Text style={[styles.title, isDarkMode && styles.textDark]}>Escolha a data</Text>
@@ -94,7 +109,9 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
             ))}
             {calendarCells.map((day, index) => {
               if (!day) return <View key={`empty-${index}`} style={styles.cell} />;
-              const isoDate = toIsoDate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day));
+              const isoDate = toIsoDate(
+                new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day)
+              );
               const selected = isoDate === selectedDate;
               return (
                 <TouchableOpacity
@@ -102,7 +119,13 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
                   style={[styles.cell, styles.dayCell, selected && styles.selectedDay]}
                   onPress={() => chooseDay(day)}
                 >
-                  <Text style={[styles.dayText, isDarkMode && styles.textDark, selected && styles.selectedDayText]}>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      isDarkMode && styles.textDark,
+                      selected && styles.selectedDayText,
+                    ]}
+                  >
                     {day}
                   </Text>
                 </TouchableOpacity>
@@ -116,13 +139,30 @@ export const TransactionDatePickerModal: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  content: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: '#ffffff', padding: 16 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    padding: 16,
+  },
   contentDark: { backgroundColor: '#0f172a' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
   iconButton: { padding: 8 },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14 },
+  monthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginVertical: 14,
+  },
   monthTitle: { color: '#1e293b', fontSize: 15, fontWeight: '700' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },

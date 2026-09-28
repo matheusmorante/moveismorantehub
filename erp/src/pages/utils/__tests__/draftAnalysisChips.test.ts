@@ -18,7 +18,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(draft);
-    const labels = chips.map(c => c.label);
+    const labels = chips.map((c) => c.label);
 
     expect(labels).toEqual([
       'Saída',
@@ -57,7 +57,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(resolvedDraft);
-    const labels = chips.map(c => c.label);
+    const labels = chips.map((c) => c.label);
 
     expect(resolvedDraft.missingFields).toHaveLength(0);
     expect(resolvedDraft.questionToUser).toBeNull();
@@ -78,7 +78,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(draft);
-    const labels = chips.map(c => c.label);
+    const labels = chips.map((c) => c.label);
 
     expect(labels).toEqual([
       'Saída',
@@ -104,7 +104,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(draft);
-    const labels = chips.map(c => c.label);
+    const labels = chips.map((c) => c.label);
 
     expect(labels).toEqual([
       'Entrada',
@@ -131,7 +131,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(draft);
-    const labels = chips.map(c => c.label);
+    const labels = chips.map((c) => c.label);
 
     expect(labels).toEqual([
       'Entrada',
@@ -161,7 +161,7 @@ describe('Rótulos de Análise em Tempo Real do Assistente Financeiro (Realtime 
     };
 
     const chips = buildDraftAnalysisChips(draft);
-    const priorities = chips.map(c => c.priority);
+    const priorities = chips.map((c) => c.priority);
 
     // Deve respeitar a ordenação estritamente crescente
     for (let i = 0; i < priorities.length - 1; i++) {

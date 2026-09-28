@@ -102,15 +102,7 @@ export const MobileOrderPagination: React.FC<Props> = ({
         >
           <ChevronLeft
             size={18}
-            color={
-              currentPage <= 1
-                ? dark
-                  ? '#475569'
-                  : '#cbd5e1'
-                : dark
-                ? '#cbd5e1'
-                : '#334155'
-            }
+            color={currentPage <= 1 ? (dark ? '#475569' : '#cbd5e1') : dark ? '#cbd5e1' : '#334155'}
           />
         </TouchableOpacity>
 
@@ -172,8 +164,8 @@ export const MobileOrderPagination: React.FC<Props> = ({
                   ? '#475569'
                   : '#cbd5e1'
                 : dark
-                ? '#cbd5e1'
-                : '#334155'
+                  ? '#cbd5e1'
+                  : '#334155'
             }
           />
         </TouchableOpacity>

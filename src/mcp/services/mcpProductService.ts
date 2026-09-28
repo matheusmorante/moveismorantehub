@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import {
-  McpProductImage,
-  McpProductSummary,
-  McpProductVariation,
-} from '../types/mcp.js';
+import { McpProductImage, McpProductSummary, McpProductVariation } from '../types/mcp.js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://wzpdfmihnwcrgkyagwkd.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'public-anon-key';
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://wzpdfmihnwcrgkyagwkd.supabase.co';
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'public-anon-key';
 
 export const mcpSupabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
@@ -39,7 +39,7 @@ export function parseImagesList(rawImages: any, rawImageUrl?: any): string[] {
   }
 
   const result: string[] = [];
-  candidates.forEach(item => {
+  candidates.forEach((item) => {
     if (!item) return;
     if (typeof item === 'string') {
       const trimmed = item.trim();
@@ -47,15 +47,19 @@ export function parseImagesList(rawImages: any, rawImageUrl?: any): string[] {
         try {
           const parsed = JSON.parse(trimmed);
           if (Array.isArray(parsed)) {
-            parsed.forEach(p => {
-              const clean = toAbsoluteHttpsUrl(String(p).trim().replace(/^["']|["']$/g, ''));
+            parsed.forEach((p) => {
+              const clean = toAbsoluteHttpsUrl(
+                String(p)
+                  .trim()
+                  .replace(/^["']|["']$/g, '')
+              );
               if (clean && !result.includes(clean)) result.push(clean);
             });
             return;
           }
         } catch {}
       }
-      trimmed.split(',').forEach(s => {
+      trimmed.split(',').forEach((s) => {
         const clean = toAbsoluteHttpsUrl(s.trim().replace(/^["']|["']$/g, ''));
         if (clean && !result.includes(clean)) result.push(clean);
       });
@@ -74,7 +78,10 @@ export class McpProductService {
    */
   private extractQuery(raw: string): string {
     let q = raw.trim();
-    if (q.includes('/') && (q.startsWith('http://') || q.startsWith('https://') || q.includes('/produto/'))) {
+    if (
+      q.includes('/') &&
+      (q.startsWith('http://') || q.startsWith('https://') || q.includes('/produto/'))
+    ) {
       const parts = q.split('/').filter(Boolean);
       const last = parts[parts.length - 1];
       if (last) {
@@ -98,7 +105,9 @@ export class McpProductService {
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
       const { data } = await mcpSupabase
         .from('products')
-        .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
+        .select(
+          'id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)'
+        )
         .eq('id', q)
         .limit(1);
 
@@ -110,7 +119,9 @@ export class McpProductService {
     // 2. Tenta busca por slug ou código exato
     const { data: exactMatch } = await mcpSupabase
       .from('products')
-      .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
+      .select(
+        'id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)'
+      )
       .or(`slug.eq.${q},code.eq.${q}`)
       .is('deleted_at', null)
       .eq('deleted', false)
@@ -124,12 +135,14 @@ export class McpProductService {
     const words = q
       .replace(/[^\w\s\u00C0-\u00FF]/gi, ' ')
       .split(/\s+/)
-      .map(w => w.trim())
-      .filter(w => w.length >= 2);
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 2);
 
     let queryBuilder = mcpSupabase
       .from('products')
-      .select('id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)')
+      .select(
+        'id, name, slug, code, sale_price, price, promo_price, original_price, is_draft, active, deleted, deleted_at, category, opportunities(id, name)'
+      )
       .is('deleted_at', null)
       .eq('deleted', false);
 
@@ -181,14 +194,20 @@ export class McpProductService {
       .maybeSingle();
 
     if (prodErr || !product) {
-      throw new Error(`PRODUCT_NOT_FOUND: Produto com ID "${productId}" não encontrado no MoranteHub.`);
+      throw new Error(
+        `PRODUCT_NOT_FOUND: Produto com ID "${productId}" não encontrado no MoranteHub.`
+      );
     }
 
     const price = Number(product.sale_price ?? product.price ?? product.promo_price ?? 0);
     const oldPrice = product.original_price ? Number(product.original_price) : null;
-    const opp = Array.isArray(product.opportunities) ? product.opportunities[0] : product.opportunities;
+    const opp = Array.isArray(product.opportunities)
+      ? product.opportunities[0]
+      : product.opportunities;
 
-    const rawVariations = Array.isArray(product.product_variations) ? product.product_variations : [];
+    const rawVariations = Array.isArray(product.product_variations)
+      ? product.product_variations
+      : [];
     const variations: McpProductVariation[] = rawVariations.map((v: any, index: number) => {
       const varImages = parseImagesList(v.images, v.image_url);
       const varPrice = v.price ? Number(v.price) : price;
@@ -246,7 +265,8 @@ export class McpProductService {
       commercialData: {
         price,
         oldPrice: oldPrice && oldPrice > price ? oldPrice : null,
-        discountPercent: oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : null,
+        discountPercent:
+          oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : null,
         installment: product.installment_rule || '10x sem juros no cartão',
         opportunity: opp?.name || null,
         opportunityId: opp?.id || null,
@@ -258,12 +278,15 @@ export class McpProductService {
   /**
    * Obtém e categoriza imagens oficiais de produtos com metadados claros.
    */
-  async getProductImages(productId: string, selectedVariationId?: string): Promise<McpProductImage[]> {
+  async getProductImages(
+    productId: string,
+    selectedVariationId?: string
+  ): Promise<McpProductImage[]> {
     const details = await this.getProductById(productId);
     const { variations } = details;
 
     const activeVar = selectedVariationId
-      ? variations.find(v => v.id === selectedVariationId) || variations[0]
+      ? variations.find((v) => v.id === selectedVariationId) || variations[0]
       : variations[0];
 
     const images: McpProductImage[] = [];
@@ -283,14 +306,15 @@ export class McpProductService {
           isOpenView: idx === 1,
           url,
           mimeType: url.endsWith('.png') ? 'image/png' : 'image/webp',
-          description: idx === 0 ? 'Foto Principal (Destaque da Variação)' : 'Foto Secundária / Visão Interna',
+          description:
+            idx === 0 ? 'Foto Principal (Destaque da Variação)' : 'Foto Secundária / Visão Interna',
         });
       });
     }
 
     // Imagens das outras variações (para a galeria de cores)
     variations
-      .filter(v => v.id !== activeVar?.id)
+      .filter((v) => v.id !== activeVar?.id)
       .forEach((otherVar, vIdx) => {
         if (otherVar.images.length > 0) {
           const firstImg = otherVar.images[0];

@@ -86,7 +86,8 @@ export const postShareService = {
       .select()
       .single();
 
-    if (error || !created) throw new Error('Não foi possível regenerar o token de compartilhamento.');
+    if (error || !created)
+      throw new Error('Não foi possível regenerar o token de compartilhamento.');
     return tokenFromRow(created);
   },
 

@@ -47,21 +47,18 @@ export const DeleteTemplateModal: React.FC<DeleteTemplateModalProps> = ({
               <h3 id="delete-modal-title" className="text-base font-semibold text-white">
                 Excluir modelo de post?
               </h3>
-              <p className="text-xs text-slate-400">
-                Esta ação não poderá ser desfeita.
-              </p>
+              <p className="text-xs text-slate-400">Esta ação não poderá ser desfeita.</p>
             </div>
           </div>
 
           <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-sm font-medium text-slate-200">{template.name}</p>
             {template.description && (
-              <p className="mt-1 text-xs text-slate-400 line-clamp-2">
-                {template.description}
-              </p>
+              <p className="mt-1 text-xs text-slate-400 line-clamp-2">{template.description}</p>
             )}
             <p className="mt-2 text-[11px] text-slate-500">
-              {template.formats?.join(' · ') || template.aspectRatio} · {template.assets?.length || 0} arquivos
+              {template.formats?.join(' · ') || template.aspectRatio} ·{' '}
+              {template.assets?.length || 0} arquivos
             </p>
           </div>
 
@@ -87,8 +84,19 @@ export const DeleteTemplateModal: React.FC<DeleteTemplateModalProps> = ({
               {isDeleting ? (
                 <>
                   <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   <span>Excluindo...</span>
                 </>

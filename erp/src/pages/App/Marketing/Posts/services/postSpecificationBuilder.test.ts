@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildSingleSpecification,
-  renderSpecificationAsPrompt,
-} from './postSpecificationBuilder';
+import { buildSingleSpecification, renderSpecificationAsPrompt } from './postSpecificationBuilder';
 
 describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () => {
   it('deve montar a especificação estruturada de 1 campanha de forma determinística', async () => {
@@ -86,7 +83,9 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
     const renderedPrompt = renderSpecificationAsPrompt(spec);
 
     expect(renderedPrompt).toContain('MÓVEIS MORANTE — INSTRUÇÕES DE CRIAÇÃO DE POST');
-    expect(renderedPrompt).toContain('AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE');
+    expect(renderedPrompt).toContain(
+      'AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE'
+    );
     expect(renderedPrompt).toContain('ELEMENTO: PRODUCT_SLOGAN_TITLE');
     expect(renderedPrompt).toContain('ELEMENTO: PRODUCT_SLOGAN_SIDE');
     expect(renderedPrompt).toContain('ELEMENTO: COLOR_THEME');
@@ -107,10 +106,7 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
         {
           id: 'var-branco',
           name: 'Branco Neve',
-          images: [
-            'https://example.com/monza-fechado.jpg',
-            'https://example.com/monza-aberto.jpg',
-          ],
+          images: ['https://example.com/monza-fechado.jpg', 'https://example.com/monza-aberto.jpg'],
         },
         {
           id: 'var-freijo',
@@ -135,7 +131,9 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
     const prompt = renderSpecificationAsPrompt(spec);
 
     // Regra de fidelidade absoluta
-    expect(prompt).toContain('AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE');
+    expect(prompt).toContain(
+      'AS IMAGENS DO PRODUTO FORNECIDAS ABAIXO SÃO A FONTE VISUAL DE VERDADE'
+    );
     expect(prompt).toContain('Não crie um móvel semelhante.');
     expect(prompt).toContain('A ambientação pode ser criada pela IA.');
     expect(prompt).toContain('O PRODUTO NÃO.');
@@ -212,11 +210,13 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
     const singleVarProduct: any = {
       id: 'prod-single',
       name: 'Mesa de Centro Rústica',
-      variations: [{
-        id: 'var-1',
-        name: 'Madeira Natural',
-        images: ['https://example.com/mesa.jpg'],
-      }],
+      variations: [
+        {
+          id: 'var-1',
+          name: 'Madeira Natural',
+          images: ['https://example.com/mesa.jpg'],
+        },
+      ],
     };
 
     const spec = await buildSingleSpecification({
@@ -231,7 +231,9 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
 
     // Deve conter instrução de produto de cor única
     expect(prompt).toContain('PRODUTO DE COR ÚNICA (SEM OUTRAS VARIAÇÕES DISPONÍVEIS)');
-    expect(prompt).toContain('É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES"');
+    expect(prompt).toContain(
+      'É ESTRITAMENTE PROIBIDO criar galeria de cores, miniaturas adicionais ou escrever "DISPONÍVEL NAS CORES"'
+    );
     expect(prompt).toContain('PRODUTO DE COR ÚNICA (SEM OUTRAS CORES)');
     expect(prompt).toContain('OMITA integralmente a galeria de cores');
 
@@ -251,7 +253,9 @@ describe('postSpecificationBuilder — Prompt Estruturado de Posts para IA', () 
 
     const prompt = renderSpecificationAsPrompt(spec);
 
-    expect(prompt).toContain('É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow, halo de luz');
+    expect(prompt).toContain(
+      'É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow, halo de luz'
+    );
     expect(prompt).toContain('Proibição de esfumaçado ou halo luminoso');
     expect(prompt).not.toContain('luz de recorte (rim light)');
   });

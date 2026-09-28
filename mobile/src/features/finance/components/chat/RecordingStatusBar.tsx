@@ -2,7 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { VoiceSessionState } from '../../types/VoiceSessionState';
-import { LocalSemanticDelta, ParsedFinancialIntent } from '../../../../services/financialAiAssistantService';
+import {
+  LocalSemanticDelta,
+  ParsedFinancialIntent,
+} from '../../../../services/financialAiAssistantService';
 import { RealtimeDraftChips } from './RealtimeDraftChips';
 
 interface Props {
@@ -28,7 +31,8 @@ export const RecordingStatusBar: React.FC<Props> = ({
 
   if (!isRecordingActive && !activeDraft) return null;
 
-  const silenceText = silenceCountdown && silenceCountdown > 0 ? ` (Auto-envio em ${silenceCountdown}s)` : '';
+  const silenceText =
+    silenceCountdown && silenceCountdown > 0 ? ` (Auto-envio em ${silenceCountdown}s)` : '';
 
   return (
     <View style={[styles.recordingBanner, isDarkMode && styles.recordingBannerDark]}>
@@ -62,7 +66,9 @@ export const RecordingStatusBar: React.FC<Props> = ({
       <RealtimeDraftChips draft={activeDraft} isDarkMode={isDarkMode} />
 
       {/* Pílula Semântica de Detecção Local Fallback se ainda não houver draft */}
-      {!activeDraft && livePill && (livePill.amountsFound.length > 0 || livePill.supplierFound || livePill.categoryFound) ? (
+      {!activeDraft &&
+      livePill &&
+      (livePill.amountsFound.length > 0 || livePill.supplierFound || livePill.categoryFound) ? (
         <View style={styles.livePillContainer}>
           {livePill.supplierFound ? (
             <View style={styles.livePillTag}>

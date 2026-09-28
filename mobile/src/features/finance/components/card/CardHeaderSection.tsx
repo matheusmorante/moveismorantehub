@@ -21,7 +21,9 @@ export const CardHeaderSection: React.FC<Props> = ({
     <View style={styles.headerRow}>
       <View style={styles.headerTitleGroup}>
         <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-          {cardState === 'NEEDS_INPUT' && <AlertTriangle size={12} color="#92400e" style={{ marginRight: 4 }} />}
+          {cardState === 'NEEDS_INPUT' && (
+            <AlertTriangle size={12} color="#92400e" style={{ marginRight: 4 }} />
+          )}
           <Text style={[styles.badgeText, { color: badgeColor }]}>{cardTitleType}</Text>
         </View>
         <Text style={styles.subtleCheckHint}>Confira antes de registrar</Text>

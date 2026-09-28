@@ -13,7 +13,12 @@ export const DeliverySummaryControlsBar: React.FC<DeliverySummaryControlsBarProp
     <View style={styles.controlsRow}>
       <View style={styles.toggleSwitchContainer}>
         <Volume2 size={14} color="#ffffff" style={{ marginLeft: 8, marginRight: 6 }} />
-        <Text style={[styles.toggleSwitchText, isGeminiQuotaExceeded && styles.toggleSwitchTextUnavailable]}>
+        <Text
+          style={[
+            styles.toggleSwitchText,
+            isGeminiQuotaExceeded && styles.toggleSwitchTextUnavailable,
+          ]}
+        >
           Gemini IA
         </Text>
       </View>

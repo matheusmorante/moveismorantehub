@@ -1,4 +1,4 @@
-export const INVENTORY_TABLE_NAME = "inventory_moves";
+export const INVENTORY_TABLE_NAME = 'inventory_moves';
 
 export const isEntryType = (t: string): boolean => t === 'entry';
 

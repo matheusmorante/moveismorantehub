@@ -68,9 +68,7 @@ export const NativeCategoriesScreen: React.FC<Props> = ({ dark, onCategoriesUpda
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         keyboardShouldPersistTaps="handled"
       >
         <MobileCategoriesHeader

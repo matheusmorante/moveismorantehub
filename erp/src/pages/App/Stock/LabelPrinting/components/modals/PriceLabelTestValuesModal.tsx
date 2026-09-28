@@ -101,7 +101,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
             {/* DEZENA */}
             <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Dezena:</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Dezena:
+                </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
                   {testDezenaD1}
                   {testDezenaD2}
@@ -109,7 +111,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testDezenaD1}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    1º Dígito: {testDezenaD1}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -120,7 +124,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testDezenaD2}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    2º Dígito: {testDezenaD2}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -136,7 +142,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
             {/* CENTENA */}
             <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Centena:</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Centena:
+                </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
                   {testCentenaD1}
                   {testCentenaD2}
@@ -145,7 +153,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testCentenaD1}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    1º Dígito: {testCentenaD1}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -156,7 +166,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testCentenaD2}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    2º Dígito: {testCentenaD2}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -167,7 +179,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testCentenaD3}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    3º Dígito: {testCentenaD3}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -183,7 +197,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
             {/* MILHAR */}
             <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Milhar:</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Milhar:
+                </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
                   {testMilharD1}.{testMilharD2}
                   {testMilharD3}
@@ -248,7 +264,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
 
             <div className="space-y-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Valor Antigo R$:</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Valor Antigo R$:
+                </span>
                 <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-lg">
                   R$ {testNormalD1}
                   {testNormalD2}
@@ -257,7 +275,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">1º Dígito: {testNormalD1}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    1º Dígito: {testNormalD1}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -268,7 +288,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">2º Dígito: {testNormalD2}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    2º Dígito: {testNormalD2}
+                  </span>
                   <input
                     type="range"
                     min="0"
@@ -279,7 +301,9 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400">3º Dígito: {testNormalD3}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    3º Dígito: {testNormalD3}
+                  </span>
                   <input
                     type="range"
                     min="0"

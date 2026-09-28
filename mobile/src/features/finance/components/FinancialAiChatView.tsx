@@ -29,7 +29,7 @@ export const FinancialAiChatView: React.FC<Props> = ({
     userName,
   });
 
-  const activeMessages = chat.messages.filter(m => !m.status || m.status === 'ACTIVE');
+  const activeMessages = chat.messages.filter((m) => !m.status || m.status === 'ACTIVE');
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -41,13 +41,17 @@ export const FinancialAiChatView: React.FC<Props> = ({
       <ScrollView
         ref={chat.scrollViewRef}
         style={styles.messagesList}
-        contentContainerStyle={activeMessages.length === 0 ? { flexGrow: 1, justifyContent: 'center' } : { paddingVertical: 12 }}
+        contentContainerStyle={
+          activeMessages.length === 0
+            ? { flexGrow: 1, justifyContent: 'center' }
+            : { paddingVertical: 12 }
+        }
         showsVerticalScrollIndicator={false}
       >
         {activeMessages.length === 0 ? (
           <AssistantEmptyState isDarkMode={isDarkMode} />
         ) : (
-          activeMessages.map(msg => (
+          activeMessages.map((msg) => (
             <React.Fragment key={msg.id}>
               <ChatMessageItem
                 msg={msg}
@@ -62,15 +66,21 @@ export const FinancialAiChatView: React.FC<Props> = ({
                 isDarkMode={isDarkMode}
               />
               {chat.timelineCards
-                .filter(card => card.afterMessageId === msg.id && card.cardState !== 'NEEDS_INPUT')
-                .map(card => (
+                .filter(
+                  (card) => card.afterMessageId === msg.id && card.cardState !== 'NEEDS_INPUT'
+                )
+                .map((card) => (
                   <FinancialTimelineCard
                     key={card.id}
                     entry={card}
-                    active={card.cardState === 'READY_TO_CONFIRM' || card.cardState === 'SAVING' || card.cardState === 'ERROR'}
+                    active={
+                      card.cardState === 'READY_TO_CONFIRM' ||
+                      card.cardState === 'SAVING' ||
+                      card.cardState === 'ERROR'
+                    }
                     categories={categories}
                     isDarkMode={isDarkMode}
-                    onConfirm={intent => void chat.handleConfirmTimelineCard(card.id, intent)}
+                    onConfirm={(intent) => void chat.handleConfirmTimelineCard(card.id, intent)}
                     onSelectCandidate={chat.handleSelectCandidate}
                   />
                 ))}
@@ -99,15 +109,17 @@ export const FinancialAiChatView: React.FC<Props> = ({
         onSendMessage={chat.handleSendMessage}
         onStartLive={chat.handleStartLive}
       />
-      {chat.liveState && <GeminiLiveOrb
-        active
-        paused={chat.liveState === 'paused'}
-        muted={chat.liveState === 'muted'}
-        remainingMs={chat.liveQuota?.remainingMs ?? 30 * 60 * 1000}
-        onPause={chat.handleToggleLivePause}
-        onMute={chat.handleToggleLiveMute}
-        onEnd={chat.handleEndLive}
-      />}
+      {chat.liveState && (
+        <GeminiLiveOrb
+          active
+          paused={chat.liveState === 'paused'}
+          muted={chat.liveState === 'muted'}
+          remainingMs={chat.liveQuota?.remainingMs ?? 30 * 60 * 1000}
+          onPause={chat.handleToggleLivePause}
+          onMute={chat.handleToggleLiveMute}
+          onEnd={chat.handleEndLive}
+        />
+      )}
     </View>
   );
 };

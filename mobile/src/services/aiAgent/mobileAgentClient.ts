@@ -19,10 +19,7 @@ export class MobileAgentClient {
     try {
       const data = await getAppSettings();
       const dbKey =
-        data?.geminiApiKey ||
-        data?.settings_data?.geminiApiKey ||
-        data?.value?.geminiApiKey ||
-        '';
+        data?.geminiApiKey || data?.settings_data?.geminiApiKey || data?.value?.geminiApiKey || '';
 
       if (dbKey && typeof dbKey === 'string' && dbKey.trim()) {
         this.cachedApiKey = dbKey.trim();
@@ -68,7 +65,9 @@ export class MobileAgentClient {
     }
 
     if (!apiKey) {
-      throw new Error('Chave de API do Gemini não configurada no servidor. Acesse as Configurações do ERP > Assistente de IA para cadastrar a chave.');
+      throw new Error(
+        'Chave de API do Gemini não configurada no servidor. Acesse as Configurações do ERP > Assistente de IA para cadastrar a chave.'
+      );
     }
 
     const model = 'gemini-3.8-flash';
@@ -102,7 +101,9 @@ export class MobileAgentClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
-      throw new Error(`Erro na API Gemini (${response.status}): ${errorBody || response.statusText}`);
+      throw new Error(
+        `Erro na API Gemini (${response.status}): ${errorBody || response.statusText}`
+      );
     }
 
     return response.json();

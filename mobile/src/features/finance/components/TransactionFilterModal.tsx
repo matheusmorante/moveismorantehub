@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+} from 'react-native';
 import { X, Check } from 'lucide-react-native';
-import { FinancialCategory, TransactionFilterOptions } from '../../../services/mobileFinanceService';
+import {
+  FinancialCategory,
+  TransactionFilterOptions,
+} from '../../../services/mobileFinanceService';
 
 interface Props {
   visible: boolean;
@@ -13,7 +24,14 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-const PAYMENT_METHODS = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'Transferência'];
+const PAYMENT_METHODS = [
+  'PIX',
+  'Cartão de Crédito',
+  'Cartão de Débito',
+  'Boleto',
+  'Dinheiro',
+  'Transferência',
+];
 const ACCOUNTS = ['Caixa Geral', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Outro'];
 
 export const TransactionFilterModal: React.FC<Props> = ({
@@ -26,7 +44,9 @@ export const TransactionFilterModal: React.FC<Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [selectedCatId, setSelectedCatId] = useState<string>(currentFilters.categoryId || '');
-  const [selectedPayment, setSelectedPayment] = useState<string>(currentFilters.paymentMethod || '');
+  const [selectedPayment, setSelectedPayment] = useState<string>(
+    currentFilters.paymentMethod || ''
+  );
   const [selectedAccount, setSelectedAccount] = useState<string>(currentFilters.accountId || '');
   const [searchQuery, setSearchQuery] = useState<string>(currentFilters.searchQuery || '');
 
@@ -54,7 +74,12 @@ export const TransactionFilterModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           <View style={styles.header}>
             <Text style={[styles.title, isDarkMode && styles.titleDark]}>Filtros Avançados</Text>
@@ -65,7 +90,9 @@ export const TransactionFilterModal: React.FC<Props> = ({
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* Busca livre */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>Busca por texto</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>
+              Busca por texto
+            </Text>
             <TextInput
               style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
               placeholder="Descrição, observação ou contraparte..."
@@ -75,21 +102,27 @@ export const TransactionFilterModal: React.FC<Props> = ({
             />
 
             {/* Categoria */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>Categoria</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>
+              Categoria
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
               <TouchableOpacity
                 style={[styles.chip, !selectedCatId && styles.chipActive]}
                 onPress={() => setSelectedCatId('')}
               >
-                <Text style={[styles.chipText, !selectedCatId && styles.chipTextActive]}>Todas</Text>
+                <Text style={[styles.chipText, !selectedCatId && styles.chipTextActive]}>
+                  Todas
+                </Text>
               </TouchableOpacity>
-              {categories.map(cat => (
+              {categories.map((cat) => (
                 <TouchableOpacity
                   key={cat.id}
                   style={[styles.chip, selectedCatId === cat.id && styles.chipActive]}
                   onPress={() => setSelectedCatId(selectedCatId === cat.id ? '' : cat.id)}
                 >
-                  <Text style={[styles.chipText, selectedCatId === cat.id && styles.chipTextActive]}>
+                  <Text
+                    style={[styles.chipText, selectedCatId === cat.id && styles.chipTextActive]}
+                  >
                     {cat.name}
                   </Text>
                 </TouchableOpacity>
@@ -97,15 +130,19 @@ export const TransactionFilterModal: React.FC<Props> = ({
             </ScrollView>
 
             {/* Forma de Pagamento */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>Forma de Pagamento</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>
+              Forma de Pagamento
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-              {PAYMENT_METHODS.map(method => (
+              {PAYMENT_METHODS.map((method) => (
                 <TouchableOpacity
                   key={method}
                   style={[styles.chip, selectedPayment === method && styles.chipActive]}
                   onPress={() => setSelectedPayment(selectedPayment === method ? '' : method)}
                 >
-                  <Text style={[styles.chipText, selectedPayment === method && styles.chipTextActive]}>
+                  <Text
+                    style={[styles.chipText, selectedPayment === method && styles.chipTextActive]}
+                  >
                     {method}
                   </Text>
                 </TouchableOpacity>
@@ -113,9 +150,11 @@ export const TransactionFilterModal: React.FC<Props> = ({
             </ScrollView>
 
             {/* Conta/Caixa */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>Conta / Caixa</Text>
+            <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>
+              Conta / Caixa
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-              {ACCOUNTS.map(acc => (
+              {ACCOUNTS.map((acc) => (
                 <TouchableOpacity
                   key={acc}
                   style={[styles.chip, selectedAccount === acc && styles.chipActive]}

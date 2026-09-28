@@ -18,14 +18,14 @@ const CATEGORIES: { label: string; value: AssetCategory | 'ALL' }[] = [
   { label: 'Descontos & Etiquetas', value: 'DISCOUNT' },
   { label: 'Decorações', value: 'DECORATION' },
   { label: 'Molduras', value: 'FRAME' },
-  { label: 'Ícones', value: 'ICON' }
+  { label: 'Ícones', value: 'ICON' },
 ];
 
 export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
   isOpen,
   onClose,
   onSelectAsset,
-  selectedCampaignId
+  selectedCampaignId,
 }) => {
   const [assets, setAssets] = useState<MarketingAsset[]>([]);
   const [search, setSearch] = useState('');
@@ -45,10 +45,11 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
   };
 
   const filteredAssets = useMemo(() => {
-    return assets.filter(asset => {
+    return assets.filter((asset) => {
       const matchCategory = selectedCategory === 'ALL' || asset.category === selectedCategory;
       const matchSearch = asset.name.toLowerCase().includes(search.toLowerCase());
-      const matchCampaign = !selectedCampaignId || !asset.campaignId || asset.campaignId === selectedCampaignId;
+      const matchCampaign =
+        !selectedCampaignId || !asset.campaignId || asset.campaignId === selectedCampaignId;
       return matchCategory && matchSearch && matchCampaign;
     });
   }, [assets, selectedCategory, search, selectedCampaignId]);
@@ -56,7 +57,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
   const handleAddCustomAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadUrl || !uploadName) return;
-    
+
     await assetService.save({
       name: uploadName,
       type: 'image/png',
@@ -65,7 +66,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
       campaignId: selectedCampaignId || null,
       width: 400,
       height: 400,
-      aspectRatio: 1
+      aspectRatio: 1,
     });
 
     setUploadUrl('');
@@ -104,13 +105,13 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
               type="text"
               placeholder="Pesquisar asset..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
-            {CATEGORIES.map(cat => (
+            {CATEGORIES.map((cat) => (
               <button
                 key={cat.value}
                 onClick={() => setSelectedCategory(cat.value)}
@@ -128,11 +129,11 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
 
         {/* Grid de Assets */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {filteredAssets.map(asset => (
+          {filteredAssets.map((asset) => (
             <AssetCard
               key={asset.id}
               asset={asset}
-              onSelect={asset => {
+              onSelect={(asset) => {
                 onSelectAsset(asset);
                 onClose();
               }}
@@ -149,19 +150,22 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
         </div>
 
         {/* Adicionar Novo Asset Rápido */}
-        <form onSubmit={handleAddCustomAsset} className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center gap-3">
+        <form
+          onSubmit={handleAddCustomAsset}
+          className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center gap-3"
+        >
           <input
             type="text"
             placeholder="Nome do Asset"
             value={uploadName}
-            onChange={e => setUploadName(e.target.value)}
+            onChange={(e) => setUploadName(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 flex-1"
           />
           <input
             type="url"
             placeholder="URL da Imagem (PNG/WebP/SVG)"
             value={uploadUrl}
-            onChange={e => setUploadUrl(e.target.value)}
+            onChange={(e) => setUploadUrl(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 flex-1"
           />
           <button

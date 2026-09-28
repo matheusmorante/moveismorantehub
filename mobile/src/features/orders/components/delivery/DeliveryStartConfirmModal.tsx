@@ -1,13 +1,6 @@
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Radio, Play, X, Shield } from 'lucide-react-native';
 
 interface Props {
@@ -34,8 +27,17 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={loading ? undefined : onCancel} />
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={loading ? undefined : onCancel}
+        />
 
         <View style={[styles.card, isDarkMode && styles.cardDark]}>
           {/* Botão de Fechar */}
@@ -54,9 +56,7 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
           </View>
 
           {/* Título & Identificação */}
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>
-            Iniciar Entrega
-          </Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Iniciar Entrega</Text>
 
           {orderNumber ? (
             <Text style={[styles.orderSubtitle, isDarkMode && styles.textMuted]}>
@@ -73,7 +73,8 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
               </Text>
             </View>
             <Text style={[styles.noticeText, isDarkMode && styles.noticeTextDark]}>
-              Ao iniciar a entrega, a sua posição em tempo real ficará visível no mapa para os outros membros da equipe até que todas as etapas deste pedido sejam finalizadas.
+              Ao iniciar a entrega, a sua posição em tempo real ficará visível no mapa para os
+              outros membros da equipe até que todas as etapas deste pedido sejam finalizadas.
             </Text>
           </View>
 

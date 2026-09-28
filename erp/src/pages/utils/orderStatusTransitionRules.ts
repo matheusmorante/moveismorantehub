@@ -2,7 +2,7 @@ import Order from '../types/order.type';
 
 /**
  * Valida se uma transição de status de pedido é permitida pelas regras de negócio.
- * 
+ *
  * Regras Canônicas:
  * 1. Um pedido já cadastrado (ex: 'scheduled', 'fulfilled') não pode voltar para 'draft'.
  * 2. Um pedido 'cancelled' não pode ter seu status alterado para nenhum outro status.
@@ -30,7 +30,8 @@ export const validateOrderStatusTransition = (
   if (currentStatus === 'cancelled' && newStatus !== 'cancelled') {
     return {
       allowed: false,
-      reason: 'Um pedido cancelado não pode ter o status alterado. Duplique o pedido para criar uma nova venda.',
+      reason:
+        'Um pedido cancelado não pode ter o status alterado. Duplique o pedido para criar uma nova venda.',
     };
   }
 
@@ -69,4 +70,3 @@ export const canUndoFulfillment = (order: {
   if (type === 'return') return false;
   return true;
 };
-

@@ -24,25 +24,31 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
     }
   }
 
-  async runAsync(sql: string, params: unknown[] = []): Promise<{ changes: number; lastInsertRowId: number }> {
+  async runAsync(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<{ changes: number; lastInsertRowId: number }> {
     const trimmed = sql.trim();
     if (trimmed.toUpperCase().startsWith('INSERT INTO')) {
       const match = trimmed.match(/INSERT INTO ([a-zA-Z0-9_]+)/i);
       if (match && match[1]) {
         const tableName = match[1];
         if (!this.tables[tableName]) this.tables[tableName] = [];
-        
+
         // Mapeamento simples de colunas e params
         const colsMatch = trimmed.match(/\(([^)]+)\)\s*VALUES/i);
         if (colsMatch && colsMatch[1]) {
-          const cols = colsMatch[1].split(',').map(c => c.trim());
+          const cols = colsMatch[1].split(',').map((c) => c.trim());
           const row: Record<string, unknown> = {};
           cols.forEach((col, idx) => {
             row[col] = params[idx];
           });
-          const existingIndex = this.tables[tableName].findIndex(existing => existing.id === row.id);
+          const existingIndex = this.tables[tableName].findIndex(
+            (existing) => existing.id === row.id
+          );
           if (trimmed.toUpperCase().includes('ON CONFLICT(ID)') && existingIndex >= 0) {
-            if (trimmed.toUpperCase().includes('DO NOTHING')) return { changes: 0, lastInsertRowId: 0 };
+            if (trimmed.toUpperCase().includes('DO NOTHING'))
+              return { changes: 0, lastInsertRowId: 0 };
             this.tables[tableName][existingIndex] = row;
           } else {
             this.tables[tableName].push(row);
@@ -57,7 +63,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
         const rows = this.tables[tableName] || [];
         const targetId = params[params.length - 1];
         let changes = 0;
-        rows.forEach(r => {
+        rows.forEach((r) => {
           if (r.id === targetId) {
             changes++;
             if (trimmed.includes("status = 'pending_sync'")) r.status = 'pending_sync';
@@ -71,7 +77,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
         const tableName = match[1];
         if (params.length > 0) {
           const initial = (this.tables[tableName] || []).length;
-          this.tables[tableName] = (this.tables[tableName] || []).filter(r => r.id !== params[0]);
+          this.tables[tableName] = (this.tables[tableName] || []).filter((r) => r.id !== params[0]);
           return { changes: initial - this.tables[tableName].length, lastInsertRowId: 0 };
         }
         this.tables[tableName] = [];
@@ -89,7 +95,8 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
       if (sql.includes('WHERE id =') && params.length > 0) {
         return rows.filter((r) => r.id === params[0]) as T[];
       }
-      if (sql.includes("status != 'completed'")) return rows.filter(r => r.status !== 'completed') as T[];
+      if (sql.includes("status != 'completed'"))
+        return rows.filter((r) => r.status !== 'completed') as T[];
       return rows as T[];
     }
     return [];
@@ -112,10 +119,12 @@ const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
   try {
     // Carregamento dinâmico de expo-sqlite para ambiente nativo
     const SQLite = require('expo-sqlite');
-    return await SQLite.openDatabaseAsync('morantehub.db') as DatabaseDriver;
+    return (await SQLite.openDatabaseAsync('morantehub.db')) as DatabaseDriver;
   } catch (e) {
     console.error('[SQLite] Banco nativo indisponível:', e);
-    throw new Error('O armazenamento local do aparelho está indisponível. Não é seguro iniciar a contagem.');
+    throw new Error(
+      'O armazenamento local do aparelho está indisponível. Não é seguro iniciar a contagem.'
+    );
   }
 };
 

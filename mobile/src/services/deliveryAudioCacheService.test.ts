@@ -8,7 +8,11 @@ import {
   clearAudioMemoryCache,
   DEFAULT_VOICE_CONFIG,
 } from './deliveryAudioCacheService';
-import { clearSummaryTextMemoryCache, generateDeliveryAISummary, generateLocalSmartText } from './aiSummaryService';
+import {
+  clearSummaryTextMemoryCache,
+  generateDeliveryAISummary,
+  generateLocalSmartText,
+} from './aiSummaryService';
 
 // Mock AsyncStorage
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -53,7 +57,14 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
 
   it('2. 0 entregas -> nenhum LLM é chamado para gerar texto (fast-path)', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    const text = await generateDeliveryAISummary('today', true, undefined, undefined, undefined, []);
+    const text = await generateDeliveryAISummary(
+      'today',
+      true,
+      undefined,
+      undefined,
+      undefined,
+      []
+    );
     expect(text).toBe('Sem entregas para hoje.');
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
@@ -159,12 +170,26 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
 
   it('reabrir o mesmo período com os mesmos pedidos reutiliza o texto sem novo estado de geração', async () => {
     const firstStates: boolean[] = [];
-    const firstText = await generateDeliveryAISummary('today', false, undefined, undefined, (state) => firstStates.push(state), []);
+    const firstText = await generateDeliveryAISummary(
+      'today',
+      false,
+      undefined,
+      undefined,
+      (state) => firstStates.push(state),
+      []
+    );
     expect(firstText).toBe('Sem entregas para hoje.');
     expect(firstStates).toContain(true);
 
     const secondStates: boolean[] = [];
-    const secondText = await generateDeliveryAISummary('today', false, undefined, undefined, (state) => secondStates.push(state), []);
+    const secondText = await generateDeliveryAISummary(
+      'today',
+      false,
+      undefined,
+      undefined,
+      (state) => secondStates.push(state),
+      []
+    );
     expect(secondText).toBe(firstText);
     expect(secondStates).toEqual([false]);
   });

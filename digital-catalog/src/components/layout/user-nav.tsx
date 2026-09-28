@@ -1,16 +1,16 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { 
-  User as UserIcon, 
-  LogOut, 
-  UserCircle, 
-  Settings, 
+import { useState } from 'react';
+import {
+  User as UserIcon,
+  LogOut,
+  UserCircle,
+  Settings,
   ShoppingBag,
   ShieldCheck,
-} from "lucide-react"
-import { useAdminMode } from "@/hooks/use-admin-mode"
-import { Button } from "@/components/ui/button"
+} from 'lucide-react';
+import { useAdminMode } from '@/hooks/use-admin-mode';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,45 +19,45 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAuth } from "@/hooks/use-auth"
-import { toast } from "sonner"
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 export function UserNav() {
-  const { user, loginWithGoogle, logout } = useAuth()
-  const { isAdminMode, toggleAdminMode } = useAdminMode()
-  const [isLoginOpen, setIsLoginOpen] = useState(false)
+  const { user, loginWithGoogle, logout } = useAuth();
+  const { isAdminMode, toggleAdminMode } = useAdminMode();
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
   const handleLoginGoogle = async () => {
-    const { error } = await loginWithGoogle()
+    const { error } = await loginWithGoogle();
     if (error) {
-      toast.error("Erro ao entrar com Google: " + error.message)
+      toast.error('Erro ao entrar com Google: ' + error.message);
     }
-  }
+  };
 
   const handleLogout = async () => {
-    const { error } = await logout()
+    const { error } = await logout();
     if (error) {
-      toast.error("Erro ao sair: " + error.message)
+      toast.error('Erro ao sair: ' + error.message);
     } else {
-      toast.success("Saiu com sucesso!")
+      toast.success('Saiu com sucesso!');
     }
-  }
+  };
 
   const handleEmailLoginPlaceholder = (e: React.FormEvent) => {
-    e.preventDefault()
-    toast.info("Login por e-mail será implementado em breve. Use o Google por enquanto!")
-  }
+    e.preventDefault();
+    toast.info('Login por e-mail será implementado em breve. Use o Google por enquanto!');
+  };
 
   if (!user) {
     return (
@@ -99,7 +99,12 @@ export function UserNav() {
               </div>
             </div>
 
-            <Button variant="outline" type="button" className="w-full py-6 gap-3 font-bold border-gray-300" onClick={handleLoginGoogle}>
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full py-6 gap-3 font-bold border-gray-300"
+              onClick={handleLoginGoogle}
+            >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -121,18 +126,24 @@ export function UserNav() {
               </svg>
               Entrar com Google
             </Button>
-            
+
             <div className="text-center text-sm text-muted-foreground">
-              Ainda não tem uma conta? <button className="text-primary font-bold hover:underline">Cadastre-se</button>
+              Ainda não tem uma conta?{' '}
+              <button className="text-primary font-bold hover:underline">Cadastre-se</button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
-    )
+    );
   }
 
-  const userName = user.user_metadata?.full_name || user.email || "Usuário"
-  const userInitials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2)
+  const userName = user.user_metadata?.full_name || user.email || 'Usuário';
+  const userInitials = userName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
 
   return (
     <DropdownMenu>
@@ -146,26 +157,33 @@ export function UserNav() {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-bold leading-none">{userName}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
+            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = "/perfil"}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={() => (window.location.href = '/perfil')}
+          >
             <UserIcon className="mr-2 h-4 w-4 text-primary" />
             <span className="font-semibold">Meu Perfil</span>
           </DropdownMenuItem>
-          {user.email === "matheusmorante002@gmail.com" && (
+          {user.email === 'matheusmorante002@gmail.com' && (
             <>
-              <DropdownMenuItem className="cursor-pointer text-primary font-bold focus:text-primary" onClick={() => window.location.href = "/admin"}>
+              <DropdownMenuItem
+                className="cursor-pointer text-primary font-bold focus:text-primary"
+                onClick={() => (window.location.href = '/admin')}
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Painel Admin</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer font-bold text-amber-600 focus:text-amber-600" onClick={toggleAdminMode}>
+              <DropdownMenuItem
+                className="cursor-pointer font-bold text-amber-600 focus:text-amber-600"
+                onClick={toggleAdminMode}
+              >
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                <span>{isAdminMode ? "Desativar Modo Edição" : "Ativar Modo Edição"}</span>
+                <span>{isAdminMode ? 'Desativar Modo Edição' : 'Ativar Modo Edição'}</span>
               </DropdownMenuItem>
             </>
           )}
@@ -175,11 +193,14 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={handleLogout}>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive cursor-pointer"
+          onClick={handleLogout}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sair</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

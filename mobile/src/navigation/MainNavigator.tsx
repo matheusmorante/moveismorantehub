@@ -29,7 +29,16 @@ interface MainNavigatorProps {
 }
 
 export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsDarkMode }) => {
-  const { userProfile, isAdmin, isAssemblerDriver, isSeller, canSeeReports, canSeeProducts, canSeeFinance, handleLogout } = useAuth();
+  const {
+    userProfile,
+    isAdmin,
+    isAssemblerDriver,
+    isSeller,
+    canSeeReports,
+    canSeeProducts,
+    canSeeFinance,
+    handleLogout,
+  } = useAuth();
   const { notifications, unreadCount, handleOpenNotificationsModal } = useAppNotifications();
 
   const [currentTab, setCurrentTab] = useState(() => {
@@ -60,19 +69,22 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     setCurrentTab(newTab);
   };
 
-  const headerTitle = currentTab === 'entregas' || currentTab === 'montagens'
-    ? 'Operações'
-    : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma'
-      ? 'Agenda'
-      : ({
-          agente: 'Assistente',
-          financeiro: 'Financeiro',
-          pedidos: 'Pedidos',
-          produtos: 'Produtos',
-          configuracoes: 'Configurações',
-          estoque: 'Estoque',
-          relatorios: 'Relatórios',
-        } as Record<string, string>)[currentTab] || 'Morante';
+  const headerTitle =
+    currentTab === 'entregas' || currentTab === 'montagens'
+      ? 'Operações'
+      : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma'
+        ? 'Agenda'
+        : (
+            {
+              agente: 'Assistente',
+              financeiro: 'Financeiro',
+              pedidos: 'Pedidos',
+              produtos: 'Produtos',
+              configuracoes: 'Configurações',
+              estoque: 'Estoque',
+              relatorios: 'Relatórios',
+            } as Record<string, string>
+          )[currentTab] || 'Morante';
 
   const handleSelectNotificationOrderWrapper = async (order: any) => {
     if (!order?.__notificationOrderReference) {
@@ -110,15 +122,23 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         unreadCount={unreadCount}
       />
       <OfflineSyncBar isDarkMode={isDarkMode} />
-      
+
       {currentTab === 'agente' ? (
         <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : currentTab === 'financeiro' && canSeeFinance ? (
         <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : currentTab === 'pedidos' ? (
-        <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+        <NativeOrdersScreen
+          isDarkMode={isDarkMode}
+          isAdmin={isAdmin}
+          onSelectOrder={setAppSelectedOrder}
+        />
       ) : currentTab === 'produtos' && canSeeProducts ? (
-        <NativeProductsScreen isDarkMode={isDarkMode} userProfile={userProfile} onLaunchStock={() => setCurrentTab('estoque')} />
+        <NativeProductsScreen
+          isDarkMode={isDarkMode}
+          userProfile={userProfile}
+          onLaunchStock={() => setCurrentTab('estoque')}
+        />
       ) : currentTab === 'entregas' ? (
         <DeliveriesHubScreen
           isDarkMode={isDarkMode}
@@ -127,7 +147,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
           initialTab={deliveriesSubTab}
           onSelectOrder={setAppSelectedOrder}
         />
-      ) : (currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma') ? (
+      ) : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma' ? (
         <NativeLogisticsScreen
           isDarkMode={isDarkMode}
           isAdmin={isAdmin}
@@ -139,15 +159,28 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
           }}
         />
       ) : currentTab === 'montagens' ? (
-        <NativeAssembliesScreen isDarkMode={isDarkMode} initialSubTab={assemblySubTab} onSelectOrder={setAppSelectedOrder} />
+        <NativeAssembliesScreen
+          isDarkMode={isDarkMode}
+          initialSubTab={assemblySubTab}
+          onSelectOrder={setAppSelectedOrder}
+        />
       ) : currentTab === 'configuracoes' ? (
-        <NativeSettingsScreen isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isAdmin={isAdmin} onBack={() => setCurrentTab('entregas')} />
+        <NativeSettingsScreen
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
+          isAdmin={isAdmin}
+          onBack={() => setCurrentTab('entregas')}
+        />
       ) : currentTab === 'estoque' ? (
         <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : canSeeReports ? (
         <NativeReportsScreen isDarkMode={isDarkMode} />
       ) : (
-        <NativeOrdersScreen isDarkMode={isDarkMode} isAdmin={isAdmin} onSelectOrder={setAppSelectedOrder} />
+        <NativeOrdersScreen
+          isDarkMode={isDarkMode}
+          isAdmin={isAdmin}
+          onSelectOrder={setAppSelectedOrder}
+        />
       )}
 
       {/* Navegação Inferior Nativa */}

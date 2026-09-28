@@ -97,7 +97,8 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
 
   it('1. Logo oficial sempre aparece com URL absoluta HTTPS verificável', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [logoModel],
       globalRules: 'Regras da Marca',
@@ -115,12 +116,14 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
 
   it('2. Logo NÃO aparece duplicado como referência sem necessidade', () => {
     const campaignSpec = buildCampaignSpec(defaultCampaign, [logoModel]);
-    const logoElement = campaignSpec.elements.find(e => e.elementType === 'LOGO');
+    const logoElement = campaignSpec.elements.find((e) => e.elementType === 'LOGO');
 
     expect(logoElement).toBeDefined();
     // Como referenceFiles tinha o mesmo arquivo que generatedAssetUrl, a referência duplicada foi filtrada
-    const officialAssetsInResources = logoElement?.resources.filter(r => r.role === 'OFFICIAL_ASSET');
-    const referenceInResources = logoElement?.resources.filter(r => r.role === 'REFERENCE');
+    const officialAssetsInResources = logoElement?.resources.filter(
+      (r) => r.role === 'OFFICIAL_ASSET'
+    );
+    const referenceInResources = logoElement?.resources.filter((r) => r.role === 'REFERENCE');
 
     expect(officialAssetsInResources?.length).toBe(1);
     expect(referenceInResources?.length).toBe(0);
@@ -128,7 +131,8 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
 
   it('3. Badge oficial aparece SOMENTE para oportunidade compatível com URL pública', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [logoModel, queimaBadgeModel],
       globalRules: 'Regras da Marca',
@@ -143,13 +147,16 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     expect(prompt).toContain('SELO OFICIAL');
     expect(prompt).toContain(OFFICIAL_QUEIMA_BADGE_URL);
     expect(prompt.split(OFFICIAL_QUEIMA_BADGE_URL)).toHaveLength(2);
-    const badgeElement = spec.campaign.elements.find(element => element.elementType === 'BADGE');
-    expect(badgeElement?.resources.some(resource => resource.url === OFFICIAL_QUEIMA_BADGE_URL)).toBe(false);
+    const badgeElement = spec.campaign.elements.find((element) => element.elementType === 'BADGE');
+    expect(
+      badgeElement?.resources.some((resource) => resource.url === OFFICIAL_QUEIMA_BADGE_URL)
+    ).toBe(false);
   });
 
   it('4. Produto sem oportunidade → badge totalmente ausente de assets e prompt', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [logoModel, queimaBadgeModel],
       globalRules: 'Regras da Marca',
@@ -160,7 +167,7 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     expect(spec.officialAssets?.badge).toBeNull();
 
     // Elemento BADGE também filtrado da campanha
-    expect(spec.campaign.elements.some(e => e.elementType === 'BADGE')).toBe(false);
+    expect(spec.campaign.elements.some((e) => e.elementType === 'BADGE')).toBe(false);
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).not.toContain('SELO OFICIAL');
@@ -171,14 +178,17 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
   it('5. URLs públicas oficiais são absolutas HTTPS sem prefixos relativos', () => {
     expect(normalizeOfficialAssetUrl('/images/logo-morante.png')).toBe(OFFICIAL_MORANTE_LOGO_URL);
     expect(normalizeOfficialAssetUrl('/images/logo-morante.svg')).toBe(OFFICIAL_MORANTE_LOGO_URL);
-    expect(normalizeOfficialAssetUrl('/assets/queima-salvados-original.png')).toBe(OFFICIAL_QUEIMA_BADGE_URL);
+    expect(normalizeOfficialAssetUrl('/assets/queima-salvados-original.png')).toBe(
+      OFFICIAL_QUEIMA_BADGE_URL
+    );
     expect(OFFICIAL_MORANTE_LOGO_URL).toBe('https://www.moveismorante.com.br/logo-morante.svg');
     expect(OFFICIAL_QUEIMA_BADGE_URL.startsWith('https://')).toBe(true);
   });
 
   it('6. Prompt contém as regras expressas de NÃO RECRIAR, NÃO REDESENHAR e PRESERVAÇÃO', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [logoModel, queimaBadgeModel],
       globalRules: 'Regras da Marca',
@@ -192,7 +202,9 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     expect(prompt).toContain('- redesenhar;');
     expect(prompt).toContain('- recriar;');
     expect(prompt).toContain('- alterar cores;');
-    expect(prompt).toContain('Se a IA/ferramenta utilizada não conseguir inserir o asset fielmente');
+    expect(prompt).toContain(
+      'Se a IA/ferramenta utilizada não conseguir inserir o asset fielmente'
+    );
   });
 
   it('7. Resolver de assets oficiais preserva regras mesmo sem modelo explícito de logo', () => {
@@ -211,7 +223,8 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
       opportunity: {
         id: 'opp-queima-id',
         name: 'Queima dos Salvados',
-        image_url: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/erp-list-badge-small.png', // Selo pequeno da tabela do ERP
+        image_url:
+          'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/erp-list-badge-small.png', // Selo pequeno da tabela do ERP
       },
     };
 
@@ -223,7 +236,8 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
       prompt: 'Posicione no topo direito',
       status: 'UPDATED',
       opportunityId: 'opp-queima-id',
-      generatedAssetUrl: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png',
+      generatedAssetUrl:
+        'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png',
     };
 
     const resolved = resolveOfficialAssets({
@@ -232,7 +246,9 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     });
 
     // Deve usar o do elemento da campanha e NUNCA o da lista do ERP
-    expect(resolved.badge?.url).toBe('https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png');
+    expect(resolved.badge?.url).toBe(
+      'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-hd.png'
+    );
     expect(resolved.badge?.url).not.toContain('erp-list-badge-small.png');
   });
 
@@ -257,12 +273,14 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     const modelWithAttachmentOnly: ElementModel = {
       ...queimaBadgeModel,
       generatedAssetUrl: null,
-      referenceFiles: [{
-        id: 'ref-fire-badge',
-        name: 'Selo Queima com Fogos',
-        fileUrl: attachmentUrl,
-        mimeType: 'image/png',
-      }],
+      referenceFiles: [
+        {
+          id: 'ref-fire-badge',
+          name: 'Selo Queima com Fogos',
+          fileUrl: attachmentUrl,
+          mimeType: 'image/png',
+        },
+      ],
     };
 
     const resolved = resolveOfficialAssets({
@@ -280,7 +298,8 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
       elementType: 'BADGE',
       opportunityId: 'opp-queima-id',
       prompt: 'Usar selo queima',
-      generatedAssetUrl: 'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png',
+      generatedAssetUrl:
+        'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png',
       status: 'UPDATED',
     };
 
@@ -291,7 +310,9 @@ describe('Assets Oficiais Móveis Morante & Selos de Oportunidade', () => {
     });
 
     expect(resolved.badge).not.toBeNull();
-    expect(resolved.badge?.url).toBe('https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png');
+    expect(resolved.badge?.url).toBe(
+      'https://hkoxhourxwlddgsfdgws.supabase.co/storage/v1/object/public/products/marketing/seals/campaign-badge-element.png'
+    );
     expect(resolved.badge?.opportunityName).toBe('Queima dos Salvados');
   });
 });

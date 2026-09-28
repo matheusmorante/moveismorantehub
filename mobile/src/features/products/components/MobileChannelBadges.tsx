@@ -63,11 +63,30 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
         ]}
       >
         <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
-          <Text style={[styles.bipartiteTagText, styles.erpTagText, dark && styles.darkErpTagText]}>ERP</Text>
+          <Text style={[styles.bipartiteTagText, styles.erpTagText, dark && styles.darkErpTagText]}>
+            ERP
+          </Text>
         </View>
-        <View style={[styles.bipartiteStatus, isActive && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg, dark && (isActive && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg)]}>
-          <View style={[styles.statusDot, { backgroundColor: isActive && !isDraft ? '#10b981' : '#94a3b8' }]} />
-          <Text style={[styles.bipartiteStatusText, { color: isActive && !isDraft ? '#047857' : '#64748b' }]}>
+        <View
+          style={[
+            styles.bipartiteStatus,
+            isActive && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg,
+            dark &&
+              (isActive && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+          ]}
+        >
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: isActive && !isDraft ? '#10b981' : '#94a3b8' },
+            ]}
+          />
+          <Text
+            style={[
+              styles.bipartiteStatusText,
+              { color: isActive && !isDraft ? '#047857' : '#64748b' },
+            ]}
+          >
             {isActive && !isDraft ? 'Ativo' : 'Desativado'}
           </Text>
         </View>
@@ -86,11 +105,32 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
           ]}
         >
           <View style={[styles.bipartiteTag, styles.catTag, dark && styles.darkCatTag]}>
-            <Text style={[styles.bipartiteTagText, styles.catTagText, dark && styles.darkCatTagText]}>Catálogo</Text>
+            <Text
+              style={[styles.bipartiteTagText, styles.catTagText, dark && styles.darkCatTagText]}
+            >
+              Catálogo
+            </Text>
           </View>
-          <View style={[styles.bipartiteStatus, isPublished && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg, dark && (isPublished && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg)]}>
-            <View style={[styles.statusDot, { backgroundColor: isPublished && !isDraft ? '#10b981' : '#94a3b8' }]} />
-            <Text style={[styles.bipartiteStatusText, { color: isPublished && !isDraft ? '#047857' : '#64748b' }]}>
+          <View
+            style={[
+              styles.bipartiteStatus,
+              isPublished && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg,
+              dark &&
+                (isPublished && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isPublished && !isDraft ? '#10b981' : '#94a3b8' },
+              ]}
+            />
+            <Text
+              style={[
+                styles.bipartiteStatusText,
+                { color: isPublished && !isDraft ? '#047857' : '#64748b' },
+              ]}
+            >
               {isPublished && !isDraft ? 'Publicado' : 'Oculto'}
             </Text>
           </View>

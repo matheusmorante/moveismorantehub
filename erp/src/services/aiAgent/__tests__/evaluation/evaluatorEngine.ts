@@ -3,7 +3,7 @@ import { AgentExecutionResult, ExecutedToolRecord } from '../../geminiAgentTypes
 
 /**
  * MOTOR DE AVALIAÇÃO DO AGENTE IA
- * 
+ *
  * Compara a saída real ou simulada do agente com os contratos do TestCase
  * e produz diagnósticos ricos de divergência (CASO, ESPERADO, RECEBIDO, DIFERENÇA).
  */
@@ -18,8 +18,7 @@ export class EvaluatorEngine {
     const toolArgs = executedTools.map((t) => t.args);
     const agentAnswer = executionResult.answer || '';
     const askedUser =
-      agentAnswer.includes('?') ||
-      /\b(qual|quanto|como|foi|deseja|confirma)\b/i.test(agentAnswer);
+      agentAnswer.includes('?') || /\b(qual|quanto|como|foi|deseja|confirma)\b/i.test(agentAnswer);
     const mutatedDatabase = calledTools.some((t) =>
       ['criarMovimentacaoFinanceira', 'cancelarOuExcluirMovimentacaoFinanceira'].includes(t)
     );
@@ -51,7 +50,10 @@ export class EvaluatorEngine {
     // 3. Verificação de Argumentos Esperados
     if (expected.expectedArgs) {
       // Localiza a chamada de criação ou a tool relevante
-      const creationArgs = toolArgs.find((a) => a.valor !== undefined || a.finalidade !== undefined) || toolArgs[0] || {};
+      const creationArgs =
+        toolArgs.find((a) => a.valor !== undefined || a.finalidade !== undefined) ||
+        toolArgs[0] ||
+        {};
       for (const [key, expectedVal] of Object.entries(expected.expectedArgs)) {
         if (expectedVal === undefined) {
           if (creationArgs[key] !== undefined) {
@@ -78,9 +80,14 @@ export class EvaluatorEngine {
 
     // 4. Verificação de Não-Alucinação / Campos que NÃO podem ser inferidos
     if (expected.prohibitedInferences) {
-      const creationArgs = toolArgs.find((a) => a.valor !== undefined || a.formaPagamento !== undefined) || {};
+      const creationArgs =
+        toolArgs.find((a) => a.valor !== undefined || a.formaPagamento !== undefined) || {};
       for (const field of expected.prohibitedInferences) {
-        if (creationArgs[field] !== undefined && creationArgs[field] !== null && creationArgs[field] !== '') {
+        if (
+          creationArgs[field] !== undefined &&
+          creationArgs[field] !== null &&
+          creationArgs[field] !== ''
+        ) {
           divergences.push(
             `ALUCINAÇÃO DETECTADA: O campo '${field}' foi inventado/inferido pelo agente (${JSON.stringify(creationArgs[field])}) sem que o usuário o informasse.`
           );

@@ -82,11 +82,18 @@ export const TransactionPreviewCard: React.FC<Props> = ({
   }
 
   const declaredTotal = intent.totalAmount || intent.amount || 0;
-  const installmentsSum = intent.installmentList?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
+  const installmentsSum =
+    intent.installmentList?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
   const difference = declaredTotal > 0 ? Math.abs(declaredTotal - installmentsSum) : 0;
 
-  const formattedTotal = declaredTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const formattedSum = installmentsSum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formattedTotal = declaredTotal.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+  const formattedSum = installmentsSum.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
   const formattedDiff = difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const mainTitle = intent.supplier
@@ -110,7 +117,13 @@ export const TransactionPreviewCard: React.FC<Props> = ({
   };
 
   return (
-    <View style={[styles.card, cardState === 'SAVED' && styles.savedCard, isDarkMode && styles.cardDark]}>
+    <View
+      style={[
+        styles.card,
+        cardState === 'SAVED' && styles.savedCard,
+        isDarkMode && styles.cardDark,
+      ]}
+    >
       {/* Cabeçalho do Card */}
       <CardHeaderSection
         cardState={cardState}
@@ -129,7 +142,9 @@ export const TransactionPreviewCard: React.FC<Props> = ({
       {/* Alerta de Erro */}
       {cardState === 'ERROR' && (
         <View style={styles.errorBox}>
-          <Text style={styles.errorBoxText}>Não foi possível registrar no ERP. Verifique a conexão e tente novamente.</Text>
+          <Text style={styles.errorBoxText}>
+            Não foi possível registrar no ERP. Verifique a conexão e tente novamente.
+          </Text>
         </View>
       )}
 
@@ -152,7 +167,11 @@ export const TransactionPreviewCard: React.FC<Props> = ({
         />
       ) : (
         <View style={[styles.gridBox, isDarkMode && styles.gridBoxDark]}>
-          <CardTotalBlock formattedTotal={formattedTotal} isIncome={isIncome} isDarkMode={isDarkMode} />
+          <CardTotalBlock
+            formattedTotal={formattedTotal}
+            isIncome={isIncome}
+            isDarkMode={isDarkMode}
+          />
 
           {installmentItems.length > 0 ? (
             <CardInstallmentList
@@ -171,8 +190,19 @@ export const TransactionPreviewCard: React.FC<Props> = ({
 
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>{isIncome ? 'Recebimento' : 'Pagamento'}</Text>
-            <Text style={[styles.fieldValue, isDarkMode && styles.textDark, (!intent.paymentMethod || intent.paymentMethod === 'UNKNOWN') && { color: '#94a3b8', fontStyle: 'italic' }]}>
-              {intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : 'Não informada'}
+            <Text
+              style={[
+                styles.fieldValue,
+                isDarkMode && styles.textDark,
+                (!intent.paymentMethod || intent.paymentMethod === 'UNKNOWN') && {
+                  color: '#94a3b8',
+                  fontStyle: 'italic',
+                },
+              ]}
+            >
+              {intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN'
+                ? intent.paymentMethod
+                : 'Não informada'}
             </Text>
           </View>
 
@@ -187,7 +217,8 @@ export const TransactionPreviewCard: React.FC<Props> = ({
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Finalidade</Text>
               <Text style={[styles.fieldValue, isDarkMode && styles.textDark]}>
-                {intent.businessPurpose === 'PERSONAL' || intent.businessPurpose === 'PERSONAL_PARTNER'
+                {intent.businessPurpose === 'PERSONAL' ||
+                intent.businessPurpose === 'PERSONAL_PARTNER'
                   ? '👤 Uso Particular'
                   : '🏢 Operação da Empresa'}
               </Text>

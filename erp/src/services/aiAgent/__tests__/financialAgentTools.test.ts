@@ -95,8 +95,20 @@ describe('financialAgentTools - Handlers das Ferramentas Financeiras', () => {
 
   it('deve buscar e filtrar movimentações por termo e tipo', async () => {
     (financeService.getTransactions as any).mockResolvedValueOnce([
-      { id: '1', type: 'expense', amount: 230, description: 'Posto Shell Gasolina Fiorino', payment_method: 'Pix' },
-      { id: '2', type: 'income', amount: 1500, description: 'Venda Sofá Retrátil', payment_method: 'Cartão de Crédito' },
+      {
+        id: '1',
+        type: 'expense',
+        amount: 230,
+        description: 'Posto Shell Gasolina Fiorino',
+        payment_method: 'Pix',
+      },
+      {
+        id: '2',
+        type: 'income',
+        amount: 1500,
+        description: 'Venda Sofá Retrátil',
+        payment_method: 'Cartão de Crédito',
+      },
     ]);
 
     const result = await financialAgentTools.buscarMovimentacoesFinanceiras({

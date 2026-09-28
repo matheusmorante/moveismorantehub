@@ -29,7 +29,7 @@ function escapeMarkdownCell(value: string): string {
 
 export function renderBenefitsPromptSection(
   benefits: PostBenefitSpec[],
-  options: PromptRenderOptions = {},
+  options: PromptRenderOptions = {}
 ): string {
   if (benefits.length === 0) {
     return `${SEPARATOR}
@@ -41,10 +41,11 @@ Quantidade exata: 0
 OMITA integralmente o rodapé de benefícios. Não crie benefícios, ícones, selos, textos, espaços reservados ou itens de preenchimento.`;
   }
 
-  const rows = benefits.map((benefit, index) =>
-    `| ${index + 1} | ${escapeMarkdownCell(benefit.id)} | ${escapeMarkdownCell(benefit.title)} | ${escapeMarkdownCell(benefit.subtitle ?? '')} | ${escapeMarkdownCell(benefit.source)} |`,
+  const rows = benefits.map(
+    (benefit, index) =>
+      `| ${index + 1} | ${escapeMarkdownCell(benefit.id)} | ${escapeMarkdownCell(benefit.title)} | ${escapeMarkdownCell(benefit.subtitle ?? '')} | ${escapeMarkdownCell(benefit.source)} |`
   );
-  const sources = [...new Set(benefits.map(benefit => benefit.source))].join(', ');
+  const sources = [...new Set(benefits.map((benefit) => benefit.source))].join(', ');
 
   const footerRefVisual = options.localFilesOnly
     ? 'Guia de estilo do rodapé: faixa contínua azul marinho com ícones amarelos, textos em branco e logotipo da loja à direita.'
@@ -80,11 +81,12 @@ LIBERDADE VISUAL LIMITADA:
 }
 
 function renderProductFactsSection(
-  spec: PostCreationSpecification | PostShareSpecification,
+  spec: PostCreationSpecification | PostShareSpecification
 ): string {
   const fields = spec.productLiteralFields ?? [];
-  const rows = fields.map((field, index) =>
-    `| ${index + 1} | ${escapeMarkdownCell(field.id)} | ${escapeMarkdownCell(field.label)} | ${escapeMarkdownCell(field.value)} | ${escapeMarkdownCell(field.source)} |`,
+  const rows = fields.map(
+    (field, index) =>
+      `| ${index + 1} | ${escapeMarkdownCell(field.id)} | ${escapeMarkdownCell(field.label)} | ${escapeMarkdownCell(field.value)} | ${escapeMarkdownCell(field.source)} |`
   );
   const fallbackTable = rows.length
     ? `| Ordem | ID estável | Campo | Valor literal | Fonte ERP |\n| ---: | --- | --- | --- | --- |\n${rows.join('\n')}`
@@ -115,23 +117,24 @@ function renderResources(resources: PostFileResource[], options: PromptRenderOpt
   if (!resources.length) return '';
 
   return resources
-    .filter(resource => !options.localFilesOnly || Boolean(resource.file))
-    .map(resource => {
+    .filter((resource) => !options.localFilesOnly || Boolean(resource.file))
+    .map((resource) => {
       const tag = resource.role === 'OFFICIAL_ASSET' ? '[ASSET OFICIAL]' : '[REFERÊNCIA VISUAL]';
-      const reference = resource.file
-        ? `Arquivo: \`${resource.file}\``
-        : `URL: ${resource.url}`;
+      const reference = resource.file ? `Arquivo: \`${resource.file}\`` : `URL: ${resource.url}`;
       return `${tag} ${resource.name}\n  ${reference}${resource.description ? `\n  Descrição: ${resource.description}` : ''}`;
     })
     .join('\n');
 }
 
-function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRenderOptions = {}): string {
+function renderCampaignSection(
+  campaign: PostCampaignSpec,
+  options: PromptRenderOptions = {}
+): string {
   const lines: string[] = [SEPARATOR, `CAMPANHA: ${campaign.name}`, SEPARATOR];
   if (campaign.description) lines.push(`Descrição: ${campaign.description}`);
   if (campaign.instructions) lines.push(`\nInstruções gerais:\n${campaign.instructions}`);
   const hasVariations = Boolean(
-    campaign.elements.some(e => e.elementType === 'VARIATION_GALLERY'),
+    campaign.elements.some((e) => e.elementType === 'VARIATION_GALLERY')
   );
 
   for (const element of campaign.elements) {
@@ -141,7 +144,9 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
         ? '5. Inferior direito com a galeria de outras cores (exclusivamente as variações adicionais fornecidas); '
         : '5. Inferior direito: produto de cor única/sem fotos de outras variações, portanto OMITA integralmente a galeria de cores (NÃO crie miniaturas nem o título "DISPONÍVEL NAS CORES"); ';
 
-      lines.push('--- ELEMENTO: POST_REFERENCE (POST DE EXEMPLO / REFERÊNCIA VISUAL DE SUCESSO) ---');
+      lines.push(
+        '--- ELEMENTO: POST_REFERENCE (POST DE EXEMPLO / REFERÊNCIA VISUAL DE SUCESSO) ---'
+      );
       lines.push(
         'INSTRUÇÃO OBRIGATÓRIA DE COMPOSIÇÃO: O arquivo de referência anexado representa a estrutura e o padrão visual oficial aprovado da Móveis Morante. ' +
           'Siga estritamente as mesmas posições, proporções e formato dos containers da imagem de exemplo: ' +
@@ -151,7 +156,7 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
           '4. Inferior esquerdo com o container de preço em degradê azul marinho e borda dourada destacada; ' +
           galleryInstruction +
           '6. Quando a lista estruturada de benefícios não estiver vazia, use rodapé em faixa azul contínua na base, com o logo oficial à direita e EXCLUSIVAMENTE os benefícios literais daquela lista à esquerda/centro. ' +
-          'A referência visual define somente composição; nunca copie dela textos, selos ou benefícios.',
+          'A referência visual define somente composição; nunca copie dela textos, selos ou benefícios.'
       );
     } else if (element.elementType === 'INSTALLMENT') {
       lines.push('--- ELEMENTO: INSTALLMENT (PRECIFICAÇÃO E PARCELAMENTO) ---');
@@ -163,7 +168,7 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
           '- Linha 3 (Protagonista): "R$ [PREÇO ATUAL]" com algarismos grandes e grossos em amarelo solar/dourado vibrante (#FFC107).\n' +
           '- Linha divisória: Traço horizontal fino e discreto em branco/cinza separando o preço do parcelamento.\n' +
           '- Linha 4 (Condições): Ícone de cartão de crédito à esquerda em traço branco + texto "EM ATÉ 10X SEM JUROS" em amarelo/branco e abaixo "NAS BANDEIRAS VISA, MASTER, ELO E HIPER" em branco nítido.\n' +
-          'IMPORTANTE: Os valores numéricos de preço e parcelamento devem ser extraídos fielmente da tabela oficial de DADOS DO PRODUTO (nunca inventados ou copiados da imagem de exemplo).',
+          'IMPORTANTE: Os valores numéricos de preço e parcelamento devem ser extraídos fielmente da tabela oficial de DADOS DO PRODUTO (nunca inventados ou copiados da imagem de exemplo).'
       );
     } else {
       lines.push(`--- ELEMENTO: ${element.elementType} ---`);
@@ -180,7 +185,7 @@ function renderCampaignSection(campaign: PostCampaignSpec, options: PromptRender
 function appendSharedPromptSections(
   lines: string[],
   spec: PostCreationSpecification | PostShareSpecification,
-  options: PromptRenderOptions = {},
+  options: PromptRenderOptions = {}
 ): void {
   lines.push(renderProductFactsSection(spec), '');
   if (spec.productImages) {
@@ -197,34 +202,66 @@ function appendFormatAndFinalRules(
   lines: string[],
   spec: PostCreationSpecification | PostShareSpecification,
   includeGalleryRules: boolean,
-  options: PromptRenderOptions = {},
+  options: PromptRenderOptions = {}
 ): void {
-  const hasRealVariations = Boolean(spec.productImages?.variations && spec.productImages.variations.length > 0);
+  const hasRealVariations = Boolean(
+    spec.productImages?.variations && spec.productImages.variations.length > 0
+  );
 
   lines.push(SEPARATOR, 'FORMATOS', SEPARATOR);
-  lines.push(...spec.formats.map(format => `${format.name.toUpperCase()}\n${format.aspectRatio}\n${format.referenceSize}\n`));
+  lines.push(
+    ...spec.formats.map(
+      (format) => `${format.name.toUpperCase()}\n${format.aspectRatio}\n${format.referenceSize}\n`
+    )
+  );
   lines.push(DIRECT_WORKFLOW_FORMAT_INSTRUCTION, '', SEPARATOR, 'REGRAS FINAIS', SEPARATOR);
   lines.push('- Preserve fielmente o produto e sua variação;');
-  lines.push('- As fotos oficiais fornecidas em IMAGENS OFICIAIS DO PRODUTO são a fonte visual de verdade;');
-  lines.push(options.localFilesOnly
-    ? '- Use somente os dados comerciais estruturados neste prompt e o conteúdo visual dos arquivos anexados;'
-    : '- Use somente fatos verificáveis na página do produto;');
+  lines.push(
+    '- As fotos oficiais fornecidas em IMAGENS OFICIAIS DO PRODUTO são a fonte visual de verdade;'
+  );
+  lines.push(
+    options.localFilesOnly
+      ? '- Use somente os dados comerciais estruturados neste prompt e o conteúdo visual dos arquivos anexados;'
+      : '- Use somente fatos verificáveis na página do produto;'
+  );
   lines.push('- Não invente preço, desconto, parcelamento, oportunidade ou características;');
   lines.push('- Referências visuais definem direção visual — não copie literalmente;');
-  lines.push('- Assets oficiais (logo, selos) são arquivos gráficos prontos: NUNCA redesenhe, recrie ou estilize;');
-  lines.push('- Se a IA não puder inserir o asset fielmente, deixe o espaço reservado em vez de inventar uma marca;');
-  lines.push('- Direção de arte profissional ao redor do móvel: crie ambientação comercial elegante, iluminação publicitária com sombras reais e bloco de preço destacado;');
-  lines.push('- Proibição de esfumaçado ou halo luminoso: É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow ou halo ao redor ou atrás do produto. A integração com o cenário deve ser limpa e realista unicamente via sombras de contato no piso;');
-  lines.push('- Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte (rica, sofisticada e profissional, sem aspecto de catálogo simplista ou fundo chapado);');
+  lines.push(
+    '- Assets oficiais (logo, selos) são arquivos gráficos prontos: NUNCA redesenhe, recrie ou estilize;'
+  );
+  lines.push(
+    '- Se a IA não puder inserir o asset fielmente, deixe o espaço reservado em vez de inventar uma marca;'
+  );
+  lines.push(
+    '- Direção de arte profissional ao redor do móvel: crie ambientação comercial elegante, iluminação publicitária com sombras reais e bloco de preço destacado;'
+  );
+  lines.push(
+    '- Proibição de esfumaçado ou halo luminoso: É TERMINANTEMENTE PROIBIDO criar esfumaçado branco, névoa, glow ou halo ao redor ou atrás do produto. A integração com o cenário deve ser limpa e realista unicamente via sombras de contato no piso;'
+  );
+  lines.push(
+    '- Separar conceitos: Fidelidade do Produto (estritamente fiel às fotos reais) vs. Direção de Arte (rica, sofisticada e profissional, sem aspecto de catálogo simplista ou fundo chapado);'
+  );
   if (includeGalleryRules && hasRealVariations) {
-    lines.push('- Galeria secundária de cores: apresente EXCLUSIVAMENTE as DEMAIS variações/cores listadas, NUNCA duplicando a Variação 1 (a cor principal já é o móvel em destaque no post);');
-    lines.push('- Borda branca: aplique SOMENTE nas imagens das variações adicionais; a imagem principal e a imagem secundária da Variação 1 ficam sem borda;');
+    lines.push(
+      '- Galeria secundária de cores: apresente EXCLUSIVAMENTE as DEMAIS variações/cores listadas, NUNCA duplicando a Variação 1 (a cor principal já é o móvel em destaque no post);'
+    );
+    lines.push(
+      '- Borda branca: aplique SOMENTE nas imagens das variações adicionais; a imagem principal e a imagem secundária da Variação 1 ficam sem borda;'
+    );
   } else {
-    lines.push('- PRODUTO DE COR ÚNICA (SEM OUTRAS CORES): O produto fornecido NÃO possui outras cores com fotos disponíveis. É TERMINANTEMENTE PROIBIDO criar galeria de cores, miniaturas extras, inventar Variação 2 ou 3 ou escrever "DISPONÍVEL NAS CORES". O post deve conter exclusivamente o produto principal (e a secundária, se enviada);');
+    lines.push(
+      '- PRODUTO DE COR ÚNICA (SEM OUTRAS CORES): O produto fornecido NÃO possui outras cores com fotos disponíveis. É TERMINANTEMENTE PROIBIDO criar galeria de cores, miniaturas extras, inventar Variação 2 ou 3 ou escrever "DISPONÍVEL NAS CORES". O post deve conter exclusivamente o produto principal (e a secundária, se enviada);'
+    );
   }
-  lines.push('- Slogans e rótulos proibidos: NUNCA invente slogans da empresa/loja (a logo da Móveis Morante já carrega a identidade oficial) nem insira slogans no canto inferior direito. NUNCA insira rótulos ou tags na imagem secundária como "material de qualidade", "amplo espaço interno" ou "design moderno";');
-  lines.push('- Slogans autorizados: permitidos apenas 2 destaques do produto (um abaixo do título do produto e outro ao lado do móvel em estilo caligráfico com traçado amarelo);');
-  lines.push('- Proibição de elementos extras: NUNCA adicione caixas, selos, textos ou elementos gráficos adicionais que não tenham sido solicitados;');
+  lines.push(
+    '- Slogans e rótulos proibidos: NUNCA invente slogans da empresa/loja (a logo da Móveis Morante já carrega a identidade oficial) nem insira slogans no canto inferior direito. NUNCA insira rótulos ou tags na imagem secundária como "material de qualidade", "amplo espaço interno" ou "design moderno";'
+  );
+  lines.push(
+    '- Slogans autorizados: permitidos apenas 2 destaques do produto (um abaixo do título do produto e outro ao lado do móvel em estilo caligráfico com traçado amarelo);'
+  );
+  lines.push(
+    '- Proibição de elementos extras: NUNCA adicione caixas, selos, textos ou elementos gráficos adicionais que não tenham sido solicitados;'
+  );
   lines.push('- Respeite o formato solicitado (aspecto e dimensões);');
   lines.push('- Componha todos os elementos como uma única peça coerente;');
   lines.push('- Não trate cada elemento como arte independente.', '');
@@ -235,7 +272,7 @@ function appendFormatAndFinalRules(
 /** Renderiza uma especificação de campanha única como texto para o Prompt Preview. */
 export function renderSpecificationAsPrompt(
   spec: PostCreationSpecification,
-  options: PromptRenderOptions = {},
+  options: PromptRenderOptions = {}
 ): string {
   const lines: string[] = [
     SEPARATOR,
@@ -268,7 +305,7 @@ export function renderShareSpecificationAsPrompt(spec: PostShareSpecification): 
     '',
   ];
   appendSharedPromptSections(lines, spec);
-  lines.push(...spec.campaigns.map(campaign => renderCampaignSection(campaign)), '');
+  lines.push(...spec.campaigns.map((campaign) => renderCampaignSection(campaign)), '');
   appendFormatAndFinalRules(lines, spec, false);
   return lines.join('\n');
 }

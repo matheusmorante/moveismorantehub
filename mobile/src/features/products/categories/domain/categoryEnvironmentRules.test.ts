@@ -36,11 +36,11 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
 
       const comAmbiente = filterCategories(mockCategories, 'com_ambiente', '');
       expect(comAmbiente).toHaveLength(2);
-      expect(comAmbiente.map(c => c.name)).toEqual(['SOFÁ', 'MESA DE JANTAR']);
+      expect(comAmbiente.map((c) => c.name)).toEqual(['SOFÁ', 'MESA DE JANTAR']);
 
       const semAmbiente = filterCategories(mockCategories, 'sem_ambiente', '');
       expect(semAmbiente).toHaveLength(2);
-      expect(semAmbiente.map(c => c.name)).toEqual(['POLTRONA ÓRFÃ', 'RACK TV']);
+      expect(semAmbiente.map((c) => c.name)).toEqual(['POLTRONA ÓRFÃ', 'RACK TV']);
     });
 
     it('aplica busca textual por nome de categoria (case-insensitive com trim)', () => {
@@ -64,7 +64,7 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
     it('calcula categorias órfãs corretamente', () => {
       const orfas = getOrphanCategories(mockCategories);
       expect(orfas).toHaveLength(2);
-      expect(orfas.map(c => c.id)).toEqual(['cat-3', 'cat-4']);
+      expect(orfas.map((c) => c.id)).toEqual(['cat-3', 'cat-4']);
     });
   });
 
@@ -80,7 +80,12 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
     });
 
     it('formata o nome para maiúsculas (UPPERCASE) e remove espaços nas pontas', () => {
-      const res = validateNodeName('  guarda roupa planejado  ', mockCategories, undefined, 'Categoria');
+      const res = validateNodeName(
+        '  guarda roupa planejado  ',
+        mockCategories,
+        undefined,
+        'Categoria'
+      );
       expect(res.valid).toBe(true);
       expect(res.formattedName).toBe('GUARDA ROUPA PLANEJADO');
     });
@@ -159,7 +164,7 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
       // Adiciona nova característica
       selecionados = toggleCategoryAttribute(selecionados, attrTecido);
       expect(selecionados).toHaveLength(2);
-      expect(selecionados.map(a => a.name)).toEqual(['COR', 'TECIDO']);
+      expect(selecionados.map((a) => a.name)).toEqual(['COR', 'TECIDO']);
 
       // Remove característica ao marcar novamente
       selecionados = toggleCategoryAttribute(selecionados, attrCor);

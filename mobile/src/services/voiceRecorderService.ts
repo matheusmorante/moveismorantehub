@@ -1,4 +1,9 @@
-import { AudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
+import {
+  AudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 
 export interface VoiceRecorderCallbacks {
   onSpeechResult: (transcript: string) => void;
@@ -21,14 +26,20 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
   const SpeechRecognitionClass = windowObj?.SpeechRecognition || windowObj?.webkitSpeechRecognition;
 
   // 1. Solicitar permissão nativa de mídia na Web / WebView via getUserMedia (garante o pop-up de permissão no navegador)
-  if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.mediaDevices &&
+    navigator.mediaDevices.getUserMedia
+  ) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       activeMediaStream = stream;
     } catch (err: any) {
       console.warn('[VoiceRecorder] getUserMedia negado ou não suportado:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        callbacks.onError?.('Permissão de microfone negada. Clique no ícone de cadeado/permissão na barra de endereços do navegador para permitir o acesso.');
+        callbacks.onError?.(
+          'Permissão de microfone negada. Clique no ícone de cadeado/permissão na barra de endereços do navegador para permitir o acesso.'
+        );
         return false;
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         callbacks.onError?.('Nenhum microfone foi encontrado no seu dispositivo.');

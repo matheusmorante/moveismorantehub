@@ -57,7 +57,7 @@ const TOLERANCE = 0.03;
  * Retorna o formato detectado ou null se não corresponder aos formatos oficiais.
  */
 export async function validateImageRatio(file: File): Promise<ImageRatioValidation> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
 

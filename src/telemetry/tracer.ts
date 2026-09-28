@@ -16,20 +16,27 @@ export function sanitizeTelemetryValue(val: unknown): unknown {
     return val;
   }
 
-  return val
-    // Bearer tokens / JWT
-    .replace(/Bearer\s+[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/gi, 'Bearer [REDACTED]')
-    // Email
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@domain.redacted')
-    // CPF (formatted or plain 11 digits)
-    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '***.***.***-**')
-    // CNPJ
-    .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '**.***.***/****-**')
-    // Phone numbers (BR)
-    .replace(/\(?\b\d{2}\)?\s*9?\d{4}-?\d{4}\b/g, '(**) *****-****');
+  return (
+    val
+      // Bearer tokens / JWT
+      .replace(
+        /Bearer\s+[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/gi,
+        'Bearer [REDACTED]'
+      )
+      // Email
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@domain.redacted')
+      // CPF (formatted or plain 11 digits)
+      .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '***.***.***-**')
+      // CNPJ
+      .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '**.***.***/****-**')
+      // Phone numbers (BR)
+      .replace(/\(?\b\d{2}\)?\s*9?\d{4}-?\d{4}\b/g, '(**) *****-****')
+  );
 }
 
-export function sanitizeAttributes(attrs: TelemetrySpanAttributes): Record<string, string | number | boolean> {
+export function sanitizeAttributes(
+  attrs: TelemetrySpanAttributes
+): Record<string, string | number | boolean> {
   const sanitized: Record<string, string | number | boolean> = {};
   for (const [key, val] of Object.entries(attrs)) {
     if (val === undefined || val === null) continue;
@@ -167,32 +174,30 @@ export async function withSpan<T>(
  */
 export const DomainSpans = {
   Stock: {
-    createUnavailability: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
+    createUnavailability:
+      (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
         withSpan('stock.unavailability.create', fn, { module: 'Stock', ...attributes }),
-    undoUnavailability: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
+    undoUnavailability:
+      (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
         withSpan('stock.unavailability.undo', fn, { module: 'Stock', ...attributes }),
   },
   SalesOrder: {
-    createOrder: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
+    createOrder:
+      (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
         withSpan('sales.order.create', fn, { module: 'SalesOrder', ...attributes }),
-    updateStatus: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
+    updateStatus:
+      (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
         withSpan('sales.order.update_status', fn, { module: 'SalesOrder', ...attributes }),
   },
   Fiscal: {
-    emitNfe: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
-        withSpan('fiscal.nfe.emit', fn, { module: 'Fiscal', ...attributes }),
-    syncDistDfe: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
+    emitNfe: (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
+      withSpan('fiscal.nfe.emit', fn, { module: 'Fiscal', ...attributes }),
+    syncDistDfe:
+      (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
         withSpan('fiscal.dfe.dist', fn, { module: 'Fiscal', ...attributes }),
   },
   Auth: {
-    login: (attributes?: TelemetrySpanAttributes) =>
-      (fn: (span: Span) => Promise<any> | any) =>
-        withSpan('auth.user.login', fn, { module: 'Auth', ...attributes }),
+    login: (attributes?: TelemetrySpanAttributes) => (fn: (span: Span) => Promise<any> | any) =>
+      withSpan('auth.user.login', fn, { module: 'Auth', ...attributes }),
   },
 };

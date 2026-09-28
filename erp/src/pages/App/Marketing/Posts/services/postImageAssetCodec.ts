@@ -22,29 +22,42 @@ const ascii = (bytes: Uint8Array, start: number, length: number): string =>
   String.fromCharCode(...bytes.slice(start, start + length));
 
 function hasPngStructure(bytes: Uint8Array): boolean {
-  if (bytes.length < 45 || !startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return false;
+  if (bytes.length < 45 || !startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    return false;
   if (ascii(bytes, 12, 4) !== 'IHDR') return false;
   return ascii(bytes, bytes.length - 8, 4) === 'IEND';
 }
 
 function hasJpegStructure(bytes: Uint8Array): boolean {
-  return bytes.length >= 4 && startsWith(bytes, [0xff, 0xd8, 0xff]) && startsWith(bytes, [0xff, 0xd9], bytes.length - 2);
+  return (
+    bytes.length >= 4 &&
+    startsWith(bytes, [0xff, 0xd8, 0xff]) &&
+    startsWith(bytes, [0xff, 0xd9], bytes.length - 2)
+  );
 }
 
 function hasWebpStructure(bytes: Uint8Array): boolean {
-  if (bytes.length < 16 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 4) !== 'WEBP') return false;
+  if (bytes.length < 16 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 4) !== 'WEBP')
+    return false;
   const declaredSize = new DataView(bytes.buffer, bytes.byteOffset + 4, 4).getUint32(0, true) + 8;
   return declaredSize <= bytes.length;
 }
 
 function hasGifStructure(bytes: Uint8Array): boolean {
   const header = ascii(bytes, 0, 6);
-  return bytes.length >= 14 && (header === 'GIF87a' || header === 'GIF89a') && bytes[bytes.length - 1] === 0x3b;
+  return (
+    bytes.length >= 14 &&
+    (header === 'GIF87a' || header === 'GIF89a') &&
+    bytes[bytes.length - 1] === 0x3b
+  );
 }
 
 function hasSvgStructure(bytes: Uint8Array, contentType: string): boolean {
   if (!contentType.toLowerCase().includes('svg') && bytes.length > 2_000_000) return false;
-  const sample = new TextDecoder().decode(bytes.slice(0, Math.min(bytes.length, 4096))).replace(/^\uFEFF/, '').trimStart();
+  const sample = new TextDecoder()
+    .decode(bytes.slice(0, Math.min(bytes.length, 4096)))
+    .replace(/^\uFEFF/, '')
+    .trimStart();
   return /^(?:<\?xml[^>]*>\s*)?<svg[\s>]/i.test(sample);
 }
 
@@ -54,7 +67,10 @@ function hasAvifStructure(bytes: Uint8Array): boolean {
   return /avif|avis/.test(brands);
 }
 
-export function validateImageBytes(buffer: ArrayBuffer, contentType = ''): ValidatedImageAsset | null {
+export function validateImageBytes(
+  buffer: ArrayBuffer,
+  contentType = ''
+): ValidatedImageAsset | null {
   const bytes = new Uint8Array(buffer);
   let extension: SupportedImageExtension | null = null;
 
@@ -70,10 +86,15 @@ export function validateImageBytes(buffer: ArrayBuffer, contentType = ''): Valid
 
 function decodeBase64(value: string): ArrayBuffer | null {
   const normalized = value.replace(/\s+/g, '');
-  if (normalized.length < 16 || normalized.length % 4 === 1 || !/^[a-z0-9+/]*={0,2}$/i.test(normalized)) return null;
+  if (
+    normalized.length < 16 ||
+    normalized.length % 4 === 1 ||
+    !/^[a-z0-9+/]*={0,2}$/i.test(normalized)
+  )
+    return null;
   try {
     const decoded = atob(normalized);
-    return Uint8Array.from(decoded, character => character.charCodeAt(0)).buffer;
+    return Uint8Array.from(decoded, (character) => character.charCodeAt(0)).buffer;
   } catch {
     return null;
   }
@@ -103,13 +124,13 @@ function decodePercentEncoded(value: string): ArrayBuffer | null {
   return Uint8Array.from(bytes).buffer;
 }
 
-export function decodeInlineImageSource(source: string): { buffer: ArrayBuffer; contentType: string } | null {
+export function decodeInlineImageSource(
+  source: string
+): { buffer: ArrayBuffer; contentType: string } | null {
   const dataMatch = source.match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/i);
   if (dataMatch) {
     const contentType = dataMatch[1] || '';
-    const buffer = dataMatch[2]
-      ? decodeBase64(dataMatch[3])
-      : decodePercentEncoded(dataMatch[3]);
+    const buffer = dataMatch[2] ? decodeBase64(dataMatch[3]) : decodePercentEncoded(dataMatch[3]);
     return buffer ? { buffer, contentType } : null;
   }
 

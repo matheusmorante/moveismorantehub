@@ -34,7 +34,11 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   onSelectOrder,
 }) => {
   const oData = o.order_data || {};
-  const customerName = (oData.customerData?.fullName || o.customer_name || 'Consumidor').toUpperCase();
+  const customerName = (
+    oData.customerData?.fullName ||
+    o.customer_name ||
+    'Consumidor'
+  ).toUpperCase();
   const shipping = oData.shipping || {};
   const fullAddress = formatFullAddress(shipping, oData.customerData);
   const sched = shipping.scheduling || oData.schedule || {};
@@ -46,7 +50,8 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   const deliveryMethod = (shipping.deliveryMethod || oData.deliveryMethod || '').toLowerCase();
 
   const isAssistance = orderType === 'assistance' || taskType === 'assistance';
-  const isPickup = deliveryMethod === 'pickup' || deliveryMethod === 'retirada' || taskType === 'pickup';
+  const isPickup =
+    deliveryMethod === 'pickup' || deliveryMethod === 'retirada' || taskType === 'pickup';
 
   const orderHandling = (
     oData.handlingType ||
@@ -58,11 +63,20 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
     ''
   ).toString();
 
-  const hasOutsideAssembly = isAssemblyOutsideType(orderHandling, handlingOptions) || items.some((i: any) => isAssemblyOutsideType((i.handlingType || i.handling || '').toString(), handlingOptions));
-  const hasInternalAssembly = isAssemblyInternalType(orderHandling, handlingOptions) || items.some((i: any) => isAssemblyInternalType((i.handlingType || i.handling || '').toString(), handlingOptions));
+  const hasOutsideAssembly =
+    isAssemblyOutsideType(orderHandling, handlingOptions) ||
+    items.some((i: any) =>
+      isAssemblyOutsideType((i.handlingType || i.handling || '').toString(), handlingOptions)
+    );
+  const hasInternalAssembly =
+    isAssemblyInternalType(orderHandling, handlingOptions) ||
+    items.some((i: any) =>
+      isAssemblyInternalType((i.handlingType || i.handling || '').toString(), handlingOptions)
+    );
 
   const distanceKm = shipping.distance != null ? Number(shipping.distance).toFixed(1) : null;
-  const durationMin = shipping.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
+  const durationMin =
+    shipping.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
 
   let cardBorderColor = '#10b981';
   if (isAssistance) cardBorderColor = '#f59e0b';
@@ -72,20 +86,22 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
     <TouchableOpacity
       key={o.id}
       onPress={() => onSelectOrder && onSelectOrder(o)}
-      style={[
-        styles.card,
-        { borderColor: cardBorderColor },
-        isDarkMode && styles.cardDark
-      ]}
+      style={[styles.card, { borderColor: cardBorderColor }, isDarkMode && styles.cardDark]}
       activeOpacity={0.85}
     >
       {/* Top Badges Row */}
       <View style={styles.cardHeaderTop}>
         <View style={styles.cardHeaderBadges}>
-          <View style={[
-            styles.handlingBadge,
-            isAssistance ? styles.badgeAssistance : (isPickup ? styles.badgePickup : styles.badgeDelivery)
-          ]}>
+          <View
+            style={[
+              styles.handlingBadge,
+              isAssistance
+                ? styles.badgeAssistance
+                : isPickup
+                  ? styles.badgePickup
+                  : styles.badgeDelivery,
+            ]}
+          >
             {isAssistance ? (
               <Wrench size={12} color="#ffffff" />
             ) : isPickup ? (
@@ -94,7 +110,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
               <Truck size={12} color="#ffffff" />
             )}
             <Text style={styles.handlingBadgeText}>
-              {isAssistance ? 'ASSISTÊNCIA' : (isPickup ? 'RETIRADA' : 'ENTREGA')}
+              {isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}
             </Text>
           </View>
 
@@ -135,17 +151,21 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       </View>
 
       {/* Distance & Time Box */}
-      {(distanceKm || durationMin) ? (
+      {distanceKm || durationMin ? (
         <View style={[styles.routeMetricsBox, isDarkMode && styles.routeMetricsBoxDark]}>
           {distanceKm ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Navigation size={13} color={cardBorderColor} />
-              <Text style={{ fontSize: 11, fontWeight: '800', color: cardBorderColor }}>{distanceKm} KM</Text>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: cardBorderColor }}>
+                {distanceKm} KM
+              </Text>
             </View>
           ) : null}
           {distanceKm && durationMin ? <Text style={{ color: '#cbd5e1' }}>|</Text> : null}
           {durationMin ? (
-            <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748b' }}>~ {durationMin} MIN</Text>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748b' }}>
+              ~ {durationMin} MIN
+            </Text>
           ) : null}
         </View>
       ) : null}
@@ -168,7 +188,11 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       ) : null}
 
       {/* Rodapé de Etapas da Entrega */}
-      <OrderCardDeliveryFooter order={o} dark={isDarkMode} onPress={() => onSelectOrder && onSelectOrder(o)} />
+      <OrderCardDeliveryFooter
+        order={o}
+        dark={isDarkMode}
+        onPress={() => onSelectOrder && onSelectOrder(o)}
+      />
     </TouchableOpacity>
   );
 };

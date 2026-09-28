@@ -1,73 +1,94 @@
-import { callGeminiDirect } from "./aiDirectClient";
+import { callGeminiDirect } from './aiDirectClient';
 
 export const aiProductCatalogService = {
-    async generateDescription(productData: { productName: string; category: string; unitPrice: number; promptTemplate?: string }) {
-        if (!productData.productName) throw new Error("Nome do produto é obrigatório");
-        const prompt = `Gere uma descrição profissional para venda do produto abaixo para o catálogo da loja:
+  async generateDescription(productData: {
+    productName: string;
+    category: string;
+    unitPrice: number;
+    promptTemplate?: string;
+  }) {
+    if (!productData.productName) throw new Error('Nome do produto é obrigatório');
+    const prompt = `Gere uma descrição profissional para venda do produto abaixo para o catálogo da loja:
 Produto: ${productData.productName}
-Categoria: ${productData.category || "Móveis"}
+Categoria: ${productData.category || 'Móveis'}
 Preço: R$ ${productData.unitPrice || 0}
 ${productData.promptTemplate ? `Diretriz: ${productData.promptTemplate}` : ''}
 Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
 
+    try {
+      const textResponse = await callGeminiDirect(prompt, false, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_generate_description',
+      });
+      let cleanText = textResponse.trim();
+      if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
         try {
-            const textResponse = await callGeminiDirect(prompt, false, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_generate_description',
-            });
-            let cleanText = textResponse.trim();
-            if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-                try {
-                    const parsed = JSON.parse(cleanText);
-                    const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
-                    if (extracted && typeof extracted === 'string') {
-                        cleanText = extracted.trim();
-                    }
-                } catch (err) {
-                    console.warn('[aiProductCatalogService.generateDescription] Falha no parse JSON de descrição:', err);
-                }
-            }
-            return { description: cleanText };
-        } catch (error) {
-            console.warn('[aiProductCatalogService.generateDescription] Falha ao gerar descrição:', error);
-            return { description: '' };
+          const parsed = JSON.parse(cleanText);
+          const extracted =
+            parsed.product_description ||
+            parsed.improvedDescription ||
+            parsed.description ||
+            parsed.text ||
+            parsed.content;
+          if (extracted && typeof extracted === 'string') {
+            cleanText = extracted.trim();
+          }
+        } catch (err) {
+          console.warn(
+            '[aiProductCatalogService.generateDescription] Falha no parse JSON de descrição:',
+            err
+          );
         }
-    },
+      }
+      return { description: cleanText };
+    } catch (error) {
+      console.warn(
+        '[aiProductCatalogService.generateDescription] Falha ao gerar descrição:',
+        error
+      );
+      return { description: '' };
+    }
+  },
 
-    async generateMarketplaceTitle(data: { 
-        description: string;
-        material?: string;
-        differential?: string;
-    }) {
-        if (!data.description) throw new Error("Título base/descrição é obrigatório");
-        const prompt = `Você é um especialista em SEO e títulos para e-commerce e catálogo de móveis.
+  async generateMarketplaceTitle(data: {
+    description: string;
+    material?: string;
+    differential?: string;
+  }) {
+    if (!data.description) throw new Error('Título base/descrição é obrigatório');
+    const prompt = `Você é um especialista em SEO e títulos para e-commerce e catálogo de móveis.
 Gere um título atraente, claro e otimizado (em LETRAS MAIÚSCULAS) para o seguinte item:
 Produto / Descrição: ${data.description}
-Material: ${data.material || "Não informado"}
-Diferencial: ${data.differential || "Não informado"}
+Material: ${data.material || 'Não informado'}
+Diferencial: ${data.differential || 'Não informado'}
 
 Retorne APENAS um objeto JSON no formato exato: {"title": "TITULO DO PRODUTO AQUI EM MAIUSCULAS"}
 Nenhum texto fora do JSON.`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, true, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_marketplace_title',
-            });
-            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
-            const parsed = JSON.parse(clean);
-            return { title: String(parsed.title || data.description).toUpperCase() };
-        } catch {
-            return { title: data.description.toUpperCase() };
-        }
-    },
+    try {
+      const textResponse = await callGeminiDirect(prompt, true, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_marketplace_title',
+      });
+      const clean = textResponse
+        .trim()
+        .replace(/^```json/, '')
+        .replace(/^```/, '')
+        .replace(/```$/, '')
+        .trim();
+      const parsed = JSON.parse(clean);
+      return { title: String(parsed.title || data.description).toUpperCase() };
+    } catch {
+      return { title: data.description.toUpperCase() };
+    }
+  },
 
-    async extractProductColor(description: string): Promise<string | null> {
-        if (!description || !description.trim()) return null;
+  async extractProductColor(description: string): Promise<string | null> {
+    if (!description || !description.trim()) return null;
 
-        const prompt = `Você é um especialista em catálogo de móveis e decodificação de títulos de notas fiscais.
+    const prompt = `Você é um especialista em catálogo de móveis e decodificação de títulos de notas fiscais.
 Sua tarefa é extrair a COR ou ACABAMENTO do móvel a partir da descrição abaixo.
 
 DESCRIÇÃO DO PRODUTO:
@@ -80,38 +101,41 @@ REGRAS:
 4. Retorne APENAS um objeto JSON no formato exato: {"color": "Nome da Cor ou null"}
 Nenhum texto adicional fora do JSON.`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, true, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_extract_color',
-            });
-            const match = textResponse.match(/\{[\s\S]*\}/);
-            const cleanJson = match ? match[0] : textResponse.trim();
-            const parsed = JSON.parse(cleanJson);
-            if (parsed.color && typeof parsed.color === 'string' && parsed.color.trim()) {
-                return parsed.color.trim();
-            }
-            return null;
-        } catch (error) {
-            console.warn('[aiProductCatalogService.extractProductColor] Falha na chamada do Gemini:', error);
-            return null;
-        }
-    },
+    try {
+      const textResponse = await callGeminiDirect(prompt, true, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_extract_color',
+      });
+      const match = textResponse.match(/\{[\s\S]*\}/);
+      const cleanJson = match ? match[0] : textResponse.trim();
+      const parsed = JSON.parse(cleanJson);
+      if (parsed.color && typeof parsed.color === 'string' && parsed.color.trim()) {
+        return parsed.color.trim();
+      }
+      return null;
+    } catch (error) {
+      console.warn(
+        '[aiProductCatalogService.extractProductColor] Falha na chamada do Gemini:',
+        error
+      );
+      return null;
+    }
+  },
 
-    async generateProductDescription(data: { 
-        title: string; 
-        material?: string; 
-        dimensions?: string; 
-        brand?: string; 
-        line?: string;
-        mainDifferential?: string;
-        colors?: string;
-        notIncluded?: string;
-        type: 'whatsapp' | 'ecommerce' 
-    }) {
-        const isWhatsapp = data.type === 'whatsapp';
-        const prompt = `Você é um redator de vendas para Móveis Morante.
+  async generateProductDescription(data: {
+    title: string;
+    material?: string;
+    dimensions?: string;
+    brand?: string;
+    line?: string;
+    mainDifferential?: string;
+    colors?: string;
+    notIncluded?: string;
+    type: 'whatsapp' | 'ecommerce';
+  }) {
+    const isWhatsapp = data.type === 'whatsapp';
+    const prompt = `Você é um redator de vendas para Móveis Morante.
 Escreva uma descrição atraente do produto para envio via ${isWhatsapp ? 'WhatsApp' : 'Catálogo Online'}.
 Produto: ${data.title}
 Material: ${data.material || 'Não informado'}
@@ -125,74 +149,101 @@ Não Acompanha: ${data.notIncluded || 'Não informado'}
 Formate com parágrafos curtos, emojis elegantes e liste características e medidas.
 Retorne apenas o texto da descrição.`;
 
+    try {
+      const textResponse = await callGeminiDirect(prompt, false, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_product_description',
+      });
+      let cleanText = textResponse.trim();
+      if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
         try {
-            const textResponse = await callGeminiDirect(prompt, false, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_product_description',
-            });
-            let cleanText = textResponse.trim();
-            if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-                try {
-                    const parsed = JSON.parse(cleanText);
-                    const extracted = parsed.product_description || parsed.improvedDescription || parsed.description || parsed.text || parsed.content;
-                    if (extracted && typeof extracted === 'string') {
-                        cleanText = extracted.trim();
-                    }
-                } catch (err) {
-                    console.warn('[aiProductCatalogService.generateProductDescription] Falha no parse JSON:', err);
-                }
-            }
-            return { description: cleanText };
-        } catch (error) {
-            console.warn('[aiProductCatalogService.generateProductDescription] Falha ao gerar descrição:', error);
-            return { description: '' };
+          const parsed = JSON.parse(cleanText);
+          const extracted =
+            parsed.product_description ||
+            parsed.improvedDescription ||
+            parsed.description ||
+            parsed.text ||
+            parsed.content;
+          if (extracted && typeof extracted === 'string') {
+            cleanText = extracted.trim();
+          }
+        } catch (err) {
+          console.warn(
+            '[aiProductCatalogService.generateProductDescription] Falha no parse JSON:',
+            err
+          );
         }
-    },
+      }
+      return { description: cleanText };
+    } catch (error) {
+      console.warn(
+        '[aiProductCatalogService.generateProductDescription] Falha ao gerar descrição:',
+        error
+      );
+      return { description: '' };
+    }
+  },
 
-    async suggestCategory(title: string, categories: string[]) {
-        const prompt = `Dada a lista de categorias disponíveis abaixo:
+  async suggestCategory(title: string, categories: string[]) {
+    const prompt = `Dada a lista de categorias disponíveis abaixo:
 ${categories.join(', ')}
 
 Qual é a categoria mais adequada para o produto: "${title}"?
 Retorne APENAS um JSON no formato: {"category": "NOME DA CATEGORIA"}
 Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown adicionais.`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, true, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_suggest_category',
-            });
-            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
-            const parsed = JSON.parse(clean);
-            return { category: parsed.category || "" };
-        } catch {
-            return { category: "" };
-        }
-    },
+    try {
+      const textResponse = await callGeminiDirect(prompt, true, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_suggest_category',
+      });
+      const clean = textResponse
+        .trim()
+        .replace(/^```json/, '')
+        .replace(/^```/, '')
+        .replace(/```$/, '')
+        .trim();
+      const parsed = JSON.parse(clean);
+      return { category: parsed.category || '' };
+    } catch {
+      return { category: '' };
+    }
+  },
 
-    async generateComboName(items: string) {
-        const prompt = `Crie um nome comercial chamativo para um conjunto/combo composto pelos itens: ${items}.
+  async generateComboName(items: string) {
+    const prompt = `Crie um nome comercial chamativo para um conjunto/combo composto pelos itens: ${items}.
 Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, true, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_combo_name',
-            });
-            const clean = textResponse.trim().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
-            const parsed = JSON.parse(clean);
-            return { name: parsed.name };
-        } catch {
-            return { name: `COMBO ${items.toUpperCase()}` };
-        }
-    },
+    try {
+      const textResponse = await callGeminiDirect(prompt, true, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_combo_name',
+      });
+      const clean = textResponse
+        .trim()
+        .replace(/^```json/, '')
+        .replace(/^```/, '')
+        .replace(/```$/, '')
+        .trim();
+      const parsed = JSON.parse(clean);
+      return { name: parsed.name };
+    } catch {
+      return { name: `COMBO ${items.toUpperCase()}` };
+    }
+  },
 
-    async suggestPrices(data: { description: string, costPrice: number, material?: string, differential?: string }) {
-        if (!data.description || !data.costPrice) throw new Error("Título e Preço de Custo são obrigatórios");
-        const prompt = `Você é um consultor financeiro de precificação para varejo de móveis no Brasil.
+  async suggestPrices(data: {
+    description: string;
+    costPrice: number;
+    material?: string;
+    differential?: string;
+  }) {
+    if (!data.description || !data.costPrice)
+      throw new Error('Título e Preço de Custo são obrigatórios');
+    const prompt = `Você é um consultor financeiro de precificação para varejo de móveis no Brasil.
 Com base no custo de R$ ${data.costPrice} do produto "${data.description}" (Material: ${data.material || 'Geral'}), sugira 3 faixas de preço de venda (competitivo/baixo, padrão/médio, premium/alto).
 Retorne APENAS um JSON no formato:
 {
@@ -201,45 +252,46 @@ Retorne APENAS um JSON no formato:
   "high": { "price": número, "margin": porcentagem_numérica }
 }`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, true, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_suggest_prices',
-            });
-            const match = textResponse.match(/\{[\s\S]*\}/);
-            const clean = match ? match[0] : textResponse.trim();
-            return JSON.parse(clean);
-        } catch {
-            const c = data.costPrice;
-            return {
-                low: { price: Number((c * 1.3).toFixed(2)), margin: 30 },
-                medium: { price: Number((c * 1.5).toFixed(2)), margin: 50 },
-                high: { price: Number((c * 1.8).toFixed(2)), margin: 80 }
-            };
-        }
-    },
+    try {
+      const textResponse = await callGeminiDirect(prompt, true, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_suggest_prices',
+      });
+      const match = textResponse.match(/\{[\s\S]*\}/);
+      const clean = match ? match[0] : textResponse.trim();
+      return JSON.parse(clean);
+    } catch {
+      const c = data.costPrice;
+      return {
+        low: { price: Number((c * 1.3).toFixed(2)), margin: 30 },
+        medium: { price: Number((c * 1.5).toFixed(2)), margin: 50 },
+        high: { price: Number((c * 1.8).toFixed(2)), margin: 80 },
+      };
+    }
+  },
 
-    async improveProductDescription(data: {
-        currentDescription: string;
-        title: string;
-        material?: string;
-        brand?: string;
-        line?: string;
-        width?: string | number;
-        height?: string | number;
-        depth?: string | number;
-        weight?: string | number;
-        technicalValues?: Record<string, any>;
-    }): Promise<{ improvedDescription: string }> {
-        const technicalInfoText = data.technicalValues && Object.keys(data.technicalValues).length > 0
-            ? Object.entries(data.technicalValues)
-                .filter(([_, val]) => val !== undefined && val !== null && String(val).trim() !== '')
-                .map(([key, val]) => `- ${key}: ${val}`)
-                .join('\n')
-            : '';
+  async improveProductDescription(data: {
+    currentDescription: string;
+    title: string;
+    material?: string;
+    brand?: string;
+    line?: string;
+    width?: string | number;
+    height?: string | number;
+    depth?: string | number;
+    weight?: string | number;
+    technicalValues?: Record<string, any>;
+  }): Promise<{ improvedDescription: string }> {
+    const technicalInfoText =
+      data.technicalValues && Object.keys(data.technicalValues).length > 0
+        ? Object.entries(data.technicalValues)
+            .filter(([_, val]) => val !== undefined && val !== null && String(val).trim() !== '')
+            .map(([key, val]) => `- ${key}: ${val}`)
+            .join('\n')
+        : '';
 
-        const prompt = `Você é um redator expert em e-commerce de móveis e decoração no Brasil, com habilidade de criar textos que convertem visitantes em compradores.
+    const prompt = `Você é um redator expert em e-commerce de móveis e decoração no Brasil, com habilidade de criar textos que convertem visitantes em compradores.
 
 ═══════════════════════════════════════
 REGRA ABSOLUTA — NUNCA INVENTE NADA:
@@ -273,14 +325,14 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 
 DADOS DO PRODUTO (use SOMENTE estes):
 - Nome/Título: ${data.title}
-- Descrição atual: ${data.currentDescription || "Não informada"}
-- Material: ${data.material || "Não informado"}
-- Marca/Fornecedor: ${data.brand || "Não informado"}
-- Linha/Modelo: ${data.line || "Não informado"}
-- Altura: ${data.height ? data.height + ' cm' : "Não informada"}
-- Largura: ${data.width ? data.width + ' cm' : "Não informada"}
-- Profundidade: ${data.depth ? data.depth + ' cm' : "Não informada"}
-- Peso: ${data.weight ? data.weight + ' kg' : "Não informado"}
+- Descrição atual: ${data.currentDescription || 'Não informada'}
+- Material: ${data.material || 'Não informado'}
+- Marca/Fornecedor: ${data.brand || 'Não informado'}
+- Linha/Modelo: ${data.line || 'Não informado'}
+- Altura: ${data.height ? data.height + ' cm' : 'Não informada'}
+- Largura: ${data.width ? data.width + ' cm' : 'Não informada'}
+- Profundidade: ${data.depth ? data.depth + ' cm' : 'Não informada'}
+- Peso: ${data.weight ? data.weight + ' kg' : 'Não informado'}
 ${technicalInfoText ? `\nINFORMAÇÕES TÉCNICAS ADICIONAIS:\n${technicalInfoText}\n` : ''}
 
 REGRAS FINAIS:
@@ -288,22 +340,24 @@ REGRAS FINAIS:
 - Se os dados forem insuficientes para criar uma lista de características, omita essa seção.
 - NUNCA escreva informações que não estejam nos dados acima.`;
 
-        try {
-            const textResponse = await callGeminiDirect(prompt, false, {
-                tier: 'lite',
-                moduleSource: 'products',
-                operation: 'catalog_improve_description',
-            });
-            if (!textResponse.trim()) {
-                throw new Error("A IA retornou uma resposta vazia. Verifique se o produto tem título e descrição preenchidos.");
-            }
+    try {
+      const textResponse = await callGeminiDirect(prompt, false, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_improve_description',
+      });
+      if (!textResponse.trim()) {
+        throw new Error(
+          'A IA retornou uma resposta vazia. Verifique se o produto tem título e descrição preenchidos.'
+        );
+      }
 
-            return {
-                improvedDescription: textResponse.trim()
-            };
-        } catch (error: any) {
-            console.error("Erro ao aperfeiçoar descrição com IA:", error);
-            throw new Error(error.message || "Falha ao gerar nova descrição.", { cause: error });
-        }
+      return {
+        improvedDescription: textResponse.trim(),
+      };
+    } catch (error: any) {
+      console.error('Erro ao aperfeiçoar descrição com IA:', error);
+      throw new Error(error.message || 'Falha ao gerar nova descrição.', { cause: error });
     }
+  },
 };

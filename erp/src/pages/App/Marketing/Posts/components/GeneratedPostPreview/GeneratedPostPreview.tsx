@@ -132,7 +132,9 @@ export function GeneratedPostPreview({
     }
 
     if (monthlyUsage && monthlyUsage.costBRL >= monthlyUsage.budgetBRL) {
-      toast.error(`Cota mensal de R$ ${monthlyUsage.budgetBRL.toFixed(2)} atingida. Novas gerações no dia 1º.`);
+      toast.error(
+        `Cota mensal de R$ ${monthlyUsage.budgetBRL.toFixed(2)} atingida. Novas gerações no dia 1º.`
+      );
       return;
     }
 
@@ -322,9 +324,12 @@ export function GeneratedPostPreview({
             <div className="w-16 h-16 rounded-2xl bg-indigo-950/60 border border-indigo-500/20 flex items-center justify-center text-2xl text-indigo-400">
               🖼️
             </div>
-            <h3 className="font-bold text-slate-200 text-sm">Selecione um produto para visualizar o post</h3>
+            <h3 className="font-bold text-slate-200 text-sm">
+              Selecione um produto para visualizar o post
+            </h3>
             <p className="text-xs text-slate-400 max-w-sm">
-              Escolha um produto e uma campanha no topo da tela para compor automaticamente a arte final em alta definição.
+              Escolha um produto e uma campanha no topo da tela para compor automaticamente a arte
+              final em alta definição.
             </p>
           </div>
         )}

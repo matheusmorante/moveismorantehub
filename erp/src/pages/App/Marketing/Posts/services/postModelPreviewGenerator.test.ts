@@ -128,7 +128,11 @@ describe('Pipeline de Geração de Preview de Modelos de Posts', () => {
         layout: [],
         reservedAreas: [],
         imageRules: { preserveProduct: true, generateEnvironment: true, fit: 'contain' },
-        generationConfig: { provider: 'gemini', model: 'gemini-2.5-flash-image', referenceImageRequired: true },
+        generationConfig: {
+          provider: 'gemini',
+          model: 'gemini-2.5-flash-image',
+          referenceImageRequired: true,
+        },
         createdAt: '',
         updatedAt: '',
         version: 1,
@@ -151,7 +155,9 @@ describe('Pipeline de Geração de Preview de Modelos de Posts', () => {
         assets: resolveModelAssets(mockTemplate, 'Queima dos Salvados'),
       });
 
-      expect(promptComSecundaria).toContain('SECONDARY_IMAGE is required and must be visibly present');
+      expect(promptComSecundaria).toContain(
+        'SECONDARY_IMAGE is required and must be visibly present'
+      );
       expect(promptComSecundaria).toContain('CONTAINER DE VARIAÇÕES (OBRIGATÓRIO)');
       expect(promptComSecundaria).not.toContain('{{product.name}}');
       expect(promptComSecundaria).toContain('Guarda Roupa Slim');

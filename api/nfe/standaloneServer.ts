@@ -24,7 +24,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => {
+    req.on('data', (chunk) => {
       body += chunk;
     });
     req.on('end', async () => {

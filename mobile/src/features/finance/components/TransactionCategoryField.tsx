@@ -35,10 +35,15 @@ export const TransactionCategoryField: React.FC<Props> = ({
           ]}
         >
           <View style={styles.selectedCategoryInfo}>
-            <Text style={[styles.selectedCategoryLabel, isDarkMode && styles.selectedCategoryLabelDark]}>
-              Categoria Selecionada {isExpense && purpose === 'PERSONAL_PARTNER' ? '(Uso Particular)' : ''}
+            <Text
+              style={[styles.selectedCategoryLabel, isDarkMode && styles.selectedCategoryLabelDark]}
+            >
+              Categoria Selecionada{' '}
+              {isExpense && purpose === 'PERSONAL_PARTNER' ? '(Uso Particular)' : ''}
             </Text>
-            <Text style={[styles.selectedCategoryName, isDarkMode && styles.selectedCategoryNameDark]}>
+            <Text
+              style={[styles.selectedCategoryName, isDarkMode && styles.selectedCategoryNameDark]}
+            >
               {selectedCategory.name}
             </Text>
           </View>

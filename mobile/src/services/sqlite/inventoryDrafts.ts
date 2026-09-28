@@ -46,7 +46,9 @@ export const saveLocalInventoryDraft = async (draft: {
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   if (await getInventorySubmission(draft.id)) {
-    throw new Error('Este inventário já possui submissão congelada. A contagem não pode ser editada durante o envio.');
+    throw new Error(
+      'Este inventário já possui submissão congelada. A contagem não pode ser editada durante o envio.'
+    );
   }
   const updatedAt = new Date().toISOString();
   const itemsJson = JSON.stringify(draft.items);
@@ -75,7 +77,7 @@ export const saveLocalInventoryDraft = async (draft: {
   await db.runAsync(
     `INSERT INTO inventory_draft_scope_local (id, supplier_id, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET supplier_id = excluded.supplier_id, updated_at = excluded.updated_at;`,
-    [draft.id, draft.supplierId || null, updatedAt],
+    [draft.id, draft.supplierId || null, updatedAt]
   );
 };
 
@@ -100,7 +102,9 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
 
   if (!row) return null;
   const scope = await db.getFirstAsync<{ supplier_id: string | null }>(
-    'SELECT supplier_id FROM inventory_draft_scope_local WHERE id = ? LIMIT 1;', [row.id]);
+    'SELECT supplier_id FROM inventory_draft_scope_local WHERE id = ? LIMIT 1;',
+    [row.id]
+  );
 
   try {
     const items: AuditItem[] = JSON.parse(row.items_json || '[]');
@@ -132,9 +136,11 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
     `SELECT * FROM inventory_drafts_local WHERE status != 'completed' ORDER BY updated_at DESC;`
   );
 
-  const scopes = await db.getAllAsync<{ id: string; supplier_id: string | null }>('SELECT id, supplier_id FROM inventory_draft_scope_local;');
-  const supplierById = new Map(scopes.map(scope => [scope.id, scope.supplier_id]));
-  return rows.map(row => {
+  const scopes = await db.getAllAsync<{ id: string; supplier_id: string | null }>(
+    'SELECT id, supplier_id FROM inventory_draft_scope_local;'
+  );
+  const supplierById = new Map(scopes.map((scope) => [scope.id, scope.supplier_id]));
+  return rows.map((row) => {
     let items: AuditItem[] = [];
     try {
       items = JSON.parse(row.items_json || '[]');

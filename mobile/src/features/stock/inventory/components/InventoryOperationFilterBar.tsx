@@ -44,17 +44,32 @@ export const InventoryOperationFilterBar: React.FC<Props> = ({
           </View>
         )}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-          {(['all', 'uncounted', 'counted', 'divergent'] as const).map(f => (
+          {(['all', 'uncounted', 'counted', 'divergent'] as const).map((f) => (
             <TouchableOpacity
               key={f}
               style={[
-                styles.filterChip, 
-                { borderColor: filter === f ? '#3b82f6' : border, backgroundColor: filter === f ? 'rgba(59,130,246,0.1)' : bg }
+                styles.filterChip,
+                {
+                  borderColor: filter === f ? '#3b82f6' : border,
+                  backgroundColor: filter === f ? 'rgba(59,130,246,0.1)' : bg,
+                },
               ]}
               onPress={() => onFilterChange(f)}
             >
-              <Text style={{ color: filter === f ? '#3b82f6' : textPrimary, fontWeight: filter === f ? '700' : '500', fontSize: 13 }}>
-                {f === 'all' ? 'Todos' : f === 'uncounted' ? 'Não contados' : f === 'counted' ? 'Contados' : 'Divergentes'}
+              <Text
+                style={{
+                  color: filter === f ? '#3b82f6' : textPrimary,
+                  fontWeight: filter === f ? '700' : '500',
+                  fontSize: 13,
+                }}
+              >
+                {f === 'all'
+                  ? 'Todos'
+                  : f === 'uncounted'
+                    ? 'Não contados'
+                    : f === 'counted'
+                      ? 'Contados'
+                      : 'Divergentes'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -74,10 +89,31 @@ export const InventoryOperationFilterBar: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   filterBar: { padding: 16, borderBottomWidth: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: 44, borderRadius: 10, borderWidth: 1, gap: 8 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
   searchInput: { flex: 1, fontSize: 15, padding: 0 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, marginRight: 8 },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 8,
+  },
   addItemBar: { paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1 },
-  addItemBtn: { backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 1, borderColor: '#10b981', borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
+  addItemBtn: {
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
   addItemBtnText: { color: '#10b981', fontWeight: '800', fontSize: 13 },
 });

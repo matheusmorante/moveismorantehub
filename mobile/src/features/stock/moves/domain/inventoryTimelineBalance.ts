@@ -80,8 +80,16 @@ export const getCleanObservation = (move: InventoryMoveLike): string => {
   const relType = move.relatedEntityType || move.related_entity_type;
   const rawLabel = String(move.label || '');
 
-  if (relType === 'sales_order' || /^Saída - Pedido\s*#/i.test(rawLabel) || /^Pedido\s*#/i.test(rawLabel)) {
-    const rawId = move.relatedEntityId || move.related_entity_id || rawLabel.replace(/^(Saída - )?Pedido\s*#/i, '') || '';
+  if (
+    relType === 'sales_order' ||
+    /^Saída - Pedido\s*#/i.test(rawLabel) ||
+    /^Pedido\s*#/i.test(rawLabel)
+  ) {
+    const rawId =
+      move.relatedEntityId ||
+      move.related_entity_id ||
+      rawLabel.replace(/^(Saída - )?Pedido\s*#/i, '') ||
+      '';
     if (obsText && obsText.startsWith('Pedido de venda #')) {
       return `Saída gerada pelo ${obsText.toLowerCase()}`;
     }
@@ -91,8 +99,15 @@ export const getCleanObservation = (move: InventoryMoveLike): string => {
     return `Saída gerada pelo pedido de venda #${rawId}`.trim();
   }
 
-  if (relType === 'purchase_order' || isPurchaseEntry(move) || /Pedido de Compra\s*#/i.test(obsText)) {
-    if (obsText && (obsText.startsWith('Pedido de Compra #') || obsText.startsWith('Entrada NF-'))) {
+  if (
+    relType === 'purchase_order' ||
+    isPurchaseEntry(move) ||
+    /Pedido de Compra\s*#/i.test(obsText)
+  ) {
+    if (
+      obsText &&
+      (obsText.startsWith('Pedido de Compra #') || obsText.startsWith('Entrada NF-'))
+    ) {
       return `Entrada gerada por ${obsText}`;
     }
     if (rawLabel) return `Entrada gerada por ${rawLabel}`;
@@ -111,7 +126,7 @@ export const getCleanObservation = (move: InventoryMoveLike): string => {
 export const calculateInventoryTimelineBalance = (moves: InventoryMoveLike[]): number | null => {
   if (!moves.length) return null;
 
-  const validMoves = moves.filter(m => isEffectiveMove(m) && !isInventoryAuditMarker(m));
+  const validMoves = moves.filter((m) => isEffectiveMove(m) && !isInventoryAuditMarker(m));
   if (!validMoves.length) return null;
 
   const sortedMoves = [...validMoves].sort((left, right) => {

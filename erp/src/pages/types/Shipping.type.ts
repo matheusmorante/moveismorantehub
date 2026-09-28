@@ -1,30 +1,30 @@
-import FullAddress from "./fullAddress.type";
+import FullAddress from './fullAddress.type';
 
 type Shipping = {
-    value: number,
-    distance?: number,
-    durationMinutes?: number,
-    deliveryMethod: 'delivery' | 'pickup',
-    noAddress?: boolean,
-    orderType: string,
-    scheduling: {
-        date: string,
-        endDate?: string,   // final do período se dateType for 'range'
-        dateType?: 'fixed' | 'range',
-        time: string, // legacy/display
-        startTime?: string, // HH:mm
-        endTime?: string,   // HH:mm
-        type: 'fixed' | 'range',
-        notInformed?: boolean,
-        pendingScheduling?: boolean,
-        immediatePickup?: boolean
-    },
-    destinationCoords?: [number, number], // [lng, lat] (GeoJSON/MapLibre format)
-    routeGeoJSON?: any, // GeoJSON geometry from routing API
-    autoCalculateValue?: boolean,
-    useCustomerAddress?: boolean,
-    /** Snapshot do endereço efetivamente usado quando o pedido foi salvo. */
-    deliveryAddress?: FullAddress
+  value: number;
+  distance?: number;
+  durationMinutes?: number;
+  deliveryMethod: 'delivery' | 'pickup';
+  noAddress?: boolean;
+  orderType: string;
+  scheduling: {
+    date: string;
+    endDate?: string; // final do período se dateType for 'range'
+    dateType?: 'fixed' | 'range';
+    time: string; // legacy/display
+    startTime?: string; // HH:mm
+    endTime?: string; // HH:mm
+    type: 'fixed' | 'range';
+    notInformed?: boolean;
+    pendingScheduling?: boolean;
+    immediatePickup?: boolean;
+  };
+  destinationCoords?: [number, number]; // [lng, lat] (GeoJSON/MapLibre format)
+  routeGeoJSON?: any; // GeoJSON geometry from routing API
+  autoCalculateValue?: boolean;
+  useCustomerAddress?: boolean;
+  /** Snapshot do endereço efetivamente usado quando o pedido foi salvo. */
+  deliveryAddress?: FullAddress;
 };
 
 export default Shipping;

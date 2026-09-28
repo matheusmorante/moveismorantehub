@@ -27,7 +27,7 @@ export const InventoryOperationFooter: React.FC<Props> = ({
           {activeStage ? 'Voltar para etapas' : 'Voltar'}
         </Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity testID="footer-review-btn" style={styles.reviewBtn} onPress={onReview}>
         <Text style={styles.reviewBtnText}>Revisar</Text>
         <ArrowRight size={18} color="#ffffff" />

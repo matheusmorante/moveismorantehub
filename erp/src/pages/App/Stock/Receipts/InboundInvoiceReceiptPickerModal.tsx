@@ -1,1 +1,4 @@
-export { default, InboundInvoiceReceiptPickerModal } from './modals/InboundInvoiceReceiptPickerModal';
+export {
+  default,
+  InboundInvoiceReceiptPickerModal,
+} from './modals/InboundInvoiceReceiptPickerModal';

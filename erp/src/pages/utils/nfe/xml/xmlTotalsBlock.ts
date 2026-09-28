@@ -1,26 +1,30 @@
-import Order from "@/pages/types/order.type";
-import { composeServiceFiscalValues, fiscalMoneyFromCents } from "../serviceFiscalComposition";
+import Order from '@/pages/types/order.type';
+import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
 
-export function buildTotalsAndPaymentXml(order: Order, vProdTotal: number, vDescTotal: number): string {
-    const vFrete = Number(order.shipping?.value || 0);
-    const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
-    const vNF = (vProdTotal - vDescTotal + vFrete + vOutro).toFixed(2);
+export function buildTotalsAndPaymentXml(
+  order: Order,
+  vProdTotal: number,
+  vDescTotal: number
+): string {
+  const vFrete = Number(order.shipping?.value || 0);
+  const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
+  const vNF = (vProdTotal - vDescTotal + vFrete + vOutro).toFixed(2);
 
-    // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada
-    const modFrete = order.shipping?.deliveryMethod === 'pickup' ? '9' : '0';
+  // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada
+  const modFrete = order.shipping?.deliveryMethod === 'pickup' ? '9' : '0';
 
-    // Meio de pagamento
-    const paymentMethods = (order as any).payments || [];
-    let tPag = '99'; // Outros
-    if (paymentMethods.length > 0) {
-        const method = (paymentMethods[0]?.method || '').toLowerCase();
-        if (method.includes('dinheiro') || method.includes('cash')) tPag = '01';
-        else if (method.includes('credito') || method.includes('credit')) tPag = '03';
-        else if (method.includes('debito') || method.includes('debit')) tPag = '04';
-        else if (method.includes('pix')) tPag = '17';
-    }
+  // Meio de pagamento
+  const paymentMethods = (order as any).payments || [];
+  let tPag = '99'; // Outros
+  if (paymentMethods.length > 0) {
+    const method = (paymentMethods[0]?.method || '').toLowerCase();
+    if (method.includes('dinheiro') || method.includes('cash')) tPag = '01';
+    else if (method.includes('credito') || method.includes('credit')) tPag = '03';
+    else if (method.includes('debito') || method.includes('debit')) tPag = '04';
+    else if (method.includes('pix')) tPag = '17';
+  }
 
-    return `
+  return `
     <total>
       <ICMSTot>
         <vBC>0.00</vBC>

@@ -21,7 +21,9 @@ export default function MobileAppLanding() {
       .then(({ data }) => {
         if (active && data) setRelease({ version: data.version, build_number: data.build_number });
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const downloadAndroidApp = async () => {
@@ -29,13 +31,17 @@ export default function MobileAppLanding() {
     setDownloading(true);
     setDownloadError('');
     try {
-      const { data, error } = await supabase.functions.invoke('get-android-apk-download', { body: {} });
+      const { data, error } = await supabase.functions.invoke('get-android-apk-download', {
+        body: {},
+      });
       if (error || typeof data?.signedUrl !== 'string') {
         throw new Error('Não foi possível iniciar o download agora. Tente novamente.');
       }
       window.location.assign(data.signedUrl);
     } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : 'Não foi possível iniciar o download agora.');
+      setDownloadError(
+        error instanceof Error ? error.message : 'Não foi possível iniciar o download agora.'
+      );
     } finally {
       setDownloading(false);
     }
@@ -45,27 +51,30 @@ export default function MobileAppLanding() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute top-0 left-0 w-full h-full">
-         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
-         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
       </div>
 
       <div className="max-w-4xl w-full flex flex-col lg:flex-row items-center gap-12 lg:gap-20 relative z-10 animate-reveal">
-        
         {/* Mocked Phone UI */}
         <div className="w-[280px] h-[580px] bg-slate-900 rounded-[3rem] border-8 border-slate-800 shadow-2xl relative overflow-hidden group">
-           <div className="absolute top-0 inset-x-0 h-6 bg-slate-800 flex justify-center items-end pb-1">
-              <div className="w-16 h-1 rounded-full bg-slate-700"></div>
-           </div>
-           <div className="p-4 pt-10 h-full flex flex-col gap-4">
-              <div className="w-full h-8 bg-slate-800 rounded-lg animate-pulse"></div>
-              <div className="flex-1 w-full bg-slate-800/50 rounded-2xl flex flex-col items-center justify-center p-6 border border-white/5">
-                 <i className="bi bi-phone-vibrate text-6xl text-blue-500 mb-4 animate-bounce"></i>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Iniciando Hub Mobile...</p>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                 {[...Array(4)].map((_, i) => <div key={i} className="h-2 bg-slate-800 rounded-full"></div>)}
-              </div>
-           </div>
+          <div className="absolute top-0 inset-x-0 h-6 bg-slate-800 flex justify-center items-end pb-1">
+            <div className="w-16 h-1 rounded-full bg-slate-700"></div>
+          </div>
+          <div className="p-4 pt-10 h-full flex flex-col gap-4">
+            <div className="w-full h-8 bg-slate-800 rounded-lg animate-pulse"></div>
+            <div className="flex-1 w-full bg-slate-800/50 rounded-2xl flex flex-col items-center justify-center p-6 border border-white/5">
+              <i className="bi bi-phone-vibrate text-6xl text-blue-500 mb-4 animate-bounce"></i>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
+                Iniciando Hub Mobile...
+              </p>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-2 bg-slate-800 rounded-full"></div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Content */}
@@ -74,66 +83,86 @@ export default function MobileAppLanding() {
             <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
             Disponvel para Android e iOS
           </div>
-          
+
           <h1 className="text-5xl lg:text-7xl font-black tracking-tighter mb-6 leading-none italic animate-slide-up">
             EXPERINCIA <br /> <span className="text-blue-500">MVEIS MORANTE</span>
           </h1>
-          
+
           <p className="text-slate-400 text-lg lg:text-xl font-medium mb-10 leading-relaxed animate-slide-up">
-            Tenha o controle total da logstica, montagens e vendas na palma da sua mo. 
-            Mais velocidade para sua equipe de campo.
+            Tenha o controle total da logstica, montagens e vendas na palma da sua mo. Mais
+            velocidade para sua equipe de campo.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start animate-slide-up">
-             <div className="flex flex-col gap-3">
-                <button
-                   type="button"
-                   onClick={() => void downloadAndroidApp()}
-                   disabled={downloading}
-                   className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer disabled:opacity-60"
-                >
-                   <i className="bi bi-download text-xl"></i>
-                   {downloading ? 'Preparando download…' : 'Baixar APK Oficial (Android)'}
-                </button>
-                {downloadError ? <span role="alert" className="max-w-xs text-sm text-red-300">{downloadError}</span> : null}
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => void downloadAndroidApp()}
+                disabled={downloading}
+                className="px-8 py-4 bg-white text-slate-950 rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all shadow-xl active:scale-95 cursor-pointer disabled:opacity-60"
+              >
+                <i className="bi bi-download text-xl"></i>
+                {downloading ? 'Preparando download…' : 'Baixar APK Oficial (Android)'}
+              </button>
+              {downloadError ? (
+                <span role="alert" className="max-w-xs text-sm text-red-300">
+                  {downloadError}
+                </span>
+              ) : null}
 
-               <button 
-                 onClick={() => alert("O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.")}
-                 className="px-8 py-4 bg-slate-800 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all border border-slate-700 active:scale-95"
-               >
-                  <i className="bi bi-apple text-xl"></i>
-                  App Store (iOS)
-               </button>
-             </div>
+              <button
+                onClick={() =>
+                  alert(
+                    'O App iOS está pronto em código-fonte no diretório /mobile.\nPara rodar no iPhone, abra o projeto no Xcode ou use o Expo Go.'
+                  )
+                }
+                className="px-8 py-4 bg-slate-800 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:scale-105 transition-all border border-slate-700 active:scale-95"
+              >
+                <i className="bi bi-apple text-xl"></i>
+                App Store (iOS)
+              </button>
+            </div>
 
-             {/* QR Code Container */}
-             <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center gap-4 shadow-2xl">
-               <div className="w-24 h-24 bg-white p-1.5 rounded-xl shadow-md">
-                 <img src="/mobile-qrcode.png" alt="QR Code Instalação Mobile" className="w-full h-full object-contain rounded-lg" />
-               </div>
-               <div className="flex flex-col text-left pr-2">
-                 <span className="text-xs font-black uppercase tracking-wider text-blue-400">Instalação Rápida</span>
-                 <span className="text-sm font-bold text-white leading-tight">Escaneie o QR Code</span>
-                  <span className="text-[10px] text-slate-400 mt-1">Aponte a câmera do seu celular para baixar a v{release.version} (Build {release.build_number})</span>
-               </div>
-             </div>
+            {/* QR Code Container */}
+            <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center gap-4 shadow-2xl">
+              <div className="w-24 h-24 bg-white p-1.5 rounded-xl shadow-md">
+                <img
+                  src="/mobile-qrcode.png"
+                  alt="QR Code Instalação Mobile"
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              </div>
+              <div className="flex flex-col text-left pr-2">
+                <span className="text-xs font-black uppercase tracking-wider text-blue-400">
+                  Instalação Rápida
+                </span>
+                <span className="text-sm font-bold text-white leading-tight">
+                  Escaneie o QR Code
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1">
+                  Aponte a câmera do seu celular para baixar a v{release.version} (Build{' '}
+                  {release.build_number})
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="mt-12 flex items-center gap-6 justify-center lg:justify-start opacity-50">
-             <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-slate-500">Desenvolvido por</span>
-                <span className="text-sm font-bold">DeepMind Code Labs</span>
-             </div>
-             <div className="w-px h-8 bg-slate-800"></div>
-             <button 
-               onClick={() => navigate('/')}
-               className="text-white hover:text-blue-400 transition-colors flex items-center gap-2 font-bold text-sm"
-             >
-                <i className="bi bi-arrow-left"></i> Voltar ao ERP
-             </button>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase text-slate-500">
+                Desenvolvido por
+              </span>
+              <span className="text-sm font-bold">DeepMind Code Labs</span>
+            </div>
+            <div className="w-px h-8 bg-slate-800"></div>
+            <button
+              onClick={() => navigate('/')}
+              className="text-white hover:text-blue-400 transition-colors flex items-center gap-2 font-bold text-sm"
+            >
+              <i className="bi bi-arrow-left"></i> Voltar ao ERP
+            </button>
           </div>
         </div>
-
       </div>
     </div>
   );

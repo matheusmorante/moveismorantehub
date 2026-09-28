@@ -1,320 +1,358 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { ImportConfig, BLING_PRODUCT_DEFAULTS, BLING_VARIATION_DEFAULTS, BLING_CUSTOMER_DEFAULTS, BLING_SUPPLIER_DEFAULTS, BLING_ORDER_DEFAULTS, BLING_RECEIVABLE_DEFAULTS } from './importMappingTypes';
 import {
-    MORANTE_DELIVERY_HANDLING_OPTIONS,
-    MORANTE_PICKUP_HANDLING_OPTIONS,
-    settingsUseGenericDefaults,
+  ImportConfig,
+  BLING_PRODUCT_DEFAULTS,
+  BLING_VARIATION_DEFAULTS,
+  BLING_CUSTOMER_DEFAULTS,
+  BLING_SUPPLIER_DEFAULTS,
+  BLING_ORDER_DEFAULTS,
+  BLING_RECEIVABLE_DEFAULTS,
+} from './importMappingTypes';
+import {
+  MORANTE_DELIVERY_HANDLING_OPTIONS,
+  MORANTE_PICKUP_HANDLING_OPTIONS,
+  settingsUseGenericDefaults,
 } from './handlingMigration';
 
 export interface OrderStatusConfig {
-    id: string;
-    label: string;
-    color: 'slate' | 'amber' | 'emerald' | 'rose' | 'blue' | 'purple' | 'indigo' | 'fuchsia';
-    isCore?: boolean;
+  id: string;
+  label: string;
+  color: 'slate' | 'amber' | 'emerald' | 'rose' | 'blue' | 'purple' | 'indigo' | 'fuchsia';
+  isCore?: boolean;
 }
 
-export type OrderTypeColor = 'orange' | 'purple' | 'green' | 'blue' | 'amber' | 'rose' | 'indigo' | 'emerald' | 'cyan' | 'pink' | 'red' | 'slate';
+export type OrderTypeColor =
+  | 'orange'
+  | 'purple'
+  | 'green'
+  | 'blue'
+  | 'amber'
+  | 'rose'
+  | 'indigo'
+  | 'emerald'
+  | 'cyan'
+  | 'pink'
+  | 'red'
+  | 'slate';
 
 export interface HandlingOption {
-    label: string;
-    includeInAssemblySchedule: boolean;
-    isAssemblyOutside?: boolean; // Se a montagem é realizada fora (na casa do cliente)
-    color?: string; // Cor personalizada para identificação visual (Hex)
+  label: string;
+  includeInAssemblySchedule: boolean;
+  isAssemblyOutside?: boolean; // Se a montagem é realizada fora (na casa do cliente)
+  color?: string; // Cor personalizada para identificação visual (Hex)
 }
 
 export interface CardFlagRule {
-    flag: string; // VISA, MASTERCARD, etc.
-    interestRates: {
-        installments: number;
-        rate: number; // Porcentagem de juros
-    }[];
+  flag: string; // VISA, MASTERCARD, etc.
+  interestRates: {
+    installments: number;
+    rate: number; // Porcentagem de juros
+  }[];
 }
 
 export interface AppSettings {
-    // Automação e Status
-    showManualFulfillmentPrompt: boolean;
-    autoSaveOnlyWhenDirty: boolean;
+  // Automação e Status
+  showManualFulfillmentPrompt: boolean;
+  autoSaveOnlyWhenDirty: boolean;
 
-    // Rótulos Customizados
-    statusLabels?: {
-        draft: string;
-        scheduled: string;
-        fulfilled: string;
-        cancelled: string;
-    };
-    orderStatuses: OrderStatusConfig[];
-    orderTypeLabels: {
-        delivery: string;
-        pickup: string;
-        assistance: string;
-        budget: string;
-        return: string;
-    };
-    orderTypeColors: {
-        delivery: OrderTypeColor;
-        pickup: OrderTypeColor;
-        assistance: OrderTypeColor;
-        budget: OrderTypeColor;
-        return: OrderTypeColor;
-    };
-    deliveryHandlingOptions: HandlingOption[];
-    pickupHandlingOptions: HandlingOption[];
+  // Rótulos Customizados
+  statusLabels?: {
+    draft: string;
+    scheduled: string;
+    fulfilled: string;
+    cancelled: string;
+  };
+  orderStatuses: OrderStatusConfig[];
+  orderTypeLabels: {
+    delivery: string;
+    pickup: string;
+    assistance: string;
+    budget: string;
+    return: string;
+  };
+  orderTypeColors: {
+    delivery: OrderTypeColor;
+    pickup: OrderTypeColor;
+    assistance: OrderTypeColor;
+    budget: OrderTypeColor;
+    return: OrderTypeColor;
+  };
+  deliveryHandlingOptions: HandlingOption[];
+  pickupHandlingOptions: HandlingOption[];
 
-    // Regras de Pagamento
-    cardFlagRules: CardFlagRule[];
+  // Regras de Pagamento
+  cardFlagRules: CardFlagRule[];
 
-    // Logística e Valores
-    freightPerKm: number;
-    openRouteServiceApiKey: string;
-    googleMapsApiKey: string;
-    geminiApiKey?: string;
-    storeOriginCoords: [number, number]; // [lng, lat]
-    companyName: string;
-    companyAddress: string;
-    companyCnpj: string;
-    companyPhone: string;
-    companyIE?: string;
-    companyIM?: string;
-    companyCRT?: string;
-    companyLogradouro?: string;
-    companyNumero?: string;
-    companyBairro?: string;
-    companyCEP?: string;
-    companyCMun?: string;
-    companyXMun?: string;
-    companyUF?: string;
-    nfeEnvironment?: 1 | 2;
-    nfeSerie?: string;
-    nfeNextNumber?: number;
-    nfceNextNumber?: number;
-    cscId?: string;
-    cscToken?: string;
-    fiscalDefaults?: {
-        ncm?: string;
-        cest?: string;
-        cfop?: string;
-        returnCfop?: string;
-        inverseCfopMappings?: Record<string, string>;
-        cst?: string;
-        icmsPercent?: number;
-        origem?: string;
-        pisCst?: string;
-        cofinsCst?: string;
-    };
+  // Logística e Valores
+  freightPerKm: number;
+  openRouteServiceApiKey: string;
+  googleMapsApiKey: string;
+  geminiApiKey?: string;
+  storeOriginCoords: [number, number]; // [lng, lat]
+  companyName: string;
+  companyAddress: string;
+  companyCnpj: string;
+  companyPhone: string;
+  companyIE?: string;
+  companyIM?: string;
+  companyCRT?: string;
+  companyLogradouro?: string;
+  companyNumero?: string;
+  companyBairro?: string;
+  companyCEP?: string;
+  companyCMun?: string;
+  companyXMun?: string;
+  companyUF?: string;
+  nfeEnvironment?: 1 | 2;
+  nfeSerie?: string;
+  nfeNextNumber?: number;
+  nfceNextNumber?: number;
+  nfeHomologationSerie?: string;
+  nfeHomologationNextNumber?: number;
+  nfceHomologationNextNumber?: number;
+  cscId?: string;
+  cscToken?: string;
+  fiscalDefaults?: {
+    ncm?: string;
+    cest?: string;
+    cfop?: string;
+    returnCfop?: string;
+    inverseCfopMappings?: Record<string, string>;
+    cst?: string;
+    icmsPercent?: number;
+    origem?: string;
+    pisCst?: string;
+    cofinsCst?: string;
+  };
 
-    // Formatação de Dados
-    autoCapitalizeCustomerData: boolean;
+  // Formatação de Dados
+  autoCapitalizeCustomerData: boolean;
 
-    // Comunicação e Links
-    googleReviewUrl: string;
+  // Comunicação e Links
+  googleReviewUrl: string;
 
-    // Aparência e Comportamento
-    defaultTheme: 'light' | 'dark';
+  // Aparência e Comportamento
+  defaultTheme: 'light' | 'dark';
 
-    // Scroll Automático
-    autoScroll: {
-        orderTable: boolean;
-        scheduleCards: boolean;
-        scheduleTable: boolean;
+  // Scroll Automático
+  autoScroll: {
+    orderTable: boolean;
+    scheduleCards: boolean;
+    scheduleTable: boolean;
+  };
+  showScheduleNoticeLabels: boolean; // Se deve exibir rótulos de aviso/tags no cronograma por padrão
+  speed: number;
+  threshold: number;
+  aiPrompts: {
+    productDescription: string;
+    ecommerceTemplate: string;
+    whatsappTemplate: string;
+    generalChat: string;
+    taskDetection: string;
+    aiName: string;
+    aiAvatar: string;
+    aiMascot: string; // [NEW] Global Mascot URL
+    aiMascotVariants?: {
+      receipt?: string;
+      dashboard?: string;
+      shippingLabel?: string;
     };
-    showScheduleNoticeLabels: boolean; // Se deve exibir rótulos de aviso/tags no cronograma por padrão
-    speed: number;
-    threshold: number;
-    aiPrompts: {
-        productDescription: string;
-        ecommerceTemplate: string;
-        whatsappTemplate: string;
-        generalChat: string;
-        taskDetection: string;
-        aiName: string;
-        aiAvatar: string;
-        aiMascot: string; // [NEW] Global Mascot URL
-        aiMascotVariants?: {
-            receipt?: string;
-            dashboard?: string;
-            shippingLabel?: string;
-        };
+  };
+  deliveryReminderAutomation?: {
+    enabled: boolean;
+    hoursBeforeDelivery: number;
+    reminderTemplate?: string;
+    sameDaySpaceReminderTemplate?: string;
+    buttonTitle?: string;
+    notifySellerOnConfirmation?: boolean;
+    includeRouteLink?: boolean;
+    autoUpdateStatusOnConfirm?: boolean;
+  };
+  whatsappConfig?: {
+    accessToken: string;
+    phoneNumberId: string;
+    wabaId: string;
+    catalogId: string;
+    sendMode?: 'graph_api' | 'wame';
+    templateNameOrderConfirmation?: string;
+    templateLanguage?: string;
+    templateVariableCount?: number;
+  };
+  channelBaseDescriptions: {
+    whatsapp: string;
+    ecommerce: string;
+  };
+  orderAutomation: {
+    autoPrintReceipt: boolean;
+    autoPrintDeliveryOrder: boolean;
+    autoSendWhatsAppDelivery: boolean;
+    autoSendCustomerOrder: boolean;
+    deliveryPhone: string;
+    groupInviteMessage: string;
+    groupInviteLink: string;
+  };
+  stockNotificationConditions?: ('novo' | 'usado' | 'salvado')[];
+  rolePermissions?: Record<string, string[]>;
+  whatsappTemplates?: {
+    reviewRequest: string;
+    orderConfirmation: string;
+    deliveryInfo: string;
+    assistanceConfirmation: string;
+    groupInviteMessage: string;
+    groupInviteLink: string;
+  };
+  receiptConfig: {
+    footerText: string;
+    showSeller: boolean;
+    compactMode: boolean;
+  };
+  businessRules: {
+    allowNegativeStock: boolean;
+    autoReserveStock: boolean;
+  };
+  inventoryAutomation: {
+    autoWithdrawalOnStatus: string[]; // Statuses that trigger stock withdrawal (e.g., 'scheduled', 'fulfilled')
+    autoEntryOnPurchaseStatus: string[]; // Statuses that trigger stock entry (e.g., 'completed')
+    autoReverseOnCancel: boolean; // Auto-reverse stock if sales order is cancelled
+    originLabels: {
+      sales: string;
+      purchases: string;
+      adjustment: string;
     };
-    deliveryReminderAutomation?: {
-        enabled: boolean;
-        hoursBeforeDelivery: number;
-        reminderTemplate?: string;
-        sameDaySpaceReminderTemplate?: string;
-        buttonTitle?: string;
-        notifySellerOnConfirmation?: boolean;
-        includeRouteLink?: boolean;
-        autoUpdateStatusOnConfirm?: boolean;
+  };
+  requiredFields: {
+    customer: {
+      cpfCnpj: boolean;
+      rgIe: boolean;
+      email: boolean;
+      phone: boolean;
+      position: boolean;
+      address: boolean;
     };
-    whatsappConfig?: {
-        accessToken: string;
-        phoneNumberId: string;
-        wabaId: string;
-        catalogId: string;
-        sendMode?: 'graph_api' | 'wame';
-        templateNameOrderConfirmation?: string;
-        templateLanguage?: string;
-        templateVariableCount?: number;
+    product: {
+      code: boolean;
+      brand: boolean;
+      costPrice: boolean;
+      minStock: boolean;
     };
-    channelBaseDescriptions: {
-        whatsapp: string;
-        ecommerce: string;
+    salesOrder: {
+      seller: boolean;
+      customer: boolean;
     };
-    orderAutomation: {
-        autoPrintReceipt: boolean;
-        autoPrintDeliveryOrder: boolean;
-        autoSendWhatsAppDelivery: boolean;
-        autoSendCustomerOrder: boolean;
-        deliveryPhone: string;
-        groupInviteMessage: string;
-        groupInviteLink: string;
+    assistanceOrder: {
+      seller: boolean;
+      customer: boolean;
     };
-    stockNotificationConditions?: ('novo' | 'usado' | 'salvado')[];
-    rolePermissions?: Record<string, string[]>;
-    whatsappTemplates?: {
-        reviewRequest: string;
-        orderConfirmation: string;
-        deliveryInfo: string;
-        assistanceConfirmation: string;
-        groupInviteMessage: string;
-        groupInviteLink: string;
-    };
-    receiptConfig: {
-        footerText: string;
-        showSeller: boolean;
-        compactMode: boolean;
-    };
-    businessRules: {
-        allowNegativeStock: boolean;
-        autoReserveStock: boolean;
-    };
-    inventoryAutomation: {
-        autoWithdrawalOnStatus: string[]; // Statuses that trigger stock withdrawal (e.g., 'scheduled', 'fulfilled')
-        autoEntryOnPurchaseStatus: string[]; // Statuses that trigger stock entry (e.g., 'completed')
-        autoReverseOnCancel: boolean; // Auto-reverse stock if sales order is cancelled
-        originLabels: {
-            sales: string;
-            purchases: string;
-            adjustment: string;
-        };
-    };
-    requiredFields: {
-        customer: {
-            cpfCnpj: boolean;
-            rgIe: boolean;
-            email: boolean;
-            phone: boolean;
-            position: boolean;
-            address: boolean;
-        };
-        product: {
-            code: boolean;
-            brand: boolean;
-            costPrice: boolean;
-            minStock: boolean;
-        };
-        salesOrder: {
-            seller: boolean;
-            customer: boolean;
-        };
-        assistanceOrder: {
-            seller: boolean;
-            customer: boolean;
-        };
-    };
-    
-    // Novas Configurações Globais
-    securityOptions: {
-        sessionTimeoutMinutes: number;
-        requireManagerForDeletion: boolean;
-    };
-    financialOptions: {
-        currencySymbol: string;
-        decimalSeparator: string;
-        thousandSeparator: string;
-        autoRoundPrices: boolean;
-    };
-    operatingHours: {
-        start: string;
-        end: string;
-        timezone: string;
-    };
-    defaultLabelLayoutIds?: Record<string, string>;
-    importMappings: ImportConfig[];
-    scannerConfig: {
-        delay: number;
-        enableBeep: boolean;
-        vibrate: boolean;
-    };
-    blingConfig?: {
-        apiKey: string;
-        apiToken: string;
-        clientId: string;
-        clientSecret: string;
-        syncEnabled: boolean;
-    };
+  };
+
+  // Novas Configurações Globais
+  securityOptions: {
+    sessionTimeoutMinutes: number;
+    requireManagerForDeletion: boolean;
+  };
+  financialOptions: {
+    currencySymbol: string;
+    decimalSeparator: string;
+    thousandSeparator: string;
+    autoRoundPrices: boolean;
+  };
+  operatingHours: {
+    start: string;
+    end: string;
+    timezone: string;
+  };
+  defaultLabelLayoutIds?: Record<string, string>;
+  importMappings: ImportConfig[];
+  scannerConfig: {
+    delay: number;
+    enableBeep: boolean;
+    vibrate: boolean;
+  };
+  blingConfig?: {
+    apiKey: string;
+    apiToken: string;
+    clientId: string;
+    clientSecret: string;
+    syncEnabled: boolean;
+  };
 }
 
 /**
  * Helper to deep merge objects
  */
 const deepMerge = (target: any, source: any) => {
-    if (!source) return target;
-    const output = { ...target };
-    
-    Object.keys(source).forEach(key => {
-        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-            if (!(key in target)) {
-                output[key] = source[key];
-            } else {
-                output[key] = deepMerge(target[key], source[key]);
-            }
-        } else {
-            output[key] = source[key];
-        }
-    });
-    
-    return output;
+  if (!source) return target;
+  const output = { ...target };
+
+  Object.keys(source).forEach((key) => {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (!(key in target)) {
+        output[key] = source[key];
+      } else {
+        output[key] = deepMerge(target[key], source[key]);
+      }
+    } else {
+      output[key] = source[key];
+    }
+  });
+
+  return output;
 };
 
 /**
  * Migra configurações antigas para o novo formato
  */
 const migrateSettings = (settings: any): AppSettings => {
-    if (!settings) return settings;
+  if (!settings) return settings;
 
-    // Migração de manuseio: string[] -> HandlingOption[]
-    if (settings.deliveryHandlingOptions && settings.deliveryHandlingOptions.length > 0 && typeof settings.deliveryHandlingOptions[0] === 'string') {
-        settings.deliveryHandlingOptions = settings.deliveryHandlingOptions.map((label: string) => ({
-            label,
-            includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
-            isAssemblyOutside: label.toLowerCase().includes('fora') || label.toLowerCase().includes('local') || (label.toLowerCase().includes('entrega') && label.toLowerCase().includes('mostruario'))
-        }));
-    }
-    if (settings.pickupHandlingOptions && settings.pickupHandlingOptions.length > 0 && typeof settings.pickupHandlingOptions[0] === 'string') {
-        settings.pickupHandlingOptions = settings.pickupHandlingOptions.map((label: string) => ({
-            label,
-            includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
-            isAssemblyOutside: label.toLowerCase().includes('fora') || label.toLowerCase().includes('local') || (label.toLowerCase().includes('entrega') && label.toLowerCase().includes('mostruario'))
-        }));
-    }
+  // Migração de manuseio: string[] -> HandlingOption[]
+  if (
+    settings.deliveryHandlingOptions &&
+    settings.deliveryHandlingOptions.length > 0 &&
+    typeof settings.deliveryHandlingOptions[0] === 'string'
+  ) {
+    settings.deliveryHandlingOptions = settings.deliveryHandlingOptions.map((label: string) => ({
+      label,
+      includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
+      isAssemblyOutside:
+        label.toLowerCase().includes('fora') ||
+        label.toLowerCase().includes('local') ||
+        (label.toLowerCase().includes('entrega') && label.toLowerCase().includes('mostruario')),
+    }));
+  }
+  if (
+    settings.pickupHandlingOptions &&
+    settings.pickupHandlingOptions.length > 0 &&
+    typeof settings.pickupHandlingOptions[0] === 'string'
+  ) {
+    settings.pickupHandlingOptions = settings.pickupHandlingOptions.map((label: string) => ({
+      label,
+      includeInAssemblySchedule: label.toLowerCase().includes('montagem'),
+      isAssemblyOutside:
+        label.toLowerCase().includes('fora') ||
+        label.toLowerCase().includes('local') ||
+        (label.toLowerCase().includes('entrega') && label.toLowerCase().includes('mostruario')),
+    }));
+  }
 
-    // Restaura manuseios reais da Morante se as configurações ainda usam os padrões genéricos
-    if (settingsUseGenericDefaults(settings.deliveryHandlingOptions)) {
-        settings.deliveryHandlingOptions = MORANTE_DELIVERY_HANDLING_OPTIONS;
-    }
-    if (settingsUseGenericDefaults(settings.pickupHandlingOptions)) {
-        settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
-    }
+  // Restaura manuseios reais da Morante se as configurações ainda usam os padrões genéricos
+  if (settingsUseGenericDefaults(settings.deliveryHandlingOptions)) {
+    settings.deliveryHandlingOptions = MORANTE_DELIVERY_HANDLING_OPTIONS;
+  }
+  if (settingsUseGenericDefaults(settings.pickupHandlingOptions)) {
+    settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
+  }
 
-    if (!settings.googleMapsApiKey || !settings.googleMapsApiKey.trim()) {
-        settings.googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '__REDACTED_GCP_API_KEY__';
-    }
+  if (!settings.googleMapsApiKey || !settings.googleMapsApiKey.trim()) {
+    settings.googleMapsApiKey =
+      (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '__REDACTED_GCP_API_KEY__';
+  }
 
-    if (!settings.geminiApiKey || !settings.geminiApiKey.trim()) {
-        settings.geminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY as string)?.trim() || '';
-    }
+  if (!settings.geminiApiKey || !settings.geminiApiKey.trim()) {
+    settings.geminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY as string)?.trim() || '';
+  }
 
-    return settings as AppSettings;
+  return settings as AppSettings;
 };
 
 const SETTINGS_KEY = 'pdv_app_settings';
@@ -322,97 +360,103 @@ const SUPABASE_SETTINGS_TABLE = 'settings';
 const SETTINGS_ID = 'app';
 
 export const getDefaultSettings = (): AppSettings => ({
-    showManualFulfillmentPrompt: true,
-    autoSaveOnlyWhenDirty: true,
-    statusLabels: {
-        draft: 'Rascunho',
-        scheduled: 'Agendado',
-        fulfilled: 'Atendido',
-        cancelled: 'Cancelado'
+  showManualFulfillmentPrompt: true,
+  autoSaveOnlyWhenDirty: true,
+  statusLabels: {
+    draft: 'Rascunho',
+    scheduled: 'Agendado',
+    fulfilled: 'Atendido',
+    cancelled: 'Cancelado',
+  },
+  orderStatuses: [
+    { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
+    { id: 'scheduled', label: 'Agendado', color: 'amber', isCore: true },
+    { id: 'fulfilled', label: 'Atendido', color: 'emerald', isCore: true },
+    { id: 'cancelled', label: 'Cancelado', color: 'rose', isCore: true },
+  ],
+  orderTypeLabels: {
+    delivery: 'Entrega/Serviço',
+    pickup: 'Retirada',
+    assistance: 'Assistência',
+    budget: 'Orçamento',
+    return: 'Devolução',
+  },
+  orderTypeColors: {
+    delivery: 'green',
+    pickup: 'purple',
+    assistance: 'orange',
+    budget: 'blue',
+    return: 'amber',
+  },
+  deliveryHandlingOptions: MORANTE_DELIVERY_HANDLING_OPTIONS,
+  pickupHandlingOptions: MORANTE_PICKUP_HANDLING_OPTIONS,
+  cardFlagRules: [
+    { flag: 'VISA', interestRates: [{ installments: 10, rate: 0 }] },
+    { flag: 'MASTERCARD', interestRates: [{ installments: 10, rate: 0 }] },
+    { flag: 'HIPERCARD', interestRates: [{ installments: 10, rate: 0 }] },
+    { flag: 'ELO', interestRates: [{ installments: 10, rate: 0 }] },
+    {
+      flag: 'SENFF',
+      interestRates: [
+        { installments: 3, rate: 3.5 },
+        { installments: 6, rate: 6.8 },
+        { installments: 10, rate: 9.9 },
+      ],
     },
-    orderStatuses: [
-        { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
-        { id: 'scheduled', label: 'Agendado', color: 'amber', isCore: true },
-        { id: 'fulfilled', label: 'Atendido', color: 'emerald', isCore: true },
-        { id: 'cancelled', label: 'Cancelado', color: 'rose', isCore: true },
-    ],
-    orderTypeLabels: {
-        delivery: 'Entrega/Serviço',
-        pickup: 'Retirada',
-        assistance: 'Assistência',
-        budget: 'Orçamento',
-        return: 'Devolução'
-    },
-    orderTypeColors: {
-        delivery: 'green',
-        pickup: 'purple',
-        assistance: 'orange',
-        budget: 'blue',
-        return: 'amber'
-    },
-    deliveryHandlingOptions: MORANTE_DELIVERY_HANDLING_OPTIONS,
-    pickupHandlingOptions: MORANTE_PICKUP_HANDLING_OPTIONS,
-    cardFlagRules: [
-        { flag: 'VISA', interestRates: [{ installments: 10, rate: 0 }] },
-        { flag: 'MASTERCARD', interestRates: [{ installments: 10, rate: 0 }] },
-        { flag: 'HIPERCARD', interestRates: [{ installments: 10, rate: 0 }] },
-        { flag: 'ELO', interestRates: [{ installments: 10, rate: 0 }] },
-        { flag: 'SENFF', interestRates: [
-            { installments: 3, rate: 3.5 },
-            { installments: 6, rate: 6.8 },
-            { installments: 10, rate: 9.9 }
-        ] }
-    ],
-    freightPerKm: 0,
-    openRouteServiceApiKey: '',
-    googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
-    geminiApiKey: '',
-    storeOriginCoords: [-49.16948, -25.35205],
-    companyName: 'Móveis Morante',
-    companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
-    companyCnpj: '44.512.248.0001/07',
-    companyPhone: '(41) 99749-3547',
-    companyIE: '9091234567',
-    companyIM: '',
-    companyCRT: '1',
-    companyLogradouro: 'R. Cascavel',
-    companyNumero: '306',
-    companyBairro: 'Guaraituba',
-    companyCEP: '83410-270',
-    companyCMun: '4105805', // Colombo - PR
-    companyXMun: 'Colombo',
-    companyUF: 'PR',
-    nfeEnvironment: 2, // 2 = Homologação / Testes
-    nfeSerie: '1',
-    nfeNextNumber: 700,
-    nfceNextNumber: 700,
-    cscId: '000001',
-    cscToken: 'XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF',
-    fiscalDefaults: {
-        ncm: '94036000',
-        cest: '',
-        cfop: '5102',
-        returnCfop: '1202',
-        inverseCfopMappings: {},
-        cst: '102',
-        icmsPercent: 0,
-        origem: '0',
-        pisCst: '49',
-        cofinsCst: '49'
-    },
-    autoCapitalizeCustomerData: true,
-    googleReviewUrl: 'https://g.page/r/CctxeFYzY2o8EBE/review',
-    defaultTheme: 'light',
-    autoScroll: {
-        orderTable: false,
-        scheduleCards: false,
-        scheduleTable: false,
-    },
-    showScheduleNoticeLabels: false, // Por padrão não precisa de rótulos de aviso
-    speed: 3,
-    threshold: 100,
-    aiPrompts: {
-        productDescription: `Você é um copywriter de marketing especialista em e-commerce da Móveis Morante.
+  ],
+  freightPerKm: 0,
+  openRouteServiceApiKey: '',
+  googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
+  geminiApiKey: '',
+  storeOriginCoords: [-49.16948, -25.35205],
+  companyName: 'Móveis Morante',
+  companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
+  companyCnpj: '44.512.248.0001/07',
+  companyPhone: '(41) 99749-3547',
+  companyIE: '9091234567',
+  companyIM: '',
+  companyCRT: '1',
+  companyLogradouro: 'R. Cascavel',
+  companyNumero: '306',
+  companyBairro: 'Guaraituba',
+  companyCEP: '83410-270',
+  companyCMun: '4105805', // Colombo - PR
+  companyXMun: 'Colombo',
+  companyUF: 'PR',
+  nfeEnvironment: 2, // 2 = Homologação / Testes
+  nfeSerie: '1',
+  nfeNextNumber: 700,
+  nfceNextNumber: 700,
+  nfeHomologationSerie: '900',
+  nfeHomologationNextNumber: 700,
+  nfceHomologationNextNumber: 700,
+  cscId: '000001',
+  cscToken: 'XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF',
+  fiscalDefaults: {
+    ncm: '94036000',
+    cest: '',
+    cfop: '5102',
+    returnCfop: '1202',
+    inverseCfopMappings: {},
+    cst: '102',
+    icmsPercent: 0,
+    origem: '0',
+    pisCst: '49',
+    cofinsCst: '49',
+  },
+  autoCapitalizeCustomerData: true,
+  googleReviewUrl: 'https://g.page/r/CctxeFYzY2o8EBE/review',
+  defaultTheme: 'light',
+  autoScroll: {
+    orderTable: false,
+    scheduleCards: false,
+    scheduleTable: false,
+  },
+  showScheduleNoticeLabels: false, // Por padrão não precisa de rótulos de aviso
+  speed: 3,
+  threshold: 100,
+  aiPrompts: {
+    productDescription: `Você é um copywriter de marketing especialista em e-commerce da Móveis Morante.
 Sua tarefa é criar uma descrição de produto incrivelmente persuasiva, focada em vendas.
 
 Título do Produto: {{productTitle}}
@@ -422,7 +466,7 @@ Instruções Adicionais:
 - Crie apenas UM ou DOIS parágrafos.
 - Seja direto, instigante e profissional.
 - JAMAIS responda com outra coisa que não seja a descrição final do produto. Comece direto no texto.`,
-        ecommerceTemplate: `IA, siga o padrão de descrição da Móveis Morante (Estilo Magalu).
+    ecommerceTemplate: `IA, siga o padrão de descrição da Móveis Morante (Estilo Magalu).
 Use HTML estruturado (h1, p, ul, li, table).
 
 [NOME DO PRODUTO EM CAIXA ALTA] + [LINHA] – [COR]
@@ -449,7 +493,7 @@ Especificações Técnicas:
 
 Por que escolher a [Linha]?
 (Parágrafo de fechamento reforçando durabilidade e melhor custo-benefício).`,
-        whatsappTemplate: `IA, siga o padrão de descrição da Móveis Morante (Estilo Magalu).
+    whatsappTemplate: `IA, siga o padrão de descrição da Móveis Morante (Estilo Magalu).
 USE APENAS TEXTO SIMPLES E EMOJIS. NÃO USE HTML.
 
 [NOME DO PRODUTO EM CAIXA ALTA] + [LINHA] – [COR]
@@ -501,7 +545,7 @@ Móveis Morante
 🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
 🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
 ____________________________________`,
-        generalChat: `Você é Seu Lizandro, um assistente virtual de ALTA PERFORMANCE exclusivo para os vendedores da Móveis Morante.
+    generalChat: `Você é Seu Lizandro, um assistente virtual de ALTA PERFORMANCE exclusivo para os vendedores da Móveis Morante.
 Seu objetivo é ser o braço direito do VENDEDOR, agilizando processos internos e organizando dados.
 
 DIRETRIZES PARA O VENDEDOR:
@@ -516,7 +560,7 @@ O QUE VOCÊ FAZ PARA O VENDEDOR:
 - Organiza informações de entrega e pagamentos.
 
 Responda sempre em Português do Brasil com foco em velocidade total.`,
-        taskDetection: `Você é o motor de automação do VENDEDOR da Móveis Morante. 
+    taskDetection: `Você é o motor de automação do VENDEDOR da Móveis Morante. 
 Seu trabalho é ouvir o comando do vendedor e converter em dados estruturados para o sistema.
 
 REGRAS DE EXTRAÇÃO E FLUXO:
@@ -542,203 +586,211 @@ RESPOSTA NO FORMATO JSON:
   }
 }
 `,
-        aiName: 'Seu Lizandro',
-        aiAvatar: '',
-        aiMascot: '/lizandro.png',
-        aiMascotVariants: {
-            receipt: '/lizandro.png',
-            dashboard: '/lizandro.png'
-        }
+    aiName: 'Seu Lizandro',
+    aiAvatar: '',
+    aiMascot: '/lizandro.png',
+    aiMascotVariants: {
+      receipt: '/lizandro.png',
+      dashboard: '/lizandro.png',
     },
-    whatsappConfig: {
-        accessToken: '',
-        phoneNumberId: '',
-        wabaId: '',
-        catalogId: '',
-        sendMode: 'wame'
-    },
-    channelBaseDescriptions: {
-        whatsapp: `🏠 *Móveis Morante*
+  },
+  whatsappConfig: {
+    accessToken: '',
+    phoneNumberId: '',
+    wabaId: '',
+    catalogId: '',
+    sendMode: 'wame',
+  },
+  channelBaseDescriptions: {
+    whatsapp: `🏠 *Móveis Morante*
 📍 R. Cascavel, 306 - Guaraituba, Colombo - PR
 ⌚ Seg a Sex: 8h às 18h | Sáb: 8h às 13h
 📞 (41) 99749-3547
 
 ――――――――――――`,
-        ecommerce: `A **Móveis Morante** é referência em móveis planejados e decoração de interiores há mais de 10 anos. Trabalhamos com móveis novos, usados e salvados, sempre com qualidade e atendimento personalizado.
+    ecommerce: `A **Móveis Morante** é referência em móveis planejados e decoração de interiores há mais de 10 anos. Trabalhamos com móveis novos, usados e salvados, sempre com qualidade e atendimento personalizado.
 
----`
+---`,
+  },
+  orderAutomation: {
+    autoPrintReceipt: true,
+    autoPrintDeliveryOrder: true,
+    autoSendWhatsAppDelivery: true,
+    autoSendCustomerOrder: true,
+    deliveryPhone: '',
+    groupInviteMessage: '',
+    groupInviteLink: '',
+  },
+  deliveryReminderAutomation: {
+    enabled: false,
+    hoursBeforeDelivery: 12,
+    buttonTitle: 'Confirmar Entrega',
+    notifySellerOnConfirmation: true,
+    includeRouteLink: true,
+    autoUpdateStatusOnConfirm: true,
+    reminderTemplate:
+      '📦 *LEMBRETE DE ENTREGA - MÓVEIS MORANTE*\n\nOlá {{customerName}}, lembramos que sua entrega está agendada para:\n🗓️ *Data:* {{deliveryDate}}\n⏰ *Horário/Período:* {{deliveryTime}}\n🏠 *Endereço:* {{address}}{{assemblyNotice}}\n\nPor favor, confirme se o local estará acessível no horário agendado.',
+    sameDaySpaceReminderTemplate:
+      '📦 *LEMBRETE DE MONTAGEM - MÓVEIS MORANTE*\n\nOlá {{customerName}}, para a entrega de hoje do(s) seu(s) móvel(is) *{{furnitureItems}}*, pedimos a gentileza de deixar o espaço limpo e livre no local para a realização da montagem!',
+  },
+  stockNotificationConditions: ['novo'],
+  rolePermissions: {
+    manualStockMovement: ['administrator', 'manager', 'stockist'],
+    productConfig: ['administrator', 'manager'],
+    viewFinancials: ['administrator', 'manager', 'accountant'],
+    deleteOrders: ['administrator', 'manager'],
+    startDelivery: ['administrator', 'deliverer'],
+    manageSettings: ['administrator'],
+  },
+  whatsappTemplates: {
+    reviewRequest:
+      '*Olá {{customerName}}!* 👋\n\nFicamos muito felizes com sua compra na Móveis Morante! \n\nPoderia nos ajudar avaliando nosso atendimento no Google? Leva menos de 1 minuto e nos ajuda muito: \n\n{{reviewUrl}}\n\nMuito obrigado!',
+    orderConfirmation:
+      '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n*Vendedor:* {{seller}}\n\n*Anote aí, a sua entrega está agendada para:* \n{{deliveryDate}} | {{deliveryTime}}\n\n*Endereço:* \n{{address}}\n\n*Itens:* \n{{items}}\n\n*Valor Total:* R$ {{totalValue}}\n\n*Pagamento:* \n{{payments}}',
+    deliveryInfo:
+      '____________________\n\n*Novo Pedido para {{customerName}}* 📦\n\n*Vendedor:* {{seller}}\n\n𝐈𝐌𝐏𝐎𝐑𝐓𝐀𝐍𝐓𝐄:\n{{observation}}\n\n🗓️ *Agendamento:*\n{{deliveryDate}} | {{deliveryTime}}\n\n📞 *Contato:*\n{{phone}}\n\n🏠 *Endereço:*\n{{address}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Total:* R$ {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
+    assistanceConfirmation:
+      '*Olá {{customerName}}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado! \n\n*Técnico/Responsável:* {{seller}}\n\n🗓️ *Data:* {{assistanceDate}}\n🕒 *Horário:* {{assistanceTime}}\n\n📋 *Descrição do serviço:*\n{{assistanceDescription}}\n\n📞 *Nosso contato:* {{companyPhone}}\n\nEm caso de dúvidas, entre em contato!',
+    groupInviteMessage:
+      'Se quiser ficar por dentro de novas ofertas e promoções, clique nesse grupo, estarei sempre enviando por lá: {{groupLink}}',
+    groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t',
+  },
+  receiptConfig: {
+    footerText: '',
+    showSeller: true,
+    compactMode: false,
+  },
+  businessRules: {
+    allowNegativeStock: true, // Default to true to prevent blocking sales
+    autoReserveStock: true,
+  },
+  inventoryAutomation: {
+    autoWithdrawalOnStatus: ['scheduled', 'fulfilled'],
+    autoEntryOnPurchaseStatus: ['completed'],
+    autoReverseOnCancel: true,
+    originLabels: {
+      sales: 'Venda de Móveis',
+      purchases: 'Compra de Móveis',
+      adjustment: 'Ajuste Manual',
     },
-    orderAutomation: {
-        autoPrintReceipt: true,
-        autoPrintDeliveryOrder: true,
-        autoSendWhatsAppDelivery: true,
-        autoSendCustomerOrder: true,
-        deliveryPhone: '',
-        groupInviteMessage: '',
-        groupInviteLink: ''
+  },
+  requiredFields: {
+    customer: {
+      cpfCnpj: false,
+      rgIe: false,
+      email: false,
+      phone: true,
+      position: false,
+      address: false,
     },
-    deliveryReminderAutomation: {
-        enabled: false,
-        hoursBeforeDelivery: 12,
-        buttonTitle: 'Confirmar Entrega',
-        notifySellerOnConfirmation: true,
-        includeRouteLink: true,
-        autoUpdateStatusOnConfirm: true,
-        reminderTemplate: '📦 *LEMBRETE DE ENTREGA - MÓVEIS MORANTE*\n\nOlá {{customerName}}, lembramos que sua entrega está agendada para:\n🗓️ *Data:* {{deliveryDate}}\n⏰ *Horário/Período:* {{deliveryTime}}\n🏠 *Endereço:* {{address}}{{assemblyNotice}}\n\nPor favor, confirme se o local estará acessível no horário agendado.',
-        sameDaySpaceReminderTemplate: '📦 *LEMBRETE DE MONTAGEM - MÓVEIS MORANTE*\n\nOlá {{customerName}}, para a entrega de hoje do(s) seu(s) móvel(is) *{{furnitureItems}}*, pedimos a gentileza de deixar o espaço limpo e livre no local para a realização da montagem!'
+    product: {
+      code: true,
+      brand: false,
+      costPrice: false,
+      minStock: false,
     },
-    stockNotificationConditions: ['novo'],
-    rolePermissions: {
-        manualStockMovement: ['administrator', 'manager', 'stockist'],
-        productConfig: ['administrator', 'manager'],
-        viewFinancials: ['administrator', 'manager', 'accountant'],
-        deleteOrders: ['administrator', 'manager'],
-        startDelivery: ['administrator', 'deliverer'],
-        manageSettings: ['administrator']
+    salesOrder: {
+      seller: true,
+      customer: false,
     },
-    whatsappTemplates: {
-        reviewRequest: '*Olá {{customerName}}!* 👋\n\nFicamos muito felizes com sua compra na Móveis Morante! \n\nPoderia nos ajudar avaliando nosso atendimento no Google? Leva menos de 1 minuto e nos ajuda muito: \n\n{{reviewUrl}}\n\nMuito obrigado!',
-        orderConfirmation: '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n*Vendedor:* {{seller}}\n\n*Anote aí, a sua entrega está agendada para:* \n{{deliveryDate}} | {{deliveryTime}}\n\n*Endereço:* \n{{address}}\n\n*Itens:* \n{{items}}\n\n*Valor Total:* R$ {{totalValue}}\n\n*Pagamento:* \n{{payments}}',
-        deliveryInfo: '____________________\n\n*Novo Pedido para {{customerName}}* 📦\n\n*Vendedor:* {{seller}}\n\n𝐈𝐌𝐏𝐎𝐑𝐓𝐀𝐍𝐓𝐄:\n{{observation}}\n\n🗓️ *Agendamento:*\n{{deliveryDate}} | {{deliveryTime}}\n\n📞 *Contato:*\n{{phone}}\n\n🏠 *Endereço:*\n{{address}}\n\n🛒 *Itens:*\n{{items}}\n\n💰 *Total:* R$ {{totalValue}}\n\n💳 *Pagamento:*\n{{payments}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}',
-        assistanceConfirmation: '*Olá {{customerName}}!* 🔧\n\nSeu atendimento de assistência técnica foi confirmado! \n\n*Técnico/Responsável:* {{seller}}\n\n🗓️ *Data:* {{assistanceDate}}\n🕒 *Horário:* {{assistanceTime}}\n\n📋 *Descrição do serviço:*\n{{assistanceDescription}}\n\n📞 *Nosso contato:* {{companyPhone}}\n\nEm caso de dúvidas, entre em contato!',
-        groupInviteMessage: 'Se quiser ficar por dentro de novas ofertas e promoções, clique nesse grupo, estarei sempre enviando por lá: {{groupLink}}',
-        groupInviteLink: 'https://chat.whatsapp.com/FtqlGwW7pdI9Jzgl8VRia6?mode=gi_t'
+    assistanceOrder: {
+      seller: true,
+      customer: false,
     },
-    receiptConfig: {
-        footerText: '',
-        showSeller: true,
-        compactMode: false
-    },
-    businessRules: {
-        allowNegativeStock: true, // Default to true to prevent blocking sales
-        autoReserveStock: true
-    },
-    inventoryAutomation: {
-        autoWithdrawalOnStatus: ['scheduled', 'fulfilled'],
-        autoEntryOnPurchaseStatus: ['completed'],
-        autoReverseOnCancel: true,
-        originLabels: {
-            sales: 'Venda de Móveis',
-            purchases: 'Compra de Móveis',
-            adjustment: 'Ajuste Manual'
-        }
-    },
-    requiredFields: {
-        customer: {
-            cpfCnpj: false,
-            rgIe: false,
-            email: false,
-            phone: true,
-            position: false,
-            address: false,
-        },
-        product: {
-            code: true,
-            brand: false,
-            costPrice: false,
-            minStock: false,
-        },
-        salesOrder: {
-            seller: true,
-            customer: false,
-        },
-        assistanceOrder: {
-            seller: true,
-            customer: false,
-        }
-    },
-    securityOptions: {
-        sessionTimeoutMinutes: 120,
-        requireManagerForDeletion: true,
-    },
-    financialOptions: {
-        currencySymbol: 'R$',
-        decimalSeparator: ',',
-        thousandSeparator: '.',
-        autoRoundPrices: false,
-    },
-    operatingHours: {
-        start: '08:00',
-        end: '18:00',
-        timezone: 'America/Sao_Paulo',
-    },
-    defaultLabelLayoutIds: {},
-    importMappings: [
-        BLING_PRODUCT_DEFAULTS,
-        BLING_VARIATION_DEFAULTS,
-        BLING_CUSTOMER_DEFAULTS,
-        BLING_SUPPLIER_DEFAULTS,
-        BLING_ORDER_DEFAULTS,
-        BLING_RECEIVABLE_DEFAULTS
-    ],
-    scannerConfig: {
-        delay: 1500,
-        enableBeep: true,
-        vibrate: true
-    },
-    blingConfig: {
-        apiKey: '',
-        apiToken: '',
-        clientId: '',
-        clientSecret: '',
-        syncEnabled: false
-    }
+  },
+  securityOptions: {
+    sessionTimeoutMinutes: 120,
+    requireManagerForDeletion: true,
+  },
+  financialOptions: {
+    currencySymbol: 'R$',
+    decimalSeparator: ',',
+    thousandSeparator: '.',
+    autoRoundPrices: false,
+  },
+  operatingHours: {
+    start: '08:00',
+    end: '18:00',
+    timezone: 'America/Sao_Paulo',
+  },
+  defaultLabelLayoutIds: {},
+  importMappings: [
+    BLING_PRODUCT_DEFAULTS,
+    BLING_VARIATION_DEFAULTS,
+    BLING_CUSTOMER_DEFAULTS,
+    BLING_SUPPLIER_DEFAULTS,
+    BLING_ORDER_DEFAULTS,
+    BLING_RECEIVABLE_DEFAULTS,
+  ],
+  scannerConfig: {
+    delay: 1500,
+    enableBeep: true,
+    vibrate: true,
+  },
+  blingConfig: {
+    apiKey: '',
+    apiToken: '',
+    clientId: '',
+    clientSecret: '',
+    syncEnabled: false,
+  },
 });
 
 export const getSettings = (): AppSettings => {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    const defaults = getDefaultSettings();
+  const saved = localStorage.getItem(SETTINGS_KEY);
+  const defaults = getDefaultSettings();
 
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            const migrated = migrateSettings(parsed);
-            return deepMerge(defaults, migrated);
-        } catch (e) {
-            return defaults;
-        }
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      const migrated = migrateSettings(parsed);
+      return deepMerge(defaults, migrated);
+    } catch (e) {
+      return defaults;
     }
-    return defaults;
+  }
+  return defaults;
 };
 
 // Real-time synchronization with Supabase
 export const subscribeToSettings = (callback: (settings: AppSettings) => void) => {
-    const defaults = getDefaultSettings();
-    // Initial load from localStorage for speed
-    callback(getSettings());
+  const defaults = getDefaultSettings();
+  // Initial load from localStorage for speed
+  callback(getSettings());
 
-    // Initial load from Supabase
-    supabase.from(SUPABASE_SETTINGS_TABLE)
-        .select('data')
-        .eq('id', SETTINGS_ID)
-        .single()
-        .then(({ data, error }: { data: any, error: any }) => {
-            if (data && !error) {
-                const settingsFromCloud = data.data as any;
-                const migrated = migrateSettings(settingsFromCloud);
-                const mergedSettings = deepMerge(defaults, migrated);
-                localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
-                callback(mergedSettings);
-            }
-        });
+  // Initial load from Supabase
+  supabase
+    .from(SUPABASE_SETTINGS_TABLE)
+    .select('data')
+    .eq('id', SETTINGS_ID)
+    .single()
+    .then(({ data, error }: { data: any; error: any }) => {
+      if (data && !error) {
+        const settingsFromCloud = data.data as any;
+        const migrated = migrateSettings(settingsFromCloud);
+        const mergedSettings = deepMerge(defaults, migrated);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
+        callback(mergedSettings);
+      }
+    });
 
-    return () => {
-        // Realtime desabilitado para economizar conexões e tráfego
-    };
+  return () => {
+    // Realtime desabilitado para economizar conexões e tráfego
+  };
 };
 
 export const saveSettings = async (settings: AppSettings) => {
-    // 1. Save to localStorage (Local First)
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  // 1. Save to localStorage (Local First)
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
-    // 2. Save to Supabase (Cloud Persistence)
-    try {
-        const { error } = await supabase
-            .from(SUPABASE_SETTINGS_TABLE)
-            .upsert({ id: SETTINGS_ID, data: settings });
+  // 2. Save to Supabase (Cloud Persistence)
+  try {
+    const { error } = await supabase
+      .from(SUPABASE_SETTINGS_TABLE)
+      .upsert({ id: SETTINGS_ID, data: settings });
 
-        if (error) throw error;
-    } catch (error) {
-        console.error("Erro ao persistir configurações no Supabase:", error);
-    }
+    if (error) throw error;
+  } catch (error) {
+    console.error('Erro ao persistir configurações no Supabase:', error);
+  }
 };

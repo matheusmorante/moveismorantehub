@@ -12,7 +12,12 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
-import { formatOrderCode, formatOrderDate, formatOrderTotal, isCancelledOrder } from '../../../utils/orderUtils';
+import {
+  formatOrderCode,
+  formatOrderDate,
+  formatOrderTotal,
+  isCancelledOrder,
+} from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 type Props = {
@@ -42,49 +47,100 @@ const getStatusConfig = (value: string) => {
 export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Props) {
   const data = order.order_data || {};
   const shipping = data.shipping || {};
-  const orderType = String(order.orderType || order.order_type || data.orderType || 'sale').toLowerCase();
+  const orderType = String(
+    order.orderType || order.order_type || data.orderType || 'sale'
+  ).toLowerCase();
   const isAssistance = orderType === 'assistance';
   const isReturn = orderType === 'return';
   const isBudget = orderType === 'budget';
-  const pickup = /pickup|retirada/.test(String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase());
-  
+  const pickup = /pickup|retirada/.test(
+    String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
+  );
+
   // Normalização e detecção de montagens idêntica ao ERP
-  const normalize = (str: string) => (str || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const normalize = (str: string) =>
+    (str || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
   const allOptions = Array.isArray(handlingOptions) ? handlingOptions : [];
   const getMatchingOption = (hLabel: string) => {
     if (!hLabel) return null;
-    return allOptions.find(o => {
+    return allOptions.find((o) => {
       const sLabel = normalize(o?.label);
       return sLabel === hLabel || (sLabel && (hLabel.includes(sLabel) || sLabel.includes(hLabel)));
     });
   };
 
   const isHandlingDepot = (item: any) => {
-    const hLabel = normalize(typeof item === 'string' ? item : item?.handlingType || item?.handling);
-    if (!hLabel || hLabel.includes('sem montagem') || hLabel.includes('sem_montagem') || hLabel.includes('apenas entrega') || hLabel.includes('nao necessita')) return false;
+    const hLabel = normalize(
+      typeof item === 'string' ? item : item?.handlingType || item?.handling
+    );
+    if (
+      !hLabel ||
+      hLabel.includes('sem montagem') ||
+      hLabel.includes('sem_montagem') ||
+      hLabel.includes('apenas entrega') ||
+      hLabel.includes('nao necessita')
+    )
+      return false;
     const opt = getMatchingOption(hLabel);
     if (opt?.includeInAssemblySchedule) return true;
-    if (hLabel.includes('montagem no deposito') || hLabel.includes('montagem para retirada') || hLabel.includes('montagem no depósito') || hLabel.includes('deposito') || hLabel.includes('loja')) return true;
+    if (
+      hLabel.includes('montagem no deposito') ||
+      hLabel.includes('montagem para retirada') ||
+      hLabel.includes('montagem no depósito') ||
+      hLabel.includes('deposito') ||
+      hLabel.includes('loja')
+    )
+      return true;
     return false;
   };
 
   const isHandlingOutside = (item: any) => {
-    const hLabel = normalize(typeof item === 'string' ? item : item?.handlingType || item?.handling);
-    if (!hLabel || hLabel.includes('sem montagem') || hLabel.includes('sem_montagem') || hLabel.includes('apenas entrega') || hLabel.includes('nao necessita')) return false;
+    const hLabel = normalize(
+      typeof item === 'string' ? item : item?.handlingType || item?.handling
+    );
+    if (
+      !hLabel ||
+      hLabel.includes('sem montagem') ||
+      hLabel.includes('sem_montagem') ||
+      hLabel.includes('apenas entrega') ||
+      hLabel.includes('nao necessita')
+    )
+      return false;
     const opt = getMatchingOption(hLabel);
     if (opt?.isAssemblyOutside) return true;
-    if (hLabel.includes('montagem na entrega') || hLabel.includes('montagem fora') || hLabel.includes('montagem no endereco') || hLabel.includes('montagem no local') || hLabel.includes('montador')) return true;
+    if (
+      hLabel.includes('montagem na entrega') ||
+      hLabel.includes('montagem fora') ||
+      hLabel.includes('montagem no endereco') ||
+      hLabel.includes('montagem no local') ||
+      hLabel.includes('montador')
+    )
+      return true;
     return false;
   };
 
-  const allOrderItems = [...(data.items || order.items || []), ...(data.assistanceItems || order.assistanceItems || [])];
+  const allOrderItems = [
+    ...(data.items || order.items || []),
+    ...(data.assistanceItems || order.assistanceItems || []),
+  ];
   const orderHandling = normalize(
-    data.handlingType || data.handling || data.deliveryType || 
-    shipping.handlingType || shipping.handling || order.handling || ''
+    data.handlingType ||
+      data.handling ||
+      data.deliveryType ||
+      shipping.handlingType ||
+      shipping.handling ||
+      order.handling ||
+      ''
   );
 
-  const hasAssemblyOutside = !isReturn && (isHandlingOutside(orderHandling) || allOrderItems.some(isHandlingOutside));
-  const hasAssemblyDepot = !isReturn && (isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot));
+  const hasAssemblyOutside =
+    !isReturn && (isHandlingOutside(orderHandling) || allOrderItems.some(isHandlingOutside));
+  const hasAssemblyDepot =
+    !isReturn && (isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot));
 
   const schedule = shipping.scheduling || data.schedule || {};
   const scheduleDate = schedule.date || schedule.startDate || order.scheduled_date || order.date;
@@ -92,14 +148,30 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   const cancelled = isCancelledOrder(order);
   const isStockChecked = Boolean(order.isStockChecked ?? data.isStockChecked);
   const isRegisteredInBling = Boolean(order.isRegisteredInBling ?? data.isRegisteredInBling);
-  const pendingScheduling = Boolean(shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling);
+  const pendingScheduling = Boolean(
+    shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling
+  );
 
   // Tráfego pago
-  const mOrigin1 = (order.marketingOrigin || data.marketingOrigin || "").toLowerCase();
-  const mOrigin2 = (data.customerData?.marketingOrigin || "").toLowerCase();
+  const mOrigin1 = (order.marketingOrigin || data.marketingOrigin || '').toLowerCase();
+  const mOrigin2 = (data.customerData?.marketingOrigin || '').toLowerCase();
   const isPaidTraffic =
-    mOrigin1 === 'paid' || mOrigin1.includes('pago') || mOrigin1.includes('ads') || mOrigin1.includes('facebook') || mOrigin1.includes('insta') || mOrigin1.includes('trafego') || mOrigin1.includes('tráfego') || mOrigin1.includes('google') ||
-    mOrigin2 === 'paid' || mOrigin2.includes('pago') || mOrigin2.includes('ads') || mOrigin2.includes('facebook') || mOrigin2.includes('insta') || mOrigin2.includes('trafego') || mOrigin2.includes('tráfego') || mOrigin2.includes('google');
+    mOrigin1 === 'paid' ||
+    mOrigin1.includes('pago') ||
+    mOrigin1.includes('ads') ||
+    mOrigin1.includes('facebook') ||
+    mOrigin1.includes('insta') ||
+    mOrigin1.includes('trafego') ||
+    mOrigin1.includes('tráfego') ||
+    mOrigin1.includes('google') ||
+    mOrigin2 === 'paid' ||
+    mOrigin2.includes('pago') ||
+    mOrigin2.includes('ads') ||
+    mOrigin2.includes('facebook') ||
+    mOrigin2.includes('insta') ||
+    mOrigin2.includes('trafego') ||
+    mOrigin2.includes('tráfego') ||
+    mOrigin2.includes('google');
 
   // Cor de fundo e borda do cabeçalho do card (idênticas ao ERP: emerald-200 para entrega e purple-200 para retirada)
   let headerBg = dark ? '#022c22' : '#a7f3d0'; // Emerald-200 no tom exato do ERP
@@ -153,7 +225,12 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       )}
 
       {/* Header com Faixa Colorida e Selos Alinhados (idêntico ao ERP) */}
-      <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: headerBorder, borderBottomWidth: 1 }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: headerBg, borderBottomColor: headerBorder, borderBottomWidth: 1 },
+        ]}
+      >
         {/* Lado Esquerdo: Código do Pedido */}
         <View style={styles.codeBadge}>
           <Text style={styles.codeText}>#{formatOrderCode(order)}</Text>
@@ -162,10 +239,18 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
         {/* Lado Direito: Selos / Rótulos */}
         <View style={styles.badgesContainer}>
           {/* 1. Selo de Tipo de Pedido (Entrega / Retirada / Assistência / Devolução) */}
-          <View style={[
-            styles.iconBadge,
-            isAssistance ? styles.badgeOrange : isReturn ? styles.badgeAmber : pickup ? styles.badgePurple : styles.badgeEmerald
-          ]}>
+          <View
+            style={[
+              styles.iconBadge,
+              isAssistance
+                ? styles.badgeOrange
+                : isReturn
+                  ? styles.badgeAmber
+                  : pickup
+                    ? styles.badgePurple
+                    : styles.badgeEmerald,
+            ]}
+          >
             {isAssistance ? (
               <Wrench size={11} color="#ffffff" />
             ) : isReturn ? (
@@ -207,7 +292,12 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
           )}
 
           {/* 8. Selo de Status (Quadrado 24x24 idêntico ao ERP) */}
-          <View style={[styles.iconBadge, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
+          <View
+            style={[
+              styles.iconBadge,
+              { backgroundColor: statusConfig.bg, borderColor: statusConfig.border },
+            ]}
+          >
             {statusConfig.icon === 'fulfilled' ? (
               <CheckCircle2 size={11} color="#ffffff" />
             ) : statusConfig.icon === 'scheduled' ? (
@@ -231,18 +321,25 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
             <Text style={styles.label}>PEDIDO</Text>
             <View style={styles.inline}>
               <Calendar size={13} color="#64748b" />
-              <Text style={[styles.date, dark && styles.light]}>{formatOrderDate(order.created_at)}</Text>
+              <Text style={[styles.date, dark && styles.light]}>
+                {formatOrderDate(order.created_at)}
+              </Text>
             </View>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>{pickup ? 'RETIRADA' : 'ENTREGA'}</Text>
-            <Text style={[styles.date, dark && styles.light]}>{scheduleDate ? formatOrderDate(scheduleDate) : 'Não informada'}</Text>
+            <Text style={[styles.date, dark && styles.light]}>
+              {scheduleDate ? formatOrderDate(scheduleDate) : 'Não informada'}
+            </Text>
           </View>
         </View>
         {!!schedule.startTime && (
           <View style={styles.time}>
             <Clock size={12} color="#2563eb" />
-            <Text style={styles.timeText}>{schedule.startTime}{schedule.endTime ? ` ÀS ${schedule.endTime}` : ''}</Text>
+            <Text style={styles.timeText}>
+              {schedule.startTime}
+              {schedule.endTime ? ` ÀS ${schedule.endTime}` : ''}
+            </Text>
           </View>
         )}
         <View style={styles.footer}>

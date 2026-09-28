@@ -10,7 +10,7 @@ export interface NavigationTarget {
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord =>
-  value !== null && typeof value === 'object' ? value as UnknownRecord : {};
+  value !== null && typeof value === 'object' ? (value as UnknownRecord) : {};
 
 const asNonEmptyString = (value: unknown): string | undefined => {
   const text = typeof value === 'string' ? value.trim() : '';
@@ -28,31 +28,42 @@ export const extractNavigationTarget = (order: unknown, fullAddress?: string): N
   const orderData = asRecord(row.order_data);
   const shipping = asRecord(orderData.shipping ?? row.shipping);
   const deliveryAddress = asRecord(shipping.deliveryAddress ?? shipping.address);
-  const customerData = asRecord(orderData.customerData ?? row.customerData ?? orderData.customer ?? row.customer);
+  const customerData = asRecord(
+    orderData.customerData ?? row.customerData ?? orderData.customer ?? row.customer
+  );
   const customerAddress = asRecord(customerData.fullAddress ?? customerData.address);
-  const destinationCoords = Array.isArray(shipping.destinationCoords) ? shipping.destinationCoords : [];
+  const destinationCoords = Array.isArray(shipping.destinationCoords)
+    ? shipping.destinationCoords
+    : [];
 
   const rawMapsUrl = asNonEmptyString(
-    deliveryAddress.mapsUrl
-    ?? deliveryAddress.googleMapsUrl
-    ?? deliveryAddress.mapsLink
-    ?? shipping.mapsUrl
-    ?? shipping.googleMapsUrl
-    ?? shipping.mapsLink
-    ?? customerAddress.mapsUrl
-    ?? customerAddress.googleMapsUrl
-    ?? customerAddress.mapsLink
-    ?? customerData.mapsUrl
-    ?? customerData.googleMapsUrl
-    ?? customerData.mapsLink
-    ?? orderData.mapsUrl
-    ?? row.mapsUrl,
+    deliveryAddress.mapsUrl ??
+      deliveryAddress.googleMapsUrl ??
+      deliveryAddress.mapsLink ??
+      shipping.mapsUrl ??
+      shipping.googleMapsUrl ??
+      shipping.mapsLink ??
+      customerAddress.mapsUrl ??
+      customerAddress.googleMapsUrl ??
+      customerAddress.mapsLink ??
+      customerData.mapsUrl ??
+      customerData.googleMapsUrl ??
+      customerData.mapsLink ??
+      orderData.mapsUrl ??
+      row.mapsUrl
   );
 
   return {
     latitude: asCoordinate(shipping.latitude ?? destinationCoords[1]),
     longitude: asCoordinate(shipping.longitude ?? destinationCoords[0]),
-    fullAddress: fullAddress || asNonEmptyString(deliveryAddress.fullAddress ?? deliveryAddress.address ?? customerAddress.fullAddress ?? customerAddress.address),
+    fullAddress:
+      fullAddress ||
+      asNonEmptyString(
+        deliveryAddress.fullAddress ??
+          deliveryAddress.address ??
+          customerAddress.fullAddress ??
+          customerAddress.address
+      ),
     mapsUrl: rawMapsUrl,
   };
 };

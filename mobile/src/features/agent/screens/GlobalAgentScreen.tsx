@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { FinancialCategory, fetchFinancialCategories } from '../../../services/mobileFinanceService';
+import {
+  FinancialCategory,
+  fetchFinancialCategories,
+} from '../../../services/mobileFinanceService';
 import { FinancialAiChatView } from '../../finance/components/FinancialAiChatView';
 
 interface Props {
@@ -8,17 +11,14 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-export const GlobalAgentScreen: React.FC<Props> = ({
-  userProfile,
-  isDarkMode = false,
-}) => {
+export const GlobalAgentScreen: React.FC<Props> = ({ userProfile, isDarkMode = false }) => {
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const userName = userProfile?.full_name || userProfile?.name || 'Operador';
 
   useEffect(() => {
     let isMounted = true;
     fetchFinancialCategories()
-      .then(cats => {
+      .then((cats) => {
         if (isMounted) setCategories(cats);
       })
       .catch(() => {

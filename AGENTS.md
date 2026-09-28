@@ -35,7 +35,7 @@
 
 ## Roteamento rápido
 
-- Código/arquitetura: `design-patterns`, `principios-de-programacao`, `modelagem-negocio-arquitetura`.
+- Código/arquitetura: `design-patterns`, `modularizacao_codigo`, `modelagem-negocio-arquitetura`.
 - Banco/Supabase: `database-supabase`, `supabase-egress-guard`.
 - ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`, `nfe-sefaz-direto`.
 - Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
@@ -72,6 +72,6 @@
 - **ast-grep**: Use `npm run quality:ast-grep:scan` para auditoria estrutural ampla solicitada e `npm run quality:ast-grep:critical` para regras críticas; não adicione à rotina de alterações pequenas. Critérios canônicos em `.agents/skills/governanca-skills/SKILL.md`.
 - **Supabase Advisors (`npm run advisors`)**: Obrigatório antes de qualquer migração para detectar RLS desabilitado, search_path vulnerável e índices faltantes.
 - **React Compiler**: Habilitado nativamente no Mobile (`experiments.reactCompiler`) e validado no ERP via `eslint-plugin-react-compiler` (`npm run lint --prefix erp`).
-- **Gitleaks (`npm run security:secrets`)**: Scanner obrigatório de segredos antes de commits e em PRs, com regras estritas contra vazamento de JWTs e API Keys.
-- **Trivy (`npm run security:vuln`, `npm run security:sbom`)**: Scanner de vulnerabilidades (CVEs) em dependências e gerador oficial de SBOM CycloneDX.
+- **Gitleaks (`npm run security:secrets`)**: Scanner de segredos. Primariamente focado para o CI, mas pode ser rodado localmente antes de commits específicos se for pertinente. Não rode automaticamente a cada tarefa.
+- **Trivy (`npm run security:vuln`, `npm run security:sbom`)**: Scanner de vulnerabilidades (CVEs). Use em CI ou auditoria de segurança direcionada.
 - **OpenTelemetry (`src/telemetry/tracer.ts`)**: Tracing padrão vendor-neutral para instrumentação de fluxos críticos de negócio com sanitização obrigatória de PII (LGPD).

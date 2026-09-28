@@ -1,21 +1,22 @@
-import Order from "@/pages/types/order.type";
-import { AppSettings } from "../../settingsService";
-import { formatCurrency } from "../../formatters";
+import Order from '@/pages/types/order.type';
+import { AppSettings } from '../../settingsService';
+import { formatCurrency } from '../../formatters';
 
 export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings): string {
-    const itemsRows = (order.items || []).map((item, idx) => {
-        const itemIndex = idx + 1;
-        const cProd = item.code || item.productId || String(itemIndex).padStart(4, '0');
-        const qCom = item.quantity || 1;
-        const vUnCom = Number(item.unitPrice || 0);
-        const itemDiscount = Number(item.unitDiscount || 0) * qCom;
-        const vProd = qCom * vUnCom - itemDiscount;
-        const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
-        const ncm = (item as any).fiscal?.ncm || '—';
-        const cst = fiscal.cst || '102';
-        const cfop = fiscal.cfop || '5102';
+  const itemsRows = (order.items || [])
+    .map((item, idx) => {
+      const itemIndex = idx + 1;
+      const cProd = item.code || item.productId || String(itemIndex).padStart(4, '0');
+      const qCom = item.quantity || 1;
+      const vUnCom = Number(item.unitPrice || 0);
+      const itemDiscount = Number(item.unitDiscount || 0) * qCom;
+      const vProd = qCom * vUnCom - itemDiscount;
+      const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
+      const ncm = (item as any).fiscal?.ncm || '—';
+      const cst = fiscal.cst || '102';
+      const cfop = fiscal.cfop || '5102';
 
-        return `
+      return `
             <tr>
                 <td style="text-align:center;">${cProd}</td>
                 <td style="text-align:left;">${item.description}</td>
@@ -33,9 +34,10 @@ export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings)
                 <td style="text-align:right;">0,00</td>
             </tr>
         `;
-    }).join('');
+    })
+    .join('');
 
-    return `
+  return `
         <table class="items-table">
             <thead>
                 <tr>

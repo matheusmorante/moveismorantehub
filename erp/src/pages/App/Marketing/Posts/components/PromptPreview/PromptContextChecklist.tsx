@@ -26,7 +26,9 @@ export const PromptContextChecklist: React.FC<PromptContextChecklistProps> = ({
   const hasOpenView = Boolean(productImages?.openView?.url);
   const variationsCount = productImages?.variations?.length || 0;
   const hasLogo = Boolean(officialAssets?.logo?.url);
-  const hasOpportunity = Boolean(product?.opportunity_id || product?.opportunityId || opportunityName);
+  const hasOpportunity = Boolean(
+    product?.opportunity_id || product?.opportunityId || opportunityName
+  );
   const hasBadge = Boolean(officialAssets?.badge?.url);
 
   return (
@@ -90,7 +92,9 @@ export const PromptContextChecklist: React.FC<PromptContextChecklistProps> = ({
           {variationsCount > 0 ? (
             <>
               <span className="text-emerald-400 font-bold">✓</span>
-              <span className="text-slate-300">{variationsCount} variação{variationsCount > 1 ? 'ões' : ''}</span>
+              <span className="text-slate-300">
+                {variationsCount} variação{variationsCount > 1 ? 'ões' : ''}
+              </span>
             </>
           ) : (
             <>
@@ -120,7 +124,10 @@ export const PromptContextChecklist: React.FC<PromptContextChecklistProps> = ({
           {hasOpportunity ? (
             <>
               <span className="text-purple-400 font-bold">✓</span>
-              <span className="text-purple-200 truncate" title={opportunityName || 'Oportunidade ativa'}>
+              <span
+                className="text-purple-200 truncate"
+                title={opportunityName || 'Oportunidade ativa'}
+              >
                 {opportunityName || 'Oportunidade ativa'}
               </span>
               {hasBadge && <span className="text-[10px] text-purple-300">(Selo ativo)</span>}

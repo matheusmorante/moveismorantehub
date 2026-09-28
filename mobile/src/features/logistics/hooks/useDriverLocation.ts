@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCurrentDriverLocation, watchDriverLocation, DriverCoordinates } from '../../../services/locationService';
+import {
+  getCurrentDriverLocation,
+  watchDriverLocation,
+  DriverCoordinates,
+} from '../../../services/locationService';
 
 export function useDriverLocation() {
   const [coords, setCoords] = useState<DriverCoordinates | null>(null);

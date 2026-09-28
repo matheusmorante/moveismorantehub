@@ -30,9 +30,7 @@ export const CardCandidatesBox: React.FC<Props> = ({
             activeOpacity={0.7}
           >
             <View style={{ flex: 1 }}>
-              <Text style={styles.candTitle}>
-                {cand.counterparty || cand.description}
-              </Text>
+              <Text style={styles.candTitle}>{cand.counterparty || cand.description}</Text>
               <Text style={styles.candSubtitle}>
                 Vence em {cand.due_date || cand.date} • {cand.category_name || 'Despesa'}
               </Text>

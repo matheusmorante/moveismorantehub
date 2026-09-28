@@ -1,7 +1,8 @@
 const { Client } = require('pg');
 
 const client = new Client({
-  connectionString: 'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres'
+  connectionString:
+    'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres',
 });
 
 async function run() {
@@ -64,7 +65,9 @@ async function run() {
   `);
 
   console.log('\\n=== ÍNDICES NAS TABELAS PRINCIPAIS ===');
-  console.table(idxs.rows.map(r => ({ table: r.tablename, index: r.indexname, def: r.indexdef.slice(0, 80) })));
+  console.table(
+    idxs.rows.map((r) => ({ table: r.tablename, index: r.indexname, def: r.indexdef.slice(0, 80) }))
+  );
 
   // 4. Todas as tabelas no schema public
   const tables = await client.query(`
@@ -74,12 +77,19 @@ async function run() {
     ORDER BY table_name;
   `);
   const fs = require('fs');
-  fs.writeFileSync('src/scratch/catalog_audit.json', JSON.stringify({
-    jsonCols: jsonCols.rows,
-    fks: fks.rows,
-    indexes: idxs.rows,
-    tables: tables.rows
-  }, null, 2));
+  fs.writeFileSync(
+    'src/scratch/catalog_audit.json',
+    JSON.stringify(
+      {
+        jsonCols: jsonCols.rows,
+        fks: fks.rows,
+        indexes: idxs.rows,
+        tables: tables.rows,
+      },
+      null,
+      2
+    )
+  );
   console.log('Saved catalog audit to src/scratch/catalog_audit.json');
 
   await client.end();

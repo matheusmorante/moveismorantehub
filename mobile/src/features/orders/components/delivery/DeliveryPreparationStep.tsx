@@ -2,7 +2,10 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Check, ClipboardCheck, MapPin, User, Navigation, Clock } from 'lucide-react-native';
 import { SlideHoldToStart } from '../SlideHoldToStart';
-import { openGoogleMapsNavigation, extractNavigationTarget } from '../../../logistics/utils/externalMapsNavigation';
+import {
+  openGoogleMapsNavigation,
+  extractNavigationTarget,
+} from '../../../logistics/utils/externalMapsNavigation';
 import { extractScheduleSlot } from '../../../logistics/utils/scheduleSlots';
 
 interface Props {
@@ -75,10 +78,12 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
       {/* Checklist */}
       <View style={styles.heading}>
         <ClipboardCheck size={20} color="#16a34a" />
-        <Text style={[styles.headingText, isDarkMode && styles.textLight]}>Checklist antes de sair</Text>
+        <Text style={[styles.headingText, isDarkMode && styles.textLight]}>
+          Checklist antes de sair
+        </Text>
       </View>
 
-      {checklist.map(item => (
+      {checklist.map((item) => (
         <TouchableOpacity
           key={item.id}
           style={[styles.item, isDarkMode && styles.cardDark]}
@@ -92,7 +97,8 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
       ))}
 
       <Text style={styles.safety}>
-        O checklist é opcional. Para evitar acionamento acidental, deslize o caminhão 2 vezes para sair.
+        O checklist é opcional. Para evitar acionamento acidental, deslize o caminhão 2 vezes para
+        sair.
       </Text>
 
       <SlideHoldToStart

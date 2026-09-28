@@ -81,7 +81,12 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
   }
 
   // 1. Caso especial de Milhão / Milhões (ex: "um milhão e meio", "um milhão e duzentos mil", "dois milhões e cinquenta mil")
-  if (lower.includes('milhão') || lower.includes('milhao') || lower.includes('milhões') || lower.includes('milhoes')) {
+  if (
+    lower.includes('milhão') ||
+    lower.includes('milhao') ||
+    lower.includes('milhões') ||
+    lower.includes('milhoes')
+  ) {
     const parts = lower.split(/milhão|milhao|milhões|milhoes/i);
     const leftPart = parts[0].trim() || 'um';
     const rightPart = (parts[1] || '').replace(/^s*e\s*/, '').trim();
@@ -100,11 +105,16 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
 
   // 1.5. Caso de inteiros curtos com centavos (ex: "237 e 89", "foi 237 e 89")
   const shortCentsMatch = lower.match(/\b(\d+)\s+e\s+(\d{1,2})\b/i);
-  if (shortCentsMatch && !lower.includes('mil') && !lower.includes('reais') && !lower.includes('centavos')) {
+  if (
+    shortCentsMatch &&
+    !lower.includes('mil') &&
+    !lower.includes('reais') &&
+    !lower.includes('centavos')
+  ) {
     const reais = parseInt(shortCentsMatch[1], 10);
     const centavos = parseInt(shortCentsMatch[2], 10);
     if (reais > 0 && centavos >= 0 && centavos <= 99) {
-      return reais + (centavos / 100);
+      return reais + centavos / 100;
     }
   }
 
@@ -133,7 +143,9 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
   }
 
   // 3. Processamento de Reais e Centavos escritos por extenso (ex: "duzentos e trinta e sete reais e oitenta e nove centavos")
-  const reaisCentavosMatch = lower.match(/(?:([a-zçãéêíóôõú\s\d]+)\s*(?:reais|real))?\s*(?:e\s*)?(?:([a-zçãéêíóôõú\s\d]+)\s*centavos?)?/i);
+  const reaisCentavosMatch = lower.match(
+    /(?:([a-zçãéêíóôõú\s\d]+)\s*(?:reais|real))?\s*(?:e\s*)?(?:([a-zçãéêíóôõú\s\d]+)\s*centavos?)?/i
+  );
 
   if (reaisCentavosMatch && (reaisCentavosMatch[1] || reaisCentavosMatch[2])) {
     const reaisWords = (reaisCentavosMatch[1] || '').trim();
@@ -158,7 +170,10 @@ export function parsePtBrWrittenNumbers(text: string): number | null {
 }
 
 function parseSimpleWordsToNumber(wordsStr: string): number {
-  const words = wordsStr.split(/\s+|e\s+/).map(w => w.trim()).filter(Boolean);
+  const words = wordsStr
+    .split(/\s+|e\s+/)
+    .map((w) => w.trim())
+    .filter(Boolean);
   let total = 0;
 
   for (const w of words) {
@@ -178,7 +193,7 @@ function extractNumericWordsVal(text: string): number {
   const digits = text.match(/\b\d+\b/);
   if (digits) return parseInt(digits[0], 10);
 
-  const tokens = text.split(/\s+/).map(t => t.trim().toLowerCase());
+  const tokens = text.split(/\s+/).map((t) => t.trim().toLowerCase());
   let numTokens: string[] = [];
   for (let i = tokens.length - 1; i >= 0; i--) {
     const token = tokens[i];

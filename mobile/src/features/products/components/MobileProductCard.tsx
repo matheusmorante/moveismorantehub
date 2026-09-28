@@ -1,18 +1,6 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import {
-  ChevronDown,
-  ChevronRight,
-  Flame,
-  MoreVertical,
-  Pencil,
-  Truck,
-} from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronDown, ChevronRight, Flame, MoreVertical, Pencil, Truck } from 'lucide-react-native';
 import { useMobileProductMetadata } from '../hooks/useMobileProductMetadata';
 import { MobileProductVariationList } from './MobileProductVariationList';
 import { MobileChannelBadges } from './MobileChannelBadges';
@@ -22,7 +10,12 @@ interface Props {
   product: any;
   dark: boolean;
   onEdit: (product: any) => void;
-  onToggleCatalog: (productId: string, currentStatus: string, isVariation?: boolean, varId?: string) => void;
+  onToggleCatalog: (
+    productId: string,
+    currentStatus: string,
+    isVariation?: boolean,
+    varId?: string
+  ) => void;
   onToggleActive: (productId: string, currentActive: boolean) => void;
   onDelete: (productId: string, isDraft?: boolean) => void;
   onDuplicate?: (product: any) => void;
@@ -62,7 +55,7 @@ export const MobileProductCard: React.FC<Props> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.88}
-      onPress={() => hasVars && setExpanded(prev => !prev)}
+      onPress={() => hasVars && setExpanded((prev) => !prev)}
       style={[
         styles.card,
         dark && styles.darkCard,
@@ -76,7 +69,7 @@ export const MobileProductCard: React.FC<Props> = ({
           {hasVars && (
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => setExpanded(prev => !prev)}
+              onPress={() => setExpanded((prev) => !prev)}
               style={[styles.varToggleBtn, dark && styles.darkVarToggleBtn]}
             >
               {expanded ? (
@@ -90,9 +83,7 @@ export const MobileProductCard: React.FC<Props> = ({
             </TouchableOpacity>
           )}
 
-          <Text style={[styles.codeBadge, dark && styles.darkCodeBadge]}>
-            {parentCode}
-          </Text>
+          <Text style={[styles.codeBadge, dark && styles.darkCodeBadge]}>{parentCode}</Text>
 
           {isDraft && (
             <View style={styles.draftBadge}>
@@ -141,7 +132,10 @@ export const MobileProductCard: React.FC<Props> = ({
 
       {/* Título do Produto Pai / Simples */}
       <View style={styles.titleCol}>
-        <Text style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]} numberOfLines={2}>
+        <Text
+          style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
+          numberOfLines={2}
+        >
           {product.name || product.description || 'Produto sem título'}
         </Text>
 
@@ -191,11 +185,17 @@ export const MobileProductCard: React.FC<Props> = ({
                 </Text>
               )}
               <Text style={[styles.price, dark && styles.priceDark]}>
-                R$ {(product.promoPrice > 0 ? product.promoPrice : product.unitPrice).toFixed(2).replace('.', ',')}
+                R${' '}
+                {(product.promoPrice > 0 ? product.promoPrice : product.unitPrice)
+                  .toFixed(2)
+                  .replace('.', ',')}
               </Text>
               {product.itemType !== 'service' && (
                 <Text style={styles.stockText}>
-                  Estoque: <Text style={styles.stockVal}>{product.stock ?? 0} {product.unit || 'UN'}</Text>
+                  Estoque:{' '}
+                  <Text style={styles.stockVal}>
+                    {product.stock ?? 0} {product.unit || 'UN'}
+                  </Text>
                 </Text>
               )}
             </>
@@ -220,7 +220,13 @@ export const MobileProductCard: React.FC<Props> = ({
         <MobileProductVariationList
           variations={variations}
           dark={dark}
-          parentImage={Array.isArray(product.images) ? product.images[0] : typeof product.images === 'string' ? product.images : null}
+          parentImage={
+            Array.isArray(product.images)
+              ? product.images[0]
+              : typeof product.images === 'string'
+                ? product.images
+                : null
+          }
           isParentDraft={isDraft}
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
           onToggleActive={(varId, act) => onToggleActive(varId, act)}

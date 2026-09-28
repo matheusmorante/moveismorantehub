@@ -67,7 +67,14 @@ describe('Cenários de Linguagem Natural e Casos Reais (Seção 20)', () => {
               {
                 content: {
                   role: 'model',
-                  parts: [{ functionCall: { name: 'buscarCategoriasFinanceiras', args: { tipo: 'expense' } } }],
+                  parts: [
+                    {
+                      functionCall: {
+                        name: 'buscarCategoriasFinanceiras',
+                        args: { tipo: 'expense' },
+                      },
+                    },
+                  ],
                 },
               },
             ],
@@ -102,7 +109,9 @@ describe('Cenários de Linguagem Natural e Casos Reais (Seção 20)', () => {
               {
                 content: {
                   role: 'model',
-                  parts: [{ text: 'Lançamento de R$ 200,00 de combustível registrado com sucesso.' }],
+                  parts: [
+                    { text: 'Lançamento de R$ 200,00 de combustível registrado com sucesso.' },
+                  ],
                 },
               },
             ],
@@ -185,7 +194,10 @@ describe('Cenários de Linguagem Natural e Casos Reais (Seção 20)', () => {
       }
     });
 
-    const secondTurn = await GeminiAgentService.sendMessage('na verdade foi 350', firstTurn.updatedHistory);
+    const secondTurn = await GeminiAgentService.sendMessage(
+      'na verdade foi 350',
+      firstTurn.updatedHistory
+    );
     expect(secondTurn.result.executedTools[0].args.valor).toBe(350);
     expect(secondTurn.result.answer).toContain('R$ 350,00');
   });

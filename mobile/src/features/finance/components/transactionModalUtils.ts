@@ -1,6 +1,13 @@
 import { FinancialCategory } from '../../../services/mobileFinanceService';
 
-export const PAYMENT_METHODS = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED'];
+export const PAYMENT_METHODS = [
+  'PIX',
+  'Cartão de Crédito',
+  'Cartão de Débito',
+  'Boleto',
+  'Dinheiro',
+  'TED',
+];
 export const VEHICLES = ['Strada', 'HR', 'Outro', 'Não informado'];
 
 export const toLocalIsoDate = (date: Date): string => {
@@ -16,7 +23,10 @@ export const formatDateBr = (isoDate: string): string => {
 };
 
 export const isProLaboreCat = (name: string): boolean => {
-  const norm = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const norm = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
   return (
     norm.includes('pro-labore') ||
     norm.includes('prolabore') ||
@@ -28,20 +38,36 @@ export const isProLaboreCat = (name: string): boolean => {
 };
 
 export const normalizeCategoryName = (name: string): string =>
-  name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
 export const buildIncomeCategories = (categories: FinancialCategory[]): FinancialCategory[] => {
-  const incomeCategories = categories.filter(category => category.type === 'income');
-  const other = incomeCategories.find(category => normalizeCategoryName(category.name).includes('outra'));
-  const loan = incomeCategories.find(category => normalizeCategoryName(category.name).includes('emprestimo'));
+  const incomeCategories = categories.filter((category) => category.type === 'income');
+  const other = incomeCategories.find((category) =>
+    normalizeCategoryName(category.name).includes('outra')
+  );
+  const loan = incomeCategories.find((category) =>
+    normalizeCategoryName(category.name).includes('emprestimo')
+  );
 
   return [
     loan
       ? { ...loan, name: 'Empréstimos' }
-      : { id: 'cat_income_loan_default', name: 'Empréstimos', type: 'income', result_nature: 'NAO_AFETA_RESULTADO' },
+      : {
+          id: 'cat_income_loan_default',
+          name: 'Empréstimos',
+          type: 'income',
+          result_nature: 'NAO_AFETA_RESULTADO',
+        },
     other
       ? { ...other, name: 'Outras' }
-      : { id: 'cat_income_other_default', name: 'Outras', type: 'income', result_nature: 'RECEITA' },
+      : {
+          id: 'cat_income_other_default',
+          name: 'Outras',
+          type: 'income',
+          result_nature: 'RECEITA',
+        },
   ];
 };
-

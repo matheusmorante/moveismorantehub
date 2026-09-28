@@ -90,13 +90,21 @@ export const GenerationContextModal: React.FC<GenerationContextModalProps> = ({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center justify-between border-b border-slate-800/60 py-1">
                 <span className="text-slate-300">Primary image:</span>
-                <span className={data.hasPrimaryImage ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                <span
+                  className={
+                    data.hasPrimaryImage ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'
+                  }
+                >
                   {data.hasPrimaryImage ? '✓' : '✗ ausente'}
                 </span>
               </div>
               <div className="flex items-center justify-between border-b border-slate-800/60 py-1">
                 <span className="text-slate-300">Secondary image:</span>
-                <span className={data.hasSecondaryImage ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                <span
+                  className={
+                    data.hasSecondaryImage ? 'text-emerald-400 font-bold' : 'text-slate-500'
+                  }
+                >
                   {data.hasSecondaryImage ? '✓' : 'não fornecida'}
                 </span>
               </div>
@@ -106,25 +114,45 @@ export const GenerationContextModal: React.FC<GenerationContextModalProps> = ({
               </div>
               <div className="flex items-center justify-between border-b border-slate-800/60 py-1">
                 <span className="text-slate-300">Primary visual reference:</span>
-                <span className={data.hasPrimaryVisualReference ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                <span
+                  className={
+                    data.hasPrimaryVisualReference
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-rose-400 font-bold'
+                  }
+                >
                   {data.hasPrimaryVisualReference ? '✓' : '✗ ausente'}
                 </span>
               </div>
               <div className="flex items-center justify-between border-b border-slate-800/60 py-1">
                 <span className="text-slate-300">Logo oficial:</span>
-                <span className={data.hasLogoAsset ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                <span
+                  className={
+                    data.hasLogoAsset ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'
+                  }
+                >
                   {data.hasLogoAsset ? '✓' : '✗ ausente'}
                 </span>
               </div>
               <div className="flex items-center justify-between border-b border-slate-800/60 py-1">
                 <span className="text-slate-300">Opportunity asset:</span>
-                <span className={data.hasOpportunityAsset ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                <span
+                  className={
+                    data.hasOpportunityAsset ? 'text-emerald-400 font-bold' : 'text-slate-500'
+                  }
+                >
                   {data.hasOpportunityAsset ? '✓' : '—'}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1 col-span-2">
                 <span className="text-slate-300">Installment asset:</span>
-                <span className={data.hasInstallmentAsset ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                <span
+                  className={
+                    data.hasInstallmentAsset
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-rose-400 font-bold'
+                  }
+                >
                   {data.hasInstallmentAsset ? '✓' : '✗ ausente'}
                 </span>
               </div>

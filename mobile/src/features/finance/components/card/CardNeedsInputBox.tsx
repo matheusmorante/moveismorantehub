@@ -18,7 +18,8 @@ export const CardNeedsInputBox: React.FC<Props> = ({
   formattedDiff,
   questionToUser,
 }) => {
-  const hasMismatch = declaredTotal > 0 && installmentsSum > 0 && Math.abs(declaredTotal - installmentsSum) > 0.01;
+  const hasMismatch =
+    declaredTotal > 0 && installmentsSum > 0 && Math.abs(declaredTotal - installmentsSum) > 0.01;
 
   return (
     <View style={styles.needsInputBox}>

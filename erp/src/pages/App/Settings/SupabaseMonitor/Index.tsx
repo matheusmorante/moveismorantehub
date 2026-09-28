@@ -58,9 +58,18 @@ export default function SupabaseMonitorDashboard() {
             activeAction={activeAction}
             onRowClick={handleRowClick}
             onReset={resetDrillDown}
-            onSelectModule={() => { setActiveOperation(null); setActiveTable(null); setActiveAction(null); }}
-            onSelectOperation={() => { setActiveTable(null); setActiveAction(null); }}
-            onSelectTable={() => { setActiveAction(null); }}
+            onSelectModule={() => {
+              setActiveOperation(null);
+              setActiveTable(null);
+              setActiveAction(null);
+            }}
+            onSelectOperation={() => {
+              setActiveTable(null);
+              setActiveAction(null);
+            }}
+            onSelectTable={() => {
+              setActiveAction(null);
+            }}
           />
         </div>
       )}

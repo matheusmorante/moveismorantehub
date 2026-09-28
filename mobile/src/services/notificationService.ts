@@ -3,7 +3,15 @@ import { isRunningInExpoGo } from 'expo';
 import * as Notifications from 'expo-notifications';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { supabase, NOTIFICATION_SOUND_URL } from './supabaseClient';
-import { GENERAL_NOTIFICATION_CHANNEL, isNewScheduledOrderNotification, isOrderCancelledNotification, isOrderUpdatedNotification, ORDER_CANCELLED_CHANNEL, ORDER_UPDATED_CHANNEL, SCHEDULED_ORDER_CHANNEL } from '../utils/notificationSoundRouting';
+import {
+  GENERAL_NOTIFICATION_CHANNEL,
+  isNewScheduledOrderNotification,
+  isOrderCancelledNotification,
+  isOrderUpdatedNotification,
+  ORDER_CANCELLED_CHANNEL,
+  ORDER_UPDATED_CHANNEL,
+  SCHEDULED_ORDER_CHANNEL,
+} from '../utils/notificationSoundRouting';
 
 // Configura o comportamento das notificações quando o app está aberto em primeiro plano
 Notifications.setNotificationHandler({
@@ -81,7 +89,7 @@ export const setupNotificationChannel = async () => {
           id: GENERAL_NOTIFICATION_CHANNEL,
           name: 'Avisos gerais',
           sound: 'default',
-        }
+        },
       ];
 
       for (const ch of channelConfigs) {
@@ -117,7 +125,7 @@ export const ensureNotificationPermissions = async (): Promise<boolean> => {
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    
+
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
@@ -141,11 +149,16 @@ export const ensureNotificationPermissions = async (): Promise<boolean> => {
 export const savePushTokenToSupabase = async (token: string): Promise<boolean> => {
   try {
     if (!token) return false;
-    const { error } = await supabase.from('push_tokens').upsert([{
-      token,
-      device_info: { os: Platform.OS, updatedAt: new Date().toISOString() },
-      updated_at: new Date().toISOString(),
-    }], { onConflict: 'token' });
+    const { error } = await supabase.from('push_tokens').upsert(
+      [
+        {
+          token,
+          device_info: { os: Platform.OS, updatedAt: new Date().toISOString() },
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      { onConflict: 'token' }
+    );
     if (error) throw error;
     console.log('[PushToken] Sincronizado no Supabase com sucesso:', token);
     return true;
@@ -169,14 +182,16 @@ export const registerPushToken = async (): Promise<string | null> => {
     // O Expo Go não oferece push remoto no Android (SDK 53+). Notificações
     // locais continuam disponíveis; o registro remoto ocorre em builds nativas.
     if (Platform.OS === 'android' && isRunningInExpoGo()) {
-      lastPushTokenRegistrationError = 'Push remoto no Android requer uma development build ou versão instalada do app. Notificações locais continuam disponíveis no Expo Go.';
+      lastPushTokenRegistrationError =
+        'Push remoto no Android requer uma development build ou versão instalada do app. Notificações locais continuam disponíveis no Expo Go.';
       return null;
     }
 
     await setupNotificationChannel();
     const hasPermission = await ensureNotificationPermissions();
     if (!hasPermission) {
-      lastPushTokenRegistrationError = 'A permissão de notificações não foi concedida neste aplicativo.';
+      lastPushTokenRegistrationError =
+        'A permissão de notificações não foi concedida neste aplicativo.';
       console.warn('[PushToken] Sem permissão de notificação.');
       return null;
     }
@@ -240,8 +255,9 @@ export const registerPushToken = async (): Promise<string | null> => {
  */
 export const initPushTokenListeners = () => {
   try {
-    if (Platform.OS === 'web' || (Platform.OS === 'android' && isRunningInExpoGo())) return () => {};
-    
+    if (Platform.OS === 'web' || (Platform.OS === 'android' && isRunningInExpoGo()))
+      return () => {};
+
     // Escuta novas emissões/renovações de token pelo Google FCM
     const addListenerFn = (Notifications as any).addPushTokenListener;
     if (typeof addListenerFn === 'function') {
@@ -264,7 +280,11 @@ export const initPushTokenListeners = () => {
 /**
  * Dispara notificação local nativa com banner e som customizado
  */
-export const triggerLocalNotification = async (title: string, body: string, dataPayload: any = {}) => {
+export const triggerLocalNotification = async (
+  title: string,
+  body: string,
+  dataPayload: any = {}
+) => {
   try {
     if (Platform.OS !== 'web') {
       const scheduledOrder = isNewScheduledOrderNotification(dataPayload);
@@ -278,10 +298,24 @@ export const triggerLocalNotification = async (title: string, body: string, data
           title,
           body,
           data: dataPayload,
-          sound: scheduledOrder ? 'levelup.mp3' : cancelledOrder ? 'order_cancelled.mp3' : updatedOrder ? 'order_updated.mp3' : 'default',
+          sound: scheduledOrder
+            ? 'levelup.mp3'
+            : cancelledOrder
+              ? 'order_cancelled.mp3'
+              : updatedOrder
+                ? 'order_updated.mp3'
+                : 'default',
           priority: (Notifications as any).AndroidNotificationPriority?.MAX || 'max',
           vibrate: [0, 250, 250, 250],
-          ...(Platform.OS === 'android' && { channelId: scheduledOrder ? SCHEDULED_ORDER_CHANNEL : cancelledOrder ? ORDER_CANCELLED_CHANNEL : updatedOrder ? ORDER_UPDATED_CHANNEL : GENERAL_NOTIFICATION_CHANNEL }),
+          ...(Platform.OS === 'android' && {
+            channelId: scheduledOrder
+              ? SCHEDULED_ORDER_CHANNEL
+              : cancelledOrder
+                ? ORDER_CANCELLED_CHANNEL
+                : updatedOrder
+                  ? ORDER_UPDATED_CHANNEL
+                  : GENERAL_NOTIFICATION_CHANNEL,
+          }),
         },
         trigger: null,
       });
@@ -291,8 +325,10 @@ export const triggerLocalNotification = async (title: string, body: string, data
   }
 
   if (isNewScheduledOrderNotification(dataPayload)) await playNotificationSound();
-  if (isOrderCancelledNotification(dataPayload)) await playNotificationSound(LOCAL_ORDER_CANCELLED_SOUND);
-  else if (isOrderUpdatedNotification(dataPayload)) await playNotificationSound(LOCAL_ORDER_UPDATED_SOUND);
+  if (isOrderCancelledNotification(dataPayload))
+    await playNotificationSound(LOCAL_ORDER_CANCELLED_SOUND);
+  else if (isOrderUpdatedNotification(dataPayload))
+    await playNotificationSound(LOCAL_ORDER_UPDATED_SOUND);
 };
 
 /**
@@ -340,7 +376,8 @@ export const testRemotePushNotification = async () => {
     if (!token) {
       Alert.alert(
         'Token não registrado',
-        getLastPushTokenRegistrationError() || 'Não foi possível obter e salvar o token deste aparelho.'
+        getLastPushTokenRegistrationError() ||
+          'Não foi possível obter e salvar o token deste aparelho.'
       );
       return;
     }
@@ -351,7 +388,7 @@ export const testRemotePushNotification = async () => {
         title: '🔔 Teste via Banco de Dados (Nuvem)',
         message: 'Notificação enviada pela nuvem para o aparelho.',
         type: 'system',
-        read: false
+        read: false,
       });
     } catch {}
 
@@ -360,18 +397,20 @@ export const testRemotePushNotification = async () => {
       fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify([{
-          to: token,
-          sound: 'default',
-          title: '🔔 Teste Remoto Expo • App Morante',
-          body: 'Notificação push remota recebida com sucesso!',
-          channelId: 'morante_alerts_v3',
-          priority: 'high',
-          data: { test: true },
-        }]),
+        body: JSON.stringify([
+          {
+            to: token,
+            sound: 'default',
+            title: '🔔 Teste Remoto Expo • App Morante',
+            body: 'Notificação push remota recebida com sucesso!',
+            channelId: 'morante_alerts_v3',
+            priority: 'high',
+            data: { test: true },
+          },
+        ]),
       }).catch(() => {});
     }
 

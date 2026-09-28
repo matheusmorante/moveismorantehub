@@ -1,12 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  StatusBar,
+} from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../../contexts/AuthContext';
-import type { ScopeConfiguration, ScopeProduct, ScopeSupplier, InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
-import { fetchInventoryScopeProducts, fetchInventoryScopeSuppliers } from '../../../../services/stockService';
+import type {
+  ScopeConfiguration,
+  ScopeProduct,
+  ScopeSupplier,
+  InventoryScopeType,
+} from '../hooks/useInventoryScopeBuilder';
+import {
+  fetchInventoryScopeProducts,
+  fetchInventoryScopeSuppliers,
+} from '../../../../services/stockService';
 import { getOfflineInventoryCatalog } from '../services/offlineInventoryCatalog';
-import { InventoryProductSearchModal, type SearchableProduct } from '../modals/InventoryProductSearchModal';
+import {
+  InventoryProductSearchModal,
+  type SearchableProduct,
+} from '../modals/InventoryProductSearchModal';
 import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSelector';
 
 interface Props {
@@ -40,12 +61,17 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
           setCatalogSyncedAt(catalog.syncedAt);
         }
       } catch (error) {
-        if (active) setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os fornecedores.');
+        if (active)
+          setLoadError(
+            error instanceof Error ? error.message : 'Não foi possível carregar os fornecedores.'
+          );
       } finally {
         if (active) setLoadingData(false);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [reloadToken]);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
@@ -68,7 +94,7 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       let name = '';
       if (type === 'full') name = `Inventário Geral - ${dateStr}`;
       else if (type === 'supplier') {
-        const supplierName = suppliers.find(s => s.id === supplierId)?.full_name;
+        const supplierName = suppliers.find((s) => s.id === supplierId)?.full_name;
         name = supplierName ? `Inventário ${supplierName}` : `Inventário por Fornecedor`;
       } else {
         name = `Inventário Personalizado`;
@@ -77,14 +103,28 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       const items: ScopeConfiguration['itemsSnapshot'] = [];
 
       const getSupplierNames = (product: ScopeProduct) => {
-        const ids = [...new Set([product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].filter(Boolean).map(String))];
-        const names = ids.map(id => suppliers.find(s => String(s.id) === id)?.full_name).filter(Boolean);
+        const ids = [
+          ...new Set(
+            [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
+              .filter(Boolean)
+              .map(String)
+          ),
+        ];
+        const names = ids
+          .map((id) => suppliers.find((s) => String(s.id) === id)?.full_name)
+          .filter(Boolean);
         return names.join(' / ') || 'Fábrica não informada';
       };
 
       const getAssignedSupplier = (product: ScopeProduct) => {
-        const id = [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])].find(Boolean);
-        return (id && suppliers.find(s => String(s.id) === String(id))?.full_name) || 'Sem fornecedor';
+        const id = [
+          product.main_supplier_id,
+          product.supplier_id,
+          ...(product.supplier_ids || []),
+        ].find(Boolean);
+        return (
+          (id && suppliers.find((s) => String(s.id) === String(id))?.full_name) || 'Sem fornecedor'
+        );
       };
 
       const addProduct = (product: ScopeProduct) => {
@@ -106,16 +146,20 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       if (type === 'full' || type === 'custom') {
         for (const product of allProducts) addProduct(product);
       } else if (type === 'supplier' && supplierId) {
-        const supplierProducts = allProducts.filter(p =>
-          [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(id => String(id) === String(supplierId))
+        const supplierProducts = allProducts.filter((p) =>
+          [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(
+            (id) => String(id) === String(supplierId)
+          )
         );
         for (const product of supplierProducts) addProduct(product);
       }
 
       if (items.length === 0) {
-        throw new Error(type === 'supplier'
-          ? 'Nenhum produto deste fornecedor foi encontrado no catálogo local.'
-          : 'Nenhum produto foi encontrado no catálogo local. Sincronize e tente novamente.');
+        throw new Error(
+          type === 'supplier'
+            ? 'Nenhum produto deste fornecedor foi encontrado no catálogo local.'
+            : 'Nenhum produto foi encontrado no catálogo local. Sincronize e tente novamente.'
+        );
       }
 
       onConfirm({
@@ -128,7 +172,12 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
       });
     } catch (error) {
       console.error('Não foi possível preparar o escopo do inventário:', error);
-      Alert.alert('Erro', error instanceof Error ? error.message : 'Não foi possível carregar os produtos para este inventário. Tente novamente.');
+      Alert.alert(
+        'Erro',
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os produtos para este inventário. Tente novamente.'
+      );
     } finally {
       setLoadingData(false);
     }
@@ -142,7 +191,12 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
 
   if (loadingData) {
     return (
-      <View style={[styles.container, { backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: bg, justifyContent: 'center', alignItems: 'center' },
+        ]}
+      >
         <ActivityIndicator size="large" color="#10b981" />
       </View>
     );
@@ -151,10 +205,17 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 },
+        ]}
+      >
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>Novo Inventário</Text>
-          <Text style={[styles.headerSubtitle, { color: muted }]}>O que você deseja inventariar?</Text>
+          <Text style={[styles.headerSubtitle, { color: muted }]}>
+            O que você deseja inventariar?
+          </Text>
           <Text style={[styles.syncStatus, { color: muted }]}>
             {catalogSyncedAt
               ? `Índice offline atualizado em ${new Date(catalogSyncedAt).toLocaleString('pt-BR')}`
@@ -170,25 +231,32 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         {loadError ? (
           <View style={[styles.errorBox, { backgroundColor: surface, borderColor: border }]}>
             <Text style={{ color: textPrimary, textAlign: 'center' }}>{loadError}</Text>
-            <TouchableOpacity onPress={() => setReloadToken(current => current + 1)} style={styles.retryButton}>
+            <TouchableOpacity
+              onPress={() => setReloadToken((current) => current + 1)}
+              style={styles.retryButton}
+            >
               <Text style={styles.retryText}>Tentar novamente</Text>
             </TouchableOpacity>
           </View>
         ) : (
-        <InventoryScopeTypeSelector
-          isDarkMode={isDarkMode}
-          suppliers={suppliers}
-          expandedType={expandedType}
-          onToggleExpand={type => setExpandedType(expandedType === type ? null : type)}
-          selectedSupplierId={selectedSupplierId}
-          onSelectSupplier={id => setSelectedSupplierId(id)}
-          customProducts={customProducts}
-          onOpenSearch={() => setSearchOpen(true)}
-          onRemoveCustomProduct={prod =>
-            setCustomProducts(current => current.filter(item => item.id !== prod.id || item.variation_id !== prod.variation_id))
-          }
-          onConfirmType={(type, supId) => void confirmDirectly(type, supId)}
-        />
+          <InventoryScopeTypeSelector
+            isDarkMode={isDarkMode}
+            suppliers={suppliers}
+            expandedType={expandedType}
+            onToggleExpand={(type) => setExpandedType(expandedType === type ? null : type)}
+            selectedSupplierId={selectedSupplierId}
+            onSelectSupplier={(id) => setSelectedSupplierId(id)}
+            customProducts={customProducts}
+            onOpenSearch={() => setSearchOpen(true)}
+            onRemoveCustomProduct={(prod) =>
+              setCustomProducts((current) =>
+                current.filter(
+                  (item) => item.id !== prod.id || item.variation_id !== prod.variation_id
+                )
+              )
+            }
+            onConfirmType={(type, supId) => void confirmDirectly(type, supId)}
+          />
         )}
       </ScrollView>
 
@@ -196,9 +264,11 @@ export const InventoryScopeScreen: React.FC<Props> = ({ isDarkMode, onCancel, on
         isDarkMode={isDarkMode}
         visible={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSelect={product =>
-          setCustomProducts(current =>
-            current.some(item => item.id === product.id && item.variation_id === product.variation_id)
+        onSelect={(product) =>
+          setCustomProducts((current) =>
+            current.some(
+              (item) => item.id === product.id && item.variation_id === product.variation_id
+            )
               ? current
               : [...current, product]
           )
@@ -222,6 +292,11 @@ const styles = StyleSheet.create({
   syncStatus: { fontSize: 11, marginTop: 5 },
   closeBtn: { padding: 4 },
   errorBox: { borderWidth: 1, borderRadius: 16, padding: 20, alignItems: 'center', gap: 12 },
-  retryButton: { backgroundColor: '#2563eb', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },
+  retryButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
   retryText: { color: '#fff', fontWeight: '700' },
 });

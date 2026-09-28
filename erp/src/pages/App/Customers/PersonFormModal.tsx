@@ -1,2 +1,2 @@
 // DELETED
-export default {}
+export default {};

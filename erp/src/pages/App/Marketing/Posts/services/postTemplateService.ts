@@ -7,7 +7,11 @@ const STORAGE_KEY = 'morante_post_templates_v2';
 const DELETED_KEY = 'morante_post_templates_deleted_v2';
 const now = () => new Date().toISOString();
 
-const createBaseTemplate = (name: string, aspectRatio: PostTemplate['aspectRatio'], description: string): PostTemplate => ({
+const createBaseTemplate = (
+  name: string,
+  aspectRatio: PostTemplate['aspectRatio'],
+  description: string
+): PostTemplate => ({
   id: crypto.randomUUID(),
   version: 1,
   name,
@@ -18,7 +22,8 @@ const createBaseTemplate = (name: string, aspectRatio: PostTemplate['aspectRatio
   aspectRatio,
   width: 1080,
   height: aspectRatio === '9:16' ? 1920 : aspectRatio === '4:5' ? 1350 : 1080,
-  imagePrompt: 'Use exatamente {{product.name}} como referência. Preserve forma, cor, materiais e proporções. Crie um ambiente comercial elegante, sem textos, marcas, preços ou selos.',
+  imagePrompt:
+    'Use exatamente {{product.name}} como referência. Preserve forma, cor, materiais e proporções. Crie um ambiente comercial elegante, sem textos, marcas, preços ou selos.',
   fields: [
     { key: 'title', label: 'Título', type: 'text', required: true, maxLength: 80, source: 'name' },
     { key: 'price', label: 'Preço', type: 'currency', required: true, source: 'price' },
@@ -31,7 +36,11 @@ const createBaseTemplate = (name: string, aspectRatio: PostTemplate['aspectRatio
     { region: 'bottom-right', reason: 'preço' },
   ],
   imageRules: { preserveProduct: true, generateEnvironment: true, fit: 'contain' },
-  generationConfig: { provider: 'gemini', model: 'gemini-2.5-flash-image', referenceImageRequired: true },
+  generationConfig: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash-image',
+    referenceImageRequired: true,
+  },
   createdAt: now(),
   updatedAt: now(),
 });
@@ -47,15 +56,52 @@ const defaultQueima: PostTemplate = {
   formats: ['4:5', '9:16'],
   imagePrompt: `Crie um post promocional profissional para loja de móveis. Use {{product.name}} como produto principal, grande, fiel e facilmente identificável. Fundo escuro e quente, com marrom/preto, iluminação comercial e detalhes em vermelho, amarelo, laranja e branco. Preserve integralmente geometria, cor, material, portas, gavetas, puxadores, pés e proporções. Não gere textos, preços, logos, cartões ou selos: estes devem usar os assets fornecidos. Para 4:5, deixe produto à esquerda/centro e área comercial à direita; para 9:16, adapte verticalmente sem esticar o feed. Quando houver ambiente, seja residencial e coerente com a categoria do produto.`,
   assets: [
-    { id: 'morante-logo', name: 'Logo Móveis Morante', description: 'Usar no topo esquerdo, sem redesenho.', fileUrl: '/images/logo-morante.svg', mimeType: 'image/svg+xml' },
-    { id: 'queima-badge', name: 'Selo Queima dos Salvados', description: 'Usar no topo direito como referência e asset oficial.', fileUrl: '/assets/queima-salvados-original.png', mimeType: 'image/png' },
+    {
+      id: 'morante-logo',
+      name: 'Logo Móveis Morante',
+      description: 'Usar no topo esquerdo, sem redesenho.',
+      fileUrl: '/images/logo-morante.svg',
+      mimeType: 'image/svg+xml',
+    },
+    {
+      id: 'queima-badge',
+      name: 'Selo Queima dos Salvados',
+      description: 'Usar no topo direito como referência e asset oficial.',
+      fileUrl: '/assets/queima-salvados-original.png',
+      mimeType: 'image/png',
+    },
   ],
   extras: [
-    { id: 'visual-priority', name: 'Prioridade visual', type: 'TEXT', textValue: 'Produto e preço promocional devem receber o maior destaque.' },
-    { id: 'product-preservation', name: 'Preservação do produto', type: 'TEXT', textValue: 'Nunca modificar características físicas do móvel.' },
-    { id: 'identity', name: 'Identidade', type: 'TEXT', textValue: 'Fundo escuro/quente com vermelho, amarelo, branco e tons de marrom.' },
-    { id: 'variations', name: 'Variações', type: 'TEXT', textValue: 'Mostrar somente fotos com borda branca, sem textos.' },
-    { id: 'installments', name: 'Parcelamento', type: 'TEXT', textValue: 'Usar dados reais e assets oficiais disponíveis.' },
+    {
+      id: 'visual-priority',
+      name: 'Prioridade visual',
+      type: 'TEXT',
+      textValue: 'Produto e preço promocional devem receber o maior destaque.',
+    },
+    {
+      id: 'product-preservation',
+      name: 'Preservação do produto',
+      type: 'TEXT',
+      textValue: 'Nunca modificar características físicas do móvel.',
+    },
+    {
+      id: 'identity',
+      name: 'Identidade',
+      type: 'TEXT',
+      textValue: 'Fundo escuro/quente com vermelho, amarelo, branco e tons de marrom.',
+    },
+    {
+      id: 'variations',
+      name: 'Variações',
+      type: 'TEXT',
+      textValue: 'Mostrar somente fotos com borda branca, sem textos.',
+    },
+    {
+      id: 'installments',
+      name: 'Parcelamento',
+      type: 'TEXT',
+      textValue: 'Usar dados reais e assets oficiais disponíveis.',
+    },
   ],
 };
 
@@ -140,7 +186,10 @@ export const postTemplateService = {
         return initial;
       }
     } catch (err) {
-      console.warn('[postTemplateService] Erro ao sincronizar com o Supabase, usando cache local:', err);
+      console.warn(
+        '[postTemplateService] Erro ao sincronizar com o Supabase, usando cache local:',
+        err
+      );
     }
 
     return readLocal();

@@ -47,27 +47,42 @@ export default function MarketingPostsManager() {
   const loadGlobalRules = useCallback(() => postCreatorService.globalGuidelines(), []);
   const saveGlobalRules = useCallback(async (value: string) => {
     await postCreatorService.saveGlobalGuidelines(value);
-    setConfigurationRevision(revision => revision + 1);
+    setConfigurationRevision((revision) => revision + 1);
   }, []);
   const handleSavingChange = (isSaving: boolean) => {
     setSavingChanges(isSaving);
     if (!isSaving) setLastUpdated(new Date());
   };
 
-  const campaign = campaigns.find(item => item.id === campaignId);
+  const campaign = campaigns.find((item) => item.id === campaignId);
 
   // Mapeamento resiliente da oportunidade do produto para garantir selo oficial no preview
   const matchedOpportunity = useMemo(() => {
     const p = editor.product;
     if (!p) return null;
-    const oppId = p.opportunity_id || p.opportunityId || (typeof p.opportunity === 'object' ? p.opportunity?.id : null);
-    if (oppId) return opportunities.find(o => o.id === oppId) || null;
-    const oppName = p.opportunityName || (typeof p.opportunity === 'object' ? p.opportunity?.name : null) || (typeof p.opportunity === 'string' ? p.opportunity : '');
-    if (oppName) return opportunities.find(o => o.name?.toLowerCase() === oppName.toLowerCase() || (o as any).slug === oppName) || null;
+    const oppId =
+      p.opportunity_id ||
+      p.opportunityId ||
+      (typeof p.opportunity === 'object' ? p.opportunity?.id : null);
+    if (oppId) return opportunities.find((o) => o.id === oppId) || null;
+    const oppName =
+      p.opportunityName ||
+      (typeof p.opportunity === 'object' ? p.opportunity?.name : null) ||
+      (typeof p.opportunity === 'string' ? p.opportunity : '');
+    if (oppName)
+      return (
+        opportunities.find(
+          (o) => o.name?.toLowerCase() === oppName.toLowerCase() || (o as any).slug === oppName
+        ) || null
+      );
     return null;
   }, [editor.product, opportunities]);
 
-  const productOpportunityId = matchedOpportunity?.id || editor.product?.opportunityId || editor.product?.opportunity_id || null;
+  const productOpportunityId =
+    matchedOpportunity?.id ||
+    editor.product?.opportunityId ||
+    editor.product?.opportunity_id ||
+    null;
 
   const effectiveProductForPreview = useMemo(() => {
     if (!editor.product) return null;
@@ -82,16 +97,23 @@ export default function MarketingPostsManager() {
     };
   }, [editor.product, matchedOpportunity]);
 
-  const allCampaignModels = models.filter(model => links.some(link => link.elementModelId === model.id));
+  const allCampaignModels = models.filter((model) =>
+    links.some((link) => link.elementModelId === model.id)
+  );
   const activeIds = useMemo(
-    () => Object.fromEntries(links.filter(link => link.active).map(link => [`${link.elementType}:${link.opportunityId || ''}`, link.elementModelId])),
-    [links],
+    () =>
+      Object.fromEntries(
+        links
+          .filter((link) => link.active)
+          .map((link) => [`${link.elementType}:${link.opportunityId || ''}`, link.elementModelId])
+      ),
+    [links]
   );
   // Se o produto NÃO possui oportunidade, nenhum BADGE deve ser considerado ativo.
   // Se possui oportunidade, apenas o BADGE daquela oportunidade específica pode ser ativo.
   const activeModels = allCampaignModels
-    .filter(model => activeIds[`${model.elementType}:${model.opportunityId || ''}`] === model.id)
-    .filter(model => {
+    .filter((model) => activeIds[`${model.elementType}:${model.opportunityId || ''}`] === model.id)
+    .filter((model) => {
       if (model.elementType === 'BADGE') {
         if (!productOpportunityId) return false;
         return model.opportunityId === productOpportunityId;
@@ -160,15 +182,20 @@ export default function MarketingPostsManager() {
     toast.info('Seleção de imagens restaurada para o padrão.');
   };
 
-  const oppBadgeModel = activeModels.find(m => m.elementType === 'BADGE');
+  const oppBadgeModel = activeModels.find((m) => m.elementType === 'BADGE');
   const oppBadgeUrl =
-    (oppBadgeModel ? oppBadgeModel.generatedAssetUrl || oppBadgeModel.referenceFiles?.[0]?.fileUrl : null) ||
+    (oppBadgeModel
+      ? oppBadgeModel.generatedAssetUrl || oppBadgeModel.referenceFiles?.[0]?.fileUrl
+      : null) ||
     matchedOpportunity?.image_url ||
     (/queima|salvado/i.test(matchedOpportunity?.name || '') ? OFFICIAL_QUEIMA_BADGE_URL : null) ||
     (/liquida/i.test(matchedOpportunity?.name || '') ? OFFICIAL_LIQUIDACAO_BADGE_URL : null);
 
   const reload = async (id = campaignId) => {
-    const [nextCampaigns, nextModels] = await Promise.all([postCreatorService.campaigns(), postCreatorService.models()]);
+    const [nextCampaigns, nextModels] = await Promise.all([
+      postCreatorService.campaigns(),
+      postCreatorService.models(),
+    ]);
     const nextId = id || nextCampaigns[0]?.id || '';
     setCampaigns(nextCampaigns);
     setModels(nextModels);
@@ -207,7 +234,7 @@ export default function MarketingPostsManager() {
   const saveCampaign = async (value: Partial<PostCampaign>) => {
     const saved = await postCreatorService.saveCampaign(value);
     await reload(saved.id);
-    setConfigurationRevision(revision => revision + 1);
+    setConfigurationRevision((revision) => revision + 1);
   };
 
   const removeCampaign = async (id: string) => {
@@ -218,7 +245,7 @@ export default function MarketingPostsManager() {
   const createModel = async (model: ElementModel) => {
     if (!campaign) return;
     const existingModel = allCampaignModels.find(
-      item => item.elementType === model.elementType && item.opportunityId === model.opportunityId
+      (item) => item.elementType === model.elementType && item.opportunityId === model.opportunityId
     );
     if (existingModel) {
       await updateModel({ ...existingModel, ...model, id: existingModel.id });
@@ -231,16 +258,16 @@ export default function MarketingPostsManager() {
       elementType: saved.elementType,
       opportunityId: saved.opportunityId,
       active: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     });
     await reload(campaign.id);
-    setConfigurationRevision(revision => revision + 1);
+    setConfigurationRevision((revision) => revision + 1);
   };
 
   const updateModel = async (model: ElementModel) => {
     await postCreatorService.saveModel(model);
     await reload(campaignId);
-    setConfigurationRevision(revision => revision + 1);
+    setConfigurationRevision((revision) => revision + 1);
   };
 
   return (
@@ -275,14 +302,16 @@ export default function MarketingPostsManager() {
                 <select
                   id="post-campaign-select"
                   value={campaignId}
-                  onChange={event => void selectCampaign(event.target.value)}
+                  onChange={(event) => void selectCampaign(event.target.value)}
                   className="min-w-0 flex-1 rounded-lg bg-slate-950 px-3 py-2 text-xs text-slate-100 border border-slate-800 focus:outline-none focus:border-indigo-500"
                 >
-                  {campaigns.filter(item => item.active).map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
+                  {campaigns
+                    .filter((item) => item.active)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
                 </select>
                 <button
                   onClick={() => setManagerOpen(true)}
@@ -302,7 +331,7 @@ export default function MarketingPostsManager() {
                 selected={editor.product}
                 loading={editor.loading}
                 onSearch={editor.setSearch}
-                onSelect={id => void editor.selectProduct(id)}
+                onSelect={(id) => void editor.selectProduct(id)}
               />
             </div>
           </div>
@@ -339,7 +368,11 @@ export default function MarketingPostsManager() {
               <div className="space-y-4 max-w-5xl mx-auto">
                 <CampaignElementsPanel
                   campaignName={campaign?.name}
-                  models={allCampaignModels.filter(model => model.elementType === 'BADGE' || activeModels.some(active => active.id === model.id))}
+                  models={allCampaignModels.filter(
+                    (model) =>
+                      model.elementType === 'BADGE' ||
+                      activeModels.some((active) => active.id === model.id)
+                  )}
                   opportunities={opportunities}
                   onCreate={(type, opportunityId) => setCreating({ type, opportunityId })}
                   onEdit={setEditing}
@@ -353,9 +386,15 @@ export default function MarketingPostsManager() {
                   onChangeOpenView={handleChangeOpenView}
                   onChangeVariation={handleChangeVariation}
                   onResetOverrides={handleResetOverrides}
-                  hasManualOverrides={Boolean(manualSelection && Object.keys(manualSelection).length > 0)}
+                  hasManualOverrides={Boolean(
+                    manualSelection && Object.keys(manualSelection).length > 0
+                  )}
                 />
-                <GeneralCampaignRules load={loadGlobalRules} save={saveGlobalRules} onSavingChange={handleSavingChange} />
+                <GeneralCampaignRules
+                  load={loadGlobalRules}
+                  save={saveGlobalRules}
+                  onSavingChange={handleSavingChange}
+                />
               </div>
             )}
 
@@ -367,14 +406,13 @@ export default function MarketingPostsManager() {
                   models={activeModels}
                   elementModels={models}
                   isFocused={isFocused}
-                  onToggleFocus={() => setIsFocused(prev => !prev)}
+                  onToggleFocus={() => setIsFocused((prev) => !prev)}
                   manualSelection={manualSelection}
                   resolvedImages={resolvedImages}
                   imagesValidation={imagesValidation}
                 />
               </main>
             )}
-
           </div>
 
           {managerOpen && (
@@ -406,7 +444,9 @@ export default function MarketingPostsManager() {
               onSavingChange={handleSavingChange}
             />
           )}
-          {viewing && <ElementModelDetailsModal model={viewing} onClose={() => setViewing(undefined)} />}
+          {viewing && (
+            <ElementModelDetailsModal model={viewing} onClose={() => setViewing(undefined)} />
+          )}
         </>
       )}
     </section>

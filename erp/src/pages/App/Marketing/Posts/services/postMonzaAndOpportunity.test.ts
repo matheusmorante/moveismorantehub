@@ -21,7 +21,8 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
         id: 'var-branco',
         sku: '000239-03',
         name: 'Guarda Roupa Monza 4 Portas c/ Pés Branco',
-        image_url: 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-1.jpg,https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg',
+        image_url:
+          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-1.jpg,https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg',
         images: [
           'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-1.jpg',
           'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg',
@@ -33,9 +34,7 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
         sku: '000239-01',
         name: 'Guarda Roupa Monza 4 Portas c/ Pés Freijó/Grafite',
         image_url: 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-grafite-1.jpg',
-        images: [
-          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-grafite-1.jpg',
-        ],
+        images: ['https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-grafite-1.jpg'],
         active: true,
       },
       {
@@ -43,9 +42,7 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
         sku: '000239-02',
         name: 'Guarda Roupa Monza 4 Portas c/ Pés Freijó/Off White',
         image_url: 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-off-1.jpg',
-        images: [
-          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-off-1.jpg',
-        ],
+        images: ['https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-off-1.jpg'],
         active: true,
       },
     ],
@@ -62,17 +59,13 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
       {
         id: 'var-freijo-grafite',
         name: 'Freijó/Grafite',
-        images: [
-          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-grafite-1.jpg',
-        ],
+        images: ['https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-grafite-1.jpg'],
         active: true,
       },
       {
         id: 'var-freijo-off',
         name: 'Freijó/Off White',
-        images: [
-          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-off-1.jpg',
-        ],
+        images: ['https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-off-1.jpg'],
         active: true,
       },
     ],
@@ -126,7 +119,8 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
 
   it('1. Monza sem oportunidade: BADGE é estritamente omitido da especificação e do prompt', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: allActiveModels,
       globalRules: 'Regras da Marca Móveis Morante',
@@ -134,7 +128,7 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     });
 
     // Elemento BADGE deve ter sido filtrado completamente
-    expect(spec.campaign.elements.some(e => e.elementType === 'BADGE')).toBe(false);
+    expect(spec.campaign.elements.some((e) => e.elementType === 'BADGE')).toBe(false);
 
     // O texto do prompt NÃO pode conter "Queima dos Salvados" nem "Selo oficial Queima"
     const prompt = renderSpecificationAsPrompt(spec);
@@ -147,7 +141,9 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     expect(prompt).toContain('IMAGEM PRINCIPAL');
     expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-1.jpg');
     expect(prompt).toContain('IMAGEM SECUNDÁRIA');
-    expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg');
+    expect(prompt).toContain(
+      'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/branco-aberto.jpg'
+    );
     expect(prompt).toContain('VARIAÇÕES DISPONÍVEIS');
     expect(prompt).toContain('Freijó/Grafite');
     expect(prompt).toContain('Freijó/Off White');
@@ -162,7 +158,8 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     };
 
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: allActiveModels,
       globalRules: 'Regras da Marca Móveis Morante',
@@ -170,10 +167,12 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     });
 
     // BADGE deve estar presente
-    const badgeElement = spec.campaign.elements.find(e => e.elementType === 'BADGE');
+    const badgeElement = spec.campaign.elements.find((e) => e.elementType === 'BADGE');
     expect(badgeElement).toBeDefined();
     expect(badgeElement?.resources).toHaveLength(0);
-    expect(spec.officialAssets?.badge?.url).toBe('https://example.com/assets/queima-salvados-original.png');
+    expect(spec.officialAssets?.badge?.url).toBe(
+      'https://example.com/assets/queima-salvados-original.png'
+    );
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('ELEMENTO: BADGE');
@@ -189,7 +188,8 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     };
 
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: allActiveModels, // contém apenas badge de queima
       globalRules: 'Regras da Marca Móveis Morante',
@@ -197,7 +197,7 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
     });
 
     // Como não há badge para opp-mostruario-id, o badge de queima NÃO pode entrar
-    expect(spec.campaign.elements.some(e => e.elementType === 'BADGE')).toBe(false);
+    expect(spec.campaign.elements.some((e) => e.elementType === 'BADGE')).toBe(false);
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).not.toContain('Queima dos Salvados');
@@ -208,12 +208,14 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
       primaryUrl: 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-primaria.jpg',
       openViewUrl: 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-aberta.jpg',
       variationUrls: {
-        'var-freijo-grafite': 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg',
+        'var-freijo-grafite':
+          'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg',
       },
     };
 
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [titleModel],
       globalRules: 'Regras da Marca Móveis Morante',
@@ -228,25 +230,36 @@ describe('Correção Crítica — Guarda-Roupa Monza & Filtragem de Badge de Opo
       'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-aberta.jpg'
     );
 
-    const varFreijo = spec.productImages?.variations.find(v => v.variationId === 'var-freijo-grafite');
-    expect(varFreijo?.url).toBe('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg');
+    const varFreijo = spec.productImages?.variations.find(
+      (v) => v.variationId === 'var-freijo-grafite'
+    );
+    expect(varFreijo?.url).toBe(
+      'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg'
+    );
 
     const prompt = renderSpecificationAsPrompt(spec);
-    expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-primaria.jpg');
-    expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-aberta.jpg');
-    expect(prompt).toContain('https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg');
+    expect(prompt).toContain(
+      'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-primaria.jpg'
+    );
+    expect(prompt).toContain(
+      'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/foto-manual-aberta.jpg'
+    );
+    expect(prompt).toContain(
+      'https://pub-389127050a434f568c29dc66bdce2567.r2.dev/freijo-custom.jpg'
+    );
   });
 
   it('5. Inclusão dos elementos estruturais OPEN_VIEW e VARIATION_GALLERY', async () => {
     const spec = await buildSingleSpecification({
-      productCatalogUrl: 'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
+      productCatalogUrl:
+        'https://www.moveismorante.com.br/produto/guarda-roupa-monza-4-portas-c-pes',
       campaign: defaultCampaign,
       activeModels: [titleModel],
       globalRules: 'Regras',
       product: monzaProduct,
     });
 
-    expect(spec.campaign.elements.some(e => e.elementType === 'OPEN_VIEW')).toBe(true);
-    expect(spec.campaign.elements.some(e => e.elementType === 'VARIATION_GALLERY')).toBe(true);
+    expect(spec.campaign.elements.some((e) => e.elementType === 'OPEN_VIEW')).toBe(true);
+    expect(spec.campaign.elements.some((e) => e.elementType === 'VARIATION_GALLERY')).toBe(true);
   });
 });

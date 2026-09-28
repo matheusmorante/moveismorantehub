@@ -31,7 +31,8 @@ export const fetchCalendarEvents = async (): Promise<CalendarEvent[]> => {
 
   // 2. Fallback para cache offline local
   try {
-    const cached = await offlineStorageService.getWorkingSet<CalendarEvent[]>(LOCAL_EVENTS_CACHE_KEY);
+    const cached =
+      await offlineStorageService.getWorkingSet<CalendarEvent[]>(LOCAL_EVENTS_CACHE_KEY);
     if (cached?.data) {
       return cached.data;
     }
@@ -40,7 +41,9 @@ export const fetchCalendarEvents = async (): Promise<CalendarEvent[]> => {
   return [];
 };
 
-export const createCalendarEvent = async (eventPayload: Omit<CalendarEvent, 'id' | 'created_at'>): Promise<{ success: boolean; data?: CalendarEvent; error?: string }> => {
+export const createCalendarEvent = async (
+  eventPayload: Omit<CalendarEvent, 'id' | 'created_at'>
+): Promise<{ success: boolean; data?: CalendarEvent; error?: string }> => {
   const newEvent: CalendarEvent = {
     ...eventPayload,
     id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -51,7 +54,10 @@ export const createCalendarEvent = async (eventPayload: Omit<CalendarEvent, 'id'
     // Tentar persistir no Supabase
     const { error } = await supabase.from('calendar_events').insert([newEvent]);
     if (error) {
-      console.warn('[ScheduleEvents] Tabela calendar_events não encontrada no Supabase, salvando localmente:', error.message);
+      console.warn(
+        '[ScheduleEvents] Tabela calendar_events não encontrada no Supabase, salvando localmente:',
+        error.message
+      );
     }
   } catch {}
 

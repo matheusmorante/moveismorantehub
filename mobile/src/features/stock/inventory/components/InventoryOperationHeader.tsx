@@ -25,7 +25,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
     insets.top,
-    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 16
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 16
   );
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
@@ -33,7 +33,12 @@ export const InventoryOperationHeader: React.FC<Props> = ({
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
   return (
-    <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 }]}>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 },
+      ]}
+    >
       <TouchableOpacity testID="header-back-btn" onPress={onBack} style={styles.backBtn}>
         <ArrowLeft size={24} color={textPrimary} />
       </TouchableOpacity>
@@ -43,9 +48,12 @@ export const InventoryOperationHeader: React.FC<Props> = ({
         </Text>
         <View style={styles.progressRow}>
           <Text style={[styles.progressText, { color: muted }]}>
-            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount}</Text> / {totalCount}
+            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount}</Text> /{' '}
+            {totalCount}
           </Text>
-          <View style={[styles.progressBarBg, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
+          <View
+            style={[styles.progressBarBg, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}
+          >
             <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
           </View>
           <Text style={[styles.progressText, { color: muted }]}>{progressPercent}%</Text>

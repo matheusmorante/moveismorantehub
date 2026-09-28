@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -13,7 +13,7 @@ interface State {
 
 class ErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -34,7 +34,9 @@ class ErrorBoundary extends Component<Props, State> {
             <i className="bi bi-exclamation-triangle text-2xl" />
           </div>
           <div>
-            <h4 className="text-sm font-black uppercase tracking-widest text-rose-600">Erro de Interface</h4>
+            <h4 className="text-sm font-black uppercase tracking-widest text-rose-600">
+              Erro de Interface
+            </h4>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-1">
               O componente {this.props.name} falhou ao carregar.
             </p>

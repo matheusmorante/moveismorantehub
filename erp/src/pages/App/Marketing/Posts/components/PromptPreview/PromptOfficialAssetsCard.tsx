@@ -20,9 +20,7 @@ export const PromptOfficialAssetsCard: React.FC<PromptOfficialAssetsCardProps> =
           <span className="text-emerald-400">🛡️</span>
           <span>Assets Oficiais (Preservação Fiel Obrigatória)</span>
         </div>
-        <span className="text-[10px] text-slate-400">
-          Arquivo pronto (não recriar)
-        </span>
+        <span className="text-[10px] text-slate-400">Arquivo pronto (não recriar)</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -45,7 +43,9 @@ export const PromptOfficialAssetsCard: React.FC<PromptOfficialAssetsCardProps> =
               </div>
               <button
                 type="button"
-                onClick={() => void copyImageUrlToClipboard(logo.url, 'Logo Oficial Móveis Morante')}
+                onClick={() =>
+                  void copyImageUrlToClipboard(logo.url, 'Logo Oficial Móveis Morante')
+                }
                 className="text-[9px] font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-1.5 py-0.5 rounded shadow-sm transition"
                 title="Copiar imagem do logo para colar no ChatGPT"
               >
@@ -88,7 +88,9 @@ export const PromptOfficialAssetsCard: React.FC<PromptOfficialAssetsCardProps> =
                   </div>
                   <button
                     type="button"
-                    onClick={() => void copyImageUrlToClipboard(badge.url, badge.name || 'Selo Oficial')}
+                    onClick={() =>
+                      void copyImageUrlToClipboard(badge.url, badge.name || 'Selo Oficial')
+                    }
                     className="text-[9px] font-bold text-white bg-purple-600 hover:bg-purple-500 px-1.5 py-0.5 rounded shadow-sm transition"
                     title="Copiar imagem do selo para colar no ChatGPT"
                   >
@@ -121,12 +123,13 @@ export const PromptOfficialAssetsCard: React.FC<PromptOfficialAssetsCardProps> =
                   </span>
                   <span className="text-[10px] text-slate-400">Não aplicável</span>
                 </div>
-                <p className="text-xs font-medium text-slate-300 mt-0.5 truncate" title="Produto sem oportunidade correspondente">
+                <p
+                  className="text-xs font-medium text-slate-300 mt-0.5 truncate"
+                  title="Produto sem oportunidade correspondente"
+                >
                   Sem oportunidade vinculada
                 </p>
-                <span className="text-[9px] text-slate-500">
-                  Nenhum selo enviado à IA
-                </span>
+                <span className="text-[9px] text-slate-500">Nenhum selo enviado à IA</span>
               </div>
             </div>
           )}

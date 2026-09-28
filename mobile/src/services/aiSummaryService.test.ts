@@ -24,14 +24,8 @@ vi.mock('./supabaseClient', () => ({
   },
 }));
 
-import {
-  formatExtendDateLabel,
-  generateLocalSmartText,
-} from './aiSummaryService';
-import {
-  buildCanonicalSummaryPayload,
-  CanonicalSummaryPayload,
-} from './canonicalSummaryInput';
+import { formatExtendDateLabel, generateLocalSmartText } from './aiSummaryService';
+import { buildCanonicalSummaryPayload, CanonicalSummaryPayload } from './canonicalSummaryInput';
 
 describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
   describe('formatExtendDateLabel', () => {
@@ -111,11 +105,15 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
       expect(text).toContain('Para hoje, temos 2 entregas.');
 
       // Regra 2: Manhã com montagem no endereço, omitindo Colombo e indicando distPart (pertinho)
-      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.');
+      expect(text).toContain(
+        'Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.'
+      );
       expect(text).not.toContain('colombo');
 
       // Regra 3: Tarde citando Curitiba, distância km (a cerca de doze quilômetros), contagem masculina (2 itens), sem citar nome da cômoda nem "sem montagem", e com aviso
-      expect(text).toContain('À tarde, temos uma entrega para Aryel Felipe em curitiba, a cerca de doze quilômetros, de 2 itens, com atenção para máquina de cartão.');
+      expect(text).toContain(
+        'À tarde, temos uma entrega para Aryel Felipe em curitiba, a cerca de doze quilômetros, de 2 itens, com atenção para máquina de cartão.'
+      );
       expect(text).not.toContain('cômoda');
       expect(text).not.toContain('sem montagem');
       expect(text).not.toContain('não precisa de montagem');
@@ -204,13 +202,17 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
       // Total de entregas anunciado por dia
       // Dia 1 (amanhã): Fala a data antes das entregas
       expect(text).toMatch(/Para amanhã, segunda-feira, dia 7 de setembro, temos 2 entregas\./);
-      expect(text).toContain('Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.');
+      expect(text).toContain(
+        'Pela manhã, temos uma entrega para Vania Santos, pertinho, de um item, sendo um guarda roupa casal, com montagem no endereço.'
+      );
       expect(text).toContain('À tarde, temos uma entrega para Cauã Murilo, pertinho, de um item.');
       expect(text).not.toContain('mesa de jantar'); // Sem montagem no endereço -> não fala produto
 
       // Dia 2: Fala a data de terça-feira antes das entregas daquele dia
       expect(text).toMatch(/Para terça-feira, dia 8 de setembro, temos 1 entrega\./);
-      expect(text).toContain('Pela manhã, temos uma entrega para Aryel Felipe em curitiba, a cerca de quinze quilômetros, de um item, sendo um painel tv, com montagem no endereço, com atenção para máquina de cartão.');
+      expect(text).toContain(
+        'Pela manhã, temos uma entrega para Aryel Felipe em curitiba, a cerca de quinze quilômetros, de um item, sendo um painel tv, com montagem no endereço, com atenção para máquina de cartão.'
+      );
 
       // Colombo nunca é falado
       expect(text).not.toContain(' em colombo');
@@ -230,7 +232,9 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
       };
 
       const text = generateLocalSmartText(payload);
-      expect(text).toBe('Não há atividades operacionais agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.');
+      expect(text).toBe(
+        'Não há atividades operacionais agendadas para os próximos dias. Operação e frota disponíveis para novos lançamentos.'
+      );
     });
   });
 
@@ -238,16 +242,30 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
     it('inclui entrega, assistência e devolução com seus tipos no mesmo resumo', () => {
       const today = new Date().toLocaleDateString('en-CA');
       const makeOrder = (id: string, orderType: string, customer: string) => ({
-        id, status: 'scheduled', customer_name: customer,
-        order_data: { orderType, customerData: { fullName: customer }, shipping: { scheduling: { date: today, time: '09:00' } }, items: [] },
+        id,
+        status: 'scheduled',
+        customer_name: customer,
+        order_data: {
+          orderType,
+          customerData: { fullName: customer },
+          shipping: { scheduling: { date: today, time: '09:00' } },
+          items: [],
+        },
       });
-      const payload = buildCanonicalSummaryPayload([
-        makeOrder('delivery', 'sale', 'Cliente Entrega'),
-        makeOrder('assistance', 'assistance', 'Cliente Assistência'),
-        makeOrder('return', 'return', 'Cliente Devolução'),
-      ], 'today');
+      const payload = buildCanonicalSummaryPayload(
+        [
+          makeOrder('delivery', 'sale', 'Cliente Entrega'),
+          makeOrder('assistance', 'assistance', 'Cliente Assistência'),
+          makeOrder('return', 'return', 'Cliente Devolução'),
+        ],
+        'today'
+      );
 
-      expect(payload.orders.map(order => order.activityLabel)).toEqual(['ASSISTÊNCIA', 'ENTREGA', 'DEVOLUÇÃO']);
+      expect(payload.orders.map((order) => order.activityLabel)).toEqual([
+        'ASSISTÊNCIA',
+        'ENTREGA',
+        'DEVOLUÇÃO',
+      ]);
       const text = generateLocalSmartText(payload);
       expect(text).toContain('1 entrega, 1 assistência, 1 devolução');
       expect(text).toContain('uma assistência para Cliente Assistência');
@@ -306,9 +324,7 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
                 period: 'tarde',
               },
             },
-            items: [
-              { description: 'Mesa de Jantar', quantity: 1, handlingType: 'depósito' },
-            ],
+            items: [{ description: 'Mesa de Jantar', quantity: 1, handlingType: 'depósito' }],
           },
         },
       ];

@@ -1,277 +1,294 @@
-import CustomerData from "../types/customerData.type"
-import { Item } from "../types/items.type";
-import { Payment } from "../types/payments.type";
-import Order from "../types/order.type";
-import Person from "../types/person.type";
-import { calcItemTotalValue, calcPaymentTotalValue } from "./calculations";
+import CustomerData from '../types/customerData.type';
+import { Item } from '../types/items.type';
+import { Payment } from '../types/payments.type';
+import Order from '../types/order.type';
+import Person from '../types/person.type';
+import { calcItemTotalValue, calcPaymentTotalValue } from './calculations';
 import { toTitleCase } from './textUtils';
 
-export const stringifyFullAddress = (
-    address: any
-) => {
-    if (!address) return '';
-    if (typeof address === 'string') return toTitleCase(address.trim());
-    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
-    const number = address.number || address.numero || '';
-    const complement = toTitleCase(address.complement || address.complemento || '');
-    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
-    const city = toTitleCase(address.city || address.cidade || '');
-    return [street, number, complement, neighborhood, city]
-        .filter(Boolean)
-        .join(', ')
-        .trim();
+export const stringifyFullAddress = (address: any) => {
+  if (!address) return '';
+  if (typeof address === 'string') return toTitleCase(address.trim());
+  const street = toTitleCase(
+    address.street || address.logradouro || address.rua || address.address || ''
+  );
+  const number = address.number || address.numero || '';
+  const complement = toTitleCase(address.complement || address.complemento || '');
+  const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+  const city = toTitleCase(address.city || address.cidade || '');
+  return [street, number, complement, neighborhood, city].filter(Boolean).join(', ').trim();
 };
 
-export const stringifyMapAddress = (
-    address: any
-) => {
-    if (!address) return '';
-    if (typeof address === 'string') return toTitleCase(address.trim());
-    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
-    const number = address.number || address.numero || '';
-    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
-    const city = toTitleCase(address.city || address.cidade || '');
-    return [street, number, neighborhood, city]
-        .filter(Boolean)
-        .join(', ')
-        .trim();
+export const stringifyMapAddress = (address: any) => {
+  if (!address) return '';
+  if (typeof address === 'string') return toTitleCase(address.trim());
+  const street = toTitleCase(
+    address.street || address.logradouro || address.rua || address.address || ''
+  );
+  const number = address.number || address.numero || '';
+  const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+  const city = toTitleCase(address.city || address.cidade || '');
+  return [street, number, neighborhood, city].filter(Boolean).join(', ').trim();
 };
 
-export const stringifyFullAddressWithObservation = (
-    address: any
-) => {
-    if (!address) return '';
-    if (typeof address === 'string') return toTitleCase(address.trim());
-    const street = toTitleCase(address.street || address.logradouro || address.rua || address.address || '');
-    const number = address.number || address.numero || '';
-    const complement = toTitleCase(address.complement || address.complemento || '');
-    const observation = address.observation || address.observacao || '';
-    const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
-    const city = toTitleCase(address.city || address.cidade || '');
-    return [street, number, complement, observation, neighborhood, city]
-        .filter(Boolean)
-        .join(', ')
-        .trim();
+export const stringifyFullAddressWithObservation = (address: any) => {
+  if (!address) return '';
+  if (typeof address === 'string') return toTitleCase(address.trim());
+  const street = toTitleCase(
+    address.street || address.logradouro || address.rua || address.address || ''
+  );
+  const number = address.number || address.numero || '';
+  const complement = toTitleCase(address.complement || address.complemento || '');
+  const observation = address.observation || address.observacao || '';
+  const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
+  const city = toTitleCase(address.city || address.cidade || '');
+  return [street, number, complement, observation, neighborhood, city]
+    .filter(Boolean)
+    .join(', ')
+    .trim();
 };
 
 export const stringifyItems = (items: Item[]) => {
-    return items.map(item => {
-        const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
-        return `${item.description}${obs} (${item.quantity} UN)`;
-    }).join(', ');
+  return items
+    .map((item) => {
+      const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+      return `${item.description}${obs} (${item.quantity} UN)`;
+    })
+    .join(', ');
 };
 
 export const stringifyItemsWithValues = (items: Item[]) => {
-    return items.map(item => {
-        const totalValue = calcItemTotalValue(item);
-        const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
-        return `${item.description}${obs} | ${item.quantity} UN | ${formatCurrency(totalValue)}`;
-    }).join('\n');
+  return items
+    .map((item) => {
+      const totalValue = calcItemTotalValue(item);
+      const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
+      return `${item.description}${obs} | ${item.quantity} UN | ${formatCurrency(totalValue)}`;
+    })
+    .join('\n');
 };
 
 export const stringifyPayments = (payments: Payment[]) => {
-    return payments.map(payment => {
-        const totalValue = calcPaymentTotalValue(payment);
-        return `${payment.method} | ${formatCurrency(totalValue)} | Status: ${payment.status}`
-    }).join('\n')
-}
+  return payments
+    .map((payment) => {
+      const totalValue = calcPaymentTotalValue(payment);
+      return `${payment.method} | ${formatCurrency(totalValue)} | Status: ${payment.status}`;
+    })
+    .join('\n');
+};
 
 export const formatToBRDate = (value: string | undefined | null) => {
-    if (!value) return "-";
-    
-    // Alread formatted DD/MM/YYYY
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
+  if (!value) return '-';
 
-    // Handle YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
-    let dateStr = String(value);
-    if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0];
+  // Alread formatted DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
+
+  // Handle YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  let dateStr = String(value);
+  if (dateStr.includes('T')) {
+    dateStr = dateStr.split('T')[0];
+  }
+
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
     }
-    
-    if (dateStr.includes('-')) {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            const [y, m, d] = parts;
-            return `${d}/${m}/${y}`;
-        }
-    }
+  }
 
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
 
-    // Use local time for formatting
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
+  // Use local time for formatting
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
 };
 
 export const formatDateTime = (value: string | undefined | null) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
+  if (!value) return '-';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
 
-    return date.toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-    });
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 export const formatDate = (value: string) => {
-    if (!value) return "Não agendado";
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
+  if (!value) return 'Não agendado';
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(value)) return value;
 
-    let dateStr = String(value);
-    if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0];
-    }
+  let dateStr = String(value);
+  if (dateStr.includes('T')) {
+    dateStr = dateStr.split('T')[0];
+  }
 
-    const date = new Date(dateStr + 'T12:00:00'); // Force mid-day local time to avoid timezone offsets
-    if (isNaN(date.getTime())) return value;
-    
-    return date.toLocaleDateString("pt-BR", {
-        weekday: "long",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-    });
+  const date = new Date(dateStr + 'T12:00:00'); // Force mid-day local time to avoid timezone offsets
+  if (isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 };
 
 export { toTitleCase };
 
 export const dateNow = () => {
-    const now = new Date();
-    const d = String(now.getDate()).padStart(2, '0');
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const y = now.getFullYear();
-    return `${d}/${m}/${y}`;
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const y = now.getFullYear();
+  return `${d}/${m}/${y}`;
 };
 
 export const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-    }).format(value);
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
 };
 
 export const capitalizeCustomerData = (data: CustomerData): CustomerData => {
-    const defaultData: CustomerData = {
-        fullName: "",
-        phone: "",
-        noPhone: false,
-        fullAddress: {
-            cep: "",
-            street: "",
-            number: "",
-            complement: "",
-            neighborhood: "",
-            city: "",
-            observation: "",
+  const defaultData: CustomerData = {
+    fullName: '',
+    phone: '',
+    noPhone: false,
+    fullAddress: {
+      cep: '',
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      observation: '',
+    },
+  };
+
+  if (!data) return defaultData;
+
+  return {
+    ...defaultData,
+    ...data,
+    fullName: toTitleCase(data.fullName || ''),
+    fullAddress: data.fullAddress
+      ? {
+          ...defaultData.fullAddress,
+          ...data.fullAddress,
+          street: toTitleCase(data.fullAddress.street || ''),
+          complement: toTitleCase(data.fullAddress.complement || ''),
+          neighborhood: toTitleCase(data.fullAddress.neighborhood || ''),
+          city: toTitleCase(data.fullAddress.city || ''),
+          observation: toTitleCase(data.fullAddress.observation || ''),
         }
-    };
-
-    if (!data) return defaultData;
-
-    return {
-        ...defaultData,
-        ...data,
-        fullName: toTitleCase(data.fullName || ""),
-        fullAddress: data.fullAddress ? {
-            ...defaultData.fullAddress,
-            ...data.fullAddress,
-            street: toTitleCase(data.fullAddress.street || ""),
-            complement: toTitleCase(data.fullAddress.complement || ""),
-            neighborhood: toTitleCase(data.fullAddress.neighborhood || ""),
-            city: toTitleCase(data.fullAddress.city || ""),
-            observation: toTitleCase(data.fullAddress.observation || ""),
-        } : defaultData.fullAddress
-    };
+      : defaultData.fullAddress,
+  };
 };
 
 export const capitalizeOrder = (order: Order): Order => {
-    if (!order) return order;
+  if (!order) return order;
 
-    const shipping = order.shipping || {
-        value: 0,
-        deliveryMethod: 'delivery',
-        orderType: 'Standard',
-        scheduling: { date: "", time: "", startTime: "", endTime: "", type: "range" },
-        autoCalculateValue: false,
-        useCustomerAddress: true,
-        deliveryAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '' }
-    };
+  const shipping = order.shipping || {
+    value: 0,
+    deliveryMethod: 'delivery',
+    orderType: 'Standard',
+    scheduling: { date: '', time: '', startTime: '', endTime: '', type: 'range' },
+    autoCalculateValue: false,
+    useCustomerAddress: true,
+    deliveryAddress: {
+      cep: '',
+      street: '',
+      number: '',
+      complement: '',
+      observation: '',
+      neighborhood: '',
+      city: '',
+    },
+  };
 
-    // Se o pedido usa o endereço do cliente ou o deliveryAddress está vazio de rua, herda o fullAddress do customerData
-    const hasDeliveryStreet = Boolean(shipping.deliveryAddress?.street);
-    const finalDeliveryAddress = (shipping.useCustomerAddress !== false || !hasDeliveryStreet)
-        ? (hasDeliveryStreet ? shipping.deliveryAddress : (order.customerData?.fullAddress || shipping.deliveryAddress))
-        : shipping.deliveryAddress;
+  // Se o pedido usa o endereço do cliente ou o deliveryAddress está vazio de rua, herda o fullAddress do customerData
+  const hasDeliveryStreet = Boolean(shipping.deliveryAddress?.street);
+  const finalDeliveryAddress =
+    shipping.useCustomerAddress !== false || !hasDeliveryStreet
+      ? hasDeliveryStreet
+        ? shipping.deliveryAddress
+        : order.customerData?.fullAddress || shipping.deliveryAddress
+      : shipping.deliveryAddress;
 
-    return {
-        ...order,
-        items: (order.items || []).map(item => {
-            if (!item) return item;
-            return {
-                ...item,
-                description: item.description?.toUpperCase() || ""
-            };
-        }),
-        assistanceItems: order.assistanceItems || [],
-        customerData: capitalizeCustomerData(order.customerData),
-        payments: order.payments || [],
-        shipping: {
-            ...shipping,
-            deliveryAddress: finalDeliveryAddress
-        }
-    };
+  return {
+    ...order,
+    items: (order.items || []).map((item) => {
+      if (!item) return item;
+      return {
+        ...item,
+        description: item.description?.toUpperCase() || '',
+      };
+    }),
+    assistanceItems: order.assistanceItems || [],
+    customerData: capitalizeCustomerData(order.customerData),
+    payments: order.payments || [],
+    shipping: {
+      ...shipping,
+      deliveryAddress: finalDeliveryAddress,
+    },
+  };
 };
 
 export const capitalizePerson = (person: any): any => {
-    if (!person) return person;
+  if (!person) return person;
 
-    return {
-        ...person,
-        fullName: toTitleCase(person.fullName),
-        tradeName: person.tradeName ? toTitleCase(person.tradeName) : person.tradeName,
-        fullAddress: person.fullAddress ? {
-            ...person.fullAddress,
-            street: toTitleCase(person.fullAddress.street),
-            complement: toTitleCase(person.fullAddress.complement),
-            neighborhood: toTitleCase(person.fullAddress.neighborhood),
-            city: toTitleCase(person.fullAddress.city),
-            observation: toTitleCase(person.fullAddress.observation),
-        } : person.fullAddress
-    };
+  return {
+    ...person,
+    fullName: toTitleCase(person.fullName),
+    tradeName: person.tradeName ? toTitleCase(person.tradeName) : person.tradeName,
+    fullAddress: person.fullAddress
+      ? {
+          ...person.fullAddress,
+          street: toTitleCase(person.fullAddress.street),
+          complement: toTitleCase(person.fullAddress.complement),
+          neighborhood: toTitleCase(person.fullAddress.neighborhood),
+          city: toTitleCase(person.fullAddress.city),
+          observation: toTitleCase(person.fullAddress.observation),
+        }
+      : person.fullAddress,
+  };
 };
 
 export const getLocalISODate = (date: Date = new Date()) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const generateProductCode = (seqOrText?: string | number): string => {
-    // NOVO PADRÃO: 6 dígitos sequenciais numerados (ex: 000001, 000002)
-    const num = typeof seqOrText === 'number' ? seqOrText : parseInt(String(seqOrText || '').replace(/\D/g, ''), 10);
-    if (!isNaN(num) && num > 0) {
-        return String(num).padStart(6, '0');
-    }
-    return '000001';
+  // NOVO PADRÃO: 6 dígitos sequenciais numerados (ex: 000001, 000002)
+  const num =
+    typeof seqOrText === 'number'
+      ? seqOrText
+      : parseInt(String(seqOrText || '').replace(/\D/g, ''), 10);
+  if (!isNaN(num) && num > 0) {
+    return String(num).padStart(6, '0');
+  }
+  return '000001';
 };
 
-
 export const slugify = (text: string) => {
-    return text
-        .toString()
-        .toLowerCase()
-        .normalize('NFD') // remove accents
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w-]+/g, '')
-        .replace(/--+/g, '-');
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD') // remove accents
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
 };

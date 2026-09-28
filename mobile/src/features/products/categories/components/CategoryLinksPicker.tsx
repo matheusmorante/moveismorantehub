@@ -21,8 +21,8 @@ export const CategoryLinksPicker: React.FC<Props> = ({
   onToggleLink,
 }) => {
   const items = isEnv
-    ? categories.map(c => ({ id: c.id, name: c.name }))
-    : environments.map(e => ({ id: e.id, name: e.name }));
+    ? categories.map((c) => ({ id: c.id, name: c.name }))
+    : environments.map((e) => ({ id: e.id, name: e.name }));
 
   const helper = isEnv
     ? 'Selecione quais categorias aparecem neste ambiente.'
@@ -41,7 +41,7 @@ export const CategoryLinksPicker: React.FC<Props> = ({
             {isEnv ? 'Nenhuma categoria disponível.' : 'Nenhum ambiente cadastrado ainda.'}
           </Text>
         ) : (
-          items.map(item => {
+          items.map((item) => {
             const isChecked = selectedLinks.includes(item.id);
             return (
               <TouchableOpacity
@@ -65,7 +65,13 @@ export const CategoryLinksPicker: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   formGroup: { gap: 6 },
-  label: { fontSize: 11, fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   helperText: { fontSize: 11, color: '#64748b', marginTop: -2, marginBottom: 4 },
   linksBox: {
     borderWidth: 1,
@@ -77,7 +83,14 @@ const styles = StyleSheet.create({
     maxHeight: 180,
   },
   linksBoxDark: { backgroundColor: 'rgba(15, 23, 42, 0.6)', borderColor: '#334155' },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 6 },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
   checkbox: {
     width: 18,
     height: 18,

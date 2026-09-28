@@ -36,10 +36,7 @@ describe('postProductImageResolver — Seleção e Estruturação de Imagens', (
         {
           id: 'var-branco',
           name: 'Branco',
-          images: [
-            'https://example.com/monza-fechado.jpg',
-            'https://example.com/monza-aberto.jpg',
-          ],
+          images: ['https://example.com/monza-fechado.jpg', 'https://example.com/monza-aberto.jpg'],
         },
       ],
     };
@@ -161,7 +158,11 @@ describe('postProductImageResolver — Seleção e Estruturação de Imagens', (
 
     const { productImages, validation } = resolveProductImages({ product });
     expect(productImages.openView).toBeNull();
-    expect(validation.warnings.some(w => w.toLowerCase().includes('secundária') || w.toLowerCase().includes('foto 2'))).toBe(true);
+    expect(
+      validation.warnings.some(
+        (w) => w.toLowerCase().includes('secundária') || w.toLowerCase().includes('foto 2')
+      )
+    ).toBe(true);
   });
 
   it('17. validação emite erro claro se não houver foto principal', () => {
@@ -179,6 +180,8 @@ describe('postProductImageResolver — Seleção e Estruturação de Imagens', (
 
     const { validation } = resolveProductImages({ product });
     expect(validation.valid).toBe(false);
-    expect(validation.errors).toContain('O produto selecionado não possui foto principal cadastrada.');
+    expect(validation.errors).toContain(
+      'O produto selecionado não possui foto principal cadastrada.'
+    );
   });
 });

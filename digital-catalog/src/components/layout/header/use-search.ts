@@ -1,204 +1,211 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useRef } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase/client"
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase/client';
 
 export function useSearch() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const currentSearchParam = searchParams.get("search") || ""
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentSearchParam = searchParams.get('search') || '';
 
-  const [isOpen, setIsOpen] = useState(false)
-  const [query, setQuery] = useState(currentSearchParam)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const searchContainerRef = useRef<HTMLDivElement>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(currentSearchParam);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setQuery(currentSearchParam)
-  }, [currentSearchParam])
-  
+    setQuery(currentSearchParam);
+  }, [currentSearchParam]);
+
   // Sugestões
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<{
-    environments: any[]
-    categories: any[]
-    products: any[]
-  }>({ environments: [], categories: [], products: [] })
+    environments: any[];
+    categories: any[];
+    products: any[];
+  }>({ environments: [], categories: [], products: [] });
 
   useEffect(() => {
-    if (isOpen) inputRef.current?.focus()
-  }, [isOpen])
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   // Fecha sugestões ao clicar fora do container de busca
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Normalização de texto sem acentos, sem hífens e minúsculo
   const normalizeText = (str: string) => {
-    if (!str) return ""
+    if (!str) return '';
     return str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
-      .replace(/[-_/]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-  }
+      .replace(/[-_/]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   // Caching local de categorias para busca instantânea sem acento
-  const [allDbCategories, setAllDbCategories] = useState<any[]>([])
+  const [allDbCategories, setAllDbCategories] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadAllCategories() {
       const { data } = await supabase
-        .from("categories")
-        .select("id, name, slug, type")
-        .order("name")
-      if (data) setAllDbCategories(data)
+        .from('categories')
+        .select('id, name, slug, type')
+        .order('name');
+      if (data) setAllDbCategories(data);
     }
-    loadAllCategories()
-  }, [])
+    loadAllCategories();
+  }, []);
 
   // Busca sugestões em tempo real ao digitar (Debounce)
   useEffect(() => {
-    const trimmed = query.trim()
+    const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setSuggestions({ environments: [], categories: [], products: [] })
-      setShowSuggestions(false)
-      return
+      setSuggestions({ environments: [], categories: [], products: [] });
+      setShowSuggestions(false);
+      return;
     }
 
-    setLoadingSuggestions(true)
-    setShowSuggestions(true)
+    setLoadingSuggestions(true);
+    setShowSuggestions(true);
 
     const timer = setTimeout(async () => {
       try {
-        const cleanQuery = normalizeText(trimmed)
-        const queryTokens = cleanQuery.split(" ").filter(token => token.length >= 2)
+        const cleanQuery = normalizeText(trimmed);
+        const queryTokens = cleanQuery.split(' ').filter((token) => token.length >= 2);
 
         const getSynonyms = (token: string): string[] => {
           if (/^(roupa|roupas|guarda|roupeiro|roupeiros)$/.test(token)) {
-            return ["roupa", "roupas", "guarda", "roupeiro", "roupeiros"]
+            return ['roupa', 'roupas', 'guarda', 'roupeiro', 'roupeiros'];
           }
           if (/^(sofa|sofas|estofado|estofados)$/.test(token)) {
-            return ["sofa", "sofas", "estofado", "estofados"]
+            return ['sofa', 'sofas', 'estofado', 'estofados'];
           }
           if (/^(colchao|colchoes|espuma|molas)$/.test(token)) {
-            return ["colchao", "colchoes"]
+            return ['colchao', 'colchoes'];
           }
           if (/^(cama|camas|box|sommier)$/.test(token)) {
-            return ["cama", "camas", "box"]
+            return ['cama', 'camas', 'box'];
           }
           if (/^(mesa|mesas)$/.test(token)) {
-            return ["mesa", "mesas"]
+            return ['mesa', 'mesas'];
           }
           if (/^(painel|paineis|rack|racks)$/.test(token)) {
-            return ["painel", "paineis", "rack", "racks"]
+            return ['painel', 'paineis', 'rack', 'racks'];
           }
-          return [token]
-        }
-        
+          return [token];
+        };
+
         // 1. Filtrar Ambientes e Categorias localmente (insensível a acentos e hífens)
-        const matched = allDbCategories.filter(c => {
-          const cleanCatName = normalizeText(c.name)
-          return queryTokens.every(token => {
-            const synonyms = getSynonyms(token)
-            return synonyms.some(syn => cleanCatName.includes(syn))
-          })
-        })
-        const environments = matched.filter(c => c.type === "environment").slice(0, 5)
-        const categories = matched.filter(c => c.type === "category").slice(0, 5)
+        const matched = allDbCategories.filter((c) => {
+          const cleanCatName = normalizeText(c.name);
+          return queryTokens.every((token) => {
+            const synonyms = getSynonyms(token);
+            return synonyms.some((syn) => cleanCatName.includes(syn));
+          });
+        });
+        const environments = matched.filter((c) => c.type === 'environment').slice(0, 5);
+        const categories = matched.filter((c) => c.type === 'category').slice(0, 5);
 
         // 2. Buscar Produtos no Supabase (com suporte a múltiplos tokens)
         let prodQuery = supabase
-          .from("products")
-          .select("id, name, price, promo_price, slug, product_images(image_url, is_main)")
-          .eq("status", "published")
+          .from('products')
+          .select('id, name, price, promo_price, slug, product_images(image_url, is_main)')
+          .eq('status', 'published');
 
         // Usar o primeiro token principal para pré-filtrar no banco
-        const mainToken = queryTokens[0] || trimmed
-        prodQuery = prodQuery.or(`name.ilike.%${mainToken}%,name.ilike.%${trimmed.replace(/\s+/g, "-")}%`)
-          .limit(20)
+        const mainToken = queryTokens[0] || trimmed;
+        prodQuery = prodQuery
+          .or(`name.ilike.%${mainToken}%,name.ilike.%${trimmed.replace(/\s+/g, '-')}%`)
+          .limit(20);
 
-        const { data: prodData, error: prodErr } = await prodQuery
+        const { data: prodData, error: prodErr } = await prodQuery;
 
-        let products: any[] = []
+        let products: any[] = [];
         if (!prodErr && prodData) {
           // Refinar match com todos os tokens no frontend
-          const filtered = prodData.filter((p: any) => {
-            const cleanProdName = normalizeText(p.name)
-            return queryTokens.every(token => {
-              const synonyms = getSynonyms(token)
-              return synonyms.some(syn => cleanProdName.includes(syn))
+          const filtered = prodData
+            .filter((p: any) => {
+              const cleanProdName = normalizeText(p.name);
+              return queryTokens.every((token) => {
+                const synonyms = getSynonyms(token);
+                return synonyms.some((syn) => cleanProdName.includes(syn));
+              });
             })
-          }).slice(0, 5)
+            .slice(0, 5);
 
           products = filtered.map((p: any) => {
-            const mainImg = p.product_images?.find((img: any) => img.is_main)?.image_url || 
-                            p.product_images?.[0]?.image_url || 
-                            ""
+            const mainImg =
+              p.product_images?.find((img: any) => img.is_main)?.image_url ||
+              p.product_images?.[0]?.image_url ||
+              '';
             return {
               id: p.id,
               name: p.name,
               price: p.price,
               promo_price: p.promo_price,
               slug: p.slug,
-              image: mainImg
-            }
-          })
+              image: mainImg,
+            };
+          });
         }
 
         setSuggestions({
           environments,
           categories,
-          products
-        })
+          products,
+        });
       } catch (err) {
-        console.error("Erro ao buscar sugestões:", err)
+        console.error('Erro ao buscar sugestões:', err);
       } finally {
-        setLoadingSuggestions(false)
+        setLoadingSuggestions(false);
       }
-    }, 200) // 200ms debounce
+    }, 200); // 200ms debounce
 
-    return () => clearTimeout(timer)
-  }, [query, allDbCategories])
+    return () => clearTimeout(timer);
+  }, [query, allDbCategories]);
 
   function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!query.trim()) return
+    e.preventDefault();
+    if (!query.trim()) return;
     // Reseta filtros de ambiente e categoria anteriores para busca ampla
-    router.push(`/?search=${encodeURIComponent(query.trim())}`)
-    setIsOpen(false)
-    setShowSuggestions(false)
+    router.push(`/?search=${encodeURIComponent(query.trim())}`);
+    setIsOpen(false);
+    setShowSuggestions(false);
   }
 
   function close() {
-    setIsOpen(false)
-    setQuery("")
-    setShowSuggestions(false)
+    setIsOpen(false);
+    setQuery('');
+    setShowSuggestions(false);
   }
 
-  return { 
-    isOpen, 
-    setIsOpen, 
-    query, 
-    setQuery, 
-    inputRef, 
+  return {
+    isOpen,
+    setIsOpen,
+    query,
+    setQuery,
+    inputRef,
     searchContainerRef,
-    submit, 
-    close, 
-    showSuggestions, 
-    setShowSuggestions, 
-    loadingSuggestions, 
-    suggestions 
-  }
+    submit,
+    close,
+    showSuggestions,
+    setShowSuggestions,
+    loadingSuggestions,
+    suggestions,
+  };
 }

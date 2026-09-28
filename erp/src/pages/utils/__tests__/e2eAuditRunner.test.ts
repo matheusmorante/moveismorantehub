@@ -47,36 +47,55 @@ const mockCategories: FinancialCategory[] = [
 const todayStr = '2026-09-06';
 
 describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)', () => {
-
   // GRUPO A — Criação de saída simples
   describe('GRUPO A — Criação de saída simples', () => {
     test('TC-001: paguei 180 reais de combustível hoje no pix', async () => {
-      const res = await parseFinancialIntentWithGemini('paguei 180 reais de combustível hoje no pix', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'paguei 180 reais de combustível hoje no pix',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('expense');
       expect(res.amount).toBe(180);
       expect(res.paymentMethod).toBe('Pix');
     });
 
     test('TC-002: gastei 250 de frete hoje', async () => {
-      const res = await parseFinancialIntentWithGemini('gastei 250 de frete hoje', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'gastei 250 de frete hoje',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('expense');
       expect(res.amount).toBe(250);
     });
 
     test('TC-003: paguei 500 pro fornecedor teste', async () => {
-      const res = await parseFinancialIntentWithGemini('paguei 500 pro fornecedor teste', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'paguei 500 pro fornecedor teste',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('expense');
       expect(res.amount).toBe(500);
     });
 
     test('TC-004: saíram 120 reais do caixa pra comprar material de limpeza', async () => {
-      const res = await parseFinancialIntentWithGemini('saíram 120 reais do caixa pra comprar material de limpeza', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'saíram 120 reais do caixa pra comprar material de limpeza',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('expense');
       expect(res.amount).toBe(120);
     });
 
     test('TC-005: comprei uma peça por 90 reais em dinheiro', async () => {
-      const res = await parseFinancialIntentWithGemini('comprei uma peça por 90 reais em dinheiro', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'comprei uma peça por 90 reais em dinheiro',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('expense');
       expect(res.amount).toBe(90);
       expect(res.paymentMethod).toBe('Dinheiro');
@@ -86,14 +105,22 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
   // GRUPO B — Criação de entrada simples
   describe('GRUPO B — Criação de entrada simples', () => {
     test('TC-006: entrou 2500 de uma venda hoje no pix', async () => {
-      const res = await parseFinancialIntentWithGemini('entrou 2500 de uma venda hoje no pix', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'entrou 2500 de uma venda hoje no pix',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('income');
       expect(res.amount).toBe(2500);
       expect(res.paymentMethod).toBe('Pix');
     });
 
     test('TC-007: recebi 800 reais do João', async () => {
-      const res = await parseFinancialIntentWithGemini('recebi 800 reais do João', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'recebi 800 reais do João',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('income');
       expect(res.amount).toBe(800);
     });
@@ -105,7 +132,11 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
     });
 
     test('TC-009: recebi 3500 de uma venda no cartão', async () => {
-      const res = await parseFinancialIntentWithGemini('recebi 3500 de uma venda no cartão', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'recebi 3500 de uma venda no cartão',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('income');
       expect(res.amount).toBe(3500);
       expect(res.paymentMethod).toBe('UNKNOWN');
@@ -113,7 +144,11 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
     });
 
     test('TC-010: foi recebida uma parcela de 700 hoje', async () => {
-      const res = await parseFinancialIntentWithGemini('foi recebida uma parcela de 700 hoje', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'foi recebida uma parcela de 700 hoje',
+        [],
+        mockCategories
+      );
       expect(res.type).toBe('income');
       expect(res.amount).toBe(700);
     });
@@ -122,13 +157,21 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
   // GRUPO C — Contas a pagar parceladas
   describe('GRUPO C — Contas a pagar parceladas', () => {
     test('TC-011: comprei 30 mil da Bechara em dois boletos de 10 mil e dois de 5 mil, todo dia 20 começando mês que vem', async () => {
-      const res = await parseFinancialIntentWithGemini('comprei 30 mil da Bechara em dois boletos de 10 mil e dois de 5 mil, todo dia 20 começando mês que vem', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'comprei 30 mil da Bechara em dois boletos de 10 mil e dois de 5 mil, todo dia 20 começando mês que vem',
+        [],
+        mockCategories
+      );
       expect(res.supplier).toBe('Bechara');
       expect(res.isReadyForConfirmation).toBe(false);
     });
 
     test('TC-012 & TC-013: Alerta de compromisso sem pagamento realizado', async () => {
-      const draft12 = await parseFinancialIntentWithGemini('comprei 30 mil da Bechara em dois de 10 mil e um de 5 mil, todo dia 20', [], mockCategories);
+      const draft12 = await parseFinancialIntentWithGemini(
+        'comprei 30 mil da Bechara em dois de 10 mil e um de 5 mil, todo dia 20',
+        [],
+        mockCategories
+      );
       expect(draft12.isReadyForConfirmation).toBe(false);
       expect(draft12.supplier).toBe('Bechara');
     });
@@ -176,7 +219,11 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
         isReadyForConfirmation: true,
       };
 
-      const patched = trySlotFillingFallback('na verdade o fornecedor é Bertolini', draft, todayStr);
+      const patched = trySlotFillingFallback(
+        'na verdade o fornecedor é Bertolini',
+        draft,
+        todayStr
+      );
       expect(patched?.supplier).toBe('Bertolini');
     });
 
@@ -214,7 +261,11 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
   // GRUPO E — "Não lembro" / unknownByUser
   describe('GRUPO E — "Não lembro" / unknownByUser', () => {
     test('TC-025: quero editar uma compra da Bechara mas não lembro o dia, o valor nem como paguei', async () => {
-      const res = await parseFinancialIntentWithGemini('quero editar uma compra da Bechara mas não lembro o dia, o valor nem como paguei', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'quero editar uma compra da Bechara mas não lembro o dia, o valor nem como paguei',
+        [],
+        mockCategories
+      );
       expect(res.intentType).toBe('QUERY_OR_UPDATE');
       expect(res.supplier).toBe('Bechara');
       expect(res.unknownByUser).toContain('date');
@@ -239,14 +290,26 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
     });
 
     test('TC-027 & TC-028 & TC-029: busca sem exigir data nem valor', async () => {
-      const res27 = await parseFinancialIntentWithGemini('procura aquela compra da Bechara, não lembro quanto foi', [], mockCategories);
+      const res27 = await parseFinancialIntentWithGemini(
+        'procura aquela compra da Bechara, não lembro quanto foi',
+        [],
+        mockCategories
+      );
       expect(res27.intentType).toBe('QUERY_OR_UPDATE');
       expect(res27.supplier).toBe('Bechara');
 
-      const res28 = await parseFinancialIntentWithGemini('não sei quando foi, vê aí', [], mockCategories);
+      const res28 = await parseFinancialIntentWithGemini(
+        'não sei quando foi, vê aí',
+        [],
+        mockCategories
+      );
       expect(res28.intentType).toBe('QUERY_OR_UPDATE');
 
-      const res29 = await parseFinancialIntentWithGemini('não lembro de nada além de que era da Bechara', [], mockCategories);
+      const res29 = await parseFinancialIntentWithGemini(
+        'não lembro de nada além de que era da Bechara',
+        [],
+        mockCategories
+      );
       expect(res29.intentType).toBe('QUERY_OR_UPDATE');
       expect(res29.supplier).toBe('Bechara');
     });
@@ -255,26 +318,40 @@ describe('BATERIA DE AUDITORIA E2E ASSISTENTE FINANCEIRO IA (TR-20260906-AUDIT)'
   // GRUPO F & G & H — Consultas e Edição
   describe('GRUPO F, G, H — Consultas, Edição e Linguagem', () => {
     test('TC-030: qual foi a última compra da Bechara?', async () => {
-      const res = await parseFinancialIntentWithGemini('qual foi a última compra da Bechara?', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'qual foi a última compra da Bechara?',
+        [],
+        mockCategories
+      );
       expect(res.intentType).toBe('QUERY_OR_UPDATE');
     });
 
     test('TC-041: quero editar a última compra da Bechara', async () => {
-      const res = await parseFinancialIntentWithGemini('quero editar a última compra da Bechara', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'quero editar a última compra da Bechara',
+        [],
+        mockCategories
+      );
       expect(res.intentType).toBe('QUERY_OR_UPDATE');
     });
 
     test('TC-061 a TC-065: Extração de valores em reais', async () => {
       expect(extractUnknownFieldsFromText('não lembro quanto foi')).toContain('amount');
       expect(extractUnknownFieldsFromText('não lembro que dia foi')).toContain('date');
-      expect(extractUnknownFieldsFromText('não lembro a forma de pagamento')).toContain('paymentMethod');
+      expect(extractUnknownFieldsFromText('não lembro a forma de pagamento')).toContain(
+        'paymentMethod'
+      );
     });
   });
 
   // GRUPO T & W — Multi-turn e ruído
   describe('GRUPO T & W — Multi-turn e ruído', () => {
     test('TC-122: fiz uma compra cabeceada com a Bechara de 30 mil', async () => {
-      const res = await parseFinancialIntentWithGemini('fiz uma compra cabeceada com a Bechara de 30 mil', [], mockCategories);
+      const res = await parseFinancialIntentWithGemini(
+        'fiz uma compra cabeceada com a Bechara de 30 mil',
+        [],
+        mockCategories
+      );
       expect(res.supplier).toBe('Bechara');
       expect(res.isReadyForConfirmation).toBe(false);
     });

@@ -38,16 +38,17 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
     const isWhiteBg = backgroundMode === 'white';
 
     // Modelos ativos da campanha
-    const titleModel = models.find(m => m.elementType === 'TITLE');
-    const sloganTitleModel = models.find(m => m.elementType === 'PRODUCT_SLOGAN_TITLE');
-    const sloganSideModel = models.find(m => m.elementType === 'PRODUCT_SLOGAN_SIDE');
-    const legacySloganModel = models.find(m => m.elementType === 'PRODUCT_SLOGAN');
-    const priceModel = models.find(m => m.elementType === 'PRICE');
+    const titleModel = models.find((m) => m.elementType === 'TITLE');
+    const sloganTitleModel = models.find((m) => m.elementType === 'PRODUCT_SLOGAN_TITLE');
+    const sloganSideModel = models.find((m) => m.elementType === 'PRODUCT_SLOGAN_SIDE');
+    const legacySloganModel = models.find((m) => m.elementType === 'PRODUCT_SLOGAN');
+    const priceModel = models.find((m) => m.elementType === 'PRICE');
 
     // Textos e valores comerciais
-    const displayTitle = titleModel?.prompt && !titleModel.prompt.includes('{{')
-      ? titleModel.prompt
-      : 'OFERTA ESPECIAL';
+    const displayTitle =
+      titleModel?.prompt && !titleModel.prompt.includes('{{')
+        ? titleModel.prompt
+        : 'OFERTA ESPECIAL';
     const productName = product.name || 'Produto Móveis Morante';
     const literalProductData = resolvePostProductLiteralData(product, product.selectedVariationId);
     const regularPrice = literalProductData.previousPrice;
@@ -56,22 +57,26 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
     const benefits = resolvePostBenefits({ product, activeModels: models });
 
     // 1. Slogan do Produto (Abaixo do Título)
-    const productTitleSlogan = sloganTitleModel?.prompt && !sloganTitleModel.prompt.includes('{{')
-      ? sloganTitleModel.prompt
-      : product.category
-      ? `Mais conforto e qualidade para seu ${product.category.toLowerCase()}`
-      : 'Qualidade superior para sua casa';
+    const productTitleSlogan =
+      sloganTitleModel?.prompt && !sloganTitleModel.prompt.includes('{{')
+        ? sloganTitleModel.prompt
+        : product.category
+          ? `Mais conforto e qualidade para seu ${product.category.toLowerCase()}`
+          : 'Qualidade superior para sua casa';
 
     // 2. Slogan do Produto (Ao lado do móvel — caligráfico com sublinhado amarelo)
-    const productSideSlogan = sloganSideModel?.prompt && !sloganSideModel.prompt.includes('{{')
-      ? sloganSideModel.prompt
-      : legacySloganModel?.prompt && !legacySloganModel.prompt.includes('{{')
-      ? legacySloganModel.prompt
-      : 'Design elegante para o seu ambiente';
+    const productSideSlogan =
+      sloganSideModel?.prompt && !sloganSideModel.prompt.includes('{{')
+        ? sloganSideModel.prompt
+        : legacySloganModel?.prompt && !legacySloganModel.prompt.includes('{{')
+          ? legacySloganModel.prompt
+          : 'Design elegante para o seu ambiente';
 
     const primaryImg = productImages?.primary?.url || product.mainImageUrl || '';
     const openViewImg = productImages?.openView?.url || null;
-    const variationImages = (productImages?.variations || []).filter(v => v.url && v.url !== primaryImg);
+    const variationImages = (productImages?.variations || []).filter(
+      (v) => v.url && v.url !== primaryImg
+    );
 
     const logoUrl = officialAssets?.logo?.url || '/images/logo-morante.svg';
     const badgeUrl = officialAssets?.badge?.url || null;
@@ -106,7 +111,8 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
             <div
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[75%] rounded-full opacity-40 blur-3xl pointer-events-none"
               style={{
-                background: 'radial-gradient(ellipse at center, rgba(247,183,49,0.3) 0%, rgba(0,43,73,0.3) 60%, transparent 85%)',
+                background:
+                  'radial-gradient(ellipse at center, rgba(247,183,49,0.3) 0%, rgba(0,43,73,0.3) 60%, transparent 85%)',
               }}
             />
             {/* Linha de piso / chão com textura */}
@@ -144,9 +150,7 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
          * ========================================================================= */}
         <div
           className={`absolute z-10 flex items-center justify-center pointer-events-none ${
-            isStory
-              ? 'top-[16%] left-[6%] w-[88%] h-[40%]'
-              : 'top-[14%] left-[4%] w-[56%] h-[58%]'
+            isStory ? 'top-[16%] left-[6%] w-[88%] h-[40%]' : 'top-[14%] left-[4%] w-[56%] h-[58%]'
           }`}
         >
           {/* Sombra de Contato Elíptica no Piso */}
@@ -243,45 +247,49 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
           </p>
 
           {/* Bloco de Preço Publicitário de Varejo com Gradiente/Cores Harmonizadas */}
-          {promotionalPrice && <div
-            className="mt-2 w-full max-w-[210px] p-2.5 rounded-xl shadow-xl border"
-            style={{
-              background: themeStyle.priceCardBg,
-              borderColor: themeStyle.priceCardBorder,
-            }}
-          >
-            {regularPrice && (
-              <div
-                className="text-[10px] line-through font-semibold leading-none mb-0.5"
-                style={{ color: themeStyle.priceOldTextColor }}
-              >
-                De {regularPrice}
-              </div>
-            )}
+          {promotionalPrice && (
+            <div
+              className="mt-2 w-full max-w-[210px] p-2.5 rounded-xl shadow-xl border"
+              style={{
+                background: themeStyle.priceCardBg,
+                borderColor: themeStyle.priceCardBorder,
+              }}
+            >
+              {regularPrice && (
+                <div
+                  className="text-[10px] line-through font-semibold leading-none mb-0.5"
+                  style={{ color: themeStyle.priceOldTextColor }}
+                >
+                  De {regularPrice}
+                </div>
+              )}
 
-            <div className="flex items-baseline gap-1">
-              <span className="text-xs font-bold text-white/90">Por</span>
-              <span
-                className="text-lg sm:text-xl font-black tracking-tight"
-                style={{ color: themeStyle.priceTextColor }}
-              >
-                {promotionalPrice}
-              </span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold text-white/90">Por</span>
+                <span
+                  className="text-lg sm:text-xl font-black tracking-tight"
+                  style={{ color: themeStyle.priceTextColor }}
+                >
+                  {promotionalPrice}
+                </span>
+              </div>
+
+              {/* Condição de Parcelamento e Bandeiras */}
+              {installmentText && (
+                <div className="mt-1 pt-1 border-t border-white/20">
+                  <div
+                    className="text-[9px] font-black uppercase tracking-wide leading-tight"
+                    style={{ color: themeStyle.installmentTextColor }}
+                  >
+                    {installmentText}
+                  </div>
+                  <div className="mt-1 w-full max-w-[130px]">
+                    <PaymentBrands />
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Condição de Parcelamento e Bandeiras */}
-            {installmentText && <div className="mt-1 pt-1 border-t border-white/20">
-              <div
-                className="text-[9px] font-black uppercase tracking-wide leading-tight"
-                style={{ color: themeStyle.installmentTextColor }}
-              >
-                {installmentText}
-              </div>
-              <div className="mt-1 w-full max-w-[130px]">
-                <PaymentBrands />
-              </div>
-            </div>}
-          </div>}
+          )}
         </div>
 
         {/* =========================================================================
@@ -340,16 +348,19 @@ export const GeneratedPostCanvas = forwardRef<HTMLDivElement, GeneratedPostCanva
           </div>
 
           {/* Benefícios Comerciais Autorizados com cor de contraste */}
-          {benefits.length > 0 && <div
-            className="hidden sm:flex flex-col items-end text-[8px] font-bold drop-shadow leading-tight"
-            style={{ color: themeStyle.benefitsTextColor }}
-          >
-            {benefits.map(benefit => (
-              <span key={benefit.id}>
-                ✓ {benefit.title}{benefit.subtitle ? ` (${benefit.subtitle})` : ''}
-              </span>
-            ))}
-          </div>}
+          {benefits.length > 0 && (
+            <div
+              className="hidden sm:flex flex-col items-end text-[8px] font-bold drop-shadow leading-tight"
+              style={{ color: themeStyle.benefitsTextColor }}
+            >
+              {benefits.map((benefit) => (
+                <span key={benefit.id}>
+                  ✓ {benefit.title}
+                  {benefit.subtitle ? ` (${benefit.subtitle})` : ''}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

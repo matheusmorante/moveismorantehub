@@ -20,10 +20,29 @@ export interface BaseLayer {
   opacity: number; // 0.0 a 1.0
   locked: boolean;
   visible: boolean;
-  role?: 'badge' | 'title' | 'oldPrice' | 'price' | 'installment' | 'productSlogan' | 'storeSlogan' | 'gallery' | 'brand' | 'main';
+  role?:
+    | 'badge'
+    | 'title'
+    | 'oldPrice'
+    | 'price'
+    | 'installment'
+    | 'productSlogan'
+    | 'storeSlogan'
+    | 'gallery'
+    | 'brand'
+    | 'main';
   modelId?: string;
   opportunityId?: string;
-  preferredRegion?: 'TOP_LEFT' | 'TOP_CENTER' | 'TOP_RIGHT' | 'CENTER_LEFT' | 'CENTER' | 'CENTER_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_CENTER' | 'BOTTOM_RIGHT';
+  preferredRegion?:
+    | 'TOP_LEFT'
+    | 'TOP_CENTER'
+    | 'TOP_RIGHT'
+    | 'CENTER_LEFT'
+    | 'CENTER'
+    | 'CENTER_RIGHT'
+    | 'BOTTOM_LEFT'
+    | 'BOTTOM_CENTER'
+    | 'BOTTOM_RIGHT';
   preferredSize?: 'small' | 'medium' | 'large';
   priority?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW';
   positionTolerance?: 'strict' | 'automatic';

@@ -7,7 +7,11 @@ import {
 } from '../financial/mobileTransactionCrudService';
 import { supabase } from '../supabaseClient';
 import { ToolExecutionResponse } from './mobileAgentTypes';
-import { getOrderDeliveryDetails, searchOperations, searchOrdersAndDeliveries } from './orderDeliveryAgentService';
+import {
+  getOrderDeliveryDetails,
+  searchOperations,
+  searchOrdersAndDeliveries,
+} from './orderDeliveryAgentService';
 import { getMobileProductDetails, searchMobileProducts } from './productAgentService';
 
 import {
@@ -20,52 +24,111 @@ import {
 // Executores deterministicos das ferramentas do Gemini no Mobile
 
 export const mobileAgentTools = {
-  async buscarOperacoes(args: { termo?: string; dataInicio?: string; dataFim?: string; status?: string; tipo?: 'todas' | 'venda' | 'entrega' | 'retirada' | 'assistencia' | 'devolucao' | 'montagem'; limite?: number }): Promise<ToolExecutionResponse> {
+  async buscarOperacoes(args: {
+    termo?: string;
+    dataInicio?: string;
+    dataFim?: string;
+    status?: string;
+    tipo?: 'todas' | 'venda' | 'entrega' | 'retirada' | 'assistencia' | 'devolucao' | 'montagem';
+    limite?: number;
+  }): Promise<ToolExecutionResponse> {
     try {
       const operations = await searchOperations(args);
-      return { success: true, data: operations, message: `${operations.length} operação(ões) encontrada(s).` };
+      return {
+        success: true,
+        data: operations,
+        message: `${operations.length} operação(ões) encontrada(s).`,
+      };
     } catch (error: unknown) {
-      return { success: false, code: 'OPERATIONS_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar operações.' };
+      return {
+        success: false,
+        code: 'OPERATIONS_SEARCH_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar operações.',
+      };
     }
   },
 
   async obterDetalhesOperacao(args: { operacaoId: string }): Promise<ToolExecutionResponse> {
-    if (!args.operacaoId?.trim()) return { success: false, code: 'INVALID_OPERATION_ID', error: 'É necessário informar o ID real da operação.' };
+    if (!args.operacaoId?.trim())
+      return {
+        success: false,
+        code: 'INVALID_OPERATION_ID',
+        error: 'É necessário informar o ID real da operação.',
+      };
     try {
       const operation = await getOrderDeliveryDetails(args.operacaoId);
-      if (!operation) return { success: false, code: 'OPERATION_NOT_FOUND', error: 'Operação não encontrada.' };
+      if (!operation)
+        return { success: false, code: 'OPERATION_NOT_FOUND', error: 'Operação não encontrada.' };
       return { success: true, data: operation, message: 'Detalhes da operação carregados.' };
     } catch (error: unknown) {
-      return { success: false, code: 'OPERATION_DETAILS_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar detalhes da operação.' };
+      return {
+        success: false,
+        code: 'OPERATION_DETAILS_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar detalhes da operação.',
+      };
     }
   },
 
-  async buscarPedidosEntregas(args: { termo?: string; dataInicio?: string; dataFim?: string; status?: string; limite?: number }): Promise<ToolExecutionResponse> {
+  async buscarPedidosEntregas(args: {
+    termo?: string;
+    dataInicio?: string;
+    dataFim?: string;
+    status?: string;
+    limite?: number;
+  }): Promise<ToolExecutionResponse> {
     try {
       const orders = await searchOrdersAndDeliveries({ ...args, tipo: 'venda' });
-      return { success: true, data: orders, message: `${orders.length} pedido(s) ou entrega(s) encontrado(s).` };
+      return {
+        success: true,
+        data: orders,
+        message: `${orders.length} pedido(s) ou entrega(s) encontrado(s).`,
+      };
     } catch (error: unknown) {
-      return { success: false, code: 'ORDER_DELIVERY_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar pedidos e entregas.' };
+      return {
+        success: false,
+        code: 'ORDER_DELIVERY_SEARCH_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar pedidos e entregas.',
+      };
     }
   },
 
   async obterDetalhesPedidoEntrega(args: { pedidoId: string }): Promise<ToolExecutionResponse> {
-    if (!args.pedidoId?.trim()) return { success: false, code: 'INVALID_ORDER_ID', error: 'É necessário informar um ID de pedido válido.' };
+    if (!args.pedidoId?.trim())
+      return {
+        success: false,
+        code: 'INVALID_ORDER_ID',
+        error: 'É necessário informar um ID de pedido válido.',
+      };
     try {
       const order = await getOrderDeliveryDetails(args.pedidoId);
-      if (!order) return { success: false, code: 'ORDER_NOT_FOUND', error: 'Pedido não encontrado.' };
-      return { success: true, data: order, message: 'Dados completos do pedido e da entrega encontrados.' };
+      if (!order)
+        return { success: false, code: 'ORDER_NOT_FOUND', error: 'Pedido não encontrado.' };
+      return {
+        success: true,
+        data: order,
+        message: 'Dados completos do pedido e da entrega encontrados.',
+      };
     } catch (error: unknown) {
-      return { success: false, code: 'ORDER_DELIVERY_DETAILS_ERROR', error: error instanceof Error ? error.message : 'Falha ao carregar os detalhes do pedido.' };
+      return {
+        success: false,
+        code: 'ORDER_DELIVERY_DETAILS_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao carregar os detalhes do pedido.',
+      };
     }
   },
 
   async buscarClientes(args: { termo: string; limite?: number }): Promise<ToolExecutionResponse> {
     const term = args.termo?.trim().replace(/[,%()]/g, '');
-    if (!term || term.length < 2) return { success: false, code: 'CUSTOMER_SEARCH_TERM_REQUIRED', error: 'Informe pelo menos dois caracteres do nome, telefone ou e-mail do cliente.' };
+    if (!term || term.length < 2)
+      return {
+        success: false,
+        code: 'CUSTOMER_SEARCH_TERM_REQUIRED',
+        error: 'Informe pelo menos dois caracteres do nome, telefone ou e-mail do cliente.',
+      };
     try {
       const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
-      const { data, error } = await supabase.from('people')
+      const { data, error } = await supabase
+        .from('people')
         .select('id, full_name, phone, email, full_address, active')
         .eq('person_type', 'customers')
         .eq('deleted', false)
@@ -75,7 +138,7 @@ export const mobileAgentTools = {
       if (error) throw error;
       return {
         success: true,
-        data: (data || []).map(person => ({
+        data: (data || []).map((person) => ({
           id: person.id,
           nome: person.full_name,
           telefone: person.phone,
@@ -86,54 +149,113 @@ export const mobileAgentTools = {
         message: `${data?.length || 0} cliente(s) encontrado(s).`,
       };
     } catch (error: unknown) {
-      return { success: false, code: 'CUSTOMER_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar clientes.' };
+      return {
+        success: false,
+        code: 'CUSTOMER_SEARCH_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar clientes.',
+      };
     }
   },
 
-  async buscarColaboradores(args: { termo: string; limite?: number }): Promise<ToolExecutionResponse> {
+  async buscarColaboradores(args: {
+    termo: string;
+    limite?: number;
+  }): Promise<ToolExecutionResponse> {
     const term = args.termo?.trim().replace(/[,%(){}]/g, '');
-    if (!term || term.length < 2) return { success: false, code: 'COLLABORATOR_SEARCH_TERM_REQUIRED', error: 'Informe pelo menos dois caracteres do nome, e-mail ou cargo do colaborador.' };
+    if (!term || term.length < 2)
+      return {
+        success: false,
+        code: 'COLLABORATOR_SEARCH_TERM_REQUIRED',
+        error: 'Informe pelo menos dois caracteres do nome, e-mail ou cargo do colaborador.',
+      };
     try {
       const limit = Math.min(Math.max(Math.floor(args.limite ?? 10), 1), 20);
-      const normalizedTerm = term.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const normalizedTerm = term
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
       const roleAliases: Record<string, string> = {
-        administrador: 'administrator', administradora: 'administrator', admin: 'administrator',
-        gerente: 'manager', vendedor: 'seller', vendedora: 'seller', entregador: 'deliverer',
-        entregadora: 'deliverer', contador: 'accountant', contadora: 'accountant',
-        estoquista: 'stockist', pendente: 'pending',
+        administrador: 'administrator',
+        administradora: 'administrator',
+        admin: 'administrator',
+        gerente: 'manager',
+        vendedor: 'seller',
+        vendedora: 'seller',
+        entregador: 'deliverer',
+        entregadora: 'deliverer',
+        contador: 'accountant',
+        contadora: 'accountant',
+        estoquista: 'stockist',
+        pendente: 'pending',
       };
-      const role = roleAliases[normalizedTerm] || (['administrator', 'manager', 'seller', 'deliverer', 'accountant', 'stockist', 'pending'].includes(normalizedTerm) ? normalizedTerm : null);
-      const conditions = [`full_name.ilike.%${term}%`, `email.ilike.%${term}%`, `position.ilike.%${term}%`];
+      const role =
+        roleAliases[normalizedTerm] ||
+        ([
+          'administrator',
+          'manager',
+          'seller',
+          'deliverer',
+          'accountant',
+          'stockist',
+          'pending',
+        ].includes(normalizedTerm)
+          ? normalizedTerm
+          : null);
+      const conditions = [
+        `full_name.ilike.%${term}%`,
+        `email.ilike.%${term}%`,
+        `position.ilike.%${term}%`,
+      ];
       if (role) conditions.push(`role.eq.${role}`, `roles.cs.{${role}}`);
-      const { data, error } = await supabase.from('profiles')
+      const { data, error } = await supabase
+        .from('profiles')
         .select('id, email, full_name, position, role, roles')
         .or(conditions.join(','))
         .order('full_name', { ascending: true })
         .limit(100);
       if (error) throw error;
-      const matched = (data || []).filter(profile => {
-        const roles = Array.isArray(profile.roles) && profile.roles.length ? profile.roles : (profile.role ? [profile.role] : []);
-        return !role || roles.includes(role) || profile.role === role;
-      }).slice(0, limit);
+      const matched = (data || [])
+        .filter((profile) => {
+          const roles =
+            Array.isArray(profile.roles) && profile.roles.length
+              ? profile.roles
+              : profile.role
+                ? [profile.role]
+                : [];
+          return !role || roles.includes(role) || profile.role === role;
+        })
+        .slice(0, limit);
       return {
         success: true,
-        data: matched.map(profile => ({ id: profile.id, nome: profile.full_name || profile.email, email: profile.email, cargo: profile.position, cargos: profile.roles?.length ? profile.roles : (profile.role ? [profile.role] : []) })),
+        data: matched.map((profile) => ({
+          id: profile.id,
+          nome: profile.full_name || profile.email,
+          email: profile.email,
+          cargo: profile.position,
+          cargos: profile.roles?.length ? profile.roles : profile.role ? [profile.role] : [],
+        })),
         message: `${matched.length} colaborador(es) encontrado(s).`,
       };
     } catch (error: unknown) {
-      return { success: false, code: 'COLLABORATOR_SEARCH_ERROR', error: error instanceof Error ? error.message : 'Falha ao consultar colaboradores.' };
+      return {
+        success: false,
+        code: 'COLLABORATOR_SEARCH_ERROR',
+        error: error instanceof Error ? error.message : 'Falha ao consultar colaboradores.',
+      };
     }
   },
 
-  async buscarCategoriasFinanceiras(args: { tipo?: 'income' | 'expense' }): Promise<ToolExecutionResponse> {
+  async buscarCategoriasFinanceiras(args: {
+    tipo?: 'income' | 'expense';
+  }): Promise<ToolExecutionResponse> {
     try {
       const categories = await fetchFinancialCategories();
-      
+
       if (args.tipo === 'income') {
         const incomeList = buildIncomeCategories(categories);
         return {
           success: true,
-          data: incomeList.map(c => ({
+          data: incomeList.map((c) => ({
             id: c.id,
             nome: c.name,
             tipo: 'receita/entrada',
@@ -145,19 +267,21 @@ export const mobileAgentTools = {
 
       let filtered = categories;
       if (args.tipo === 'expense') {
-        filtered = categories.filter(c => c.type === 'expense');
+        filtered = categories.filter((c) => c.type === 'expense');
       }
 
       return {
         success: true,
-        data: filtered.map(c => {
+        data: filtered.map((c) => {
           const isPersonal = isProLaboreCat(c.name);
           return {
             id: c.id,
             nome: c.name,
             tipo: c.type === 'expense' ? 'despesa/saida' : 'receita/entrada',
             finalidadeOficial: isPersonal ? 'PERSONAL_PARTNER' : 'BUSINESS',
-            descricaoFinalidade: isPersonal ? '👤 Uso Particular (Pró-labore)' : '🏢 Operação da Empresa',
+            descricaoFinalidade: isPersonal
+              ? '👤 Uso Particular (Pró-labore)'
+              : '🏢 Operação da Empresa',
           };
         }),
         message: `${filtered.length} categoria(s) encontrada(s).`,
@@ -183,7 +307,7 @@ export const mobileAgentTools = {
 
       if (args.fornecedor && args.fornecedor.trim()) {
         const query = args.fornecedor.toLowerCase().trim();
-        filtered = filtered.filter(p => {
+        filtered = filtered.filter((p) => {
           const desc = (p.description || '').toLowerCase();
           const party = (p.counterparty || '').toLowerCase();
           const cat = (p.category_name || '').toLowerCase();
@@ -192,16 +316,16 @@ export const mobileAgentTools = {
       }
 
       if (args.dataVencimentoInicio) {
-        filtered = filtered.filter(p => (p.due_date || p.date) >= args.dataVencimentoInicio!);
+        filtered = filtered.filter((p) => (p.due_date || p.date) >= args.dataVencimentoInicio!);
       }
 
       if (args.dataVencimentoFim) {
-        filtered = filtered.filter(p => (p.due_date || p.date) <= args.dataVencimentoFim!);
+        filtered = filtered.filter((p) => (p.due_date || p.date) <= args.dataVencimentoFim!);
       }
 
       return {
         success: true,
-        data: filtered.slice(0, 15).map(p => ({
+        data: filtered.slice(0, 15).map((p) => ({
           id: p.id,
           fornecedor: p.counterparty || p.description,
           valor: p.amount,
@@ -247,7 +371,7 @@ export const mobileAgentTools = {
       let results = data || [];
       if (args.termo && args.termo.trim()) {
         const norm = args.termo.toLowerCase().trim();
-        results = results.filter(t => {
+        results = results.filter((t) => {
           const desc = (t.description || '').toLowerCase();
           const notes = (t.notes || '').toLowerCase();
           const party = (t.counterparty || '').toLowerCase();
@@ -257,7 +381,7 @@ export const mobileAgentTools = {
 
       return {
         success: true,
-        data: results.map(t => ({
+        data: results.map((t) => ({
           id: t.id,
           tipo: t.type,
           valor: Number(t.amount) || 0,
@@ -278,7 +402,10 @@ export const mobileAgentTools = {
     }
   },
 
-  async obterResumoFinanceiro(args: { dataInicio?: string; dataFim?: string }): Promise<ToolExecutionResponse> {
+  async obterResumoFinanceiro(args: {
+    dataInicio?: string;
+    dataFim?: string;
+  }): Promise<ToolExecutionResponse> {
     try {
       const now = new Date();
       const year = now.getFullYear();
@@ -320,22 +447,43 @@ export const mobileAgentTools = {
   }): Promise<ToolExecutionResponse> {
     try {
       if (!args.tipo || !['income', 'expense'].includes(args.tipo)) {
-        return { success: false, code: 'INVALID_TYPE', error: 'Tipo deve ser "income" ou "expense" (exatamente como no formulário).' };
+        return {
+          success: false,
+          code: 'INVALID_TYPE',
+          error: 'Tipo deve ser "income" ou "expense" (exatamente como no formulário).',
+        };
       }
       if (typeof args.valor !== 'number' || args.valor <= 0 || isNaN(args.valor)) {
-        return { success: false, code: 'INVALID_AMOUNT', error: 'O valor deve ser um número positivo maior que zero.' };
+        return {
+          success: false,
+          code: 'INVALID_AMOUNT',
+          error: 'O valor deve ser um número positivo maior que zero.',
+        };
       }
       if (!args.descricao || !args.descricao.trim()) {
-        return { success: false, code: 'INVALID_DESCRIPTION', error: 'A descrição da movimentação é obrigatória.' };
+        return {
+          success: false,
+          code: 'INVALID_DESCRIPTION',
+          error: 'A descrição da movimentação é obrigatória.',
+        };
       }
 
       const categories = await fetchFinancialCategories();
-      const category = categories.find(item => item.id === args.categoriaId);
+      const category = categories.find((item) => item.id === args.categoriaId);
       if (!category) {
-        return { success: false, code: 'INVALID_CATEGORY', error: 'A categoria precisa ser uma categoria oficial retornada por buscarCategoriasFinanceiras.' };
+        return {
+          success: false,
+          code: 'INVALID_CATEGORY',
+          error:
+            'A categoria precisa ser uma categoria oficial retornada por buscarCategoriasFinanceiras.',
+        };
       }
       if (category.type !== args.tipo) {
-        return { success: false, code: 'CATEGORY_TYPE_MISMATCH', error: 'A categoria informada não corresponde ao tipo da movimentação.' };
+        return {
+          success: false,
+          code: 'CATEGORY_TYPE_MISMATCH',
+          error: 'A categoria informada não corresponde ao tipo da movimentação.',
+        };
       }
 
       // Normalização da finalidade: estritamente 'BUSINESS' ou 'PERSONAL_PARTNER' para despesas
@@ -348,18 +496,34 @@ export const mobileAgentTools = {
         }
       }
 
-      if (args.tipo === 'expense' && normalizedPurpose === 'PERSONAL_PARTNER' && !isProLaboreCat(category.name)) {
-        return { success: false, code: 'PERSONAL_CATEGORY_REQUIRED', error: 'Uso particular deve usar a categoria Pró-labore.' };
+      if (
+        args.tipo === 'expense' &&
+        normalizedPurpose === 'PERSONAL_PARTNER' &&
+        !isProLaboreCat(category.name)
+      ) {
+        return {
+          success: false,
+          code: 'PERSONAL_CATEGORY_REQUIRED',
+          error: 'Uso particular deve usar a categoria Pró-labore.',
+        };
       }
-      if (args.tipo === 'expense' && normalizedPurpose === 'BUSINESS' && isProLaboreCat(category.name)) {
-        return { success: false, code: 'BUSINESS_CATEGORY_REQUIRED', error: 'A categoria Pró-labore é exclusiva para uso particular.' };
+      if (
+        args.tipo === 'expense' &&
+        normalizedPurpose === 'BUSINESS' &&
+        isProLaboreCat(category.name)
+      ) {
+        return {
+          success: false,
+          code: 'BUSINESS_CATEGORY_REQUIRED',
+          error: 'A categoria Pró-labore é exclusiva para uso particular.',
+        };
       }
 
       // Normalização da forma de pagamento estritamente com PAYMENT_METHODS do formulário (vazio até o usuário informar)
       let normalizedPaymentMethod: string | null = null;
       if (args.formaPagamento && args.formaPagamento.trim()) {
         const foundMethod = PAYMENT_METHODS.find(
-          m => m.toLowerCase() === args.formaPagamento!.toLowerCase().trim()
+          (m) => m.toLowerCase() === args.formaPagamento!.toLowerCase().trim()
         );
         normalizedPaymentMethod = foundMethod || args.formaPagamento.trim();
       }
@@ -368,7 +532,7 @@ export const mobileAgentTools = {
       let normalizedVehicle: string | null = null;
       if (args.veiculo) {
         const foundVeh = VEHICLES.find(
-          v => v.toLowerCase() === args.veiculo!.toLowerCase().trim()
+          (v) => v.toLowerCase() === args.veiculo!.toLowerCase().trim()
         );
         normalizedVehicle = foundVeh || args.veiculo.trim();
       }
@@ -412,7 +576,11 @@ export const mobileAgentTools = {
       }
       const success = await deleteFinancialTransaction(args.movimentacaoId);
       if (!success) {
-        return { success: false, code: 'DELETE_FAILED', error: 'Nao foi possivel excluir a movimentacao.' };
+        return {
+          success: false,
+          code: 'DELETE_FAILED',
+          error: 'Nao foi possivel excluir a movimentacao.',
+        };
       }
       return {
         success: true,
@@ -492,7 +660,8 @@ export const mobileAgentTools = {
       return {
         success: false,
         code: 'PRODUCT_SEARCH_ERROR',
-        error: error instanceof Error ? error.message : 'Falha ao consultar produtos no aplicativo.',
+        error:
+          error instanceof Error ? error.message : 'Falha ao consultar produtos no aplicativo.',
       };
     }
   },
@@ -503,7 +672,8 @@ export const mobileAgentTools = {
       return {
         success: false,
         code: 'INVALID_ARGUMENT',
-        error: 'É necessário informar o código de 6 dígitos ou o SKU do produto para obter os detalhes.',
+        error:
+          'É necessário informar o código de 6 dígitos ou o SKU do produto para obter os detalhes.',
       };
     }
 

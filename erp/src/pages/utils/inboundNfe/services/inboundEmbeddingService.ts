@@ -34,7 +34,10 @@ export async function getOrComputeEmbedding(text: string): Promise<number[] | nu
       return res.data;
     }
   } catch (err) {
-    console.warn('[inboundEmbeddingService] Falha ao gerar embedding, usando fallback textual:', err);
+    console.warn(
+      '[inboundEmbeddingService] Falha ao gerar embedding, usando fallback textual:',
+      err
+    );
   }
 
   return null;

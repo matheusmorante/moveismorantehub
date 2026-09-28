@@ -28,8 +28,7 @@ import { EvalResult } from './types';
 import { GeminiAgentService } from '../../geminiAgentService';
 
 const isLiveEvalEnabled =
-  process.env.RUN_LIVE_AI_EVAL === '1' ||
-  process.env.RUN_LIVE_AI_EVAL === 'true';
+  process.env.RUN_LIVE_AI_EVAL === '1' || process.env.RUN_LIVE_AI_EVAL === 'true';
 
 describe('Suíte de Avaliação do Agente com IA Real (Gemini Flash) - Nível B', () => {
   const evalResults: EvalResult[] = [];
@@ -37,7 +36,12 @@ describe('Suíte de Avaliação do Agente com IA Real (Gemini Flash) - Nível B'
 
   // Seleção de casos representativos de ponta a ponta
   const liveCases = GOLDEN_DATASET.filter((tc) =>
-    ['AMBIG-SALARY-BUSINESS', 'REAL-LANG-001', 'INTENT-QUESTION-001', 'HALLUC-PAYMENT-001'].includes(tc.id)
+    [
+      'AMBIG-SALARY-BUSINESS',
+      'REAL-LANG-001',
+      'INTENT-QUESTION-001',
+      'HALLUC-PAYMENT-001',
+    ].includes(tc.id)
   );
 
   liveCases.forEach((testCase) => {
@@ -63,7 +67,10 @@ describe('Suíte de Avaliação do Agente com IA Real (Gemini Flash) - Nível B'
           console.warn(diagnostic);
         }
 
-        expect(evalResult.passed, `Divergência na IA Real (${testCase.id}): ${evalResult.divergences.join('; ')}`).toBe(true);
+        expect(
+          evalResult.passed,
+          `Divergência na IA Real (${testCase.id}): ${evalResult.divergences.join('; ')}`
+        ).toBe(true);
       },
       30000
     );

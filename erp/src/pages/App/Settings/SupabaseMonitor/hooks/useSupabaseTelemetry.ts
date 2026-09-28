@@ -33,8 +33,9 @@ export function useSupabaseTelemetry() {
         else if (period === '24h') fromDate.setHours(now.getHours() - 24);
         else if (period === '7d') fromDate.setDate(now.getDate() - 7);
 
-        const { data: results, error } = await supabase
-          .rpc('get_aggregated_telemetry', { p_start_date: fromDate.toISOString() });
+        const { data: results, error } = await supabase.rpc('get_aggregated_telemetry', {
+          p_start_date: fromDate.toISOString(),
+        });
 
         if (!error && results) {
           setData(results);
@@ -73,18 +74,21 @@ export function useSupabaseTelemetry() {
 
     const contextTotalReqs = filtered.reduce((acc, row) => acc + (row.execution_count || 1), 0);
 
-    const groups: Record<string, { count: number; rows: number; duration: number; items: TelemetryRow[] }> = {};
+    const groups: Record<
+      string,
+      { count: number; rows: number; duration: number; items: TelemetryRow[] }
+    > = {};
 
     filtered.forEach((row) => {
       const key = !activeModule
-        ? (row.module || 'Desconhecido')
+        ? row.module || 'Desconhecido'
         : !activeOperation
-        ? (row.operation_type || 'UNKNOWN')
-        : !activeTable
-        ? (row.table_name || 'Desconhecido')
-        : !activeAction
-        ? (row.action || 'Desconhecido')
-        : (row.screen || 'N/A');
+          ? row.operation_type || 'UNKNOWN'
+          : !activeTable
+            ? row.table_name || 'Desconhecido'
+            : !activeAction
+              ? row.action || 'Desconhecido'
+              : row.screen || 'N/A';
 
       if (!groups[key]) groups[key] = { count: 0, rows: 0, duration: 0, items: [] };
 
@@ -107,12 +111,15 @@ export function useSupabaseTelemetry() {
       .sort((a, b) => b.count - a.count);
   }, [data, activeModule, activeOperation, activeTable, activeAction]);
 
-  const handleRowClick = useCallback((name: string) => {
-    if (!activeModule) setActiveModule(name);
-    else if (!activeOperation) setActiveOperation(name);
-    else if (!activeTable) setActiveTable(name);
-    else if (!activeAction) setActiveAction(name);
-  }, [activeModule, activeOperation, activeTable, activeAction]);
+  const handleRowClick = useCallback(
+    (name: string) => {
+      if (!activeModule) setActiveModule(name);
+      else if (!activeOperation) setActiveOperation(name);
+      else if (!activeTable) setActiveTable(name);
+      else if (!activeAction) setActiveAction(name);
+    },
+    [activeModule, activeOperation, activeTable, activeAction]
+  );
 
   const resetDrillDown = useCallback(() => {
     setActiveModule(null);

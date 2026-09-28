@@ -9,11 +9,14 @@ describe('Lançamentos manuais de estoque (Entrada, Saída e Ajuste/Balanço)', 
 
     expect(adjustmentQuantity).toBe(5);
 
-    const afterAdjustment = applyMovingAverageMove({ quantity: currentStock, inventoryValue: 1500, unitCost: 100 }, {
-      type: 'entry',
-      quantity: adjustmentQuantity,
-      unitCost: 100,
-    });
+    const afterAdjustment = applyMovingAverageMove(
+      { quantity: currentStock, inventoryValue: 1500, unitCost: 100 },
+      {
+        type: 'entry',
+        quantity: adjustmentQuantity,
+        unitCost: 100,
+      }
+    );
 
     expect(afterAdjustment.state.quantity).toBe(20);
     expect(afterAdjustment.state.unitCost).toBe(100);
@@ -46,7 +49,13 @@ describe('Lançamentos manuais de estoque (Entrada, Saída e Ajuste/Balanço)', 
     const history = [
       { id: 'move-1', type: 'entry', quantity: 10, unitCost: 100 },
       { id: 'move-2', type: 'withdrawal', quantity: 4 },
-      { id: 'move-3', type: 'entry', quantity: 2, unitCost: 100, observation: '{"status":"reversed"}' },
+      {
+        id: 'move-3',
+        type: 'entry',
+        quantity: 2,
+        unitCost: 100,
+        observation: '{"status":"reversed"}',
+      },
     ];
 
     const replay = replayMovingAverageMoves(history);

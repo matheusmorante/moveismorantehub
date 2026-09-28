@@ -1,34 +1,35 @@
-"use client"
+'use client';
 
-import { useEffect, useState } from "react"
-import { Search, Loader2, Compass, Tag, ChevronRight, Package } from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+import { useEffect, useState } from 'react';
+import { Search, Loader2, Compass, Tag, ChevronRight, Package } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
-import { Button } from "@/components/ui/button"
-import { useAdminMode } from "@/hooks/use-admin-mode"
-import { useCart } from "@/hooks/use-cart"
-import { slugifyCategory } from "@/lib/slug-utils"
+import { Button } from '@/components/ui/button';
+import { useAdminMode } from '@/hooks/use-admin-mode';
+import { useCart } from '@/hooks/use-cart';
+import { slugifyCategory } from '@/lib/slug-utils';
 
-import { BrandLogo } from "./brand-logo"
-import { MobileMenu } from "./mobile-menu"
-import { DesktopSearchBar, SearchInput } from "./search-bar"
-import { CartButton } from "./cart-button"
-import { useSearch } from "./use-search"
-import { UserNav } from "../user-nav"
+import { BrandLogo } from './brand-logo';
+import { MobileMenu } from './mobile-menu';
+import { DesktopSearchBar, SearchInput } from './search-bar';
+import { CartButton } from './cart-button';
+import { useSearch } from './use-search';
+import { UserNav } from '../user-nav';
 
 export function Header() {
-  const { totalItems } = useCart()
-  const { isAdminMode } = useAdminMode()
-  const [mounted, setMounted] = useState(false)
-  const search = useSearch()
+  const { totalItems } = useCart();
+  const { isAdminMode } = useAdminMode();
+  const [mounted, setMounted] = useState(false);
+  const search = useSearch();
 
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="w-full border-b border-gray-100 bg-white shrink-0">
       <div className="container mx-auto flex h-20 sm:h-28 md:h-32 items-center justify-between px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 gap-4">
-
         <div className="flex items-center gap-3 h-full shrink-0">
           <MobileMenu />
           <BrandLogo isAdminMode={isAdminMode} />
@@ -52,7 +53,10 @@ export function Header() {
       </div>
 
       {/* Linha de Busca no Mobile - Sempre Visível */}
-      <div ref={search.searchContainerRef as any} className="lg:hidden px-6 pb-4 pt-2 border-t border-gray-100/50 bg-white flex flex-col justify-center items-center relative">
+      <div
+        ref={search.searchContainerRef as any}
+        className="lg:hidden px-6 pb-4 pt-2 border-t border-gray-100/50 bg-white flex flex-col justify-center items-center relative"
+      >
         <form onSubmit={search.submit} className="flex w-full max-w-md items-center">
           <SearchInput
             value={search.query}
@@ -60,7 +64,7 @@ export function Header() {
             inputRef={search.inputRef}
             onFocus={() => {
               if (search.query.trim().length >= 2) {
-                search.setShowSuggestions(true)
+                search.setShowSuggestions(true);
               }
             }}
           />
@@ -87,7 +91,7 @@ export function Header() {
                   </Link>
                 )}
 
-                {search.suggestions.environments.map(env => (
+                {search.suggestions.environments.map((env) => (
                   <Link
                     key={env.id}
                     href={`/?ambientes=${env.slug || slugifyCategory(env) || env.id}`}
@@ -99,7 +103,7 @@ export function Header() {
                   </Link>
                 ))}
 
-                {search.suggestions.categories.map(cat => (
+                {search.suggestions.categories.map((cat) => (
                   <Link
                     key={cat.id}
                     href={`/?categorias=${cat.slug || slugifyCategory(cat) || cat.id}`}
@@ -111,7 +115,7 @@ export function Header() {
                   </Link>
                 ))}
 
-                {search.suggestions.products.map(prod => (
+                {search.suggestions.products.map((prod) => (
                   <Link
                     key={prod.id}
                     href={`/produto/${prod.slug}`}
@@ -130,11 +134,26 @@ export function Header() {
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {prod.promo_price ? (
                           <>
-                            <span className="text-xs font-black text-red-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.promo_price)}</span>
-                            <span className="text-[9px] text-muted-foreground line-through">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}</span>
+                            <span className="text-xs font-black text-red-600">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(prod.promo_price)}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground line-through">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              }).format(prod.price)}
+                            </span>
                           </>
                         ) : (
-                          <span className="text-xs font-black text-red-600">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}</span>
+                          <span className="text-xs font-black text-red-600">
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL',
+                            }).format(prod.price)}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -146,5 +165,5 @@ export function Header() {
         )}
       </div>
     </header>
-  )
+  );
 }

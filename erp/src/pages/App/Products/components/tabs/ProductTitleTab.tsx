@@ -7,214 +7,263 @@ import { toTitleCase } from '@/pages/utils/textUtils';
 export type TitlePartId = 'environment' | 'line' | 'brand' | 'complement';
 
 interface ProductTitleTabProps {
-    readonly formData: Partial<Product>;
-    readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    readonly productTypes?: readonly { readonly id: string; readonly name: string }[];
+  readonly formData: Partial<Product>;
+  readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  readonly productTypes?: readonly { readonly id: string; readonly name: string }[];
 }
 
 const DEFAULT_TITLE_ORDER: TitlePartId[] = ['environment', 'line', 'brand', 'complement'];
 
-const ProductTitleTab: React.FC<ProductTitleTabProps> = ({
-    formData,
-    setFormData,
-}) => {
-    const titleOrder = (formData.titleOrder as TitlePartId[]) || DEFAULT_TITLE_ORDER;
-    
-    // Prefixo Fixo: Tipo do Produto
-    const typeName = formData.productTypeName || 'TIPO';
+const ProductTitleTab: React.FC<ProductTitleTabProps> = ({ formData, setFormData }) => {
+  const titleOrder = (formData.titleOrder as TitlePartId[]) || DEFAULT_TITLE_ORDER;
 
-    const onDragEnd = (result: DropResult) => {
-        if (!result.destination) return;
-        const items = Array.from(titleOrder);
-        const [reorderedItem] = items.splice(result.source.index, 1);
-        items.splice(result.destination.index, 0, reorderedItem);
-        setFormData(prev => ({ ...prev, titleOrder: items }));
-    };
+  // Prefixo Fixo: Tipo do Produto
+  const typeName = formData.productTypeName || 'TIPO';
 
-    const togglePart = (id: TitlePartId) => {
-        setFormData(prev => {
-            const field = `include${id.charAt(0).toUpperCase() + id.slice(1)}` as keyof Product;
-            return { ...prev, [field]: !prev[field] };
-        });
-    };
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const items = Array.from(titleOrder);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setFormData((prev) => ({ ...prev, titleOrder: items }));
+  };
 
-    const getPartValue = (id: TitlePartId): string => {
-        switch (id) {
-            case 'environment': return formData.environment || 'AMBIENTE';
-            case 'line': return formData.line || 'LINHA/MODELO';
-            case 'brand': return formData.brand || 'MARCA';
-            case 'complement': return formData.titleComplement || 'COMPLEMENTO';
-            default: return '';
+  const togglePart = (id: TitlePartId) => {
+    setFormData((prev) => {
+      const field = `include${id.charAt(0).toUpperCase() + id.slice(1)}` as keyof Product;
+      return { ...prev, [field]: !prev[field] };
+    });
+  };
+
+  const getPartValue = (id: TitlePartId): string => {
+    switch (id) {
+      case 'environment':
+        return formData.environment || 'AMBIENTE';
+      case 'line':
+        return formData.line || 'LINHA/MODELO';
+      case 'brand':
+        return formData.brand || 'MARCA';
+      case 'complement':
+        return formData.titleComplement || 'COMPLEMENTO';
+      default:
+        return '';
+    }
+  };
+
+  const getPartOn = (id: TitlePartId): boolean => {
+    switch (id) {
+      case 'environment':
+        return formData.includeEnvironment ?? true;
+      case 'line':
+        return formData.includeLine ?? true;
+      case 'brand':
+        return formData.includeBrand ?? true;
+      case 'complement':
+        return formData.includeComplement ?? true;
+      default:
+        return true;
+    }
+  };
+
+  const previewTitle = (): string => {
+    const parts = [typeName];
+    titleOrder.forEach((id) => {
+      if (getPartOn(id)) {
+        const val = getPartValue(id);
+        if (
+          val &&
+          val !== 'AMBIENTE' &&
+          val !== 'LINHA/MODELO' &&
+          val !== 'MARCA' &&
+          val !== 'COMPLEMENTO'
+        ) {
+          parts.push(val);
         }
-    };
+      }
+    });
+    return toTitleCase(parts.join(' '));
+  };
 
-    const getPartOn = (id: TitlePartId): boolean => {
-        switch (id) {
-            case 'environment': return formData.includeEnvironment ?? true;
-            case 'line': return formData.includeLine ?? true;
-            case 'brand': return formData.includeBrand ?? true;
-            case 'complement': return formData.includeComplement ?? true;
-            default: return true;
-        }
-    };
+  const applyTitle = () => {
+    const title = previewTitle();
+    setFormData((prev) => ({
+      ...prev,
+      description: title,
+      name: title,
+      title,
+      marketplaceTitle: title,
+    }));
+    toast.info('Título montado e aplicado!');
+  };
 
-    const previewTitle = (): string => {
-        const parts = [typeName];
-        titleOrder.forEach(id => {
-            if (getPartOn(id)) {
-                const val = getPartValue(id);
-                if (val && val !== 'AMBIENTE' && val !== 'LINHA/MODELO' && val !== 'MARCA' && val !== 'COMPLEMENTO') {
-                    parts.push(val);
-                }
-            }
-        });
-        return toTitleCase(parts.join(' '));
-    };
+  const getPartLabel = (id: TitlePartId): string => {
+    switch (id) {
+      case 'environment':
+        return 'Ambiente';
+      case 'line':
+        return 'Linha/Modelo';
+      case 'brand':
+        return 'Marca';
+      case 'complement':
+        return 'Complemento';
+    }
+  };
 
-    const applyTitle = () => {
-        const title = previewTitle();
-        setFormData(prev => ({
-            ...prev,
-            description: title,
-            name: title,
-            title,
-            marketplaceTitle: title
-        }));
-        toast.info("Título montado e aplicado!");
-    };
-
-    const getPartLabel = (id: TitlePartId): string => {
-        switch (id) {
-            case 'environment': return 'Ambiente';
-            case 'line': return 'Linha/Modelo';
-            case 'brand': return 'Marca';
-            case 'complement': return 'Complemento';
-        }
-    };
-
-    return (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Preview Section */}
-            <div className="bg-blue-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-blue-500/20">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60">Prévia do Título Dinâmico</h4>
-                        <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">Este é o nome que aparecerá no catálogo e etiquetas</p>
-                    </div>
-                    <button 
-                        type="button"
-                        onClick={applyTitle}
-                        className="px-6 py-3 bg-white text-blue-600 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-all cursor-pointer active:scale-95"
-                    >
-                        Fixar como Título do Produto
-                    </button>
-                </div>
-                <div className="bg-blue-700/30 p-8 rounded-[2rem] border border-blue-400/20">
-                    <h2 className="text-2xl font-black tracking-tight leading-relaxed break-words">
-                        {previewTitle() || "NENHUM COMPONENTE ATIVO"}
-                    </h2>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                {/* Fixed Prefix Section */}
-                <div className="bg-slate-50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                        <i className="bi bi-pin-angle-fill text-blue-500" aria-hidden="true" /> Prefixo Fixo
-                    </h4>
-                    <div className="space-y-4">
-                        <div className="flex flex-col gap-2">
-                            <label htmlFor="product-type-fixed-prefix" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo de Produto</label>
-                            <input 
-                                id="product-type-fixed-prefix"
-                                disabled
-                                value={typeName}
-                                className="w-full px-5 py-4 bg-slate-100 dark:bg-slate-900 border border-transparent rounded-2xl text-sm font-black text-slate-400 cursor-not-allowed uppercase"
-                            />
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">* O prefixo é obrigatório e vem da categoria selecionada.</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Reorderable Components Section */}
-                <div className="bg-white dark:bg-slate-900/40 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <i className="bi bi-grip-vertical text-blue-500" aria-hidden="true" /> Componentes Reordenáveis
-                        </div>
-                        <span className="text-[8px] opacity-60">Arraste para mudar a ordem</span>
-                    </h4>
-
-                    <DragDropContext onDragEnd={onDragEnd}>
-                        <Droppable droppableId="title-parts">
-                            {(provided) => (
-                                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                                    {titleOrder.map((id, index) => {
-                                        const isOn = getPartOn(id);
-                                        const val = getPartValue(id);
-                                        return (
-                                            <Draggable key={id} draggableId={id} index={index}>
-                                                {(draggableProvided, snapshot) => (
-                                                    <div
-                                                        ref={draggableProvided.innerRef}
-                                                        {...draggableProvided.draggableProps}
-                                                        {...draggableProvided.dragHandleProps}
-                                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${snapshot.isDragging ? 'bg-blue-50 border-blue-200 shadow-xl' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200'}`}
-                                                    >
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center text-slate-300 pointer-events-none" aria-hidden="true">
-                                                                <i className="bi bi-grip-vertical" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{getPartLabel(id)}</p>
-                                                                <p className={`text-sm font-black ${isOn ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300'}`}>{val}</p>
-                                                            </div>
-                                                        </div>
-                                                        <button 
-                                                            type="button"
-                                                            role="switch"
-                                                            aria-checked={isOn}
-                                                            aria-label={`Incluir ${getPartLabel(id)} no título`}
-                                                            onClick={(e) => { e.stopPropagation(); togglePart(id); }}
-                                                            className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-                                                        >
-                                                            <div className={`w-3 h-3 bg-white rounded-full transition-transform ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </Draggable>
-                                        );
-                                    })}
-                                    {provided.placeholder}
-                                </div>
-                            )}
-                        </Droppable>
-                    </DragDropContext>
-                </div>
-            </div>
-
-            {/* Title Complement Input */}
-            <div className="bg-slate-50 dark:bg-slate-950 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                <div className="flex flex-col gap-4">
-                    <label htmlFor="title-complement-input" className="text-[10px] font-black uppercase tracking-widest text-slate-400">Complemento do Título (Manual)</label>
-                    <input 
-                        id="title-complement-input"
-                        value={formData.titleComplement || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, titleComplement: e.target.value }))}
-                        onBlur={(e) => {
-                            if (e.target.value) {
-                                setFormData(prev => ({ ...prev, titleComplement: toTitleCase(e.target.value) }));
-                            }
-                        }}
-                        placeholder="Ex: 2 Gavetas, Madeira Maciça..."
-                        className="w-full px-6 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none font-bold text-sm shadow-sm"
-                    />
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Use este campo para adicionar informações que não estão nas categorias ou modelo.</p>
-                </div>
-            </div>
+  return (
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Preview Section */}
+      <div className="bg-blue-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-blue-500/20">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60">
+              Prévia do Título Dinâmico
+            </h4>
+            <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">
+              Este é o nome que aparecerá no catálogo e etiquetas
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={applyTitle}
+            className="px-6 py-3 bg-white text-blue-600 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:scale-105 transition-all cursor-pointer active:scale-95"
+          >
+            Fixar como Título do Produto
+          </button>
         </div>
-    );
+        <div className="bg-blue-700/30 p-8 rounded-[2rem] border border-blue-400/20">
+          <h2 className="text-2xl font-black tracking-tight leading-relaxed break-words">
+            {previewTitle() || 'NENHUM COMPONENTE ATIVO'}
+          </h2>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        {/* Fixed Prefix Section */}
+        <div className="bg-slate-50 dark:bg-slate-950/20 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+            <i className="bi bi-pin-angle-fill text-blue-500" aria-hidden="true" /> Prefixo Fixo
+          </h4>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="product-type-fixed-prefix"
+                className="text-[10px] font-black uppercase tracking-widest text-slate-500"
+              >
+                Tipo de Produto
+              </label>
+              <input
+                id="product-type-fixed-prefix"
+                disabled
+                value={typeName}
+                className="w-full px-5 py-4 bg-slate-100 dark:bg-slate-900 border border-transparent rounded-2xl text-sm font-black text-slate-400 cursor-not-allowed uppercase"
+              />
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">
+                * O prefixo é obrigatório e vem da categoria selecionada.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Reorderable Components Section */}
+        <div className="bg-white dark:bg-slate-900/40 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <i className="bi bi-grip-vertical text-blue-500" aria-hidden="true" /> Componentes
+              Reordenáveis
+            </div>
+            <span className="text-[8px] opacity-60">Arraste para mudar a ordem</span>
+          </h4>
+
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="title-parts">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                  {titleOrder.map((id, index) => {
+                    const isOn = getPartOn(id);
+                    const val = getPartValue(id);
+                    return (
+                      <Draggable key={id} draggableId={id} index={index}>
+                        {(draggableProvided, snapshot) => (
+                          <div
+                            ref={draggableProvided.innerRef}
+                            {...draggableProvided.draggableProps}
+                            {...draggableProvided.dragHandleProps}
+                            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${snapshot.isDragging ? 'bg-blue-50 border-blue-200 shadow-xl' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-slate-200'}`}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div
+                                className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center text-slate-300 pointer-events-none"
+                                aria-hidden="true"
+                              >
+                                <i className="bi bi-grip-vertical" />
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                  {getPartLabel(id)}
+                                </p>
+                                <p
+                                  className={`text-sm font-black ${isOn ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300'}`}
+                                >
+                                  {val}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isOn}
+                              aria-label={`Incluir ${getPartLabel(id)} no título`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePart(id);
+                              }}
+                              className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                            >
+                              <div
+                                className={`w-3 h-3 bg-white rounded-full transition-transform ${isOn ? 'translate-x-5' : 'translate-x-0'}`}
+                              />
+                            </button>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+      </div>
+
+      {/* Title Complement Input */}
+      <div className="bg-slate-50 dark:bg-slate-950 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+        <div className="flex flex-col gap-4">
+          <label
+            htmlFor="title-complement-input"
+            className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+          >
+            Complemento do Título (Manual)
+          </label>
+          <input
+            id="title-complement-input"
+            value={formData.titleComplement || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, titleComplement: e.target.value }))}
+            onBlur={(e) => {
+              if (e.target.value) {
+                setFormData((prev) => ({ ...prev, titleComplement: toTitleCase(e.target.value) }));
+              }
+            }}
+            placeholder="Ex: 2 Gavetas, Madeira Maciça..."
+            className="w-full px-6 py-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none font-bold text-sm shadow-sm"
+          />
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+            Use este campo para adicionar informações que não estão nas categorias ou modelo.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default ProductTitleTab;
-

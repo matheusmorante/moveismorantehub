@@ -11,7 +11,9 @@ export function createMarkerIconSvg(
 ) {
   if (isStore) {
     return {
-      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+      url:
+        'data:image/svg+xml;charset=UTF-8,' +
+        encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
           <circle cx="20" cy="20" r="18" fill="#1e3a8a" stroke="#ffffff" stroke-width="3" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.3))"/>
           <path d="M12 16 L20 10 L28 16 L28 28 L12 28 Z" fill="#ffffff"/>
@@ -54,7 +56,9 @@ export function createMarkerIconSvg(
   }
 
   return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+    url:
+      'data:image/svg+xml;charset=UTF-8,' +
+      encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}" stroke="${borderCol}" stroke-width="${borderWidth}" filter="drop-shadow(0px 2px 5px rgba(0,0,0,0.35))"/>
         ${innerSvg}

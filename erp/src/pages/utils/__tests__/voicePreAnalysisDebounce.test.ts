@@ -2,7 +2,6 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { AiPreAnalysisManager } from '../../';
 import { AiHybridDispatcher } from '../../';
 
-
 describe('FLUXO DE VOZ: DEBOUNCE DE PRÉ-ANÁLISE (3 SEGUNDOS) E ENVIO EXPLÍCITO', () => {
   beforeEach(() => {
     AiPreAnalysisManager.resetTelemetry();

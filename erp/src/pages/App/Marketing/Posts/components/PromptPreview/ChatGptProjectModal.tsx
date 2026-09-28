@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { CHATGPT_PROJECT_INSTRUCTIONS, getChatGptInstructionsCharCount } from '../../services/chatGptProjectInstructions';
+import {
+  CHATGPT_PROJECT_INSTRUCTIONS,
+  getChatGptInstructionsCharCount,
+} from '../../services/chatGptProjectInstructions';
 
 interface ChatGptProjectModalProps {
   isOpen: boolean;
@@ -17,7 +20,9 @@ export const ChatGptProjectModal: React.FC<ChatGptProjectModalProps> = ({ isOpen
     try {
       await navigator.clipboard.writeText(CHATGPT_PROJECT_INSTRUCTIONS);
       setCopied(true);
-      toast.success(`✓ Instruções do Projeto copiadas (${charCount}/8000 caracteres)! Cole no campo Instruções do ChatGPT.`);
+      toast.success(
+        `✓ Instruções do Projeto copiadas (${charCount}/8000 caracteres)! Cole no campo Instruções do ChatGPT.`
+      );
       setTimeout(() => setCopied(false), 2500);
     } catch {
       toast.error('Não foi possível copiar automaticamente. Selecione e copie o texto abaixo.');
@@ -34,7 +39,11 @@ export const ChatGptProjectModal: React.FC<ChatGptProjectModalProps> = ({ isOpen
             <div>
               <h3 className="text-sm font-bold text-white">Instruções do Projeto para ChatGPT</h3>
               <p className="text-[11px] text-slate-400">
-                Cole este texto no campo <span className="text-indigo-300 font-semibold">&ldquo;Instruções&rdquo; (Project Instructions)</span> do ChatGPT
+                Cole este texto no campo{' '}
+                <span className="text-indigo-300 font-semibold">
+                  &ldquo;Instruções&rdquo; (Project Instructions)
+                </span>{' '}
+                do ChatGPT
               </p>
             </div>
           </div>
@@ -63,7 +72,8 @@ export const ChatGptProjectModal: React.FC<ChatGptProjectModalProps> = ({ isOpen
         {/* Rodapé com botões de ação */}
         <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/60 px-5 py-3">
           <p className="text-[11px] text-slate-400">
-            Configuração permanente: a IA sempre descompactará os ZIPs e ancorará as fotos reais sem inventar produtos.
+            Configuração permanente: a IA sempre descompactará os ZIPs e ancorará as fotos reais sem
+            inventar produtos.
           </p>
           <div className="flex items-center gap-2">
             <a

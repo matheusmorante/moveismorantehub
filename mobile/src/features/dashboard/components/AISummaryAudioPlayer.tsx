@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Text, TouchableOpacity, View, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  Platform,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { Animated, Easing } from 'react-native';
 import { Play, Pause, AlertTriangle, RefreshCw } from 'lucide-react-native';
 
@@ -67,20 +74,26 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
         duration: 850,
         easing: Easing.linear,
         useNativeDriver: true,
-      }),
+      })
     );
     animation.start();
     return () => animation.stop();
   }, [isGenerating, loadingRotation]);
 
-  const loadingSpin = loadingRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const loadingSpin = loadingRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const estimatedDuration = Math.max(10, Math.ceil((text || '').length / 14));
   const effectiveTotalDuration = totalDuration > 0 ? totalDuration : estimatedDuration;
 
   // Usa seekingTime temporário durante o arraste para movimento 100% fluido sem flickering
   const activeDisplayTime = seekingTime !== null ? seekingTime : currentTime;
-  const progressPercent = Math.min(100, Math.max(0, (activeDisplayTime / (effectiveTotalDuration || 1)) * 100));
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, (activeDisplayTime / (effectiveTotalDuration || 1)) * 100)
+  );
 
   const formattedUpdateLabel = updatedAt
     ? `Atualizado às ${updatedAt} · ${effectiveTotalDuration} s`
@@ -116,7 +129,9 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
         >
           {isGenerating ? (
             <>
-              <Animated.View style={[styles.generationRing, { transform: [{ rotate: loadingSpin }] }]} />
+              <Animated.View
+                style={[styles.generationRing, { transform: [{ rotate: loadingSpin }] }]}
+              />
               <ActivityIndicator color="#ffffff" size="small" />
             </>
           ) : isSpeaking && !isPaused ? (
@@ -131,18 +146,27 @@ export const AISummaryAudioPlayer: React.FC<AISummaryAudioPlayerProps> = ({
             {title}
           </Text>
 
-          <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark, isQuotaExceeded && { color: '#ef4444' }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.subtitle,
+              isDarkMode && styles.subtitleDark,
+              isQuotaExceeded && { color: '#ef4444' },
+            ]}
+            numberOfLines={1}
+          >
             {isQuotaExceeded
               ? 'Indisponível no momento (sem cota de tokens)'
               : isGenerating
-                ? (loadingMessage || 'Gerando resumo em áudio...')
+                ? loadingMessage || 'Gerando resumo em áudio...'
                 : isLoadingText
                   ? 'Atualizando resumo...'
                   : formattedUpdateLabel}
           </Text>
 
           {isQuotaExceeded ? (
-            <View style={[styles.outdatedBadge, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
+            <View
+              style={[styles.outdatedBadge, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
+            >
               <AlertTriangle size={12} color="#dc2626" />
               <Text style={[styles.outdatedText, { color: '#dc2626' }]}>⚠ Sem cota de tokens</Text>
             </View>

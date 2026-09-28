@@ -28,7 +28,11 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
   return (
     <>
       <SectionCard dark={dark}>
-        <SectionHeader dark={dark} icon={<FileText size={18} color="#7c3aed" />} title={`ITENS DO PEDIDO (${items?.length || 0})`} />
+        <SectionHeader
+          dark={dark}
+          icon={<FileText size={18} color="#7c3aed" />}
+          title={`ITENS DO PEDIDO (${items?.length || 0})`}
+        />
         <View style={styles.itemsListContainer}>
           {(items || []).map((item: any, index: number) => {
             const qty = Number(item.quantity || item.qty || 1);
@@ -38,15 +42,17 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
 
             let discountValue = 0;
             if (unitDiscount > 0 && unitPrice > 0) {
-              discountValue = discountType === 'fixed' ? unitDiscount : (unitPrice * unitDiscount) / 100;
+              discountValue =
+                discountType === 'fixed' ? unitDiscount : (unitPrice * unitDiscount) / 100;
             }
 
             const finalTotalPrice = Number(item.total || item.price || item.unitPrice || 0);
             const finalUnitPrice = finalTotalPrice / qty;
-            const hasDiscount = discountValue > 0 || (unitPrice > 0 && unitPrice > finalUnitPrice + 0.01);
+            const hasDiscount =
+              discountValue > 0 || (unitPrice > 0 && unitPrice > finalUnitPrice + 0.01);
 
             const displayFinalPrice = finalTotalPrice;
-            const displayOriginalPrice = hasDiscount ? (unitPrice * qty) : finalTotalPrice;
+            const displayOriginalPrice = hasDiscount ? unitPrice * qty : finalTotalPrice;
 
             const opportunityLabel = resolveOpportunityLabel(item);
 
@@ -58,7 +64,9 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
                     <View style={styles.tagsRow}>
                       <View style={[styles.oppBadge, dark && styles.oppBadgeDark]}>
                         <Flame size={10} color={dark ? '#fbbf24' : '#d97706'} />
-                        <Text style={[styles.oppBadgeText, dark && styles.oppBadgeTextDark]}>{opportunityLabel}</Text>
+                        <Text style={[styles.oppBadgeText, dark && styles.oppBadgeTextDark]}>
+                          {opportunityLabel}
+                        </Text>
                       </View>
                     </View>
                   ) : null}
@@ -67,7 +75,8 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
                 <View style={styles.priceContainer}>
                   {hasDiscount && displayOriginalPrice > displayFinalPrice && (
                     <Text style={[styles.originalPrice, dark && styles.originalPriceDark]}>
-                      R$ {displayOriginalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {displayOriginalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </Text>
                   )}
                   {displayFinalPrice > 0 && (
@@ -89,7 +98,11 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
             <Text style={[styles.totalTitle, dark && styles.light]}>VALOR TOTAL</Text>
           </View>
           <Text style={styles.total}>
-            R$ {Number(total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            R${' '}
+            {Number(total || 0).toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </Text>
         </View>
       </View>
@@ -149,11 +162,23 @@ const styles = StyleSheet.create({
   },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
-  totalCard: { backgroundColor: '#f0fdf4', padding: 17, borderRadius: 20, borderWidth: 1, borderColor: '#bbf7d0', gap: 10 },
+  totalCard: {
+    backgroundColor: '#f0fdf4',
+    padding: 17,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    gap: 10,
+  },
   totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' },
   total: { fontSize: 17, fontWeight: '900', color: '#16a34a' },
-  originalPrice: { fontSize: 11, fontWeight: '700', color: '#94a3b8', textDecorationLine: 'line-through' },
+  originalPrice: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+  },
   originalPriceDark: { color: '#64748b' },
 });

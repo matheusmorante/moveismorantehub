@@ -61,7 +61,10 @@ describe(`[${testRunId}] productAgentTools - Consulta e Ficha Técnica de Produt
         cost_price: 950.0,
         stock: 4,
         active: true,
-        attributes: [{ name: 'Cor', value: 'Marrom' }, { name: 'Lugares', value: '3' }],
+        attributes: [
+          { name: 'Cor', value: 'Marrom' },
+          { name: 'Lugares', value: '3' },
+        ],
         images: ['https://exemplo.com/sofa-marrom.jpg'],
       },
       {
@@ -74,7 +77,10 @@ describe(`[${testRunId}] productAgentTools - Consulta e Ficha Técnica de Produt
         cost_price: 950.0,
         stock: 3,
         active: true,
-        attributes: [{ name: 'Cor', value: 'Cinza' }, { name: 'Lugares', value: '3' }],
+        attributes: [
+          { name: 'Cor', value: 'Cinza' },
+          { name: 'Lugares', value: '3' },
+        ],
         images: ['https://exemplo.com/sofa-cinza.jpg'],
       },
     ],

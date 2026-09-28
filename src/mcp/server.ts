@@ -2,10 +2,7 @@ import http from 'node:http';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { validateMcpAuth, McpAuthError } from './auth.js';
 import { checkRateLimit, McpRateLimitError } from './middleware/mcpRateLimit.js';
 import { recordAuditLog } from './middleware/mcpAudit.js';
@@ -27,7 +24,7 @@ export class MoranteHubMcpServer {
         capabilities: {
           tools: {},
         },
-      },
+      }
     );
 
     this.setupHandlers();
@@ -37,7 +34,7 @@ export class MoranteHubMcpServer {
     // 1. Listagem de Tools (100% Read-Only)
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: ALL_MCP_TOOLS.map(tool => ({
+        tools: ALL_MCP_TOOLS.map((tool) => ({
           name: tool.name,
           description: tool.description,
           inputSchema: {
@@ -50,7 +47,7 @@ export class MoranteHubMcpServer {
                       type: v._def?.typeName === 'ZodNumber' ? 'number' : 'string',
                       description: v.description || k,
                     },
-                  ]),
+                  ])
                 )
               : {},
           },
@@ -62,7 +59,7 @@ export class MoranteHubMcpServer {
     });
 
     // 2. Execução de Tools
-    this.server.setRequestHandler(CallToolRequestSchema, async request => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const toolName = request.params.name;
       const tool = getMcpToolByName(toolName);
 
@@ -78,7 +75,7 @@ export class MoranteHubMcpServer {
                 toolName,
                 request.params.arguments || {},
                 this.remoteAuthContext.authHeader,
-                this.remoteAuthContext.requestedClient,
+                this.remoteAuthContext.requestedClient
               )
             ).data
           : await tool.handler(request.params.arguments || {});
@@ -117,7 +114,7 @@ export class MoranteHubMcpServer {
     res: http.ServerResponse,
     parsedBody: unknown,
     authHeader?: string,
-    requestedClient?: string,
+    requestedClient?: string
   ): Promise<void> {
     validateMcpAuth(authHeader, requestedClient);
     this.remoteAuthContext = { authHeader, requestedClient };
@@ -143,7 +140,7 @@ export class MoranteHubMcpServer {
     toolName: string,
     params: unknown,
     authHeader?: string,
-    requestedClient?: string,
+    requestedClient?: string
   ): Promise<{ data: any; auth: McpClientAuth; durationMs: number }> {
     const start = Date.now();
     let auth: McpClientAuth;
@@ -226,7 +223,10 @@ export class MoranteHubMcpServer {
         // Headers de CORS e Segurança
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-MCP-Client-Id');
+        res.setHeader(
+          'Access-Control-Allow-Headers',
+          'Content-Type, Authorization, X-MCP-Client-Id'
+        );
 
         if (req.method === 'OPTIONS') {
           res.writeHead(204);
@@ -258,7 +258,7 @@ export class MoranteHubMcpServer {
           const requestedClient = (req.headers['x-mcp-client-id'] as string) || undefined;
 
           let body = '';
-          req.on('data', chunk => {
+          req.on('data', (chunk) => {
             body += chunk;
           });
 
@@ -275,17 +275,28 @@ export class MoranteHubMcpServer {
                 }
               }
 
-              const result = await this.executeToolWithAuth(toolName, parsedBody, authHeader, requestedClient);
+              const result = await this.executeToolWithAuth(
+                toolName,
+                parsedBody,
+                authHeader,
+                requestedClient
+              );
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify(result.data));
             } catch (err: any) {
-              const status = err.statusCode || (err instanceof McpAuthError ? err.statusCode : err instanceof McpRateLimitError ? 429 : 500);
+              const status =
+                err.statusCode ||
+                (err instanceof McpAuthError
+                  ? err.statusCode
+                  : err instanceof McpRateLimitError
+                    ? 429
+                    : 500);
               res.writeHead(status, { 'Content-Type': 'application/json' });
               res.end(
                 JSON.stringify({
                   error: err.code || 'INTERNAL_ERROR',
                   message: err.message || 'Ocorreu um erro ao processar a requisição.',
-                }),
+                })
               );
             }
           });
@@ -298,7 +309,7 @@ export class MoranteHubMcpServer {
           const requestedClient = (req.headers['x-mcp-client-id'] as string) || undefined;
 
           let body = '';
-          req.on('data', chunk => {
+          req.on('data', (chunk) => {
             body += chunk;
           });
 
@@ -311,20 +322,22 @@ export class MoranteHubMcpServer {
                 res,
                 rpcRequest,
                 authHeader,
-                requestedClient,
+                requestedClient
               );
             } catch (err: any) {
               if (!res.headersSent) {
                 const status = err.statusCode || (err instanceof SyntaxError ? 400 : 500);
                 res.writeHead(status, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: null,
-                  error: {
-                    code: status === 401 ? -32001 : -32603,
-                    message: err.message || 'Erro ao processar requisição MCP.',
-                  },
-                }));
+                res.end(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: null,
+                    error: {
+                      code: status === 401 ? -32001 : -32603,
+                      message: err.message || 'Erro ao processar requisição MCP.',
+                    },
+                  })
+                );
               }
             }
           });
@@ -332,9 +345,12 @@ export class MoranteHubMcpServer {
         }
 
         // 5. Endpoint de distribuição DF-e SEFAZ (mTLS Proxy Seguro Node.js)
-        if ((pathname === '/api/nfe/dist-dfe' || pathname === '/api/sefaz/dist-dfe') && req.method === 'POST') {
+        if (
+          (pathname === '/api/nfe/dist-dfe' || pathname === '/api/sefaz/dist-dfe') &&
+          req.method === 'POST'
+        ) {
           let body = '';
-          req.on('data', chunk => {
+          req.on('data', (chunk) => {
             body += chunk;
           });
           req.on('end', async () => {
@@ -378,7 +394,9 @@ export class MoranteHubMcpServer {
         const addr = this.httpServer?.address();
         const actualPort = typeof addr === 'object' && addr ? addr.port : port;
         if (process.env.NODE_ENV !== 'test') {
-          console.log(`[MCP Server] Servidor MCP Privado do MoranteHub rodando na porta ${actualPort}`);
+          console.log(
+            `[MCP Server] Servidor MCP Privado do MoranteHub rodando na porta ${actualPort}`
+          );
         }
         resolve(actualPort);
       });
@@ -388,7 +406,7 @@ export class MoranteHubMcpServer {
   }
 
   stopHttp(): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (this.httpServer) {
         this.httpServer.close(() => resolve());
       } else {
@@ -402,12 +420,13 @@ export class MoranteHubMcpServer {
       openapi: '3.1.0',
       info: {
         title: 'MoranteHub Post Generation MCP API',
-        description: 'API Privada somente-leitura para geração de posts e consulta de produtos no MoranteHub.',
+        description:
+          'API Privada somente-leitura para geração de posts e consulta de produtos no MoranteHub.',
         version: '1.0.0',
       },
       servers: [{ url: `http://localhost:${process.env.MCP_PORT || 3333}` }],
       paths: Object.fromEntries(
-        ALL_MCP_TOOLS.map(tool => [
+        ALL_MCP_TOOLS.map((tool) => [
           `/api/tools/${tool.name}`,
           {
             post: {
@@ -429,7 +448,7 @@ export class MoranteHubMcpServer {
               },
             },
           },
-        ]),
+        ])
       ),
       components: {
         securitySchemes: {

@@ -23,13 +23,13 @@ function validateAndBuildPayload(draft: {
   paymentMethod?: string | null;
   intentType?: string | null;
 }): { success: true; payload: Record<string, any> } | { success: false; error: string } {
-
   // DIV-005: bloquear tipos legados
   const blockedIntentTypes = ['INSTALLMENT', 'PAYABLE_BILL', 'RECURRING'];
   if (draft.intentType && blockedIntentTypes.includes(draft.intentType)) {
     return {
       success: false,
-      error: 'O Assistente Financeiro registra apenas fatos realizados. Parcelamentos, boletos futuros e recorr�ncias n�o s�o suportados.',
+      error:
+        'O Assistente Financeiro registra apenas fatos realizados. Parcelamentos, boletos futuros e recorr�ncias n�o s�o suportados.',
     };
   }
 
@@ -81,12 +81,14 @@ function buildIdempotencyKey(draft: {
 }
 
 // Mirror do comportamento de batch (DIV-002)
-function resolveRenderedDrafts(pendingIntent: {
-  batchDraftsList?: any[];
-  type?: string;
-  amount?: number | null;
-  description?: string | null;
-} | null): any[] {
+function resolveRenderedDrafts(
+  pendingIntent: {
+    batchDraftsList?: any[];
+    type?: string;
+    amount?: number | null;
+    description?: string | null;
+  } | null
+): any[] {
   if (!pendingIntent) return [];
 
   // INVARIANTE: se batchDraftsList existe, � a �nica fonte de verdade
@@ -136,7 +138,9 @@ async function mockInsertWithIdempotency(
   if (idempotencyKey) {
     // Simula constraint UNIQUE do banco
     if (mockDatabase[idempotencyKey]) {
-      return { error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+      return {
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      };
     }
     const id = `tx_${Math.random().toString(36).substr(2, 9)}`;
     mockDatabase[idempotencyKey] = { id, ...payload };
@@ -169,11 +173,15 @@ async function confirmWithIdempotency(
 // DIV-002 � BATCH COMO FONTE DE VERDADE
 // =============================================================
 describe('DIV-002 � Batch como Fonte de Verdade (7 casos)', () => {
-
   it('1. "Paguei luz 100 e internet 300" ? exatamente 2 drafts no batchDraftsList', () => {
     const pendingIntent = {
       batchDraftsList: [
-        { description: 'Pagamento de conta de luz', amount: 100, type: 'expense', isRealized: true },
+        {
+          description: 'Pagamento de conta de luz',
+          amount: 100,
+          type: 'expense',
+          isRealized: true,
+        },
         { description: 'Pagamento de internet', amount: 300, type: 'expense', isRealized: true },
       ],
     };
@@ -253,7 +261,7 @@ describe('DIV-002 � Batch como Fonte de Verdade (7 casos)', () => {
       ],
     };
     // Resposta coletiva: patch em todos os itens do batch
-    const patchedBatch = existing.batchDraftsList.map(d => ({ ...d, paymentMethod: 'PIX' }));
+    const patchedBatch = existing.batchDraftsList.map((d) => ({ ...d, paymentMethod: 'PIX' }));
     const merged = mergeIntentPreservingBatch(existing, { batchDraftsList: patchedBatch });
     expect(merged.batchDraftsList).toHaveLength(2);
     expect(merged.batchDraftsList![0].paymentMethod).toBe('PIX');
@@ -286,7 +294,6 @@ describe('DIV-002 � Batch como Fonte de Verdade (7 casos)', () => {
 // DIV-003 � IDEMPOT�NCIA UNIQUE REAL
 // =============================================================
 describe('DIV-003 � Idempot�ncia UNIQUE Real (7 casos)', () => {
-
   it('1. Mesma chave enviada duas vezes sequencialmente ? 1 registro', async () => {
     const db: Record<string, any> = {};
     const key = 'ai_luz_100_2026-09-06_idx0';
@@ -318,8 +325,8 @@ describe('DIV-003 � Idempot�ncia UNIQUE Real (7 casos)', () => {
     // Simula duas chamadas "simult�neas" (sem await verdadeiro concorrente em JS puro)
     const [r1, r2] = await Promise.all([atomicInsert(key), atomicInsert(key)]);
     const results = [r1, r2];
-    expect(results.filter(r => r === 'ok')).toHaveLength(1);
-    expect(results.filter(r => r === 'duplicate')).toHaveLength(1);
+    expect(results.filter((r) => r === 'ok')).toHaveLength(1);
+    expect(results.filter((r) => r === 'duplicate')).toHaveLength(1);
     expect(Object.keys(db)).toHaveLength(1);
   });
 
@@ -348,7 +355,10 @@ describe('DIV-003 � Idempot�ncia UNIQUE Real (7 casos)', () => {
 
   it('5. Edi��o de notes n�o quebra idempot�ncia (chave � idempotency_key, n�o notes)', async () => {
     const key = 'ai_agua_50_2026-09-06_nobreak';
-    const r1 = await confirmWithIdempotency({ type: 'expense', amount: 50, notes: 'original' }, key);
+    const r1 = await confirmWithIdempotency(
+      { type: 'expense', amount: 50, notes: 'original' },
+      key
+    );
     expect(r1.success).toBe(true);
 
     // "Editar" notes internamente n�o afeta a chave
@@ -384,7 +394,6 @@ describe('DIV-003 � Idempot�ncia UNIQUE Real (7 casos)', () => {
 // DIV-005 � BLOQUEIO DE TIPOS FUTUROS/PARCELAMENTO/RECORR�NCIA
 // =============================================================
 describe('DIV-005 � Bloqueio de Persist�ncia Legada (4 casos)', () => {
-
   it('1. intentType INSTALLMENT ? erro de dom�nio, nenhum registro criado', () => {
     const result = validateAndBuildPayload({
       intentType: 'INSTALLMENT',
@@ -438,7 +447,6 @@ describe('DIV-005 � Bloqueio de Persist�ncia Legada (4 casos)', () => {
 // DIV-006 � REMOVER amount || 0
 // =============================================================
 describe('DIV-006 � Remo��o de amount || 0 (3 casos)', () => {
-
   it('1. amount: null ? valida��o rejeita com mensagem clara (n�o transforma em zero)', () => {
     const result = validateAndBuildPayload({
       type: 'expense',
@@ -479,7 +487,6 @@ describe('DIV-006 � Remo��o de amount || 0 (3 casos)', () => {
 // DIV-008 � REMOVER DEFAULTS SILENCIOSOS
 // =============================================================
 describe('DIV-008 � Sem Defaults Silenciosos (5 casos)', () => {
-
   it('1. businessPurpose: UNKNOWN ? confirma��o bloqueada com mensagem explicativa', () => {
     const result = validateAndBuildPayload({
       type: 'expense',

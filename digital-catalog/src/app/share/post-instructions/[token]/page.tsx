@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase/client';
 
 export const metadata: Metadata = {
   title: 'Móveis Morante — Instruções de Criação de Post (IA)',
-  description: 'Especificação técnica e prompt estruturado para criação de post visual para IA externa (ChatGPT / Gemini).',
+  description:
+    'Especificação técnica e prompt estruturado para criação de post visual para IA externa (ChatGPT / Gemini).',
   robots: {
     index: false,
     follow: false,
@@ -38,7 +39,8 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
           </div>
           <h1 className="text-xl font-black text-slate-100 mb-2">Instruções Indisponíveis</h1>
           <p className="text-sm text-slate-400 mb-6">
-            Este link de instruções para IA foi revogado ou expirou. Solicite um novo link ao operador do sistema ERP.
+            Este link de instruções para IA foi revogado ou expirou. Solicite um novo link ao
+            operador do sistema ERP.
           </p>
         </div>
       </main>
@@ -81,9 +83,7 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
     .order('created_at', { ascending: false });
 
   // 4. Buscar Element Models
-  const { data: models } = await supabase
-    .from('campaign_element_models')
-    .select('*');
+  const { data: models } = await supabase.from('campaign_element_models').select('*');
 
   const activeCampaigns = campaigns || [];
   const productOpportunityId = product?.opportunity_id || null;
@@ -146,9 +146,10 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
             <span>Regra de Fidelidade Absoluta (Anti-Alucinação)</span>
           </div>
           <p className="text-xs text-red-200/90 leading-relaxed">
-            As fotos abaixo são a fonte visual de verdade. A IA <strong>NÃO</strong> deve redesenhar o móvel,
-            inventar modelo semelhante, alterar número de portas, puxadores, gavetas, pés ou combinar peças de variações diferentes.
-            Apenas o cenário/ambientação de fundo pode ser gerado pela IA.
+            As fotos abaixo são a fonte visual de verdade. A IA <strong>NÃO</strong> deve redesenhar
+            o móvel, inventar modelo semelhante, alterar número de portas, puxadores, gavetas, pés
+            ou combinar peças de variações diferentes. Apenas o cenário/ambientação de fundo pode
+            ser gerado pela IA.
           </p>
         </section>
 
@@ -205,7 +206,9 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
                       Selo Oficial
                     </span>
-                    <p className="text-xs font-bold text-white mt-1 truncate">{officialBadgeName}</p>
+                    <p className="text-xs font-bold text-white mt-1 truncate">
+                      {officialBadgeName}
+                    </p>
                     <a
                       href={officialBadgeUrl}
                       target="_blank"
@@ -350,7 +353,9 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
               )}
             </div>
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 sm:col-span-2">
-              <span className="text-slate-500 font-bold block mb-1">Página Oficial do Produto (Catálogo)</span>
+              <span className="text-slate-500 font-bold block mb-1">
+                Página Oficial do Produto (Catálogo)
+              </span>
               <a
                 href={productCatalogUrl}
                 target="_blank"
@@ -372,10 +377,15 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
             {activeCampaigns.map((camp) => {
               const campModels = allModels.filter((m) => m.campaign_id === camp.id);
               return (
-                <div key={camp.id} className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                <div
+                  key={camp.id}
+                  className="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3"
+                >
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <h3 className="font-bold text-slate-100">{camp.name}</h3>
-                    <span className="text-[11px] font-mono text-slate-500">ID: {camp.slug || camp.id}</span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      ID: {camp.slug || camp.id}
+                    </span>
                   </div>
 
                   {camp.instructions && (
@@ -391,9 +401,16 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
                     </span>
                     <div className="grid sm:grid-cols-2 gap-2 text-xs">
                       {campModels.map((m) => (
-                        <div key={m.id} className="bg-slate-900 p-3 rounded-lg border border-slate-800/60 space-y-1">
-                          <span className="font-bold text-indigo-300 text-[11px] block">{m.element_type}</span>
-                          <p className="text-slate-300 text-[11px] line-clamp-3">{m.prompt || m.instructions}</p>
+                        <div
+                          key={m.id}
+                          className="bg-slate-900 p-3 rounded-lg border border-slate-800/60 space-y-1"
+                        >
+                          <span className="font-bold text-indigo-300 text-[11px] block">
+                            {m.element_type}
+                          </span>
+                          <p className="text-slate-300 text-[11px] line-clamp-3">
+                            {m.prompt || m.instructions}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -410,11 +427,12 @@ export default async function SharePostInstructionsPage({ params }: PageProps) {
             4. Prompt Estruturado Pronto para ChatGPT / Gemini
           </h2>
           <p className="text-xs text-slate-400">
-            Copie o bloco abaixo e cole diretamente na sua IA externa preferida (ChatGPT, Gemini ou Midjourney/DALL-E) para gerar a imagem final.
+            Copie o bloco abaixo e cole diretamente na sua IA externa preferida (ChatGPT, Gemini ou
+            Midjourney/DALL-E) para gerar a imagem final.
           </p>
 
           <pre className="bg-slate-950 p-5 rounded-xl border border-slate-800 text-xs font-mono text-emerald-400 whitespace-pre-wrap overflow-x-auto select-all max-h-96">
-{`==================================================
+            {`==================================================
 MÓVEIS MORANTE — INSTRUÇÕES DE CRIAÇÃO DE POST
 ==================================================
 

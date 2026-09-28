@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, FileText } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 
@@ -71,37 +64,57 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
   useEffect(() => {
     const query = ncmSearch.trim();
-    if (query.length < 2 || /^\d{8}$/.test(query)) { setNcmResults([]); return; }
+    if (query.length < 2 || /^\d{8}$/.test(query)) {
+      setNcmResults([]);
+      return;
+    }
     let cancelled = false;
     const timer = setTimeout(async () => {
       setNcmLoading(true);
       try {
-        const { data, error } = await supabase.rpc('search_ncms', { search_term: query, max_results: 10 });
+        const { data, error } = await supabase.rpc('search_ncms', {
+          search_term: query,
+          max_results: 10,
+        });
         if (error) throw error;
         if (!cancelled) setNcmResults(data || []);
       } catch (error) {
         console.warn('[ProductFormFiscalTab] Falha ao pesquisar NCM:', error);
         if (!cancelled) setNcmResults([]);
-      } finally { if (!cancelled) setNcmLoading(false); }
+      } finally {
+        if (!cancelled) setNcmLoading(false);
+      }
     }, 300);
-    return () => { cancelled = true; clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [ncmSearch]);
 
   useEffect(() => {
     const code = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
-    if (code.length !== 8) { setNcmCatalog(null); return; }
+    if (code.length !== 8) {
+      setNcmCatalog(null);
+      return;
+    }
     let cancelled = false;
-    supabase.from('ncms').select('code, official_description, active, start_date, end_date')
-      .eq('code', code).maybeSingle().then(({ data, error }) => {
+    supabase
+      .from('ncms')
+      .select('code, official_description, active, start_date, end_date')
+      .eq('code', code)
+      .maybeSingle()
+      .then(({ data, error }) => {
         if (!cancelled && !error) setNcmCatalog(data);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [formData.fiscal?.ncm]);
 
   const fiscal = formData.fiscal || {};
 
   const setFiscalField = (field: string, val: any) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       fiscal: {
         ...(prev.fiscal || {}),
@@ -110,9 +123,11 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
     }));
   };
 
-  const selectedCfop = CFOP_OPTIONS.find(c => c.value === (fiscal.cfop || '5102'));
-  const selectedCsosn = CSOSN_OPTIONS.find(c => c.value === (fiscal.cst || fiscal.csosn || '102'));
-  const selectedOrigem = ORIGEM_OPTIONS.find(o => o.value === String(fiscal.origem ?? '0'));
+  const selectedCfop = CFOP_OPTIONS.find((c) => c.value === (fiscal.cfop || '5102'));
+  const selectedCsosn = CSOSN_OPTIONS.find(
+    (c) => c.value === (fiscal.cst || fiscal.csosn || '102')
+  );
+  const selectedOrigem = ORIGEM_OPTIONS.find((o) => o.value === String(fiscal.origem ?? '0'));
 
   return (
     <View style={styles.container}>
@@ -120,16 +135,22 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
       <View style={[styles.card, dark && styles.darkCard]}>
         <View style={styles.cardHeader}>
           <FileText size={16} color="#2563eb" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>Classificação Fiscal (NCM)</Text>
+          <Text style={[styles.cardTitle, dark && styles.lightText]}>
+            Classificação Fiscal (NCM)
+          </Text>
         </View>
 
         <View style={styles.field}>
           {formData.itemType === 'service' && (
             <>
-              <Text style={[styles.label, dark && styles.dimText]}>Código Municipal / Serviço (LC 116/03) *</Text>
+              <Text style={[styles.label, dark && styles.dimText]}>
+                Código Municipal / Serviço (LC 116/03) *
+              </Text>
               <TextInput
                 value={fiscal.codigoServico || ''}
-                onChangeText={value => setFiscalField('codigoServico', value.replace(/\D/g, '').slice(0, 8))}
+                onChangeText={(value) =>
+                  setFiscalField('codigoServico', value.replace(/\D/g, '').slice(0, 8))
+                }
                 keyboardType="numeric"
                 placeholder="Ex: 0101"
                 placeholderTextColor="#94a3b8"
@@ -140,7 +161,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           <Text style={[styles.label, dark && styles.dimText]}>Código NCM (8 dígitos)</Text>
           <TextInput
             value={ncmSearch}
-            onChangeText={v => {
+            onChangeText={(v) => {
               setNcmSearch(v);
               if (/^\d{8}$/.test(v.trim())) setFiscalField('ncm', v.trim());
               else if (!v.trim()) setFiscalField('ncm', '');
@@ -154,12 +175,16 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
             <View style={[styles.dropdownBox, dark && styles.darkCard]}>
               <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
                 {ncmResults.map((result: any) => (
-                  <TouchableOpacity key={result.code} onPress={() => {
-                    setFiscalField('ncm', result.code);
-                    setFiscalField('ncmDescription', result.official_description);
-                    setNcmSearch(result.code);
-                    setNcmResults([]);
-                  }} style={styles.dropdownItem}>
+                  <TouchableOpacity
+                    key={result.code}
+                    onPress={() => {
+                      setFiscalField('ncm', result.code);
+                      setFiscalField('ncmDescription', result.official_description);
+                      setNcmSearch(result.code);
+                      setNcmResults([]);
+                    }}
+                    style={styles.dropdownItem}
+                  >
                     <Text style={[styles.ncmCode, dark && styles.lightText]}>{result.code}</Text>
                     <Text style={styles.ncmDesc}>{result.official_description}</Text>
                   </TouchableOpacity>
@@ -167,17 +192,24 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
               </ScrollView>
             </View>
           )}
-          {ncmCatalog && <Text style={[styles.ncmDesc, { color: ncmCatalog.active ? '#15803d' : '#b45309' }]}>
-            {ncmCatalog.active ? 'Código ativo no catálogo oficial' : 'Atenção: código inativo no catálogo oficial'}
-          </Text>}
+          {ncmCatalog && (
+            <Text style={[styles.ncmDesc, { color: ncmCatalog.active ? '#15803d' : '#b45309' }]}>
+              {ncmCatalog.active
+                ? 'Código ativo no catálogo oficial'
+                : 'Atenção: código inativo no catálogo oficial'}
+            </Text>
+          )}
         </View>
 
-        {(['201', '202', '500'].includes(fiscal.cst || fiscal.csosn || '') || Boolean(fiscal.cest)) && (
+        {(['201', '202', '500'].includes(fiscal.cst || fiscal.csosn || '') ||
+          Boolean(fiscal.cest)) && (
           <View style={styles.field}>
-            <Text style={[styles.label, dark && styles.dimText]}>CEST (Substituição Tributária)</Text>
+            <Text style={[styles.label, dark && styles.dimText]}>
+              CEST (Substituição Tributária)
+            </Text>
             <TextInput
               value={fiscal.cest || ''}
-              onChangeText={v => setFiscalField('cest', v.replace(/\D/g, '').slice(0, 7))}
+              onChangeText={(v) => setFiscalField('cest', v.replace(/\D/g, '').slice(0, 7))}
               keyboardType="numeric"
               placeholder="Ex: 2806100"
               placeholderTextColor="#94a3b8"
@@ -189,11 +221,15 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
       {/* CFOP & CSOSN Card */}
       <View style={[styles.card, dark && styles.darkCard]}>
-        <Text style={[styles.cardTitle, dark && styles.lightText]}>Regime Tributário & Tributos</Text>
+        <Text style={[styles.cardTitle, dark && styles.lightText]}>
+          Regime Tributário & Tributos
+        </Text>
 
         {/* CFOP */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'CFOP Padrão (Municipal)' : 'CFOP Padrão (Estadual)'}</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>
+            {formData.itemType === 'service' ? 'CFOP Padrão (Municipal)' : 'CFOP Padrão (Estadual)'}
+          </Text>
           <TouchableOpacity
             onPress={() => setShowCfopPicker(!showCfopPicker)}
             style={[styles.selectBtn, dark && styles.darkInput]}
@@ -205,7 +241,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           </TouchableOpacity>
           {showCfopPicker && (
             <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-              {CFOP_OPTIONS.map(opt => (
+              {CFOP_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt.value}
                   onPress={() => {
@@ -214,7 +250,9 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
                   }}
                   style={styles.dropdownItem}
                 >
-                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>{opt.label}</Text>
+                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                    {opt.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -223,7 +261,11 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
         {/* CSOSN / CST */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'CST / CSOSN ISSQN' : 'CST / CSOSN ICMS (Simples Nacional)'}</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>
+            {formData.itemType === 'service'
+              ? 'CST / CSOSN ISSQN'
+              : 'CST / CSOSN ICMS (Simples Nacional)'}
+          </Text>
           <TouchableOpacity
             onPress={() => setShowCsosnPicker(!showCsosnPicker)}
             style={[styles.selectBtn, dark && styles.darkInput]}
@@ -235,7 +277,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           </TouchableOpacity>
           {showCsosnPicker && (
             <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-              {CSOSN_OPTIONS.map(opt => (
+              {CSOSN_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt.value}
                   onPress={() => {
@@ -245,7 +287,9 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
                   }}
                   style={styles.dropdownItem}
                 >
-                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>{opt.label}</Text>
+                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                    {opt.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -266,7 +310,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           </TouchableOpacity>
           {showOrigemPicker && (
             <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-              {ORIGEM_OPTIONS.map(opt => (
+              {ORIGEM_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt.value}
                   onPress={() => {
@@ -275,7 +319,9 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
                   }}
                   style={styles.dropdownItem}
                 >
-                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>{opt.label}</Text>
+                  <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                    {opt.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -284,12 +330,22 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
         {/* ICMS % */}
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.dimText]}>{formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>
+            {formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}
+          </Text>
           <TextInput
-            value={formData.itemType === 'service'
-              ? (fiscal.issPercent !== undefined ? String(fiscal.issPercent) : '')
-              : (fiscal.icmsPercent !== undefined ? String(fiscal.icmsPercent) : '')}
-            onChangeText={v => setFiscalField(formData.itemType === 'service' ? 'issPercent' : 'icmsPercent', v)}
+            value={
+              formData.itemType === 'service'
+                ? fiscal.issPercent !== undefined
+                  ? String(fiscal.issPercent)
+                  : ''
+                : fiscal.icmsPercent !== undefined
+                  ? String(fiscal.icmsPercent)
+                  : ''
+            }
+            onChangeText={(v) =>
+              setFiscalField(formData.itemType === 'service' ? 'issPercent' : 'icmsPercent', v)
+            }
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor="#94a3b8"
@@ -302,24 +358,41 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           const visible = isPis ? showPisPicker : showCofinsPicker;
           const setVisible = isPis ? setShowPisPicker : setShowCofinsPicker;
           const value = fiscal[field] || '49';
-          const selected = PIS_COFINS_OPTIONS.find(option => option.value === value);
+          const selected = PIS_COFINS_OPTIONS.find((option) => option.value === value);
           return (
             <View key={field} style={styles.field}>
-              <Text style={[styles.label, dark && styles.dimText]}>{isPis ? 'PIS CST' : 'COFINS CST'}</Text>
-              <TouchableOpacity onPress={() => setVisible(!visible)} style={[styles.selectBtn, dark && styles.darkInput]}>
-                <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>{selected?.label || value}</Text>
+              <Text style={[styles.label, dark && styles.dimText]}>
+                {isPis ? 'PIS CST' : 'COFINS CST'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setVisible(!visible)}
+                style={[styles.selectBtn, dark && styles.darkInput]}
+              >
+                <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
+                  {selected?.label || value}
+                </Text>
                 <ChevronDown size={14} color="#94a3b8" />
               </TouchableOpacity>
-              {visible && <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-                <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
-                  {PIS_COFINS_OPTIONS.map(option => <TouchableOpacity key={option.value} onPress={() => {
-                    setFiscalField(field, option.value);
-                    setVisible(false);
-                  }} style={styles.dropdownItem}>
-                    <Text style={[styles.dropdownItemText, dark && styles.lightText]}>{option.label}</Text>
-                  </TouchableOpacity>)}
-                </ScrollView>
-              </View>}
+              {visible && (
+                <View style={[styles.dropdownBox, dark && styles.darkCard]}>
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
+                    {PIS_COFINS_OPTIONS.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        onPress={() => {
+                          setFiscalField(field, option.value);
+                          setVisible(false);
+                        }}
+                        style={styles.dropdownItem}
+                      >
+                        <Text style={[styles.dropdownItemText, dark && styles.lightText]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           );
         })}
@@ -330,7 +403,14 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
 
 const styles = StyleSheet.create({
   container: { gap: 14 },
-  card: { backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, gap: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  card: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
   darkCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
@@ -338,12 +418,43 @@ const styles = StyleSheet.create({
   dimText: { color: '#94a3b8' },
   field: { gap: 6 },
   label: { fontSize: 10, fontWeight: '800', color: '#475569', textTransform: 'uppercase' },
-  input: { height: 44, backgroundColor: '#ffffff', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 13, fontWeight: '700', color: '#0f172a' },
+  input: {
+    height: 44,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
   darkInput: { backgroundColor: '#0f172a', borderColor: '#334155' },
-  selectBtn: { height: 44, backgroundColor: '#ffffff', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e2e8f0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectBtn: {
+    height: 44,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   selectBtnText: { fontSize: 12, fontWeight: '700', color: '#0f172a', flex: 1 },
-  dropdownBox: { backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden' },
-  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  dropdownBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
   dropdownItemText: { fontSize: 12, fontWeight: '700', color: '#0f172a' },
   ncmCode: { fontSize: 12, fontWeight: '900', color: '#2563eb' },
   ncmDesc: { fontSize: 11, color: '#64748b', marginTop: 2 },

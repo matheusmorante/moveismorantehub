@@ -45,20 +45,27 @@ export const CategorySelectModal: React.FC<Props> = ({
     let result = categories;
     if (searchText.trim()) {
       const term = normalize(searchText);
-      result = categories.filter(c => normalize(c.name).includes(term));
+      result = categories.filter((c) => normalize(c.name).includes(term));
     }
     return sortCategoriesWithOthersAtEnd(result);
   }, [categories, searchText]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Folder size={18} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>Selecionar Categoria</Text>
+              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
+                Selecionar Categoria
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
@@ -87,7 +94,7 @@ export const CategorySelectModal: React.FC<Props> = ({
           {/* List */}
           <FlatList
             data={filteredCategories}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
@@ -107,7 +114,8 @@ export const CategorySelectModal: React.FC<Props> = ({
                   style={[
                     styles.itemRow,
                     isDarkMode && styles.itemRowDark,
-                    isSelected && (isDarkMode ? styles.itemRowSelectedDark : styles.itemRowSelected),
+                    isSelected &&
+                      (isDarkMode ? styles.itemRowSelectedDark : styles.itemRowSelected),
                   ]}
                   onPress={() => {
                     onSelectCategory(item);

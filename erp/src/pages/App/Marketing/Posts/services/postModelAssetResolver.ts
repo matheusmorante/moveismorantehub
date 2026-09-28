@@ -46,7 +46,10 @@ export function extractProductImagesFromProduct(product: any): SemanticProductIm
   };
 }
 
-export function resolveModelAssets(template: PostTemplate, opportunityName?: string): ResolvedModelAssets {
+export function resolveModelAssets(
+  template: PostTemplate,
+  opportunityName?: string
+): ResolvedModelAssets {
   const assets = template.assets || [];
 
   let primaryVisualReference: PostModelAsset | undefined = assets.find(

@@ -2,7 +2,8 @@ const { Client } = require('pg');
 const fs = require('fs');
 
 const client = new Client({
-  connectionString: 'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres'
+  connectionString:
+    'postgresql://postgres:Morantenho%4012345@db.hkoxhourxwlddgsfdgws.supabase.co:5432/postgres',
 });
 
 async function run() {
@@ -20,9 +21,17 @@ async function run() {
 
   // 2. Colunas de tabelas relevantes: orders, inbound_invoices, goods_receipts, purchases, inventory_moves, financial_transactions
   const targetTables = [
-    'orders', 'inbound_invoices', 'goods_receipts', 'purchases', 
-    'inventory_moves', 'financial_transactions', 'people', 'products',
-    'product_variations', 'delivery_summaries', 'sefaz_nsu_control'
+    'orders',
+    'inbound_invoices',
+    'goods_receipts',
+    'purchases',
+    'inventory_moves',
+    'financial_transactions',
+    'people',
+    'products',
+    'product_variations',
+    'delivery_summaries',
+    'sefaz_nsu_control',
   ];
 
   const tableDetails = {};
@@ -45,7 +54,7 @@ async function run() {
 
     tableDetails[t] = {
       count: parseInt(count, 10),
-      columns: cols
+      columns: cols,
     };
   }
 
@@ -82,12 +91,12 @@ async function run() {
   `);
 
   const output = {
-    allTables: allTables.map(t => `${t.table_name} (${t.table_type})`),
+    allTables: allTables.map((t) => `${t.table_name} (${t.table_type})`),
     tableDetails,
     orderItemsSample,
     orderDataSample,
     inboundItemsSample,
-    purchaseItemsSample
+    purchaseItemsSample,
   };
 
   fs.writeFileSync('src/scratch/detailed_audit_data.json', JSON.stringify(output, null, 2));
@@ -96,7 +105,7 @@ async function run() {
   await client.end();
 }
 
-run().catch(err => {
+run().catch((err) => {
   console.error(err);
   process.exit(1);
 });

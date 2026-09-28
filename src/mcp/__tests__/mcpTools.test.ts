@@ -19,7 +19,7 @@ describe('MCP Tools Suite (Read-Only & Zod Schema Validation)', () => {
   it('1. Confirma que existem exatamente 9 tools e TODAS são 100% Read-Only', () => {
     expect(ALL_MCP_TOOLS).toHaveLength(9);
 
-    ALL_MCP_TOOLS.forEach(tool => {
+    ALL_MCP_TOOLS.forEach((tool) => {
       expect(tool.annotations.readOnlyHint).toBe(true);
       expect(tool.annotations.destructiveHint).toBe(false);
       expect(tool.annotations.idempotentHint).toBe(true);
@@ -101,7 +101,7 @@ describe('MCP Tools Suite (Read-Only & Zod Schema Validation)', () => {
   it('6. get_store_assets retorna logo oficial e selos', async () => {
     const res = await getStoreAssetsTool.handler({});
     expect(res.assets.length).toBeGreaterThanOrEqual(2);
-    expect(res.assets.some(a => a.category === 'logo')).toBe(true);
+    expect(res.assets.some((a) => a.category === 'logo')).toBe(true);
   });
 
   it('7. get_generated_post_references marca imagens como generated_reference', async () => {
@@ -126,8 +126,21 @@ describe('MCP Tools Suite (Read-Only & Zod Schema Validation)', () => {
       product: { id: '123', name: 'Monza', slug: 'monza', status: 'active', description: '' },
       commercialData: { price: 999.9, installment: '10x' },
       variations: [],
-      productImages: { primary: null, openView: null, secondary: null, variationGallery: [], allImages: [] },
-      campaign: { id: 'camp-1', name: 'Padrão', description: '', active: true, availableFormats: ['4:5'], prompts: [] },
+      productImages: {
+        primary: null,
+        openView: null,
+        secondary: null,
+        variationGallery: [],
+        allImages: [],
+      },
+      campaign: {
+        id: 'camp-1',
+        name: 'Padrão',
+        description: '',
+        active: true,
+        availableFormats: ['4:5'],
+        prompts: [],
+      },
       campaignAssets: [],
       storeAssets: [],
       generatedReferences: [],
@@ -140,14 +153,28 @@ describe('MCP Tools Suite (Read-Only & Zod Schema Validation)', () => {
       },
     });
 
-    const ctxRes = await getPostGenerationContextTool.handler({ productId: '123', campaign: 'Padrão' });
+    const ctxRes = await getPostGenerationContextTool.handler({
+      productId: '123',
+      campaign: 'Padrão',
+    });
     expect(ctxRes.product.name).toBe('Monza');
     expect(ctxRes.sourceOfTruth.productData).toBe('morantehub_erp');
 
     vi.spyOn(mcpPostContextService, 'buildPostPromptContext').mockResolvedValueOnce({
-      briefing: { productTitle: 'Monza', category: 'Móveis', targetFormat: 'Feed', aspectRatio: '4:5', dimensions: '1080 × 1350' },
+      briefing: {
+        productTitle: 'Monza',
+        category: 'Móveis',
+        targetFormat: 'Feed',
+        aspectRatio: '4:5',
+        dimensions: '1080 × 1350',
+      },
       commercialHighlights: { currentPriceFormatted: 'R$ 999,90', installmentText: '10x' },
-      visualAssets: { primaryProductImageUrl: 'https://cdn.com/foto.jpg', otherVariationImages: [], officialLogoUrl: 'https://cdn.com/logo.png', referencePostImages: [] },
+      visualAssets: {
+        primaryProductImageUrl: 'https://cdn.com/foto.jpg',
+        otherVariationImages: [],
+        officialLogoUrl: 'https://cdn.com/logo.png',
+        referencePostImages: [],
+      },
       campaignDirectives: { generalRule: 'Regra', elementInstructions: [] },
       hardConstraints: ['Restrição 1', 'Restrição 2'],
     });

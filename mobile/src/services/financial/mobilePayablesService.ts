@@ -17,7 +17,7 @@ export const fetchPayableAccounts = async (): Promise<FinancialTransaction[]> =>
     return [];
   }
 
-  const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
   return (data || []).map((row: any) => ({
     id: row.id,
@@ -28,7 +28,10 @@ export const fetchPayableAccounts = async (): Promise<FinancialTransaction[]> =>
     description: row.description,
     payment_method: row.payment_method || 'Boleto',
     category_id: row.category_id,
-    category_name: (row.category_id && categoryMap.get(row.category_id)) || row.category_name || 'Despesa não classificada',
+    category_name:
+      (row.category_id && categoryMap.get(row.category_id)) ||
+      row.category_name ||
+      'Despesa não classificada',
     result_nature: row.result_nature || determineResultNature(row.category_name, row.type),
     account_id: 'Caixa Geral',
     counterparty: row.counterparty || null,
@@ -64,7 +67,9 @@ export const calculateInstallments = (
 
   for (let i = 0; i < count; i++) {
     const isLast = i === count - 1;
-    const installmentAmount = isLast ? Math.round((baseAmount + remainder) * 100) / 100 : baseAmount;
+    const installmentAmount = isLast
+      ? Math.round((baseAmount + remainder) * 100) / 100
+      : baseAmount;
 
     let dueDateStr: string;
     if (daysIntervals && daysIntervals.length >= count) {
@@ -141,14 +146,14 @@ export const findMatchingPayableAccount = async (
     if (payables.length === 0) return null;
 
     if (amount && amount > 0) {
-      const matchByAmount = payables.find(p => Math.abs(p.amount - amount) < 0.01);
+      const matchByAmount = payables.find((p) => Math.abs(p.amount - amount) < 0.01);
       if (matchByAmount) return matchByAmount;
     }
 
     if (queryText && queryText.trim()) {
       const q = queryText.toLowerCase().trim();
       const matchByQuery = payables.find(
-        p =>
+        (p) =>
           p.description.toLowerCase().includes(q) ||
           (p.counterparty && p.counterparty.toLowerCase().includes(q)) ||
           (p.category_name && p.category_name.toLowerCase().includes(q))

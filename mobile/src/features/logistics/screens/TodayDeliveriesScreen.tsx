@@ -1,8 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  StatusBar,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Map, List, Sparkles, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react-native';
-import { useDeliveryRoute, DeliveryRouteItem, checkOutOfOrderRisk } from '../hooks/useDeliveryRoute';
+import {
+  useDeliveryRoute,
+  DeliveryRouteItem,
+  checkOutOfOrderRisk,
+} from '../hooks/useDeliveryRoute';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { useTeamLocations } from '../hooks/useTeamLocations';
@@ -12,7 +25,11 @@ import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
 import { RouteProgressHeader } from '../components/deliveryMap/RouteProgressHeader';
 import { RouteOptimizationModal } from '../components/deliveryMap/RouteOptimizationModal';
 import { RouteListView } from '../components/routeList/RouteListView';
-import { calculateOptimizedRoute, applyOptimizedSequence, OptimizationResult } from '../services/routeOptimizationService';
+import {
+  calculateOptimizedRoute,
+  applyOptimizedSequence,
+  OptimizationResult,
+} from '../services/routeOptimizationService';
 
 interface Props {
   isDarkMode?: boolean;
@@ -28,7 +45,10 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 12);
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 12
+  );
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   // Por padrão, nenhum card fica aberto na tela até que o motorista clique em um marcador
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
@@ -40,7 +60,8 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const [applyingOptimization, setApplyingOptimization] = useState(false);
 
   // Hooks de Dados e Localização
-  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } = useDeliveryRoute();
+  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } =
+    useDeliveryRoute();
   const { coords: driverCoords, refreshLocation } = useDriverLocation();
   const { teamMembers } = useTeamLocations({
     userProfile,
@@ -49,10 +70,13 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   });
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306, lado esquerdo)
-  const storeCoords = useMemo(() => ({
-    latitude: -25.35205,
-    longitude: -49.16948,
-  }), []);
+  const storeCoords = useMemo(
+    () => ({
+      latitude: -25.35205,
+      longitude: -49.16948,
+    }),
+    []
+  );
 
   // Alvo ativo da rota: SOMENTE a parada clicada pelo motorista no mapa (sem rota forçada por padrão)
   const activeDeliveryTarget = selectedMarkerItem;
@@ -72,16 +96,18 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 
   // Métricas do Roteiro Restante Inteiro (Soma de todas as paradas pendentes)
   const totalRemainingMetrics = useMemo(() => {
-    const pendingItems = routeItems.filter(i => i.status !== 'completed' && i.status !== 'unattended');
+    const pendingItems = routeItems.filter(
+      (i) => i.status !== 'completed' && i.status !== 'unattended'
+    );
     let totalKm = 0;
     let totalMin = 0;
-    pendingItems.forEach(item => {
+    pendingItems.forEach((item) => {
       if (item.distanceKm) totalKm += item.distanceKm;
       if (item.durationMin) totalMin += item.durationMin;
     });
 
-    const finalKm = totalKm > 0 ? totalKm : (distanceKm || 0);
-    const finalMin = totalMin > 0 ? totalMin : (durationMin || 0);
+    const finalKm = totalKm > 0 ? totalKm : distanceKm || 0;
+    const finalMin = totalMin > 0 ? totalMin : durationMin || 0;
 
     return {
       totalKm: finalKm > 0 ? finalKm : undefined,
@@ -101,7 +127,9 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             text: 'Voltar para a sugerida',
             style: 'cancel',
             onPress: () => {
-              const suggested = routeItems.find(i => i.isSuggestedFirst || i.status === 'pending');
+              const suggested = routeItems.find(
+                (i) => i.isSuggestedFirst || i.status === 'pending'
+              );
               if (suggested) setSelectedMarkerItem(suggested);
             },
           },
@@ -159,13 +187,18 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
       <View style={[styles.topBar, { paddingTop: topInset }, isDarkMode && styles.topBarDark]}>
         <View style={styles.topRow}>
           {onBack && (
-            <TouchableOpacity onPress={onBack} style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}>
+            <TouchableOpacity
+              onPress={onBack}
+              style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}
+            >
               <ArrowLeft size={18} color={isDarkMode ? '#cbd5e1' : '#475569'} />
             </TouchableOpacity>
           )}
 
           <View style={{ flex: 1 }}>
-            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>Entregas de Hoje</Text>
+            <Text style={[styles.screenTitle, isDarkMode && styles.textLight]}>
+              Entregas de Hoje
+            </Text>
             <Text style={[styles.screenSubtitle, isDarkMode && styles.textMuted]}>
               {stats.total} {stats.total === 1 ? 'parada programada' : 'paradas programadas'}
             </Text>
@@ -181,7 +214,10 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             onPress={() => setViewMode('map')}
             activeOpacity={0.8}
           >
-            <Map size={14} color={viewMode === 'map' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <Map
+              size={14}
+              color={viewMode === 'map' ? '#2563eb' : isDarkMode ? '#94a3b8' : '#64748b'}
+            />
             <Text style={[styles.toggleBtnText, viewMode === 'map' && styles.toggleBtnTextActive]}>
               Mapa
             </Text>
@@ -192,7 +228,10 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             onPress={() => setViewMode('list')}
             activeOpacity={0.8}
           >
-            <List size={14} color={viewMode === 'list' ? '#2563eb' : (isDarkMode ? '#94a3b8' : '#64748b')} />
+            <List
+              size={14}
+              color={viewMode === 'list' ? '#2563eb' : isDarkMode ? '#94a3b8' : '#64748b'}
+            />
             <Text style={[styles.toggleBtnText, viewMode === 'list' && styles.toggleBtnTextActive]}>
               Lista ({stats.total})
             </Text>
@@ -215,7 +254,9 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
       {loading ? (
         <View style={styles.loadingCenter}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>Carregando roteiro...</Text>
+          <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
+            Carregando roteiro...
+          </Text>
         </View>
       ) : viewMode === 'map' ? (
         <View style={styles.mapArea}>

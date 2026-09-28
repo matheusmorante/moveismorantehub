@@ -5,7 +5,7 @@ export async function copyLabelImageToClipboard(element: HTMLElement | null): Pr
   if (!element) return;
   const hiddenEls = element.querySelectorAll('[data-hide-export="true"]');
   try {
-    hiddenEls.forEach(el => ((el as HTMLElement).style.display = 'none'));
+    hiddenEls.forEach((el) => ((el as HTMLElement).style.display = 'none'));
 
     const canvas = await html2canvas(element, {
       scale: 1,
@@ -14,7 +14,7 @@ export async function copyLabelImageToClipboard(element: HTMLElement | null): Pr
       width: element.clientWidth,
       height: element.clientHeight,
       scrollX: 0,
-      scrollY: 0
+      scrollY: 0,
     });
 
     canvas.toBlob(async (blob) => {
@@ -30,15 +30,18 @@ export async function copyLabelImageToClipboard(element: HTMLElement | null): Pr
     toast.error('Erro ao copiar imagem.');
   } finally {
     // Garante restauração incondicional dos elementos de controle e seleção
-    hiddenEls.forEach(el => ((el as HTMLElement).style.display = ''));
+    hiddenEls.forEach((el) => ((el as HTMLElement).style.display = ''));
   }
 }
 
-export async function downloadLabelImage(element: HTMLElement | null, filename: string): Promise<void> {
+export async function downloadLabelImage(
+  element: HTMLElement | null,
+  filename: string
+): Promise<void> {
   if (!element) return;
   const hiddenEls = element.querySelectorAll('[data-hide-export="true"]');
   try {
-    hiddenEls.forEach(el => ((el as HTMLElement).style.display = 'none'));
+    hiddenEls.forEach((el) => ((el as HTMLElement).style.display = 'none'));
 
     const canvas = await html2canvas(element, {
       scale: 1,
@@ -47,7 +50,7 @@ export async function downloadLabelImage(element: HTMLElement | null, filename: 
       width: element.clientWidth,
       height: element.clientHeight,
       scrollX: 0,
-      scrollY: 0
+      scrollY: 0,
     });
 
     const url = canvas.toDataURL('image/png');
@@ -61,6 +64,6 @@ export async function downloadLabelImage(element: HTMLElement | null, filename: 
     toast.error('Erro ao baixar imagem PNG.');
   } finally {
     // Garante restauração incondicional dos elementos de controle e seleção
-    hiddenEls.forEach(el => ((el as HTMLElement).style.display = ''));
+    hiddenEls.forEach((el) => ((el as HTMLElement).style.display = ''));
   }
 }

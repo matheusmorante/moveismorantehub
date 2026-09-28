@@ -24,8 +24,16 @@ describe('PostCreator Responsive UI Logic & Grouping Integrity', () => {
       { id: 'img-2', url: 'https://exemplo.com/prime-aberto.jpg', tag: 'interior' },
     ],
     product_variations: [
-      { id: 'var-1', name: 'Branco', product_images: [{ id: 'img-1', url: 'https://exemplo.com/prime.jpg' }] },
-      { id: 'var-2', name: 'Freijó', product_images: [{ id: 'img-3', url: 'https://exemplo.com/prime-freijo.jpg' }] },
+      {
+        id: 'var-1',
+        name: 'Branco',
+        product_images: [{ id: 'img-1', url: 'https://exemplo.com/prime.jpg' }],
+      },
+      {
+        id: 'var-2',
+        name: 'Freijó',
+        product_images: [{ id: 'img-3', url: 'https://exemplo.com/prime-freijo.jpg' }],
+      },
     ],
   };
 
@@ -38,9 +46,11 @@ describe('PostCreator Responsive UI Logic & Grouping Integrity', () => {
 
     expect(spec.formats).toBeDefined();
     expect(spec.formats.length).toBeGreaterThanOrEqual(2);
-    expect(spec.formats.some(f => f.aspectRatio === '4:5')).toBe(true);
-    expect(spec.formats.some(f => f.aspectRatio === '9:16')).toBe(true);
-    expect(spec.officialAssets?.logo?.url).toBe('https://www.moveismorante.com.br/logo-morante.svg');
+    expect(spec.formats.some((f) => f.aspectRatio === '4:5')).toBe(true);
+    expect(spec.formats.some((f) => f.aspectRatio === '9:16')).toBe(true);
+    expect(spec.officialAssets?.logo?.url).toBe(
+      'https://www.moveismorante.com.br/logo-morante.svg'
+    );
 
     const prompt = renderSpecificationAsPrompt(spec);
     expect(prompt).toContain('4:5');
@@ -87,14 +97,17 @@ describe('PostCreator Responsive UI Logic & Grouping Integrity', () => {
       title: string;
       types: string[];
     }> = [
-      { title: 'Conteúdo Textual', types: ['TITLE', 'PRODUCT_NAME', 'PRODUCT_SLOGAN', 'COMPANY_SLOGAN'] },
+      {
+        title: 'Conteúdo Textual',
+        types: ['TITLE', 'PRODUCT_NAME', 'PRODUCT_SLOGAN', 'COMPANY_SLOGAN'],
+      },
       { title: 'Comercial & Vendas', types: ['PRICE', 'OLD_PRICE', 'INSTALLMENTS', 'BADGE'] },
       { title: 'Visual & Marca', types: ['BACKGROUND', 'LOGO', 'HEADER', 'FOOTER'] },
       { title: 'Estrutura do Produto', types: ['OPEN_VIEW', 'VARIATION_GALLERY'] },
       { title: 'Chamada para Ação', types: ['CTA'] },
     ];
 
-    const allTypes = ELEMENT_GROUPS.flatMap(g => g.types);
+    const allTypes = ELEMENT_GROUPS.flatMap((g) => g.types);
     expect(allTypes).toContain('TITLE');
     expect(allTypes).toContain('PRICE');
     expect(allTypes).toContain('LOGO');

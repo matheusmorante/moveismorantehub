@@ -1,35 +1,37 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
-import { StoreDesignProvider, SiteChrome } from "@/components/layout";
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { Geist, Geist_Mono, Inter } from 'next/font/google';
+import './globals.css';
+import { Toaster } from '@/components/ui/sonner';
+import { StoreDesignProvider, SiteChrome } from '@/components/layout';
 
 const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
+  variable: '--font-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "Móveis Morante | Qualidade e Conforto para sua Casa",
-  description: "Encontre os melhores móveis em Curitiba: Sofás, Colchões, Cozinhas e muito mais. Móveis Morante, tradição e confiança.",
-  keywords: "móveis, móveis curitiba, sofás, colchões, cozinhas, quartos, móveis morante, catálogo de móveis",
-  manifest: "/manifest.json",
-  themeColor: "#0d1b2a",
+  title: 'Móveis Morante | Qualidade e Conforto para sua Casa',
+  description:
+    'Encontre os melhores móveis em Curitiba: Sofás, Colchões, Cozinhas e muito mais. Móveis Morante, tradição e confiança.',
+  keywords:
+    'móveis, móveis curitiba, sofás, colchões, cozinhas, quartos, móveis morante, catálogo de móveis',
+  manifest: '/manifest.json',
+  themeColor: '#0d1b2a',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Móveis Morante",
+    statusBarStyle: 'default',
+    title: 'Móveis Morante',
   },
   openGraph: {
-    title: "Móveis Morante | Catálogo Online",
-    description: "Os melhores móveis com os melhores preços.",
-    images: ["/og-image.jpg"],
+    title: 'Móveis Morante | Catálogo Online',
+    description: 'Os melhores móveis com os melhores preços.',
+    images: ['/og-image.jpg'],
   },
 };
 

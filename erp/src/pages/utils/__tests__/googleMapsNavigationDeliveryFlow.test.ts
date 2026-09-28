@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Funções puras idênticas às implementadas no helper mobile/src/features/logistics/utils/externalMapsNavigation.ts
 export function isValidCoordinate(latitude: any, longitude: any): boolean {
-  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+  if (
+    latitude === null ||
+    latitude === undefined ||
+    longitude === null ||
+    longitude === undefined
+  ) {
     return false;
   }
   const lat = Number(latitude);
@@ -34,7 +39,10 @@ export interface NavigationTarget {
   fullAddress?: string | null;
 }
 
-export function extractNavigationTarget(orderOrData: any, fallbackAddress?: string): NavigationTarget {
+export function extractNavigationTarget(
+  orderOrData: any,
+  fallbackAddress?: string
+): NavigationTarget {
   if (!orderOrData) {
     return { fullAddress: fallbackAddress || null };
   }
@@ -54,7 +62,8 @@ export function extractNavigationTarget(orderOrData: any, fallbackAddress?: stri
   }
 
   // 2. Coordenadas em objeto coords { latitude, longitude } ou { lat, lng }
-  const rawCoords = orderOrData.coords || shipping.coords || shipping.deliveryAddress?.coords || customer.coords;
+  const rawCoords =
+    orderOrData.coords || shipping.coords || shipping.deliveryAddress?.coords || customer.coords;
   if (rawCoords) {
     if (Array.isArray(rawCoords) && rawCoords.length === 2) {
       const lng = Number(rawCoords[0]);
@@ -75,10 +84,30 @@ export function extractNavigationTarget(orderOrData: any, fallbackAddress?: stri
   }
 
   // 4. Fallback de endereço textual formatado
-  const street = (shipping.deliveryAddress?.street || customer.fullAddress?.street || customer.address?.street || '').trim();
-  const number = (shipping.deliveryAddress?.number || customer.fullAddress?.number || customer.address?.number || '').trim();
-  const neighborhood = (shipping.deliveryAddress?.neighborhood || customer.fullAddress?.neighborhood || customer.address?.neighborhood || '').trim();
-  const city = (shipping.deliveryAddress?.city || customer.fullAddress?.city || customer.city || 'Colombo').trim();
+  const street = (
+    shipping.deliveryAddress?.street ||
+    customer.fullAddress?.street ||
+    customer.address?.street ||
+    ''
+  ).trim();
+  const number = (
+    shipping.deliveryAddress?.number ||
+    customer.fullAddress?.number ||
+    customer.address?.number ||
+    ''
+  ).trim();
+  const neighborhood = (
+    shipping.deliveryAddress?.neighborhood ||
+    customer.fullAddress?.neighborhood ||
+    customer.address?.neighborhood ||
+    ''
+  ).trim();
+  const city = (
+    shipping.deliveryAddress?.city ||
+    customer.fullAddress?.city ||
+    customer.city ||
+    'Colombo'
+  ).trim();
   const state = (shipping.deliveryAddress?.state || customer.fullAddress?.state || 'PR').trim();
   const cep = (shipping.deliveryAddress?.cep || customer.fullAddress?.cep || '').trim();
 
@@ -216,7 +245,9 @@ describe('Google Maps Navigation & Delivery Flow - Requisitos Obrigatórios', ()
     const res = await executeNavigation(target, 'android', true);
     expect(res.method).toBe('android_intent');
     expect(res.uri).toBe('google.navigation:q=-25.365123,-49.183456&mode=d');
-    expect(mockLinking.openURL).toHaveBeenCalledWith('google.navigation:q=-25.365123,-49.183456&mode=d');
+    expect(mockLinking.openURL).toHaveBeenCalledWith(
+      'google.navigation:q=-25.365123,-49.183456&mode=d'
+    );
   });
 
   it('5. Fallback web sem crash caso Google Maps não esteja instalado no Android', async () => {
@@ -271,7 +302,9 @@ describe('Google Maps Navigation & Delivery Flow - Requisitos Obrigatórios', ()
     };
 
     const openExistingDelivery = (order: any) => {
-      const isAlreadyStarted = order.order_data?.deliveryStatus === 'in_progress' || Boolean(order.order_data?.deliveryStartedAt);
+      const isAlreadyStarted =
+        order.order_data?.deliveryStatus === 'in_progress' ||
+        Boolean(order.order_data?.deliveryStartedAt);
       if (!isAlreadyStarted) {
         startDelivery();
       }

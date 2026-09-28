@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Calendar, DollarSign, Tag, User, CreditCard, Layers } from 'lucide-react-native';
-import { ParsedFinancialIntent, FinancialInstallment } from '../../../services/financialAiAssistantService';
+import {
+  ParsedFinancialIntent,
+  FinancialInstallment,
+} from '../../../services/financialAiAssistantService';
 
 interface Props {
   visible: boolean;
@@ -35,7 +37,9 @@ export const TransactionEditModal: React.FC<Props> = ({
 
   const [description, setDescription] = useState(intent.description || '');
   const [supplier, setSupplier] = useState(intent.supplier || intent.counterparty || '');
-  const [totalAmount, setTotalAmount] = useState(intent.totalAmount ? String(intent.totalAmount) : '');
+  const [totalAmount, setTotalAmount] = useState(
+    intent.totalAmount ? String(intent.totalAmount) : ''
+  );
   const [category, setCategory] = useState(intent.category || '');
   const [paymentMethod, setPaymentMethod] = useState(intent.paymentMethod || 'Boleto');
   const [dueDate, setDueDate] = useState(intent.dueDate || intent.date || '');
@@ -48,7 +52,7 @@ export const TransactionEditModal: React.FC<Props> = ({
 
   const handleSave = () => {
     const numAmount = parseFloat(totalAmount.replace(',', '.')) || intent.totalAmount || 0;
-    
+
     const updated: ParsedFinancialIntent = {
       ...intent,
       description,
@@ -69,7 +73,11 @@ export const TransactionEditModal: React.FC<Props> = ({
     onClose();
   };
 
-  const handleUpdateInstallment = (index: number, field: keyof FinancialInstallment, value: any) => {
+  const handleUpdateInstallment = (
+    index: number,
+    field: keyof FinancialInstallment,
+    value: any
+  ) => {
     const next = [...installments];
     next[index] = {
       ...next[index],
@@ -80,7 +88,13 @@ export const TransactionEditModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <View style={[styles.container, isDarkMode && styles.containerDark, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View
+        style={[
+          styles.container,
+          isDarkMode && styles.containerDark,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -117,7 +131,9 @@ export const TransactionEditModal: React.FC<Props> = ({
 
             {/* Fornecedor / Cliente */}
             <View style={styles.fieldGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Fornecedor / Pessoa</Text>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Fornecedor / Pessoa
+              </Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <User size={18} color="#64748B" style={styles.inputIcon} />
                 <TextInput

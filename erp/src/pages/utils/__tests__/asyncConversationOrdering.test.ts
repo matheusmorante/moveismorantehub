@@ -124,18 +124,22 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
     const isComplete = (d: any) => {
-      return d.amount > 0 && d.paymentMethod !== 'UNKNOWN' && (d.type === 'INCOME' || d.businessPurpose !== 'UNKNOWN');
+      return (
+        d.amount > 0 &&
+        d.paymentMethod !== 'UNKNOWN' &&
+        (d.type === 'INCOME' || d.businessPurpose !== 'UNKNOWN')
+      );
     };
 
     const readyDrafts = drafts.filter(isComplete);
-    const pendingDrafts = drafts.filter(d => !isComplete(d));
+    const pendingDrafts = drafts.filter((d) => !isComplete(d));
 
-    expect(readyDrafts.map(d => d.id)).toEqual(['A', 'C']);
-    expect(pendingDrafts.map(d => d.id)).toEqual(['B']);
+    expect(readyDrafts.map((d) => d.id)).toEqual(['A', 'C']);
+    expect(pendingDrafts.map((d) => d.id)).toEqual(['B']);
   });
 
   it('Grupo 38 — Correção de Contraparte', () => {
@@ -149,10 +153,16 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
-    const patchRes = applyTurnPatchWithDraftList(drafts, 'Foi para Lucas.', 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(
+      drafts,
+      'Foi para Lucas.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     expect(patchRes.updatedDrafts[0].counterparty).toBe('Lucas');
   });
 
@@ -168,10 +178,16 @@ describe('Bateria E2E/Estresse — Ordem Assíncrona, Versionamento e Idempotên
         confidence: 0.9,
         questions: [],
         version: 1,
-      }
+      },
     ];
 
-    const patchRes = applyTurnPatchWithDraftList(drafts, 'Na verdade é para usar no caixa da loja.', 'CORRECTION', [], '2026-09-06');
+    const patchRes = applyTurnPatchWithDraftList(
+      drafts,
+      'Na verdade é para usar no caixa da loja.',
+      'CORRECTION',
+      [],
+      '2026-09-06'
+    );
     expect(patchRes.updatedDrafts[0].businessPurpose).toBe('BUSINESS');
     expect(patchRes.updatedDrafts[0].categoryName).toBe('Equipamentos da Empresa');
   });

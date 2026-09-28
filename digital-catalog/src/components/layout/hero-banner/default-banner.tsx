@@ -1,30 +1,30 @@
-import Image from "next/image"
-import { Pencil } from "lucide-react"
-import { toast } from "sonner"
+import Image from 'next/image';
+import { Pencil } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button"
-import type { Banner } from "./types"
+import { Button } from '@/components/ui/button';
+import type { Banner } from './types';
 
 interface DefaultBannerProps {
-  banner: Banner
-  isAdminMode: boolean
+  banner: Banner;
+  isAdminMode: boolean;
 }
 
-const OVERLAY_GRADIENT = "linear-gradient(to right, rgb(0 0 0 / .8), rgb(0 0 0 / .4), transparent)"
+const OVERLAY_GRADIENT = 'linear-gradient(to right, rgb(0 0 0 / .8), rgb(0 0 0 / .4), transparent)';
 
 function AdminEditButton() {
   return (
     <button
-      onClick={() => toast.info("Em breve: Edição de textos do banner direto aqui!")}
+      onClick={() => toast.info('Em breve: Edição de textos do banner direto aqui!')}
       className="absolute -top-4 -right-8 bg-amber-500 text-white p-1.5 rounded-full shadow-lg z-30 opacity-0 group-hover/hero:opacity-100 transition-all hover:scale-110"
     >
       <Pencil className="h-3 w-3" />
     </button>
-  )
+  );
 }
 
 export function DefaultBanner({ banner, isAdminMode }: DefaultBannerProps) {
-  const plainTitle = banner.title.replace(/<[^>]*>/g, "")
+  const plainTitle = banner.title.replace(/<[^>]*>/g, '');
 
   return (
     <div className="relative w-full overflow-hidden aspect-[3/1] min-h-[160px]">
@@ -36,7 +36,10 @@ export function DefaultBanner({ banner, isAdminMode }: DefaultBannerProps) {
         className="object-cover scale-105 group-hover/hero:scale-110 transition-transform duration-[10s] ease-out"
       />
 
-      <div className="absolute inset-0 flex items-center" style={{ backgroundImage: OVERLAY_GRADIENT }}>
+      <div
+        className="absolute inset-0 flex items-center"
+        style={{ backgroundImage: OVERLAY_GRADIENT }}
+      >
         <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 space-y-[1vw] md:space-y-8 pt-[1vw]">
           <div className="relative inline-block">
             {isAdminMode && <AdminEditButton />}
@@ -60,5 +63,5 @@ export function DefaultBanner({ banner, isAdminMode }: DefaultBannerProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

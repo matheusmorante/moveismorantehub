@@ -50,7 +50,7 @@ export const PriceLabelOpportunityModal: React.FC<PriceLabelOpportunityModalProp
 
         {/* Conteúdo do Modal */}
         <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-3">
-          {allOppOptions.map(opp => {
+          {allOppOptions.map((opp) => {
             const isSelectedOpp = selectedOppId === opp.id;
             return (
               <button
@@ -69,7 +69,9 @@ export const PriceLabelOpportunityModal: React.FC<PriceLabelOpportunityModalProp
                 <div className="flex items-center gap-3">
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${
-                      isSelectedOpp ? 'bg-white ring-2 ring-white/40' : 'bg-slate-300 dark:bg-slate-600'
+                      isSelectedOpp
+                        ? 'bg-white ring-2 ring-white/40'
+                        : 'bg-slate-300 dark:bg-slate-600'
                     }`}
                   />
                   <span className="text-xs font-black uppercase tracking-wider">{opp.name}</span>

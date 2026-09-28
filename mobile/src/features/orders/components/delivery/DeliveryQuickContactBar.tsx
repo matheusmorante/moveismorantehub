@@ -14,8 +14,9 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
   const customer = data.customerData || data.customer || {};
   const customerName = customer.fullName || customer.name || order.customer_name || 'Cliente';
   const orderNumber = formatOrderCode(order);
-  
-  const rawSellerName = order.seller || data.seller || data.sellerName || data.sellerData?.fullName || '';
+
+  const rawSellerName =
+    order.seller || data.seller || data.sellerName || data.sellerData?.fullName || '';
   const [sellerPhone, setSellerPhone] = useState<string>(
     data.sellerPhone || data.sellerData?.phone || order.seller_phone || ''
   );
@@ -46,11 +47,20 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
   };
 
   const handleContactCustomer = () => {
-    const rawPhone = customer.phone || customer.cellphone || customer.mobilePhone || customer.whatsapp || data.customerPhone || order.customer_phone;
+    const rawPhone =
+      customer.phone ||
+      customer.cellphone ||
+      customer.mobilePhone ||
+      customer.whatsapp ||
+      data.customerPhone ||
+      order.customer_phone;
     const phone = cleanPhone(rawPhone);
 
     if (!phone) {
-      Alert.alert('Contato do Cliente', 'Nenhum telefone/WhatsApp foi cadastrado para este cliente.');
+      Alert.alert(
+        'Contato do Cliente',
+        'Nenhum telefone/WhatsApp foi cadastrado para este cliente.'
+      );
       return;
     }
 
@@ -106,8 +116,12 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
       >
         <MessageCircle size={17} color="#ffffff" />
         <View style={{ flexShrink: 1 }}>
-          <Text style={styles.btnTitle} numberOfLines={1}>Falar com Cliente</Text>
-          <Text style={styles.btnSub} numberOfLines={1}>{customerName}</Text>
+          <Text style={styles.btnTitle} numberOfLines={1}>
+            Falar com Cliente
+          </Text>
+          <Text style={styles.btnSub} numberOfLines={1}>
+            {customerName}
+          </Text>
         </View>
       </TouchableOpacity>
 
@@ -119,8 +133,12 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
       >
         <UserCheck size={17} color="#ffffff" />
         <View style={{ flexShrink: 1 }}>
-          <Text style={styles.btnTitle} numberOfLines={1}>Falar com Vendedor</Text>
-          <Text style={styles.btnSub} numberOfLines={1}>{sellerName}</Text>
+          <Text style={styles.btnTitle} numberOfLines={1}>
+            Falar com Vendedor
+          </Text>
+          <Text style={styles.btnSub} numberOfLines={1}>
+            {sellerName}
+          </Text>
         </View>
       </TouchableOpacity>
     </View>

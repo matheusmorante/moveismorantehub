@@ -1,33 +1,34 @@
-import Order from "@/pages/types/order.type";
+import Order from '@/pages/types/order.type';
 
 export interface DanfeRecipientParams {
-    order: Order;
-    isHomologacao: boolean;
-    dtEmi: string;
-    dtSaida: string;
-    hrSaida: string;
+  order: Order;
+  isHomologacao: boolean;
+  dtEmi: string;
+  dtSaida: string;
+  hrSaida: string;
 }
 
 /**
  * Constrói o BLOCO 3: DESTINATÁRIO / REMETENTE do DANFE oficial A4.
  */
 export function buildDanfeRecipientOfficialHtml(params: DanfeRecipientParams): string {
-    const { order, isHomologacao, dtEmi, dtSaida, hrSaida } = params;
-    const customer = order.customerData;
-    const destName = isHomologacao
-        ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
-        : (customer?.fullName || 'CONSUMIDOR FINAL');
-    const destDoc = customer?.cpfCnpj || '';
-    const destLogr = order.shipping?.deliveryAddress?.street || customer?.fullAddress?.street || '';
-    const destNum = order.shipping?.deliveryAddress?.number || customer?.fullAddress?.number || 'S/N';
-    const destBairro = order.shipping?.deliveryAddress?.neighborhood || customer?.fullAddress?.neighborhood || '';
-    const destCep = order.shipping?.deliveryAddress?.cep || customer?.fullAddress?.cep || '';
-    const destMun = order.shipping?.deliveryAddress?.city || customer?.fullAddress?.city || 'Colombo';
-    const destUF = order.shipping?.deliveryAddress?.state || customer?.fullAddress?.state || 'PR';
-    const destPhone = customer?.phone || '';
-    const destIE = (customer as any)?.rgIe || 'ISENTO';
+  const { order, isHomologacao, dtEmi, dtSaida, hrSaida } = params;
+  const customer = order.customerData;
+  const destName = isHomologacao
+    ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
+    : customer?.fullName || 'CONSUMIDOR FINAL';
+  const destDoc = customer?.cpfCnpj || '';
+  const destLogr = order.shipping?.deliveryAddress?.street || customer?.fullAddress?.street || '';
+  const destNum = order.shipping?.deliveryAddress?.number || customer?.fullAddress?.number || 'S/N';
+  const destBairro =
+    order.shipping?.deliveryAddress?.neighborhood || customer?.fullAddress?.neighborhood || '';
+  const destCep = order.shipping?.deliveryAddress?.cep || customer?.fullAddress?.cep || '';
+  const destMun = order.shipping?.deliveryAddress?.city || customer?.fullAddress?.city || 'Colombo';
+  const destUF = order.shipping?.deliveryAddress?.state || customer?.fullAddress?.state || 'PR';
+  const destPhone = customer?.phone || '';
+  const destIE = (customer as any)?.rgIe || 'ISENTO';
 
-    return `
+  return `
         <!-- BLOCO 3: DESTINATÁRIO / REMETENTE -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 3px;">
             <tr>

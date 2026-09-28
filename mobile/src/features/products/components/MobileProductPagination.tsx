@@ -27,30 +27,49 @@ export const MobileProductPagination: React.FC<Props> = ({
   return (
     <View style={[styles.container, dark && styles.darkCard]}>
       <Text style={[styles.infoText, dark && styles.lightText]}>
-        Exibindo <Text style={styles.bold}>{startItem}-{endItem}</Text> de <Text style={styles.bold}>{totalItems}</Text> produtos
+        Exibindo{' '}
+        <Text style={styles.bold}>
+          {startItem}-{endItem}
+        </Text>{' '}
+        de <Text style={styles.bold}>{totalItems}</Text> produtos
       </Text>
 
       <View style={styles.buttonsRow}>
         <TouchableOpacity
           disabled={currentPage <= 1}
           onPress={() => onPageChange(currentPage - 1)}
-          style={[styles.arrowButton, currentPage <= 1 && styles.disabledButton, dark && styles.darkButton]}
+          style={[
+            styles.arrowButton,
+            currentPage <= 1 && styles.disabledButton,
+            dark && styles.darkButton,
+          ]}
         >
-          <ChevronLeft size={18} color={currentPage <= 1 ? '#94a3b8' : dark ? '#f8fafc' : '#0f172a'} />
+          <ChevronLeft
+            size={18}
+            color={currentPage <= 1 ? '#94a3b8' : dark ? '#f8fafc' : '#0f172a'}
+          />
         </TouchableOpacity>
 
         <View style={[styles.pageIndicator, dark && styles.darkIndicator]}>
           <Text style={[styles.pageText, dark && styles.lightText]}>
-            Página <Text style={styles.bold}>{currentPage}</Text> de <Text style={styles.bold}>{totalPages}</Text>
+            Página <Text style={styles.bold}>{currentPage}</Text> de{' '}
+            <Text style={styles.bold}>{totalPages}</Text>
           </Text>
         </View>
 
         <TouchableOpacity
           disabled={currentPage >= totalPages}
           onPress={() => onPageChange(currentPage + 1)}
-          style={[styles.arrowButton, currentPage >= totalPages && styles.disabledButton, dark && styles.darkButton]}
+          style={[
+            styles.arrowButton,
+            currentPage >= totalPages && styles.disabledButton,
+            dark && styles.darkButton,
+          ]}
         >
-          <ChevronRight size={18} color={currentPage >= totalPages ? '#94a3b8' : dark ? '#f8fafc' : '#0f172a'} />
+          <ChevronRight
+            size={18}
+            color={currentPage >= totalPages ? '#94a3b8' : dark ? '#f8fafc' : '#0f172a'}
+          />
         </TouchableOpacity>
       </View>
     </View>

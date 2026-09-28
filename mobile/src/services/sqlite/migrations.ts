@@ -17,7 +17,6 @@ export const runMigrations = async (db?: DatabaseDriver): Promise<void> => {
 };
 
 const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
-
   // 1. Tabela de controle de migrações
   await driver.execAsync(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -46,8 +45,12 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
       updated_at TEXT NOT NULL
     );
   `);
-  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_sync_queue_status_created_at ON sync_queue(status, created_at);`);
-  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id);`);
+  await driver.execAsync(
+    `CREATE INDEX IF NOT EXISTS idx_sync_queue_status_created_at ON sync_queue(status, created_at);`
+  );
+  await driver.execAsync(
+    `CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id);`
+  );
 
   // 3. Cache local de Pedidos (orders_local)
   await driver.execAsync(`
@@ -122,8 +125,12 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
       status TEXT NOT NULL DEFAULT 'pending'
     );
   `);
-  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_inventory_scans_local_inventory ON inventory_scans_local(inventory_id);`);
-  await driver.execAsync(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_scans_local_scan_id ON inventory_scans_local(inventory_id, scan_id);`);
+  await driver.execAsync(
+    `CREATE INDEX IF NOT EXISTS idx_inventory_scans_local_inventory ON inventory_scans_local(inventory_id);`
+  );
+  await driver.execAsync(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_scans_local_scan_id ON inventory_scans_local(inventory_id, scan_id);`
+  );
 
   await driver.execAsync(`
     CREATE TABLE IF NOT EXISTS sync_metadata_local (
@@ -147,7 +154,9 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
       updated_at TEXT NOT NULL
     );
   `);
-  await driver.execAsync(`CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_updated ON inventory_drafts_local(updated_at);`);
+  await driver.execAsync(
+    `CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_updated ON inventory_drafts_local(updated_at);`
+  );
 
   await driver.execAsync(`
     CREATE TABLE IF NOT EXISTS inventory_catalog_local (
@@ -179,11 +188,11 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
   await driver.runAsync(
     `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
      ON CONFLICT(version) DO NOTHING;`,
-    [2, 'inventory_outbox_local', new Date().toISOString()],
+    [2, 'inventory_outbox_local', new Date().toISOString()]
   );
   await driver.runAsync(
     `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
      ON CONFLICT(version) DO NOTHING;`,
-    [3, 'inventory_draft_scope_local', new Date().toISOString()],
+    [3, 'inventory_draft_scope_local', new Date().toISOString()]
   );
 };

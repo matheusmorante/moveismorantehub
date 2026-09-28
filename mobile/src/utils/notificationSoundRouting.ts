@@ -5,7 +5,9 @@ export const GENERAL_NOTIFICATION_CHANNEL = 'morante_general_v1';
 
 export const isNewScheduledOrderNotification = (payload: any = {}): boolean => {
   const data = payload.orderData || payload.order_data || payload.data?.orderData || {};
-  const status = String(data.status || payload.status || '').trim().toLowerCase();
+  const status = String(data.status || payload.status || '')
+    .trim()
+    .toLowerCase();
   const type = payload.type || payload.data?.type;
   return type === 'order_created' && ['scheduled', 'agendado'].includes(status);
 };
@@ -16,8 +18,11 @@ export const isOrderUpdatedNotification = (payload: any = {}): boolean => {
 };
 
 export const isOrderCancelledNotification = (payload: any = {}): boolean => {
-  const data = payload.orderData || payload.order_data || payload.data?.orderData || payload.data || {};
+  const data =
+    payload.orderData || payload.order_data || payload.data?.orderData || payload.data || {};
   const type = payload.type || payload.data?.type;
-  const status = String(data.status || payload.status || '').trim().toLowerCase();
+  const status = String(data.status || payload.status || '')
+    .trim()
+    .toLowerCase();
   return type === 'order_edited' && ['cancelled', 'cancelado'].includes(status);
 };

@@ -13,9 +13,24 @@ const PRODUCT_BENEFIT_FIELDS = [
 
 /** Fallback oficial e explícito para registros antigos que ainda não têm uma lista estruturada. */
 export const SYSTEM_OFFICIAL_BENEFITS: PostBenefitSpec[] = [
-  { id: 'system-delivery', title: 'Entrega Rápida', subtitle: '1 a 5 dias úteis', source: 'SYSTEM_OFFICIAL_BENEFITS' },
-  { id: 'system-assembly', title: 'Montagem Inclusa', subtitle: 'Retirada ou Entrega', source: 'SYSTEM_OFFICIAL_BENEFITS' },
-  { id: 'system-safe-purchase', title: 'Compra Segura', subtitle: 'Pague na Entrega', source: 'SYSTEM_OFFICIAL_BENEFITS' },
+  {
+    id: 'system-delivery',
+    title: 'Entrega Rápida',
+    subtitle: '1 a 5 dias úteis',
+    source: 'SYSTEM_OFFICIAL_BENEFITS',
+  },
+  {
+    id: 'system-assembly',
+    title: 'Montagem Inclusa',
+    subtitle: 'Retirada ou Entrega',
+    source: 'SYSTEM_OFFICIAL_BENEFITS',
+  },
+  {
+    id: 'system-safe-purchase',
+    title: 'Compra Segura',
+    subtitle: 'Pague na Entrega',
+    source: 'SYSTEM_OFFICIAL_BENEFITS',
+  },
 ];
 
 function cleanLiteral(value: unknown): string | undefined {
@@ -54,9 +69,8 @@ export function resolvePostBenefits(params: {
   product?: unknown;
   activeModels?: ElementModel[];
 }): PostBenefitSpec[] {
-  const product = params.product && typeof params.product === 'object'
-    ? params.product as UnknownRecord
-    : null;
+  const product =
+    params.product && typeof params.product === 'object' ? (params.product as UnknownRecord) : null;
 
   if (product) {
     for (const field of PRODUCT_BENEFIT_FIELDS) {
@@ -74,5 +88,5 @@ export function resolvePostBenefits(params: {
     }
   }
 
-  return SYSTEM_OFFICIAL_BENEFITS.map(benefit => ({ ...benefit }));
+  return SYSTEM_OFFICIAL_BENEFITS.map((benefit) => ({ ...benefit }));
 }

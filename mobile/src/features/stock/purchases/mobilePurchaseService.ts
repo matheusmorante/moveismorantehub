@@ -48,42 +48,46 @@ const normalizeStatus = (status: unknown): PurchaseStatus => {
   return 'ordered';
 };
 
-export const purchaseStatusLabel = (status: PurchaseStatus) => ({
-  ordered: 'Em Ordem',
-  fulfilled: 'Atendido',
-  cancelled: 'Cancelado',
-}[status]);
+export const purchaseStatusLabel = (status: PurchaseStatus) =>
+  ({
+    ordered: 'Em Ordem',
+    fulfilled: 'Atendido',
+    cancelled: 'Cancelado',
+  })[status];
 
 export const mapPurchaseFromDb = (row: any, fallbackNumber?: number): MobilePurchase => {
-  const normalizedItems = Array.isArray(row.purchase_items) && row.purchase_items.length > 0
-    ? [...row.purchase_items]
-      .sort((a, b) => Number(a.item_index || 0) - Number(b.item_index || 0))
-      .map((item: any) => ({
-        productId: String(item.product_id || item.item_snapshot?.productId || ''),
-        variationId: item.variation_id || item.item_snapshot?.variationId || undefined,
-        description: item.description || item.item_snapshot?.description || 'Item de compra',
-        quantity: Number(item.quantity || 1),
-        receivedQuantity: item.item_snapshot?.receivedQuantity !== undefined
-          ? Number(item.item_snapshot.receivedQuantity)
-          : undefined,
-        baseCost: Number(item.base_cost ?? item.item_snapshot?.baseCost ?? 0),
-        unitCost: Number(item.unit_cost ?? item.item_snapshot?.unitCost ?? 0),
-        totalCost: Number(item.total_cost ?? item.item_snapshot?.totalCost ?? 0),
-        sku: item.item_snapshot?.sku,
-      }))
-    : Array.isArray(row.items)
-      ? row.items.map((item: any) => ({
-        productId: String(item.productId || item.product_id || ''),
-        variationId: item.variationId || item.variation_id || undefined,
-        description: item.description || 'Item de compra',
-        quantity: Number(item.quantity || 1),
-        receivedQuantity: item.receivedQuantity !== undefined ? Number(item.receivedQuantity) : undefined,
-        baseCost: Number(item.baseCost ?? item.base_cost ?? 0),
-        unitCost: Number(item.unitCost ?? item.unit_cost ?? 0),
-        totalCost: Number(item.totalCost ?? item.total_cost ?? 0),
-        sku: item.sku,
-      }))
-      : [];
+  const normalizedItems =
+    Array.isArray(row.purchase_items) && row.purchase_items.length > 0
+      ? [...row.purchase_items]
+          .sort((a, b) => Number(a.item_index || 0) - Number(b.item_index || 0))
+          .map((item: any) => ({
+            productId: String(item.product_id || item.item_snapshot?.productId || ''),
+            variationId: item.variation_id || item.item_snapshot?.variationId || undefined,
+            description: item.description || item.item_snapshot?.description || 'Item de compra',
+            quantity: Number(item.quantity || 1),
+            receivedQuantity:
+              item.item_snapshot?.receivedQuantity !== undefined
+                ? Number(item.item_snapshot.receivedQuantity)
+                : undefined,
+            baseCost: Number(item.base_cost ?? item.item_snapshot?.baseCost ?? 0),
+            unitCost: Number(item.unit_cost ?? item.item_snapshot?.unitCost ?? 0),
+            totalCost: Number(item.total_cost ?? item.item_snapshot?.totalCost ?? 0),
+            sku: item.item_snapshot?.sku,
+          }))
+      : Array.isArray(row.items)
+        ? row.items.map((item: any) => ({
+            productId: String(item.productId || item.product_id || ''),
+            variationId: item.variationId || item.variation_id || undefined,
+            description: item.description || 'Item de compra',
+            quantity: Number(item.quantity || 1),
+            receivedQuantity:
+              item.receivedQuantity !== undefined ? Number(item.receivedQuantity) : undefined,
+            baseCost: Number(item.baseCost ?? item.base_cost ?? 0),
+            unitCost: Number(item.unitCost ?? item.unit_cost ?? 0),
+            totalCost: Number(item.totalCost ?? item.total_cost ?? 0),
+            sku: item.sku,
+          }))
+        : [];
 
   return {
     id: String(row.id),
@@ -121,10 +125,15 @@ const toDbItem = (purchaseId: string, item: MobilePurchaseItem, index: number) =
 });
 
 const syncPurchaseItems = async (purchaseId: string, items: MobilePurchaseItem[]) => {
-  const { error: deleteError } = await supabase.from('purchase_items').delete().eq('purchase_id', purchaseId);
+  const { error: deleteError } = await supabase
+    .from('purchase_items')
+    .delete()
+    .eq('purchase_id', purchaseId);
   if (deleteError) throw deleteError;
   if (!items.length) return;
-  const { error } = await supabase.from('purchase_items').insert(items.map((item, index) => toDbItem(purchaseId, item, index)));
+  const { error } = await supabase
+    .from('purchase_items')
+    .insert(items.map((item, index) => toDbItem(purchaseId, item, index)));
   if (error) throw error;
 };
 
@@ -162,20 +171,36 @@ export const fetchMobilePurchases = async (page: number, filters: PurchaseFilter
 
   const { data, error, count } = await query;
   if (error) throw error;
-  return { data: (data || []).map((row, index) => mapPurchaseFromDb(row, from + index + 1)), count: count || 0 };
+  return {
+    data: (data || []).map((row, index) => mapPurchaseFromDb(row, from + index + 1)),
+    count: count || 0,
+  };
 };
 
 export const fetchMobilePurchase = async (id: string) => {
-  const { data, error } = await supabase.from('purchases').select('*, purchase_items(*)').eq('id', id).single();
+  const { data, error } = await supabase
+    .from('purchases')
+    .select('*, purchase_items(*)')
+    .eq('id', id)
+    .single();
   if (error) throw error;
   return mapPurchaseFromDb(data);
 };
 
 export const saveMobilePurchase = async (purchase: Omit<MobilePurchase, 'id'>) => {
-  const { data, error } = await supabase.from('purchases').insert(toDbPurchase(purchase)).select().single();
+  const { data, error } = await supabase
+    .from('purchases')
+    .insert(toDbPurchase(purchase))
+    .select()
+    .single();
   if (error) throw error;
   await syncPurchaseItems(String(data.id), purchase.items || []);
-  return mapPurchaseFromDb({ ...data, purchase_items: purchase.items.map((item, index) => ({ ...toDbItem(String(data.id), item, index) })) });
+  return mapPurchaseFromDb({
+    ...data,
+    purchase_items: purchase.items.map((item, index) => ({
+      ...toDbItem(String(data.id), item, index),
+    })),
+  });
 };
 
 export const updateMobilePurchase = async (id: string, updates: Partial<MobilePurchase>) => {
@@ -196,22 +221,47 @@ export const cancelMobilePurchase = async (purchase: MobilePurchase) => {
     const { data: moves, error: movesError } = await supabase
       .from('inventory_moves')
       .select('id, product_id, observation, label, order_id')
-      .or(`order_id.eq.${purchase.id},observation.ilike.${searchPattern},label.ilike.${searchPattern}`);
+      .or(
+        `order_id.eq.${purchase.id},observation.ilike.${searchPattern},label.ilike.${searchPattern}`
+      );
     if (movesError) throw movesError;
 
     for (const move of moves || []) {
       let metadata: Record<string, any> = {};
-      try { metadata = JSON.parse(move.observation || '{}'); } catch { metadata = { note: move.observation }; }
+      try {
+        metadata = JSON.parse(move.observation || '{}');
+      } catch {
+        metadata = { note: move.observation };
+      }
       if (['reversed', 'cancelled'].includes(metadata.status)) continue;
       const reversedAt = new Date().toISOString();
-      const observation = JSON.stringify({ ...metadata, status: 'reversed', reversalReason: reason, reversedAt });
-      const modern = await supabase.from('inventory_moves').update({ status: 'reversed', reason, reversal_reason: reason, reversed_at: reversedAt, observation }).eq('id', move.id);
+      const observation = JSON.stringify({
+        ...metadata,
+        status: 'reversed',
+        reversalReason: reason,
+        reversedAt,
+      });
+      const modern = await supabase
+        .from('inventory_moves')
+        .update({
+          status: 'reversed',
+          reason,
+          reversal_reason: reason,
+          reversed_at: reversedAt,
+          observation,
+        })
+        .eq('id', move.id);
       if (modern.error?.code === '42703' || modern.error?.code === 'PGRST204') {
-        const legacy = await supabase.from('inventory_moves').update({ reason, observation }).eq('id', move.id);
+        const legacy = await supabase
+          .from('inventory_moves')
+          .update({ reason, observation })
+          .eq('id', move.id);
         if (legacy.error) throw legacy.error;
       } else if (modern.error) throw modern.error;
       if (move.product_id) {
-        const { recalculateInventoryAuditBalance } = await import('../../../services/stock/stockInventoryService');
+        const { recalculateInventoryAuditBalance } = await import(
+          '../../../services/stock/stockInventoryService'
+        );
         await recalculateInventoryAuditBalance(move.product_id);
       }
     }

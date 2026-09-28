@@ -50,9 +50,13 @@ import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
 import ApiUsagePage from './pages/App/ApiUsage/Index';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
-const SalesOrderReportView = lazy(() => import('./pages/App/SalesOrder/Reports/components/ReportView'));
+const SalesOrderReportView = lazy(
+  () => import('./pages/App/SalesOrder/Reports/components/ReportView')
+);
 const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
-const SalesOrderReportViewBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/ReportView'));
+const SalesOrderReportViewBling = lazy(
+  () => import('./pages/App/SalesOrder/ReportsBling/ReportView')
+);
 import BlingStock from './pages/App/Stock/BlingStock';
 import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
 import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
@@ -61,23 +65,28 @@ import FiscalDocumentsPage from './pages/App/SalesOrder/FiscalDocumentsPage';
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
     <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Carregando...</p>
+    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">
+      Carregando...
+    </p>
   </div>
 );
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading, isPending } = useAuth();
   const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth = searchParams.has('auth_email') || 
-                       searchParams.has('user_id') || 
-                       window.location.search.includes('auth_email') || 
-                       Boolean((window as any).ReactNativeWebView);
+  const isMobileAuth =
+    searchParams.has('auth_email') ||
+    searchParams.has('user_id') ||
+    window.location.search.includes('auth_email') ||
+    Boolean((window as any).ReactNativeWebView);
 
   if (loading && !isMobileAuth) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-10">
         <div className="w-16 h-16 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-6" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 animate-pulse">Sincronizando Sessão...</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 animate-pulse">
+          Sincronizando Sessão...
+        </p>
       </div>
     );
   }
@@ -96,10 +105,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, loading } = useAuth();
   const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth = searchParams.has('auth_email') || 
-                       searchParams.has('user_id') || 
-                       window.location.search.includes('auth_email') || 
-                       Boolean((window as any).ReactNativeWebView);
+  const isMobileAuth =
+    searchParams.has('auth_email') ||
+    searchParams.has('user_id') ||
+    window.location.search.includes('auth_email') ||
+    Boolean((window as any).ReactNativeWebView);
 
   if (loading && !isMobileAuth) return null;
 
@@ -115,10 +125,11 @@ import ResetPassword from './pages/ResetPassword';
 const DashboardRoute = () => {
   const { isAdmin, loading } = useAuth();
   const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth = searchParams.has('auth_email') || 
-                       searchParams.has('user_id') || 
-                       window.location.search.includes('auth_email') || 
-                       Boolean((window as any).ReactNativeWebView);
+  const isMobileAuth =
+    searchParams.has('auth_email') ||
+    searchParams.has('user_id') ||
+    window.location.search.includes('auth_email') ||
+    Boolean((window as any).ReactNativeWebView);
 
   if (loading && !isMobileAuth) return null;
 
@@ -134,104 +145,244 @@ function Router() {
     <AuthProvider>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          <Route path='/login' element={<Login />} />
-          <Route path='/signup' element={<Signup />} />
-          <Route path='/reset-password' element={<ResetPassword />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Publicly accessible order pages could go here if needed */}
-          <Route path='/receipt' element={<ReceiptPage />} />
-          <Route path='/order' element={<OrderPage />} />
-          <Route path='/shipping-label' element={<ShippingLabelPage />} />
-          <Route path='/schedule' element={<DeliverySchedule />} />
-          <Route path='/assembly-schedule' element={<AssemblyListPage />} />
-          <Route path='/logistics/assembly-print' element={<AssemblyPrintPage />} />
-          <Route path='/public/report/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportView /></Suspense>} />
+          <Route path="/receipt" element={<ReceiptPage />} />
+          <Route path="/order" element={<OrderPage />} />
+          <Route path="/shipping-label" element={<ShippingLabelPage />} />
+          <Route path="/schedule" element={<DeliverySchedule />} />
+          <Route path="/assembly-schedule" element={<AssemblyListPage />} />
+          <Route path="/logistics/assembly-print" element={<AssemblyPrintPage />} />
+          <Route
+            path="/public/report/:id"
+            element={
+              <Suspense fallback={<LoadingFallback />}>
+                <SalesOrderReportView />
+              </Suspense>
+            }
+          />
 
           {/* Unlocked Direct Mobile Routes */}
           <Route element={<AppLayout />}>
-            <Route path='/mobile-orders' element={<SalesOrder />} />
-            <Route path='/mobile-reports' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReports /></Suspense>} />
+            <Route path="/mobile-orders" element={<SalesOrder />} />
+            <Route
+              path="/mobile-reports"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SalesOrderReports />
+                </Suspense>
+              }
+            />
           </Route>
 
           {/* Protected ERP Application */}
-          <Route path='/' element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardRoute />} />
-            <Route path='/sales-order' element={<SalesOrder />} />
-            <Route path='/sales-order/new' element={<NewSaleOrder />} />
-            <Route path='/sales-order/edit/:id' element={<OrderEditModal />} />
-            <Route path='/fiscal-documents' element={<FiscalDocumentsPage />} />
-            <Route path='/budgets' element={<SalesOrder />} />
-            <Route path='/assistance-orders' element={<SalesOrder />} />
-            <Route path='/returns' element={<SalesOrder />} />
-            <Route path='/sales-order/reports' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReports /></Suspense>} />
-            <Route path='/sales-order/reports/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportView /></Suspense>} />
-            <Route path='/sales-order/reports-bling' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportsBling /></Suspense>} />
-            <Route path='/sales-order/reports-bling/:id' element={<Suspense fallback={<LoadingFallback />}><SalesOrderReportViewBling /></Suspense>} />
-            <Route path='/sales-order/freight-calculation' element={<OrderRouteMap />} />
-            <Route path='/warranty-term' element={<WarrantyTermPage />} />
-            <Route path='/delivery-schedule' element={<DeliverySchedule />} />
-            <Route path='/settings' element={<AdminRoute><Settings /></AdminRoute>} />
-            <Route path='/settings/fiscal' element={<AdminRoute><Navigate to="/settings#fiscal" replace /></AdminRoute>} />
-            <Route path='/settings/stock' element={<AdminRoute><Navigate to="/settings#scanner" replace /></AdminRoute>} />
-            <Route path='/settings/sales' element={<AdminRoute><Navigate to="/settings#bandeiras" replace /></AdminRoute>} />
-            <Route path='/settings/logistics' element={<AdminRoute><Navigate to="/settings#logistica" replace /></AdminRoute>} />
-            <Route path='/settings/supabase-monitor' element={<AdminRoute><SupabaseMonitorDashboard /></AdminRoute>} />
-            <Route path='/api-usage' element={<AdminRoute><ApiUsagePage /></AdminRoute>} />
+            <Route path="/sales-order" element={<SalesOrder />} />
+            <Route path="/sales-order/new" element={<NewSaleOrder />} />
+            <Route path="/sales-order/edit/:id" element={<OrderEditModal />} />
+            <Route path="/fiscal-documents" element={<FiscalDocumentsPage />} />
+            <Route path="/budgets" element={<SalesOrder />} />
+            <Route path="/assistance-orders" element={<SalesOrder />} />
+            <Route path="/returns" element={<SalesOrder />} />
+            <Route
+              path="/sales-order/reports"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SalesOrderReports />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales-order/reports/:id"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SalesOrderReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales-order/reports-bling"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SalesOrderReportsBling />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales-order/reports-bling/:id"
+              element={
+                <Suspense fallback={<LoadingFallback />}>
+                  <SalesOrderReportViewBling />
+                </Suspense>
+              }
+            />
+            <Route path="/sales-order/freight-calculation" element={<OrderRouteMap />} />
+            <Route path="/warranty-term" element={<WarrantyTermPage />} />
+            <Route path="/delivery-schedule" element={<DeliverySchedule />} />
+            <Route
+              path="/settings"
+              element={
+                <AdminRoute>
+                  <Settings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/fiscal"
+              element={
+                <AdminRoute>
+                  <Navigate to="/settings#fiscal" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/stock"
+              element={
+                <AdminRoute>
+                  <Navigate to="/settings#scanner" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/sales"
+              element={
+                <AdminRoute>
+                  <Navigate to="/settings#bandeiras" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/logistics"
+              element={
+                <AdminRoute>
+                  <Navigate to="/settings#logistica" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/supabase-monitor"
+              element={
+                <AdminRoute>
+                  <SupabaseMonitorDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/api-usage"
+              element={
+                <AdminRoute>
+                  <ApiUsagePage />
+                </AdminRoute>
+              }
+            />
 
             {/* Registrations */}
-            <Route path='/products' element={<Products />} />
-            <Route path='/registrations/products' element={<Navigate to="/products" replace />} />
-            <Route path='/products/compositions' element={<ProductCompositions />} />
-            <Route path='/products/reconciliation' element={<SupplierReconciliation />} />
-            <Route path='/products/reconciliation/suppliers' element={<SupplierReconciliation />} />
-            <Route path='/products/meta-catalog' element={<MetaCatalog />} />
-            <Route path='/registrations/meta-catalog' element={<Navigate to="/products/meta-catalog" replace />} />
-            <Route path='/registrations/whatsapp-marketplace' element={<WhatsAppMarketplace />} />
-            <Route path='/products/categories' element={<Categories />} />
-            <Route path='/products/types' element={<ProductTypes />} />
-            <Route path='/registrations/product-categories' element={<Navigate to="/products/categories" replace />} />
-            <Route path='/registrations/product-types' element={<Navigate to="/products/types" replace />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/registrations/products" element={<Navigate to="/products" replace />} />
+            <Route path="/products/compositions" element={<ProductCompositions />} />
+            <Route path="/products/reconciliation" element={<SupplierReconciliation />} />
+            <Route path="/products/reconciliation/suppliers" element={<SupplierReconciliation />} />
+            <Route path="/products/meta-catalog" element={<MetaCatalog />} />
+            <Route
+              path="/registrations/meta-catalog"
+              element={<Navigate to="/products/meta-catalog" replace />}
+            />
+            <Route path="/registrations/whatsapp-marketplace" element={<WhatsAppMarketplace />} />
+            <Route path="/products/categories" element={<Categories />} />
+            <Route path="/products/types" element={<ProductTypes />} />
+            <Route
+              path="/registrations/product-categories"
+              element={<Navigate to="/products/categories" replace />}
+            />
+            <Route
+              path="/registrations/product-types"
+              element={<Navigate to="/products/types" replace />}
+            />
             {/* Estoque */}
-            <Route path='/estoque' element={<Navigate to="/estoque/movimentacoes" replace />} />
-            <Route path='/estoque/movimentacoes' element={<Stock />} />
-            <Route path='/estoque/inventarios' element={<Stock />} />
-            <Route path='/estoque/indisponibilidades' element={<UnavailabilitiesPage />} />
-            <Route path='/estoque/indisponibilidades/:id' element={<UnavailabilitiesPage />} />
-            <Route path='/estoque/ncm' element={<NcmCatalogPage />} />
-            <Route path='/estoque/pedidos-compra' element={<PurchasesPage />} />
-            <Route path='/estoque/notas-fiscais-entrada' element={<InboundInvoicesPage />} />
-            <Route path='/estoque/recebimentos' element={<ReceiptsPage />} />
-            <Route path='/estoque/bling' element={<BlingStock />} />
-            <Route path='/estoque/etiquetas' element={<LabelPrinting />} />
-            <Route path='/design/labels' element={<LabelPrinting />} />
-            <Route path='/templates/price-label' element={<LabelPrinting />} />
-            <Route path='/marketing' element={<MarketingPosts />} />
-            <Route path='/marketing/posts' element={<MarketingPosts />} />
-            <Route path='/templates/posts' element={<MarketingPosts />} />
-            <Route path='/marketing/meta-catalog' element={<MetaCatalog />} />
-            <Route path='/marketing/channel-catalog' element={<ChannelCatalog />} />
-            <Route path='/registrations/services' element={<Services />} />
-            <Route path='/products/characteristics' element={<Variations />} />
-            <Route path='/registrations/variations' element={<Navigate to="/products/characteristics" replace />} />
-            <Route path='/registrations/customers' element={<Customers />} />
-            <Route path='/customers/desires' element={<CustomerDesiresPage />} />
-            <Route path='/estoque/fornecedores' element={<Suppliers />} />
-            <Route path='/registrations/employees' element={<Employees />} />
-            <Route path='/acessos-e-usuarios' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
-            <Route path='/access-and-users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
-            <Route path='/users' element={<AdminRoute><AccessAndUsersPage /></AdminRoute>} />
-            <Route path='/profile' element={<ProfilePage />} />
+            <Route path="/estoque" element={<Navigate to="/estoque/movimentacoes" replace />} />
+            <Route path="/estoque/movimentacoes" element={<Stock />} />
+            <Route path="/estoque/inventarios" element={<Stock />} />
+            <Route path="/estoque/indisponibilidades" element={<UnavailabilitiesPage />} />
+            <Route path="/estoque/indisponibilidades/:id" element={<UnavailabilitiesPage />} />
+            <Route path="/estoque/ncm" element={<NcmCatalogPage />} />
+            <Route path="/estoque/pedidos-compra" element={<PurchasesPage />} />
+            <Route path="/estoque/notas-fiscais-entrada" element={<InboundInvoicesPage />} />
+            <Route path="/estoque/recebimentos" element={<ReceiptsPage />} />
+            <Route path="/estoque/bling" element={<BlingStock />} />
+            <Route path="/estoque/etiquetas" element={<LabelPrinting />} />
+            <Route path="/design/labels" element={<LabelPrinting />} />
+            <Route path="/templates/price-label" element={<LabelPrinting />} />
+            <Route path="/marketing" element={<MarketingPosts />} />
+            <Route path="/marketing/posts" element={<MarketingPosts />} />
+            <Route path="/templates/posts" element={<MarketingPosts />} />
+            <Route path="/marketing/meta-catalog" element={<MetaCatalog />} />
+            <Route path="/marketing/channel-catalog" element={<ChannelCatalog />} />
+            <Route path="/registrations/services" element={<Services />} />
+            <Route path="/products/characteristics" element={<Variations />} />
+            <Route
+              path="/registrations/variations"
+              element={<Navigate to="/products/characteristics" replace />}
+            />
+            <Route path="/registrations/customers" element={<Customers />} />
+            <Route path="/customers/desires" element={<CustomerDesiresPage />} />
+            <Route path="/estoque/fornecedores" element={<Suppliers />} />
+            <Route path="/registrations/employees" element={<Employees />} />
+            <Route
+              path="/acessos-e-usuarios"
+              element={
+                <AdminRoute>
+                  <AccessAndUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/access-and-users"
+              element={
+                <AdminRoute>
+                  <AccessAndUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <AdminRoute>
+                  <AccessAndUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route path="/profile" element={<ProfilePage />} />
 
             {/* Módulo Financeiro (Movimentações) */}
-            <Route path='/finance' element={<Navigate to="/finance/transactions" replace />} />
-            <Route path='/finance/dashboard' element={<Navigate to="/finance/transactions" replace />} />
-            <Route path='/finance/payables' element={<Navigate to="/finance/transactions" replace />} />
-            <Route path='/finance/receivables' element={<Navigate to="/finance/transactions" replace />} />
-            <Route path='/finance/transactions' element={<Transactions />} />
-            <Route path='/finance/settings' element={<FinanceSettings />} />
-            <Route path='/logistics/assembly-list' element={<AssemblyListPage />} />
-            <Route path='/mobile-app' element={<MobileAppLanding />} />
-            <Route path='/system-docs' element={<SystemDocs />} />
+            <Route path="/finance" element={<Navigate to="/finance/transactions" replace />} />
+            <Route
+              path="/finance/dashboard"
+              element={<Navigate to="/finance/transactions" replace />}
+            />
+            <Route
+              path="/finance/payables"
+              element={<Navigate to="/finance/transactions" replace />}
+            />
+            <Route
+              path="/finance/receivables"
+              element={<Navigate to="/finance/transactions" replace />}
+            />
+            <Route path="/finance/transactions" element={<Transactions />} />
+            <Route path="/finance/settings" element={<FinanceSettings />} />
+            <Route path="/logistics/assembly-list" element={<AssemblyListPage />} />
+            <Route path="/mobile-app" element={<MobileAppLanding />} />
+            <Route path="/system-docs" element={<SystemDocs />} />
           </Route>
         </Routes>
       </BrowserRouter>

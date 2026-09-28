@@ -67,7 +67,9 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
 
       const onSpeech = () => {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => { sentCount += 1; }, AUTO_SEND_SILENCE_MS);
+        timer = setTimeout(() => {
+          sentCount += 1;
+        }, AUTO_SEND_SILENCE_MS);
       };
 
       onSpeech();
@@ -131,7 +133,9 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
 
       const speak = () => {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(() => { sentCount += 1; }, AUTO_SEND_SILENCE_MS);
+        timer = setTimeout(() => {
+          sentCount += 1;
+        }, AUTO_SEND_SILENCE_MS);
       };
 
       speak();
@@ -144,7 +148,9 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
 
     test('2.2: Pausa de 2.8s não envia', () => {
       let sentCount = 0;
-      const timer = setTimeout(() => { sentCount += 1; }, AUTO_SEND_SILENCE_MS);
+      const timer = setTimeout(() => {
+        sentCount += 1;
+      }, AUTO_SEND_SILENCE_MS);
 
       vi.advanceTimersByTime(2800);
       expect(sentCount).toBe(0);
@@ -179,7 +185,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const intent = classifyMultiTurnIntent('Não, foi 250.', activeDraft);
       expect(intent).toBe('CORRECTION');
 
-      const { updatedDraft, isNewTransaction } = applyTurnPatch(activeDraft, 'Não, foi 250.', intent, mockCategories, todayStr);
+      const { updatedDraft, isNewTransaction } = applyTurnPatch(
+        activeDraft,
+        'Não, foi 250.',
+        intent,
+        mockCategories,
+        todayStr
+      );
       expect(isNewTransaction).toBe(false);
       expect(updatedDraft.amount).toBe(250);
     });
@@ -193,7 +205,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       };
 
       const intent = classifyMultiTurnIntent('Na verdade foi 237 e 89.', activeDraft);
-      const { updatedDraft } = applyTurnPatch(activeDraft, 'Na verdade foi 237 e 89.', intent, mockCategories, todayStr);
+      const { updatedDraft } = applyTurnPatch(
+        activeDraft,
+        'Na verdade foi 237 e 89.',
+        intent,
+        mockCategories,
+        todayStr
+      );
       expect(updatedDraft.amount).toBe(237.89);
     });
 
@@ -208,7 +226,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const intent = classifyMultiTurnIntent('Não foi no Pix, foi no débito.', activeDraft);
       expect(intent).toBe('CORRECTION');
 
-      const { updatedDraft } = applyTurnPatch(activeDraft, 'Não foi no Pix, foi no débito.', intent, mockCategories, todayStr);
+      const { updatedDraft } = applyTurnPatch(
+        activeDraft,
+        'Não foi no Pix, foi no débito.',
+        intent,
+        mockCategories,
+        todayStr
+      );
       expect(updatedDraft.amount).toBe(500);
       expect(updatedDraft.categoryName).toBe('Manutenção de Veículos');
       expect(updatedDraft.paymentMethod).toBe('Cartão de Débito');
@@ -225,7 +249,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const intent = classifyMultiTurnIntent('Não, falei errado, é para a loja.', activeDraft);
       expect(intent).toBe('CORRECTION');
 
-      const { updatedDraft } = applyTurnPatch(activeDraft, 'Não, falei errado, é para a loja.', intent, mockCategories, todayStr);
+      const { updatedDraft } = applyTurnPatch(
+        activeDraft,
+        'Não, falei errado, é para a loja.',
+        intent,
+        mockCategories,
+        todayStr
+      );
       expect(updatedDraft.businessPurpose).toBe('BUSINESS');
       expect(updatedDraft.categoryName).toBe('Equipamentos da Empresa');
     });
@@ -254,7 +284,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
 
       const intent = classifyMultiTurnIntent('E mais 50.', activeDraft);
       // Não deve sobrescrever o valor anterior com 50
-      const { updatedDraft } = applyTurnPatch(activeDraft, 'E mais 50.', intent, mockCategories, todayStr);
+      const { updatedDraft } = applyTurnPatch(
+        activeDraft,
+        'E mais 50.',
+        intent,
+        mockCategories,
+        todayStr
+      );
       expect(updatedDraft.amount).not.toBe(50);
     });
 
@@ -282,7 +318,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
 
       // Enquanto A está processando, chega B
       const intentB = classifyMultiTurnIntent('Não, foi 250.', activeDraft);
-      const { updatedDraft } = applyTurnPatch(activeDraft, 'Não, foi 250.', intentB, mockCategories, todayStr);
+      const { updatedDraft } = applyTurnPatch(
+        activeDraft,
+        'Não, foi 250.',
+        intentB,
+        mockCategories,
+        todayStr
+      );
 
       expect(updatedDraft.amount).toBe(250);
     });
@@ -390,10 +432,18 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const d5 = await parseFinancialIntentWithGemini('Paguei 500 no crédito.', [], mockCategories);
       expect(d5.paymentMethod).toBe('Cartão de Crédito');
 
-      const d6 = await parseFinancialIntentWithGemini('Paguei 500 em dinheiro.', [], mockCategories);
+      const d6 = await parseFinancialIntentWithGemini(
+        'Paguei 500 em dinheiro.',
+        [],
+        mockCategories
+      );
       expect(d6.paymentMethod).toBe('Dinheiro');
 
-      const d7 = await parseFinancialIntentWithGemini('Paguei 500 por transferência.', [], mockCategories);
+      const d7 = await parseFinancialIntentWithGemini(
+        'Paguei 500 por transferência.',
+        [],
+        mockCategories
+      );
       expect(d7.paymentMethod).toBe('Transferência');
     });
   });
@@ -401,7 +451,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 10 — CONTA FINANCEIRA VS FORMA DE PAGAMENTO
   describe('GRUPO 10 — CONTA FINANCEIRA VS FORMA DE PAGAMENTO', () => {
     test('"Paguei no Pix da Nubank." -> método PIX e conta Nubank se informada', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei R$ 100 de luz no Pix da Nubank.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei R$ 100 de luz no Pix da Nubank.',
+        [],
+        mockCategories
+      );
       expect(draft.paymentMethod).toBe('Pix');
     });
   });
@@ -409,10 +463,10 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 11 — VALORES DIFÍCEIS
   describe('GRUPO 11 — VALORES DIFÍCEIS', () => {
     test('Parsing de expressões numéricas complexas em pt-BR', () => {
-      expect(parsePtBrWrittenNumbers('um real')).toBe(1.00);
+      expect(parsePtBrWrittenNumbers('um real')).toBe(1.0);
       expect(parsePtBrWrittenNumbers('um real e um centavo')).toBe(1.01);
       expect(parsePtBrWrittenNumbers('doze reais e cinco centavos')).toBe(12.05);
-      expect(parsePtBrWrittenNumbers('cento e um reais')).toBe(101.00);
+      expect(parsePtBrWrittenNumbers('cento e um reais')).toBe(101.0);
       expect(parsePtBrWrittenNumbers('mil reais')).toBe(1000);
       expect(parsePtBrWrittenNumbers('mil e cinquenta')).toBe(1050);
       expect(parsePtBrWrittenNumbers('dez mil e cinquenta')).toBe(10050);
@@ -437,9 +491,13 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const patched2 = trySlotFillingFallback('Não, 20 mil.', d2, todayStr);
       expect(patched2?.amount).toBe(20000);
 
-      const d3: ParsedFinancialIntent = { amount: 500, isEstimated: true, description: 'Paguei uns 500.' };
+      const d3: ParsedFinancialIntent = {
+        amount: 500,
+        isEstimated: true,
+        description: 'Paguei uns 500.',
+      };
       const patched3 = trySlotFillingFallback('Conferi, foi 537,80.', d3, todayStr);
-      expect(patched3?.amount).toBe(537.80);
+      expect(patched3?.amount).toBe(537.8);
       expect(patched3?.isEstimated).not.toBe(true);
     });
   });
@@ -447,7 +505,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 13 — INCERTEZA
   describe('GRUPO 13 — INCERTEZA', () => {
     test('"Acho que foi 600." -> ESTIMATED', async () => {
-      const draft = await parseFinancialIntentWithGemini('Acho que foi 600 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Acho que foi 600 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.isEstimated).toBe(true);
     });
 
@@ -467,10 +529,18 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 14 — DATAS
   describe('GRUPO 14 — DATAS', () => {
     test('Parsing de datas sem deslocamento UTC', async () => {
-      const dToday = await parseFinancialIntentWithGemini('Paguei hoje R$ 100 no Pix.', [], mockCategories);
+      const dToday = await parseFinancialIntentWithGemini(
+        'Paguei hoje R$ 100 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dToday.date).toBe(todayStr);
 
-      const dYesterday = await parseFinancialIntentWithGemini('Paguei ontem R$ 100 no Pix.', [], mockCategories);
+      const dYesterday = await parseFinancialIntentWithGemini(
+        'Paguei ontem R$ 100 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dYesterday.date).not.toBeNull();
     });
   });
@@ -478,7 +548,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 15 — DATAS AMBÍGUAS
   describe('GRUPO 15 — DATAS AMBÍGUAS', () => {
     test('"paguei dia 5" preserva a data com ano e mês coerentes', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei dia 5 R$ 100 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei dia 5 R$ 100 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.date).toMatch(/\d{4}-\d{2}-05/);
     });
   });
@@ -486,16 +560,28 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 16 — EXPRESSÕES TEMPORAIS FUTURAS
   describe('GRUPO 16 — EXPRESSÕES TEMPORAIS FUTURAS', () => {
     test('Promessas e vencimentos futuros não criam movimentação realizada', async () => {
-      const d1 = await parseFinancialIntentWithGemini('Vou pagar amanhã R$ 500.', [], mockCategories);
+      const d1 = await parseFinancialIntentWithGemini(
+        'Vou pagar amanhã R$ 500.',
+        [],
+        mockCategories
+      );
       expect(d1.isReadyForConfirmation).toBe(false);
 
       const d2 = await parseFinancialIntentWithGemini('Recebo sexta R$ 800.', [], mockCategories);
       expect(d2.isReadyForConfirmation).toBe(false);
 
-      const d3 = await parseFinancialIntentWithGemini('Tenho que pagar hoje R$ 300.', [], mockCategories);
+      const d3 = await parseFinancialIntentWithGemini(
+        'Tenho que pagar hoje R$ 300.',
+        [],
+        mockCategories
+      );
       expect(d3.isReadyForConfirmation).toBe(false);
 
-      const d4 = await parseFinancialIntentWithGemini('Acabei de pagar hoje R$ 300 no Pix.', [], mockCategories);
+      const d4 = await parseFinancialIntentWithGemini(
+        'Acabei de pagar hoje R$ 300 no Pix.',
+        [],
+        mockCategories
+      );
       expect(d4.isReadyForConfirmation).toBe(true);
     });
   });
@@ -503,13 +589,25 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 17 — CONTRAPARTE
   describe('GRUPO 17 — CONTRAPARTE', () => {
     test('Identificação correta da contraparte sem inferências infundadas', async () => {
-      const d1 = await parseFinancialIntentWithGemini('Paguei 500 para a Bechara no Pix.', [], mockCategories);
+      const d1 = await parseFinancialIntentWithGemini(
+        'Paguei 500 para a Bechara no Pix.',
+        [],
+        mockCategories
+      );
       expect(d1.supplier || d1.counterparty).toBe('Bechara');
 
-      const d2 = await parseFinancialIntentWithGemini('Paguei 200 para o João no Pix.', [], mockCategories);
+      const d2 = await parseFinancialIntentWithGemini(
+        'Paguei 200 para o João no Pix.',
+        [],
+        mockCategories
+      );
       expect(d2.supplier || d2.counterparty).toBe('João');
 
-      const d3 = await parseFinancialIntentWithGemini('Paguei para ele R$ 100 no Pix.', [], mockCategories);
+      const d3 = await parseFinancialIntentWithGemini(
+        'Paguei para ele R$ 100 no Pix.',
+        [],
+        mockCategories
+      );
       expect(d3.supplier || d3.counterparty).not.toBe('ele');
     });
   });
@@ -532,7 +630,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 19 — CATEGORIA AMBÍGUA
   describe('GRUPO 19 — CATEGORIA AMBÍGUA', () => {
     test('"Paguei 500 em material para minha casa." -> Pró-labore', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 500 em material para minha casa no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 500 em material para minha casa no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.businessPurpose).toBe('PERSONAL');
       expect(draft.categoryName).toBe('Pró-labore');
     });
@@ -541,10 +643,18 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 20 — COMBUSTÍVEL VS MANUTENÇÃO
   describe('GRUPO 20 — COMBUSTÍVEL VS MANUTENÇÃO', () => {
     test('Troca de óleo vs combustível', async () => {
-      const d1 = await parseFinancialIntentWithGemini('Comprei óleo de motor por R$ 150 no Pix.', [], mockCategories);
+      const d1 = await parseFinancialIntentWithGemini(
+        'Comprei óleo de motor por R$ 150 no Pix.',
+        [],
+        mockCategories
+      );
       expect(d1.categoryName).toBe('Manutenção de Veículos');
 
-      const d2 = await parseFinancialIntentWithGemini('Coloquei diesel R$ 300 no Pix.', [], mockCategories);
+      const d2 = await parseFinancialIntentWithGemini(
+        'Coloquei diesel R$ 300 no Pix.',
+        [],
+        mockCategories
+      );
       expect(d2.categoryName).toBe('Combustível');
     });
   });
@@ -552,7 +662,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 21 — LAVAGEM DE VEÍCULO
   describe('GRUPO 21 — LAVAGEM DE VEÍCULO', () => {
     test('Lavagem de carro mapeada para Manutenção de Veículos', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei lavagem do carro R$ 50 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei lavagem do carro R$ 50 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.categoryName).toBe('Manutenção de Veículos');
     });
   });
@@ -560,10 +674,18 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 22 — COMPRA DE ESTOQUE VS EQUIPAMENTO
   describe('GRUPO 22 — COMPRA DE ESTOQUE VS EQUIPAMENTO', () => {
     test('Item para revenda vira Compra de estoque; para uso na loja vira Equipamentos', async () => {
-      const dRevenda = await parseFinancialIntentWithGemini('Comprei uma geladeira para revender por R$ 2.500 no Pix.', [], mockCategories);
+      const dRevenda = await parseFinancialIntentWithGemini(
+        'Comprei uma geladeira para revender por R$ 2.500 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dRevenda.categoryName).toBe('Compra de estoque');
 
-      const dUso = await parseFinancialIntentWithGemini('Comprei uma TV para usar na loja por R$ 2.000 no Pix.', [], mockCategories);
+      const dUso = await parseFinancialIntentWithGemini(
+        'Comprei uma TV para usar na loja por R$ 2.000 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dUso.categoryName).toBe('Equipamentos da Empresa');
     });
   });
@@ -571,7 +693,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 23 — DESTINO EMPRESARIAL NÃO SIGNIFICA SEMPRE EQUIPAMENTO
   describe('GRUPO 23 — DESTINO EMPRESARIAL NÃO SIGNIFICA SEMPRE EQUIPAMENTO', () => {
     test('Compra de TV para revenda vira Compra de estoque', async () => {
-      const draft = await parseFinancialIntentWithGemini('Comprei uma TV para revenda por R$ 1.800 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Comprei uma TV para revenda por R$ 1.800 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.categoryName).toBe('Compra de estoque');
     });
   });
@@ -579,11 +705,19 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 24 — PRÓ-LABORE
   describe('GRUPO 24 — PRÓ-LABORE', () => {
     test('Combustível e Manutenção de Veículos NUNCA viram Pró-labore', async () => {
-      const dFuel = await parseFinancialIntentWithGemini('Abasteci meu carro R$ 200 no Pix.', [], mockCategories);
+      const dFuel = await parseFinancialIntentWithGemini(
+        'Abasteci meu carro R$ 200 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dFuel.categoryName).toBe('Combustível');
       expect(dFuel.categoryName).not.toBe('Pró-labore');
 
-      const dManut = await parseFinancialIntentWithGemini('Troquei os pneus do meu carro R$ 800 no Pix.', [], mockCategories);
+      const dManut = await parseFinancialIntentWithGemini(
+        'Troquei os pneus do meu carro R$ 800 no Pix.',
+        [],
+        mockCategories
+      );
       expect(dManut.categoryName).toBe('Manutenção de Veículos');
       expect(dManut.categoryName).not.toBe('Pró-labore');
     });
@@ -592,7 +726,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 25 — MÚLTIPLAS MOVIMENTAÇÕES NUMA ÚNICA FALA
   describe('GRUPO 25 — MÚLTIPLAS MOVIMENTAÇÕES NUMA ÚNICA FALA', () => {
     test('"Recebi 800 do João e paguei 200 de gasolina." -> 1 entrada, 1 saída', async () => {
-      const draft = await parseFinancialIntentWithGemini('Recebi 800 do João e paguei 200 de gasolina no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Recebi 800 do João e paguei 200 de gasolina no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.batchDraftsList).not.toBeNull();
       expect(draft.batchDraftsList?.length).toBe(2);
 
@@ -611,7 +749,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 26 — MISTURA DE MOVIMENTAÇÃO E CORREÇÃO NA MESMA FALA
   describe('GRUPO 26 — MISTURA DE MOVIMENTAÇÃO E CORREÇÃO NA MESMA FALA', () => {
     test('"Paguei 200 de gasolina, não, foi 250." -> UMA movimentação de 250', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 200 de gasolina, não, foi 250 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 200 de gasolina, não, foi 250 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(250);
       expect(draft.categoryName).toBe('Combustível');
     });
@@ -620,7 +762,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 27 — REPETIÇÃO DE ASR
   describe('GRUPO 27 — REPETIÇÃO DE ASR', () => {
     test('Repetição de frase no ASR não duplica a movimentação', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 200 de gasolina... 200 de gasolina no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 200 de gasolina... 200 de gasolina no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(200);
       expect(draft.categoryName).toBe('Combustível');
     });
@@ -647,7 +793,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 30 — CARTÃO
   describe('GRUPO 30 — CARTÃO', () => {
     test('Cartão genérico em parcelas pergunta débito/crédito e gera 0 parcelas futuras', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei no cartão em 10 vezes.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei no cartão em 10 vezes.',
+        [],
+        mockCategories
+      );
       expect(draft.paymentMethod).toBe('UNKNOWN');
       expect(draft.questionToUser).toMatch(/débito ou de crédito\?/i);
       expect(draft.installmentList).toBeFalsy();
@@ -657,11 +807,19 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 31 — PARCELA
   describe('GRUPO 31 — PARCELA', () => {
     test('Pagamento de parcela realizada gera exatamente 1 saída realizada', async () => {
-      const d1 = await parseFinancialIntentWithGemini('Paguei a terceira parcela de 1000 no Pix.', [], mockCategories);
+      const d1 = await parseFinancialIntentWithGemini(
+        'Paguei a terceira parcela de 1000 no Pix.',
+        [],
+        mockCategories
+      );
       expect(d1.amount).toBe(1000);
       expect(d1.isReadyForConfirmation).toBe(true);
 
-      const d2 = await parseFinancialIntentWithGemini('Tenho 10 parcelas de 1000.', [], mockCategories);
+      const d2 = await parseFinancialIntentWithGemini(
+        'Tenho 10 parcelas de 1000.',
+        [],
+        mockCategories
+      );
       expect(d2.isReadyForConfirmation).toBe(false);
     });
   });
@@ -669,12 +827,20 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 32 — RECORRÊNCIA
   describe('GRUPO 32 — RECORRÊNCIA', () => {
     test('"Pago aluguel todo mês." -> 0 saídas automatizadas', async () => {
-      const draft = await parseFinancialIntentWithGemini('Pago aluguel todo mês.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Pago aluguel todo mês.',
+        [],
+        mockCategories
+      );
       expect(draft.isReadyForConfirmation).toBe(false);
     });
 
     test('"Paguei o aluguel da loja desse mês." -> 1 saída realizada', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei o aluguel da loja desse mês R$ 1.500 no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei o aluguel da loja desse mês R$ 1.500 no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.amount).toBe(1500);
       expect(draft.isReadyForConfirmation).toBe(true);
     });
@@ -683,7 +849,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 33 — DESCRIÇÃO
   describe('GRUPO 33 — DESCRIÇÃO', () => {
     test('Descrição não inventa detalhes como "Strada" se não informados', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 200 de gasolina no Pix.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 200 de gasolina no Pix.',
+        [],
+        mockCategories
+      );
       expect(draft.description).not.toMatch(/strada/i);
     });
   });
@@ -691,8 +861,12 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 34 — CATEGORIA REAL DO BANCO
   describe('GRUPO 34 — CATEGORIA REAL DO BANCO', () => {
     test('Garantir que a categoria retornada pertença à lista de categorias reais', async () => {
-      const draft = await parseFinancialIntentWithGemini('Abasteci 150 no Pix.', [], mockCategories);
-      const catObj = mockCategories.find(c => c.name === draft.categoryName);
+      const draft = await parseFinancialIntentWithGemini(
+        'Abasteci 150 no Pix.',
+        [],
+        mockCategories
+      );
+      const catObj = mockCategories.find((c) => c.name === draft.categoryName);
       expect(catObj).toBeDefined();
       expect(catObj?.id).toBe('cat-1');
     });
@@ -820,12 +994,18 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
     });
 
     test('Invariante 3: Complemento não cria nova movimentação', () => {
-      const intent = classifyMultiTurnIntent('Foi no Pix.', { amount: 200, paymentMethod: 'UNKNOWN' });
+      const intent = classifyMultiTurnIntent('Foi no Pix.', {
+        amount: 200,
+        paymentMethod: 'UNKNOWN',
+      });
       expect(intent).toBe('ANSWER_TO_QUESTION');
     });
 
     test('Invariante 4: Nova movimentação não sobrescreve draft anterior', () => {
-      const intent = classifyMultiTurnIntent('E paguei 300 de internet.', { amount: 200, isReadyForConfirmation: true });
+      const intent = classifyMultiTurnIntent('E paguei 300 de internet.', {
+        amount: 200,
+        isReadyForConfirmation: true,
+      });
       expect(intent).toBe('NEW_TRANSACTION');
     });
 
@@ -835,8 +1015,12 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
     });
 
     test('Invariante 6: Categoria inexistente nunca é persistida', async () => {
-      const draft = await parseFinancialIntentWithGemini('Abasteci 150 no Pix.', [], mockCategories);
-      const exists = mockCategories.some(c => c.name === draft.categoryName);
+      const draft = await parseFinancialIntentWithGemini(
+        'Abasteci 150 no Pix.',
+        [],
+        mockCategories
+      );
+      const exists = mockCategories.some((c) => c.name === draft.categoryName);
       expect(exists).toBe(true);
     });
 
@@ -883,7 +1067,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
     });
 
     test('Invariante 12: Transação futura não entra como realizada', async () => {
-      const draft = await parseFinancialIntentWithGemini('Vou pagar amanhã R$ 500.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Vou pagar amanhã R$ 500.',
+        [],
+        mockCategories
+      );
       expect(draft.isReadyForConfirmation).toBe(false);
     });
   });
@@ -911,7 +1099,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
   // GRUPO 44 — ERROS DE FALA / TRANSCRIÇÃO (ASR)
   describe('GRUPO 44 — ERROS DE FALA / TRANSCRIÇÃO (ASR)', () => {
     test('"pics" -> Pix', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 100 de luz no pics.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 100 de luz no pics.',
+        [],
+        mockCategories
+      );
       expect(draft.paymentMethod).toBe('Pix');
     });
 
@@ -926,7 +1118,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
     });
 
     test('"cartão de credto" -> Cartão de Crédito', async () => {
-      const draft = await parseFinancialIntentWithGemini('Paguei 100 no cartão de credto.', [], mockCategories);
+      const draft = await parseFinancialIntentWithGemini(
+        'Paguei 100 no cartão de credto.',
+        [],
+        mockCategories
+      );
       expect(draft.paymentMethod).toBe('Cartão de Crédito');
     });
   });
@@ -939,7 +1135,11 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       const registeredTransactions: ParsedFinancialIntent[] = [];
 
       // Passo 1: "Paguei 200 de gasolina no Pix."
-      currentDraft = await parseFinancialIntentWithGemini('Paguei 200 de gasolina no Pix.', activeHistory, mockCategories);
+      currentDraft = await parseFinancialIntentWithGemini(
+        'Paguei 200 de gasolina no Pix.',
+        activeHistory,
+        mockCategories
+      );
       expect(currentDraft.amount).toBe(200);
       expect(currentDraft.categoryName).toBe('Combustível');
       expect(currentDraft.paymentMethod).toBe('Pix');
@@ -953,32 +1153,61 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       registeredTransactions.push({ ...currentDraft });
 
       // Passo 3: "Também comprei uma televisão por 2 mil no cartão." (Nova movimentação)
-      const intent3 = classifyMultiTurnIntent('Também comprei uma televisão por 2 mil no cartão.', currentDraft, activeHistory);
+      const intent3 = classifyMultiTurnIntent(
+        'Também comprei uma televisão por 2 mil no cartão.',
+        currentDraft,
+        activeHistory
+      );
       expect(intent3).toBe('NEW_TRANSACTION');
-      currentDraft = await parseFinancialIntentWithGemini('Também comprei uma televisão por 2 mil no cartão.', activeHistory, mockCategories);
+      currentDraft = await parseFinancialIntentWithGemini(
+        'Também comprei uma televisão por 2 mil no cartão.',
+        activeHistory,
+        mockCategories
+      );
       expect(currentDraft.businessPurpose).toBe('UNKNOWN');
       expect(currentDraft.paymentMethod).toBe('UNKNOWN');
 
       // Passo 4: Assistente pergunta loja/pessoal e débito/crédito
-      activeHistory.push({ id: 'bot-1', sender: 'assistant', text: 'Essa televisão é para a loja ou é uma compra pessoal? Foi no cartão de débito ou de crédito?', timestamp: '10:01' });
+      activeHistory.push({
+        id: 'bot-1',
+        sender: 'assistant',
+        text: 'Essa televisão é para a loja ou é uma compra pessoal? Foi no cartão de débito ou de crédito?',
+        timestamp: '10:01',
+      });
 
       // Passo 5: "É para a loja." (Resposta a pergunta)
       const intent5 = classifyMultiTurnIntent('É para a loja.', currentDraft, activeHistory);
       expect(intent5).toBe('ANSWER_TO_QUESTION');
-      const res5 = applyTurnPatch(currentDraft, 'É para a loja.', intent5, mockCategories, todayStr);
+      const res5 = applyTurnPatch(
+        currentDraft,
+        'É para a loja.',
+        intent5,
+        mockCategories,
+        todayStr
+      );
       currentDraft = res5.updatedDraft;
       expect(currentDraft.businessPurpose).toBe('BUSINESS');
       expect(currentDraft.categoryName).toBe('Equipamentos da Empresa');
 
       // Passo 6: "Foi no débito." (Resposta a pergunta de cartão)
       const intent6 = classifyMultiTurnIntent('Foi no débito.', currentDraft, activeHistory);
-      const res6 = applyTurnPatch(currentDraft, 'Foi no débito.', intent6, mockCategories, todayStr);
+      const res6 = applyTurnPatch(
+        currentDraft,
+        'Foi no débito.',
+        intent6,
+        mockCategories,
+        todayStr
+      );
       currentDraft = res6.updatedDraft;
       expect(currentDraft.paymentMethod).toBe('Cartão de Débito');
       registeredTransactions.push({ ...currentDraft });
 
       // Passo 7: "E recebi 800 do João no Pix." (Nova entrada)
-      currentDraft = await parseFinancialIntentWithGemini('E recebi 800 do João no Pix.', activeHistory, mockCategories);
+      currentDraft = await parseFinancialIntentWithGemini(
+        'E recebi 800 do João no Pix.',
+        activeHistory,
+        mockCategories
+      );
       expect(currentDraft.type).toBe('income');
       expect(currentDraft.amount).toBe(800);
       expect(currentDraft.supplier || currentDraft.counterparty).toBe('João');
@@ -1004,7 +1233,9 @@ describe('BATERIA COMPLEMENTAR DO ASSISTENTE FINANCEIRO (GRUPOS 1 A 45)', () => 
       // Movimentação C: Entrada R$ 800, João, Pix
       expect(registeredTransactions[2].type).toBe('income');
       expect(registeredTransactions[2].amount).toBe(800);
-      expect(registeredTransactions[2].supplier || registeredTransactions[2].counterparty).toBe('João');
+      expect(registeredTransactions[2].supplier || registeredTransactions[2].counterparty).toBe(
+        'João'
+      );
       expect(registeredTransactions[2].paymentMethod).toBe('Pix');
     });
   });

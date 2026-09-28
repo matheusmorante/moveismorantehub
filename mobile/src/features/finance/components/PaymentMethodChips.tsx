@@ -23,7 +23,7 @@ export const PaymentMethodChips: React.FC<Props> = ({
       </Text>
       <View style={[styles.chipsContainer, hasError && styles.inputError]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-          {options.map(m => (
+          {options.map((m) => (
             <TouchableOpacity
               key={m}
               style={[styles.chip, selectedMethod === m && styles.chipActive]}

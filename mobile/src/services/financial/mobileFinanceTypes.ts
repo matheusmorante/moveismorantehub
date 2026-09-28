@@ -32,7 +32,15 @@ export interface FinancialTransaction {
   installments_total?: number | null;
   installment_number?: number | null;
   notes?: string | null;
-  origin: 'MANUAL' | 'AI_ASSISTANT' | 'SALE_ORDER' | 'PURCHASE_ORDER' | 'PAYABLE_PAYMENT' | 'INITIAL_BALANCE' | 'IMPORT' | 'SYSTEM';
+  origin:
+    | 'MANUAL'
+    | 'AI_ASSISTANT'
+    | 'SALE_ORDER'
+    | 'PURCHASE_ORDER'
+    | 'PAYABLE_PAYMENT'
+    | 'INITIAL_BALANCE'
+    | 'IMPORT'
+    | 'SYSTEM';
   created_by?: string | null;
   status: 'ACTIVE' | 'PENDING' | 'PAID' | 'REVERSED' | 'CANCELLED';
   created_at: string;
@@ -40,9 +48,9 @@ export interface FinancialTransaction {
 }
 
 export interface MonthlySummary {
-  income: number;   // Total de Entradas Efetivas
-  expense: number;  // Total de Saídas Efetivas
-  balance: number;  // Saldo Financeiro de Caixa
+  income: number; // Total de Entradas Efetivas
+  expense: number; // Total de Saídas Efetivas
+  balance: number; // Saldo Financeiro de Caixa
 }
 
 export interface CashFlowReport {
@@ -54,12 +62,12 @@ export interface CashFlowReport {
 }
 
 export interface IncomeStatementReport {
-  grossRevenue: number;     // Receitas efetivas
-  cmv: number;              // Custo da Mercadoria Vendida
-  grossMargin: number;      // Receitas - CMV
-  operatingExpenses: number;// Despesas operacionais e financeiras
-  netResult: number;        // Resultado Líquido
-  marginPercent: number;    // % Lucratividade
+  grossRevenue: number; // Receitas efetivas
+  cmv: number; // Custo da Mercadoria Vendida
+  grossMargin: number; // Receitas - CMV
+  operatingExpenses: number; // Despesas operacionais e financeiras
+  netResult: number; // Resultado Líquido
+  marginPercent: number; // % Lucratividade
 }
 
 export interface MonthlyEvolutionItem {

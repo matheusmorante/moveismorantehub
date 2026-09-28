@@ -1,7 +1,11 @@
 import type { SupplierProductSummary } from './inboundSupplierProductContext';
 import type { InboundInvoiceItem } from '../types/inboundNfeTypes';
 import type { InboundProductCandidate } from '../../aiService/aiInboundProductSuggestions';
-import { extractProductFeatures, computeFeatureMatchScore, normalize } from '../utils/inboundTextSimilarity';
+import {
+  extractProductFeatures,
+  computeFeatureMatchScore,
+  normalize,
+} from '../utils/inboundTextSimilarity';
 import { cosineSimilarity, getOrComputeEmbedding } from './inboundEmbeddingService';
 
 export interface ScoredCandidate {
@@ -37,9 +41,14 @@ export async function rankAndScoreCandidates(
   const scoredEntries: ScoredCandidate[] = [];
 
   for (const product of products) {
-    const candidatesToEvaluate = product.variations.length > 0
-      ? product.variations.map(v => ({ variationId: v.id, name: v.name, attributes: v.attributes }))
-      : [{ variationId: undefined, name: product.name, attributes: {} }];
+    const candidatesToEvaluate =
+      product.variations.length > 0
+        ? product.variations.map((v) => ({
+            variationId: v.id,
+            name: v.name,
+            attributes: v.attributes,
+          }))
+        : [{ variationId: undefined, name: product.name, attributes: {} }];
 
     for (const v of candidatesToEvaluate) {
       const targetName = v.name || product.name;
@@ -50,7 +59,11 @@ export async function rankAndScoreCandidates(
       const isSupplierCodeMatch = Boolean(nfCode && targetNorm.includes(nfCode));
 
       // 2. Pontuação de atributos e similaridade de nome
-      const { score: featScore, matches, divergences } = computeFeatureMatchScore(nfFeatures, targetFeatures);
+      const {
+        score: featScore,
+        matches,
+        divergences,
+      } = computeFeatureMatchScore(nfFeatures, targetFeatures);
 
       // 3. Similaridade de Embedding (Gemini Embedding 2)
       let embeddingBonus = 0;
@@ -58,8 +71,8 @@ export async function rankAndScoreCandidates(
         const prodEmbedding = await getOrComputeEmbedding(targetName);
         if (prodEmbedding) {
           const sim = cosineSimilarity(nfEmbedding, prodEmbedding);
-          if (sim > 0.70) {
-            embeddingBonus = Math.round((sim - 0.70) * 100); // Até 30 pontos extras
+          if (sim > 0.7) {
+            embeddingBonus = Math.round((sim - 0.7) * 100); // Até 30 pontos extras
             matches.push(`Similaridade semântica de embedding: ${(sim * 100).toFixed(0)}%`);
           }
         }
@@ -70,7 +83,7 @@ export async function rankAndScoreCandidates(
       if (isSupplierCodeMatch) totalScore += 1000;
 
       // Normalizar para confiança de 60 a 99
-      let confidence = Math.min(99, Math.max(60, Math.round(55 + (totalScore / 1.5))));
+      let confidence = Math.min(99, Math.max(60, Math.round(55 + totalScore / 1.5)));
       if (isSupplierCodeMatch) confidence = 99;
 
       const reason = isSupplierCodeMatch
@@ -85,10 +98,10 @@ export async function rankAndScoreCandidates(
           confidence,
           reason,
           matches,
-          divergences
+          divergences,
         },
         totalScore,
-        isSupplierCodeMatch
+        isSupplierCodeMatch,
       });
     }
   }
@@ -121,12 +134,12 @@ export async function rankAndScoreCandidates(
   // 2. Confiança >= 88% e distância maior que 15% para o segundo colocado
   const isConclusive = Boolean(
     first.confidence >= 98 ||
-    (first.confidence >= 88 && (!second || (first.confidence - second.confidence >= 15)))
+      (first.confidence >= 88 && (!second || first.confidence - second.confidence >= 15))
   );
 
   return {
     candidates: topCandidates,
     isConclusive,
-    topCandidate: first
+    topCandidate: first,
   };
 }

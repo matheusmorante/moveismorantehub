@@ -11,7 +11,9 @@ export const fetchOppMap = async (): Promise<Record<string, string>> => {
       const { data } = await supabase.from('opportunities').select('id, name');
       const map: Record<string, string> = {};
       if (data) {
-        data.forEach((item: any) => { map[item.id] = item.name; });
+        data.forEach((item: any) => {
+          map[item.id] = item.name;
+        });
       }
       oppCache = map;
       return map;
@@ -54,7 +56,7 @@ export function useMobileProductMetadata(product: any) {
     let mounted = true;
     const oppId = product.opportunity_id || product.opportunityId;
     if (oppId) {
-      fetchOppMap().then(map => {
+      fetchOppMap().then((map) => {
         if (mounted && map[oppId]) setOppName(map[oppId]);
       });
     } else {
@@ -66,29 +68,36 @@ export function useMobileProductMetadata(product: any) {
       product.supplierId,
       product.main_supplier_id,
       product.supplier_id,
-      ...(product.supplierIds || product.supplier_ids || [])
+      ...(product.supplierIds || product.supplier_ids || []),
     ];
     const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
 
     if (sIds.length > 0) {
-      fetchSupplierMap().then(map => {
+      fetchSupplierMap().then((map) => {
         if (!mounted) return;
         const names: string[] = [];
-        sIds.forEach(id => {
+        sIds.forEach((id) => {
           if (map && map[id]) names.push(map[id]);
         });
         if (names.length === 0) {
-          const fallback = product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
+          const fallback =
+            product.supplierName ||
+            product.supplier_name ||
+            product.supplier?.name ||
+            product.supplier;
           if (fallback) names.push(String(fallback));
         }
         setSupplierNames(Array.from(new Set(names)));
       });
     } else {
-      const fallback = product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
+      const fallback =
+        product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
       setSupplierNames(fallback ? [String(fallback)] : []);
     }
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [
     product.opportunity_id,
     product.opportunityId,
@@ -96,7 +105,7 @@ export function useMobileProductMetadata(product: any) {
     product.supplierId,
     product.main_supplier_id,
     product.supplier_id,
-    JSON.stringify(product.supplierIds || product.supplier_ids || [])
+    JSON.stringify(product.supplierIds || product.supplier_ids || []),
   ]);
 
   return { oppName, supplierNames };

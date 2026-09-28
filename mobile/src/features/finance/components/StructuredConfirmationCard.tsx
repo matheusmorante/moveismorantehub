@@ -1,6 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Check, Edit2, AlertCircle, RefreshCw, Calendar, CreditCard, Search, X } from 'lucide-react-native';
+import {
+  Check,
+  Edit2,
+  AlertCircle,
+  RefreshCw,
+  Calendar,
+  CreditCard,
+  Search,
+  X,
+} from 'lucide-react-native';
 import { ParsedFinancialIntent } from '../../../services/financialAiAssistantService';
 
 interface Props {
@@ -33,7 +42,12 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
 
   if (catLower.includes('juros') || catLower.includes('rendimento')) {
     confirmBtnText = 'Registrar receita';
-  } else if (catLower.includes('empréstimo') || catLower.includes('emprestimo') || catLower.includes('boleto') || catLower.includes('pagamento')) {
+  } else if (
+    catLower.includes('empréstimo') ||
+    catLower.includes('emprestimo') ||
+    catLower.includes('boleto') ||
+    catLower.includes('pagamento')
+  ) {
     confirmBtnText = 'Registrar pagamento';
   }
 
@@ -84,12 +98,15 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
         <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
           {intent.supplier || intent.description || 'Lançamento Financeiro'}
         </Text>
-        <Text style={[styles.amountText, { color: intent.type === 'income' ? '#16a34a' : '#dc2626' }]}>
+        <Text
+          style={[styles.amountText, { color: intent.type === 'income' ? '#16a34a' : '#dc2626' }]}
+        >
           {formattedAmount}
         </Text>
         {intentType === 'INSTALLMENT' && intent.installmentsCount ? (
           <Text style={styles.subAmountText}>
-            ({intent.installmentsCount}x de R$ {((intent.amount || 0) / intent.installmentsCount).toFixed(2)})
+            ({intent.installmentsCount}x de R${' '}
+            {((intent.amount || 0) / intent.installmentsCount).toFixed(2)})
           </Text>
         ) : null}
       </View>
@@ -99,7 +116,10 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
         {intentType === 'RECURRING' ? (
           <>
             <Row label="Frequência" value={intent.frequency || 'Mensal'} />
-            <Row label="Vencimento" value={intent.dueDay ? `Todo dia ${intent.dueDay}` : 'Mensal'} />
+            <Row
+              label="Vencimento"
+              value={intent.dueDay ? `Todo dia ${intent.dueDay}` : 'Mensal'}
+            />
             <Row label="Início" value={intent.date || 'Hoje'} />
             <Row label="Valor" value="Fixo" />
           </>
@@ -107,7 +127,10 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
           <>
             <Row label="Vencimento" value={intent.dueDate || intent.date || 'Não informado'} />
             <Row label="Status" value="Pendente" />
-            <Row label="Fornecedor" value={intent.supplier || intent.counterparty || 'Não informado'} />
+            <Row
+              label="Fornecedor"
+              value={intent.supplier || intent.counterparty || 'Não informado'}
+            />
           </>
         ) : intentType === 'INSTALLMENT' ? (
           <>
@@ -125,30 +148,51 @@ export const StructuredConfirmationCard: React.FC<Props> = ({
           <>
             <Row label="Data" value={intent.date || 'Hoje'} />
             <Row label="Categoria" value={intent.categoryName || 'Geral'} />
-            <Row label={isIncome ? "Recebimento" : "Pagamento"} value={intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN' ? intent.paymentMethod : '???'} />
+            <Row
+              label={isIncome ? 'Recebimento' : 'Pagamento'}
+              value={
+                intent.paymentMethod && intent.paymentMethod !== 'UNKNOWN'
+                  ? intent.paymentMethod
+                  : '???'
+              }
+            />
           </>
         )}
       </View>
 
       {/* Detalhamento de Parcelas */}
-      {intentType === 'INSTALLMENT' && intent.installmentList && intent.installmentList.length > 0 && (
-        <View style={styles.installmentContainer}>
-          <Text style={[styles.installmentTitle, isDarkMode && styles.textDark]}>Parcelas Lançadas:</Text>
-          {intent.installmentList.map((item, idx) => (
-            <View key={idx} style={[styles.installmentRow, isDarkMode && styles.installmentRowDark]}>
-              <Text style={[styles.installmentLabel, isDarkMode && styles.textDark]}>
-                {item.number}/{intent.installmentList?.length}
-              </Text>
-              <Text style={[styles.installmentValue, isDarkMode && styles.textDark]}>
-                R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </Text>
-              <Text style={[styles.installmentDate, item.dueDate ? styles.dueDateSet : styles.dueDatePending]}>
-                {item.dueDate ? item.dueDate.split('-').reverse().join('/') : 'vencimento pendente'}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {intentType === 'INSTALLMENT' &&
+        intent.installmentList &&
+        intent.installmentList.length > 0 && (
+          <View style={styles.installmentContainer}>
+            <Text style={[styles.installmentTitle, isDarkMode && styles.textDark]}>
+              Parcelas Lançadas:
+            </Text>
+            {intent.installmentList.map((item, idx) => (
+              <View
+                key={idx}
+                style={[styles.installmentRow, isDarkMode && styles.installmentRowDark]}
+              >
+                <Text style={[styles.installmentLabel, isDarkMode && styles.textDark]}>
+                  {item.number}/{intent.installmentList?.length}
+                </Text>
+                <Text style={[styles.installmentValue, isDarkMode && styles.textDark]}>
+                  R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+                <Text
+                  style={[
+                    styles.installmentDate,
+                    item.dueDate ? styles.dueDateSet : styles.dueDatePending,
+                  ]}
+                >
+                  {item.dueDate
+                    ? item.dueDate.split('-').reverse().join('/')
+                    : 'vencimento pendente'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
       {/* Botões de Ação */}
       <View style={styles.actionsRow}>

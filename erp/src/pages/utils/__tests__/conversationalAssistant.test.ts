@@ -53,12 +53,7 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
     expect(draft1.amount).toBe(10000);
     expect(draft1.isReadyForConfirmation).toBe(false);
 
-    const draft2 = await parseFinancialIntentWithGemini(
-      'no Pix',
-      [],
-      mockCategories,
-      draft1
-    );
+    const draft2 = await parseFinancialIntentWithGemini('no Pix', [], mockCategories, draft1);
 
     expect(draft2.supplier).toBe('Bechara');
     expect(draft2.amount).toBe(10000);
@@ -102,7 +97,11 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
       isReadyForConfirmation: true,
     };
 
-    const patched = trySlotFillingFallback('o valor na verdade é 12 mil', activeDraft, '2026-09-05');
+    const patched = trySlotFillingFallback(
+      'o valor na verdade é 12 mil',
+      activeDraft,
+      '2026-09-05'
+    );
 
     expect(patched).not.toBeNull();
     expect(patched?.amount).toBe(12000);
@@ -120,7 +119,11 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
       isReadyForConfirmation: true,
     };
 
-    const patched = trySlotFillingFallback('não, foi no dia 20 de outubro', activeDraft, '2026-09-05');
+    const patched = trySlotFillingFallback(
+      'não, foi no dia 20 de outubro',
+      activeDraft,
+      '2026-09-05'
+    );
 
     expect(patched).not.toBeNull();
     expect(patched?.date || patched?.dueDate).toContain('-10-20');
@@ -137,11 +140,7 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
       isReadyForConfirmation: false,
     };
 
-    const result = trySlotFillingFallback(
-      'paguei paguei 4 mil reais',
-      activeDraft,
-      '2026-09-05'
-    );
+    const result = trySlotFillingFallback('paguei paguei 4 mil reais', activeDraft, '2026-09-05');
 
     expect(result).not.toBeNull();
     expect(result?.amount).toBe(4000);
@@ -195,7 +194,11 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
       isReadyForConfirmation: true,
     };
 
-    const editadoCat = trySlotFillingFallback('troca a categoria para móveis para revenda', draft, '2026-09-05');
+    const editadoCat = trySlotFillingFallback(
+      'troca a categoria para móveis para revenda',
+      draft,
+      '2026-09-05'
+    );
     expect(editadoCat?.categoryName).toBe('Móveis para revenda');
 
     const editadoPix = trySlotFillingFallback('na verdade é Pix', draft, '2026-09-05');
@@ -213,7 +216,11 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
       isReadyForConfirmation: false,
     };
 
-    const result = trySlotFillingFallback('não lembro, consulta aí', draftComPerguntaValor, '2026-09-05');
+    const result = trySlotFillingFallback(
+      'não lembro, consulta aí',
+      draftComPerguntaValor,
+      '2026-09-05'
+    );
 
     expect(result).not.toBeNull();
     expect(result?.unknownByUser).toContain('amount');
@@ -222,7 +229,8 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
   });
 
   test('TESTE 15: CASO OBRIGATÓRIO DE EDIÇÃO COM CAMPOS DESCONHECIDOS ("editar compra da Bechara sem lembrar dia, forma nem quantia")', async () => {
-    const userPhrase = 'eu quero saber eu quero editar uma compra que eu fiz da Bechara mas não lembro que dia que é, forma de pagamento nem a quantia';
+    const userPhrase =
+      'eu quero saber eu quero editar uma compra que eu fiz da Bechara mas não lembro que dia que é, forma de pagamento nem a quantia';
 
     const result = await parseFinancialIntentWithGemini(userPhrase, [], mockCategories);
 
@@ -277,12 +285,7 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
     expect(draft2.categoryName).toBe('Compra de estoque');
 
     // M3: Complemento de Forma de Pagamento ("no Pix")
-    const draft3 = await parseFinancialIntentWithGemini(
-      'no Pix',
-      [],
-      mockCategories,
-      draft2
-    );
+    const draft3 = await parseFinancialIntentWithGemini('no Pix', [], mockCategories, draft2);
 
     expect(draft3.supplier).toBe('Bechara');
     expect(draft3.paymentMethod).toBe('Pix');
@@ -312,6 +315,3 @@ describe('Conversational Assistant Context & Slot Filling Tests', () => {
     expect(resultado?.questionToUser).toMatch(/forma de pagamento/i);
   });
 });
-
-
-

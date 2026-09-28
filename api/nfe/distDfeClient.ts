@@ -19,7 +19,7 @@ export interface DistDfeSoapResponse {
  * utilizando o stack nativo Node.js / OpenSSL com timeout e retry controlado.
  */
 export async function sendDistDfeSoapToSefaz(
-  params: DistDfeSoapParams,
+  params: DistDfeSoapParams
 ): Promise<DistDfeSoapResponse> {
   const { url, soapEnvelope, certPem, privateKeyPem, timeoutMs = 25000 } = params;
   const parsedUrl = new URL(url);
@@ -65,7 +65,7 @@ export async function sendDistDfeSoapToSefaz(
               durationMs,
             });
           });
-        },
+        }
       );
 
       req.on('timeout', () => {
@@ -95,5 +95,7 @@ export async function sendDistDfeSoapToSefaz(
     }
   }
 
-  throw new Error(`Falha na comunicação mTLS com SEFAZ: ${lastError?.message || String(lastError)}`);
+  throw new Error(
+    `Falha na comunicação mTLS com SEFAZ: ${lastError?.message || String(lastError)}`
+  );
 }

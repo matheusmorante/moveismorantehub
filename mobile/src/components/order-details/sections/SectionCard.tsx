@@ -20,9 +20,7 @@ interface SectionCardProps {
 }
 
 export const SectionCard = ({ children, dark }: SectionCardProps) => (
-  <View style={[styles.card, dark && styles.cardDark]}>
-    {children}
-  </View>
+  <View style={[styles.card, dark && styles.cardDark]}>{children}</View>
 );
 
 const styles = StyleSheet.create({

@@ -20,7 +20,7 @@ export const ambientationService = {
           originalImageUrl: item.original_image_url,
           ambientedImageUrl: item.ambiented_image_url,
           promptUsed: item.prompt_used,
-          createdAt: item.created_at
+          createdAt: item.created_at,
         }));
       }
     } catch (e) {
@@ -31,7 +31,7 @@ export const ambientationService = {
       const stored = localStorage.getItem(LOCAL_STORAGE_AMBIENTED_KEY);
       if (stored) {
         const parsed: AmbientedImageRecord[] = JSON.parse(stored);
-        return parsed.filter(item => item.productId === productId);
+        return parsed.filter((item) => item.productId === productId);
       }
     } catch (e) {
       console.error('[ambientationService] Erro ao ler LocalStorage:', e);
@@ -40,7 +40,9 @@ export const ambientationService = {
     return [];
   },
 
-  async saveAmbientedImage(record: Omit<AmbientedImageRecord, 'id' | 'createdAt'>): Promise<AmbientedImageRecord> {
+  async saveAmbientedImage(
+    record: Omit<AmbientedImageRecord, 'id' | 'createdAt'>
+  ): Promise<AmbientedImageRecord> {
     const newRecord: AmbientedImageRecord = {
       id: `amb-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       productId: record.productId,
@@ -48,7 +50,7 @@ export const ambientationService = {
       originalImageUrl: record.originalImageUrl,
       ambientedImageUrl: record.ambientedImageUrl,
       promptUsed: record.promptUsed,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     try {
@@ -59,7 +61,7 @@ export const ambientationService = {
         original_image_url: newRecord.originalImageUrl,
         ambiented_image_url: newRecord.ambientedImageUrl,
         prompt_used: newRecord.promptUsed,
-        created_at: newRecord.createdAt
+        created_at: newRecord.createdAt,
       });
     } catch (e) {
       console.warn('[ambientationService] Salvando imagem ambientada em fallback local:', e);
@@ -79,5 +81,5 @@ export const ambientationService = {
   async generateAmbientationPrompt(productName: string, categoryName?: string): Promise<string> {
     const category = categoryName || 'móvel residencial';
     return `Fotografia publicitária de estúdio para catálogo de interiores. O produto principal é um ${productName} (${category}). Crie um ambiente de fundo ultra-realista, acolhedor, moderno e bem iluminado (sala ou quarto de alto padrão), harmonizado com as cores do produto. PRESERVE 100% O PRODUTO ORIGINAL SEM ALTERAR FORMATO, ESTRUTURA, CORES OU DETALHES.`;
-  }
+  },
 };

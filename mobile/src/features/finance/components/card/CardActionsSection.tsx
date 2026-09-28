@@ -30,11 +30,7 @@ export const CardActionsSection: React.FC<Props> = ({
       ) : cardState === 'SAVED' ? (
         <View style={styles.savedFooterRow}>
           <Text style={styles.timestampText}>Registrado às {nowTimeStr}</Text>
-          <TouchableOpacity
-            style={styles.viewRecordBtn}
-            onPress={onConfirm}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.viewRecordBtn} onPress={onConfirm} activeOpacity={0.7}>
             <Text style={styles.viewRecordBtnText}>Ver transação</Text>
           </TouchableOpacity>
         </View>
@@ -49,11 +45,7 @@ export const CardActionsSection: React.FC<Props> = ({
       ) : cardState === 'NEEDS_INPUT' ? null : (
         <>
           {cardState === 'READY_TO_CONFIRM' ? (
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={onConfirm}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm} activeOpacity={0.8}>
               <Check size={16} color="#ffffff" style={{ marginRight: 4 }} />
               <Text style={styles.confirmBtnText}>Sim</Text>
             </TouchableOpacity>

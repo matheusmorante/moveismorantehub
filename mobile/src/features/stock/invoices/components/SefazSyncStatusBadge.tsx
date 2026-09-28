@@ -122,9 +122,7 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
           SEFAZ {lastSyncText}
         </Text>
       </View>
-      <Text style={[styles.subText, isDarkMode && styles.subTextDark]}>
-        {nextCheckText}
-      </Text>
+      <Text style={[styles.subText, isDarkMode && styles.subTextDark]}>{nextCheckText}</Text>
     </View>
   );
 };

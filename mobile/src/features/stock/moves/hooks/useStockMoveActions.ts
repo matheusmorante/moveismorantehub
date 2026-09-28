@@ -13,7 +13,10 @@ export const useStockMoveActions = (reloadPage: () => void) => {
 
   const requestReverse = (move: StockMove) => {
     if (isOrderLinked(move)) {
-      Alert.alert('Estorno bloqueado', 'Esta movimentação pertence a um pedido e seu estorno ocorre pelo status do pedido.');
+      Alert.alert(
+        'Estorno bloqueado',
+        'Esta movimentação pertence a um pedido e seu estorno ocorre pelo status do pedido.'
+      );
       return;
     }
     setMoveToDelete(move);
@@ -28,7 +31,10 @@ export const useStockMoveActions = (reloadPage: () => void) => {
       setMoveToDelete(null);
       reloadPage();
     } catch (error) {
-      Alert.alert('Não foi possível estornar', error instanceof Error ? error.message : 'Tente novamente.');
+      Alert.alert(
+        'Não foi possível estornar',
+        error instanceof Error ? error.message : 'Tente novamente.'
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -43,14 +49,24 @@ export const useStockMoveActions = (reloadPage: () => void) => {
       Alert.alert('Sucesso', 'Movimentação atualizada com sucesso.');
       reloadPage();
     } catch (error) {
-      Alert.alert('Não foi possível salvar', error instanceof Error ? error.message : 'Tente novamente.');
+      Alert.alert(
+        'Não foi possível salvar',
+        error instanceof Error ? error.message : 'Tente novamente.'
+      );
     } finally {
       setSavingEdit(false);
     }
   };
 
   return {
-    editingMove, setEditingMove, savingEdit, moveToDelete, setMoveToDelete,
-    isDeleting, requestReverse, confirmReverse, saveEdit,
+    editingMove,
+    setEditingMove,
+    savingEdit,
+    moveToDelete,
+    setMoveToDelete,
+    isDeleting,
+    requestReverse,
+    confirmReverse,
+    saveEdit,
   };
 };

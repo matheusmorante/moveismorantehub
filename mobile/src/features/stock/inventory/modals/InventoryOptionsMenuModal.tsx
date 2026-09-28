@@ -34,7 +34,8 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
   const isInProgress = session.status === 'in_progress' || session.status === 'pending_sync';
   const canRevert = session.status === 'completed' && adjustmentsCount > 0 && reversedCount === 0;
   const hasReverted = session.status === 'completed' && reversedCount > 0;
-  const code = session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
+  const code =
+    session.inventoryCode || session.name?.replace('Inventário #', '') || session.id.split('-')[0];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -46,16 +47,22 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
 
           {isInProgress ? (
             <TouchableOpacity style={styles.modalOption} onPress={() => onContinue(session)}>
-              <Text style={[styles.modalOptionText, { color: '#059669' }]}>{session.status === 'pending_sync' ? 'Retomar envio' : 'Continuar inventário'}</Text>
+              <Text style={[styles.modalOptionText, { color: '#059669' }]}>
+                {session.status === 'pending_sync' ? 'Retomar envio' : 'Continuar inventário'}
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.modalOption} onPress={() => onViewDetails(session)}>
-              <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Ver detalhes</Text>
+              <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>
+                Ver detalhes
+              </Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.modalOption} onPress={() => onDuplicate(session)}>
-            <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>Duplicar inventário</Text>
+            <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>
+              Duplicar inventário
+            </Text>
           </TouchableOpacity>
 
           {canRevert && (
@@ -65,7 +72,10 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
           )}
 
           {hasReverted && (
-            <TouchableOpacity style={styles.modalOption} onPress={() => onApplyAdjustments(session)}>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => onApplyAdjustments(session)}
+            >
               <Text style={[styles.modalOptionText, { color: '#059669' }]}>Aplicar ajuste</Text>
             </TouchableOpacity>
           )}

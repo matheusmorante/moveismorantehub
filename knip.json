@@ -24,19 +24,11 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "mobile": {
-      "entry": [
-        "App.tsx",
-        "src/**/*.test.{ts,tsx}",
-        "src/**/*.spec.{ts,tsx}",
-        "e2e/**/*.spec.ts"
-      ],
+      "entry": ["App.tsx", "src/**/*.test.{ts,tsx}", "src/**/*.spec.{ts,tsx}", "e2e/**/*.spec.ts"],
       "project": ["src/**/*.{ts,tsx}", "App.tsx"]
     },
     "digital-catalog": {
-      "entry": [
-        "src/app/**/*.{ts,tsx}",
-        "src/**/*.test.{ts,tsx}"
-      ],
+      "entry": ["src/app/**/*.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "desktop-print-agent": {

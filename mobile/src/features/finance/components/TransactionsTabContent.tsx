@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import { Plus } from 'lucide-react-native';
 import { MonthCarouselSelector } from '../components/MonthCarouselSelector';
 import { MonthSummaryCard } from '../components/MonthSummaryCard';
@@ -79,9 +87,9 @@ export const TransactionsTabContent: React.FC<Props> = ({
           onOpenAdvancedFilters={onOpenFilterModal}
           hasActiveAdvancedFilters={Boolean(
             advancedFilters.categoryId ||
-            advancedFilters.paymentMethod ||
-            (advancedFilters as any).accountId ||
-            advancedFilters.searchQuery
+              advancedFilters.paymentMethod ||
+              (advancedFilters as any).accountId ||
+              advancedFilters.searchQuery
           )}
           isDarkMode={isDarkMode}
         />
@@ -102,11 +110,7 @@ export const TransactionsTabContent: React.FC<Props> = ({
       </ScrollView>
 
       {/* Botão Flutuante + Nova Transação */}
-      <TouchableOpacity
-        style={styles.fabBtn}
-        onPress={onOpenNewModal}
-        activeOpacity={0.85}
-      >
+      <TouchableOpacity style={styles.fabBtn} onPress={onOpenNewModal} activeOpacity={0.85}>
         <Plus size={20} color="#ffffff" />
         <Text style={styles.fabText}>Nova Transação</Text>
       </TouchableOpacity>

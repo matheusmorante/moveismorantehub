@@ -33,20 +33,11 @@ export const LogisticsPeriodModal: React.FC<Props> = ({
   onClose,
 }) => {
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
         <View style={[styles.modalCard, isDarkMode && styles.modalCardDark]}>
           <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>Filtrar Período</Text>
-          {PERIOD_OPTIONS.map(opt => {
+          {PERIOD_OPTIONS.map((opt) => {
             const isSelected = selectedPeriod === opt.id;
             return (
               <TouchableOpacity
@@ -55,19 +46,21 @@ export const LogisticsPeriodModal: React.FC<Props> = ({
                   styles.modalOptionBtn,
                   isSelected && styles.modalOptionActive,
                   isDarkMode && styles.modalOptionBtnDark,
-                  isSelected && isDarkMode && styles.modalOptionActiveDark
+                  isSelected && isDarkMode && styles.modalOptionActiveDark,
                 ]}
                 onPress={() => {
                   onSelectPeriod(opt.id);
                   onClose();
                 }}
               >
-                <Text style={[
-                  styles.modalOptionText,
-                  isDarkMode && styles.subtitleDark,
-                  isSelected && styles.modalOptionTextActive,
-                  isSelected && isDarkMode && styles.textDark
-                ]}>
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    isDarkMode && styles.subtitleDark,
+                    isSelected && styles.modalOptionTextActive,
+                    isSelected && isDarkMode && styles.textDark,
+                  ]}
+                >
                   {opt.label}
                 </Text>
                 {isSelected && <Check size={16} color="#2563eb" />}
@@ -86,7 +79,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   modalCard: {
     width: '100%',
@@ -99,16 +92,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
-    gap: 8
+    gap: 8,
   },
   modalCardDark: {
-    backgroundColor: '#1e293b'
+    backgroundColor: '#1e293b',
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '900',
     color: '#0f172a',
-    marginBottom: 8
+    marginBottom: 8,
   },
   textDark: { color: '#f8fafc' },
   subtitleDark: { color: '#94a3b8' },
@@ -119,24 +112,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 14,
-    backgroundColor: '#f8fafc'
+    backgroundColor: '#f8fafc',
   },
   modalOptionBtnDark: {
-    backgroundColor: '#0f172a'
+    backgroundColor: '#0f172a',
   },
   modalOptionActive: {
-    backgroundColor: '#eff6ff'
+    backgroundColor: '#eff6ff',
   },
   modalOptionActiveDark: {
-    backgroundColor: '#0f172a'
+    backgroundColor: '#0f172a',
   },
   modalOptionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569'
+    color: '#475569',
   },
   modalOptionTextActive: {
     color: '#2563eb',
-    fontWeight: '900'
+    fontWeight: '900',
   },
 });

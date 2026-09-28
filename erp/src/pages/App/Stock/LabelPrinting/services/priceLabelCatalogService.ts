@@ -13,7 +13,8 @@ export interface PriceLabelCatalogProduct {
 }
 
 export function extractProductName(prod: any): string {
-  const candidate = prod.name || prod.title || prod.marketplaceTitle || prod.description || 'PRODUTO SEM NOME';
+  const candidate =
+    prod.name || prod.title || prod.marketplaceTitle || prod.description || 'PRODUTO SEM NOME';
   return String(candidate).split('\n')[0].trim().toUpperCase();
 }
 
@@ -21,7 +22,9 @@ export function extractProductName(prod: any): string {
  * Serviço de domínio/infraestrutura para busca de produtos do catálogo
  * combinando cache local instantâneo com busca remota do Supabase.
  */
-export async function searchProductsForLabel(searchTerm: string): Promise<PriceLabelCatalogProduct[]> {
+export async function searchProductsForLabel(
+  searchTerm: string
+): Promise<PriceLabelCatalogProduct[]> {
   try {
     // 1. Coleta do cache local oficial do ERP
     const localItems = getLocalProducts();
@@ -30,7 +33,9 @@ export async function searchProductsForLabel(searchTerm: string): Promise<PriceL
     let filteredLocal = localItems;
     if (term) {
       filteredLocal = localItems.filter((p: any) => {
-        const desc = normalizeSearchTerm(p.name || p.title || p.marketplaceTitle || p.description || '');
+        const desc = normalizeSearchTerm(
+          p.name || p.title || p.marketplaceTitle || p.description || ''
+        );
         const code = normalizeSearchTerm(p.code || p.sku || '');
         return desc.includes(term) || code.includes(term);
       });
@@ -48,7 +53,9 @@ export async function searchProductsForLabel(searchTerm: string): Promise<PriceL
 
       if (term) {
         const regexPattern = `.*${buildAccentInsensitiveRegex(term)}.*`;
-        query = query.or(`name.imatch.${regexPattern},description.imatch.${regexPattern},name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`);
+        query = query.or(
+          `name.imatch.${regexPattern},description.imatch.${regexPattern},name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`
+        );
       }
 
       const res = await query;
@@ -69,7 +76,7 @@ export async function searchProductsForLabel(searchTerm: string): Promise<PriceL
           code: p.code || p.sku || '',
           unit_price: p.unitPrice ?? p.price ?? p.unit_price ?? 0,
           promo_price: p.promoPrice ?? p.promo_price ?? 0,
-          images: Array.isArray(p.images) ? p.images : (p.image_url ? [p.image_url] : [])
+          images: Array.isArray(p.images) ? p.images : p.image_url ? [p.image_url] : [],
         });
       }
     });
@@ -94,7 +101,7 @@ export async function searchProductsForLabel(searchTerm: string): Promise<PriceL
           code: p.code || p.sku || '',
           unit_price: p.price ?? p.unit_price ?? 0,
           promo_price: p.promo_price ?? 0,
-          images: imgs
+          images: imgs,
         });
       });
     }

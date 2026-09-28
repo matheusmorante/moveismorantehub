@@ -1,7 +1,10 @@
 import { mobileAgentTools } from './mobileToolDeclarations';
 import { MobileToolDispatcher } from './mobileToolDispatcher';
 import { MobileAgentClient } from './mobileAgentClient';
-import { financialBatchInstruction, vehicleExpenseInstruction } from './mobileAgentFinancialBatchInstruction';
+import {
+  financialBatchInstruction,
+  vehicleExpenseInstruction,
+} from './mobileAgentFinancialBatchInstruction';
 import {
   GeminiContent,
   GeminiPart,
