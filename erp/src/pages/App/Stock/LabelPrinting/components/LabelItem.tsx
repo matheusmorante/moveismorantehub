@@ -149,14 +149,13 @@ const QRCodeCanvas: React.FC<{ text: string }> = ({ text }) => {
 
 const QRPreviewPlaceholder = () => (
   <div
-    aria-label="Pré-visualização do QR Code"
+    aria-label="Espaço reservado para o QR Code"
     title="O QR Code real será gerado ao imprimir"
     style={{
       width: '30mm',
       height: '30mm',
-      border: '1.5px dashed #94a3b8',
-      borderRadius: '3mm',
-      background: '#f8fafc',
+      border: '1px solid #94a3b8',
+      background: '#ffffff',
       color: '#64748b',
       display: 'flex',
       alignItems: 'center',
@@ -164,7 +163,7 @@ const QRPreviewPlaceholder = () => (
       boxSizing: 'border-box',
     }}
   >
-    <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: '14mm' }} />
+    <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: '10mm' }} />
   </div>
 );
 

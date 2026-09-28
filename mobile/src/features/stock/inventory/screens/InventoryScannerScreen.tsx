@@ -105,7 +105,13 @@ export const InventoryScannerScreen: React.FC<Props> = ({
             1800
           );
         }
-        if (result.kind === 'success') {
+        // Em inventários, uma leitura só é contagem confirmada quando o fluxo
+        // retorna o item e a quantidade já persistida.
+        if (
+          result.kind === 'success' &&
+          typeof result.quantity === 'number' &&
+          Boolean(result.itemId)
+        ) {
           triggerFrameBorder('success');
           setUnitsRead((count) => count + 1);
           if (result.itemId) setProductsRead((previous) => new Set(previous).add(result.itemId!));
@@ -248,7 +254,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
                   ]}
                 >
                   <Text style={styles.feedbackTitle}>
-                    {lastFeedback.kind === 'success' ? 'ÚLTIMA LEITURA' : lastFeedback.title}
+                    {lastFeedback.kind === 'success' ? 'ÚLTIMA CONTAGEM' : lastFeedback.title}
                   </Text>
                   {lastFeedback.kind === 'success' && (
                     <Text style={styles.feedbackText}>{lastFeedback.title}</Text>
@@ -270,8 +276,8 @@ export const InventoryScannerScreen: React.FC<Props> = ({
                 </View>
               )}
               <Text style={styles.sessionText}>
-                {unitsRead} {unitsRead === 1 ? 'unidade lida' : 'unidades lidas'} ·{' '}
-                {productsRead.size} {productsRead.size === 1 ? 'produto' : 'produtos'}
+                {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'} ·{' '}
+                {productsRead.size} {productsRead.size === 1 ? 'produto contado' : 'produtos contados'}
               </Text>
               <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
                 <Text style={styles.finishButtonText}>FINALIZAR LEITURA</Text>
