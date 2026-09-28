@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
-import { useProductSearch } from '../hooks/useProductSearch';
+import { useProductSearch_new } from '../hooks/useProductSearch_new';
+import { fetchSelectableDeep } from '../hooks/productSearchDeepFetch';
 import { ProductSearchItem } from '../components/ProductSearchItem';
 
 interface Props {
@@ -12,7 +13,24 @@ interface Props {
 
 const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) => {
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
-  const { search, setSearch, loading, filtered } = useProductSearch(priceType);
+  const [selectingKey, setSelectingKey] = useState<string | null>(null);
+  const { search, setSearch, loading, filtered } = useProductSearch_new(priceType);
+
+  const handleItemClick = async (item: any) => {
+    if (selectingKey) return;
+    try {
+      setSelectingKey(item.key);
+      const { product, variation } = await fetchSelectableDeep(item);
+      onSelect(product, variation);
+      onClose();
+    } catch (err) {
+      console.error('[ProductSearchModal] Erro ao buscar entidade detalhada:', err);
+      onSelect(item.p, item.v);
+      onClose();
+    } finally {
+      setSelectingKey(null);
+    }
+  };
 
   return (
     <div
@@ -99,10 +117,7 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
                 product={item.p}
                 variation={item.v}
                 priceType={priceType}
-                onClick={() => {
-                  onSelect(item.p, item.v);
-                  onClose();
-                }}
+                onClick={() => handleItemClick(item)}
               />
             ))
           )}

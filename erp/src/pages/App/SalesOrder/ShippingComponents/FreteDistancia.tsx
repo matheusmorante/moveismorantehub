@@ -24,6 +24,19 @@ const FreteDistancia = ({
   isCalculatingDistance,
   errors,
 }: FreteDistanciaProps) => {
+  const handleDistanceInput = (inputValue: string) => {
+    const digits = inputValue.replace(/\D/g, '');
+    if (!digits) {
+      onChangeDistance('');
+      return;
+    }
+
+    const numericValue = Number(digits) / 10;
+    if (Number.isFinite(numericValue)) {
+      onChangeDistance(numericValue.toFixed(1).replace('.', ','));
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2.5">
       {/* Cabeçalho */}
@@ -95,12 +108,13 @@ const FreteDistancia = ({
           <div className="relative">
             <input
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               aria-label="Distância em quilômetros (obrigatória)"
               aria-invalid={Boolean(errors['shipping_distance'])}
               className={`w-full border-b-2 bg-transparent px-2 py-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 focus:border-blue-600 dark:text-slate-300 dark:placeholder:text-slate-700 dark:focus:border-blue-500 ${errors['shipping_distance'] ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
-              value={distance !== undefined ? distance.toString().replace('.', ',') : ''}
-              onChange={(e) => onChangeDistance(e.target.value)}
+              value={distance !== undefined ? distance.toFixed(1).replace('.', ',') : ''}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => handleDistanceInput(e.target.value)}
               placeholder={isCalculatingDistance ? 'Calculando...' : 'Ex: 5,5'}
             />
             {isCalculatingDistance && (
