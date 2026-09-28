@@ -7,7 +7,7 @@ import { UsersTab } from './components/UsersTab';
 import { RolePermissionsTab } from './components/RolePermissionsTab';
 
 export default function AccessAndUsersPage() {
-  const { isAdmin } = useAuth();
+  const { isAdministrator } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,12 @@ export default function AccessAndUsersPage() {
   }, []);
 
   useEffect(() => {
+    if (!isAdministrator) {
+      setPeople([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const unsub = subscribeToPeople(
       'employees',
@@ -28,9 +34,9 @@ export default function AccessAndUsersPage() {
       false
     );
     return () => unsub();
-  }, [refreshKey]);
+  }, [refreshKey, isAdministrator]);
 
-  if (!isAdmin) {
+  if (!isAdministrator) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-center p-4">
         <div>

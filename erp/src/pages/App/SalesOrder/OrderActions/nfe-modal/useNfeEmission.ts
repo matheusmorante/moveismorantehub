@@ -15,8 +15,12 @@ import {
 } from '@/pages/utils/nfe/ncmSuggestionReview';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { useAuth } from '@/context/AuthContext';
+import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 
 export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
+  const { profile } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
@@ -177,6 +181,10 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   const handleEmit = async (productionConfirmed = false, isRetry = false) => {
+    if (!canOperateFiscal) {
+      toast.error('Seu perfil não pode operar documentos fiscais.');
+      return;
+    }
     if (!order) return;
     setIsSubmitting(true);
     try {
@@ -294,6 +302,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   return {
+    canOperateFiscal,
     environment,
     setEnvironment,
     isSubmitting,

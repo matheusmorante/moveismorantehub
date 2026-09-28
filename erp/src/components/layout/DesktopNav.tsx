@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { hasFiscalOperationRole } from '../../pages/utils/nfe/fiscalAuthorization';
 
 import { MenuKey } from '../../AppLayout';
 
@@ -99,7 +100,8 @@ const DropdownItem = ({
 };
 
 const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
   const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
   return (
@@ -373,13 +375,15 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'fiscal' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Documentos e cadastros" />
-            <DropdownItem
-              to="/fiscal-documents"
-              icon="bi-receipt"
-              title="Notas fiscais de saída"
-              description="NF-e e NFC-e"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canOperateFiscal && (
+              <DropdownItem
+                to="/fiscal-documents"
+                icon="bi-receipt"
+                title="Notas fiscais de saída"
+                description="NF-e e NFC-e"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
             <DropdownItem
               to="/estoque/notas-fiscais-entrada"
               icon="bi-receipt-cutoff"

@@ -30,6 +30,7 @@
     "test:storage": "node scripts/testing/run-local-supabase-test.cjs storage",
     "test:integration": "node scripts/testing/run-local-supabase-test.cjs concurrency && node scripts/testing/run-local-supabase-test.cjs storage",
     "test:rls": "node scripts/testing/run-local-supabase-test.cjs rls",
+    "test:profile-roles": "node scripts/testing/run-local-supabase-test.cjs profile-roles",
     "test:migrations": "node scripts/testing/test-local-migrations.cjs",
     "test:schema-drift": "node scripts/testing/check-schema-drift.cjs",
     "test:local-all": "node scripts/testing/test-local-all.cjs",

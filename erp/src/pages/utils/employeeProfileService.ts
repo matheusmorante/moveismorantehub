@@ -84,7 +84,8 @@ export const toEmployeeFromProfile = (profile: UserProfile): Person => {
 
 export const saveEmployeeInProfile = async (
   profile: UserProfile,
-  employee: Partial<Person>
+  employee: Partial<Person>,
+  canManageAccessRoles = false
 ): Promise<Person> => {
   const updatePayload: Record<string, any> = {
     position: employee.position?.trim() || null,
@@ -99,8 +100,10 @@ export const saveEmployeeInProfile = async (
 
   const primaryRole = employee.role || getPrimaryRole(rolesToSave);
 
-  updatePayload.roles = rolesToSave;
-  updatePayload.role = primaryRole;
+  if (canManageAccessRoles) {
+    updatePayload.roles = rolesToSave;
+    updatePayload.role = primaryRole;
+  }
 
   if (employee.fullName?.trim()) {
     updatePayload.full_name = employee.fullName.trim();
@@ -110,11 +113,16 @@ export const saveEmployeeInProfile = async (
 
   if (error) throw error;
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('people_updated', { detail: { collectionName: 'employees' } })
+    );
+  }
+
   return toEmployeeFromProfile({
     ...profile,
+    ...(canManageAccessRoles ? { role: primaryRole, roles: rolesToSave } : {}),
     position: employee.position?.trim() || null,
-    role: primaryRole,
-    roles: rolesToSave,
     full_name: employee.fullName?.trim() || profile.full_name,
   });
 };

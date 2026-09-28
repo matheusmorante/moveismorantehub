@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/context/AuthContext';
 import Person from '../../../../types/person.type';
 import {
   usePersonForm,
@@ -27,6 +28,8 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
   collectionName,
   title,
 }) => {
+  const { isAdministrator } = useAuth();
+
   const {
     formData,
     setFormData,
@@ -51,6 +54,7 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
     person,
     collectionName,
     title,
+    canManageAccessRoles: isAdministrator,
   });
 
   if (!isOpen) return null;
@@ -118,6 +122,7 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
                 setFormData={setFormData}
                 toggleEmployeeRole={toggleEmployeeRole}
                 settings={settings}
+                canManageAccessRoles={isAdministrator}
               />
             )}
 

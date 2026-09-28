@@ -1,0 +1,6 @@
+SELECT '1. Logs product_code' as check_name, COUNT(*) as result FROM product_code_sanitation_log WHERE entity_type = 'product_code';
+SELECT '2. Logs variation_sku' as check_name, COUNT(*) as result FROM product_code_sanitation_log WHERE entity_type = 'variation_sku';
+SELECT '3. Novos codes 004005-004028 count (esperado 24)' as check_name, COUNT(DISTINCT code) as result FROM products WHERE code >= '004005' AND code <= '004028';
+SELECT '4. Novos SKUs count (esperado 24)' as check_name, COUNT(*) as result FROM product_variations WHERE sku LIKE '0040%';
+SELECT '5. Legados count (esperado 6)' as check_name, COUNT(*) as result FROM product_variations WHERE id IN ('4c13141e-2c4c-4463-a2b4-d05009aa65fa', 'cd57da87-7a1a-4b2a-8f64-d8c48b80e342', '18d96cab-4cd0-4459-9ac5-cebeb9cedd88', 'c949f2e7-473a-4cfa-a1d4-d7c6caa51afe', '7bdb15b8-0959-4451-9a44-bba4c4788e90', 'fd89db1b-7173-48ab-a4f4-6de6fa8d5ce3');
+SELECT code as duplicate_code, COUNT(*) as total_occurrences FROM products GROUP BY code HAVING COUNT(*) > 1 ORDER BY code;

@@ -116,6 +116,7 @@ function createDatabase() {
         certificatePassword: 'mock-password',
       },
     },
+    profile: { role: 'seller', roles: ['seller'] },
     rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
   };
 
@@ -135,7 +136,9 @@ function createDatabase() {
               ? state.originalLines
               : table === 'settings'
                 ? state.settings
-                : null;
+                : table === 'profiles'
+                  ? state.profile
+                  : null;
     const queryResult = () => {
       if (!patch) return { data: resultForTable(), error: null };
       if (
@@ -287,6 +290,27 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(mocks.buildReviewedFiscalOperationXml.mock.calls[0][0].lines[0].originalItemNumber).toBe(
       2
     );
+  });
+
+  it('nega transmissão a usuário autenticado fora dos papéis fiscais permitidos', async () => {
+    const { db, state } = createDatabase();
+    state.profile = { role: 'accountant', roles: ['accountant'] };
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.rpcCalls).toEqual([]);
   });
 
   it('bloqueia a emissão deste fluxo para documento NFC-e modelo 65', async () => {

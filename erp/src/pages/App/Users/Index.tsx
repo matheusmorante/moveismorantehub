@@ -39,23 +39,27 @@ const UserRow = ({ profile, onClick }: { profile: AccessProfile; onClick: () => 
 );
 
 const UsersManagement = () => {
-  const { isAdmin } = useAuth();
+  const { isAdministrator } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Profile | null>(null);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdministrator) {
+      setProfiles([]);
+      setLoading(false);
+      return;
+    }
     void supabase
       .from('profiles')
-      .select('id,email,full_name,role')
+      .select('id,email,full_name,role,roles')
       .order('email')
       .then(({ data, error }) => {
         if (error) toast.error('Erro ao carregar as contas.');
         else setProfiles((data || []) as any as Profile[]);
         setLoading(false);
       });
-  }, [isAdmin]);
+  }, [isAdministrator]);
 
   const normalizedProfiles = useMemo(
     () => profiles.map((profile) => ({ ...profile, roles: getProfileRoles(profile) })),
@@ -64,9 +68,12 @@ const UsersManagement = () => {
   const assigned = normalizedProfiles.filter((profile) => profile.roles.length > 0);
   const unassigned = normalizedProfiles.filter((profile) => profile.roles.length === 0);
   const saveRoles = async (roles: UserRole[]) => {
-    if (!selected) return;
+    if (!isAdministrator || !selected) return;
     const role = getPrimaryRole(roles);
-    const { error } = await supabase.from('profiles').update({ role }).eq('id', selected.id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role, roles })
+      .eq('id', selected.id);
     if (error) {
       toast.error('Não foi possível salvar os cargos.');
       throw error;
@@ -77,7 +84,7 @@ const UsersManagement = () => {
     toast.success('Cargos atualizados.');
   };
 
-  if (!isAdmin)
+  if (!isAdministrator)
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-center">
         <div>

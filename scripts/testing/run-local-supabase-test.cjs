@@ -8,11 +8,12 @@ const targets = {
   concurrency: ['supabase/tests/concurrency_stock_unavailabilities.cjs', []],
   storage: ['supabase/tests/storage_unavailabilities.cjs', []],
   rls: ['supabase/tests/rls_stock_unavailabilities.cjs', []],
+  'profile-roles': ['supabase/tests/profile_role_assignments.cjs', []],
 };
 
 async function run() {
   const target = targets[process.argv[2]];
-  if (!target) throw new Error('Uso: run-local-supabase-test.cjs <db|concurrency|storage|rls>');
+  if (!target) throw new Error('Uso: run-local-supabase-test.cjs <db|concurrency|storage|rls|profile-roles>');
   const local = await verifyLocalSupabase();
   const [script, args] = target;
   const executable = process.execPath;

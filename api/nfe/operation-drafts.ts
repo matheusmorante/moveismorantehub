@@ -13,6 +13,7 @@ import {
 } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 import { normalizeReviewedFiscalBlock } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
+import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -78,11 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido.' });
   if (!supabaseUrl || !serviceKey)
     return res.status(503).json({ error: 'Serviço fiscal indisponível.' });
-  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return res.status(401).json({ error: 'Autenticação necessária.' });
   const db = createClient<FiscalDatabase>(supabaseUrl, serviceKey);
-  const { data: session, error: authError } = await db.auth.getUser(token);
-  if (authError || !session.user) return res.status(401).json({ error: 'Sessão inválida.' });
+  const fiscalAuthorization = await authorizeFiscalOperator(db, req.headers.authorization);
+  if (!fiscalAuthorization.ok)
+    return res.status(fiscalAuthorization.status).json({ error: fiscalAuthorization.message });
 
   try {
     if (req.method === 'GET') {
@@ -217,7 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           p_draft_id: draftId,
           p_review_data: reviewData,
           p_lines: normalizedLines,
-          p_user_id: session.user.id,
+          p_user_id: fiscalAuthorization.userId,
         }
       );
       if (reviewError || !savedId)
@@ -315,7 +315,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_return_order_id: returnOrderId,
       p_environment: environment,
       p_reason: kind === 'estorno' ? reason : null,
-      p_user_id: session.user.id,
+      p_user_id: fiscalAuthorization.userId,
     });
     if (prepareError || !draftId)
       return res

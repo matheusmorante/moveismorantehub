@@ -92,6 +92,7 @@ function assertLocalTestSources() {
       'supabase/tests/storage_unavailabilities.cjs',
       'supabase/tests/test_stock_unavailabilities.cjs',
       'supabase/tests/rls_stock_unavailabilities.cjs',
+      'supabase/tests/profile_role_assignments.cjs',
     ].map(file => path.join(ROOT, file)),
     ...['playwright.config.ts', 'playwright.config.js', 'erp/playwright.config.ts', 'mobile/playwright.config.ts'].map(file => path.join(ROOT, file)).filter(fs.existsSync),
   ].filter(fs.existsSync);

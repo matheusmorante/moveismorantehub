@@ -21,6 +21,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   onSuccess,
 }) => {
   const {
+    canOperateFiscal,
     environment,
     setEnvironment,
     isSubmitting,
@@ -243,6 +244,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                   type="button"
                   onClick={() => handleEmit(productionConfirmed, !!isRetryable217)}
                   disabled={
+                    !canOperateFiscal ||
                     isSubmitting ||
                     isLoadingFiscalData ||
                     (environment === 1 && !productionConfirmed)

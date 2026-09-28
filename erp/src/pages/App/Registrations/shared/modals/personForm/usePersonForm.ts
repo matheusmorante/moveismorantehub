@@ -69,6 +69,7 @@ export interface UsePersonFormProps {
   person?: Person | null;
   collectionName: string;
   title: string;
+  canManageAccessRoles?: boolean;
 }
 
 export const usePersonForm = ({
@@ -78,6 +79,7 @@ export const usePersonForm = ({
   person,
   collectionName,
   title,
+  canManageAccessRoles = false,
 }: UsePersonFormProps) => {
   const isEmployee = collectionName === 'employees';
 
@@ -502,7 +504,7 @@ export const usePersonForm = ({
         try {
           const userProfile = await getUserProfileByIdOrEmail(person?.id, dataToSave.email);
           if (userProfile) {
-            await saveEmployeeInProfile(userProfile, dataToSave);
+            await saveEmployeeInProfile(userProfile, dataToSave, canManageAccessRoles);
           }
         } catch (profErr) {
           console.warn('Aviso ao sincronizar profile do colaborador:', profErr);

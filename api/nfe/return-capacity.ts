@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
+import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -36,12 +37,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, error: 'Método não permitido.' });
   if (!serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
-  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return res.status(401).json({ success: false, error: 'Autenticação necessária.' });
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { data: auth, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !auth.user)
-    return res.status(401).json({ success: false, error: 'Sessão inválida.' });
+  const fiscalAuthorization = await authorizeFiscalOperator(
+    supabase,
+    req.headers.authorization
+  );
+  if (!fiscalAuthorization.ok)
+    return res.status(fiscalAuthorization.status).json({
+      success: false,
+      error: fiscalAuthorization.message,
+    });
   const orderId = String(req.body?.orderId || '');
   if (!orderId)
     return res.status(400).json({ success: false, error: 'Pedido original não informado.' });

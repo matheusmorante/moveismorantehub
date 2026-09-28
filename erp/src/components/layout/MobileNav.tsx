@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import logoMorante from '../../assets/brand-mark.svg';
 import { MenuKey } from '../../AppLayout';
 import { useAuth } from '../../context/AuthContext';
+import { hasFiscalOperationRole } from '../../pages/utils/nfe/fiscalAuthorization';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -276,7 +277,8 @@ const menuItems: any[] = [
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
 
   if (!isOpen) return null;
 
@@ -379,6 +381,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                 {isActive && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-2 pb-4 px-2">
                     {item.links.map((link: any, idx: number) =>
+                      link.to === '/fiscal-documents' && !canOperateFiscal ? null :
                       link.type === 'header' ? (
                         <div
                           key={`header-${idx}`}

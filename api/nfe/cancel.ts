@@ -11,6 +11,7 @@ import {
   validateCancellationReason,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { isNfeProductionEnabled } from './productionGuard';
+import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -94,12 +95,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Serviço fiscal indisponível: credencial segura do banco não configurada.',
       });
 
-  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return res.status(401).json({ success: false, error: 'Autenticação necessária.' });
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: auth, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !auth.user)
-    return res.status(401).json({ success: false, error: 'Sessão inválida.' });
+  const fiscalAuthorization = await authorizeFiscalOperator(
+    supabase,
+    req.headers.authorization
+  );
+  if (!fiscalAuthorization.ok)
+    return res.status(fiscalAuthorization.status).json({
+      success: false,
+      error: fiscalAuthorization.message,
+    });
 
   const documentId = String(req.body?.documentId || '');
   const reason = String(req.body?.reason || '').trim();
@@ -380,7 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: 'transmitting',
         justification: reason,
         signed_xml: signedXml,
-        requested_by: auth.user.id,
+        requested_by: fiscalAuthorization.userId,
       })
       .select('id')
       .single();

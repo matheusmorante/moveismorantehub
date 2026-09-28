@@ -67,16 +67,7 @@ export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
               ? [profile.role]
               : [];
 
-        if (empRoles.length > 0 && JSON.stringify(empRoles) !== JSON.stringify(profileRoles)) {
-          const primaryRole = currentAddress.role || getPrimaryRole(empRoles);
-          await supabase
-            .from('profiles')
-            .update({
-              role: primaryRole,
-              roles: empRoles,
-            })
-            .eq('id', profile.id);
-        } else if (profileRoles.length > 0 && empRoles.length === 0) {
+        if (profileRoles.length > 0 && JSON.stringify(empRoles) !== JSON.stringify(profileRoles)) {
           const primaryRole = profile.role || getPrimaryRole(profileRoles);
           const newAddr = { ...currentAddress, role: primaryRole, roles: profileRoles };
           await supabase

@@ -430,8 +430,8 @@ export const getDefaultSettings = (): AppSettings => ({
   nfeHomologationSerie: '900',
   nfeHomologationNextNumber: 700,
   nfceHomologationNextNumber: 700,
-  cscId: '000001',
-  cscToken: 'XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF',
+  cscId: '',
+  cscToken: '',
   fiscalDefaults: {
     ncm: '94036000',
     cest: '',

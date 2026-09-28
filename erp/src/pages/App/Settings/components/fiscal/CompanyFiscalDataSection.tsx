@@ -258,7 +258,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
               type="password"
               value={settings.cscToken || ''}
               onChange={(e) => onChange('cscToken', e.target.value)}
-              placeholder="XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF"
+              placeholder="Informe o CSC de homologação"
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>

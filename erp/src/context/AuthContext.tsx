@@ -31,6 +31,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   isAdmin: boolean;
+  isAdministrator: boolean;
   isManager: boolean;
   isPending: boolean;
   logout: () => Promise<void>;
@@ -64,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!data) {
         console.log('[Auth] Perfil não encontrado no banco. Criando registro...');
-        const assignedRole: UserRole = isMasterEmail ? 'administrator' : 'pending';
+        const assignedRole: UserRole = 'pending';
         const newProfile: Profile = {
           id: user.id,
           email: user.email || '',
@@ -82,15 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         data = upsertedData || newProfile;
-      } else if (
-        isMasterEmail &&
-        (data.role !== 'administrator' || !data.roles?.includes('administrator'))
-      ) {
-        // Se a conta master estiver como pending ou vendedora por engano no DB, promove para admin
-        console.log('[Auth] Promovendo conta Master para administrator...');
-        data.role = 'administrator';
-        data.roles = [...new Set([...(data.roles || []), 'administrator'])];
-        await supabase.from('profiles').update({ role: 'administrator' }).eq('id', user.id);
       }
 
       if (data && googleName && data.full_name !== googleName) {
@@ -135,12 +127,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               '[Auth] Criando colaborador para novo usuário logado via Google:',
               userEmail
             );
-            const defaultRole: UserRole = isMasterEmail ? 'administrator' : data?.role || 'pending';
-            const defaultRoles: UserRole[] = isMasterEmail
-              ? ['administrator']
-              : data?.roles?.length
-                ? data.roles
-                : [defaultRole];
+            const defaultRole: UserRole = data?.role || 'pending';
+            const defaultRoles: UserRole[] = data?.roles?.length ? data.roles : [defaultRole];
 
             await supabase.from('people').insert([
               {
@@ -148,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 person_type_pf_pj: 'PF',
                 full_name: empName,
                 email: user.email || '',
-                position: isMasterEmail ? 'Administrador' : data?.position || 'Sem Cargo Definido',
+                position: data?.position || 'Sem Cargo Definido',
                 active: true,
                 is_draft: false,
                 deleted: false,
@@ -180,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile({
         id: user.id,
         email: user.email || '',
-        role: isMasterEmail ? 'administrator' : 'pending',
+        role: 'pending',
         full_name:
           user.user_metadata?.full_name || (isMasterEmail ? 'Matheus Morante' : 'Usuário Pendente'),
       });
@@ -365,6 +353,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile?.roles?.some((role) => role === 'administrator' || role === 'manager') ||
         profile?.role === 'administrator' ||
         profile?.role === 'manager',
+      isAdministrator:
+        profile?.role === 'administrator' || profile?.roles?.includes('administrator') === true,
       isManager:
         profile?.roles?.some((role) => role === 'manager' || role === 'administrator') ||
         profile?.role === 'manager' ||

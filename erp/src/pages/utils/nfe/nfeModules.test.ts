@@ -35,6 +35,13 @@ describe('NF-e Validator', () => {
     companyCnpj: '44.512.248.0001/07',
     companyIE: '9091234567',
     nfeEnvironment: 2,
+    companyLogradouro: 'Rua de Teste',
+    companyNumero: '100',
+    companyBairro: 'Centro',
+    companyCMun: '4105805',
+    companyXMun: 'Colombo',
+    companyUF: 'PR',
+    companyCEP: '83400-000',
   };
 
   it('validates a complete order successfully', () => {
@@ -50,7 +57,18 @@ describe('NF-e Validator', () => {
         },
       ],
       itemsSummary: { totalQuantity: 1, itemsSubtotal: 1200 },
-      shipping: { deliveryMethod: 'delivery', value: 50 },
+      shipping: {
+        deliveryMethod: 'delivery',
+        value: 50,
+        deliveryAddress: {
+          street: 'Rua de Teste',
+          neighborhood: 'Centro',
+          cityCode: '4105805',
+          city: 'Colombo',
+          state: 'PR',
+          postalCode: '83400-000',
+        },
+      },
       seller: 'Matheus',
       payments: [],
       paymentsSummary: { totalOrderValue: 1250, totalPaid: 1250, remainingBalance: 0 },

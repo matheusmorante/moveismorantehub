@@ -1,0 +1,431 @@
+-- Migration: Saneamento de SKUs e Códigos Duplicados - Etapa 1
+-- Objetivo: Renumerar os produtos duplicados por falha de concorrência e corrigir as variações inconsistentes.
+
+BEGIN;
+
+-- 1. Bloqueio explícito contra concorrência e inserções durante o saneamento
+LOCK TABLE products IN EXCLUSIVE MODE;
+LOCK TABLE product_variations IN EXCLUSIVE MODE;
+
+CREATE TABLE IF NOT EXISTS product_code_sanitation_log (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    product_id UUID,
+    variation_id UUID,
+    old_value TEXT,
+    new_value TEXT,
+    entity_type TEXT,
+    reason TEXT,
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 2. Proteção e Grants da tabela de auditoria
+ALTER TABLE product_code_sanitation_log ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON product_code_sanitation_log FROM PUBLIC, anon, authenticated;
+
+DROP POLICY IF EXISTS "service_role_only" ON product_code_sanitation_log;
+CREATE POLICY "service_role_only" ON product_code_sanitation_log TO service_role USING (true) WITH CHECK (true);
+
+DO $$
+DECLARE
+    v_row_count INT;
+    v_products_updated INT := 0;
+    v_variations_updated INT := 0;
+BEGIN
+    -- 3. Verificação de unicidade DENTRO do lote (Assertion via temp tables)
+    CREATE TEMP TABLE tmp_new_codes (code TEXT) ON COMMIT DROP;
+    INSERT INTO tmp_new_codes (code) VALUES
+    ('004005'),('004006'),('004007'),('004008'),('004009'),('004010'),('004011'),('004012'),('004013'),('004014'),('004015'),('004016'),('004017'),('004018'),('004019'),('004020'),('004021'),('004022'),('004023'),('004024'),('004025'),('004026'),('004027'),('004028');
+
+    IF (SELECT COUNT(*) FROM tmp_new_codes) <> (SELECT COUNT(DISTINCT code) FROM tmp_new_codes) THEN
+        RAISE EXCEPTION 'Abortado: O lote de novos produtos contém códigos duplicados internamente!';
+    END IF;
+
+    CREATE TEMP TABLE tmp_new_skus (sku TEXT) ON COMMIT DROP;
+    INSERT INTO tmp_new_skus (sku) VALUES
+    ('004005-01'),('004005-02'),('004005-03'),('004006-05'),('004007-01'),('004008-01'),('004008-02'),('004010-02'),('004012-01'),('004012-02'),('004014'),('004015-01'),('004016'),('004017-01'),('004018-01'),('004019-01'),('004020-01'),('004021-01'),('004022-02'),('004023-04'),('004024-01'),('004026-01'),('004027-04'),('004028-01');
+
+    IF (SELECT COUNT(*) FROM tmp_new_skus) <> (SELECT COUNT(DISTINCT sku) FROM tmp_new_skus) THEN
+        RAISE EXCEPTION 'Abortado: O lote de novos SKUs contém códigos duplicados internamente!';
+    END IF;
+
+    -- Verificações de Unicidade do lote contra o banco existente
+    IF EXISTS (SELECT 1 FROM products p JOIN tmp_new_codes t ON p.code = t.code) THEN
+        RAISE EXCEPTION 'Abortado: Um ou mais códigos novos do lote já existem no banco!';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM product_variations v JOIN tmp_new_skus t ON v.sku = t.sku) THEN
+        RAISE EXCEPTION 'Abortado: Um ou mais SKUs novos do lote já existem no banco!';
+    END IF;
+
+    -- Execução Segura de Products (UPDATE condicional)
+    UPDATE products SET code = '004005', updated_at = NOW() WHERE id = 'ba14c95b-e779-484b-9f2d-d16a1c69dc8d' AND code = '000200';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto ba14c95b-e779-484b-9f2d-d16a1c69dc8d. Estado divergiu (Esperado: 000200).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('ba14c95b-e779-484b-9f2d-d16a1c69dc8d', '000200', '004005', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004006', updated_at = NOW() WHERE id = 'bb3cc2fd-18f5-4a1b-8348-9333b7a52a66' AND code = '000200';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto bb3cc2fd-18f5-4a1b-8348-9333b7a52a66. Estado divergiu (Esperado: 000200).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('bb3cc2fd-18f5-4a1b-8348-9333b7a52a66', '000200', '004006', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004007', updated_at = NOW() WHERE id = 'b6bd1e92-0f58-428e-af25-73c8eda7945c' AND code = '000128';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto b6bd1e92-0f58-428e-af25-73c8eda7945c. Estado divergiu (Esperado: 000128).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('b6bd1e92-0f58-428e-af25-73c8eda7945c', '000128', '004007', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004008', updated_at = NOW() WHERE id = 'd1a7c139-32be-48e2-b790-b3ed4f92dab0' AND code = '000130';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto d1a7c139-32be-48e2-b790-b3ed4f92dab0. Estado divergiu (Esperado: 000130).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('d1a7c139-32be-48e2-b790-b3ed4f92dab0', '000130', '004008', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004009', updated_at = NOW() WHERE id = '512b3807-f649-47fc-870b-6e53c44729e3' AND code = '000229';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 512b3807-f649-47fc-870b-6e53c44729e3. Estado divergiu (Esperado: 000229).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('512b3807-f649-47fc-870b-6e53c44729e3', '000229', '004009', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004010', updated_at = NOW() WHERE id = '7c13e343-a15b-451f-9fbc-1f49bf22d864' AND code = '000345';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 7c13e343-a15b-451f-9fbc-1f49bf22d864. Estado divergiu (Esperado: 000345).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('7c13e343-a15b-451f-9fbc-1f49bf22d864', '000345', '004010', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004011', updated_at = NOW() WHERE id = 'cde26f3b-960e-4bc7-8a90-574978db8cab' AND code = '000242';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto cde26f3b-960e-4bc7-8a90-574978db8cab. Estado divergiu (Esperado: 000242).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('cde26f3b-960e-4bc7-8a90-574978db8cab', '000242', '004011', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004012', updated_at = NOW() WHERE id = 'bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae' AND code = '000222';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae. Estado divergiu (Esperado: 000222).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae', '000222', '004012', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004013', updated_at = NOW() WHERE id = '686fa9f5-c5e7-44af-a87e-c8b74f4a86cb' AND code = '000255';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 686fa9f5-c5e7-44af-a87e-c8b74f4a86cb. Estado divergiu (Esperado: 000255).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('686fa9f5-c5e7-44af-a87e-c8b74f4a86cb', '000255', '004013', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004014', updated_at = NOW() WHERE id = '34d2dc3e-c53e-40ad-a40d-d24ce03d3111' AND code = '000253';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 34d2dc3e-c53e-40ad-a40d-d24ce03d3111. Estado divergiu (Esperado: 000253).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('34d2dc3e-c53e-40ad-a40d-d24ce03d3111', '000253', '004014', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004015', updated_at = NOW() WHERE id = '9193bcb1-ff4e-47ed-b8d6-60aca392b9e2' AND code = '000024';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 9193bcb1-ff4e-47ed-b8d6-60aca392b9e2. Estado divergiu (Esperado: 000024).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('9193bcb1-ff4e-47ed-b8d6-60aca392b9e2', '000024', '004015', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004016', updated_at = NOW() WHERE id = 'ae5b20d5-6d41-43ec-93ff-23af2183c7f6' AND code = '000347';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto ae5b20d5-6d41-43ec-93ff-23af2183c7f6. Estado divergiu (Esperado: 000347).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('ae5b20d5-6d41-43ec-93ff-23af2183c7f6', '000347', '004016', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004017', updated_at = NOW() WHERE id = '6d773652-aa81-4b69-b057-85fc10dc5022' AND code = '000021';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 6d773652-aa81-4b69-b057-85fc10dc5022. Estado divergiu (Esperado: 000021).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('6d773652-aa81-4b69-b057-85fc10dc5022', '000021', '004017', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004018', updated_at = NOW() WHERE id = '296e2933-e6f1-454d-a9d8-49e4f01793d5' AND code = '000217';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 296e2933-e6f1-454d-a9d8-49e4f01793d5. Estado divergiu (Esperado: 000217).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('296e2933-e6f1-454d-a9d8-49e4f01793d5', '000217', '004018', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004019', updated_at = NOW() WHERE id = 'c0b9d19a-45e1-465b-a074-6c2186957f34' AND code = '000244';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto c0b9d19a-45e1-465b-a074-6c2186957f34. Estado divergiu (Esperado: 000244).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('c0b9d19a-45e1-465b-a074-6c2186957f34', '000244', '004019', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004020', updated_at = NOW() WHERE id = '7cb32922-c9f0-4975-a1bb-3e97f3f14e5b' AND code = '000215';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 7cb32922-c9f0-4975-a1bb-3e97f3f14e5b. Estado divergiu (Esperado: 000215).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('7cb32922-c9f0-4975-a1bb-3e97f3f14e5b', '000215', '004020', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004021', updated_at = NOW() WHERE id = 'bf786e0b-4564-4821-9205-e461d6631690' AND code = '000226';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto bf786e0b-4564-4821-9205-e461d6631690. Estado divergiu (Esperado: 000226).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('bf786e0b-4564-4821-9205-e461d6631690', '000226', '004021', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004022', updated_at = NOW() WHERE id = '93c4890a-574c-4d76-bf00-b87917932e68' AND code = '000217';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 93c4890a-574c-4d76-bf00-b87917932e68. Estado divergiu (Esperado: 000217).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('93c4890a-574c-4d76-bf00-b87917932e68', '000217', '004022', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004023', updated_at = NOW() WHERE id = '9dca9f63-57ef-4204-bb77-9bea261b79f1' AND code = '000223';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 9dca9f63-57ef-4204-bb77-9bea261b79f1. Estado divergiu (Esperado: 000223).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('9dca9f63-57ef-4204-bb77-9bea261b79f1', '000223', '004023', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004024', updated_at = NOW() WHERE id = '079df765-5642-4d1c-9a37-6805d725ba24' AND code = '000225';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 079df765-5642-4d1c-9a37-6805d725ba24. Estado divergiu (Esperado: 000225).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('079df765-5642-4d1c-9a37-6805d725ba24', '000225', '004024', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004025', updated_at = NOW() WHERE id = '76c8517a-99ec-4801-a209-e71f9f738993' AND code = '000237';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 76c8517a-99ec-4801-a209-e71f9f738993. Estado divergiu (Esperado: 000237).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('76c8517a-99ec-4801-a209-e71f9f738993', '000237', '004025', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004026', updated_at = NOW() WHERE id = '77b05ad0-ca46-43eb-8c2a-b728b126c921' AND code = '000254';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 77b05ad0-ca46-43eb-8c2a-b728b126c921. Estado divergiu (Esperado: 000254).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('77b05ad0-ca46-43eb-8c2a-b728b126c921', '000254', '004026', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004027', updated_at = NOW() WHERE id = '51854b71-3c3b-4b22-ba56-5865bbff4ce8' AND code = '000348';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 51854b71-3c3b-4b22-ba56-5865bbff4ce8. Estado divergiu (Esperado: 000348).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('51854b71-3c3b-4b22-ba56-5865bbff4ce8', '000348', '004027', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+    UPDATE products SET code = '004028', updated_at = NOW() WHERE id = '8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2' AND code = '003976';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE do produto 8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2. Estado divergiu (Esperado: 003976).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, old_value, new_value, entity_type, reason) VALUES ('8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2', '003976', '004028', 'product_code', 'Renumeração determinística de duplicata');
+    v_products_updated := v_products_updated + 1;
+
+    -- Execução Segura de Variations (UPDATE condicional)
+    UPDATE product_variations SET sku = '004005-01', updated_at = NOW() WHERE id = '6d7a55a7-2d87-4408-be04-d698b16c6319' AND sku = '000200-01' AND product_id = 'ba14c95b-e779-484b-9f2d-d16a1c69dc8d';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 6d7a55a7-2d87-4408-be04-d698b16c6319. Estado divergiu (Esperado: 000200-01 do produto ba14c95b-e779-484b-9f2d-d16a1c69dc8d).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('ba14c95b-e779-484b-9f2d-d16a1c69dc8d', '6d7a55a7-2d87-4408-be04-d698b16c6319', '000200-01', '004005-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004005-02', updated_at = NOW() WHERE id = '8111ec1e-0f28-42ac-80af-3537f25dfae7' AND sku = '000200-02' AND product_id = 'ba14c95b-e779-484b-9f2d-d16a1c69dc8d';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 8111ec1e-0f28-42ac-80af-3537f25dfae7. Estado divergiu (Esperado: 000200-02 do produto ba14c95b-e779-484b-9f2d-d16a1c69dc8d).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('ba14c95b-e779-484b-9f2d-d16a1c69dc8d', '8111ec1e-0f28-42ac-80af-3537f25dfae7', '000200-02', '004005-02', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004005-03', updated_at = NOW() WHERE id = 'd8730061-35b6-4165-b31e-b9fe8ce0bf20' AND sku = '000200-03' AND product_id = 'ba14c95b-e779-484b-9f2d-d16a1c69dc8d';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação d8730061-35b6-4165-b31e-b9fe8ce0bf20. Estado divergiu (Esperado: 000200-03 do produto ba14c95b-e779-484b-9f2d-d16a1c69dc8d).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('ba14c95b-e779-484b-9f2d-d16a1c69dc8d', 'd8730061-35b6-4165-b31e-b9fe8ce0bf20', '000200-03', '004005-03', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004006-05', updated_at = NOW() WHERE id = 'ea8e07a9-6147-4e2a-9973-e154f06777d4' AND sku = '000200-05' AND product_id = 'bb3cc2fd-18f5-4a1b-8348-9333b7a52a66';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação ea8e07a9-6147-4e2a-9973-e154f06777d4. Estado divergiu (Esperado: 000200-05 do produto bb3cc2fd-18f5-4a1b-8348-9333b7a52a66).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('bb3cc2fd-18f5-4a1b-8348-9333b7a52a66', 'ea8e07a9-6147-4e2a-9973-e154f06777d4', '000200-05', '004006-05', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004007-01', updated_at = NOW() WHERE id = '028dddd6-14f5-4905-80e0-339d75f9baa5' AND sku = '000227-01' AND product_id = 'b6bd1e92-0f58-428e-af25-73c8eda7945c';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 028dddd6-14f5-4905-80e0-339d75f9baa5. Estado divergiu (Esperado: 000227-01 do produto b6bd1e92-0f58-428e-af25-73c8eda7945c).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('b6bd1e92-0f58-428e-af25-73c8eda7945c', '028dddd6-14f5-4905-80e0-339d75f9baa5', '000227-01', '004007-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004008-01', updated_at = NOW() WHERE id = 'cc31e9b9-a3d6-45e9-a056-34751d6dc9a1' AND sku = '000130-01' AND product_id = 'd1a7c139-32be-48e2-b790-b3ed4f92dab0';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação cc31e9b9-a3d6-45e9-a056-34751d6dc9a1. Estado divergiu (Esperado: 000130-01 do produto d1a7c139-32be-48e2-b790-b3ed4f92dab0).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('d1a7c139-32be-48e2-b790-b3ed4f92dab0', 'cc31e9b9-a3d6-45e9-a056-34751d6dc9a1', '000130-01', '004008-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004008-02', updated_at = NOW() WHERE id = '8392f728-b2c1-4f45-8f52-ec2b495fcce9' AND sku = '000130-02' AND product_id = 'd1a7c139-32be-48e2-b790-b3ed4f92dab0';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 8392f728-b2c1-4f45-8f52-ec2b495fcce9. Estado divergiu (Esperado: 000130-02 do produto d1a7c139-32be-48e2-b790-b3ed4f92dab0).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('d1a7c139-32be-48e2-b790-b3ed4f92dab0', '8392f728-b2c1-4f45-8f52-ec2b495fcce9', '000130-02', '004008-02', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004010-02', updated_at = NOW() WHERE id = 'a53d0383-53aa-4038-bc97-15bcdc82e0cd' AND sku = '000345-02' AND product_id = '7c13e343-a15b-451f-9fbc-1f49bf22d864';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação a53d0383-53aa-4038-bc97-15bcdc82e0cd. Estado divergiu (Esperado: 000345-02 do produto 7c13e343-a15b-451f-9fbc-1f49bf22d864).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('7c13e343-a15b-451f-9fbc-1f49bf22d864', 'a53d0383-53aa-4038-bc97-15bcdc82e0cd', '000345-02', '004010-02', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004012-01', updated_at = NOW() WHERE id = '7eda63e7-a662-4b56-9bac-9332edac4c29' AND sku = '000222-01' AND product_id = 'bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 7eda63e7-a662-4b56-9bac-9332edac4c29. Estado divergiu (Esperado: 000222-01 do produto bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae', '7eda63e7-a662-4b56-9bac-9332edac4c29', '000222-01', '004012-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004012-02', updated_at = NOW() WHERE id = '4025d3a3-7943-49a1-901d-2133efbe4308' AND sku = '000222-02' AND product_id = 'bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 4025d3a3-7943-49a1-901d-2133efbe4308. Estado divergiu (Esperado: 000222-02 do produto bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('bb8ec31b-92a3-4116-9fb6-5d6520f5e0ae', '4025d3a3-7943-49a1-901d-2133efbe4308', '000222-02', '004012-02', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004014', updated_at = NOW() WHERE id = 'a8e96040-46b2-40cb-b228-22c86252d58c' AND sku = '000253' AND product_id = '34d2dc3e-c53e-40ad-a40d-d24ce03d3111';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação a8e96040-46b2-40cb-b228-22c86252d58c. Estado divergiu (Esperado: 000253 do produto 34d2dc3e-c53e-40ad-a40d-d24ce03d3111).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('34d2dc3e-c53e-40ad-a40d-d24ce03d3111', 'a8e96040-46b2-40cb-b228-22c86252d58c', '000253', '004014', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004015-01', updated_at = NOW() WHERE id = '196bc63c-1f0e-40ed-aa5c-01ff660f310f' AND sku = '000024-01' AND product_id = '9193bcb1-ff4e-47ed-b8d6-60aca392b9e2';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 196bc63c-1f0e-40ed-aa5c-01ff660f310f. Estado divergiu (Esperado: 000024-01 do produto 9193bcb1-ff4e-47ed-b8d6-60aca392b9e2).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('9193bcb1-ff4e-47ed-b8d6-60aca392b9e2', '196bc63c-1f0e-40ed-aa5c-01ff660f310f', '000024-01', '004015-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004016', updated_at = NOW() WHERE id = '7d602405-da4a-40c0-9aa2-f9aa7fe117df' AND sku = '000347' AND product_id = 'ae5b20d5-6d41-43ec-93ff-23af2183c7f6';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 7d602405-da4a-40c0-9aa2-f9aa7fe117df. Estado divergiu (Esperado: 000347 do produto ae5b20d5-6d41-43ec-93ff-23af2183c7f6).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('ae5b20d5-6d41-43ec-93ff-23af2183c7f6', '7d602405-da4a-40c0-9aa2-f9aa7fe117df', '000347', '004016', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004017-01', updated_at = NOW() WHERE id = 'b91f97fd-30ec-4618-9694-d7344e329338' AND sku = '000021-01' AND product_id = '6d773652-aa81-4b69-b057-85fc10dc5022';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação b91f97fd-30ec-4618-9694-d7344e329338. Estado divergiu (Esperado: 000021-01 do produto 6d773652-aa81-4b69-b057-85fc10dc5022).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('6d773652-aa81-4b69-b057-85fc10dc5022', 'b91f97fd-30ec-4618-9694-d7344e329338', '000021-01', '004017-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004018-01', updated_at = NOW() WHERE id = 'e86031c6-7cc9-4874-bc25-6374213970de' AND sku = '000217-01' AND product_id = '296e2933-e6f1-454d-a9d8-49e4f01793d5';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação e86031c6-7cc9-4874-bc25-6374213970de. Estado divergiu (Esperado: 000217-01 do produto 296e2933-e6f1-454d-a9d8-49e4f01793d5).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('296e2933-e6f1-454d-a9d8-49e4f01793d5', 'e86031c6-7cc9-4874-bc25-6374213970de', '000217-01', '004018-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004019-01', updated_at = NOW() WHERE id = '4e1caf0b-9441-47f0-b4ce-ec1224d3ab2d' AND sku = '000244-01' AND product_id = 'c0b9d19a-45e1-465b-a074-6c2186957f34';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 4e1caf0b-9441-47f0-b4ce-ec1224d3ab2d. Estado divergiu (Esperado: 000244-01 do produto c0b9d19a-45e1-465b-a074-6c2186957f34).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('c0b9d19a-45e1-465b-a074-6c2186957f34', '4e1caf0b-9441-47f0-b4ce-ec1224d3ab2d', '000244-01', '004019-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004020-01', updated_at = NOW() WHERE id = '7400094f-a841-4f0b-a19b-1f31aa1a5ad4' AND sku = '000215-01' AND product_id = '7cb32922-c9f0-4975-a1bb-3e97f3f14e5b';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 7400094f-a841-4f0b-a19b-1f31aa1a5ad4. Estado divergiu (Esperado: 000215-01 do produto 7cb32922-c9f0-4975-a1bb-3e97f3f14e5b).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('7cb32922-c9f0-4975-a1bb-3e97f3f14e5b', '7400094f-a841-4f0b-a19b-1f31aa1a5ad4', '000215-01', '004020-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004021-01', updated_at = NOW() WHERE id = 'fefa8fb6-fd2b-4c66-a55c-a36c2ffcb46c' AND sku = '000226-01' AND product_id = 'bf786e0b-4564-4821-9205-e461d6631690';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação fefa8fb6-fd2b-4c66-a55c-a36c2ffcb46c. Estado divergiu (Esperado: 000226-01 do produto bf786e0b-4564-4821-9205-e461d6631690).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('bf786e0b-4564-4821-9205-e461d6631690', 'fefa8fb6-fd2b-4c66-a55c-a36c2ffcb46c', '000226-01', '004021-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004022-02', updated_at = NOW() WHERE id = '240dc1ef-ed0e-4963-b7c3-b2b4fbe18c3e' AND sku = '000217-02' AND product_id = '93c4890a-574c-4d76-bf00-b87917932e68';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 240dc1ef-ed0e-4963-b7c3-b2b4fbe18c3e. Estado divergiu (Esperado: 000217-02 do produto 93c4890a-574c-4d76-bf00-b87917932e68).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('93c4890a-574c-4d76-bf00-b87917932e68', '240dc1ef-ed0e-4963-b7c3-b2b4fbe18c3e', '000217-02', '004022-02', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004023-04', updated_at = NOW() WHERE id = '3fa03882-4cbe-47ca-9b49-b499be9921e2' AND sku = '000223-04' AND product_id = '9dca9f63-57ef-4204-bb77-9bea261b79f1';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 3fa03882-4cbe-47ca-9b49-b499be9921e2. Estado divergiu (Esperado: 000223-04 do produto 9dca9f63-57ef-4204-bb77-9bea261b79f1).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('9dca9f63-57ef-4204-bb77-9bea261b79f1', '3fa03882-4cbe-47ca-9b49-b499be9921e2', '000223-04', '004023-04', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004024-01', updated_at = NOW() WHERE id = '8f69c826-cf25-4e88-8bc1-211670d34dcc' AND sku = '000225-01' AND product_id = '079df765-5642-4d1c-9a37-6805d725ba24';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 8f69c826-cf25-4e88-8bc1-211670d34dcc. Estado divergiu (Esperado: 000225-01 do produto 079df765-5642-4d1c-9a37-6805d725ba24).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('079df765-5642-4d1c-9a37-6805d725ba24', '8f69c826-cf25-4e88-8bc1-211670d34dcc', '000225-01', '004024-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004026-01', updated_at = NOW() WHERE id = '7f52d9a1-54a5-4940-8d3b-77cba8eec0d3' AND sku = '000254-01' AND product_id = '77b05ad0-ca46-43eb-8c2a-b728b126c921';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 7f52d9a1-54a5-4940-8d3b-77cba8eec0d3. Estado divergiu (Esperado: 000254-01 do produto 77b05ad0-ca46-43eb-8c2a-b728b126c921).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('77b05ad0-ca46-43eb-8c2a-b728b126c921', '7f52d9a1-54a5-4940-8d3b-77cba8eec0d3', '000254-01', '004026-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004027-04', updated_at = NOW() WHERE id = '54bbdc19-11ec-4945-bfa0-c73732b93927' AND sku = '000348-04' AND product_id = '51854b71-3c3b-4b22-ba56-5865bbff4ce8';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação 54bbdc19-11ec-4945-bfa0-c73732b93927. Estado divergiu (Esperado: 000348-04 do produto 51854b71-3c3b-4b22-ba56-5865bbff4ce8).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('51854b71-3c3b-4b22-ba56-5865bbff4ce8', '54bbdc19-11ec-4945-bfa0-c73732b93927', '000348-04', '004027-04', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+    UPDATE product_variations SET sku = '004028-01', updated_at = NOW() WHERE id = 'd50d8c07-0570-413f-9b45-f5e00e79efef' AND sku = '003976-01' AND product_id = '8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2';
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'Abortado: Falha no UPDATE da variação d50d8c07-0570-413f-9b45-f5e00e79efef. Estado divergiu (Esperado: 003976-01 do produto 8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2).';
+    END IF;
+    INSERT INTO product_code_sanitation_log (product_id, variation_id, old_value, new_value, entity_type, reason) VALUES ('8cfc4f0c-aae2-4cf1-bac8-2ef86abe1df2', 'd50d8c07-0570-413f-9b45-f5e00e79efef', '003976-01', '004028-01', 'variation_sku', 'Alinhamento de SKU pós-saneamento de código');
+    v_variations_updated := v_variations_updated + 1;
+
+    -- Pós-condições Fortes
+    IF v_products_updated <> 24 THEN
+        RAISE EXCEPTION 'Abortado: Esperado atualizar 24 produtos, mas atualizou %', v_products_updated;
+    END IF;
+    IF v_variations_updated <> 24 THEN
+        RAISE EXCEPTION 'Abortado: Esperado atualizar 24 variações, mas atualizou %', v_variations_updated;
+    END IF;
+
+    -- Validação de preservação dos SKUs legados (Classe C)
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = '4c13141e-2c4c-4463-a2b4-d05009aa65fa' AND sku = 'armario-aereo-80cm-1-porta-basculante-pistao-angelin') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual armario-aereo-80cm-1-porta-basculante-pistao-angelin não preservado ou ausente para variação 4c13141e-2c4c-4463-a2b4-d05009aa65fa.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = 'cd57da87-7a1a-4b2a-8f64-d8c48b80e342' AND sku = 'armario-aereo-80cm-1-porta-basculante-pistao-canary') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual armario-aereo-80cm-1-porta-basculante-pistao-canary não preservado ou ausente para variação cd57da87-7a1a-4b2a-8f64-d8c48b80e342.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = '18d96cab-4cd0-4459-9ac5-cebeb9cedd88' AND sku = 'guarda-roupa-verona-178-6-portas-com-frisos-angelinbranco') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual guarda-roupa-verona-178-6-portas-com-frisos-angelinbranco não preservado ou ausente para variação 18d96cab-4cd0-4459-9ac5-cebeb9cedd88.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = 'c949f2e7-473a-4cfa-a1d4-d7c6caa51afe' AND sku = 'guarda-roupa-verona-178-6-portas-com-frisos-angelindunaline') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual guarda-roupa-verona-178-6-portas-com-frisos-angelindunaline não preservado ou ausente para variação c949f2e7-473a-4cfa-a1d4-d7c6caa51afe.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = '7bdb15b8-0959-4451-9a44-bba4c4788e90' AND sku = '01-7bdb15') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual 01-7bdb15 não preservado ou ausente para variação 7bdb15b8-0959-4451-9a44-bba4c4788e90.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM product_variations WHERE id = 'fd89db1b-7173-48ab-a4f4-6de6fa8d5ce3' AND sku = '000237-01-fd89db') THEN
+        RAISE EXCEPTION 'Abortado: SKU legado/manual 000237-01-fd89db não preservado ou ausente para variação fd89db1b-7173-48ab-a4f4-6de6fa8d5ce3.';
+    END IF;
+
+    RAISE NOTICE 'Saneamento concluído com sucesso. Produtos: %, Variações: %.', v_products_updated, v_variations_updated;
+END $$;
+
+COMMIT;

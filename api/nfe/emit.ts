@@ -6,6 +6,7 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { validateOrdinaryOutboundEnvelope } from '../../erp/src/pages/utils/nfe/fiscalEnvelope';
 import { isNfeProductionEnabled } from './productionGuard';
+import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 
 const supabaseUrl =
@@ -91,17 +92,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(503)
         .json({ success: false, error: 'Serviço fiscal sem credencial segura do banco.' });
     supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey);
-    const authorization = String(req.headers.authorization || '');
-    const token = authorization.replace(/^Bearer\s+/i, '');
-    if (!token)
-      return res
-        .status(401)
-        .json({ success: false, error: 'Autenticação necessária para emitir documento fiscal.' });
-    const { data: authenticated, error: authenticationError } = await supabase.auth.getUser(token);
-    if (authenticationError || !authenticated.user)
-      return res
-        .status(401)
-        .json({ success: false, error: 'Sessão inválida. Entre novamente para emitir.' });
+    const fiscalAuthorization = await authorizeFiscalOperator(
+      supabase,
+      req.headers.authorization
+    );
+    if (!fiscalAuthorization.ok)
+      return res.status(fiscalAuthorization.status).json({
+        success: false,
+        error: fiscalAuthorization.message,
+      });
     if (selectedEnvironment === 1 && productionConfirmed !== true)
       return res
         .status(400)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
@@ -7,6 +7,8 @@ import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeServi
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
+import { useAuth } from '@/context/AuthContext';
+import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import {
   formatCancellationTimeRemaining,
   getAuthorizedAt,
@@ -36,6 +38,8 @@ export interface NfeDocumentRecord {
 }
 
 export default function FiscalDocumentsPage() {
+  const { profile } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
   const [documents, setDocuments] = useState<NfeDocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,7 +58,7 @@ export default function FiscalDocumentsPage() {
   const [cceText, setCceText] = useState('');
   const [isSubmittingCce, setIsSubmittingCce] = useState(false);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -70,11 +74,15 @@ export default function FiscalDocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (!canOperateFiscal) {
+      setLoading(false);
+      return;
+    }
     loadDocuments();
-  }, []);
+  }, [canOperateFiscal, loadDocuments]);
 
   const filteredDocs = useMemo(() => {
     return documents.filter((doc) => {
@@ -301,6 +309,14 @@ export default function FiscalDocumentsPage() {
       return `Prazo normal expirado • limite ${window.deadline.toLocaleString('pt-BR')}`;
     return `Cancelamento até ${window.deadline.toLocaleString('pt-BR')} • restam ${formatCancellationTimeRemaining(window.remainingMs)}`;
   };
+
+  if (!canOperateFiscal) {
+    return (
+      <div className="p-8 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+        Seu perfil não pode operar documentos fiscais.
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-reveal pb-32">

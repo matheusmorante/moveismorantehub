@@ -5,6 +5,7 @@ import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey
 import { buildReviewedFiscalOperationXml } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
+import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
   decideOperationDraftRecovery,
   parseSefazNfeSituation,
@@ -104,12 +105,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!supabaseUrl || !serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
 
-  const token = String(req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
-  if (!token) return res.status(401).json({ success: false, error: 'Autenticação necessária.' });
   const db = createClient<FiscalDatabase>(supabaseUrl, serviceKey);
-  const { data: session, error: authError } = await db.auth.getUser(token);
-  if (authError || !session.user)
-    return res.status(401).json({ success: false, error: 'Sessão inválida.' });
+  const fiscalAuthorization = await authorizeFiscalOperator(db, req.headers.authorization);
+  if (!fiscalAuthorization.ok)
+    return res.status(fiscalAuthorization.status).json({
+      success: false,
+      error: fiscalAuthorization.message,
+    });
   const draftId = String(req.body?.draftId || '');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftId)) {
     return res.status(400).json({ success: false, error: 'Rascunho fiscal inválido.' });
