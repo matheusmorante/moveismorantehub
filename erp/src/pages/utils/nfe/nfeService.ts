@@ -23,6 +23,7 @@ export interface NfeEmissionResult {
     error?: string;
     pending?: boolean;
     cStat?: string;
+    retryDocumentId?: string;
     sefazMessage?: string;
     validation?: NfeValidationResult;
 }
@@ -55,7 +56,7 @@ async function getNextNfeNumber(model: '55' | '65', series: string, environment:
 /**
  * Executa a emissão da NF-e / NFC-e de teste (homologação) ou produção
  */
-export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, productionConfirmed = false): Promise<NfeEmissionResult> {
+export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, productionConfirmed = false, retryDocumentId?: string): Promise<NfeEmissionResult> {
     const settings: AppSettings = await getSettings();
     const environment: 1 | 2 = customEnvironment || 1;
     if (environment === 1 && !productionConfirmed) {
@@ -120,34 +121,41 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, p
     }
 
     // 2. Numeração Sequencial
-    const nfeNumber = await getNextNfeNumber(model, series, environment);
+    let nfeNumber = 0;
+    let accessKey = '';
+    let xml = '';
 
-    // 3. Chave de Acesso Oficial (44 dígitos com DV módulo 11)
-    const now = new Date();
-    const yearMonth = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const cnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '');
-    const { accessKey, randomCode, checkDigit } = generateNfeAccessKey({
-        ufCode: '41', // Paraná
-        yearMonth,
-        cnpj,
-        model,
-        series,
-        number: nfeNumber,
-        emissionType: '1'
-    });
+    if (!retryDocumentId) {
+        nfeNumber = await getNextNfeNumber(model, series, environment);
 
-    // 4. Montagem do XML Layout 4.00
-    const xml = buildNfeXml({
-        order,
-        settings,
-        accessKey,
-        randomCode,
-        checkDigit,
-        nfeNumber,
-        series,
-        model,
-        environment
-    });
+        // 3. Chave de Acesso Oficial (44 dígitos com DV módulo 11)
+        const now = new Date();
+        const yearMonth = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const cnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '');
+        const generatedKey = generateNfeAccessKey({
+            ufCode: '41', // Paraná
+            yearMonth,
+            cnpj,
+            model,
+            series,
+            number: nfeNumber,
+            emissionType: '1'
+        });
+        accessKey = generatedKey.accessKey;
+
+        // 4. Montagem do XML Layout 4.00
+        xml = buildNfeXml({
+            order,
+            settings,
+            accessKey,
+            randomCode: generatedKey.randomCode,
+            checkDigit: generatedKey.checkDigit,
+            nfeNumber,
+            series,
+            model,
+            environment
+        });
+    }
 
     // 5. Envio e Assinatura Digital via Serverless Function Vercel
     let protocolNumber: string | undefined;
@@ -170,7 +178,8 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, p
                 model,
                 accessKey,
                 emissionRequestId,
-                productionConfirmed
+                productionConfirmed,
+                retryDocumentId
             })
         });
 

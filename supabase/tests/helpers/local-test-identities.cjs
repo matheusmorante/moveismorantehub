@@ -30,6 +30,11 @@ async function createRoleIdentities(local, roles, runId) {
         [user.id, user.role, `${runId} ${user.role}`],
       );
     }
+    const confirmed = await db.query('SELECT id, role, roles FROM public.profiles WHERE id = ANY($1::uuid[])', [identities.map(user => user.id)]);
+    if (confirmed.rowCount !== identities.length || identities.some(user => {
+      const profile = confirmed.rows.find(row => row.id === user.id);
+      return !profile || profile.role !== user.role || !profile.roles.includes(user.role);
+    })) throw new Error('Perfis sintéticos não foram persistidos com os papéis esperados.');
     await db.query('COMMIT');
   } catch (error) {
     try { await db.query('ROLLBACK'); } catch { /* sem transação ativa */ }

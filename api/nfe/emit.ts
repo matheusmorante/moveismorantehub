@@ -36,24 +36,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const { xml, environment, orderId, nfeNumber, series, model, accessKey, productionConfirmed, emissionRequestId } = req.body;
 
-        if (!xml) {
+        if (!xml && !req.body.retryDocumentId) {
             return res.status(400).json({ error: 'XML da NF-e não fornecido no payload.' });
         }
 
         const selectedEnvironment = Number(environment);
-        const xmlEnvironment = String(xml).match(/<tpAmb>(\d+)<\/tpAmb>/)?.[1];
-        const xmlModel = String(xml).match(/<mod>(\d+)<\/mod>/)?.[1];
-        if (![1, 2].includes(selectedEnvironment) || !['55', '65'].includes(String(model)) ||
-            xmlEnvironment !== String(selectedEnvironment) || xmlModel !== String(model) ||
-            !orderId || !nfeNumber || !/^\d{44}$/.test(String(accessKey)) ||
-            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(emissionRequestId || ''))) {
-            return res.status(400).json({ success: false, error: 'Dados da emissão incompletos ou ambiente inválido.' });
+        if (!req.body.retryDocumentId) {
+            const xmlEnvironment = String(xml).match(/<tpAmb>(\d+)<\/tpAmb>/)?.[1];
+            const xmlModel = String(xml).match(/<mod>(\d+)<\/mod>/)?.[1];
+            if (![1, 2].includes(selectedEnvironment) || !['55', '65'].includes(String(model)) ||
+                xmlEnvironment !== String(selectedEnvironment) || xmlModel !== String(model) ||
+                !orderId || !nfeNumber || !/^\d{44}$/.test(String(accessKey)) ||
+                !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(emissionRequestId || ''))) {
+                return res.status(400).json({ success: false, error: 'Dados da emissão incompletos ou ambiente inválido.' });
+            }
+            const envelopeError = validateOrdinaryOutboundEnvelope({
+                xml: String(xml), accessKey: String(accessKey), model: String(model) as '55' | '65',
+                environment: selectedEnvironment as 1 | 2, nfeNumber: Number(nfeNumber), series: String(series || '1'),
+            });
+            if (envelopeError) return res.status(400).json({ success: false, error: envelopeError });
         }
-        const envelopeError = validateOrdinaryOutboundEnvelope({
-            xml: String(xml), accessKey: String(accessKey), model: String(model) as '55' | '65',
-            environment: selectedEnvironment as 1 | 2, nfeNumber: Number(nfeNumber), series: String(series || '1'),
-        });
-        if (envelopeError) return res.status(400).json({ success: false, error: envelopeError });
 
         // 1. Obter configurações fiscais e certificado do banco
         if (!supabaseServiceKey) return res.status(503).json({ success: false, error: 'Serviço fiscal sem credencial segura do banco.' });
@@ -70,44 +72,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!['sale', 'showroom'].includes(String(orderRow.order_type)) || ['cancelled', 'cancelado'].includes(String(orderRow.status).toLowerCase())) {
             return res.status(409).json({ success: false, error: 'A emissão de saída só pode ser solicitada para pedido comercial válido. Devoluções e estornos usam o fluxo fiscal próprio.' });
         }
-        const { data: sameRequest, error: sameRequestError } = await supabase.from('nfe_documents')
-            .select('id,status,chave_acesso,numero_protocolo,xml_protocolo,order_id,modelo,ambiente')
-            .eq('emission_request_id', emissionRequestId).maybeSingle();
-        if (sameRequestError) return res.status(503).json({ success: false, error: 'Não foi possível conferir esta tentativa de emissão.' });
-        if (sameRequest) {
-            if (sameRequest.order_id !== orderId || sameRequest.modelo !== String(model) || Number(sameRequest.ambiente) !== selectedEnvironment || sameRequest.chave_acesso !== String(accessKey)) {
-                return res.status(409).json({ success: false, error: 'Chave idempotente reutilizada com dados fiscais diferentes.' });
+        let documentId: string;
+        let signedXml = String(xml);
+        
+        if (req.body.retryDocumentId) {
+            // Retransmissão explícita de erro 217
+            const { data: retryDoc, error: retryErr } = await supabase.from('nfe_documents')
+                .select('id, status, xml_nfe, chave_acesso, numero_nfe, modelo, ambiente, motivo_status')
+                .eq('id', req.body.retryDocumentId).maybeSingle();
+                
+            if (retryErr || !retryDoc) return res.status(404).json({ success: false, error: 'Documento original não encontrado para retransmissão.' });
+            if (retryDoc.status !== 'erro') return res.status(400).json({ success: false, error: 'Apenas notas em situação de Erro (217) podem ser retransmitidas.' });
+            if (String(retryDoc.motivo_status || '').indexOf('217') === -1 && String(retryDoc.motivo_status || '').indexOf('não consta') === -1) {
+                return res.status(400).json({ success: false, error: 'Apenas notas não encontradas na SEFAZ (217) podem ser retransmitidas sem nova numeração.' });
             }
-            const isAuthorized = ['autorizada', 'homologada'].includes(sameRequest.status);
-            const isPending = ['pendente', 'processando'].includes(sameRequest.status);
-            return res.status(isAuthorized ? 200 : isPending ? 202 : 409).json({
-                success: isAuthorized, pending: isPending, documentId: sameRequest.id,
-                accessKey: sameRequest.chave_acesso, protocolNumber: sameRequest.numero_protocolo,
-                error: isAuthorized ? undefined : `Esta tentativa fiscal já está ${sameRequest.status}; não retransmita.`
-            });
+            
+            // Reativa o documento para bloquear concorrência durante a transmissão
+            const { error: reactivateErr } = await supabase.from('nfe_documents')
+                .update({ status: 'processando', updated_at: new Date().toISOString() })
+                .eq('id', retryDoc.id)
+                .eq('status', 'erro');
+            if (reactivateErr) return res.status(409).json({ success: false, error: 'A nota não pôde ser reativada. Pode já estar em processamento.' });
+            
+            documentId = retryDoc.id;
+            signedXml = retryDoc.xml_nfe || String(xml); // prefere o XML guardado para preservar hash
+            reservedDocumentId = documentId;
+        } else {
+            // Nova Emissão
+            const isHomologacao = selectedEnvironment === 2;
+            const documentStatus = isHomologacao ? 'homologada' : 'autorizada';
+            const { data: existingAuthorized } = await supabase.from('nfe_documents')
+                .select('id').eq('order_id', orderId).eq('status', documentStatus).limit(1).maybeSingle();
+            if (existingAuthorized) {
+                // Bloqueia emissão múltipla para o mesmo pedido temporariamente caso necessário, ou ajusta regra
+                // O usuário pediu: "Não bloquear múltiplas NF-e legítimas". Então não barramos aqui se a constraint não barra.
+            }
+            
+            try {
+                const { data: reservedId, error: rpcErr } = await supabase.rpc('reserve_nfe_outbound_emission', {
+                    p_order_id: orderId,
+                    p_modelo: String(model),
+                    p_ambiente: selectedEnvironment,
+                    p_emission_request_id: emissionRequestId,
+                    p_chave_acesso: accessKey,
+                    p_xml_nfe: xml,
+                    p_numero_nfe: Number(nfeNumber),
+                    p_serie: String(series || '1')
+                });
+                
+                if (rpcErr) {
+                    if (rpcErr.message.includes('ALREADY_ACTIVE')) {
+                        return res.status(409).json({ success: false, pending: true, documentId: rpcErr.message.split(':')[2], error: 'Já existe uma tentativa ativa ou em andamento para esse pedido. Consulte a situação.' });
+                    }
+                    if (rpcErr.message.includes('DUPLICATE_IDEMPOTENCY')) {
+                        return res.status(409).json({ success: false, error: 'Esta tentativa (ID de requisição) já foi registrada.' });
+                    }
+                    throw rpcErr;
+                }
+                
+                documentId = String(reservedId);
+                reservedDocumentId = documentId;
+            } catch (err: any) {
+                return res.status(503).json({ success: false, error: 'Não foi possível reservar a emissão de forma atômica. Tente novamente.' });
+            }
         }
-        const activeStatuses = ['pendente', 'processando'];
-        const { data: existing, error: existingError } = await supabase.from('nfe_documents')
-            .select('id,status,chave_acesso,numero_protocolo,motivo_status')
-            .eq('order_id', orderId).eq('modelo', String(model)).eq('ambiente', selectedEnvironment).eq('document_type', 'outbound').in('status', activeStatuses).order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (existingError) return res.status(503).json({ success: false, error: 'Não foi possível conferir emissões anteriores. Tente novamente mais tarde.' });
-        if (existing) return res.status(409).json({ success: false, pending: ['pendente', 'processando'].includes(existing.status), documentId: existing.id, error: `Este pedido já possui documento fiscal ${existing.status}. Consulte o documento antes de tentar novamente.`, accessKey: existing.chave_acesso, protocolNumber: existing.numero_protocolo });
-
-        const reservation = {
-            order_id: orderId, numero_nfe: nfeNumber, serie: String(series || '1'), chave_acesso: accessKey,
-            modelo: String(model), ambiente: selectedEnvironment, status: 'processando',
-            document_type: 'outbound', finalidade: 1, emission_request_id: emissionRequestId,
-            motivo_status: 'Transmissão em andamento', xml_nfe: xml,
-            created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-        };
-        const { data: reserved, error: reservationError } = await supabase.from('nfe_documents').insert(reservation).select('id').single();
-        if (reservationError) {
-            if (reservationError.code === '23505') return res.status(409).json({ success: false, pending: true, error: 'Já existe uma emissão em andamento ou confirmada para este pedido.' });
-            return res.status(503).json({ success: false, error: 'Não foi possível reservar a emissão fiscal. Nenhuma nota foi enviada.' });
-        }
-        if (!reserved?.id) return res.status(503).json({ success: false, error: 'Não foi possível confirmar a reserva fiscal. Nenhuma nota foi enviada.' });
-        const documentId = reserved.id;
-        reservedDocumentId = documentId;
 
         // 2. Obter configurações fiscais e certificado do banco
         const { data: settingsRow, error: settingsErr } = await supabase

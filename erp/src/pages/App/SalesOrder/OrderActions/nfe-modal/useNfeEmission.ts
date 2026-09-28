@@ -157,7 +157,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
             : item));
     };
 
-    const handleEmit = async (productionConfirmed = false) => {
+    const handleEmit = async (productionConfirmed = false, isRetry = false) => {
         if (!order) return;
         setIsSubmitting(true);
         try {
@@ -173,7 +173,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
                 ]
             };
 
-            const res = await emitNfeForOrder(orderWithFiscalItems, environment, productionConfirmed);
+            const retryId = isRetry && emissionResult?.error?.includes('217') && emissionResult?.documentId ? emissionResult.documentId : undefined;
+            const res = await emitNfeForOrder(orderWithFiscalItems, environment, productionConfirmed, retryId);
             if (!res.success) {
                 toast.error(res.error || "Erro ao validar dados para emissão.");
                 setEmissionResult(res);

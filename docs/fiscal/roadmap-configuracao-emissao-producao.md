@@ -42,9 +42,15 @@ A auditoria identificou exageros e incorreções conceituais na análise anterio
 - **Métricas:** Tracking de rejeições mais comuns, performance de assinatura e respostas da Vercel vs SEFAZ.
 
 ---
-## 3. Próximo Passo Exato
+## 3. Avanços Recentes (Resolução de Idempotência e Concorrência P0)
 
-**O próximo passo não é a CC-e, nem a Inutilização.**
-O trabalho imediato deve focar na solidez do **P0 (Caminho Principal):** `gerar -> assinar -> transmitir -> reconciliar -> persistir -> homologar`.
+1. **Reconciliação e Timeouts**: Interface reativa no frontend e backend agora permitem recuperar protocolos perdidos na SEFAZ. O timeout não gera duplicidade.
+2. **Atomicidade de Reserva**: Substituída a lógica frágil na API por uma RPC atômica (`reserve_nfe_outbound_emission`) usando `pg_advisory_xact_lock` no pedido. Blinda contra abas concorrentes simultâneas.
+   * **Nota de Validação**: A atomicidade da reserva na RPC foi comprovada localmente com duas conexões PostgreSQL independentes. No entanto, o teste focado utilizou apenas as migrations essenciais ao cenário isolado. Isso **não certifica** a cadeia completa de migrations do projeto nem valida toda a jornada de numeração no frontend/API; apenas isola e comprova a proteção contra race conditions na reserva. A ausência de queima de numeração/chave adicional neste cenário é inferida pela arquitetura atual e precisará ser comprovada no E2E.
+3. **Tratamento de Rejeição 217**: Se a SEFAZ não receber o documento (cStat 217), a UI libera a ação "Retransmitir mesma NF-e", que reaproveita a mesma chave, numeração e XML íntegro no banco.
 
-O ponto mais frágil a ser atacado é garantir a resiliência no caso de **Timeouts e Reconciliação**, assegurando que, se o servidor transmitir o XML e o Request cair, a aplicação saiba exatamente como consultar o recibo, buscar o protocolo via `consSitNFe` e persistir a nota, blindando contra envio duplo e contra notas que "somem" do sistema.
+---
+## 4. Próximo Passo Exato
+
+**O caminho principal P0 (Caminho Feliz, Timeouts, Idempotência e Concorrência) está PRONTO PARA HOMOLOGAÇÃO.** 
+O próximo passo lógico é executar testes reais ponta a ponta contra o ambiente de **Homologação da SEFAZ**.
