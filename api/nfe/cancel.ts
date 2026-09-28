@@ -205,22 +205,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
       }
       // Timeout/rejeição nunca autoriza reenvio por si só: consulte a situação atual na SEFAZ.
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'app')
-        .maybeSingle();
-      if (settingsError)
-        return res
-          .status(503)
-          .json({
-            success: false,
-            pending: true,
-            error: 'Não foi possível carregar a configuração para consultar a SEFAZ.',
-          });
-      const settings = settingsRow?.data || settingsRow || {};
-      const pfx = settings.certificateBase64 || process.env.NFE_CERTIFICATE_BASE64;
-      const password = settings.certificatePassword || process.env.NFE_CERTIFICATE_PASSWORD;
+      const pfx = process.env.NFE_CERTIFICATE_BASE64;
+      const password = process.env.NFE_CERTIFICATE_PASSWORD;
       if (!pfx)
         return res
           .status(503)
@@ -344,18 +330,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    const { data: settingsRow, error: settingsError } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('id', 'app')
-      .maybeSingle();
-    if (settingsError)
-      return res
-        .status(503)
-        .json({ success: false, error: 'Não foi possível carregar a configuração fiscal.' });
-    const settings = settingsRow?.data || settingsRow || {};
-    const pfxBase64 = settings.certificateBase64 || process.env.NFE_CERTIFICATE_BASE64;
-    const pfxPassword = settings.certificatePassword || process.env.NFE_CERTIFICATE_PASSWORD;
+    const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;
+    const pfxPassword = process.env.NFE_CERTIFICATE_PASSWORD;
     if (!pfxBase64)
       return res
         .status(503)

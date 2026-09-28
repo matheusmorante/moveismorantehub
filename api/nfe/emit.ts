@@ -297,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 2. Obter configurações fiscais e certificado do banco
+    // 2. Configurações públicas do banco; A1 fica apenas no servidor.
     const { data: settingsRow, error: settingsErr } = await supabase
       .from('settings')
       .select('*')
@@ -306,12 +306,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (settingsErr) throw new Error('Não foi possível carregar a configuração fiscal da empresa.');
     const settings: Record<string, unknown> = settingsRow?.data || settingsRow || {};
-    const pfxBase64 =
-      (typeof settings.certificateBase64 === 'string' ? settings.certificateBase64 : '') ||
-      process.env.NFE_CERTIFICATE_BASE64;
-    const pfxPassword =
-      (typeof settings.certificatePassword === 'string' ? settings.certificatePassword : '') ||
-      process.env.NFE_CERTIFICATE_PASSWORD;
+    const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;
+    const pfxPassword = process.env.NFE_CERTIFICATE_PASSWORD;
 
     if (!pfxBase64) {
       await supabase
@@ -325,7 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({
         success: false,
         error:
-          'Certificado digital (.pfx) não encontrado nas configurações nem nas variáveis de ambiente.',
+          'Certificado digital A1 não configurado no servidor fiscal.',
       });
     }
 

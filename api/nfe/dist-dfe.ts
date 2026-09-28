@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createClient } from '@supabase/supabase-js';
 import { sendDistDfeSoapToSefaz } from './distDfeClient.js';
 import { extractCertificateAndKey } from './nfeSigner.js';
 
@@ -24,11 +23,7 @@ function validateAuthToken(authHeader?: string): boolean {
   const validTokens = [
     process.env.MORANTEHUB_MCP_ACCESS_TOKEN,
     process.env.SEFAZ_BRIDGE_TOKEN,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
   ].filter(Boolean) as string[];
-
-  // Token mestre padrão do projeto para fallback controlado
-  validTokens.push('morante_mcp_master_8b4e2a9d6c1f3e5a7b0d2c4e');
 
   return validTokens.includes(token);
 }
@@ -80,8 +75,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     const payload = req.body || {};
     let {
-      certPem,
-      privateKeyPem,
       soapEnvelope,
       cleanCnpj,
       ultNsu,
@@ -89,57 +82,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       environment = 'production',
     } = payload;
 
-    // 2. Se as chaves PEM não forem passadas, carrega do Supabase com segurança
-    if (!certPem || !privateKeyPem) {
-      const supabaseUrl =
-        process.env.VITE_SUPABASE_URL ||
-        process.env.SUPABASE_URL ||
-        'https://hkoxhourxwlddgsfdgws.supabase.co';
-      const supabaseKey =
-        process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.VITE_SUPABASE_ANON_KEY ||
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
-
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from('settings')
-        .select('data')
-        .eq('id', 'app')
-        .single();
-
-      if (settingsError || !settingsRow?.data) {
-        return res
-          .status(500)
-          .json({
-            error: 'FALHA_CONFIGURACOES',
-            message: 'Configurações fiscais não encontradas.',
-          });
-      }
-
-      const { certificateBase64, certificatePassword, companyCnpj } = settingsRow.data;
-      if (!certificateBase64 || !certificatePassword) {
-        return res
-          .status(400)
-          .json({
-            error: 'CERTIFICADO_NAO_CONFIGURADO',
-            message: 'Certificado A1 ou senha ausentes no banco.',
-          });
-      }
-
-      const cleanB64 = certificateBase64.includes(',')
-        ? certificateBase64.split(',')[1]
-        : certificateBase64;
-      const extracted = extractCertificateAndKey(
-        cleanB64.trim().replace(/[\r\n\s]/g, ''),
-        certificatePassword
-      );
-      certPem = extracted.certPem;
-      privateKeyPem = extracted.privateKeyPem;
-
-      if (!cleanCnpj && companyCnpj) {
-        cleanCnpj = companyCnpj.replace(/\D/g, '');
-      }
-    }
+    // A ponte nunca aceita chave privada do cliente ou da tabela settings.
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const password = process.env.NFE_CERTIFICATE_PASSWORD;
+    if (!pfx || !password)
+      return res.status(503).json({
+        error: 'CERTIFICADO_NAO_CONFIGURADO',
+        message: 'Certificado A1 não configurado no servidor fiscal.',
+      });
+    const cleanB64 = pfx.includes(',') ? pfx.split(',')[1] : pfx;
+    const { certPem, privateKeyPem } = extractCertificateAndKey(
+      cleanB64.trim().replace(/[\r\n\s]/g, ''),
+      password
+    );
 
     // 3. Monta o envelope se não foi passado pronto
     if (!soapEnvelope) {

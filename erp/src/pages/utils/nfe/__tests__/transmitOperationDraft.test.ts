@@ -236,6 +236,8 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.NFE_PRODUCTION_ENABLED = 'true';
+    process.env.NFE_CERTIFICATE_BASE64 = 'server-pfx';
+    process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
     mocks.validateNfeAgainstOfficialSchema.mockResolvedValue(undefined);
     mocks.extractCertificateAndKey.mockReturnValue({
       certPem: 'mock-cert',
@@ -273,6 +275,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     );
 
     expect(mocks.createClient).toHaveBeenCalled();
+    expect(mocks.extractCertificateAndKey).toHaveBeenCalledWith('server-pfx', 'server-password');
     expect([res.statusCode, res.body]).toEqual([
       200,
       expect.objectContaining({ status: 'authorized' }),

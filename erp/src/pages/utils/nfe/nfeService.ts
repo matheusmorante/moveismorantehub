@@ -36,25 +36,22 @@ export interface NfeEmissionResult {
 async function getNextNfeNumber(
   model: '55' | '65',
   series: string,
-  environment: 1 | 2
+  environment: 1 | 2,
+  productionConfirmed: boolean
 ): Promise<number> {
-  const settings = await getSettings();
-  const { minimumNumber: configuredBase } = resolveNfeSequenceSettings(
-    settings,
-    model,
-    environment
-  );
-
   try {
-    const { data, error } = await supabase.rpc('reserve_next_nfe_number', {
-      p_modelo: model,
-      p_serie: series,
-      p_ambiente: environment,
-      p_numero_minimo: configuredBase,
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session?.access_token) throw new Error('Sessão fiscal expirada.');
+    const response = await fetch('/api/nfe/reserve-number', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+      body: JSON.stringify({ model, series, environment, productionConfirmed }),
     });
-    if (!error && typeof data === 'number' && data >= configuredBase) {
-      return data;
-    }
+    const result = await response.json();
+    if (response.ok && result.success && Number.isInteger(result.number)) return result.number;
   } catch {
     // A sequência local não é segura para emissão fiscal concorrente.
   }
@@ -84,12 +81,12 @@ export async function emitNfeForOrder(
   const emissionRequestId = crypto.randomUUID();
   const { series } = resolveNfeSequenceSettings(settings, model, environment);
 
-  if (model === '65' && (!(settings as any).cscId || !(settings as any).cscToken)) {
+  if (model === '65' && !settings.cscId) {
     return {
       success: false,
       model,
       environment,
-      error: 'NFC-e exige CSC/IdToken configurados antes da emissão.',
+      error: 'NFC-e exige o identificador do CSC (IdToken) configurado antes da emissão.',
     };
   }
 
@@ -159,7 +156,7 @@ export async function emitNfeForOrder(
   let xml = '';
 
   if (!retryDocumentId) {
-    nfeNumber = await getNextNfeNumber(model, series, environment);
+    nfeNumber = await getNextNfeNumber(model, series, environment, productionConfirmed);
 
     // 3. Chave de Acesso Oficial (44 dígitos com DV módulo 11)
     const now = new Date();

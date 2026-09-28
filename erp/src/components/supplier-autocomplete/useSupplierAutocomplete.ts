@@ -62,7 +62,7 @@ export const useSupplierAutocomplete = ({
 
   const queryNorm = normalize(query);
 
-  // Filtrar sugestões localmente respeitando a quantidade mínima de caracteres
+  // Filtrar sugestÃƒÆ’Ã‚Âµes localmente respeitando a quantidade mÃƒÆ’Ã‚Â­nima de caracteres
   const filteredSuggestions = suppliers.filter((s) => {
     if (minChars > 0 && queryNorm.length < minChars) {
       return false;

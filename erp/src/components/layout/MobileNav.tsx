@@ -277,7 +277,7 @@ const menuItems: any[] = [
 
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
   const navigate = useNavigate();
-  const { isAdmin, profile } = useAuth();
+  const { profile } = useAuth();
   const canOperateFiscal = hasFiscalOperationRole(profile);
 
   if (!isOpen) return null;

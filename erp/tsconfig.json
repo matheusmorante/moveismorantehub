@@ -17,7 +17,10 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@modelcontextprotocol/sdk/*": ["node_modules/@modelcontextprotocol/sdk/dist/esm/*"],
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js"],
+      "zod": ["node_modules/zod"]
     },
     "types": ["vite/client"]
   },

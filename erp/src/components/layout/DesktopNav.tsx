@@ -100,7 +100,7 @@ const DropdownItem = ({
 };
 
 const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
-  const { isAdmin, profile } = useAuth();
+  const { profile } = useAuth();
   const canOperateFiscal = hasFiscalOperationRole(profile);
   const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 

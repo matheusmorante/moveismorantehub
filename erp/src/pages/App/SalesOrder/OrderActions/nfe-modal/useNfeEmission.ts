@@ -235,6 +235,10 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   const handleReconcile = async () => {
+    if (!canOperateFiscal) {
+      toast.error('Seu perfil não pode operar documentos fiscais.');
+      return;
+    }
     if (!emissionResult?.documentId) return;
     setIsSubmitting(true);
     try {

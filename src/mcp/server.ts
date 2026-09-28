@@ -374,7 +374,7 @@ export class MoranteHubMcpServer {
                 end: () => res.end(),
               };
 
-              const distDfeModule = await import('../../api/nfe/dist-dfe.js');
+              const distDfeModule = await import('../../erp/api/nfe/dist-dfe.js');
               await distDfeModule.default(mockReq, mockRes);
             } catch (err: any) {
               if (!res.headersSent) {

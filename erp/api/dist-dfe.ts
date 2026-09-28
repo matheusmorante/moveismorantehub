@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import https from 'node:https';
+import { createPrivateKey, X509Certificate } from 'node:crypto';
+import forge from 'node-forge';
 
 type ApiRequest = IncomingMessage & {
   query?: Record<string, string | string[] | undefined>;
@@ -13,6 +15,25 @@ type ApiResponse = ServerResponse & {
 
 const SEFAZ_DFE_URL_PROD = 'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
 const SEFAZ_DFE_URL_HOM = 'https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
+const CERTIFICATE_HEALTH_VERSION = 'cert-a1-2026-09-28-v2';
+const EXPECTED_ISSUER_CNPJ = '44512248000107';
+
+function extractCertificateAndKey(pfxBase64: string, password: string) {
+  const pfxAsn1 = forge.asn1.fromDer(forge.util.decode64(pfxBase64));
+  const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password);
+  const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+  const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]
+    ?? p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0];
+  if (!keyBag?.key) throw new Error('Chave privada não encontrada no PFX.');
+
+  const certBag = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0];
+  if (!certBag?.cert) throw new Error('Certificado X.509 não encontrado no PFX.');
+
+  return {
+    certPem: forge.pki.certificateToPem(certBag.cert),
+    privateKeyPem: forge.pki.privateKeyToPem(keyBag.key),
+  };
+}
 
 function validateAuthToken(authHeader?: string): boolean {
   if (!authHeader) return false;
@@ -114,11 +135,73 @@ async function sendDistDfeSoapToSefaz(params: {
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Diagnóstico temporário e somente leitura para confirmar o runtime de Preview.
+  // Não retorna o PFX, a senha, a chave privada ou o certificado.
+  if (req.method === 'GET') {
+    if (process.env.VERCEL_ENV !== 'preview') {
+      return res.status(404).json({ error: 'NOT_FOUND' });
+    }
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const password = process.env.NFE_CERTIFICATE_PASSWORD;
+    if (!pfx || !password) {
+      return res.status(200).json({
+        version: CERTIFICATE_HEALTH_VERSION,
+        configured: false,
+        validPfx: false,
+        hasPrivateKey: false,
+        cnpjMatches: false,
+        inValidityWindow: false,
+      });
+    }
+
+    let failureStage = 'base64';
+    try {
+      const cleanBase64 = (pfx.includes(',') ? pfx.split(',').pop()! : pfx)
+        .replace(/[\r\n\s]/g, '');
+      failureStage = 'pkcs12';
+      const { certPem, privateKeyPem } = extractCertificateAndKey(cleanBase64, password);
+      failureStage = 'x509';
+      const certificate = new X509Certificate(certPem);
+      failureStage = 'private-key';
+      const privateKey = createPrivateKey(privateKeyPem);
+      const hasPrivateKey = certificate.checkPrivateKey(privateKey);
+      failureStage = 'certificate-metadata';
+      const subjectCnpj = certificate.subject.match(/(?:^|\n)serialNumber\s*=\s*(\d{14})\b/i)?.[1]
+        ?? certificate.subject.match(/\b(\d{14})\b/)?.[1]
+        ?? null;
+      const now = Date.now();
+      const notBefore = Date.parse(certificate.validFrom);
+      const notAfter = Date.parse(certificate.validTo);
+
+      return res.status(200).json({
+        version: CERTIFICATE_HEALTH_VERSION,
+        configured: true,
+        validPfx: true,
+        hasPrivateKey,
+        cnpjMatches: subjectCnpj === EXPECTED_ISSUER_CNPJ,
+        inValidityWindow: Number.isFinite(notBefore) && Number.isFinite(notAfter)
+          && now >= notBefore && now <= notAfter,
+        notBefore: Number.isFinite(notBefore) ? new Date(notBefore).toISOString() : null,
+        notAfter: Number.isFinite(notAfter) ? new Date(notAfter).toISOString() : null,
+      });
+    } catch {
+      return res.status(200).json({
+        version: CERTIFICATE_HEALTH_VERSION,
+        failureStage,
+        configured: true,
+        validPfx: false,
+        hasPrivateKey: false,
+        cnpjMatches: false,
+        inValidityWindow: false,
+      });
+    }
   }
 
   if (req.method !== 'POST') {
@@ -135,14 +218,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   try {
     const payload = req.body || {};
-    let { certPem, privateKeyPem, soapEnvelope, cleanCnpj, ultNsu, tpAmb = '1', environment = 'production' } = payload;
+    let { soapEnvelope, cleanCnpj, ultNsu, tpAmb = '1', environment = 'production' } = payload;
 
-    if (!certPem || !privateKeyPem) {
-      return res.status(400).json({
-        error: 'CHAVES_OBRIGATORIAS',
-        message: 'certPem e privateKeyPem são obrigatórios para a conexão mTLS.',
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const password = process.env.NFE_CERTIFICATE_PASSWORD;
+    if (!pfx || !password) {
+      return res.status(503).json({
+        error: 'CERTIFICADO_NAO_CONFIGURADO',
+        message: 'Certificado A1 não configurado no servidor fiscal.',
       });
     }
+    const cleanBase64 = (pfx.includes(',') ? pfx.split(',').pop()! : pfx)
+      .replace(/[\r\n\s]/g, '');
+    const { certPem, privateKeyPem } = extractCertificateAndKey(cleanBase64, password);
 
     if (!soapEnvelope) {
       if (!cleanCnpj) {

@@ -61,18 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(409)
         .json({ success: false, error: 'Modelo, ambiente ou chave de acesso inválidos.' });
     }
-    const { data: settingsRow, error: settingsError } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('id', 'app')
-      .maybeSingle();
-    if (settingsError)
-      return res
-        .status(503)
-        .json({ success: false, error: 'Não foi possível carregar a configuração fiscal.' });
-    const settings = settingsRow?.data || settingsRow || {};
-    const pfx = settings.certificateBase64 || process.env.NFE_CERTIFICATE_BASE64;
-    const password = settings.certificatePassword || process.env.NFE_CERTIFICATE_PASSWORD;
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const password = process.env.NFE_CERTIFICATE_PASSWORD;
     if (!pfx)
       return res
         .status(503)

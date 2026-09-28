@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { extractPemFromPfx } from "./utils/crypto.ts";
 import { decompressGzipBase64 } from "./utils/compression.ts";
 import { buildSoapEnvelope } from "./utils/soap.ts";
 import { extractXmlTag, extractAllXmlTags, parseNfeXml } from "./utils/xmlParser.ts";
@@ -68,12 +67,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: false, code: "ACCESS_KEY_INVALID", message: "A chave de acesso deve conter exatamente 44 dígitos." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
 
-    // 1. Obter dados da empresa e certificado de forma segura (Prioridade: Secrets > Settings)
-    let certBase64 = Deno.env.get("SEFAZ_CERTIFICATE_BASE64") || "";
-    let certPassword = Deno.env.get("SEFAZ_CERTIFICATE_PASSWORD") || "";
+    // A ponte Node.js faz mTLS com o A1 guardado no próprio servidor.
     let cnpj = requestedCnpj || Deno.env.get("SEFAZ_CNPJ") || "";
 
-    if (!certBase64 || !certPassword || !cnpj) {
+    if (!cnpj) {
       const { data: settingsData, error: settingsError } = await supabaseClient
         .from("settings")
         .select("data")
@@ -82,25 +79,14 @@ serve(async (req) => {
 
       if (!settingsError && settingsData?.data) {
         const d = settingsData.data;
-        if (!certBase64 && d.certificateBase64) certBase64 = d.certificateBase64;
-        if (!certPassword && d.certificatePassword) certPassword = d.certificatePassword;
         if (!cnpj && d.companyCnpj) cnpj = d.companyCnpj;
       }
     }
-
-    // Limpar prefixo Data URI se o Base64 foi gravado com cabeçalho de upload de arquivo
-    if (certBase64 && certBase64.includes(",")) {
-      certBase64 = certBase64.split(",")[1];
-    }
-    certBase64 = certBase64.trim().replace(/[\r\n\s]/g, "");
 
     const cleanCnpj = cnpj.replace(/\D/g, "");
 
     if (!cleanCnpj) {
       throw new Error("CNPJ da empresa emitente não configurado.");
-    }
-    if (!certBase64 || !certPassword) {
-      throw new Error("Certificado digital A1 (.pfx) ou senha não configurados.");
     }
 
     // 2. Trava de concorrência: impedir duas sincronizações simultâneas para o mesmo CNPJ
@@ -165,11 +151,7 @@ serve(async (req) => {
         last_sync_at: new Date().toISOString(),
       });
 
-    // 3. Extrair PEM em memória
-    console.log(`[sefaz-inbound-sync] Extraindo certificados PEM em memória...`);
-    const { certPem, keyPem } = extractPemFromPfx(certBase64, certPassword);
-
-    // 4. Parâmetros da consulta e URL da ponte Node.js mTLS
+    // 3. Parâmetros da consulta e URL da ponte Node.js mTLS
     const tpAmb = environment === "production" ? "1" : "2";
     const nodeBridgeUrl = Deno.env.get("SEFAZ_NODE_BRIDGE_URL") || "https://morantehub.vercel.app/api/dist-dfe";
     const bridgeToken = Deno.env.get("SEFAZ_BRIDGE_TOKEN") || Deno.env.get("MORANTEHUB_MCP_ACCESS_TOKEN");
@@ -207,8 +189,6 @@ serve(async (req) => {
           cleanCnpj,
           ultNsu: currentUltNsu,
           tpAmb,
-          certPem,
-          privateKeyPem: keyPem,
           soapEnvelope,
           environment,
         }),

@@ -111,7 +111,6 @@ export interface AppSettings {
   nfeHomologationNextNumber?: number;
   nfceHomologationNextNumber?: number;
   cscId?: string;
-  cscToken?: string;
   fiscalDefaults?: {
     ncm?: string;
     cest?: string;
@@ -304,6 +303,10 @@ const deepMerge = (target: any, source: any) => {
  */
 const migrateSettings = (settings: any): AppSettings => {
   if (!settings) return settings;
+  // Legacy fiscal credentials must not survive in browser storage or cloud sync.
+  for (const key of ['certificateBase64', 'certificatePassword', 'certificateFileName', 'cscToken']) {
+    delete settings[key];
+  }
 
   // Migração de manuseio: string[] -> HandlingOption[]
   if (
@@ -431,7 +434,6 @@ export const getDefaultSettings = (): AppSettings => ({
   nfeHomologationNextNumber: 700,
   nfceHomologationNextNumber: 700,
   cscId: '',
-  cscToken: '',
   fiscalDefaults: {
     ncm: '94036000',
     cest: '',
@@ -743,9 +745,15 @@ export const getSettings = (): AppSettings => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
+      const hadLegacyFiscalSecrets =
+        parsed &&
+        ['certificateBase64', 'certificatePassword', 'certificateFileName', 'cscToken'].some(
+          (key) => Object.prototype.hasOwnProperty.call(parsed, key)
+        );
       const migrated = migrateSettings(parsed);
+      if (hadLegacyFiscalSecrets) localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated));
       return deepMerge(defaults, migrated);
-    } catch (e) {
+    } catch {
       return defaults;
     }
   }
@@ -780,14 +788,15 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void) =
 };
 
 export const saveSettings = async (settings: AppSettings) => {
+  const safeSettings = migrateSettings({ ...settings });
   // 1. Save to localStorage (Local First)
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(safeSettings));
 
   // 2. Save to Supabase (Cloud Persistence)
   try {
     const { error } = await supabase
       .from(SUPABASE_SETTINGS_TABLE)
-      .upsert({ id: SETTINGS_ID, data: settings });
+      .upsert({ id: SETTINGS_ID, data: safeSettings });
 
     if (error) throw error;
   } catch (error) {

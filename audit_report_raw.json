@@ -1,0 +1,242 @@
+[
+  {
+    "file": "erp\\src\\components\\hooks\\useProductAutocomplete.ts",
+    "component": "useProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\components\\ProductAutocomplete.ai.test.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\components\\ProductAutocomplete.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\components\\ProductAutocomplete.tsx",
+    "component": "useProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\components\\PurchaseItemsSection.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\components\\supplier-autocomplete\\useSupplierAutocomplete.test.ts",
+    "component": "useSupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople"
+  },
+  {
+    "file": "erp\\src\\components\\SupplierAutocomplete.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\components\\SupplierAutocomplete.tsx",
+    "component": "useSupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Products\\components\\modals\\ProductMigrationModal.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Products\\components\\variationTabs\\VariationCompositionItemsTab.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Products\\Reconciliation\\components\\ReconciliationProductCard.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Products\\Reconciliation\\components\\SupplierReconciliationFilters.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Registrations\\shared\\modals\\personForm\\PersonAddressSection.tsx",
+    "component": "AddressAutocompleteInput",
+    "type": "address",
+    "origin": "google/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\AssistanceOrderModalComponents\\AssistanceCustomerSection.tsx",
+    "component": "AddressAutocompleteInput",
+    "type": "address",
+    "origin": "google/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\components\\OrderRouteMap.tsx",
+    "component": "AddressAutocompleteInput",
+    "type": "address",
+    "origin": "google/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\components\\ProductReconciliationItems.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\components\\ShippingData.tsx",
+    "component": "AddressAutocompleteInput",
+    "type": "address",
+    "origin": "google/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\ItemsTable\\BodyRow.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\ItemsTable\\BodyRow.tsx",
+    "component": "ServiceAutocomplete",
+    "type": "service",
+    "origin": "subscribeToServices"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\ItemsTable\\ServiceAutocomplete.tsx",
+    "component": "ServiceAutocomplete",
+    "type": "service",
+    "origin": "subscribeToServices"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\modals\\OrderEditModal.tsx",
+    "component": "EmployeeSearchModal",
+    "type": "employee",
+    "origin": "subscribeToPeople"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\SalesOrder\\pages\\NewSaleOrder.tsx",
+    "component": "EmployeeSearchModal",
+    "type": "employee",
+    "origin": "subscribeToPeople"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Settings\\components\\fiscal\\CompanyFiscalDataSection.tsx",
+    "component": "AddressAutocompleteInput",
+    "type": "address",
+    "origin": "google/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\components\\InventoryMovesHistory.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\InboundInvoices\\components\\InboundItemCompositionMode.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\InboundInvoices\\components\\InboundItemSingleMode.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\InboundInvoices\\modals\\ManageInboundInvoiceMappingsModal.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\InboundInvoices\\modals\\QuickRegisterVariationModal.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Inventory\\components\\InventoryScopeConfigForm.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Inventory\\modals\\InventoryProductSearchModal.tsx",
+    "component": "InventoryProductSearchModal",
+    "type": "product",
+    "origin": "useProductSearch"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Purchases\\modals\\PurchaseFormModal.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Receipts\\components\\InboundCompositionManager.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Receipts\\components\\InboundReceiptItemRow.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Receipts\\components\\ReceiptFormHeader.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Receipts\\components\\ReceiptsHeader.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Receipts\\modals\\PurchaseReceiptPickerModal.tsx",
+    "component": "SupplierAutocomplete",
+    "type": "supplier",
+    "origin": "subscribeToPeople/local"
+  },
+  {
+    "file": "erp\\src\\pages\\App\\Stock\\Unavailabilities\\UnavailabilityFormModal.tsx",
+    "component": "ProductAutocomplete",
+    "type": "product",
+    "origin": "fetchAllProductSearchResults"
+  },
+  {
+    "file": "mobile\\src\\features\\stock\\inventory\\screens\\InventoryAuditFlow.tsx",
+    "component": "InventoryProductSearchModal",
+    "type": "product",
+    "origin": "useProductSearch"
+  },
+  {
+    "file": "mobile\\src\\features\\stock\\inventory\\screens\\InventoryScopeScreen.tsx",
+    "component": "InventoryProductSearchModal",
+    "type": "product",
+    "origin": "useProductSearch"
+  },
+  {
+    "file": "mobile\\src\\features\\stock\\purchases\\PurchaseFormModal.tsx",
+    "component": "InventoryProductSearchModal",
+    "type": "product",
+    "origin": "useProductSearch"
+  }
+]

@@ -202,7 +202,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               {emissionResult.pending && emissionResult.documentId && (
                 <button
                   onClick={handleReconcile}
-                  disabled={isSubmitting}
+                  disabled={!canOperateFiscal || isSubmitting}
                   className="mt-3 px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black uppercase tracking-wider text-[10px] transition-all"
                 >
                   {isSubmitting ? 'Consultando...' : 'Consultar SEFAZ Agora'}
@@ -240,39 +240,46 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               const isRetryable217 =
                 emissionResult?.error?.includes('217') && emissionResult?.documentId;
               return (
-                <button
-                  type="button"
-                  onClick={() => handleEmit(productionConfirmed, !!isRetryable217)}
-                  disabled={
-                    !canOperateFiscal ||
-                    isSubmitting ||
-                    isLoadingFiscalData ||
-                    (environment === 1 && !productionConfirmed)
-                  }
-                  className={`px-6 py-2.5 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 ${isRetryable217 ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'}`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>
-                        Transmitindo {environment === 1 ? 'em Produção' : 'em Homologação'}…
-                      </span>
-                    </>
-                  ) : isRetryable217 ? (
-                    <>
-                      <i className="bi bi-arrow-clockwise" />
-                      <span>Retransmitir mesma NF-e</span>
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-cloud-arrow-up-fill" />
-                      <span>
-                        Emitir {isPickup ? 'NFC-e' : 'NF-e'} em{' '}
-                        {environment === 1 ? 'Produção' : 'Homologação'}
-                      </span>
-                    </>
+                <>
+                  {!canOperateFiscal && (
+                    <p className="text-xs font-semibold text-rose-600" role="alert">
+                      Seu perfil não pode operar documentos fiscais.
+                    </p>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleEmit(productionConfirmed, !!isRetryable217)}
+                    disabled={
+                      !canOperateFiscal ||
+                      isSubmitting ||
+                      isLoadingFiscalData ||
+                      (environment === 1 && !productionConfirmed)
+                    }
+                    className={`px-6 py-2.5 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 ${isRetryable217 ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'}`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>
+                          Transmitindo {environment === 1 ? 'em Produção' : 'em Homologação'}…
+                        </span>
+                      </>
+                    ) : isRetryable217 ? (
+                      <>
+                        <i className="bi bi-arrow-clockwise" />
+                        <span>Retransmitir mesma NF-e</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-cloud-arrow-up-fill" />
+                        <span>
+                          Emitir {isPickup ? 'NFC-e' : 'NF-e'} em{' '}
+                          {environment === 1 ? 'Produção' : 'Homologação'}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </>
               );
             })()
           ) : emissionResult?.pending ? null : (

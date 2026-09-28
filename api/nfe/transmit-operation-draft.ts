@@ -236,14 +236,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(503).json({ success: false, error: 'Configuração fiscal indisponível.' });
     const settings = asFiscalSettings(settingsRow.data || settingsRow) as AppSettings &
       Record<string, unknown>;
-    const pfx =
-      typeof settings.certificateBase64 === 'string'
-        ? settings.certificateBase64
-        : process.env.NFE_CERTIFICATE_BASE64;
-    const password =
-      typeof settings.certificatePassword === 'string'
-        ? settings.certificatePassword
-        : process.env.NFE_CERTIFICATE_PASSWORD;
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const password = process.env.NFE_CERTIFICATE_PASSWORD;
     if (!pfx)
       return res
         .status(503)

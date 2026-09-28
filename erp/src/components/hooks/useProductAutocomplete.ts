@@ -61,7 +61,7 @@ export function useProductAutocomplete({
   useEffect(() => {
     const fetchSuggestions = async () => {
       const trimmed = query.trim();
-      if (trimmed.length < 2) {
+      if (trimmed.length < 3) {
         setSuggestions([]);
         return;
       }
@@ -137,15 +137,15 @@ export function useProductAutocomplete({
           }
         });
 
-        setSuggestions(items.slice(0, 5));
+        setSuggestions(items.slice(0, 15));
       } catch (error) {
-        console.error('Erro ao buscar sugestões:', error);
+        console.error('Erro ao buscar sugestÃµes:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const timeoutId = setTimeout(fetchSuggestions, 250);
+    const timeoutId = setTimeout(fetchSuggestions, 300);
     return () => clearTimeout(timeoutId);
   }, [
     query,

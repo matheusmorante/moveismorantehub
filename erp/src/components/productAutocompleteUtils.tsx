@@ -23,7 +23,7 @@ export const getVariationDisplayName = (product: Product, variation?: Variation)
   return [parentName, attrValues].filter(Boolean).join(' ');
 };
 
-// Cache em memória de curta duração para digitação ágil (indexado por fornecedor e filtro de ativos)
+// Cache em memÃ³ria de curta duraÃ§Ã£o para digitaÃ§Ã£o Ã¡gil (indexado por fornecedor e filtro de ativos)
 const cachedProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
 const CACHE_TTL_MS = 30 * 1000; // 30 segundos
 
@@ -40,7 +40,7 @@ export const fetchAllProductSearchResults = async (
 ) => {
   const products: Product[] = [];
   let page = 1;
-  const pageSize = 100;
+  const pageSize = 15;
 
   while (true) {
     const result = await fetchProductsPage(page, pageSize, {
@@ -54,7 +54,7 @@ export const fetchAllProductSearchResults = async (
     page += 1;
   }
 
-  // Se a busca direta retornar vazia ou incompleta devido a variações de acentuação,
+  // Se a busca direta retornar vazia ou incompleta devido a variaÃ§Ãµes de acentuaÃ§Ã£o,
   // utiliza a lista de produtos do fornecedor em cache para filtragem precisa no cliente
   if (products.length === 0) {
     const cacheKey = `${supplierId ? `supplier_${supplierId}` : '__all__'}:${includeDeactivated ? 'all' : 'active'}`;

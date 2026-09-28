@@ -235,7 +235,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
           </div>
         </div>
       </div>
-      {/* CSC (Código de Segurança do Contribuinte) para NFC-e */}
+      {/* O identificador é público no QR Code; o token fica no servidor. */}
       <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -250,22 +250,13 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>
-          <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-              Código de Segurança CSC (Token)
-            </label>
-            <input
-              type="password"
-              value={settings.cscToken || ''}
-              onChange={(e) => onChange('cscToken', e.target.value)}
-              placeholder="Informe o CSC de homologação"
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
-            />
-          </div>
+          <p className="self-end text-sm text-slate-600 dark:text-slate-300">
+            Guarde o CSC secreto fora do navegador e configure-o somente no serviço fiscal que o utilizar.
+          </p>
         </div>
       </div>
 
-      {/* Certificado Digital A1 (.pfx / .p12) */}
+      {/* O certificado nunca é carregado ou persistido pelo navegador. */}
       <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors bg-amber-50/20 dark:bg-amber-950/10 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-2 mb-4">
           <i className="bi bi-key-fill text-amber-500 text-base" />
@@ -274,70 +265,9 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
           </h4>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-              Arquivo do Certificado (.pfx)
-            </label>
-            <div className="flex items-center gap-3">
-              <label className="flex-1 cursor-pointer bg-white dark:bg-slate-900 border border-dashed border-amber-300 dark:border-amber-700 hover:border-amber-500 rounded-2xl p-3.5 text-center transition-all">
-                <span className="text-xs font-black text-amber-600 dark:text-amber-400 flex items-center justify-center gap-2">
-                  <i className="bi bi-file-earmark-lock-fill" />
-                  {settings.certificateBase64
-                    ? 'Certificado Carregado (.pfx)'
-                    : 'Selecionar arquivo .pfx'}
-                </span>
-                <input
-                  type="file"
-                  accept=".pfx,.p12"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const base64 = (reader.result as string)?.split(',')?.[1] || '';
-                      onChange('certificateBase64', base64);
-                      onChange('certificateFileName', file.name);
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                />
-              </label>
-              {settings.certificateBase64 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange('certificateBase64', '');
-                    onChange('certificateFileName', '');
-                  }}
-                  title="Remover Certificado"
-                  className="p-3 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 text-red-500 rounded-xl"
-                >
-                  <i className="bi bi-trash3-fill" />
-                </button>
-              )}
-            </div>
-            {settings.certificateFileName && (
-              <span className="text-[10px] font-bold text-slate-400 mt-1.5 block">
-                Arquivo: {settings.certificateFileName}
-              </span>
-            )}
-          </div>
-
-          <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-              Senha do Certificado
-            </label>
-            <input
-              type="password"
-              value={settings.certificatePassword || ''}
-              onChange={(e) => onChange('certificatePassword', e.target.value)}
-              placeholder="Digite a senha do .pfx"
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-amber-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
-            />
-          </div>
-        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          O A1 e a senha são configurados exclusivamente no servidor fiscal.
+        </p>
       </div>
     </div>
   );
