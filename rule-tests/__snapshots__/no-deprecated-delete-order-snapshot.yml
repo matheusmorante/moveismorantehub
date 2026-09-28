@@ -1,0 +1,14 @@
+id: no-deprecated-delete-order
+snapshots:
+  await deleteOrder(orderId):
+    labels:
+    - source: deleteOrder(orderId)
+      style: primary
+      start: 6
+      end: 26
+  deleteOrder(orderId):
+    labels:
+    - source: deleteOrder(orderId)
+      style: primary
+      start: 0
+      end: 20

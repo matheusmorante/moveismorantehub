@@ -10,7 +10,7 @@ export type SefazEventResult = {
 export type SefazNfeSituation = {
     cStat: string | null;
     xMotivo: string | null;
-    state: 'authorized' | 'cancelled' | 'unknown';
+    state: 'authorized' | 'cancelled' | 'not_found' | 'unknown';
     cancellationEventXml: string | null;
 };
 
@@ -91,7 +91,7 @@ export const parseSefazNfeSituation = (xml: string): SefazNfeSituation => {
     return {
         cStat,
         xMotivo: readTag(protocol, 'xMotivo'),
-        state: cStat === '100' ? 'authorized' : cStat === '101' ? 'cancelled' : 'unknown',
+        state: cStat === '100' ? 'authorized' : cStat === '101' ? 'cancelled' : cStat === '217' ? 'not_found' : 'unknown',
         cancellationEventXml,
     };
 };

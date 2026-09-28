@@ -2,6 +2,7 @@ import Product from '../../types/product.type';
 import { mapToDB } from './productToDbMapper';
 import { mapDbVariations, createDefaultVariation } from './productVariationMapper';
 import { extractProductImages, extractProductDimensions } from './productDimensionsExtractor';
+import { getProductKind, isSalvadoProduct } from '../productKindRules';
 
 export { mapToDB };
 
@@ -34,7 +35,10 @@ export const mapFromDB = (data: any, index?: number): Product => {
         ? createDefaultVariation(data, parentCode, rawName, productImages)
         : mappedVariations;
 
+    const productKind = getProductKind({ productKind: data.product_kind });
+
     return {
+        productKind,
         id: String(data.id),
         sku: data.sku || parentCode,
         code: parentCode,
@@ -58,7 +62,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         stock: Number(data.stock || 0),
         minStock: Number(data.min_stock || 0),
         unit: data.unit || 'UN',
-        active: finalVariations.length > 0 ? finalVariations.some(v => v.active) : Boolean(data.active),
+        active: isSalvadoProduct({ productKind }) ? false : (finalVariations.length > 0 ? finalVariations.some(v => v.active) : Boolean(data.active)),
         isDraft: Boolean(data.is_draft ?? data.isDraft) || data.status === 'draft',
         deleted: data.deleted ?? false,
         supplierId: data.supplier_id || data.main_supplier_id || '',
@@ -70,7 +74,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         whatsappTemplate: data.whatsapp_template || '',
         ecommerceTemplate: data.ecommerce_template || '',
         hasVariations: (data.item_type === 'product' || !data.item_type) ? true : Boolean(data.has_variations),
-        variations: finalVariations,
+        variations: isSalvadoProduct({ productKind }) ? finalVariations.map(v => ({ ...v, active: false })) : finalVariations,
         itemType: data.item_type || 'product',
         fiscal: {
             ncm: data.fiscal?.ncm || '',

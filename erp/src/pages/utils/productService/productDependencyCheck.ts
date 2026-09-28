@@ -1,4 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { getProductKind } from '../productKindRules';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { updateProduct } from './productMutationService';
 
@@ -111,8 +112,18 @@ export const deactivateProduct = async (id: string): Promise<void> => {
 };
 
 export const activateProduct = async (id: string): Promise<void> => {
-    await updateProduct(id, { active: true, deleted: false });
     const realId = String(id).split('_')[0];
+    const { data: product, error } = await supabase
+        .from('products')
+        .select('product_kind')
+        .eq('id', realId)
+        .maybeSingle();
+    if (error) throw error;
+    if (getProductKind({ productKind: product?.product_kind }) === 'salvado') {
+        throw new Error('Produtos do tipo Salvado permanecem desativados no ERP.');
+    }
+
+    await updateProduct(id, { active: true, deleted: false });
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
     if (isUUID) {
         await supabase.from('product_variations').update({ active: true }).eq('product_id', realId);

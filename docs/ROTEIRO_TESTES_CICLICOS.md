@@ -14,7 +14,7 @@
 | **Módulo Atual** | **[MÓDULO 3] Logística, Entregas e Montagens (ERP & Mobile)** |
 | **Próxima Etapa / Goal** | **Etapa 3.3 - Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega** |
 | **Status do Goal** | ⏳ `PRONTO_PARA_EXECUTAR` |
-| **Ambiente Ativo** | Local / Staging (Docker inativo no host - usando isolamento in-memory e `testRunId`) |
+| **Ambiente Ativo** | Unitários em memória; integração PostgreSQL pendente de ambiente local/staging isolado confirmado |
 | **Último testRunId** | `TESTE_HUB_20260917_101000_M2_ALL_APPROVED` |
 | **Data da Última Atualização** | 2026-09-17 10:35:00 |
 
@@ -24,7 +24,8 @@
 
 1. **PROIBIDO TOCAR DADOS REAIS**: Qualquer dado inserido, editado ou removido deve conter o identificador `[TESTE_AUT]` ou `testRunId`.
 2. **TEARDOWN GARANTIDO**: Todo teste que criar registros no banco de dados deve executar limpeza completa em bloco `finally`.
-3. **DOCKER PREFERENCIAL**: Se o comando `docker ps` retornar contêineres ativos, a execução de testes de integração é redirecionada para o contêiner de teste isolado. Caso contrário, utiliza mocks e transações locais seguras.
+3. **INTEGRAÇÃO COM BANCO ISOLADO**: Comportamentos relevantes de Supabase/PostgreSQL exigem PostgreSQL real em ambiente de teste local ou staging confirmado. Mocks cobrem apenas unidades/contratos isolados e não provam integração, atomicidade, rollback, RLS ou concorrência. Sem ambiente isolado, não escrever no banco; registrar a integração como pendente/aviso. Nunca executar fault injection, rollback ou concorrência em produção. Seguir a matriz canônica em `.agents/skills/testes-seguros-erp/SKILL.md`.
+4. **JANELA DE DOCKER + SUPABASE LOCAL**: Antes do primeiro comando dependente do stack, confira dia e horário em `America/Sao_Paulo` e siga a janela canônica em `.agents/skills/testes-seguros-erp/SKILL.md`. Stack já iniciado não autoriza teste fora da janela. Fora dela, marque os testes locais dependentes como `PENDENTE — aguardando janela permitida para Docker + Supabase Local`; não substitua evidência real por mocks nem use produção.
 
 ---
 
@@ -400,7 +401,7 @@ Legenda: `COBERTO` = existe cenário verificável e caminho implementado; `AVISO
 - Também ficam como `AVISO` de caminho não conectado P-43, P-44, P-48, V-37–V-38, V-42 e C-44 quando a função existe no hook, mas não há botão/prop no modal principal.
 - Não foram encontrados IDs duplicados na matriz. Nenhum cenário foi removido nesta rodada; os cenários que poderiam parecer redundantes foram consolidados nas linhas de rastreabilidade por compartilharem a mesma implementação.
 - A matriz não deve ser lida como “todos passaram”: `COBERTO` significa que existe um caso verificável, enquanto `AVISO/BLOQUEADO` exige correção ou contrato antes de aprovação.
-- Cenários que dependam de estoque, venda ou persistência devem usar mock/fixture ou ambiente isolado; sem isolamento seguro, registrar `AVISO` e não escrever em banco compartilhado.
+- Cenários isolados de lógica de estoque/venda podem usar mock/fixture. Cenários que validem persistência ou comportamento PostgreSQL exigem ambiente isolado real; sem ele, registrar `AVISO` e não escrever em banco compartilhado. Mock não conta como integração.
 - Falhas devem registrar sintoma, causa imediata, causa raiz e teste de regressão; não usar `skip`, assertions opcionais ou `waitForTimeout` para mascarar comportamento.
 
 #### Matriz de execução e rastreabilidade — primeira rodada

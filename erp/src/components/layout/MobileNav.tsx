@@ -35,6 +35,7 @@ const menuItems: any[] = [
             { type: 'header', label: 'OPERAÇÃO' },
             { type: 'link', to: '/estoque/movimentacoes', icon: 'bi-arrow-left-right', iconColor: 'text-emerald-500', label: 'Movimentações' },
             { type: 'link', to: '/estoque/inventarios', icon: 'bi-journal-check', iconColor: 'text-emerald-600', label: 'Inventário' },
+            { type: 'link', to: '/estoque/indisponibilidades', icon: 'bi-dash-circle-dotted', iconColor: 'text-red-500', label: 'Indisponibilidades' },
             { type: 'link', to: '/estoque/recebimentos', icon: 'bi-clipboard-check', iconColor: 'text-emerald-500', label: 'Recebimentos de Mercadorias', shortLabel: 'Recebimentos' },
             { type: 'header', label: 'COMPRAS' },
             { type: 'link', to: '/estoque/pedidos-compra', icon: 'bi-cart-fill', iconColor: 'text-blue-500', label: 'Pedidos de Compra' },

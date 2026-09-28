@@ -58,11 +58,18 @@ A otimização deve ocorrer na arquitetura de consulta (paginação, índices, p
 ## 4. Políticas RLS (Row Level Security)
 
 - Políticas RLS devem ser desenhadas para proteger dados sem causar rejeições silenciosas no ERP ou no App Mobile.
-- Para operações do aplicativo e rotinas internas autenticadas, garanta que as permissões de `SELECT`, `INSERT`, `UPDATE` e `DELETE` estejam ativas e testadas contra erros de RLS.
+- Para operações do aplicativo e rotinas internas autenticadas, valide permissões de `SELECT`, `INSERT`, `UPDATE` e `DELETE` com usuários/roles apropriados. A estratégia de evidência, PostgreSQL real, RPCs, constraints e testes negativos é centralizada em `testes-seguros-erp`; esta skill não duplica seu checklist.
 
 ---
 
-## 5. Checklist de Banco de Dados
+## 5. Testes de Banco e Migrações
+
+- Ao alterar schema, RLS, funções, triggers ou RPCs, aplique a matriz canônica de `testes-seguros-erp` quando houver comportamento relevante no banco: PostgreSQL real isolado, estado final, constraints, permissões, atomicidade, rollback, concorrência e idempotência conforme aplicável.
+- O uso de Docker + Supabase Local obedece à janela operacional definida em `.agents/skills/testes-seguros-erp/SKILL.md`; verifique dia e horário em `America/Sao_Paulo` antes do primeiro comando. Esta skill não duplica a janela.
+- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. Não execute escritas, fault injection, rollback ou concorrência em produção.
+- Teste migrations em banco novo e upgrade de banco existente representativo. Preserve compatibilidade e dados legados conforme `migration`; confira constraints, índices, funções, triggers e políticas afetadas.
+
+## 6. Checklist de Banco de Dados
 
 Antes de concluir qualquer alteração de banco:
 - [ ] A consulta está paginada no servidor?

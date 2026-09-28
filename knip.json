@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/knip@5/overview/config.json",
+  "vitest": false,
+  "playwright": false,
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/mcp/index.ts",
+        "src/telemetry/tracer.ts",
+        "src/telemetry/__tests__/**/*.test.ts",
+        "api/**/*.ts",
+        "scripts/**/*.cjs"
+      ],
+      "project": ["src/**/*.ts", "api/**/*.ts", "scripts/**/*.cjs"]
+    },
+    "erp": {
+      "entry": [
+        "src/index.tsx",
+        "src/Router.tsx",
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.spec.{ts,tsx}",
+        "tests/e2e/**/*.spec.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "mobile": {
+      "entry": [
+        "App.tsx",
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.spec.{ts,tsx}",
+        "e2e/**/*.spec.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "App.tsx"]
+    },
+    "digital-catalog": {
+      "entry": [
+        "src/app/**/*.{ts,tsx}",
+        "src/**/*.test.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "desktop-print-agent": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,js}"]
+    }
+  }
+}

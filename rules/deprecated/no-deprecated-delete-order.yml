@@ -1,0 +1,23 @@
+id: no-deprecated-delete-order
+language: TypeScript
+severity: error
+message: "`deleteOrder` é uma API depreciada; use `moveToTrash` para mover o pedido à lixeira."
+note: "A função `deleteOrder` é um alias legado de `moveToTrash`. Use `moveToTrash` para deixar a intenção explícita."
+rule:
+  pattern: deleteOrder($$$ARGS)
+files:
+  - erp/src/**/*.ts
+  - erp/src/**/*.tsx
+ignores:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/vendor/**"
+  - "**/*.generated.*"
+  - "**/*.bundle.*"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/__tests__/**"

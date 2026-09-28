@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/pages/utils/productKindRules.ts",
+    "src/pages/App/Products/ProductList/utils/productActivationState.ts",
+    "src/pages/App/Products/ProductList/utils/productCatalogState.ts",
+    "src/pages/App/Products/ProductList/hooks/useProductsActivationValidation.ts"
+  ],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
+}

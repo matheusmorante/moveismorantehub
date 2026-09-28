@@ -104,7 +104,10 @@ export type ExtraDimension = {
     value: string;
 };
 
+export type ProductKind = 'normal' | 'salvado';
+
 export type Product = {
+    productKind?: ProductKind;
     id?: string;
     code?: string;
     sku?: string;
@@ -173,7 +176,7 @@ export type Product = {
     variations?: Variation[];
 
     // Item Type
-    itemType: 'product' | 'service';
+    itemType: 'product' | 'service' | 'composition';
 
     // UI Hierarchical fields (Synthetic)
     isParent?: boolean;

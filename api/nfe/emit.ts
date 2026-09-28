@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .select('id,status,chave_acesso,numero_protocolo,motivo_status')
             .eq('order_id', orderId).eq('modelo', String(model)).eq('ambiente', selectedEnvironment).eq('document_type', 'outbound').in('status', activeStatuses).order('created_at', { ascending: false }).limit(1).maybeSingle();
         if (existingError) return res.status(503).json({ success: false, error: 'Não foi possível conferir emissões anteriores. Tente novamente mais tarde.' });
-        if (existing) return res.status(409).json({ success: false, pending: ['pendente', 'processando'].includes(existing.status), error: `Este pedido já possui documento fiscal ${existing.status}. Consulte o documento antes de tentar novamente.`, accessKey: existing.chave_acesso, protocolNumber: existing.numero_protocolo });
+        if (existing) return res.status(409).json({ success: false, pending: ['pendente', 'processando'].includes(existing.status), documentId: existing.id, error: `Este pedido já possui documento fiscal ${existing.status}. Consulte o documento antes de tentar novamente.`, accessKey: existing.chave_acesso, protocolNumber: existing.numero_protocolo });
 
         const reservation = {
             order_id: orderId, numero_nfe: nfeNumber, serie: String(series || '1'), chave_acesso: accessKey,
@@ -165,6 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(502).json({
                 success: false,
                 pending: true,
+                documentId,
                 signedXml,
                 error: `Conexão com SEFAZ-PR: ${soapErr.message}`,
             });

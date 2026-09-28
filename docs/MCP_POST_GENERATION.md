@@ -33,9 +33,9 @@ Crie ou configure as variáveis no seu `.env` ou ambiente de execução:
 
 ```env
 # Tokens de Acesso Privados para o MCP (Gere strings seguras de pelo menos 32 caracteres)
-MORANTEHUB_MCP_ACCESS_TOKEN=morante_mcp_master_sec_89f72b14c3e80a52
-MCP_CHATGPT_TOKEN=morante_mcp_chatgpt_sec_99a8b7c6d5e4f3a2
-MCP_ANTIGRAVITY_TOKEN=morante_mcp_antigravity_sec_11b2c3d4e5f6a7b8
+MORANTEHUB_MCP_ACCESS_TOKEN=your_mcp_master_secret_here
+MCP_CHATGPT_TOKEN=your_mcp_chatgpt_secret_here
+MCP_ANTIGRAVITY_TOKEN=your_mcp_antigravity_secret_here
 
 # Configurações do Servidor
 MCP_PORT=3333
@@ -114,7 +114,7 @@ Adicione ao arquivo de configuração MCP do seu ambiente (`mcp_config.json`):
       "command": "node",
       "args": ["dist/mcp/index.js", "--stdio"],
       "env": {
-        "MORANTEHUB_MCP_ACCESS_TOKEN": "morante_mcp_antigravity_sec_11b2c3d4e5f6a7b8"
+        "MORANTEHUB_MCP_ACCESS_TOKEN": "your_mcp_client_token_here"
       }
     }
   }

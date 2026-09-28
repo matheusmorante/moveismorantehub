@@ -47,6 +47,7 @@
 ## Ferramentas de inspeção assistida
 
 - **Serena MCP:** no início de uma tarefa de código, consulte `initial_instructions` e confirme/ative o projeto/cwd atual. Prefira `get_symbols_overview`, `find_symbol` e `find_referencing_symbols` antes de abrir arquivos completos; leia somente as definições e consumidores necessários. Use busca textual quando o alvo não for símbolo ou Serena não estiver disponível. No contexto Codex, use as ferramentas nativas para editar/rodar comandos; Serena é prioritariamente navegação semântica.
+- **CALM MCP:** use `repo_overview` para orientação em mudanças amplas e `callers`/`callees`/`path`/`reference_impact` para rastrear relações e delimitar arquivos antes da leitura quando a tarefa envolver fluxo entre módulos. Use `diff_impact` depois de mudanças quando disponível. Para uma busca textual simples, use `rg`; CALM complementa Serena no grafo relacional e não substitui skills, documentação de negócio ou testes. A configuração do projeto está em `.codex/config.toml`; o índice local fica em `.calm/` e não deve ser versionado.
 - **Chrome DevTools MCP:** para diagnóstico técnico do ERP no navegador, use Network/Console/Performance para confirmar requests, erros e comportamento real. Capture somente a interação/período relevante, não exporte ou exponha tokens, cookies, payloads pessoais ou dados sensíveis. Playwright continua sendo a ferramenta de automação funcional/E2E; DevTools complementa o diagnóstico, não o substitui.
 - **Roteamento de testes por plataforma:** Vitest para lógica independente de plataforma e integração isolada; Playwright é a única automação de interface/E2E, executada no navegador para ERP React/Web e Expo Web quando suportado. Viewports mobile no Playwright continuam sendo testes de navegador. Não executar Maestro, ADB, Expo MCP, emuladores/AVDs ou testes automatizados em aparelho físico. Comportamentos exclusivos do React Native (câmera, permissões, lifecycle, armazenamento e APIs nativas) ficam para validação manual do usuário no APK; quando essa validação for necessária, preparar o APK para entrega, sem instalar nem executá-lo em dispositivo.
 - **Replicação ERP ↔ App:** preservar testes Playwright do ERP e testar o caminho Expo Web no navegador quando aplicável. Complementar com Vitest e verificações estáticas focadas; não alegar que Playwright/Expo Web validou comportamento nativo. Para limitações nativas, entregar APK para o usuário validar manualmente.
@@ -57,3 +58,20 @@
 - Antes de qualquer alteração remota, confirme que o projeto/ref corresponde ao configurado no app e limite a operação ao escopo autorizado.
 - Nunca exponha tokens, senhas ou outras credenciais; prefira ferramentas oficiais/API quando disponíveis e registre evidência sem dados sensíveis.
 
+
+## Governança de Desenvolvimento e Testes (Supabase, pgTAP, k6, ZAP)
+- **Supabase CLI Local**: Use para ambiente de testes destrutivos com banco reproduzível (`supabase db reset`) somente na janela definida em `.agents/skills/testes-seguros-erp/SKILL.md`; nunca aplique escritas destrutivas em produção.
+- **pgTAP**: Utilize para testes nativos de banco de dados (RPCs, RLS, Constraints, Triggers).
+- **Atomicidade e Banco Real**: Falhas no meio de transações devem ser provadas no banco, garantindo o rollback.
+- **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (ambos em ambiente local).
+- **Separação Estrita**: Diferencie testes de persistência local (SQLite/IndexedDB) de persistência real (PostgreSQL). O fluxo de testes deve ser proporcional ao risco (Baixo a Crítico/Concorrente).
+
+## Ferramentas Oficiais de Qualidade, Infraestrutura e Segurança
+- **Knip (`npm run check:knip`)**: Executar para auditoria periódica de código morto, exports órfãos e dependências não utilizadas em todos os workspaces.
+- **Biome (`npm run lint:biome`, `npm run format:biome`)**: Formatação e linting ultrarrápido complementar para checagens de alta frequência.
+- **ast-grep**: Use `npm run quality:ast-grep:scan` para auditoria estrutural ampla solicitada e `npm run quality:ast-grep:critical` para regras críticas; não adicione à rotina de alterações pequenas. Critérios canônicos em `.agents/skills/governanca-skills/SKILL.md`.
+- **Supabase Advisors (`npm run advisors`)**: Obrigatório antes de qualquer migração para detectar RLS desabilitado, search_path vulnerável e índices faltantes.
+- **React Compiler**: Habilitado nativamente no Mobile (`experiments.reactCompiler`) e validado no ERP via `eslint-plugin-react-compiler` (`npm run lint --prefix erp`).
+- **Gitleaks (`npm run security:secrets`)**: Scanner obrigatório de segredos antes de commits e em PRs, com regras estritas contra vazamento de JWTs e API Keys.
+- **Trivy (`npm run security:vuln`, `npm run security:sbom`)**: Scanner de vulnerabilidades (CVEs) em dependências e gerador oficial de SBOM CycloneDX.
+- **OpenTelemetry (`src/telemetry/tracer.ts`)**: Tracing padrão vendor-neutral para instrumentação de fluxos críticos de negócio com sanitização obrigatória de PII (LGPD).

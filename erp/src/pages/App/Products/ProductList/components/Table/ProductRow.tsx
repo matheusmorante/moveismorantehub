@@ -7,6 +7,7 @@ import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';
 import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 export interface ProductRowProps {
     readonly product: Product;
@@ -69,7 +70,8 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     });
 
     const isDraft = Boolean(product.isDraft) || Boolean((product as { is_draft?: boolean }).is_draft);
-    const canManageCatalog = !isDraft && product.active !== false;
+    const isSalvado = isSalvadoProduct(product);
+    const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
     const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);
     const isDeactivated = product.active === false || product.status === 'hidden';
 

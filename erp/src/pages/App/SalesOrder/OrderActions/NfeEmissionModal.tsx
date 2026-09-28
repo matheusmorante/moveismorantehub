@@ -33,6 +33,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         handleRejectNcmSuggestion,
         suggestingNcmIndex,
         handleEmit,
+        handleReconcile,
         handlePrintDanfe
     } = useNfeEmission(order, onSuccess);
     const [productionConfirmed, setProductionConfirmed] = React.useState(false);
@@ -138,6 +139,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                             {emissionResult.cStat && <p className="mt-1 font-mono">SEFAZ cStat {emissionResult.cStat}{emissionResult.sefazMessage ? ` · ${emissionResult.sefazMessage}` : ''}</p>}
                             {emissionResult.validation?.errors.map(error => <p key={error} className="mt-1">• {error}</p>)}
                             {emissionResult.pending && <p className="mt-2 font-semibold">Consulte a situação do documento antes de tentar novamente para evitar duplicidade.</p>}
+                            {emissionResult.pending && emissionResult.documentId && (
+                                <button
+                                    onClick={handleReconcile}
+                                    disabled={isSubmitting}
+                                    className="mt-3 px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black uppercase tracking-wider text-[10px] transition-all"
+                                >
+                                    {isSubmitting ? 'Consultando...' : 'Consultar SEFAZ Agora'}
+                                </button>
+                            )}
                         </div>
                     )}
 

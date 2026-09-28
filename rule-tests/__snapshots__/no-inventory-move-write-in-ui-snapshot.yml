@@ -1,0 +1,20 @@
+id: no-inventory-move-write-in-ui
+snapshots:
+  'await client.from(''inventory_moves'').update({ status: ''reversed'' }).eq(''id'', moveId)':
+    labels:
+    - source: 'client.from(''inventory_moves'').update({ status: ''reversed'' })'
+      style: primary
+      start: 6
+      end: 67
+  await supabase.from('inventory_moves').delete().eq('id', moveId):
+    labels:
+    - source: supabase.from('inventory_moves').delete()
+      style: primary
+      start: 6
+      end: 47
+  await supabase.from('inventory_moves').insert(move):
+    labels:
+    - source: supabase.from('inventory_moves').insert(move)
+      style: primary
+      start: 6
+      end: 51

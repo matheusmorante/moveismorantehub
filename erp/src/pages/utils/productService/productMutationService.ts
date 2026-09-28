@@ -6,6 +6,7 @@ import { validateProductImageLimits } from './productImageHelpers';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { mapToDB, mapFromDB } from './productMapper';
+import { isSalvadoProduct } from '../productKindRules';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
 import { formatProductTextData } from './productValidation';
 import { 
@@ -30,7 +31,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     const resolvedId = ensureUuidFormat(product);
 
     if (!product.code || product.code === '000000') {
-        product.code = generateUniqueCode(resolvedId, product.item_type);
+        product.code = generateUniqueCode(resolvedId, product.itemType);
     }
 
     const skusToValidate: string[] = [];
@@ -45,13 +46,13 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
         if (duplicateSkus.length > 0) {
             // Auto-corrige: gera um código único para substituir o SKU duplicado
             if (product.code && duplicateSkus.includes(product.code)) {
-                product.code = generateUniqueCode(resolvedId, product.item_type);
+                product.code = generateUniqueCode(resolvedId, product.itemType);
                 console.warn(`[ProductService] SKU duplicado detectado. Novo código gerado automaticamente: ${product.code}`);
             }
             if (product.variations?.length) {
                 product.variations.forEach(v => {
                     if (v.sku && duplicateSkus.includes(v.sku)) {
-                        v.sku = generateUniqueCode(resolvedId, product.item_type);
+                        v.sku = generateUniqueCode(resolvedId, product.itemType);
                         console.warn(`[ProductService] SKU de variação duplicado. Novo SKU gerado: ${v.sku}`);
                     }
                 });
@@ -266,21 +267,37 @@ export const bulkMoveToTrash = async (ids: string[]): Promise<{ successCount: nu
 export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
     try {
         const products = getLocalProducts();
+        const validUuids = ids.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+        const localSalvadoIds = new Set(products.filter(isSalvadoProduct).map(product => String(product.id)));
+        let salvadoIds = localSalvadoIds;
+        if (validUuids.length > 0) {
+            const { data: rows, error } = await supabase.from(TABLE_NAME)
+                .select('id, product_kind')
+                .in('id', validUuids);
+            if (error) throw error;
+            salvadoIds = new Set([
+                ...localSalvadoIds,
+                ...(rows || []).filter((row: any) => row.product_kind === 'salvado').map((row: any) => String(row.id))
+            ]);
+        }
         ids.forEach(id => {
             const idx = products.findIndex(p => String(p.id) === String(id));
             if (idx !== -1) {
                 products[idx].deleted = false;
-                products[idx].active = true;
+                products[idx].active = salvadoIds.has(String(id)) ? false : true;
                 products[idx].updatedAt = new Date().toISOString();
             }
         });
         saveLocalProducts(products);
         notifySubscribers();
 
-        const validUuids = ids.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
         if (validUuids.length > 0) {
-            await supabase.from(TABLE_NAME).update({ active: true, deleted: false, updated_at: new Date().toISOString() }).in('id', validUuids);
-            await supabase.from('product_variations').update({ active: true }).in('product_id', validUuids);
+            await supabase.from(TABLE_NAME).update({ deleted: false, updated_at: new Date().toISOString() }).in('id', validUuids);
+            const normalUuids = validUuids.filter(id => !salvadoIds.has(id));
+            if (normalUuids.length > 0) {
+                await supabase.from(TABLE_NAME).update({ active: true }).in('id', normalUuids);
+                await supabase.from('product_variations').update({ active: true }).in('product_id', normalUuids);
+            }
         }
     } catch (error) {
         console.error("Erro no bulkRestoreProducts:", error);

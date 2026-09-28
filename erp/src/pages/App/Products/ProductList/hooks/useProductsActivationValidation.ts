@@ -1,4 +1,5 @@
 import Product from '@/pages/types/product.type';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 export interface ErpActivationValidationResult {
     readonly isValid: boolean;
@@ -19,11 +20,24 @@ export const validateErpActivationRequirements = (
     products: readonly Product[],
     serverProducts: readonly Product[]
 ): ErpActivationValidationResult => {
+    const resolvedParentId = id.includes('_') ? id.split('_')[0] : id;
+    const targetProduct = serverProducts.find((product) => String(product.id) === String(id))
+        || serverProducts.find((product) => String(product.id) === resolvedParentId)
+        || products.find((product) => String(product.id) === String(id));
+    const variationParent = serverProducts.find(product => product.variations?.some(variation => String(variation.id) === String(id)))
+        || products.find(product => product.variations?.some(variation => String(variation.id) === String(id)));
+    if (isSalvadoProduct(targetProduct || variationParent)) {
+        return {
+            isValid: false,
+            errorMessage: 'Produtos do tipo Salvado permanecem desativados no ERP.'
+        };
+    }
+
     // 1. Bloqueio rigoroso para Rascunhos: não pode ativar no ERP
     if (id.includes('_')) {
         const [parentId] = id.split('_');
         const parent = serverProducts.find((p) => String(p.id) === String(parentId)) || products.find((p) => String(p.id) === String(parentId));
-        const isParentDraft = Boolean(parent?.is_draft) || Boolean(parent?.isDraft);
+        const isParentDraft = Boolean(parent?.isDraft);
         if (isParentDraft) {
             return {
                 isValid: false,
@@ -32,7 +46,7 @@ export const validateErpActivationRequirements = (
         }
     } else {
         const targetProduct = serverProducts.find((p) => String(p.id) === String(id)) || products.find((p) => String(p.id) === String(id));
-        const isDraft = Boolean(targetProduct?.is_draft) || Boolean(targetProduct?.isDraft);
+        const isDraft = Boolean(targetProduct?.isDraft);
         if (isDraft) {
             return {
                 isValid: false,

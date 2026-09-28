@@ -1,0 +1,40 @@
+# Gitleaks configuration for MoranteHub
+[extend]
+useDefault = true
+
+[allowlist]
+description = "MoranteHub allowlist: ignore build outputs, dev environment files, test fixtures, and public anon keys"
+paths = [
+  '''(?i)node_modules/''',
+  '''(?i)\.next/''',
+  '''(?i)\.expo/''',
+  '''(?i)dist/''',
+  '''(?i)coverage/''',
+  '''(?i)\.scannerwork/''',
+  '''(?i)\.stryker-tmp/''',
+  '''(?i)\.codex-finance-export-test/''',
+  '''(?i)scratch/''',
+  '''(?i)__tests__/''',
+  '''(?i)supabase/\.temp/''',
+  '''(?i)supabase/backups/''',
+  '''(?i)supabase/tests/''',
+  '''(?i)\.env(\..+)?$''',
+  '''(?i)gitleaks.*\.json''',
+  '''(?i)knip.*\.json''',
+  '''(?i)trivy.*\.json''',
+  '''(?i)sbom.*\.json''',
+  '''(?i)package-lock\.json''',
+  '''(?i)app\.json''', # Public Android Google Maps API Key (restricted by application package and certificate)
+  '''(?i)mobile/credentials\.json'''
+]
+regexes = [
+  # Supabase public anon keys (designed to be client-side readable and governed by Postgres RLS)
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6cGRmbWlobndjcmdreWFnd2tkIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4aGNhY3ZtZGxmZnB5ZHB0dnBsIiwicm9sZSI6ImFub24i''',
+  # Local storage key constants
+  '''morante_marketing_campaigns_v1''',
+  # SEFAZ-PR Homologation public test CSC token
+  '''XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF'''
+]

@@ -1,0 +1,3 @@
+[mcp_servers.calm]
+command = "npx.cmd"
+args = ["--yes", "@eilodon/calm-mcp@0.8.0", "serve", "--project-root", ".", "--preset", "orient,trace,change"]

@@ -35,26 +35,46 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 
 > [!CAUTION]
 > **NUNCA ALTERAR OU EXCLUIR REGISTROS OPERACIONAIS EXISTENTES.**
-> Playwright pode usar o Supabase atualmente utilizado pelo sistema, inclusive o banco real, desde que crie, edite, valide e remova exclusivamente registros criados pela própria execução. Dados reais existentes nunca podem ser reutilizados como massa de teste.
+> Playwright pode usar um ambiente Supabase de teste/staging confirmado, desde que crie, edite, valide e remova exclusivamente registros criados pela própria execução. Nunca use produção para testes com escrita, fault injection, concorrência ou rollback. Dados reais existentes nunca podem ser reutilizados como massa de teste.
 
 1. **Geração de `testRunId`**: Cada bateria gera um identificador único no formato canônico `TEST_AUT_<uuid>`. Para identificar a suíte de origem (unitário, integração, E2E), use metadata adicional (campo, observação, tag), sem alterar o prefixo.
 2. **Identificação inequívoca**: O identificador deve aparecer no nome, SKU, código ou observação do registro. Use também metadata de origem somente quando o campo já existir ou fizer sentido arquiteturalmente; não altere o schema apenas para testes.
 3. **Registro de propriedade**: O harness deve guardar em memória os IDs criados pela execução e o tipo de cada registro. Todo helper de update/delete deve executar `assertOwnedByCurrentTest(record)` e falhar fechado se o ID não estiver registrado, se o `testRunId` não corresponder ou se houver qualquer dúvida.
 4. **Arrange / Act / Assert / Cleanup**: Crie todas as dependências da árvore do teste, execute o fluxo real, valide UI/persistência/relações após recarregar e remova apenas os IDs criados pela execução em `try/finally`, `afterEach` ou `afterAll`.
 5. **Ordem de limpeza**: Exclua filhos e relacionamentos antes dos pais, respeitando as foreign keys. Nunca use `DELETE` amplo, `LIKE 'E2E%'`, `truncate`, cascade não confirmado, reset de tabela ou cleanup global.
-6. **Supabase real**: A ausência de banco separado não bloqueia automaticamente Playwright. O banco atualmente usado pode ser alvo quando a execução puder provar propriedade, usar identificadores únicos e garantir teardown. Sem essa prova, não faça escrita.
+6. **Ambiente de integração**: Testes que escrevem no PostgreSQL, provocam falhas, exercitam concorrência ou validam rollback só podem usar um ambiente de teste isolado (local ou projeto Supabase de teste/staging confirmado). A propriedade dos registros e o `testRunId` continuam obrigatórios para cleanup; eles não tornam seguro testar transações em produção.
 7. **Relatório obrigatório**: Registre `testRunId`, registros criados por tipo, quantidade removida, resíduos por falha de cleanup com IDs, aprovados, reprovados e a confirmação de que nenhum registro operacional real foi alterado.
 8. **Isolamento entre testes paralelos**: Se testes E2E rodam em paralelo, cada teste deve derivar seu próprio identificador do `testRunId` da bateria (ex: `TEST_AUT_<uuid>_NomeDoTeste`) para evitar interferência entre testes que manipulam os mesmos tipos de registro.
 
 ---
 
-## 2. Ambientes de Teste sem Docker
+## 2. Ambientes de Teste e Janela de Docker + Supabase Local
 
-Docker não faz parte do fluxo de desenvolvimento ou validação deste projeto. Escolha a opção mais simples e segura para o escopo:
+Docker e Supabase Local podem ser usados para testes, mas o uso do stack local está restrito à janela abaixo. A regra se aplica a qualquer comando que dependa de Docker/Supabase Local e a testes que dependam dele, inclusive `supabase start`/`stop`, `supabase db reset`, migrations e repair, `supabase test db`/pgTAP, PostgreSQL real, concorrência multi-conexão, `FOR UPDATE`, rollback/fault injection, RLS/JWT/`auth.uid()`, Storage, integração com escrita, testes destrutivos, banco limpo, upgrade representativo e k6 ligado ao stack.
+
+**Timezone obrigatório: `America/Sao_Paulo`. Janela permitida:**
+
+| Dia | Janela |
+|---|---|
+| Domingo | Qualquer horário |
+| Segunda-feira | Após 18:30 |
+| Terça-feira | Indisponível |
+| Quarta-feira | Indisponível |
+| Quinta-feira | Indisponível |
+| Sexta-feira | Após 18:30 |
+| Sábado | Indisponível |
+
+Antes do primeiro comando dependente do stack, verifique o dia da semana e a hora atual em `America/Sao_Paulo` e registre se a janela está aberta. Não deduza autorização da instalação ou do estado do Docker. Um Docker/Supabase Local já em execução fora da janela não autoriza testes: não inicie operações restritas nem interrompa processos do usuário sem necessidade.
+
+**Fora da janela permitida:** não iniciar Docker/Supabase Local; não executar testes destrutivos ou de integração real que dependam deles; nunca usar produção como substituto; e nunca declarar integração aprovada com base em mock, PGlite, inspeção estática, Vitest ou Playwright. Marque explicitamente `PENDENTE — aguardando janela permitida para Docker + Supabase Local` e indique a evidência real ainda faltante. Não tente subir o stack repetidamente, baixar imagens, reinstalar ou fazer troubleshooting pesado. É permitido preparar scripts, fixtures, pgTAP, k6, seeds, asserts e cenários para execução posterior, deixando claro que ainda não foram executados.
+
+Fora desse stack, podem continuar as validações que não dependem dele: Vitest/unitários, React Testing Library/componentes, ESLint, TypeScript, inspeção estática e Playwright quando o fluxo não depender do Supabase Local nem escrever em produção. Playwright não prova atomicidade PostgreSQL; PGlite não prova concorrência multi-sessão; ZAP não prova RLS; inspeção de `FOR UPDATE` não prova concorrência; `success = true` não prova o estado final; SQLite/IndexedDB não provam PostgreSQL. Mocks não provam integração.
+
+Escolha a opção mais simples e segura para o escopo, respeitando a janela:
 
 1. **Teste focado**: prefira Vitest/Jest com mocks, fixtures e estado em memória para validar a unidade alterada.
-2. **Integração necessária**: use serviços locais já disponíveis sem Docker ou o Supabase atualmente utilizado, desde que a suíte crie dados próprios com `testRunId`, registre seus IDs, valide propriedade e faça limpeza garantida. O uso de banco real não autoriza tocar registros existentes.
-3. **Sem isolamento comprovável**: não faça escritas; cubra o contrato com mocks/testes focados e registre a limitação. “Banco real” sozinho não é motivo para bloquear, mas também não substitui a prova de propriedade.
+2. **Integração necessária**: use PostgreSQL/Supabase local somente dentro da janela permitida, ou projeto de teste/staging isolado e confirmado quando a operação não depender do stack local, com dados próprios identificados por `testRunId`, propriedade validada e limpeza garantida.
+3. **Sem ambiente isolado comprovável**: não faça escritas nem fault injection; cubra unidades/contratos isolados com mocks e registre que integração/PostgreSQL real não foi validada. Mock não prova integração, atomicidade, rollback, RLS ou concorrência.
 4. **Fluxo de usuário ou validação visual necessária**: depois dos testes focados passarem, use Playwright ou o navegador local já aberto somente para o fluxo afetado. Para o preview mobile, use endereço `localhost` (nunca LAN); em autenticação local, use a porta 80 ou 81, não a 82.
 5. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
 
@@ -67,7 +87,10 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 | Tipo de Teste | Escopo | Ferramentas / Métodos |
 |---|---|---|
 | **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
-| **Testes de Integração** | Serviços de Venda, Estoque, Movimentações, Conciliação Financeira, APIs externas (Google Maps, SEFAZ schemas). | Vitest com serviços locais sem Docker ou staging isolado com `testRunId`; mocks quando não houver ambiente seguro. |
+| **Mutation testing** | Força condições, limites e transições em regras críticas para revelar testes que passam sem detectar regressões. | StrykerJS com o runner Vitest; começar por escopos explícitos de regras de negócio. Sobreviventes exigem revisão antes de virar teste; não estabelecer gate de score sem baseline. |
+| **Análise estática centralizada** | Bugs, code smells e segurança básica em JS/TS/CSS; importa cobertura LCOV gerada pelo Vitest. | SonarQube Community Build local. Credenciais apenas por `SONAR_TOKEN`/ambiente; análise local opcional, não requisito de CI. |
+| **Testes de Componentes** | Componentes React e formulários. | Vitest + React Testing Library; cobrir estados e interações aplicáveis. Não substitui integração de banco. |
+| **Testes de Integração** | Services, persistência, Supabase/PostgreSQL, RPCs, Edge Functions e contratos entre serviços. | Vitest contra PostgreSQL/Supabase isolado quando o comportamento do banco for relevante; validar retorno e estado persistido. Mocks servem apenas para unidade/contrato isolado, nunca como prova de integração. |
 | **E2E Web (ERP e Expo Web)** | Navegação, telas, responsividade, formulários e modais disponíveis no navegador. | Playwright; Chrome DevTools complementa diagnóstico. Viewport mobile continua sendo navegador. |
 | **Comportamento exclusivo do React Native** | Câmera, permissões, lifecycle, SQLite e APIs nativas não disponíveis no browser. | Não automatizar em dispositivo/emulador. Fazer validações estáticas/focadas quando úteis e entregar APK para validação manual do usuário quando necessário. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
@@ -75,6 +98,13 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 | **Persistência Local (ERP Web)** | IndexedDB para cache, rascunhos ou dados offline no navegador. Aplica-se somente a módulos que usam armazenamento local; não confundir com SQLite (mobile) nem MySQL. | Vitest com `fake-indexeddb` para lógica de persistência; Playwright `evaluate` para verificação de estado real no navegador. Se o módulo não usa armazenamento local, esta linha não se aplica. |
 
 Nos E2E Playwright com backend real, siga a regra de propriedade da seção 1: criar somente dados próprios e identificáveis, guardar IDs exatos, editar/excluir apenas esses IDs e limpar de forma restrita. Não use limpeza por prefixo/`LIKE` nem selecione registros operacionais existentes como massa mutável.
+
+### 3.2 Mutation testing e análise SonarQube
+
+- ERP usa `npm --prefix erp run test:mutation:critical` para a fatia inicial de regras críticas e `npm --prefix erp run test:coverage:critical` para gerar LCOV focado. O relatório HTML/JSON do Stryker fica em `erp/reports/mutation/` e a cobertura em `erp/coverage/`; são artefatos locais ignorados pelo Git.
+- A configuração Stryker deve nomear os arquivos mutados, usar Vitest `perTest`, concurrency conservadora e TypeScript checker quando aplicável. Não mutar testes, mocks, fixtures, arquivos gerados ou configuração. Classificar `Killed`, `Survived`, `No coverage`, `Timeout` e `CompileError` conforme o relatório. Investigar sobreviventes relevantes; não declarar falha automática por score arbitrário. Registrar score e limitações como baseline.
+- SonarQube Community Build é local/opcional: `docker compose -f compose.sonarqube.yml up -d`, depois configurar `SONAR_HOST_URL` e `SONAR_TOKEN` no ambiente e executar `npm run quality:sonar`. Não gravar token no repositório, linha de comando versionada ou arquivo de configuração. Não tornar CI dependente de daemon, token local ou serviço pago.
+- `sonar-project.properties` deve excluir dependências, builds, relatórios, código gerado e testes da análise de produção; importar `erp/coverage/lcov.info` quando gerado. Cobertura ausente ou parcial deve ser declarada como tal, não inferida.
 
 ### 3.1 Estados Obrigatórios de UI
 
@@ -103,6 +133,24 @@ Para cada módulo, além do happy path:
 > Percentual de cobertura de linhas é **indicador de amplitude**, não prova de qualidade. Um módulo com 100% de cobertura pode ter zero casos negativos. Priorize cenários de negócio relevantes sobre metas numéricas.
 
 ---
+
+
+
+### 3.4 Responsabilidades das Ferramentas e Fluxo Proporcional ao Risco
+- **Vitest**: Funções puras, cálculos e lógicas isoladas.
+- **RTL (React Testing Library)**: Interações de interface e componentes isolados.
+- **Playwright**: E2E em navegador, fluxos completos de UI integrados.
+- **Supabase CLI Local**: Obrigatório para ambiente de testes destrutivos, somente dentro da janela da seção 2. Banco reproduzível via `supabase db reset`. **NUNCA** rodar testes destrutivos em produção.
+- **pgTAP**: Validações exclusivas de banco (RPC, RLS, Constraints, Triggers).
+- **Atomicidade**: Falha induzida no meio da transação com validação de rollback no banco (prova real no PostgreSQL).
+- **k6**: Concorrência e testes de carga.
+- **OWASP ZAP**: Segurança dinâmica complementar ao RLS/Auth. Sempre em ambiente local.
+- **Separação de Persistência**: SQLite/IndexedDB não substituem testes no PostgreSQL. As responsabilidades são separadas.
+- **Fluxo Proporcional ao Risco**:
+  - *Baixo*: Unitários (Vitest).
+  - *Médio*: Componentes e fluxos isolados (RTL).
+  - *Alto*: Integração pontual, Playwright E2E.
+  - *Crítico/Concorrente*: PostgreSQL isolado com pgTAP, Atomicidade real, ZAP (Segurança) e k6 (Carga), com Docker/Supabase Local somente dentro da janela definida na seção 2.
 
 ## 4. Ordem Oficial dos Módulos Vitais e Críticos
 
@@ -145,8 +193,8 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
    - `Ciclo Atual` (ex: Ciclo 1)
    - `Módulo Atual` (ex: Módulo 3 - Logística)
    - `Próxima Etapa / Goal` (ex: Etapa 3.2 - Teste da Tela de Etapas da Entrega)
-2. **Seleção de Ambiente sem Docker**:
-   Prefira testes focados com mocks/fixtures em memória. Para integração indispensável, use serviço local já disponível ou staging isolado com `testRunId`; sem isolamento comprovável, não faça escritas e registre a limitação.
+2. **Seleção de Ambiente**:
+   Prefira testes focados com mocks/fixtures em memória para lógica isolada. Antes de qualquer uso de Docker/Supabase Local, verifique a janela da seção 2, mesmo se o serviço já estiver disponível. Fora dela, não execute a integração local: marque-a como pendente e prossiga somente com validações independentes do stack. Staging só pode ser usado se estiver isolado, confirmado e não for produção.
 3. **Execução da Etapa Atual**:
    - Execute os testes correspondentes (unitários, integração, tipo ou interface).
    - Se envolver persistência, gere `testRunId`, crie uma árvore exclusiva de dados, registre cada ID criado, valide a propriedade antes de qualquer update/delete e faça teardown completo em `finally`.
@@ -221,16 +269,49 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
 
 ---
 
-## 7. Testes de Integração com Supabase: RPCs, Transações e Edge Functions
+## 7. Estratégia Canônica para Persistência e Operações Críticas
 
-Quando o teste envolver operações no backend Supabase:
+Esta seção é a fonte canônica para testes de banco. Operação crítica inclui qualquer fluxo que altere múltiplos registros ou afete estoque, pedidos, recebimentos, financeiro, fiscal, permissões, histórico ou sincronização. Aplique os casos relevantes; registre justificativa para itens não aplicáveis, sem inventar riscos inexistentes.
 
-1. **RPCs**: Chamar via `supabase.rpc('nome', params)` com `testRunId`. Verificar retorno de sucesso **e** caso de erro (parâmetro inválido, registro inexistente, violação de regra).
-2. **Atomicidade**: Provocar falha intencional na segunda etapa de uma transação e confirmar que a primeira foi revertida (consultar o registro no banco após o erro e verificar ausência do registro parcial).
-3. **Rollback**: Toda transação testada deve ter pelo menos um caso que force o rollback e verifique integridade do estado anterior.
-4. **RLS e Autorização**: Testar com token de usuário sem permissão e confirmar que a operação é rejeitada (não silenciosamente ignorada).
-5. **Edge Functions**: Testar via HTTP direto ao endpoint com payload de teste. Validar resposta (status, body) **e** efeitos no banco.
-6. **Idempotência de RPCs**: Chamar a mesma RPC duas vezes com o mesmo `event_id`/`testRunId` e confirmar que não duplica efeitos.
+### 7.1 Níveis e limites de evidência
+
+- **Unitário**: Vitest para funções, cálculos, validações, regras, transformações e estados isolados. Mocks são adequados neste nível.
+- **Componente**: Vitest + React Testing Library para loading, vazio, sucesso, erro, validação, campos desabilitados, permissões, offline, interações e submissão, conforme aplicável.
+- **Integração**: quando houver comportamento relevante de Supabase/PostgreSQL, testar contra PostgreSQL real em ambiente isolado. Verificar estado final diretamente nas tabelas e relações, não só o retorno do service/RPC.
+- **RPC/Edge Function**: executar pela interface real (RPC/HTTP) e validar resposta, permissões e efeitos persistidos. Mock do Supabase, teste frontend ou inspeção de código não substituem esse nível.
+- **E2E**: Playwright cobre o fluxo integrado pela perspectiva do usuário. Não substitui integração de banco, RPC, atomicidade, rollback ou concorrência.
+
+### 7.2 Matriz mínima por operação crítica
+
+Antes de validar, registre as invariantes da operação (por exemplo, saldo não negativo, vínculos consistentes, devolução aplicada uma vez, estorno sem efeito residual) e avalie:
+
+| Caso | Evidência esperada |
+|---|---|
+| Sucesso | Retorno e estado final persistido, incluindo relações, quantidades e metadados relevantes. |
+| Entrada inválida / registro inexistente | Erro explícito e nenhum efeito parcial; cobrir UUID/formato, quantidade zero/negativa, saldo insuficiente e relação inválida quando aplicável. |
+| Constraints | Tentar violar diretamente no banco NOT NULL, UNIQUE, CHECK, FK, índices únicos compostos ou regras equivalentes relevantes; comprovar rejeição no PostgreSQL. |
+| Permissão / RLS | Usuários/roles distintos; conferir leitura/escrita permitida e negada e autorização de RPC. Frontend nunca é barreira de segurança. |
+| Atomicidade / rollback | Para uma ação lógica com múltiplas gravações, induzir falha após uma etapa ter sido tentada e consultar o banco: nenhuma escrita da transação deve permanecer e o estado anterior deve estar intacto. Conferir todas as tabelas relacionadas. `BEGIN/COMMIT`, retorno de erro, mocks ou inspeção de código não provam atomicidade. |
+| Concorrência | Quando houver disputa por saldo, status, sequência, reserva ou registro compartilhado, executar pelo menos duas requisições simultâneas e provar as invariantes (ex.: uma única baixa da última unidade, sem saldo negativo ou duplicidade). |
+| Idempotência | Quando houver retry, duplo clique, timeout, webhook ou sync repetível, repetir com a mesma chave de evento/idempotência e provar ausência de efeitos duplicados. |
+| Integração / E2E | Verificar service/frontend e fluxo E2E principal quando aplicáveis e não cobertos pelos níveis anteriores. |
+
+Operação com múltiplas gravações que precisa ser uma ação lógica deve usar fronteira transacional no backend (função/RPC PostgreSQL quando apropriado). Testes de rollback/fault injection são obrigatórios para fluxos que prometem atomicidade e só podem ocorrer em ambiente isolado, nunca em produção.
+
+### 7.3 RPCs e Edge Functions
+
+- Toda RPC crítica tem testes próprios de sucesso, parâmetros inválidos, registro inexistente, permissões e constraints aplicáveis.
+- Validar retorno **e** estado final das tabelas afetadas. Em operações compostas, conferir quantidades, vínculos, movimentos, saldos e metadados que definem as invariantes.
+- Edge Functions são chamadas pelo endpoint de teste; validar status/body e efeitos persistidos.
+- Atomicidade, concorrência e idempotência devem ser exercitadas na camada PostgreSQL isolada, não somente pela camada HTTP.
+
+### 7.4 Migrações, offline e sincronização
+
+- Migrações de regras críticas: testar banco novo aplicando todas as migrations e atualização de banco existente representativo; conferir dados legados, defaults/backfills, constraints, índices, funções, triggers, RPCs e compatibilidade de leitores/escritores antigos quando houver rollout misto. Validar rollback quando suportado. Nunca usar produção como ambiente de teste.
+- Offline/sync: separar evidência de persistência local (SQLite/IndexedDB), fila/transição de estados, transporte/retry/conflito e processamento PostgreSQL. Validar duplicidade, sync parcial e autoridade do backend. Teste local não comprova servidor; teste do servidor não comprova SQLite/IndexedDB.
+- Após a operação, reconsultar estado persistido e validar invariantes. Relatar limitações de ambiente; não declarar integração, atomicidade ou rollback como aprovados sem exercitá-los.
+- Em toda auditoria de módulo crítico, o relatório final deve listar explicitamente os testes executados (comando/escopo e resultado) e os testes não executados, cada um com seu motivo e a evidência pendente. Não resumir Vitest com mocks como “testado” sem qualificar que integração/PostgreSQL real, atomicidade, concorrência ou RLS não foram cobertos.
+- Todo relatório de auditoria/testes deve separar testes executados, não executados, motivo da não execução, evidência obtida e evidência pendente. Para cada teste, preencher a matriz: `Teste | Exige Docker/Supabase Local | Janela disponível agora | Executado | Resultado | Motivo se pendente`. Nunca escrever apenas “testado” ou “aprovado” sem identificar a camada realmente validada. Se a janela estiver fechada, usar o status literal `PENDENTE — aguardando janela permitida para Docker + Supabase Local` nos testes dependentes do stack e nomear a evidência faltante (por exemplo, concorrência real, rollback PostgreSQL, RLS/JWT, Storage, migration limpa ou upgrade representativo).
 
 ---
 
@@ -277,4 +358,5 @@ O agente não deve declarar "testado" apenas porque a suíte ficou verde. Um tes
 
 ## Referências e Fonte Canônica de Documentação
 
+- [Auditoria do Ambiente Supabase Local de Testes](../../../docs/testing/SUPABASE_LOCAL_CERTIFICATION.md) — certificação de reprodutibilidade, fidelidade, segurança e evidência do laboratório; consultar antes de usar o ambiente como prova de integração crítica.
 - [Playwright — projetos e emulação de dispositivos](https://playwright.dev/docs/emulation)

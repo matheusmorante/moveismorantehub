@@ -59,6 +59,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             privateKeyPem: certificate.privateKeyPem,
         });
         const situation = parseSefazNfeSituation(responseXml);
+        if (situation.state === 'not_found') {
+            await supabase.from('nfe_documents').update({ status: 'erro', motivo_status: situation.xMotivo || 'NF-e não consta na base de dados da SEFAZ.', updated_at: new Date().toISOString() }).eq('id', doc.id);
+            return res.status(200).json({ success: false, state: 'not_found', cStat: situation.cStat, xMotivo: situation.xMotivo });
+        }
         if (situation.state === 'unknown') {
             return res.status(502).json({ success: false, pending: true, cStat: situation.cStat, xMotivo: situation.xMotivo || 'A consulta não confirmou a situação atual.' });
         }

@@ -114,6 +114,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                         <DropdownGroup title="Operação" />
                         <DropdownItem to="/estoque/movimentacoes" icon="bi-arrow-left-right" title="Movimentações" description="Entradas e saídas manuais" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/inventarios" icon="bi-journal-check" title="Inventário" description="Contagem e ajustes" onClick={() => setActiveMenu(null)} />
+                        <DropdownItem to="/estoque/indisponibilidades" icon="bi-dash-circle-dotted" title="Indisponibilidades" description="Registro de perdas e avarias" onClick={() => setActiveMenu(null)} />
                         <DropdownItem to="/estoque/recebimentos" icon="bi-clipboard-check" title="Recebimentos" description="Conferência de mercadorias" onClick={() => setActiveMenu(null)} />
 
                         <DropdownSeparator />

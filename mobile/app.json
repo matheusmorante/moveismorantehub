@@ -99,6 +99,9 @@
         "projectId": "dd556f93-9a32-4219-84a2-378b626f09ae"
       }
     },
+    "experiments": {
+      "reactCompiler": true
+    },
     "owner": "morante"
   }
 }

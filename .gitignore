@@ -49,4 +49,19 @@ automation/.wwebjs_cache/
 **/Code Cache/
 **/CodeCache/
 .env*
+!.env.example
+erp/.stryker-tmp/
+erp/reports/mutation/
+erp/coverage/
+.scannerwork/
 .env*.local
+
+# CALM local graph index and configuration
+.calm/
+
+# Security and Quality Reports
+gitleaks-git-report.json
+gitleaks-report.json
+trivy-report.json
+sbom.json
+knip-report.json

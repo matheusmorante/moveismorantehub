@@ -9,6 +9,7 @@ import {
     type ProductCategoryOption,
 } from './productCategoryEnvironment';
 import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 interface ProductGeneralTabProps {
     readonly onOpenCategorySearch: () => void;
@@ -103,6 +104,31 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!isService && (
+                    <div className="flex flex-col gap-1.5 p-2 rounded-2xl">
+                        <label htmlFor="product-kind" className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">Tipo do produto</label>
+                        <select
+                            id="product-kind"
+                            value={formData.productKind || 'normal'}
+                            onChange={(event) => {
+                                const productKind = event.target.value as 'normal' | 'salvado';
+                                setFormData(prev => ({
+                                    ...prev,
+                                    productKind,
+                                    ...(productKind === 'salvado' ? {
+                                        active: false,
+                                        variations: (prev.variations || []).map(variation => ({ ...variation, active: false }))
+                                    } : {})
+                                }));
+                            }}
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
+                        >
+                            <option value="normal">Normal</option>
+                            <option value="salvado">Salvado</option>
+                        </select>
+                        {isSalvadoProduct(formData) && <span className="text-[10px] text-slate-500">O produto e suas variações serão desativados no ERP.</span>}
+                    </div>
+                )}
                 {/* Nome do Produto (ERP) */}
                 <div id="field-product-name" className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl">
                     <div className="flex items-center justify-between h-6">

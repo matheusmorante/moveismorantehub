@@ -1,0 +1,15 @@
+id: no-inventory-move-write-in-ui
+valid:
+  - |-
+    await inventoryService.createMove(move)
+  - |-
+    await supabase.from('inventory_moves').select('id')
+  - |-
+    await supabase.from('products').update({ name: nextName }).eq('id', productId)
+invalid:
+  - |-
+    await supabase.from('inventory_moves').insert(move)
+  - |-
+    await client.from('inventory_moves').update({ status: 'reversed' }).eq('id', moveId)
+  - |-
+    await supabase.from('inventory_moves').delete().eq('id', moveId)

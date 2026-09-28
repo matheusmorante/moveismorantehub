@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Product from '../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 export interface ProductErpChecks {
     readonly description?: boolean;
@@ -74,8 +75,12 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
 
     const handleToggleErp = async () => {
         if (updatingErp) return;
-        setUpdatingErp(true);
         const newActive = !isERPActive;
+        if (newActive && isSalvadoProduct(currentProduct)) {
+            toast.warning('Produtos do tipo Salvado permanecem desativados no ERP.');
+            return;
+        }
+        setUpdatingErp(true);
         const updatedData: Product = { ...currentProduct, active: newActive };
         try {
             await saveProduct(updatedData);
@@ -92,7 +97,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
 
     const handleToggleCatalog = async () => {
         if (updatingEcom) return;
-        const newStatus = isCatalogPublished ? 'hidden' : 'published';
+        const newStatus: 'hidden' | 'published' = isCatalogPublished ? 'hidden' : 'published';
 
         if (newStatus === 'published' && !saveResult.ecomLegible) {
             toast.warning('Complete todos os requisitos pendentes antes de publicar no Catálogo.');
@@ -236,7 +241,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                         <button
                             type="button"
                             onClick={handleToggleErp}
-                            disabled={updatingErp}
+                            disabled={updatingErp || (!isERPActive && isSalvadoProduct(currentProduct))}
                             className={`w-full mt-3 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs ${
                                 isERPActive
                                     ? 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-950/40 dark:text-slate-200 dark:hover:text-red-400'

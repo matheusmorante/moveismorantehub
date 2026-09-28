@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { bulkRestoreProducts } from './productMutationService';
 import { activateProduct, deactivateProduct } from './productDependencyCheck';
 
-const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
+const mockDb = vi.hoisted(() => ({ from: vi.fn(), productKind: 'normal', databaseProducts: [] as any[] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('./productLocalCache', () => ({
     getLocalProducts: vi.fn(() => []),
@@ -15,6 +15,8 @@ describe('productMutationService - Sincronização de active entre pai e variaç
 
     beforeEach(() => {
         updates.length = 0;
+        mockDb.productKind = 'normal';
+        mockDb.databaseProducts = [];
         mockDb.from.mockImplementation((table: string) => {
             const chain: any = {
                 update: vi.fn((val: any) => {
@@ -34,7 +36,8 @@ describe('productMutationService - Sincronização de active entre pai e variaç
                 }),
                 select: vi.fn(() => chain),
                 single: vi.fn(async () => ({ data: { id: 'test' }, error: null })),
-                then: (resolve: (val: any) => any) => Promise.resolve({ data: [], error: null }).then(resolve)
+                maybeSingle: vi.fn(async () => ({ data: { product_kind: mockDb.productKind }, error: null })),
+                then: (resolve: (val: any) => any) => Promise.resolve({ data: mockDb.databaseProducts, error: null }).then(resolve)
             };
             return chain;
         });
@@ -48,6 +51,13 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         expect(variationUpdate).toBeDefined();
         expect(variationUpdate?.value).toEqual({ active: false });
         expect(variationUpdate?.filter).toEqual({ col: 'product_id', val: uuid });
+    });
+
+    it('activateProduct impede reativar um Salvado', async () => {
+        mockDb.productKind = 'salvado';
+        await expect(activateProduct('b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'))
+            .rejects.toThrow('Produtos do tipo Salvado permanecem desativados no ERP.');
+        expect(updates).toEqual([]);
     });
 
     it('activateProduct atualiza products e product_variations para true', async () => {
@@ -64,7 +74,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         const uuids = ['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'];
         await bulkRestoreProducts(uuids);
 
-        const parentUpdate = updates.find(u => u.table === 'products');
+        const parentUpdate = updates.find(u => u.table === 'products' && u.value.active === true);
         expect(parentUpdate).toBeDefined();
         expect(parentUpdate?.value.active).toBe(true);
 
@@ -72,5 +82,14 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         expect(variationUpdate).toBeDefined();
         expect(variationUpdate?.value).toEqual({ active: true });
         expect(variationUpdate?.filter).toEqual({ col: 'product_id', vals: uuids });
+    });
+
+    it('bulkRestoreProducts restaura Salvado sem ativá-lo no ERP', async () => {
+        const uuid = 'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078';
+        mockDb.databaseProducts = [{ id: uuid, product_kind: 'salvado' }];
+        await bulkRestoreProducts([uuid]);
+
+        expect(updates.some(update => update.table === 'products' && update.value.active === true)).toBe(false);
+        expect(updates.some(update => update.table === 'product_variations' && update.value.active === true)).toBe(false);
     });
 });

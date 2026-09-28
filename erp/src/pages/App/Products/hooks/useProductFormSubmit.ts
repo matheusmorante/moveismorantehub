@@ -6,6 +6,7 @@ import { hasMissingRequiredAttributes, hasVariationAttribute, getIncompleteVaria
 import { toast } from 'react-toastify';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { getMissingRequiredTechnicalFields } from '@/pages/utils/technicalValuesService';
+import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -161,24 +162,12 @@ export const useProductFormSubmit = ({
 
         // Ao concluir um rascunho, o canal ERP inicia ativo para o produto e variações
         const isCompletingDraft = !actualSaveAsDraft && !isRegisteredProduct;
-        const erpActive = actualSaveAsDraft
-            ? false
-            : (isCompletingDraft ? true : formData.active !== false);
-
-        const normalizedData = { 
-            ...formData, 
-            name: enteredName || formData.name || 'Produto',
+        const normalizedData = normalizeProductForSave(formData, {
             isDraft: actualSaveAsDraft,
-            active: erpActive,
-            status: targetCatalogStatus,
-            variations: (formData.variations || []).map((v: any) => ({
-                ...v,
-                active: actualSaveAsDraft ? false : (isCompletingDraft ? true : v.active),
-                status: actualSaveAsDraft 
-                    ? 'draft' 
-                    : (targetCatalogStatus === 'published' ? (v.status || 'published') : 'hidden')
-            }))
-        } as Product;
+            isCompletingDraft,
+            catalogStatus: targetCatalogStatus,
+            name: enteredName
+        });
 
         const savedId = await saveProduct(normalizedData);
         if (savedId && typeof savedId === 'string') {

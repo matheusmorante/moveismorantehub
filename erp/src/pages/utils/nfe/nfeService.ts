@@ -10,6 +10,7 @@ import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
 
 export interface NfeEmissionResult {
     success: boolean;
+    documentId?: string;
     accessKey?: string;
     nfeNumber?: number;
     series?: string;
@@ -179,7 +180,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, p
         if (sefazResult.protocolDate) protocolDate = sefazResult.protocolDate;
         if (!response.ok || !sefazResult.success) {
             return {
-                success: false, pending: Boolean(sefazResult.pending), accessKey, nfeNumber, series, model, environment,
+                success: false, pending: Boolean(sefazResult.pending), documentId: sefazResult.documentId, accessKey, nfeNumber, series, model, environment,
                 xml: signedXml, cStat: sefazResult.cStat, sefazMessage: sefazResult.xMotivo,
                 error: sefazResult.error || sefazResult.xMotivo || 'A SEFAZ não confirmou a autorização da nota.',
                 validation,
@@ -189,6 +190,7 @@ export async function emitNfeForOrder(order: Order, customEnvironment?: 1 | 2, p
         console.error("[NFe Service] Falha na transmissão para a SEFAZ:", e);
         return {
             success: false,
+            documentId: sefazResult?.documentId,
             accessKey,
             nfeNumber,
             series,

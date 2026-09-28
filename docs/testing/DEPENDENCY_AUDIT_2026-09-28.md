@@ -1,0 +1,25 @@
+# Auditoria das dependências — 2026-09-28
+
+## Resultado
+
+Comando somente leitura: `npm audit --json` no lockfile raiz desta revisão. Resultado: **9 pacotes vulneráveis** (2 moderados, 5 altos, 2 críticos). A contagem do npm agrupa advisories por pacote; não equivale a nove CVEs independentes. Nenhuma correção automática foi executada.
+
+| Pacote instalado | Nível / relação | Grafo | Achado e exposição observada no MoranteHub | Ação recomendada |
+|---|---|---|---|---|
+| `@vercel/node@16.0.1` | Alto, direto (`devDependencies`) | Dev | Agrega `@vercel/static-config`, `path-to-regexp` e `undici`. O repositório importa seus tipos em handlers; não há importação runtime observada. Continua sendo ferramenta de build/execução local de API. npm aponta `4.0.0`, mudança incompatível. | Planejar atualização major em tarefa própria, checando compatibilidade dos handlers Vercel, tipos e deploy; não atualizar em lote aqui. |
+| `@vercel/static-config@3.4.3` | Moderado, transitivo | Dev via `@vercel/node` | Vulnerabilidade herdada do `ajv` interno `8.6.3`, ReDoS com opção `$data` (GHSA-2g4f-4pwh-qvx6). Caminho pertence à ferramenta de desenvolvimento/build Vercel. | Atualizar junto de `@vercel/node`; confirmar se configuração controlada pelo projeto ativa `$data`. |
+| `ajv@8.6.3` | Moderado, transitivo | Dev | ReDoS quando a opção `$data` é usada; a instância afetada é a aninhada em `@vercel/static-config`. A outra instância raiz `8.20.0` não é a localização reportada pelo audit. | Atualizar a cadeia que fixa a cópia vulnerável; não aplicar override global sem teste de compatibilidade. |
+| `concurrently@9.2.1` | Crítico, direto (`devDependencies`) | Dev | Afetado por `shell-quote`. É invocado por `npm run dev`/`dev:all` com comandos estáticos versionados; não foi encontrada passagem de entrada não confiável. Risco observado é principalmente no ambiente de desenvolvimento. npm indica correção sem major obrigatório. | Atualizar em patch/minor controlado e testar scripts de desenvolvimento. |
+| `shell-quote@1.8.3` | Crítico, transitivo | Dev via `concurrently` | Advisory sobre quebra de quoting por newline em `quote()` e DoS quadrático em `parse()` (GHSA-w7jw-789q-3m8p, GHSA-395f-4hp3-45gv). Scripts atuais passam comandos locais fixos. | Atualizar através de `concurrently`; não substituir pacote manualmente sem confirmar a faixa suportada. |
+| `agentic-awesome-skills@15.15.0` | Alto, direto (`dependencies`) | Prod graph | Cadeia vulnerável via `fast-uri`. Busca no código não encontrou importação do pacote; está instalado no grafo de produção e pode ser incluído em instalações de produção mesmo sem uso detectado. | Confirmar se é necessário em runtime. Se for apenas ferramenta do agente, avaliar removê-lo ou movê-lo para dev em mudança separada; atualizar para `18.8.0` é major e exige revisão própria. |
+| `fast-uri@3.1.5` | Alto, transitivo | Prod graph via `agentic-awesome-skills` | Advisories de host confusion/SSRF por normalização de host, IPv6 e percent-encoding (ex.: GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp). Sem consumidor do pacote encontrado no código do ERP; risco imediato de execução não demonstrado. | Resolver a dependência raiz não utilizada ou migrar o pacote agente para dev; verificar a faixa corrigida durante atualização major. |
+| `path-to-regexp@6.1.0` | Alto, transitivo | Dev via `@vercel/node` | Backtracking em regex pode permitir DoS (GHSA-9wv6-86v2-598j). Esta é a cópia aninhada no adaptador Vercel; o projeto não importa a cópia diretamente. | Corrigir com a atualização controlada do adaptador Vercel e executar testes dos endpoints. |
+| `undici@5.28.4` | Alto, transitivo | Dev via `@vercel/node` | npm agrupa múltiplos advisories de DoS, request/response smuggling e header/cookie injection. A instância afetada é usada na cadeia do adaptador Vercel dev/build; nenhuma importação direta pelo ERP foi encontrada. | Atualizar pela cadeia do adaptador; validar o servidor de desenvolvimento e handlers antes de liberar. |
+
+## Limites desta avaliação
+
+- “Prod graph” significa que a localização do lockfile não tem a marca `dev`; não prova que o pacote seja importado ou empacotado no bundle do ERP.
+- Os impactos acima combinam advisories atuais do registry npm com busca estática de importações/scripts. Não foi executada exploração dinâmica; ausência de caminho de uso encontrado não significa vulnerabilidade impossível.
+- A vulnerabilidade `@vercel/node` e seus transitivos afeta tooling de API. Os imports encontrados nos handlers são `import type`, removidos da saída JS, mas os pacotes ainda participam do build e do servidor Vercel local.
+- O risco `agentic-awesome-skills` merece tratar primeiro o posicionamento no grafo `dependencies`; a atualização automática sugerida pelo audit exige major e não foi aplicada.
+- Próxima ação: revisão isolada de dependências, com diffs e testes por cadeia (`concurrently` e adaptador Vercel), além da decisão sobre a dependência `agentic-awesome-skills`. Não executar `npm audit fix` ou mudanças de major nesta certificação.

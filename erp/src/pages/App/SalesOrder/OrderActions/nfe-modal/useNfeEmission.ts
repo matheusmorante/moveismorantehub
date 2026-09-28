@@ -193,6 +193,37 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         }
     };
 
+    const handleReconcile = async () => {
+        if (!emissionResult?.documentId) return;
+        setIsSubmitting(true);
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data.session?.access_token) throw new Error('Faça login novamente.');
+            const response = await fetch('/api/nfe/consult', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+                body: JSON.stringify({ documentId: emissionResult.documentId }),
+            });
+            const result = await response.json();
+            if (!response.ok || (!result.success && result.state !== 'not_found')) throw new Error(result.error || result.xMotivo || 'Consulta SEFAZ inconclusiva.');
+            
+            if (result.state === 'authorized') {
+                toast.success('SEFAZ confirmou a autorização do documento! Protocolo recuperado.');
+                setEmissionResult(prev => prev ? { ...prev, success: true, pending: false, protocolNumber: result.protocolNumber, protocolDate: result.protocolDate, error: undefined } : null);
+                if (onSuccess) onSuccess();
+            } else if (result.state === 'not_found') {
+                toast.warning(`Rejeição 217: A SEFAZ não recebeu a tentativa anterior. Você pode emitir novamente.`);
+                setEmissionResult(prev => prev ? { ...prev, pending: false, error: result.xMotivo || 'NF-e não consta na SEFAZ. Emita novamente.' } : null);
+            } else {
+                toast.warning(`Situação retornada: ${result.xMotivo || result.state}`);
+            }
+        } catch (err: any) {
+            toast.error(err.message || 'Não foi possível reconciliar o documento agora.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handlePrintDanfe = () => {
         if (!order) return;
         if (emissionResult?.danfeData) {
@@ -218,6 +249,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         handleAcceptNcmSuggestion,
         handleRejectNcmSuggestion,
         handleEmit,
+        handleReconcile,
         handlePrintDanfe
     };
 }

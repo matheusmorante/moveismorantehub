@@ -11,15 +11,16 @@ const product = () => mapFromDB({ id: parentId, code: 'ORIG', name: 'Produto tes
 const writes: Array<{ table: string; value: unknown }> = [];
 let actualVariations: { id: string }[] = [];
 let queryError: Error | null = null;
+let productKind = 'normal';
 beforeEach(() => {
-    actualVariations = []; queryError = null; writes.length = 0;
+    actualVariations = []; queryError = null; productKind = 'normal'; writes.length = 0;
     db.from.mockImplementation((table: string) => {
         const chain = {
             select: vi.fn(() => chain),
             eq: vi.fn(() => chain),
             update: vi.fn((value: unknown) => { writes.push({ table, value }); return chain; }),
             limit: vi.fn(async () => ({ data: actualVariations, error: queryError })),
-            maybeSingle: vi.fn(async () => ({ data: { id: parentId }, error: queryError })),
+            maybeSingle: vi.fn(async () => ({ data: { id: parentId, product_kind: productKind }, error: queryError })),
             then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [], error: queryError }).then(resolve),
         };
         return chain;
@@ -50,5 +51,22 @@ it('mantém o erro para uma variação legada real ausente sem desativar o pai',
 it('não desativa o pai quando falha a leitura das variações', async () => {
     queryError = new Error('Falha de conexão');
     await expect(syncParentActiveInDb(parentId)).rejects.toThrow('Falha de conexão');
+    expect(writes).toEqual([]);
+});
+
+it('impede ativar uma composição Salvado pela listagem', async () => {
+    productKind = 'salvado';
+    const composition = mapFromDB({
+        id: parentId,
+        code: 'COMP-1',
+        name: 'Composição Salvado',
+        item_type: 'composition',
+        product_kind: productKind,
+        active: false,
+        product_variations: []
+    });
+
+    await expect(persistProductActiveState(parentId, true, [composition], [composition]))
+        .rejects.toThrow('Produtos do tipo Salvado permanecem desativados no ERP.');
     expect(writes).toEqual([]);
 });

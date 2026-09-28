@@ -4,6 +4,7 @@ import { resolveUniqueSlug } from '../uniqueSlug';
 import { isDefaultVariation, normalizeVariationSku } from '../productVariationDefaults';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { mapToDB } from './productMapper';
+import { isSalvadoProduct } from '../productKindRules';
 import { TABLE_NAME, generateUniqueCode } from './productSkuService';
 
 export const ensureUuidFormat = (product: Partial<Product>): string => {
@@ -49,7 +50,9 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
         }
 
         // Sincronizar active com base nas variações quando existirem
-        if (Array.isArray(product.variations) && product.variations.length > 0) {
+        if (isSalvadoProduct(product)) {
+            dbData.active = false;
+        } else if (Array.isArray(product.variations) && product.variations.length > 0) {
             const hasActiveVariation = product.variations.some(v => v.active !== false);
             dbData.active = product.isDraft ? false : hasActiveVariation;
         }
@@ -123,7 +126,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         .filter((attr: any) => attr.name && attr.value)
                         .map((attr: any) => ({ name: attr.name, value: attr.value, showName: attr.showName ?? true }));
 
-                    const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id, product.item_type);
+                    const parentCode = product.code && product.code !== '000000' ? product.code : generateUniqueCode(product.id, product.itemType);
                     const suffix = String(index + 1).padStart(2, '0');
                     const defaultSku = `${parentCode}-${suffix}`;
                     const rawSku = v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
@@ -168,7 +171,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
                         use_parent_description: v.syncDescription !== false,
                         use_parent_name: true,
                         status: v.status || product.status || 'hidden',
-                        active: v.active !== undefined ? Boolean(v.active) : (product.active !== false)
+                        active: isSalvadoProduct(product) ? false : (v.active !== undefined ? Boolean(v.active) : (product.active !== false))
                     };
                 });
 

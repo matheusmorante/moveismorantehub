@@ -1,9 +1,14 @@
 {
   "private": true,
   "scripts": {
-    "test:inventory-v2": "node finalizeInventoryV2.cjs"
+    "test:inventory-v2": "node finalizeInventoryV2.cjs",
+    "test:db": "npx supabase test db",
+    "test:concurrency": "node concurrency_stock_unavailabilities.cjs",
+    "test:storage": "node storage_unavailabilities.cjs",
+    "test:integration": "node concurrency_stock_unavailabilities.cjs && node storage_unavailabilities.cjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8"
+    "@electric-sql/pglite": "0.5.8",
+    "pg": "^8.13.1"
   }
 }

@@ -1,0 +1,7 @@
+id: no-deprecated-delete-order
+valid:
+  - await moveToTrash(orderId)
+  - export const deleteOrder = moveToTrash
+invalid:
+  - await deleteOrder(orderId)
+  - deleteOrder(orderId)

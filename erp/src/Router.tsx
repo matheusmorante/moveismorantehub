@@ -23,6 +23,7 @@ import Services from './pages/App/Services/Index';
 import Variations from './pages/App/Variations/Index';
 import Stock from './pages/App/Stock';
 import NcmCatalogPage from './pages/App/Stock/NcmCatalogPage';
+import UnavailabilitiesPage from './pages/App/Stock/Unavailabilities';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProfilePage from './pages/App/Profile/Index';
@@ -194,6 +195,8 @@ function Router() {
             <Route path='/estoque' element={<Navigate to="/estoque/movimentacoes" replace />} />
             <Route path='/estoque/movimentacoes' element={<Stock />} />
             <Route path='/estoque/inventarios' element={<Stock />} />
+            <Route path='/estoque/indisponibilidades' element={<UnavailabilitiesPage />} />
+            <Route path='/estoque/indisponibilidades/:id' element={<UnavailabilitiesPage />} />
             <Route path='/estoque/ncm' element={<NcmCatalogPage />} />
             <Route path='/estoque/pedidos-compra' element={<PurchasesPage />} />
             <Route path='/estoque/notas-fiscais-entrada' element={<InboundInvoicesPage />} />

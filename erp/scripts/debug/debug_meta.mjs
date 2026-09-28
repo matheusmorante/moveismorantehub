@@ -2,9 +2,9 @@ const GRAPH_API_VERSION = 'v18.0';
 const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
 
 const whatsappConfig = {
-    accessToken: 'EAAXhQRzKDuwBQ6kzw1BSKZBaZAKSR4HQPVkeF5HRsqMptd1MiRX5ZCqVxb9lZBEqB4z0fifShZCYT8jzdaaKmIzCSbMWz3XMDL6DSVQNE6ZB6Gx0WSya5KTAdjH7S9zlkVzrUECy161CzOEsq7ZCrkoRnme5rkZCirlLyjKPC3jknjfZCJQswMcbbnMrrmEjhhgZDZD',
-    wabaId: '3798949667074041',
-    catalogId: '623712348705836',
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+    wabaId: process.env.WHATSAPP_WABA_ID || '3798949667074041',
+    catalogId: process.env.WHATSAPP_CATALOG_ID || '623712348705836',
 };
 
 async function main() {

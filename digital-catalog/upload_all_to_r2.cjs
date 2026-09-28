@@ -8,10 +8,10 @@ const supabase = createClient(
 
 const r2 = new S3Client({
   region: 'auto',
-  endpoint: 'https://57223c6866eff074ea23c53713031e60.r2.cloudflarestorage.com',
+  endpoint: process.env.R2_ENDPOINT || 'https://57223c6866eff074ea23c53713031e60.r2.cloudflarestorage.com',
   credentials: {
-    accessKeyId: '294ae2d9aec3c5aef4dec5e72ea83816',
-    secretAccessKey: 'f1960234d719d18a5f1acefc4b11dc63056ba0cacc3be4593c0d455f562c87a7'
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || ''
   },
   forcePathStyle: true
 });

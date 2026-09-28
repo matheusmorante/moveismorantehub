@@ -1,0 +1,23 @@
+services:
+  sonarqube:
+    image: sonarqube:26.9.0.129388-community
+    container_name: morantehub-sonarqube-local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9001:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+      SONAR_TELEMETRY_ENABLE: "false"
+      SONAR_UPDATECENTER_ACTIVATE: "false"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  sonarqube_data:
+    name: morantehub_sonarqube_data
+  sonarqube_extensions:
+    name: morantehub_sonarqube_extensions
+  sonarqube_logs:
+    name: morantehub_sonarqube_logs

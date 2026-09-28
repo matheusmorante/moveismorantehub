@@ -1,0 +1,11 @@
+{
+  "status": "incomplete",
+  "profile": "full-erp",
+  "source": null,
+  "objects": [],
+  "blockers": [
+    "A cadeia raiz de migrations não cria o schema base completo, incluindo public.products.",
+    "A baseline histórica disponível possui divergências de tipos e não foi validada para toda a cadeia.",
+    "Falta uma referência aprovada dos objetos, grants, políticas RLS e policies de Storage do schema final."
+  ]
+}

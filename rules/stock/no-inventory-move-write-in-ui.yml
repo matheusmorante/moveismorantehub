@@ -1,0 +1,34 @@
+id: no-inventory-move-write-in-ui
+language: TypeScript
+severity: error
+message: "A UI não deve gravar `inventory_moves` diretamente; use o serviço/RPC de estoque autorizado."
+note: "Movimentos são fatos contábeis/auditáveis e a camada de UI não deve contornar os fluxos de estoque. Use o caso de uso ou serviço responsável."
+rule:
+  any:
+    - pattern: $CLIENT.from('inventory_moves').insert($$$ARGS)
+    - pattern: $CLIENT.from('inventory_moves').update($$$ARGS)
+    - pattern: $CLIENT.from('inventory_moves').upsert($$$ARGS)
+    - pattern: $CLIENT.from('inventory_moves').delete($$$ARGS)
+files:
+  - erp/src/pages/App/**/*.ts
+  - erp/src/pages/App/**/*.tsx
+  - mobile/src/features/**/*.tsx
+  - mobile/src/features/**/hooks/**/*.ts
+  - mobile/src/features/**/hooks/**/*.tsx
+  - mobile/src/components/**/*.tsx
+  - mobile/src/screens/**/*.tsx
+ignores:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/vendor/**"
+  - "**/*.generated.*"
+  - "**/*.bundle.*"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/__tests__/**"
+  - "**/*.generated.ts"
+  - "**/*.generated.tsx"

@@ -6,6 +6,7 @@ import type { Product } from '../../../types/product.type';
  */
 export function getInitialProductFormData(): Partial<Product> {
     return {
+        productKind: 'normal',
         description: '',
         code: '',
         unit: 'UN',

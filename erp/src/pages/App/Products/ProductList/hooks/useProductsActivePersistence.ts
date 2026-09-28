@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
 import { updateProduct } from '@/pages/utils/productService';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 interface SiblingVariationRow {
     readonly active?: boolean | null;
@@ -14,6 +15,17 @@ interface VariationItemWithId {
  * Sincroniza a coluna 'active' do produto pai com base no status de suas variações filhas
  */
 export const syncParentActiveInDb = async (parentId: string): Promise<void> => {
+    const { data: parent, error: parentError } = await supabase
+        .from('products')
+        .select('product_kind')
+        .eq('id', parentId)
+        .maybeSingle();
+    if (parentError) throw parentError;
+    if (isSalvadoProduct({ productKind: parent?.product_kind })) {
+        const { error } = await supabase.from('products').update({ active: false }).eq('id', parentId);
+        if (error) throw error;
+        return;
+    }
     const { data: siblings, error: siblingsError } = await supabase
         .from('product_variations')
         .select('active')
@@ -33,6 +45,22 @@ export const persistProductActiveState = async (
     serverProducts: readonly Product[],
     products: readonly Product[]
 ): Promise<void> => {
+    const variationParent = serverProducts.find(product =>
+        product.variations?.some(variation => variation.id === id)
+    );
+    const parentId = variationParent?.id || (id.includes('_') ? id.split('_')[0] : id);
+    if (newActive) {
+        const { data: parent, error } = await supabase
+            .from('products')
+            .select('product_kind')
+            .eq('id', parentId)
+            .maybeSingle();
+        if (error) throw error;
+        if (isSalvadoProduct({ productKind: parent?.product_kind })) {
+            throw new Error('Produtos do tipo Salvado permanecem desativados no ERP.');
+        }
+    }
+
     const virtualParent = serverProducts.find(product =>
         product.variations?.some(variation => variation.id === id && variation.isVirtual));
     if (virtualParent) {

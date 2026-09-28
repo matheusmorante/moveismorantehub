@@ -11,6 +11,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/**/*.test.{ts,tsx}',
+      '../src/telemetry/**/*.test.{ts,tsx}',
     ],
     exclude: ['src/**/*.integration.test.{ts,tsx}', 'src/**/*.e2e.test.{ts,tsx}'],
     passWithNoTests: true,
