@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import Product, { Variation } from '../../../types/product.type';
 import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import Item from '../../../types/items.type';
@@ -60,26 +60,26 @@ const BodyRow = ({
   const handlingError = !isService && errors[handlingErrorKey];
   const itemHasError = Boolean(error || handlingError);
   const settings = getSettings();
+  const linkableProductItems = productItems.filter((product) => Boolean(product.description?.trim()));
   const serviceProductLink = isService ? (
     <div className="mt-2">
       <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-        Vincular ao produto
+        Vincular produto
       </label>
       <select
-        aria-label="Vincular ao produto"
+        aria-label="Vincular produto"
         value={item.linkedProductOrderItemId || ''}
         onChange={(event) => onChange(idx, 'linkedProductOrderItemId', event.target.value)}
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       >
         <option value="">Sem vínculo</option>
-        {productItems.map((product, productIndex) => (
+        {linkableProductItems.map((product, productIndex) => (
           <option
             key={product.orderItemId || productIndex}
             value={product.orderItemId || ''}
             disabled={!product.orderItemId}
           >
-            {product.description || 'Produto sem descrição'} — {product.code || 'Sem SKU'} (linha{' '}
-            {productIndex + 1})
+            {product.description} — {product.code || 'Sem SKU'} (linha {productIndex + 1})
           </option>
         ))}
       </select>
@@ -472,9 +472,9 @@ const BodyRow = ({
             )}
 
             {!isService && (
-              <div className="w-full sm:w-[120px] md:w-[140px] shrink-0">
+              <div className="w-full sm:w-[130px] md:w-[150px] shrink-0">
                 <label className="text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 text-slate-400 dark:text-slate-500">
-                  Origem <span className="text-red-500">*</span>
+                  Origem do estoque <span className="text-red-500">*</span>
                 </label>
                 <select
                   className="w-full appearance-none border-b-2 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
@@ -487,7 +487,10 @@ const BodyRow = ({
                     Normal
                   </option>
                   <option value="salvado" className="dark:bg-slate-900">
-                    Salvado
+                    Salvados
+                  </option>
+                  <option value="usado" className="dark:bg-slate-900">
+                    Usados
                   </option>
                 </select>
               </div>
@@ -607,10 +610,12 @@ const BodyRow = ({
                 className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
                 value={item.condition || 'novo'}
                 onChange={(e) => onChange(idx, 'condition', e.target.value)}
-                title="Origem do Estoque"
+                title="Origem do estoque"
+                aria-label="Origem do estoque"
               >
                 <option value="novo">Normal</option>
-                <option value="salvado">Salvado</option>
+                <option value="salvado">Salvados</option>
+                <option value="usado">Usados</option>
               </select>
               <input
                 type="text"
@@ -639,10 +644,12 @@ const BodyRow = ({
                 className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
                 value={item.condition || 'novo'}
                 onChange={(e) => onChange(idx, 'condition', e.target.value)}
-                title="Origem do Estoque"
+                title="Origem do estoque"
+                aria-label="Origem do estoque"
               >
                 <option value="novo">Normal</option>
-                <option value="salvado">Salvado</option>
+                <option value="salvado">Salvados</option>
+                <option value="usado">Usados</option>
               </select>
               <input
                 type="text"

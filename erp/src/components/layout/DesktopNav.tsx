@@ -131,8 +131,8 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             <DropdownItem
               to="/products"
               icon="bi-list-ul"
-              title="Lista de produtos"
-              description="Gerenciar produtos"
+              title="Cadastros"
+              description="Gerenciar Cadastros de Produtos"
               onClick={() => setActiveMenu(null)}
             />
             <DropdownItem

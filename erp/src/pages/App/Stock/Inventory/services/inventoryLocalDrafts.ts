@@ -7,6 +7,7 @@ export interface WebInventoryDraft {
   date: string;
   name: string;
   responsibleId: string;
+  responsibleName?: string;
   hasStages: boolean;
   scopeType?: string;
   supplierId?: string;

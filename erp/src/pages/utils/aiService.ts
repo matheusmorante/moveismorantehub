@@ -31,9 +31,7 @@ export const aiService = {
   improveProductDescription:
     aiProductCatalogService.improveProductDescription.bind(aiProductCatalogService),
 
-  // 2. Classificação Fiscal e NCM
-  findNCM: aiFiscalClassificationService.findNCM.bind(aiFiscalClassificationService),
-  generateNCM: aiFiscalClassificationService.generateNCM.bind(aiFiscalClassificationService),
+  // 2. Dados fiscais complementares (NCM é selecionado pelo catálogo por tokens)
   generateFiscalData: aiFiscalClassificationService.generateFiscalData.bind(
     aiFiscalClassificationService
   ),

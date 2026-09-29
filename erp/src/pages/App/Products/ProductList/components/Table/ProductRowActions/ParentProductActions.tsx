@@ -131,27 +131,6 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                 </button>
               )}
 
-              {!product.isParent && product.itemType !== 'service' && onLaunchStock && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(false);
-                    onLaunchStock(product);
-                  }}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                >
-                  <span className="flex items-center gap-0.5 text-emerald-500">
-                    <i className="bi bi-box-seam-fill" />
-                    <i className="bi bi-arrow-left-right text-[9px]" />
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                    Movimentações de Estoque
-                  </span>
-                </button>
-              )}
-
               {!product.isParent && (
                 <>
                   <button
@@ -181,41 +160,41 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                       Copiar Instruções IA
                     </span>
                   </button>
-
-                  <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onOpenLabelModal('identification');
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
-                    >
-                      <i className="bi bi-qr-code text-blue-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Etiq. de Identificação
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onOpenLabelModal('price');
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group w-full cursor-pointer"
-                    >
-                      <i className="bi bi-tag-fill text-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Etiq. de Preço
-                      </span>
-                    </button>
-                  </div>
                 </>
               )}
+
+              <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onOpenLabelModal('identification');
+                  }}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                >
+                  <i className="bi bi-qr-code text-blue-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                    Etiq. de Identificação
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onOpenLabelModal('price');
+                  }}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group w-full cursor-pointer"
+                >
+                  <i className="bi bi-tag-fill text-emerald-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                    Etiq. de Preço
+                  </span>
+                </button>
+              </div>
 
               {isDraft && (
                 <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">

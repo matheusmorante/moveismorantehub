@@ -30,10 +30,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     nfeItems,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
-    handleSuggestNcm,
-    handleAcceptNcmSuggestion,
-    handleRejectNcmSuggestion,
-    suggestingNcmIndex,
     handleEmit,
     handleReconcile,
     handlePrintDanfe,
@@ -144,17 +140,13 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
             )}
           </section>
 
-          {/* Lista de Itens com Campos Fiscais e IA para NCM */}
+          {/* Lista de Itens com campos fiscais e busca de NCM por código/tokens */}
           {!emissionResult?.success && (
             <NfeItemsSection
               order={order}
               items={nfeItems}
               onUpdateItemFiscal={handleUpdateItemFiscal}
               onBatchUpdateItems={handleBatchUpdateItems}
-              onSuggestNcm={handleSuggestNcm}
-              onAcceptNcmSuggestion={handleAcceptNcmSuggestion}
-              onRejectNcmSuggestion={handleRejectNcmSuggestion}
-              suggestingNcmIndex={suggestingNcmIndex}
             />
           )}
 

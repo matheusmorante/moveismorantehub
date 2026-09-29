@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { removeAccents, buildAccentInsensitiveRegex } from '../textUtils';
+import { removeAccents } from '../textUtils';
 
 export interface ProductQueryFilterOptions {
   showTrash?: boolean;
@@ -52,27 +52,28 @@ export const applyProductFiltersAndSort = async (
     q = q.eq('active', false);
   } else if (options?.activeOnly === true) {
     q = q.eq('active', true);
-  } else if (options?.includeDeactivated === false) {
-    // Rascunhos não são produtos desativados: permanecem acessíveis no
-    // fluxo de cadastro, enquanto os desativados ficam ocultos.
+  } else if (options?.includeDeactivated === false && !options?.search) {
+    // Apenas oculta desativados se explicitamente solicitado e não houver busca ativa
     q = q.or('active.eq.true,is_draft.eq.true');
   }
 
-  // Filtro de busca textual — busca EXCLUSIVAMENTE pelo nome do produto (name) na tabela de produtos e variações (insensível a acentos)
+  // Filtro de busca textual — busca pelo nome do produto (name) na tabela de produtos e variações utilizando índices GIN trigram
   if (options?.search) {
     const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
     if (rawSearch.length > 0) {
       const unaccented = removeAccents(rawSearch);
-      const searchTerms = Array.from(new Set([rawSearch, unaccented])).filter(Boolean);
-      const regexPattern = `.*${buildAccentInsensitiveRegex(rawSearch)}.*`;
+      const spaceNormalized = unaccented.replace(/[-_]/g, ' ');
+      const yToI = spaceNormalized.replace(/y/gi, 'i');
+      const iToY = spaceNormalized.replace(/i/gi, 'y');
 
-      // 1. Buscar variações pelo campo 'name' na tabela product_variations
+      const searchTerms = Array.from(
+        new Set([rawSearch, unaccented, spaceNormalized, yToI, iToY])
+      ).filter(Boolean);
+
+      // 1. Buscar variações pelo campo 'name' na tabela product_variations (aproveita idx_product_variations_name_trgm)
       let variationParentIds: string[] = [];
       try {
-        const varOrList = [
-          `name.imatch.${regexPattern}`,
-          ...searchTerms.map((t) => `name.ilike.%${t}%`),
-        ];
+        const varOrList = searchTerms.map((t) => `name.ilike.%${t}%`);
         const { data: matchedVariations } = await supabase
           .from('product_variations')
           .select('product_id')
@@ -88,18 +89,23 @@ export const applyProductFiltersAndSort = async (
         console.warn('[ProductService] Erro ao buscar em product_variations:', e);
       }
 
-      // 2. Montar filtro or com o campo name dos produtos e os IDs de variações
+      // 2. Montar filtro or com o campo name dos produtos e os IDs de variações (aproveita idx_products_name_trgm)
       const orConditions: string[] = [];
-      orConditions.push(`name.imatch.${regexPattern}`);
       searchTerms.forEach((t) => {
         orConditions.push(`name.ilike.%${t}%`);
       });
 
-      // Adicionar condi├º├úo AND palavra por palavra para ser mais tolerante a espa├ºos extras ou ordem das palavras
-      const words = unaccented.split(/\s+/).filter(Boolean);
+      // Adicionar condição AND palavra por palavra para tolerar ordem ou palavras adicionais
+      const words = spaceNormalized.split(/\s+/).filter(Boolean);
       if (words.length > 0) {
-        const andCondition = `and(${words.map((w) => `name.ilike.%${w}%`).join(',')})`;
-        orConditions.push(andCondition);
+        const andConditionsList = words.map((w) => {
+          if (w.includes('y') || w.includes('i')) {
+            const wAlt = w.replace(/y/gi, 'i');
+            return `or(name.ilike.%${w}%,name.ilike.%${wAlt}%)`;
+          }
+          return `name.ilike.%${w}%`;
+        });
+        orConditions.push(`and(${andConditionsList.join(',')})`);
       }
 
       if (variationParentIds.length > 0) {

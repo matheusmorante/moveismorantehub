@@ -1,18 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Order from '@/pages/types/order.type';
 import { emitNfeForOrder, NfeEmissionResult, printOrderDanfe } from '@/pages/utils/nfe/nfeService';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getFullProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
-import { aiService } from '@/pages/utils/aiService';
-import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
-import { isQuotaExceeded, notifyAiQuotaWarning } from '@/services/aiGateway/aiQuotaNotifier';
-import {
-  acceptPendingNcmSuggestion,
-  rejectPendingNcmSuggestion,
-  setPendingNcmSuggestion,
-} from '@/pages/utils/nfe/ncmSuggestionReview';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -26,8 +18,6 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
   const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(false);
-  const [suggestingNcmIndex, setSuggestingNcmIndex] = useState<number | null>(null);
-  const suggestionRequestVersion = useRef(0);
 
   // Carregar e enriquecer os itens da venda com dados fiscais e detecção de cadastro
   useEffect(() => {
@@ -120,64 +110,6 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
   const handleBatchUpdateItems = (updated: NfeItemWithFiscal[]) => {
     setNfeItems(updated);
-  };
-
-  const handleSuggestNcm = async (index: number) => {
-    const item = nfeItems[index];
-    if (!item || suggestingNcmIndex !== null) return;
-    const requestVersion = ++suggestionRequestVersion.current;
-    setSuggestingNcmIndex(index);
-    try {
-      const product = item.productId ? await getFullProduct(item.productId) : null;
-      if (requestVersion !== suggestionRequestVersion.current) return;
-      const variation = item.variationId
-        ? product?.variations?.find((candidate) => candidate.id === item.variationId)
-        : undefined;
-      const suggestion: NcmAiSuggestion = await aiService.findNCM(
-        item.description || product?.description || '',
-        variation?.fiscal?.material || product?.fiscal?.material || product?.material || '',
-        product?.description || '',
-        product?.category || ''
-      );
-      if (requestVersion !== suggestionRequestVersion.current) return;
-      if (suggestion.ncm) {
-        setNfeItems((current) =>
-          current.map((currentItem, currentIndex) =>
-            currentIndex === index ? setPendingNcmSuggestion(currentItem, suggestion) : currentItem
-          )
-        );
-      } else {
-        toast.info(
-          suggestion.reviewReason ||
-            'Não foi possível sugerir um NCM. Você pode informar o código manualmente.'
-        );
-      }
-    } catch (error) {
-      console.error('[NFe] Falha ao buscar sugestão de NCM para o item.', error);
-      if (isQuotaExceeded(error)) notifyAiQuotaWarning('NCM', 'classificação fiscal');
-      else
-        toast.warning(
-          'Não foi possível obter a sugestão de NCM. Informe o código manualmente ou tente novamente.'
-        );
-    } finally {
-      setSuggestingNcmIndex(null);
-    }
-  };
-
-  const handleAcceptNcmSuggestion = (index: number) => {
-    setNfeItems((current) =>
-      current.map((item, itemIndex) => {
-        return itemIndex === index ? acceptPendingNcmSuggestion(item) : item;
-      })
-    );
-  };
-
-  const handleRejectNcmSuggestion = (index: number) => {
-    setNfeItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index ? rejectPendingNcmSuggestion(item) : item
-      )
-    );
   };
 
   const handleEmit = async (productionConfirmed = false, isRetry = false) => {
@@ -313,12 +245,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     emissionResult,
     nfeItems,
     isLoadingFiscalData,
-    suggestingNcmIndex,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
-    handleSuggestNcm,
-    handleAcceptNcmSuggestion,
-    handleRejectNcmSuggestion,
     handleEmit,
     handleReconcile,
     handlePrintDanfe,

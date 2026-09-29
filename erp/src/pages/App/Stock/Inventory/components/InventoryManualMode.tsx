@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
+import type { AuditItem } from '../types/inventoryAudit.types';
 import type { InventoryFilter } from '../../hooks/useInventoryOperation';
 
 import type Product from '@/pages/types/product.type';

@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
+import type { AuditItem } from '../types/inventoryAudit.types';
 import { InventoryOperationHeader } from './InventoryOperationHeader';
 import { InventoryManualMode } from './InventoryManualMode';
 import { InventoryStagesView } from './InventoryStagesView';
 import { useInventoryOperation } from '../../hooks/useInventoryOperation';
 import type { InventoryScopeType } from '../modals/InventoryScopeModal';
 import QRScannerModal from '@/components/shared/QRScannerModal';
-import { matchScannedProductItem, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
+import { matchScannedProductItem } from '@/pages/utils/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import {
   ensureOfflineInventoryCatalogSynced,
@@ -25,7 +25,6 @@ interface InventoryOperationScreenProps {
   readonly onUpdateItemProduct?: (itemId: string, product: any, variation?: any) => void;
   readonly onReview: () => void;
   readonly onClose?: () => void;
-  readonly hasChanges?: boolean;
 }
 
 export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> = ({
@@ -39,7 +38,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   onUpdateItemProduct,
   onReview,
   onClose,
-  hasChanges,
 }) => {
   const [mode, setMode] = useState<'scanner' | 'manual'>('manual');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
@@ -93,7 +91,6 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     } catch (error) {
       console.warn('[Inventory] Índice offline indisponível; usando os itens da sessão:', error);
     }
-    const { labelId } = extractLabelIdentity(rawCode);
     let directScopedItem = scannerItems.find((candidate) =>
       matchScannedProductItem(candidate, rawCode)
     );

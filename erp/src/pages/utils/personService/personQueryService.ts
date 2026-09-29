@@ -171,7 +171,7 @@ export const searchPeople = async (
 
   const searchTerm = `%${query.trim()}%`;
   peopleQuery = peopleQuery.or(
-    `full_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`
+    `full_name.ilike.${searchTerm},social_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`
   );
 
   try {

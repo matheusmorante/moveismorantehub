@@ -236,7 +236,7 @@ const SalesOrderFormSection = ({
                       actions.setPayments((payments) => [
                         ...payments,
                         {
-                          method: 'Verificar',
+                          method: '',
                           amount: 0,
                           fee: 0,
                           feeType: 'fixed',

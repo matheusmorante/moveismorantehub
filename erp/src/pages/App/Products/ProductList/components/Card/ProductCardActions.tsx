@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import DropdownPortal from '@/components/shared/DropdownPortal';
@@ -30,8 +30,34 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
   const isDraft =
     Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+
+  const handlePrintIdentificationLabel = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIsMenuOpen(false);
+      navigate('/estoque/etiquetas?cat=identificacao', {
+        state: {
+          product: {
+            ...product,
+            id: product.id,
+            name: product.name || product.title || product.description,
+            title: product.name || product.title || product.description,
+            description: product.description,
+            sku: product.sku || product.code,
+            barcode: (product as any).barcode || product.sku || product.code,
+            unitPrice: product.unitPrice,
+            images: product.images,
+          },
+          quantity: 10,
+          fillSheet: true,
+        },
+      });
+    },
+    [product, navigate]
+  );
 
   const handleDeleteClick = useCallback(
     async (e: React.MouseEvent) => {
@@ -149,6 +175,18 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
               </span>
             </button>
 
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handlePrintIdentificationLabel}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
+            >
+              <i className="bi bi-qr-code text-blue-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                Imprimir Etiqueta de Identificação
+              </span>
+            </button>
+
             {!product.isParent && (
               <button
                 type="button"
@@ -222,27 +260,6 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                 Enviar por WhatsApp
               </span>
             </button>
-
-            {product.itemType !== 'service' && !product.isParent && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMenuOpen(false);
-                  onLaunchStock?.(product);
-                }}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-              >
-                <span className="flex items-center gap-0.5 text-emerald-500">
-                  <i className="bi bi-box-seam-fill" />
-                  <i className="bi bi-arrow-left-right text-[9px]" />
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                  Movimentações de Estoque
-                </span>
-              </button>
-            )}
 
             {isDraft && (
               <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">

@@ -3,6 +3,7 @@ import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 
 export interface CellProductLike extends Product {
@@ -236,6 +237,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               active={product.active !== false}
               catalogStatus={product.status}
               isParent={product.isParent}
+              isSalvado={isSalvadoProduct(product as any)}
               canManageCatalog={canManageCatalog}
               isDraft={isDraft}
               activeVariationsCount={product.activeVariationsCount}

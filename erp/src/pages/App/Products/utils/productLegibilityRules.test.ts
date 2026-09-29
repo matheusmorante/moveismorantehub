@@ -69,6 +69,23 @@ describe('productLegibilityRules (Domínio Puro)', () => {
     expect(result.checks.description).toBe(true);
     expect(result.checks.categories).toBe(true);
     expect(result.checks.supplier).toBe(true);
+    expect(result.checks.origin).toBe(true);
+  });
+
+  it('deve reprovar ativação no ERP se produto tiver origem salvado', () => {
+    const product: Partial<Product> = {
+      name: 'Mesa Salvada',
+      categoryIds: ['cat-123'],
+      mainSupplierId: 'supp-456',
+      unitPrice: 500,
+      productKind: 'salvado',
+    };
+    const result = checkERPLegibility(product);
+    expect(result.isLegible).toBe(false);
+    expect(result.checks.origin).toBe(false);
+    expect(result.errors).toContain(
+      'Origem do estoque deve ser Normal (produtos com origem Salvados não podem ser ativados no ERP).'
+    );
   });
 
   it('deve validar requisitos de dimensões e fotos para publicação no E-commerce', () => {

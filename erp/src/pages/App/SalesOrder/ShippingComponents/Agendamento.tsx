@@ -37,8 +37,14 @@ const Agendamento = ({
 
         {!hideSchedulingShortcuts && (
           <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              Agendamento pendente?
+            </span>
             <button
               type="button"
+              role="switch"
+              aria-checked={scheduling.pendingScheduling}
+              aria-label="Marcar agendamento como pendente"
               onClick={() => {
                 const isPending = !scheduling.pendingScheduling;
                 onChangeScheduling('immediatePickup', false);
@@ -49,16 +55,15 @@ const Agendamento = ({
                   onChangeScheduling('notInformed', false);
                 }
               }}
-              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
                 scheduling.pendingScheduling
-                  ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-200 dark:shadow-none'
-                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-orange-300'
+                  ? 'border-orange-500 bg-orange-500'
+                  : 'border-slate-300 bg-slate-200 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600'
               }`}
             >
-              <i
-                className={`bi ${scheduling.pendingScheduling ? 'bi-clock-history' : 'bi-clock-fill'}`}
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${scheduling.pendingScheduling ? 'translate-x-6' : 'translate-x-1'}`}
               />
-              {scheduling.pendingScheduling ? 'Agendamento Pendente' : 'Marcar p/ Agendar Depois'}
             </button>
 
             {isPickup && (

@@ -46,9 +46,10 @@ async function runAudit() {
   });
 
   const goToInventoryScreen = async () => {
-    await page.goto(START_URL, { timeout: 35000, waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await page.goto(START_URL, { timeout: 60000, waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     const invTab = page.getByTestId('tab-inventory').first();
+    await invTab.waitFor({ state: 'visible', timeout: 30000 });
     await invTab.click();
     await page.waitForTimeout(1500);
   };
@@ -284,18 +285,38 @@ async function runAudit() {
     await page.waitForTimeout(2000);
     console.log('  ✓ Conexão de rede restabelecida.');
 
-    // Volta para contagem e clica em revisar com internet para reconciliar
-    const reviewBackBtn = page.getByTestId('review-back-btn').first();
-    if (await reviewBackBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      console.log('  - Voltando para operação para disparar reconciliação online...');
-      await reviewBackBtn.click();
-      await page.waitForTimeout(1000);
-      await btnRevisar.click({ force: true });
+    // Verifica se voltou à listagem com status 'pending_sync' ou se permaneceu na tela de revisão
+    const isReviewVisible = await page.getByTestId('confirm-review-btn').isVisible({ timeout: 2000 }).catch(() => false);
+    if (!isReviewVisible) {
+      console.log('  - Localizado card com status Pendente de Sincronização na listagem. Retomando...');
+      // Na listagem, clica diretamente no card pelo testID inventory-card
+      const draftCard = page.getByTestId('inventory-card').first();
+      await draftCard.waitFor({ state: 'visible', timeout: 8000 });
+      await draftCard.click();
       await page.waitForTimeout(2000);
+
+      // Clica em Revisar agora que a internet está ativa
+      const btnRevisarOnline = page.getByTestId('footer-review-btn').first();
+      await btnRevisarOnline.waitFor({ state: 'visible', timeout: 8000 });
+      await btnRevisarOnline.click({ force: true });
+      await page.waitForTimeout(2000);
+    } else {
+      // Volta para contagem e clica em revisar com internet para reconciliar
+      const reviewBackBtn = page.getByTestId('review-back-btn').first();
+      if (await reviewBackBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log('  - Voltando para operação para disparar reconciliação online...');
+        await reviewBackBtn.click();
+        await page.waitForTimeout(1000);
+        const btnRevisarOnline = page.getByTestId('footer-review-btn').first();
+        await btnRevisarOnline.click({ force: true });
+        await page.waitForTimeout(2000);
+      }
     }
 
     console.log('  - Finalizando inventário online com sucesso...');
-    await btnFinalizar.click({ force: true });
+    const btnFinalizarOnline = page.getByTestId('confirm-review-btn').first();
+    await btnFinalizarOnline.waitFor({ state: 'visible', timeout: 15000 });
+    await btnFinalizarOnline.click({ force: true });
     await page.waitForTimeout(3000);
     try {
       const okBtn = page.locator('text=OK').first();

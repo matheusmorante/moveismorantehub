@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { GridModel } from '../modals/LabelGridModelModal';
@@ -59,6 +59,33 @@ export const useLabelPrintingState = () => {
     selectedCategory,
     selectedProduct: productsHook.selectedProductToAdd,
   });
+
+  // 7. Processa produto inicial enviado via navegação (ex: variações ou lote de produtos)
+  const initialProcessedRef = useRef(false);
+
+  useEffect(() => {
+    if (initialProcessedRef.current) return;
+    const stateProduct = location.state?.product;
+    const batchProducts = location.state?.batchProducts;
+
+    if (stateProduct) {
+      initialProcessedRef.current = true;
+      const fillSheet = Boolean(location.state?.fillSheet);
+      // Calcula a quantidade máxima de etiquetas por folha do modelo ativo/padrão
+      const modelCols = layouts.currentModel?.columns || layouts.config.columns || 2;
+      const modelRows = layouts.currentModel?.rows || layouts.config.rows || 5;
+      const sheetCapacity = modelCols * modelRows;
+      const qty = fillSheet
+        ? Math.max(sheetCapacity, location.state?.quantity || 1)
+        : location.state?.quantity || 1;
+      queue.handleProductSelect(stateProduct, qty);
+    } else if (Array.isArray(batchProducts) && batchProducts.length > 0) {
+      initialProcessedRef.current = true;
+      batchProducts.forEach((p: any) => {
+        queue.handleProductSelect(p, p.labelQty || p.quantity || 1);
+      });
+    }
+  }, [location.state, layouts.currentModel, layouts.config.columns, layouts.config.rows]);
 
   // Refs e Modais Auxiliares
   const logoInputRef = useRef<HTMLInputElement>(null);

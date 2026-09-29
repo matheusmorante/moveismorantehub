@@ -57,9 +57,12 @@ export function useOrderProductSelection(
               costPrice: Number(selectedCost) || 0,
               handlingType: '',
               condition:
-                realVariation?.condition || realProduct.productKind === 'salvado'
+                realVariation?.condition ||
+                (realProduct.productKind === 'salvado'
                   ? 'salvado'
-                  : 'novo',
+                  : realProduct.productKind === 'usado' || realProduct.condition === 'usado'
+                  ? 'usado'
+                  : 'novo'),
             };
           });
 
@@ -105,7 +108,12 @@ export function useOrderProductSelection(
               costPrice: Number(selectedCost) || 0,
               handlingType: '',
               condition:
-                variation?.condition || product.productKind === 'salvado' ? 'salvado' : 'novo',
+                variation?.condition ||
+                (product.productKind === 'salvado'
+                  ? 'salvado'
+                  : product.productKind === 'usado' || product.condition === 'usado'
+                  ? 'usado'
+                  : 'novo'),
             };
           }
           return item;

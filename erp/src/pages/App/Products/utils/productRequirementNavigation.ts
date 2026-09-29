@@ -18,6 +18,8 @@ export const PRODUCT_REQUIREMENT_FIELD_MAP: Record<
   marketplaceTitle: { tab: 'geral', fieldId: 'field-marketplace-title' },
   title: { tab: 'geral', fieldId: 'field-marketplace-title' },
   categories: { tab: 'geral', fieldId: 'field-product-categories' },
+  productKind: { tab: 'geral', fieldId: 'field-product-kind' },
+  origin: { tab: 'geral', fieldId: 'field-product-kind' },
   unitPrice: { tab: 'estoque', fieldId: 'field-unit-price' },
   supplier: { tab: 'estoque', fieldId: 'field-main-supplier' },
   mainSupplierId: { tab: 'estoque', fieldId: 'field-main-supplier' },

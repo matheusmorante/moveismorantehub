@@ -42,6 +42,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
     <View style={styles.optionsContainer}>
       {/* 1. Estoque Completo */}
       <TouchableOpacity
+        testID="scope-full-stock-btn"
         style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
         onPress={() => onConfirmType('full')}
       >

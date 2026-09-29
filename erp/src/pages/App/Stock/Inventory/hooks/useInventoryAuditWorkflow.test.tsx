@@ -3,8 +3,14 @@ import 'fake-indexeddb/auto';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { catalog } = vi.hoisted(() => ({
-  catalog: { allProducts: [], suppliers: [], employees: [], getSupplierNames: () => 'Telasul' },
+const { catalog, finalizeInventory } = vi.hoisted(() => ({
+  catalog: {
+    allProducts: [],
+    suppliers: [],
+    employees: [{ id: 'operator-1', fullName: 'Operador Teste' }],
+    getSupplierNames: () => 'Telasul',
+  },
+  finalizeInventory: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('./useInventoryAuditData', () => ({ useInventoryAuditData: () => catalog }));
 vi.mock('../services/offlineInventoryCatalog', () => ({
@@ -16,6 +22,7 @@ vi.mock('@/pages/utils/inventoryService', () => ({
   getNextInventoryCode: vi.fn().mockResolvedValue('000101'),
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc: vi.fn() } }));
+vi.mock('../services/finalizeWebInventory', () => ({ finalizeWebInventory: finalizeInventory }));
 
 import { useInventoryAuditWorkflow } from './useInventoryAuditWorkflow';
 import { getNextInventoryCode } from '@/pages/utils/inventoryService';
@@ -28,6 +35,8 @@ import {
 
 afterEach(cleanup);
 beforeEach(() => {
+  vi.clearAllMocks();
+  catalog.employees = [{ id: 'operator-1', fullName: 'Operador Teste' }];
   vi.mocked(getNextInventoryCode).mockResolvedValue('000101');
 });
 
@@ -77,10 +86,11 @@ describe('fluxo local do inventário web', () => {
     expect(auditId).toMatch(/^[0-9a-f-]{36}$/);
     expect(first.result.current.draftRef.current.code).toBe('000101');
     expect(first.result.current.scopeConfig?.name).toBe('Inventário local');
+    expect(first.result.current.scopeConfig?.responsibleName).toBe('Operador Teste');
     expect(first.result.current.view).toBe('operation');
     expect(first.result.current.items).toHaveLength(1);
     expect(await listWebInventoryDrafts()).toHaveLength(1);
-    expect(await getWebInventoryDraft(auditId)).not.toBeNull();
+    expect((await getWebInventoryDraft(auditId))?.responsibleName).toBe('Operador Teste');
     const itemId = first.result.current.items[0].id;
     await act(async () => {
       await Promise.all(
@@ -115,6 +125,7 @@ describe('fluxo local do inventário web', () => {
     const resumed = renderHook(() => useInventoryAuditWorkflow(true, vi.fn(), editingSession));
     await waitFor(() => expect(resumed.result.current.view).toBe('operation'));
     expect(resumed.result.current.items[0].physicalCount).toBe(0);
+    expect(resumed.result.current.scopeConfig?.responsibleName).toBe('Operador Teste');
     await deleteWebInventoryDraft(auditId);
   });
 
@@ -146,6 +157,30 @@ describe('fluxo local do inventário web', () => {
     await waitFor(() => expect(resumed.result.current.view).toBe('operation'));
     expect(await resumed.result.current.incrementScannedItem(itemId, 'label-1')).toBeNull();
     expect((await getWebInventoryDraft(auditId))?.items[0].physicalCount).toBe(1);
+    await deleteWebInventoryDraft(auditId);
+  });
+
+  it('finaliza com o nome salvo mesmo se o cadastro de funcionários falhar ao recarregar', async () => {
+    const first = renderHook(() => useInventoryAuditWorkflow(true, vi.fn()));
+    await act(async () => {
+      await first.result.current.handleConfirmScope(scope as any);
+    });
+    const itemId = first.result.current.items[0].id;
+    await act(async () => {
+      await first.result.current.incrementScannedItem(itemId);
+    });
+    const auditId = first.result.current.draftRef.current.id!;
+    catalog.employees = [];
+    first.rerender();
+
+    await act(async () => {
+      await first.result.current.handleFinalize([
+        { ...first.result.current.items[0], reconciledExpected: 5, difference: -4 },
+      ]);
+    });
+
+    expect(finalizeInventory).toHaveBeenCalledOnce();
+    expect(finalizeInventory.mock.calls[0][2].responsibleName).toBe('Operador Teste');
     await deleteWebInventoryDraft(auditId);
   });
 });

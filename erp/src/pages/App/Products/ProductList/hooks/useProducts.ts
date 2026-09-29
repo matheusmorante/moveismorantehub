@@ -63,7 +63,7 @@ export const useProducts = (filters?: any) => {
           activeOnly: hasSearch ? undefined : filters?.activeOnly,
           status: filters?.status,
           isDraft: filters?.isDraft,
-          includeDeactivated: filters?.includeDeactivated,
+          includeDeactivated: hasSearch ? true : (filters?.includeDeactivated ?? true),
           itemType: filters?.itemType,
           excludeItemType: filters?.excludeItemType,
           sortBy: filters?.sortBy,

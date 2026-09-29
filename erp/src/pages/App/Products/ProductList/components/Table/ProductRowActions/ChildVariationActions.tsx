@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { ActionProductLike } from '../Table/ProductRowActionsCell';
 
@@ -16,8 +17,39 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
 
-  if (!onMoveToAnotherFamily || !product.variationId) return null;
+  const handlePrintIdentificationLabel = () => {
+    const parentTitle = (product as any).name || (product as any).title || '';
+    const varName = product.displayName || (product as any).variation || product.description;
+    const fullName =
+      parentTitle && varName && !parentTitle.includes(varName)
+        ? `${parentTitle} - ${varName}`
+        : varName || parentTitle;
+
+    navigate('/estoque/etiquetas?cat=identificacao', {
+      state: {
+        product: {
+          ...product,
+          id: product.variationId || product.id,
+          parentId: (product as any).productId || (product as any).parentId,
+          name: fullName,
+          title: fullName,
+          description: fullName,
+          variation: varName,
+          variationName: varName,
+          sku: product.sku || product.code,
+          barcode: (product as any).barcode || product.sku || product.code,
+          unitPrice: product.unitPrice,
+          isVariation: true,
+          images: product.images,
+          parentImages: (product as any).parentImages,
+        },
+        quantity: 10,
+        fillSheet: true,
+      },
+    });
+  };
 
   return (
     <div className="relative inline-flex">
@@ -58,38 +90,55 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={async (event) => {
+                  onClick={(event) => {
                     event.stopPropagation();
                     setIsMenuOpen(false);
-
-                    if (!product.supplierId) {
-                      const { toast } = await import('react-toastify');
-                      toast.error(
-                        'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
-                      );
-                      return;
-                    }
-
-                    const attrs = product.attributes || [];
-                    const hasValidAttribute = attrs.some(
-                      (a: any) => a.name?.trim() && a.value?.trim()
-                    );
-
-                    if (!hasValidAttribute) {
-                      const { toast } = await import('react-toastify');
-                      toast.error('Este produto deve ter um atributo / valor definido.');
-                      return;
-                    }
-
-                    onMoveToAnotherFamily(product);
+                    handlePrintIdentificationLabel();
                   }}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950 cursor-pointer"
                 >
-                  <i className="bi bi-arrow-left-right text-indigo-500" />
+                  <i className="bi bi-qr-code text-blue-500" />
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                    Mover para outro produto pai
+                    Imprimir Etiqueta de Identificação
                   </span>
                 </button>
+                {onMoveToAnotherFamily && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      setIsMenuOpen(false);
+
+                      if (!product.supplierId) {
+                        const { toast } = await import('react-toastify');
+                        toast.error(
+                          'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
+                        );
+                        return;
+                      }
+
+                      const attrs = product.attributes || [];
+                      const hasValidAttribute = attrs.some(
+                        (a: any) => a.name?.trim() && a.value?.trim()
+                      );
+
+                      if (!hasValidAttribute) {
+                        const { toast } = await import('react-toastify');
+                        toast.error('Este produto deve ter um atributo / valor definido.');
+                        return;
+                      }
+
+                      onMoveToAnotherFamily(product);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950 cursor-pointer"
+                  >
+                    <i className="bi bi-arrow-left-right text-indigo-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Mover para outro produto pai
+                    </span>
+                  </button>
+                )}
                 {onMergeWithAnotherVariation && (
                   <button
                     type="button"

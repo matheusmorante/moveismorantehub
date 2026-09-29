@@ -26,7 +26,8 @@ describe('validação da ativação ERP por tipo do produto', () => {
 
     expect(validateErpActivationRequirements(salvado.id!, [salvado], [salvado])).toMatchObject({
       isValid: false,
-      errorMessage: 'Produtos do tipo Salvado permanecem desativados no ERP.',
+      errorMessage:
+        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.',
     });
   });
 
@@ -48,7 +49,8 @@ describe('validação da ativação ERP por tipo do produto', () => {
 
     expect(validateErpActivationRequirements('variation-1', [salvado], [salvado])).toMatchObject({
       isValid: false,
-      errorMessage: 'Produtos do tipo Salvado permanecem desativados no ERP.',
+      errorMessage:
+        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.',
     });
   });
 

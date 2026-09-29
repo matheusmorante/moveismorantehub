@@ -4,7 +4,7 @@ import { getOrdersByProductId } from '../orderSearchQueries';
 const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
-vi.mock('./orderMapper', () => ({
+vi.mock('../orderMapper', () => ({
   mapOrderFromDatabase: (row: { id: string; deleted?: boolean; order_type?: string }) => ({
     id: row.id,
     deleted: row.deleted,

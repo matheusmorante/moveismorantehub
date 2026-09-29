@@ -7,7 +7,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Clock3, Edit3, X } from 'lucide-react-native';
+import { Clock3, Edit3, QrCode, X } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -17,6 +17,7 @@ interface Props {
   onEdit: () => void;
   onHistory?: () => void;
   onStock?: () => void;
+  onPrintLabel?: () => void;
 }
 
 export const MobileProductVariationActionsMenu: React.FC<Props> = ({
@@ -27,6 +28,7 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onEdit,
   onHistory,
   onStock,
+  onPrintLabel,
 }) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <TouchableWithoutFeedback onPress={onClose}>
@@ -41,6 +43,20 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                 <X size={18} color={dark ? '#cbd5e1' : '#64748b'} />
               </TouchableOpacity>
             </View>
+            {onPrintLabel ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onPrintLabel();
+                }}
+              >
+                <QrCode size={16} color="#2563eb" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>
+                  Imprimir Etiqueta de Identificação
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               style={styles.item}
               onPress={() => {
@@ -51,32 +67,6 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
               <Edit3 size={16} color="#2563eb" />
               <Text style={[styles.itemText, dark && styles.textDark]}>Editar Variação</Text>
             </TouchableOpacity>
-            {onHistory ? (
-              <TouchableOpacity
-                style={styles.item}
-                onPress={() => {
-                  onClose();
-                  onHistory();
-                }}
-              >
-                <Clock3 size={16} color="#64748b" />
-                <Text style={[styles.itemText, dark && styles.textDark]}>Histórico de Preços</Text>
-              </TouchableOpacity>
-            ) : null}
-            {onStock ? (
-              <TouchableOpacity
-                style={styles.item}
-                onPress={() => {
-                  onClose();
-                  onStock();
-                }}
-              >
-                <Text style={styles.stockIcon}>↔</Text>
-                <Text style={[styles.itemText, dark && styles.textDark]}>
-                  Movimentações de Estoque
-                </Text>
-              </TouchableOpacity>
-            ) : null}
           </View>
         </TouchableWithoutFeedback>
       </View>

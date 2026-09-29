@@ -29,6 +29,11 @@ export const finalizeWebInventory = async (
   adjustments: Adjustment[]
 ): Promise<void> => {
   const existing = await getInventorySubmission(auditId);
+  const draft = await getWebInventoryDraft(auditId);
+  const responsibleName = String(observation.responsibleName || draft?.responsibleName || '');
+  const submissionObservation = responsibleName
+    ? { ...observation, responsibleName }
+    : observation;
   if (!existing && adjustments.some((item) => !item.variationId)) {
     throw new Error('Selecione a variação dos produtos com ajuste antes de concluir o inventário.');
   }
@@ -51,7 +56,7 @@ export const finalizeWebInventory = async (
       contractVersion: useV2 ? 2 : 1,
       auditId,
       code,
-      observation,
+      observation: submissionObservation,
       items: (useV2
         ? adjustments
         : adjustments.filter((item) => item.physicalCount !== item.reconciledExpected)
@@ -63,7 +68,7 @@ export const finalizeWebInventory = async (
         previousStock: item.reconciledExpected,
         ...(useV2 ? { countedAt: item.countedAt } : {}),
       })),
-      responsibleName: String(observation.responsibleName || ''),
+      responsibleName,
     }));
   try {
     const { data, error } = await supabase.rpc(

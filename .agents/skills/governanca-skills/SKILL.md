@@ -52,7 +52,7 @@ Nenhuma tarefa relevante deve ser executada utilizando apenas uma Skill. O agent
 ┌───────────────────────────▼────────────────────────────┐
 │  CAMADA TÉCNICA (Skills Especializadas)                │
 │  - `modularizacao_codigo` (SOLID, coesão, 30-100 lin)  │
-│  - `database-supabase` (Paginação server-side, Egress) │
+│  - `database-supabase` (Busca aproximada, Egress, SQL) │
 │  - `testes-seguros-erp` (Vitest, Playwright, E2E)      │
 │  - `cloud-free-tier-guard` (APIs externas, Maps, AI)   │
 │  - `mobile-offline-first` (SQLite, fila de eventos)    │
@@ -71,7 +71,22 @@ Nenhuma tarefa relevante deve ser executada utilizando apenas uma Skill. O agent
 
 ---
 
-## 3. Resolução de Conflitos e Precedência de Fontes
+## 3. Governança de Padrões Técnicos e Prevenção de Anti-Patterns
+
+Para garantir sustentabilidade e eficiência, o agente deve coibir ativamente as seguintes anomalias arquiteturais:
+
+- **Buscas Textuais Despadronizadas e Investigação de Seq Scans Inesperados**:
+  - Toda busca textual livre em tabelas relevantes no PostgreSQL deve seguir a regra oficial em `database-supabase` (índice `gin_trgm_ops`, normalização, `limit` e debounce).
+  - É proibido espalhar `.ilike('%...%')` em tabelas sem índice adequado ou criar RPCs duplicadas para o mesmo domínio.
+  - Um `Seq Scan` inesperado em consulta crítica ou tabela relevante deve ser investigado, sem tratar varredura sequencial em tabelas pequenas ou com poucas páginas como anomalia per se.
+- **Prevenção de Egress e Download Excessivo**:
+  - É estritamente vedado baixar centenas de registros para filtrar no React (`.filter()`) ou fazer loops de paginação para carregar catálogos inteiros.
+- **Separação Obrigatória entre PostgreSQL e SQLite**:
+  - Recursos e extensões específicas do PostgreSQL (`pg_trgm`, `unaccent`, RLS, triggers) **jamais** devem ser assumidos no SQLite local do Mobile (telas offline de entregas, montagens e cronograma). O SQLite opera local-first com suas próprias rotinas locais.
+
+---
+
+## 4. Resolução de Conflitos e Precedência de Fontes
 
 Quando houver divergência entre código, documentação e skills:
 
@@ -84,7 +99,7 @@ Quando houver divergência entre código, documentação e skills:
 
 ---
 
-## 4. Manutenção e Qualidade das Skills
+## 5. Manutenção e Qualidade das Skills
 
 - **Princípio da Fonte Canônica Única**: Cada regra possui um único local oficial. Não duplicar regras de negócio no `AGENTS.md` ou em múltiplas skills.
 - **Estrutura Obrigatória de Toda Skill**:

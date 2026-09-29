@@ -51,6 +51,18 @@ export const toggleMobileProductActive = async (
   variationId?: string
 ) => {
   const nextActive = !currentActive;
+  if (nextActive) {
+    const { data: prod } = await supabase
+      .from('products')
+      .select('product_kind')
+      .eq('id', productId)
+      .maybeSingle();
+    if (prod?.product_kind === 'salvado') {
+      throw new Error(
+        'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Normal).'
+      );
+    }
+  }
   if (isVariation && variationId) {
     const { error } = await supabase
       .from('product_variations')
@@ -95,7 +107,22 @@ export const saveMobileProduct = async (productData: any) => {
   if (!productCode && !isEditing) {
     productCode = await getNextSequentialProductCode();
   }
-  const variationRows = ensureAtLeastOneOperationalVariation(productData, productCode);
+  const isSalvado =
+    productData.productKind === 'salvado' ||
+    productData.condition === 'salvado' ||
+    productData.product_kind === 'salvado';
+  const isUsado =
+    productData.productKind === 'usado' ||
+    productData.condition === 'usado' ||
+    productData.product_kind === 'usado';
+  const forceInactive = Boolean(productData.isDraft) || isSalvado;
+
+  const variationRows = ensureAtLeastOneOperationalVariation(productData, productCode).map(
+    (variation: any) => ({
+      ...variation,
+      active: forceInactive ? false : variation.active !== false,
+    })
+  );
   const hasActiveVariation =
     variationRows.length > 0
       ? variationRows.some((variation: any) => variation.active !== false)
@@ -109,7 +136,8 @@ export const saveMobileProduct = async (productData: any) => {
     category_id:
       productData.categoryId ||
       (Array.isArray(productData.categoryIds) ? productData.categoryIds[0] : null),
-    condition: productData.condition || 'novo',
+    product_kind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
+    condition: isSalvado ? 'salvado' : isUsado ? 'usado' : productData.condition || 'novo',
     opportunity_id: productData.opportunityId || null,
     observations: productData.observations || null,
     slug: productData.slug || null,

@@ -1,8 +1,11 @@
 import type Product from '@/pages/types/product.type';
 import type { ProductKind } from '@/pages/types/product.type';
 
-export const getProductKind = (value?: { productKind?: unknown } | null): ProductKind =>
-  value?.productKind === 'salvado' ? 'salvado' : 'normal';
+export const getProductKind = (value?: { productKind?: unknown } | null): ProductKind => {
+  if (value?.productKind === 'salvado') return 'salvado';
+  if (value?.productKind === 'usado') return 'usado';
+  return 'normal';
+};
 
 export const isSalvadoProduct = (value?: { productKind?: unknown } | null): boolean =>
   getProductKind(value) === 'salvado';

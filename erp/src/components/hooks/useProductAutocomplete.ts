@@ -59,14 +59,19 @@ export function useProductAutocomplete({
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     const fetchSuggestions = async () => {
       const trimmed = query.trim();
       if (trimmed.length < 3) {
-        setSuggestions([]);
+        if (active) {
+          setSuggestions([]);
+          setIsLoading(false);
+        }
         return;
       }
 
-      setIsLoading(true);
+      if (active) setIsLoading(true);
       try {
         const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
         const productsData = localProducts?.length
@@ -137,16 +142,23 @@ export function useProductAutocomplete({
           }
         });
 
-        setSuggestions(items.slice(0, 15));
+        if (active) {
+          setSuggestions(items.slice(0, 15));
+        }
       } catch (error) {
-        console.error('Erro ao buscar sugestÃµes:', error);
+        if (active) console.error('Erro ao buscar sugestoes:', error);
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     };
 
     const timeoutId = setTimeout(fetchSuggestions, 300);
-    return () => clearTimeout(timeoutId);
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
   }, [
     query,
     supplierId,

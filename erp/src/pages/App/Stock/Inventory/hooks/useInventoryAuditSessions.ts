@@ -234,6 +234,7 @@ export const useInventoryAuditSessions = () => {
         reversedCount: 0,
         hasStages: draft.hasStages,
         responsibleId: draft.responsibleId,
+        responsibleName: draft.responsibleName,
       }));
     return [
       ...localSessions,

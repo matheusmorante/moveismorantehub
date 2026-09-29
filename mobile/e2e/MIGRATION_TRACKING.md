@@ -8,7 +8,7 @@ Data da auditoria: 2026-09-25.
 - Os 26 specs são `PLAYWRIGHT_WEB`, sem execução de app nativo. Classificação final: **19 `MIGRAR_PARA_MAESTRO`**, **1 `MANTER_PLAYWRIGHT_WEB`**, **6 `BLOQUEADO_POR_DADOS`**. Nenhum foi descartado como duplicado.
 - Os 19 candidatos são fluxos de interface mobile cujo valor final depende de validar a UI/comportamento no app Android real. Eles ainda **não estão migrados**: progresso 0 validado; após preparar ambiente, há 1 flow smoke de abertura pendente de execução física.
 - O Android SDK local já contém `platform-tools/adb`, API 36, Build Tools 36 e NDK; Java 17 está instalado. A CLI Maestro 2.10.0 foi instalada no perfil do usuário. Foi configurado ADB/PATH apenas para o SDK existente; nenhum Emulator, AVD ou pacote de emulação foi instalado/configurado.
-- `adb devices -l` retornou somente o cabeçalho sem aparelho conectado/autorizado. Não consta interface Android/ADB entre os dispositivos USB enumerados. Estado: `AGUARDANDO_DISPOSITIVO_FISICO`; não fazer driver install no escuro, nem usar emulador como alternativa.
+- `adb devices -l` retornou somente o cabeçalho sem aparelho conectado/autorizado. Estado: `AGUARDANDO_CELULAR_WIFI`; não instalar driver USB nem usar emulador como alternativa.
 - `mobile/e2e/run-inventory-audit.mjs` é script auxiliar Playwright (`OUTRO`), não spec; não foi contado nos 26 cenários e permanece sem execução até isolar seus efeitos de escrita.
 
 ## Outros testes encontrados
@@ -21,7 +21,7 @@ Os 26 arquivos abaixo são `VITEST_UNIT` (`MANTER_VITEST`), incluindo testes de 
 - Produtos/pedidos: `mobile/src/features/products/domain/productVariationName.test.ts`, `mobile/src/features/products/categories/domain/categoryEnvironmentServices.test.ts`, `mobile/src/features/products/categories/domain/categoryEnvironmentRules.test.ts`, `mobile/src/features/orders/services/mobileOrderListService.test.ts`.
 - Logística: `mobile/src/features/logistics/utils/__tests__/googleMapsNavigationDeliveryFlow.test.ts`, `mobile/src/features/logistics/utils/scheduleSlots.test.ts`, `mobile/src/features/logistics/utils/deliverySummaryMetrics.test.ts`, `mobile/src/features/logistics/utils/deliveryRouteRules.test.ts`, `mobile/src/features/logistics/domain/teamLocationStatus.test.ts`, `mobile/src/features/logistics/domain/teamLocationPrivacy.test.ts`, `mobile/src/features/logistics/domain/calculateOptimizedDeliveryRoute.test.ts`.
 
-Os rótulos de classificação seguem exatamente `MIGRAR_PARA_MAESTRO`, `MANTER_PLAYWRIGHT_WEB`, `MANTER_VITEST`, `BLOQUEADO_POR_DADOS` e `DESCARTAR_DUPLICADO`. O campo de progresso é separado: `AGUARDANDO_DISPOSITIVO_FISICO`, `FLOW_CRIADO_NAO_VALIDADO` ou `VALIDADO_NO_DISPOSITIVO`. Nenhum dos 26 cenários Playwright foi ainda validado como migrado.
+Os rótulos de classificação seguem exatamente `MIGRAR_PARA_MAESTRO`, `MANTER_PLAYWRIGHT_WEB`, `MANTER_VITEST`, `BLOQUEADO_POR_DADOS` e `DESCARTAR_DUPLICADO`. O campo de progresso é separado: `AGUARDANDO_CELULAR_WIFI`, `FLOW_CRIADO_NAO_VALIDADO` ou `VALIDADO_NO_DISPOSITIVO`. Nenhum dos 26 cenários Playwright foi ainda validado como migrado.
 
 ## Rastreabilidade por cenário
 
@@ -64,8 +64,8 @@ Os rótulos de classificação seguem exatamente `MIGRAR_PARA_MAESTRO`, `MANTER_
 3. `CAT-06` fica como `MANTER_PLAYWRIGHT_WEB`: testa CRUD web com interceptação local `page.route`, cuja configuração é específica do navegador e não prova comportamento nativo.
 4. Corrigido anteriormente: removida do CAT-06 a limpeza global por prefixo `[TESTE_AUT]` que consultava/apagava categorias fora do escopo. O cenário usa estado em memória e identificador de execução único.
 5. Ambiente: Java 17 e `adb` já existiam; Maestro CLI 2.10.0 foi instalado. `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `JAVA_HOME` e PATH do usuário foram configurados para platform-tools e Maestro. A configuração não instala nem inicia emulador.
-6. O comando `adb devices -l` retornou lista vazia, apesar do aparelho estar fisicamente conectado conforme informado pelo usuário; o Gerenciador de Dispositivos também não mostrou interface Android/ADB. Estado permanece `AGUARDANDO_DISPOSITIVO_FISICO_RECONHECIDO`; não foi instalado driver sem fabricante/modelo identificável.
-7. Comandos reproduzíveis e proteção que recusa AVD estão em `mobile/maestro/README.md` e `mobile/scripts/maestro-device.mjs`. `run-inventory-audit.mjs` segue sem execução até revisar seus efeitos de escrita.
+6. O comando `adb devices -l` retornou lista vazia, apesar do aparelho estar fisicamente conectado conforme informado pelo usuário. Estado para a configuração atual: `AGUARDANDO_CELULAR_WIFI`; o fluxo agora requer pareamento pela Depuração sem fio e não usa drivers USB.
+7. Comandos reproduzíveis e proteção que recusa emulador/AVD e alvo USB estão em `mobile/maestro/README.md` e `mobile/scripts/maestro-device.mjs`. `run-inventory-audit.mjs` segue sem execução até revisar seus efeitos de escrita.
 
 ## Validação desta auditoria
 
@@ -74,4 +74,4 @@ Os rótulos de classificação seguem exatamente `MIGRAR_PARA_MAESTRO`, `MANTER_
 - Flow criado: 1 smoke de abertura, ainda não validado no aparelho (`FLOW_CRIADO_NAO_VALIDADO`).
 - Cenários do roteiro migrados/validados: 0; 19 candidatos para Maestro aguardam implementação/execução física; 1 permanece como Expo Web; 6 continuam `BLOQUEADO_POR_DADOS`.
 - Playwright removido: 0; Playwright do ERP permanece intacto.
-- Execução física não foi possível porque o ADB retornou zero devices. Não rodamos Maestro contra emulador nem executamos cenários que possam tocar dados reais.
+- Execução em celular não foi possível porque o ADB retornou zero devices. Não rodamos Maestro contra emulador nem executamos cenários que possam tocar dados reais.

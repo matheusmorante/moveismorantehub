@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getNextInventoryCode } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
-import type { InventorySnapshotItem, InventoryAuditSession } from '../types/inventoryAudit.types';
+import type {
+  AuditItem,
+  InventoryAuditSession,
+  InventorySnapshotItem,
+} from '../types/inventoryAudit.types';
 import type { ScopeConfiguration } from '../modals/InventoryScopeModal';
-import type { AuditItem } from '../modals/InventoryAuditModal';
 import { getEmployeeDisplayName } from '../components/InventoryResponsibleSelect';
 import { useInventoryAuditData } from './useInventoryAuditData';
 import { getWebInventoryDraft, saveWebInventoryDraft } from '../services/inventoryLocalDrafts';
@@ -29,6 +32,7 @@ export const useInventoryAuditWorkflow = (
   const [scopeConfig, setScopeConfig] = useState<{
     name: string;
     responsibleId: string;
+    responsibleName?: string;
     hasStages?: boolean;
     scopeType?: string;
     supplierId?: string;
@@ -55,6 +59,7 @@ export const useInventoryAuditWorkflow = (
       date: draft.date || new Date().toISOString(),
       name: scope.name,
       responsibleId: scope.responsibleId,
+      responsibleName: scope.responsibleName,
       hasStages: Boolean(scope.hasStages),
       scopeType: scope.scopeType,
       supplierId: scope.supplierId,
@@ -123,6 +128,7 @@ export const useInventoryAuditWorkflow = (
             name: local.name,
             hasStages: local.hasStages,
             responsibleId: local.responsibleId,
+            responsibleName: local.responsibleName,
             scopeType: local.scopeType,
             supplierId: local.supplierId,
           };
@@ -163,6 +169,7 @@ export const useInventoryAuditWorkflow = (
           name: editingSession.inventoryCode,
           hasStages: editingSession.hasStages ?? false,
           responsibleId: editingSession.responsibleId || '',
+          responsibleName: editingSession.responsibleName,
         };
         scopeConfigRef.current = config;
         setScopeConfig(config);
@@ -189,7 +196,7 @@ export const useInventoryAuditWorkflow = (
     return () => {
       cancelled = true;
     };
-  }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames]);
+  }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames, persistItems]);
 
   const handleConfirmScope = async (config: ScopeConfiguration) => {
     frozenSubmissionRef.current = false;
@@ -211,12 +218,16 @@ export const useInventoryAuditWorkflow = (
       isActive: snapshot.isActive,
     }));
 
+    const responsible = employees.find(
+      (employee) => String(employee.id) === config.responsibleId
+    );
     const nextScope = {
       name: config.name,
       hasStages: config.hasStages,
       scopeType: config.type,
       supplierId: config.supplierId,
       responsibleId: config.responsibleId,
+      responsibleName: responsible ? getEmployeeDisplayName(responsible) : undefined,
     };
     const auditId = crypto.randomUUID();
     let code: string;
@@ -305,7 +316,9 @@ export const useInventoryAuditWorkflow = (
         responsibleId: scopeConfig.responsibleId,
         scopeType: scopeConfig.scopeType,
         supplierId: scopeConfig.supplierId,
-        responsibleName: getEmployeeDisplayName(responsible) || editingSession?.responsibleName,
+        responsibleName: responsible
+          ? getEmployeeDisplayName(responsible)
+          : scopeConfig.responsibleName || editingSession?.responsibleName || '',
         items: items.map(
           ({
             productId,

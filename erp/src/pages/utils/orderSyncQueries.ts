@@ -264,7 +264,8 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
                 is_stock_checked, is_registered_in_bling, deleted, deleted_at, return_order_id,
                 linked_order_id, returned_total_amount, original_sold_total, return_kind,
                 created_at, updated_at,
-                order_items(id, order_id, item_index, product_id, variation_id, code, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
+                order_items(id, order_id, item_index, product_id, variation_id, code, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product),
+                order_payments(payment_index, payment_method, amount, fee, fee_type, status, installments, paid_at)
             `)
       .or('deleted.is.null,deleted.eq.false')
       .in('status', ['scheduled', 'draft'])

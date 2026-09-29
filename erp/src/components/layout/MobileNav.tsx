@@ -23,7 +23,7 @@ const menuItems: any[] = [
         to: '/products',
         icon: 'bi-list-ul',
         iconColor: 'text-indigo-500',
-        label: 'Lista de Produtos',
+        label: 'Cadastros',
       },
       {
         to: '/products/characteristics',

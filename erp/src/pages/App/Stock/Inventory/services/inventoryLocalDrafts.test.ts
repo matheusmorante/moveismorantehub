@@ -14,6 +14,7 @@ const makeDraft = (id: string, count: number | null): WebInventoryDraft => ({
   date: '2026-09-25T10:00:00.000Z',
   name: 'Inventário de teste',
   responsibleId: 'operator-1',
+  responsibleName: 'Operador Teste',
   hasStages: true,
   scopeType: 'supplier',
   supplierId: 'supplier-1',
@@ -48,6 +49,7 @@ describe('rascunho de inventário no IndexedDB', () => {
     expect((await getWebInventoryDraft('audit-a'))?.items[0].physicalCount).toBe(30);
     expect((await getWebInventoryDraft('audit-b'))?.items[0].physicalCount).toBe(2);
     expect((await getWebInventoryDraft('audit-a'))?.supplierId).toBe('supplier-1');
+    expect((await getWebInventoryDraft('audit-a'))?.responsibleName).toBe('Operador Teste');
     expect((await getWebInventoryDraft('audit-a'))?.items[0].countedAt).toBe(
       '2026-09-25T10:00:00Z'
     );

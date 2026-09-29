@@ -96,8 +96,133 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
   const selectedCategoryIds: string[] =
     formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
 
+  const currentOrigin =
+    formData.productKind === 'salvado' || formData.condition === 'salvado'
+      ? 'salvado'
+      : formData.productKind === 'usado' || formData.condition === 'usado'
+      ? 'usado'
+      : 'normal';
+
+  const isNormal = currentOrigin === 'normal';
+  const isSalvado = currentOrigin === 'salvado';
+  const isUsado = currentOrigin === 'usado';
+
+  const handleSelectOrigin = (origin: 'normal' | 'salvado' | 'usado') => {
+    const salvadoOpp = opportunities.find((o) =>
+      o.name?.toLowerCase().includes('salvado')
+    );
+    setFormData((prev: any) => {
+      const next = {
+        ...prev,
+        productKind: origin,
+        condition: origin === 'salvado' ? 'salvado' : origin === 'usado' ? 'usado' : 'novo',
+      };
+      if (origin === 'salvado') {
+        next.active = false;
+        if (salvadoOpp) {
+          next.opportunityId = salvadoOpp.id;
+        }
+      } else {
+        if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
+          next.opportunityId = null;
+        }
+      }
+      return next;
+    });
+  };
+
   return (
     <View style={styles.container}>
+      {/* ORIGEM DO ESTOQUE */}
+      {formData.itemType !== 'service' && (
+        <View style={styles.field}>
+          <Text style={[styles.label, dark && styles.lightLabel]}>ORIGEM DO ESTOQUE</Text>
+          <View style={styles.originRow}>
+            <TouchableOpacity
+              onPress={() => handleSelectOrigin('normal')}
+              style={[
+                styles.originBtn,
+                isNormal
+                  ? styles.originBtnActive
+                  : dark
+                    ? styles.darkInput
+                    : styles.lightDiferenciarBtn,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Origem do estoque Normal"
+            >
+              <Text
+                style={[
+                  styles.originBtnText,
+                  isNormal ? styles.originBtnTextActive : dark ? styles.lightText : styles.dimText,
+                ]}
+              >
+                Normal
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleSelectOrigin('salvado')}
+              style={[
+                styles.originBtn,
+                isSalvado
+                  ? styles.originBtnActiveSalvado
+                  : dark
+                    ? styles.darkInput
+                    : styles.lightDiferenciarBtn,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Origem do estoque Salvados"
+            >
+              <Text
+                style={[
+                  styles.originBtnText,
+                  isSalvado
+                    ? styles.originBtnTextActiveSalvado
+                    : dark
+                      ? styles.lightText
+                      : styles.dimText,
+                ]}
+              >
+                Salvados
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleSelectOrigin('usado')}
+              style={[
+                styles.originBtn,
+                isUsado
+                  ? styles.originBtnActiveUsado
+                  : dark
+                    ? styles.darkInput
+                    : styles.lightDiferenciarBtn,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Origem do estoque Usados"
+            >
+              <Text
+                style={[
+                  styles.originBtnText,
+                  isUsado
+                    ? styles.originBtnTextActiveUsado
+                    : dark
+                      ? styles.lightText
+                      : styles.dimText,
+                ]}
+              >
+                Usados
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {isSalvado && (
+            <Text style={styles.salvadoWarning}>
+              O produto e suas variações serão desativados no ERP.
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* NOME DO PRODUTO */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
@@ -232,13 +357,19 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         </View>
 
         <TouchableOpacity
-          onPress={() => setShowOpportunityModal(true)}
-          style={[styles.selectBox, dark && styles.darkInput]}
+          onPress={() => {
+            if (isSalvado) return;
+            setShowOpportunityModal(true);
+          }}
+          disabled={isSalvado}
+          style={[styles.selectBox, dark && styles.darkInput, isSalvado && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar Oportunidade"
         >
           <Text style={[styles.selectBoxText, dark && styles.lightText]} numberOfLines={1}>
             {selectedOpportunity ? selectedOpportunity.name : 'Nenhuma (Produto Normal)'}
           </Text>
-          <ChevronDown size={16} color="#94a3b8" />
+          {!isSalvado && <ChevronDown size={16} color="#94a3b8" />}
         </TouchableOpacity>
       </View>
 
@@ -260,7 +391,11 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
       {/* Modal Modular de Oportunidade */}
       <OpportunitySelectModal
         visible={showOpportunityModal}
-        opportunities={opportunities}
+        opportunities={
+          isSalvado
+            ? opportunities
+            : opportunities.filter((o) => !o.name?.toLowerCase().includes('salvado'))
+        }
         selectedOpportunityId={formData.opportunityId}
         onSelect={(id) => set('opportunityId', id)}
         onClose={() => setShowOpportunityModal(false)}
@@ -445,5 +580,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
     backgroundColor: '#ffffff',
+  },
+  originRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  originBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  originBtnActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  originBtnActiveSalvado: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#f97316',
+  },
+  originBtnActiveUsado: {
+    backgroundColor: '#faf5ff',
+    borderColor: '#a855f7',
+  },
+  originBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  originBtnTextActive: {
+    color: '#1d4ed8',
+  },
+  originBtnTextActiveSalvado: {
+    color: '#ea580c',
+  },
+  originBtnTextActiveUsado: {
+    color: '#9333ea',
+  },
+  salvadoWarning: {
+    fontSize: 11,
+    color: '#ea580c',
+    marginTop: 4,
+    fontWeight: '600',
   },
 });

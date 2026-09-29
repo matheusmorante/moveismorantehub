@@ -1,31 +1,43 @@
-# Maestro: Android físico via USB
+# Maestro: Android físico por Depuração Wi‑Fi
 
-Este projeto executa E2E nativo somente em celular Android físico conectado por USB e autorizado no ADB. Emuladores/AVDs e depuração Wi-Fi não são suportados por estes scripts. Playwright continua para o ERP/Web e, opcionalmente, Expo Web; Vitest cobre lógica e serviços.
+O Maestro executa os flows Android somente em um celular físico pareado e conectado ao ADB pela **Depuração sem fio (Wi‑Fi)**. O executor recusa emuladores/AVDs e alvos conectados por USB. Use o Supabase remoto durante o teste; não inicie o Docker local em paralelo por causa do consumo de RAM.
 
-## Preparação do aparelho
+## Preparar o celular
 
-1. Ative Opções do desenvolvedor e Depuração USB no Android.
-2. Conecte com cabo de dados, desbloqueie a tela e aceite a chave RSA deste computador.
-3. Verifique: `npm run test:mobile:device`. O aparelho precisa aparecer como `device` e ser identificado pelo ADB como USB físico.
-4. Se o Windows não enumerar o aparelho, confira cabo/porta/modo USB; instale driver apenas do fabricante correto quando o modelo aparecer no Gerenciador de Dispositivos.
+1. Ative as **Opções do desenvolvedor** e **Depuração sem fio** no Android.
+2. Na tela Depuração sem fio, use **Parear dispositivo com código de pareamento**. No computador, rode `adb pair IP:PORTA_DE_PAREAMENTO` e informe o código mostrado no celular.
+3. Ainda na tela Depuração sem fio, use a porta de conexão exibida e rode `adb connect IP:PORTA_DE_CONEXAO`.
+4. Confirme que `adb devices -l` mostra o celular como `device`. Não conecte um AVD nem selecione um serial USB.
+5. Se houver mais de um celular conectado por Wi‑Fi, defina `ANDROID_SERIAL` com o serial IP:porta mostrado pelo ADB.
 
-## Build e execução
+Requisitos: OpenJDK 17, Android SDK `platform-tools` (ADB) e Maestro CLI 2.10.0.
 
-Em `mobile/`:
+## Flows (`mobile/maestro/flows/`)
 
-```powershell
-npm run test:mobile:device
-npm run test:mobile:build
-npm run test:mobile:start
+```text
+mobile/maestro/flows/
+├── smoke/
+│   └── app-launch.yaml       # Validação de inicialização e montagem do root
+└── inventory/
+    └── inventory-audit.yaml   # Abertura de Estoque, escopo, contagem e revisão
 ```
 
-Deixe o Metro rodando. Em outro terminal:
+---
+
+## Scripts (`mobile/`)
 
 ```powershell
+# Confirmar alvo físico Wi-Fi
+npm run test:mobile:device
+
+# Smoke test
 npm run test:mobile:smoke
+
+# Teste E2E de Inventário
+npm run test:mobile:inventory
+
+# Suíte Maestro
 npm run test:mobile:maestro
 ```
 
-`build` usa `expo run:android --device <serial> --no-bundler`, que compila/instala a development build nesse serial físico; `start` cria o reverse USB da porta 8081 e inicia Metro para development client. `smoke` roda o flow de abertura; `maestro` roda todos os flows em `maestro/flows`. Relatórios JUnit e artefatos são escritos em `%TEMP%\morante-maestro-results`.
-
-O smoke valida apenas que o React Native montou a raiz `app-root`; não valida login, dados, estoque ou backend. Flows adicionais devem ser acrescentados por módulo, com IDs/test data próprios e validação real no aparelho antes de marcar um cenário migrado.
+O `test:mobile:build` compila e instala a development build no celular Wi‑Fi selecionado. `test:mobile:start` inicia o Metro e configura o reverse da porta 8081. Os demais comandos rodam Maestro no mesmo alvo. Relatórios JUnit ficam em `%TEMP%\morante-maestro-results`.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Product from '../../../../types/product.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import {
@@ -10,28 +10,15 @@ import {
 } from './productFiscalOptions';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
-import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 
 interface ProductFiscalTabProps {
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-  readonly isNcmAutoEnabled: boolean;
-  readonly toggleNcmAuto: () => void;
-  readonly isGeneratingNCM: boolean;
-  readonly ncmSuggestion: NcmAiSuggestion | null;
-  readonly acceptNcmSuggestion: () => void;
-  readonly dismissNcmSuggestion: () => void;
 }
 
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
   formData,
   setFormData,
-  isNcmAutoEnabled,
-  toggleNcmAuto,
-  isGeneratingNCM,
-  ncmSuggestion,
-  acceptNcmSuggestion,
-  dismissNcmSuggestion,
 }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
@@ -106,12 +93,6 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
               <ProductNcmSelector
                 formData={formData}
                 setFormData={setFormData}
-                isNcmAutoEnabled={isNcmAutoEnabled}
-                toggleNcmAuto={toggleNcmAuto}
-                isGeneratingNCM={isGeneratingNCM}
-                suggestion={ncmSuggestion}
-                onAcceptSuggestion={acceptNcmSuggestion}
-                onDismissSuggestion={dismissNcmSuggestion}
               />
 
               {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}

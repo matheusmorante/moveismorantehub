@@ -4,7 +4,7 @@ import { useState } from 'react';
 const usePayments = () => {
   const [payments, setPayments] = useState<Payment[]>([
     {
-      method: 'Verificar',
+      method: '',
       amount: 0,
       fee: 0,
       feeType: 'fixed',

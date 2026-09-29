@@ -104,7 +104,7 @@ export type ExtraDimension = {
   value: string;
 };
 
-export type ProductKind = 'normal' | 'salvado';
+export type ProductKind = 'normal' | 'salvado' | 'usado';
 
 export type Product = {
   productKind?: ProductKind;

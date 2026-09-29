@@ -133,7 +133,8 @@ export function buildAccentInsensitiveRegex(term: string): string {
   const map: Record<string, string> = {
     a: '[aàáâãäåAÀÁÂÃÄÅ]',
     e: '[eèéêëEÈÉÊË]',
-    i: '[iìíîïIÌÍÎÏ]',
+    i: '[iìíîïyYIÌÍÎÏ]',
+    y: '[yYIÌÍÎÏiìíîï]',
     o: '[oòóôõöOÒÓÔÕÖ]',
     u: '[uùúûüUÙÚÛÜ]',
     c: '[cçCÇ]',
@@ -142,7 +143,9 @@ export function buildAccentInsensitiveRegex(term: string): string {
   const clean = removeAccents(term).toLowerCase();
   let result = '';
   for (const char of clean) {
-    if (map[char]) {
+    if (char === '-' || char === ' ') {
+      result += '[- ]+';
+    } else if (map[char]) {
       result += map[char];
     } else if (/[.*+?^${}()|[\]\\]/.test(char)) {
       result += '\\' + char;

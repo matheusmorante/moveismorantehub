@@ -113,6 +113,70 @@ describe('orderMapper - Normalização e Fallback Seguro', () => {
     expect(result.payments[0].status).toBe('PAGO');
   });
 
+  it('reconstrói todas as formas de pagamento normalizadas sem duplicar ou perder parcelas', () => {
+    const result = mapOrderFromDatabase({
+      id: 'ord-split-payments',
+      order_payments: [
+        { payment_index: 1, payment_method: 'PIX', amount: '500.00', installments: 1 },
+        {
+          payment_index: 2,
+          payment_method: 'Cartão de Crédito',
+          amount: '250.00',
+          installments: 2,
+          status: 'PENDENTE',
+        },
+      ],
+      order_data: {
+        payments: [
+          { method: 'PIX', amount: 500 },
+          { method: 'Cartão de Crédito', amount: 250, installments: 2, status: 'PENDENTE' },
+        ],
+      },
+    });
+
+    expect(result.payments).toHaveLength(2);
+    expect(result.payments.map(({ method, amount }) => [method, amount])).toEqual([
+      ['PIX', 500],
+      ['Cartão de Crédito', 250],
+    ]);
+  });
+
+  it('deve calcular o resumo financeiro quando a consulta traz pagamentos normalizados sem order_data', () => {
+    const result = mapOrderFromDatabase({
+      id: 'ord-schedule-payments',
+      status: 'scheduled',
+      total_amount: 1045,
+      order_payments: [
+        {
+          payment_index: 1,
+          payment_method: 'Pix',
+          amount: '600.00',
+          fee: '5.00',
+          fee_type: 'fixed',
+          status: 'PAGO',
+          installments: 1,
+        },
+      ],
+    });
+
+    expect(result.payments).toHaveLength(1);
+    expect(result.payments[0].method).toBe('Pix');
+    expect(result.paymentsSummary.totalAmountPaid).toBe(605);
+    expect(result.paymentsSummary.amountRemaining).toBe(440);
+  });
+
+  it('não deve marcar o pedido inteiro como pago quando a consulta não retorna pagamentos', () => {
+    const result = mapOrderFromDatabase({
+      id: 'ord-schedule-without-payments',
+      status: 'scheduled',
+      total_amount: 1045,
+    });
+
+    expect(result.payments).toEqual([]);
+    expect(result.paymentsSummary.totalAmountPaid).toBe(0);
+    expect(result.paymentsSummary.amountRemaining).toBe(1045);
+  });
+
   it('deve acionar fallback para order_data.payments quando order_payments estiver vazio', () => {
     const row: OrderDatabaseRow = {
       id: 'ord-005',

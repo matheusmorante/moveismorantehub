@@ -30,7 +30,12 @@ vi.mock('@/pages/utils/settingsService', () => ({
   }),
 }));
 
+vi.mock('../ItemsTable/ServiceAutocomplete', () => ({
+  default: () => <input aria-label="Buscar serviço" />,
+}));
+
 import ItemsTable from '../ItemsTable';
+import BodyRow from '../ItemsTable/BodyRow';
 import { Item, ItemsSummary } from '@/pages/types/items.type';
 import { calcItemsSummary } from '@/pages/utils/calculations';
 
@@ -126,6 +131,42 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
     expect(screen.getByText('Instalação e Montagem Especial')).toBeTruthy();
     expect(screen.queryByText('Mesa de Jantar Madeira')).toBeNull();
     expect(screen.queryByText('Cadeira Estofada')).toBeNull();
+  });
+
+  it('só oferece vínculo com produtos que têm descrição e usa o rótulo curto', () => {
+    const service = initialItems[2];
+    const describedProduct = { ...initialItems[0], orderItemId: 'product-described' };
+    const blankDescriptionProduct = {
+      ...initialItems[1],
+      description: '   ',
+      orderItemId: 'product-blank-description',
+    };
+
+    render(
+      <table>
+        <tbody>
+          <BodyRow
+            item={service}
+            productItems={[describedProduct, blankDescriptionProduct]}
+            idx={2}
+            onChange={vi.fn()}
+            onBatchChange={vi.fn()}
+            onToggleDiscountType={vi.fn()}
+            onDelete={vi.fn()}
+            deliveryMethod="delivery"
+            errors={{}}
+            onSelectProduct={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+
+    const productLink = screen.getByRole('combobox', { name: 'Vincular produto' });
+    expect(screen.getByText('Vincular produto')).toBeTruthy();
+    expect(Array.from((productLink as HTMLSelectElement).options).map((option) => option.value)).toEqual([
+      '',
+      'product-described',
+    ]);
   });
 
   it('o botão contextual de adicionar deve mudar conforme a aba selecionada e ser único na linha das abas', () => {

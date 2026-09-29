@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
+import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
 import { CreditCard, PlusCircle, CheckCircle2, CircleDollarSign } from 'lucide-react-native';
 
 type Payment = {

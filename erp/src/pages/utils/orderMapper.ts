@@ -82,6 +82,34 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
       ? Number(row.total_amount)
       : Number(rawLegacy.totalAmount || rawLegacy.total || 0);
 
+  // Pagamentos: Prioriza tabela normalizada order_payments, com fallback para o JSON legado.
+  let payments: any[] = [];
+  if (Array.isArray(row.order_payments) && row.order_payments.length > 0) {
+    payments = row.order_payments.map((p: any) => ({
+      method: p.payment_method || p.method || '',
+      amount: Number(p.amount || 0),
+      fee: Number(p.fee || 0),
+      feeType: p.fee_type || p.feeType || 'fixed',
+      status: p.status || 'PAGO',
+      installments: p.installments != null ? Number(p.installments) : 1,
+    }));
+  } else if (Array.isArray(rawLegacy.payments) && rawLegacy.payments.length > 0) {
+    payments = rawLegacy.payments;
+  }
+
+  const paymentTotals = payments.reduce(
+    (totals, payment) => {
+      const amount = Number(payment.amount || 0);
+      const fee = Number(payment.fee || 0);
+      const feeAmount = payment.feeType === 'percentage' ? (amount * fee) / 100 : fee;
+      return {
+        paid: totals.paid + amount + feeAmount,
+        fee: totals.fee + feeAmount,
+      };
+    },
+    { paid: 0, fee: 0 }
+  );
+
   // Resumo de pagamentos
   const legacySummary = rawLegacy.paymentsSummary || {};
   const paymentsSummary = {
@@ -97,9 +125,9 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         ? Number(row.total_discount)
         : (legacySummary.totalFixedDiscount ?? 0),
     itemsTotalValue: totalAmount,
-    totalAmountPaid: legacySummary.totalAmountPaid ?? totalAmount,
-    amountRemaining: legacySummary.amountRemaining ?? 0,
-    totalPaymentsFee: legacySummary.totalPaymentsFee ?? 0,
+    totalAmountPaid: legacySummary.totalAmountPaid ?? paymentTotals.paid,
+    amountRemaining: legacySummary.amountRemaining ?? Math.max(0, totalAmount - paymentTotals.paid),
+    totalPaymentsFee: legacySummary.totalPaymentsFee ?? paymentTotals.fee,
   };
 
   // Vendedor
@@ -241,21 +269,6 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
       : Boolean(rawLegacy.isRegisteredInBling);
   const marketingOrigin =
     row.marketing_origin || rawLegacy.marketingOrigin || customerData.marketingOrigin || 'organic';
-
-  // Pagamentos: Prioriza tabela normalizada order_payments se preenchida, com fallback estrito para rawLegacy.payments
-  let payments: any[] = [];
-  if (Array.isArray(row.order_payments) && row.order_payments.length > 0) {
-    payments = row.order_payments.map((p: any) => ({
-      method: p.payment_method || p.method || '',
-      amount: Number(p.amount || 0),
-      fee: Number(p.fee || 0),
-      feeType: p.fee_type || p.feeType || 'fixed',
-      status: p.status || 'PAGO',
-      installments: p.installments != null ? Number(p.installments) : 1,
-    }));
-  } else if (Array.isArray(rawLegacy.payments) && rawLegacy.payments.length > 0) {
-    payments = rawLegacy.payments;
-  }
 
   // Montagem final preservando snapshots complementares
   const orderDomain: Order = {

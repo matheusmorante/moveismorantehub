@@ -127,9 +127,18 @@ export const getOrdersByCustomerInfo = async (
     if (fullName.trim()) {
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .select('*')
+        .select(`
+          id, order_number, order_index, status, order_type,
+          customer_id, customer_name, customer_phone, customer_email,
+          seller_id, seller_name, total_amount, payment_method, channel,
+          notes, scheduled_date, scheduled_start_time, scheduled_end_time,
+          delivery_method, delivery_status, items_subtotal, total_discount,
+          total_cost, stock_processed, is_stock_checked, deleted, deleted_at,
+          created_at, updated_at, order_data
+        `)
         .ilike('customer_name', `%${fullName.trim()}%`)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(30);
 
       if (!error && data && data.length > 0) {
         const filtered = data
@@ -197,22 +206,37 @@ export const getOrdersByCustomerInfo = async (
 /**
  * Busca dados enxutos de pedidos apenas com informações de clientes
  */
-export const getOrdersCustomerDataOnly = async (): Promise<
+export const getOrdersCustomerDataOnly = async (
+  options?: { limit?: number; searchTerm?: string }
+): Promise<
   { id: string; date: string; customerData: any; deleted: boolean }[]
 > => {
   try {
-    const { data: normalizedRows, error } = await supabase
+    const limit = options?.limit ?? 50;
+    let query = supabase
       .from(TABLE_NAME)
-      .select('id, created_at, customer_id, customer_name, deleted');
+      .select('id, created_at, customer_id, customer_name, deleted')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (options?.searchTerm?.trim()) {
+      query = query.ilike('customer_name', `%${options.searchTerm.trim()}%`);
+    }
+
+    const { data: normalizedRows, error } = await query;
 
     if (error) throw error;
 
     // Mantém a compatibilidade com pedidos realmente legados, sem baixar
     // snapshots de todos os pedidos que já possuem cliente normalizado.
-    const { data: legacyRows, error: legacyError } = await supabase
+    let legacyQuery = supabase
       .from(TABLE_NAME)
       .select('id, created_at, customer_id, customer_name, deleted, order_data')
-      .is('customer_name', null);
+      .is('customer_name', null)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(limit, 20));
+
+    const { data: legacyRows, error: legacyError } = await legacyQuery;
 
     if (legacyError) throw legacyError;
 

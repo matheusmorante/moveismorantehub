@@ -106,6 +106,7 @@ const INITIAL_FORM = {
   includeBrand: true,
   titleOrder: ['type', 'environment', 'line', 'brand', 'complement'],
   featured: false,
+  productKind: 'normal',
   condition: 'novo',
   category: '',
   categoryId: '',
@@ -335,6 +336,14 @@ export const ProductFormScreen: React.FC<Props> = ({
           ? product.title_order
           : INITIAL_FORM.titleOrder,
         featured: Boolean(product.featured),
+        productKind:
+          product.product_kind ||
+          product.productKind ||
+          (product.condition === 'salvado' || product.is_salvado
+            ? 'salvado'
+            : product.condition === 'usado'
+            ? 'usado'
+            : 'normal'),
         condition: product.condition || (product.is_salvado ? 'salvado' : 'novo'),
         category: product.category || '',
         categoryId: product.category_id || product.categoryId || '',
@@ -681,10 +690,18 @@ export const ProductFormScreen: React.FC<Props> = ({
       }
       setSaving(true);
       try {
+        const isSalvado =
+          formData.productKind === 'salvado' || formData.condition === 'salvado';
+        const isUsado =
+          formData.productKind === 'usado' || formData.condition === 'usado';
+        const forceInactive = saveAsDraft || isSalvado;
+
         await onSave({
           ...formData,
+          productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
+          condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
           isDraft: saveAsDraft,
-          active: saveAsDraft ? false : product ? formData.active !== false : true,
+          active: forceInactive ? false : product ? formData.active !== false : true,
           status: saveAsDraft ? 'draft' : product?.status === 'published' ? 'published' : 'hidden',
           hasVariations:
             formData.itemType !== 'composition' ||
@@ -692,7 +709,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           variations: (Array.isArray(formData.variations) ? formData.variations : []).map(
             (variation: any) => ({
               ...variation,
-              active: saveAsDraft ? false : product ? variation.active !== false : true,
+              active: forceInactive ? false : product ? variation.active !== false : true,
               status: saveAsDraft
                 ? 'draft'
                 : product?.status === 'published'

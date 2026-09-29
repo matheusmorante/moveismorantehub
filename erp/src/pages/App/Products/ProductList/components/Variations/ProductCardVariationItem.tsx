@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
@@ -108,6 +109,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               active={v.active !== false && product.active !== false}
               catalogStatus={v.status}
               isParent={false}
+              isSalvado={isSalvadoProduct(product) || isSalvadoProduct(v as any)}
               canManageCatalog={canManageCatalog}
               isDraft={isDraft}
               onToggleActive={(e) => {

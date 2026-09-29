@@ -1,6 +1,7 @@
 import React from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MoreVertical, Package } from 'lucide-react-native';
+import { WEB_URL } from '../../../services/supabaseClient';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 
@@ -46,6 +47,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
   const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
+  const isSalvado =
+    parentProduct?.productKind === 'salvado' ||
+    parentProduct?.product_kind === 'salvado' ||
+    v.productKind === 'salvado' ||
+    v.product_kind === 'salvado';
   const imgUrl =
     Array.isArray(v.images) && v.images[0] ? v.images[0] : v.imageUrl || parentImage || null;
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
@@ -55,6 +61,13 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const stock = Number(v.stock ?? 0);
 
   const handleToggleActive = () => {
+    if (isSalvado) {
+      Alert.alert(
+        'Origem do Estoque: Salvados',
+        'Produtos de origem do estoque Salvados não podem ser ativos no ERP.'
+      );
+      return;
+    }
     if (isParentDraft) {
       Alert.alert(
         'Cadastro Pendente',
@@ -82,6 +95,15 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     ...(parentProduct || {}),
     selectedVariationId: v.id,
     selectedVariation: v,
+  };
+
+  const handlePrintLabel = () => {
+    const parentId = parentProduct?.id || v.productId || v.id;
+    const url = `${WEB_URL}/estoque/etiquetas?cat=identificacao&productId=${parentId}&variationId=${v.id}&fillSheet=1`;
+    Linking.openURL(url).catch((err) => {
+      console.warn('Falha ao abrir tela de etiquetas:', err);
+      Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
+    });
   };
 
   return (
@@ -139,6 +161,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         dark={dark}
         variationName={varName}
         onClose={() => setMenuVisible(false)}
+        onPrintLabel={handlePrintLabel}
         onEdit={onEdit ? () => onEdit(variationProduct) : () => setMenuVisible(false)}
         onHistory={onShowHistory ? () => onShowHistory(variationProduct) : undefined}
         onStock={onLaunchStock ? () => onLaunchStock(variationProduct) : undefined}
@@ -148,6 +171,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
       <View style={styles.channelsRow}>
         <MobileChannelBadges
           dark={dark}
+          isSalvado={isSalvado}
           isActive={isActive && !isParentDraft}
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}

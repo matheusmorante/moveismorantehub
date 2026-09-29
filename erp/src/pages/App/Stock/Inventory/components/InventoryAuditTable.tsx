@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
+import type { AuditItem } from '../types/inventoryAudit.types';
 
 export interface InventoryAuditTableProps {
   readonly items: readonly AuditItem[];

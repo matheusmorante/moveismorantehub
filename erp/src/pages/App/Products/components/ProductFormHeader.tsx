@@ -174,6 +174,26 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
                     </div>
                     <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
                   </li>
+                  <li
+                    onClick={() => navigateToRequirementField('productKind')}
+                    className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item"
+                  >
+                    <div className="flex items-center gap-2">
+                      <i
+                        className={`bi ${erpStatus.checks.origin ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
+                      ></i>
+                      <span
+                        className={
+                          erpStatus.checks.origin
+                            ? 'text-blue-700 dark:text-blue-400'
+                            : 'text-slate-500 dark:text-slate-400 font-bold'
+                        }
+                      >
+                        Origem do Estoque Normal
+                      </span>
+                    </div>
+                    <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+                  </li>
                 </ul>
               </div>
             </div>

@@ -223,12 +223,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
             <ProductFiscalTab
               formData={formData}
               setFormData={setFormData}
-              isNcmAutoEnabled={ai.isNcmAutoEnabled}
-              toggleNcmAuto={ai.toggleNcmAuto}
-              isGeneratingNCM={ai.isGeneratingNCM}
-              ncmSuggestion={ai.ncmSuggestion}
-              acceptNcmSuggestion={ai.acceptNcmSuggestion}
-              dismissNcmSuggestion={ai.dismissNcmSuggestion}
             />
           )}
         </div>

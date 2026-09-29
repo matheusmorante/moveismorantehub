@@ -14,6 +14,7 @@
     "test:mobile:build": "node scripts/maestro-device.mjs build",
     "test:mobile:start": "node scripts/maestro-device.mjs start",
     "test:mobile:smoke": "node scripts/maestro-device.mjs smoke",
+    "test:mobile:inventory": "node scripts/maestro-device.mjs inventory",
     "test:mobile:maestro": "node scripts/maestro-device.mjs suite"
   },
   "dependencies": {

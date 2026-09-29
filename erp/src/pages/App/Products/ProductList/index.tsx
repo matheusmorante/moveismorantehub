@@ -44,18 +44,16 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
     },
     ref
   ) => {
-    const [showDeactivated, setShowDeactivated] = React.useState(false);
     const listFilters = React.useMemo(
       () => ({
         ...filters,
-        // A visão exclusiva de desativados continua funcionando pelos filtros
-        // existentes; na lista normal, o padrão é escondê-los.
-        includeDeactivated: filters?.activeOnly === false ? true : showDeactivated,
+        // Produtos desativados não devem ser ocultados da lista:
+        includeDeactivated: filters?.activeOnly === true ? false : true,
         includeMergedVariations: true,
         itemType: mode === 'composition' ? 'composition' : filters?.itemType,
         excludeItemType: mode === 'standard' && !filters?.itemType ? 'composition' : undefined,
       }),
-      [filters, showDeactivated, mode]
+      [filters, mode]
     );
 
     const {
@@ -169,19 +167,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
           </div>
         )}
         <div className="p-0.5 sm:p-2 lg:p-4">
-          {!filters?.showTrash && !filters?.isDraft && (
-            <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
-              <button
-                type="button"
-                aria-pressed={showDeactivated}
-                onClick={() => setShowDeactivated((current) => !current)}
-                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${showDeactivated ? 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300' : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'}`}
-              >
-                <i className={`bi ${showDeactivated ? 'bi-check-square-fill' : 'bi-square'}`} />
-                Mostrar desativados
-              </button>
-            </div>
-          )}
 
           <ProductTable
             products={paginatedProducts}

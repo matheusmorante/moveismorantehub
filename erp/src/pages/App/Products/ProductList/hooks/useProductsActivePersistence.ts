@@ -62,7 +62,9 @@ export const persistProductActiveState = async (
       .maybeSingle();
     if (error) throw error;
     if (isSalvadoProduct({ productKind: parent?.product_kind })) {
-      throw new Error('Produtos do tipo Salvado permanecem desativados no ERP.');
+      throw new Error(
+        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+      );
     }
   }
 

@@ -140,27 +140,6 @@ export function ProductsHeader({
               </TouchableOpacity>
             )}
           </View>
-
-          <View style={styles.visibilityFilters}>
-            <TouchableOpacity
-              onPress={onToggleDeactivated}
-              style={[
-                styles.visibilityButton,
-                dark && styles.darkVisibilityButton,
-                showDeactivated && styles.deactivatedSelected,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.visibilityText,
-                  dark && styles.light,
-                  showDeactivated && styles.selectedVisibilityText,
-                ]}
-              >
-                {showDeactivated ? '☑' : '☐'} Mostrar desativados
-              </Text>
-            </TouchableOpacity>
-          </View>
         </>
       )}
 

@@ -158,6 +158,7 @@ export const NativeBottomNav: React.FC<Props> = ({
           return (
             <TouchableOpacity
               key={tab.key}
+              testID={`bottom-tab-${tab.key}`}
               style={[styles.navItem, active && styles.navItemActive]}
               onPress={() => handleTabChange(tab.key, tab.url)}
               accessibilityLabel={isAgent ? 'Assistente' : tab.label}

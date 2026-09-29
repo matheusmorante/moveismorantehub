@@ -1,7 +1,7 @@
 import React from 'react';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
-import { useProductSearch } from '../../../SalesOrder/hooks/useProductSearch';
+import { useProductSearch_new } from '../../../SalesOrder/hooks/useProductSearch_new';
 import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
 
 interface InventoryProductSearchModalProps {
@@ -13,7 +13,7 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
   onSelect,
   onClose,
 }) => {
-  const { search, setSearch, loading, filtered } = useProductSearch('cost');
+  const { search, setSearch, loading, filtered } = useProductSearch_new('cost');
 
   const handleSelect = (product: Product, variation?: Variation) => {
     onSelect(product, variation);

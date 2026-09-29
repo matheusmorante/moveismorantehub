@@ -107,24 +107,33 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
       {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
       <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {!isService && (
-          <div className="flex flex-col gap-1.5 p-2 rounded-2xl">
+          <div id="field-product-kind" className="flex flex-col gap-1.5 p-2 rounded-2xl">
             <label
               htmlFor="product-kind"
               className="text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500"
             >
-              Tipo do produto
+              Origem do estoque
             </label>
             <select
               id="product-kind"
               value={formData.productKind || 'normal'}
               onChange={(event) => {
-                const productKind = event.target.value as 'normal' | 'salvado';
+                const productKind = event.target.value as 'normal' | 'salvado' | 'usado';
                 const salvadoOpp = opportunities.find((o) =>
                   o.name.toLowerCase().includes('salvado')
                 );
 
                 setFormData((prev) => {
-                  const next = { ...prev, productKind };
+                  const next = {
+                    ...prev,
+                    productKind,
+                    condition:
+                      productKind === 'salvado'
+                        ? 'salvado'
+                        : productKind === 'usado'
+                          ? 'usado'
+                          : 'novo',
+                  };
 
                   if (productKind === 'salvado') {
                     next.active = false;
@@ -146,7 +155,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
             >
               <option value="normal">Normal</option>
-              <option value="salvado">Salvado</option>
+              <option value="salvado">Salvados</option>
+              <option value="usado">Usados</option>
             </select>
             {isSalvadoProduct(formData) && (
               <span className="text-[10px] text-slate-500">

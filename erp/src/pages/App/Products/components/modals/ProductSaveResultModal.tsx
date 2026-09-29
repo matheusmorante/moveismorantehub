@@ -245,6 +245,17 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                   />
                   <span className="text-[11px]">Fornecedor Vinculado</span>
                 </li>
+                <li className="flex items-center gap-2">
+                  <i
+                    className={`bi ${
+                      saveResult.checksErp?.origin
+                        ? 'bi-check-circle-fill text-emerald-500'
+                        : 'bi-exclamation-circle-fill text-amber-500'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[11px]">Origem do Estoque Normal</span>
+                </li>
               </ul>
             </div>
 

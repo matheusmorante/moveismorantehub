@@ -23,57 +23,23 @@ export const getVariationDisplayName = (product: Product, variation?: Variation)
   return [parentName, attrValues].filter(Boolean).join(' ');
 };
 
-// Cache em memÃ³ria de curta duraÃ§Ã£o para digitaÃ§Ã£o Ã¡gil (indexado por fornecedor e filtro de ativos)
-const cachedProductsBySupplier = new Map<string, { data: Product[]; timestamp: number }>();
-const CACHE_TTL_MS = 30 * 1000; // 30 segundos
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('product-updated', () => {
-    cachedProductsBySupplier.clear();
-  });
-}
-
 export const fetchAllProductSearchResults = async (
   search: string,
   supplierId?: string,
-  includeDeactivated = false
+  includeDeactivated = false,
+  maxResults = 25
 ) => {
-  const products: Product[] = [];
-  let page = 1;
-  const pageSize = 15;
+  const trimmed = search.trim();
+  if (!trimmed) return [];
 
-  while (true) {
-    const result = await fetchProductsPage(page, pageSize, {
-      search,
-      activeOnly: includeDeactivated ? undefined : true,
-      isDraft: false,
-      supplierId,
-    });
-    products.push(...result.data);
-    if (!result.data.length || products.length >= result.total) break;
-    page += 1;
-  }
+  const result = await fetchProductsPage(1, maxResults, {
+    search: trimmed,
+    activeOnly: includeDeactivated ? undefined : true,
+    isDraft: false,
+    supplierId,
+  });
 
-  // Se a busca direta retornar vazia ou incompleta devido a variaÃ§Ãµes de acentuaÃ§Ã£o,
-  // utiliza a lista de produtos do fornecedor em cache para filtragem precisa no cliente
-  if (products.length === 0) {
-    const cacheKey = `${supplierId ? `supplier_${supplierId}` : '__all__'}:${includeDeactivated ? 'all' : 'active'}`;
-    const now = Date.now();
-    const cached = cachedProductsBySupplier.get(cacheKey);
-    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data;
-    }
-
-    const fallback = await fetchProductsPage(1, 500, {
-      activeOnly: includeDeactivated ? undefined : true,
-      isDraft: false,
-      supplierId,
-    });
-    cachedProductsBySupplier.set(cacheKey, { data: fallback.data, timestamp: now });
-    return fallback.data;
-  }
-
-  return products;
+  return result.data || [];
 };
 
 export const normalizeProductSearch = (value: string) =>

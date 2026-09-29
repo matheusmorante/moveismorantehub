@@ -206,6 +206,7 @@ export const MobileProductCard: React.FC<Props> = ({
         <MobileChannelBadges
           dark={dark}
           isParent={isParent}
+          isSalvado={product.productKind === 'salvado' || product.product_kind === 'salvado'}
           isActive={isActive}
           isPublished={isPublished}
           isDraft={isDraft}

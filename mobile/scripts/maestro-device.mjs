@@ -12,11 +12,10 @@ const adbPath = process.env.ADB_PATH || path.join(sdkRoot, 'platform-tools', pro
 const maestroPath = process.env.MAESTRO_CLI
   || path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Maestro', 'maestro', 'bin', process.platform === 'win32' ? 'maestro.bat' : 'maestro');
 const appId = 'com.morante.mobile';
-const smokeFlow = path.join(projectRoot, 'maestro', 'flows', 'smoke', 'app-launch.yaml');
 const resultsDir = path.join(os.tmpdir(), 'morante-maestro-results');
 
 function fail(message, code = 1) {
-  console.error(`\n[mobile-device] ${message}`);
+  console.error(`\n[maestro-runner] ${message}`);
   process.exit(code);
 }
 
@@ -63,58 +62,49 @@ function requireDevice() {
       return { serial, state, details: details.join(' ') };
     });
 
-  const unauthorized = rows.find(row => row.state === 'unauthorized');
+  const requestedSerial = process.env.ANDROID_SERIAL;
+  const wifiRows = rows.filter(row =>
+    /^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(row.serial) || row.serial.includes('._adb-tls-connect._tcp')
+  );
+  const targets = requestedSerial
+    ? wifiRows.filter(row => row.serial === requestedSerial)
+    : wifiRows;
+
+  if (targets.length === 0) {
+    fail(
+      requestedSerial
+        ? `O alvo ${requestedSerial} não foi encontrado como dispositivo ADB por Wi‑Fi. Pareie e conecte o celular em Depuração sem fio; emuladores e USB não são aceitos.`
+        : 'NENHUM_CELULAR_WIFI: pareie e conecte o celular por Depuração sem fio antes de executar. Emuladores/AVDs e USB não são aceitos.'
+    );
+  }
+
+  const unauthorized = targets.find(row => row.state === 'unauthorized');
   if (unauthorized) {
-    fail(`O aparelho ${unauthorized.serial} está unauthorized. Desbloqueie o telefone e aceite “Permitir depuração USB?”; marque “Sempre permitir deste computador”.`, 2);
+    fail(`O celular ${unauthorized.serial} está unauthorized. Desbloqueie-o e aceite a depuração sem fio.`);
   }
 
-  const offline = rows.find(row => row.state === 'offline');
-  if (offline) fail(`O aparelho ${offline.serial} está offline no ADB. Reconecte o USB e reinicie a depuração USB.`, 2);
+  const offline = targets.find(row => row.state === 'offline');
+  if (offline) fail(`O celular ${offline.serial} está offline no ADB. Reconecte a Depuração sem fio.`);
 
-  let devices = rows.filter(row => row.state === 'device');
-  if (process.env.ANDROID_SERIAL) {
-    devices = devices.filter(row => row.serial === process.env.ANDROID_SERIAL);
-  }
+  const devices = targets.filter(row => row.state === 'device');
+
   if (devices.length === 0) {
-    fail('AGUARDANDO_DISPOSITIVO_FISICO: adb devices -l não listou aparelho autorizado. Confira cabo de dados, modo USB, depuração e driver OEM; este fluxo não inicia emulador.', 2);
+    fail('NENHUM_CELULAR_WIFI_AUTORIZADO: `adb devices -l` não listou celular físico autorizado por Wi‑Fi.');
   }
-  if (devices.length > 1) {
-    fail(`Há ${devices.length} aparelhos autorizados. Defina ANDROID_SERIAL com o serial do celular USB desejado; nenhum alvo foi escolhido automaticamente.`, 2);
+
+  if (devices.length > 1 && !requestedSerial) {
+    fail(`Há ${devices.length} celulares conectados por Wi‑Fi. Defina ANDROID_SERIAL com o serial IP:porta do celular desejado.`);
   }
 
   const device = devices[0];
   if (/^emulator-/i.test(device.serial)) {
-    fail('Alvo recusado: esta configuração permite somente celular físico USB, nunca emulador/AVD.', 2);
-  }
-  if (/[.:]\d+$/.test(device.serial)) {
-    fail(`O alvo ${device.serial} parece ser uma conexão ADB de rede; somente USB físico é permitido.`, 2);
+    fail('Alvo recusado: emuladores/AVDs não são permitidos; conecte um celular físico por Wi‑Fi.');
   }
 
   const qemu = capture(adbPath, ['-s', device.serial, 'shell', 'getprop', 'ro.kernel.qemu']);
-  if (qemu === '1') fail('Alvo recusado: o dispositivo informou ro.kernel.qemu=1; somente celular físico é permitido.', 2);
+  if (qemu === '1') fail('Alvo recusado: o Android informou ro.kernel.qemu=1; use um celular físico por Wi‑Fi.');
 
-  // Some Windows ADB builds omit the `usb:` detail even for a USB-connected phone.
-  // In that case require Windows to enumerate exactly one present USB ADB interface.
-  if (!/\busb:/i.test(device.details)) {
-    if (process.platform !== 'win32') {
-      fail(`O ADB não confirmou transporte USB físico (detalhes: ${device.details || 'ausentes'}). AVD e depuração Wi-Fi não são aceitos nesta suíte.`, 2);
-    }
-
-    const pnpScript = "$items = @(Get-PnpDevice -PresentOnly | Where-Object { $_.Class -eq 'USBDevice' -and $_.FriendlyName -match 'ADB|Android.*Interface' }); if ($items.Count -ne 1) { exit 3 }; $items[0].InstanceId";
-    const pnpCommand = Buffer.from(pnpScript, 'utf16le').toString('base64');
-    const pnpCheck = spawnSync('powershell.exe', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-EncodedCommand',
-      pnpCommand,
-    ], { encoding: 'utf8', timeout: 20_000, windowsHide: true });
-    const usbAdbInterface = pnpCheck.stdout?.trim() || '';
-    if (pnpCheck.error || pnpCheck.status !== 0 || !/^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}/i.test(usbAdbInterface)) {
-      fail(`O ADB não expôs usb: e o Windows não confirmou exatamente uma interface ADB USB física (detalhes ADB: ${device.details || 'ausentes'}). AVD e depuração Wi-Fi não são aceitos nesta suíte.`, 2);
-    }
-  }
-
-  console.log(`[mobile-device] Aparelho físico autorizado via USB: ${device.serial}${/\busb:/i.test(device.details) ? '' : ' (USB confirmado pelo Windows PnP)'}`);
+  console.log(`[maestro-runner] Celular físico Wi‑Fi selecionado: ${device.serial} (${device.details || 'detalhes ausentes'})`);
   return device.serial;
 }
 
@@ -124,29 +114,44 @@ function requireInstalledApp(serial) {
     timeout: 20_000,
   });
   if (result.status !== 0 || !result.stdout?.includes('package:')) {
-    fail(`App ${appId} não está instalado. Execute “npm run test:mobile:build” primeiro.`);
+    fail(`App ${appId} não está instalado no dispositivo ${serial}. Execute "npm run test:mobile:build" primeiro.`);
   }
 }
 
 function runMaestro(serial, flowPath, label) {
-  if (!existsSync(maestroPath)) fail(`Maestro CLI não encontrado em ${maestroPath}. Configure MAESTRO_CLI ou instale a CLI oficial.`);
+  if (!existsSync(maestroPath)) {
+    fail(`Maestro CLI não encontrado em ${maestroPath}.`);
+  }
   if (!existsSync(flowPath)) fail(`Flow não encontrado: ${flowPath}`);
 
   mkdirSync(resultsDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(resultsDir, `${label}-${timestamp}.xml`);
-  console.log(`[mobile-device] Relatório JUnit: ${reportPath}`);
-  run(maestroPath, [
+  console.log(`[maestro-runner] Relatório JUnit: ${reportPath}`);
+
+  const relativeFlow = path.relative(projectRoot, flowPath);
+  const relativeOutput = path.relative(projectRoot, reportPath);
+
+  const result = spawnSync(maestroPath, [
     `--device=${serial}`,
     'test',
     '--format=JUNIT',
-    `--output=${reportPath}`,
-    `--test-output-dir=${resultsDir}`,
-    flowPath,
-  ]);
+    `--output=${relativeOutput}`,
+    relativeFlow,
+  ], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    env: process.env,
+    shell: true,
+  });
+
+  if (result.error) fail(`Falha ao executar Maestro: ${result.error.message}`);
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 const action = process.argv[2] || 'check';
+const targetFlow = process.argv[3];
+
 if (action === 'check') {
   requireDevice();
 } else if (action === 'build') {
@@ -159,13 +164,26 @@ if (action === 'check') {
   run(adbPath, ['-s', serial, 'reverse', 'tcp:8081', 'tcp:8081']);
   const expoCli = path.join(projectRoot, 'node_modules', 'expo', 'bin', 'cli');
   run(process.execPath, [expoCli, 'start', '--dev-client', '--localhost', '--port', '8081']);
-} else if (action === 'smoke' || action === 'suite') {
+} else if (action === 'smoke') {
   const serial = requireDevice();
   requireInstalledApp(serial);
-  const flowsPath = action === 'smoke'
-    ? smokeFlow
-    : path.join(projectRoot, 'maestro', 'flows');
-  runMaestro(serial, flowsPath, action);
+  const flow = path.join(projectRoot, 'maestro', 'flows', 'smoke', 'app-launch.yaml');
+  runMaestro(serial, flow, 'smoke');
+} else if (action === 'inventory') {
+  const serial = requireDevice();
+  requireInstalledApp(serial);
+  const flow = path.join(projectRoot, 'maestro', 'flows', 'inventory', 'inventory-audit.yaml');
+  runMaestro(serial, flow, 'inventory');
+} else if (action === 'flow' && targetFlow) {
+  const serial = requireDevice();
+  requireInstalledApp(serial);
+  const flow = path.resolve(projectRoot, targetFlow);
+  runMaestro(serial, flow, path.basename(targetFlow, path.extname(targetFlow)));
+} else if (action === 'suite') {
+  const serial = requireDevice();
+  requireInstalledApp(serial);
+  const flowsPath = path.join(projectRoot, 'maestro', 'flows');
+  runMaestro(serial, flowsPath, 'full-suite');
 } else {
-  fail(`Ação inválida “${action}”. Use check, build, start, smoke ou suite.`);
+  fail(`Ação inválida "${action}". Use: check, build, start, smoke, inventory, flow <path>, ou suite.`);
 }

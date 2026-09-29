@@ -35,7 +35,8 @@ export const validateErpActivationRequirements = (
   if (isSalvadoProduct(targetProduct || variationParent)) {
     return {
       isValid: false,
-      errorMessage: 'Produtos do tipo Salvado permanecem desativados no ERP.',
+      errorMessage:
+        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.',
     };
   }
 

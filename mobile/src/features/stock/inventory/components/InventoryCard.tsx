@@ -47,6 +47,7 @@ export const InventoryCard = ({
 
   return (
     <TouchableOpacity
+      testID="inventory-card"
       activeOpacity={0.85}
       onPress={() => onPress?.(session)}
       style={[styles.card, isDarkMode && styles.cardDark]}

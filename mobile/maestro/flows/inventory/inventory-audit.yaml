@@ -1,0 +1,51 @@
+appId: com.morante.mobile
+---
+- launchApp
+
+# 1. Garante que o aplicativo carregou a raiz
+- assertVisible:
+    id: "app-root"
+
+# 2. Navega para a aba de Estoque na barra inferior
+- tapOn:
+    id: "bottom-tab-estoque"
+
+# 3. Na tela de Estoque, toca na aba horizontal de Inventário
+- tapOn:
+    id: "tab-inventory"
+
+# 4. Valida que o botão de Novo Inventário está visível
+- assertVisible:
+    id: "new-inventory-btn"
+
+# 5. Clica para abrir o fluxo de inventário
+- tapOn:
+    id: "new-inventory-btn"
+
+# 6. Na tela de escopo, valida a opção "Estoque Completo"
+- assertVisible:
+    id: "scope-full-stock-btn"
+
+# 7. Seleciona o escopo Estoque Completo para iniciar a contagem
+- tapOn:
+    id: "scope-full-stock-btn"
+
+# 8. Valida que a tela de contagem abriu e exibe botões de contagem
+- assertVisible:
+    id: "increment-btn"
+
+# 9. Realiza a contagem de um item (incrementa quantidade física)
+- tapOn:
+    id: "increment-btn"
+
+# 10. Valida persistência visual do input de contagem preenchido
+- assertVisible:
+    id: "count-input"
+
+# 11. Avança para a tela de revisão
+- tapOn:
+    id: "footer-review-btn"
+
+# 12. Valida que a tela de revisão abriu com o botão de confirmação
+- assertVisible:
+    id: "confirm-review-btn"

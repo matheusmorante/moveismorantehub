@@ -1,6 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
-import { ActionConfirmModal } from '../modals/ActionConfirmModal';
+import React, { useMemo } from 'react';
+import type { AuditItem } from '../types/inventoryAudit.types';
 
 interface Stage {
   supplierName: string;
@@ -13,36 +12,13 @@ interface InventoryStagesViewProps {
   readonly items: AuditItem[];
   readonly onSelectStage: (supplierName: string) => void;
   readonly onCancel?: () => void;
-  readonly hasChanges?: boolean;
 }
 
 export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
   items,
   onSelectStage,
   onCancel,
-  hasChanges,
 }) => {
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [canConfirmCancel, setCanConfirmCancel] = useState(false);
-
-  useEffect(() => {
-    if (showCancelConfirm) {
-      setCanConfirmCancel(false);
-      const timer = setTimeout(() => {
-        setCanConfirmCancel(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showCancelConfirm]);
-
-  const handleCancelClick = () => {
-    if (!hasChanges) {
-      onCancel?.();
-    } else {
-      setShowCancelConfirm(true);
-    }
-  };
-
   const { stages, totalItems, totalCounted, progressPercent } = useMemo(() => {
     const stageMap = new Map<string, Stage>();
 
@@ -97,7 +73,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
       {onCancel && (
         <div className="flex justify-end">
           <button
-            onClick={handleCancelClick}
+            onClick={onCancel}
             className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 font-bold rounded-xl transition-colors text-sm"
           >
             <i className="bi bi-arrow-left"></i>
@@ -209,20 +185,6 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
         </div>
       </div>
 
-      {showCancelConfirm && (
-        <ActionConfirmModal
-          title="Cancelar Inventário"
-          description="O inventário possui alterações. Ao cancelar, tudo o que foi feito será desfeito e excluído. Tem certeza que deseja cancelar?"
-          confirmText={canConfirmCancel ? 'Sim, Cancelar' : 'Aguarde...'}
-          onConfirm={() => {
-            setShowCancelConfirm(false);
-            onCancel?.();
-          }}
-          onCancel={() => setShowCancelConfirm(false)}
-          isDestructive={true}
-          confirmDisabled={!canConfirmCancel}
-        />
-      )}
     </div>
   );
 };

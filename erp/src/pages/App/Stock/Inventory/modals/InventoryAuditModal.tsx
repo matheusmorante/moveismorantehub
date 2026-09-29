@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import type { InventorySnapshotItem, InventoryAuditSession } from '../types/inventoryAudit.types';
+import type {
+  AuditItem,
+  InventoryAuditSession,
+  InventorySnapshotItem,
+} from '../types/inventoryAudit.types';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 
@@ -7,27 +11,8 @@ import InventoryScopeModal from './InventoryScopeModal';
 import type { InventoryScopeType } from './InventoryScopeModal';
 import InventoryOperationScreen from '../components/InventoryOperationScreen';
 import InventoryReviewModal from '../modals/InventoryReviewModal';
-import { InventoryProductSearchModal } from '../modals/InventoryProductSearchModal';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
 import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
-
-export interface AuditItem {
-  id: string;
-  key: string;
-  productId: string;
-  variationId?: string;
-  name: string;
-  supplierNames: string;
-  assignedSupplier: string;
-  systemStock: number;
-  physicalCount: number | null;
-  countedAt?: string;
-  unit: string;
-  sku?: string;
-  code?: string;
-  barcode?: string;
-  isActive?: boolean;
-}
 
 interface InventoryAuditModalProps {
   readonly isOpen: boolean;
@@ -178,7 +163,6 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
               onUpdateItemProduct={handleUpdateItemProduct}
               onReview={() => setView('review')}
               onClose={handleRequestClose}
-              hasChanges={hasChanges}
             />
           </>
         )}

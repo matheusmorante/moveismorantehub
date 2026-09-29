@@ -17,7 +17,7 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
-  const [showDeactivated, setShowDeactivated] = useState(false);
+  const [showDeactivated, setShowDeactivated] = useState(true);
   // O ERP exibe variações fundidas na lista para preservar o histórico;
   // elas permanecem somente leitura e sem ações operacionais.
   const [showMerged, setShowMerged] = useState(true);
@@ -216,6 +216,18 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
       return;
     }
     if (!currentActive && targetProd) {
+      if (
+        targetProd.productKind === 'salvado' ||
+        targetProd.product_kind === 'salvado' ||
+        targetProd.condition === 'salvado' ||
+        targetProd.is_salvado
+      ) {
+        Alert.alert(
+          'Produto Desativado no ERP',
+          'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Normal).'
+        );
+        return;
+      }
       const missing: string[] = [];
       if (
         !String(targetProd.name || targetProd.description || '').trim() ||

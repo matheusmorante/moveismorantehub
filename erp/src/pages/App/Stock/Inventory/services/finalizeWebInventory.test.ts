@@ -14,6 +14,7 @@ const draft = {
   date: '2026-09-25T10:00:00Z',
   name: 'Teste',
   responsibleId: 'operator-1',
+  responsibleName: 'Operador Teste',
   hasStages: false,
   status: 'in_progress' as const,
   updatedAt: '2026-09-25T10:00:00Z',
@@ -40,10 +41,25 @@ describe('commit do inventário web', () => {
 
   it('envia um único lote e limpa o IndexedDB depois da resposta confirmada', async () => {
     rpc.mockResolvedValue({ data: { auditId: draft.id, status: 'processed' }, error: null });
-    await finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments);
+    await finalizeWebInventory(
+      draft.id,
+      draft.code,
+      { status: 'completed', responsibleId: draft.responsibleId, responsibleName: draft.responsibleName },
+      adjustments
+    );
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls[0][1].p_items[0].previousStock).toBe(4);
+    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Operador Teste');
+    expect(rpc.mock.calls[0][1].p_observation.responsibleName).toBe('Operador Teste');
     expect(await getWebInventoryDraft(draft.id)).toBeNull();
+  });
+
+  it('recupera o responsável do rascunho quando ele falta no snapshot enviado', async () => {
+    rpc.mockResolvedValue({ data: { auditId: draft.id, status: 'processed' }, error: null });
+    await finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments);
+
+    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Operador Teste');
+    expect(rpc.mock.calls[0][1].p_observation.responsibleName).toBe('Operador Teste');
   });
 
   it('preserva a contagem quando o Supabase falha e permite retomar com o mesmo ID', async () => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import Product from '../../../../../types/product.type';
+import { isSalvadoProduct } from '../../../../../utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { ProductCardActions } from './ProductCardActions';
 
@@ -87,6 +88,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           active={product.active !== false}
           catalogStatus={product.status}
           isParent={isParent}
+          isSalvado={isSalvadoProduct(product)}
           canManageCatalog={canManageCatalog}
           isDraft={isDraft}
           activeVariationsCount={

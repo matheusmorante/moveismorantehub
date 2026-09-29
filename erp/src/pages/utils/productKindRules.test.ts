@@ -157,4 +157,29 @@ describe('tipo único Normal/Salvado para produtos e composições', () => {
     expect(dbData.active).toBe(false);
     expect(dbData.status).toBe('hidden');
   });
+
+  it('produto simples ou composição Usados: preserva productKind usado e segue ativação normal', () => {
+    const usadoProduct: Partial<Product> = {
+      ...getInitialProductFormData(),
+      name: 'Sofá Usado',
+      productKind: 'usado',
+      active: true,
+      status: 'published',
+    };
+
+    const result = normalizeProductForSave(usadoProduct, {
+      isDraft: false,
+      isCompletingDraft: false,
+      catalogStatus: 'published',
+      name: 'Sofá Usado',
+    });
+
+    expect(result.productKind).toBe('usado');
+    expect(result.active).toBe(true);
+
+    const dbData = mapToDB(result);
+    expect(dbData.product_kind).toBe('usado');
+    expect(dbData.active).toBe(true);
+  });
 });
+

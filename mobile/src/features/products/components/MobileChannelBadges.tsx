@@ -5,6 +5,7 @@ interface MobileChannelBadgesProps {
   dark: boolean;
   isParent?: boolean;
   disabled?: boolean;
+  isSalvado?: boolean;
   isActive: boolean;
   isPublished: boolean;
   isDraft: boolean;
@@ -17,6 +18,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   dark,
   isParent = false,
   disabled = false,
+  isSalvado = false,
   isActive,
   isPublished,
   isDraft,
@@ -24,7 +26,16 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   onToggleActive,
   onToggleCatalog,
 }) => {
+  const erpActive = isActive && !isDraft && !isSalvado;
+
   const handleToggleERP = () => {
+    if (isSalvado) {
+      Alert.alert(
+        'Origem do Estoque: Salvados',
+        'Produtos de origem do estoque Salvados não podem ser ativos no ERP.'
+      );
+      return;
+    }
     if (isParent || disabled) return;
     if (isDraft) {
       Alert.alert(
@@ -55,10 +66,10 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={handleToggleERP}
-        disabled={isParent || disabled}
+        disabled={(isParent || disabled) && !isSalvado}
         style={[
           styles.bipartiteBtn,
-          isActive && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
+          erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
           dark && styles.darkBipartiteBorder,
         ]}
       >
@@ -70,24 +81,24 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
         <View
           style={[
             styles.bipartiteStatus,
-            isActive && !isDraft ? styles.statusActiveBg : styles.statusInactiveBg,
+            erpActive ? styles.statusActiveBg : styles.statusInactiveBg,
             dark &&
-              (isActive && !isDraft ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+              (erpActive ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
           ]}
         >
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: isActive && !isDraft ? '#10b981' : '#94a3b8' },
+              { backgroundColor: erpActive ? '#10b981' : '#94a3b8' },
             ]}
           />
           <Text
             style={[
               styles.bipartiteStatusText,
-              { color: isActive && !isDraft ? '#047857' : '#64748b' },
+              { color: erpActive ? '#047857' : '#64748b' },
             ]}
           >
-            {isActive && !isDraft ? 'Ativo' : 'Desativado'}
+            {erpActive ? 'Ativo' : 'Desativado'}
           </Text>
         </View>
       </TouchableOpacity>

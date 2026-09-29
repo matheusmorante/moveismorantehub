@@ -32,6 +32,7 @@ const BodyRow = ({
   errors,
 }: Props) => {
   const statusError = errors[`payment_${idx}_status`];
+  const methodError = errors[`payment_${idx}_method`];
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -91,6 +92,10 @@ const BodyRow = ({
   };
 
   const renderMethodItem = (method: string) => {
+    if (!method.trim()) {
+      return <span className="text-xs font-bold text-slate-400">Selecione</span>;
+    }
+
     const icon = getPaymentIcon(method);
     let detail = '';
 
@@ -125,7 +130,7 @@ const BodyRow = ({
   if (isMobile) {
     return (
       <div
-        className={`p-4 bg-white dark:bg-slate-900/40 rounded-2xl border shadow-sm relative group overflow-hidden ${statusError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'}`}
+        className={`p-4 bg-white dark:bg-slate-900/40 rounded-2xl border shadow-sm relative group overflow-hidden ${statusError || methodError ? 'border-red-500 ring-2 ring-red-500/10' : 'border-slate-100 dark:border-slate-800'}`}
       >
         <div className="flex flex-col gap-4">
           {/* Header: Method & Delete */}
@@ -134,7 +139,7 @@ const BodyRow = ({
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full flex items-center justify-between gap-3 bg-transparent border-b-2 border-slate-200 px-3 py-2.5 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
+                className={`w-full flex items-center justify-between gap-3 bg-transparent border-b-2 px-3 py-2.5 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
               >
                 {renderMethodItem(payment.method)}
                 <i
@@ -159,6 +164,7 @@ const BodyRow = ({
                   ))}
                 </div>
               </DropdownPortal>
+              {methodError && <p className="mt-1 text-[10px] text-red-600">{methodError}</p>}
             </div>
             <button
               type="button"
@@ -309,7 +315,7 @@ const BodyRow = ({
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full flex items-center justify-between gap-3 border-b-2 border-slate-200 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
+            className={`w-full flex items-center justify-between gap-3 border-b-2 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
           >
             {renderMethodItem(payment.method)}
             <i
@@ -339,6 +345,7 @@ const BodyRow = ({
             </div>
           </DropdownPortal>
         </div>
+        {methodError && <p className="mt-1 text-[10px] text-red-600">{methodError}</p>}
 
         {payment.method === 'Pix' && (
           <div className="mt-2">

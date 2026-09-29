@@ -113,7 +113,8 @@ export default function UnavailabilitiesPage() {
           >
             <option value="all">Todos</option>
             <option value="normal">Normal</option>
-            <option value="salvado">Salvado</option>
+            <option value="salvado">Salvados</option>
+            <option value="usado">Usados</option>
           </select>
         </label>
       </div>
@@ -154,7 +155,7 @@ export default function UnavailabilitiesPage() {
                     {item.product_variations?.name || item.products?.name}
                   </td>
                   <td className="px-4 py-2">
-                    {item.products?.product_kind === 'salvado' ? 'Salvado' : 'Normal'}
+                    {item.products?.product_kind === 'salvado' ? 'Salvados' : item.products?.product_kind === 'usado' ? 'Usados' : 'Normal'}
                   </td>
                   <td className="px-4 py-2">{item.suppliers?.fantasy_name || '-'}</td>
                   <td className="px-4 py-2">

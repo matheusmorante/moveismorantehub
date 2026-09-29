@@ -109,34 +109,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   </Text>
                 </TouchableOpacity>
               )}
-              {onLaunchStock && product.itemType !== 'service' && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onLaunchStock(product);
-                  }}
-                >
-                  <Share2 size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Movimentações de Estoque
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {onShowHistory && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onShowHistory(product);
-                  }}
-                >
-                  <Clock3 size={16} color="#64748b" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Histórico de Preços
-                  </Text>
-                </TouchableOpacity>
-              )}
               {onShowOrders && (
                 <TouchableOpacity
                   style={styles.menuItem}

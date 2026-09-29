@@ -181,6 +181,9 @@ export const executeInventoryFinalization = async ({
       'A submissão ficou congelada para envio. Conecte-se à internet e retome este inventário para sincronizar o estoque.',
       [{ text: 'OK', onPress: onClose }]
     );
+    if (Platform.OS === 'web') {
+      onClose();
+    }
     return false;
   }
 

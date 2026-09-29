@@ -25,8 +25,8 @@ describe('aiService Facade & Modularization', () => {
   });
 
   it('deve expor os métodos fiscais e tributários', () => {
-    expect(typeof aiService.findNCM).toBe('function');
-    expect(typeof aiService.generateNCM).toBe('function');
+    expect('findNCM' in aiService).toBe(false);
+    expect('generateNCM' in aiService).toBe(false);
     expect(typeof aiService.generateFiscalData).toBe('function');
   });
 

@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import type Product from '../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
-import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
-import { isQuotaExceeded, notifyAiQuotaWarning } from '@/services/aiGateway/aiQuotaNotifier';
+import { isQuotaExceeded } from '@/services/aiGateway/aiQuotaNotifier';
 import { toast } from 'react-toastify';
 
 export interface CategoryOptionLike {
@@ -28,54 +27,12 @@ export function useProductFormAi(
   formData: Partial<Product>,
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
   availableCategories: readonly CategoryOptionLike[],
-  isQuickRegister = false,
-  isOpen = true
+  _isQuickRegister = false,
+  _isOpen = true
 ) {
   const [isGeneratingCategory, setIsGeneratingCategory] = useState(false);
   const [isGeneratingComboName, setIsGeneratingComboName] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
-  const [isGeneratingNCM, setIsGeneratingNCM] = useState(false);
-  const [ncmSuggestion, setNcmSuggestion] = useState<NcmAiSuggestion | null>(null);
-  const [isNcmAutoEnabled, setIsNcmAutoEnabled] = useState(true);
-  const ncmEnabledRef = useRef(true);
-  const ncmRequestVersion = useRef(0);
-  const ncmInFlight = useRef(false);
-  const ncmAttempt = useRef('');
-  const ncmContext = JSON.stringify([
-    formData.name?.trim(),
-    (formData.title || formData.marketplaceTitle || formData.name)?.trim(),
-    formData.description?.trim(),
-    formData.categoryIds,
-    formData.category,
-    formData.material,
-  ]);
-  const latestNcmContext = useRef(ncmContext);
-  latestNcmContext.current = ncmContext;
-  const canGenerateNcm = Boolean(
-    formData.name?.trim() &&
-      (formData.title || formData.marketplaceTitle || formData.name)?.trim() &&
-      formData.description?.trim() &&
-      (formData.categoryIds?.length || formData.category) &&
-      formData.itemType !== 'service'
-  );
-  const toggleNcmAuto = () => {
-    ncmEnabledRef.current = !ncmEnabledRef.current;
-    ncmRequestVersion.current += 1;
-    ncmAttempt.current = '';
-    setIsNcmAutoEnabled(ncmEnabledRef.current);
-  };
-  useEffect(
-    () => () => {
-      ncmRequestVersion.current += 1;
-    },
-    []
-  );
-  useEffect(() => {
-    ncmRequestVersion.current += 1;
-    ncmAttempt.current = '';
-    ncmEnabledRef.current = isOpen;
-    setIsNcmAutoEnabled(true);
-  }, [isOpen]);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
   const [isFillingFiscalWithAI, setIsFillingFiscalWithAI] = useState(false);
@@ -235,82 +192,6 @@ export function useProductFormAi(
     }
   };
 
-  const handleGenerateNCM = async (isAutoTrigger = false) => {
-    if (!ncmEnabledRef.current || !canGenerateNcm || ncmInFlight.current) return;
-    const title = (formData.name || formData.description || '').trim();
-    if (!title) {
-      if (!isAutoTrigger) toast.warning('Título necessário para buscar NCM');
-      return;
-    }
-    ncmInFlight.current = true;
-    const requestVersion = ncmRequestVersion.current;
-    const context = ncmContext;
-    ncmAttempt.current = context;
-    setIsGeneratingNCM(true);
-    setNcmSuggestion(null);
-    try {
-      const category =
-        availableCategories.find((c) => formData.categoryIds?.includes(c.id))?.name ||
-        formData.category ||
-        '';
-      const description = formData.description || formData.ecommerceDescription || '';
-      const suggestion = await aiService.findNCM(
-        title,
-        formData.material || '',
-        description,
-        category
-      );
-      if (
-        suggestion.ncm &&
-        ncmEnabledRef.current &&
-        requestVersion === ncmRequestVersion.current &&
-        context === latestNcmContext.current
-      ) {
-        setNcmSuggestion(suggestion);
-        if (!isAutoTrigger) {
-          toast.info(`Sugestão de NCM ${suggestion.ncm} pronta para revisão.`);
-        }
-      } else if (!isAutoTrigger && suggestion.reviewReason) {
-        toast.warning(suggestion.reviewReason);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      ncmInFlight.current = false;
-      setIsGeneratingNCM(false);
-    }
-  };
-
-  const acceptNcmSuggestion = () => {
-    if (!ncmSuggestion?.ncm) return;
-    setFormData((prev: Partial<Product>) => ({
-      ...prev,
-      fiscal: {
-        ...prev.fiscal!,
-        ncm: ncmSuggestion.ncm,
-        ncmDescription: ncmSuggestion.description,
-      },
-    }));
-    setNcmSuggestion(null);
-    toast.success(`NCM ${ncmSuggestion.ncm} aplicado ao cadastro após confirmação.`);
-  };
-
-  // Uma tentativa por contexto; religar permite solicitar uma nova sugestão.
-  useEffect(() => {
-    if (
-      isOpen &&
-      isNcmAutoEnabled &&
-      canGenerateNcm &&
-      !isGeneratingNCM &&
-      ncmAttempt.current !== ncmContext
-    ) {
-      const timer = setTimeout(() => {
-        handleGenerateNCM(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, isNcmAutoEnabled, canGenerateNcm, isGeneratingNCM, ncmContext]);
-
   const handleImproveDescriptionWithAI = async () => {
     const nome = (formData.name || formData.description || '').trim();
     const temMedida =
@@ -399,23 +280,16 @@ export function useProductFormAi(
     isGeneratingCategory ||
     isGeneratingComboName ||
     isGeneratingDescription ||
-    isGeneratingNCM ||
     isGeneratingTitle ||
     isImprovingDescription ||
     isFillingFiscalWithAI ||
     isSuggestingPrices;
 
   return {
-    isNcmAutoEnabled,
-    toggleNcmAuto,
     isAiProcessing,
     isGeneratingCategory,
     isGeneratingComboName,
     isGeneratingDescription,
-    isGeneratingNCM,
-    ncmSuggestion,
-    acceptNcmSuggestion,
-    dismissNcmSuggestion: () => setNcmSuggestion(null),
     isGeneratingTitle,
     isImprovingDescription,
     isFillingFiscalWithAI,
@@ -427,7 +301,6 @@ export function useProductFormAi(
     handleGenerateAIDescription,
     handleGenerateMarketplaceTitle,
     handleAutoFillFiscalWithAI,
-    handleGenerateNCM,
     handleImproveDescriptionWithAI,
     handleSuggestPrices,
   };

@@ -38,6 +38,9 @@ export const validatePayments = (
 
   payments.forEach((payment, idx) => {
     if (!payment) return;
+    if (!payment.method?.trim()) {
+      errors[`payment_${idx}_method`] = 'Selecione uma forma de pagamento.';
+    }
     if (!payment.status) {
       errors[`payment_${idx}_status`] = 'O status do pagamento é obrigatório.';
     }

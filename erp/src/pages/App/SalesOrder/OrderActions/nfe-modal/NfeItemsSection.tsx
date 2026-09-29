@@ -2,7 +2,6 @@ import React from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
 import { NfeItemRow } from './NfeItemRow';
-import type { NcmAiSuggestion } from '@/pages/utils/aiService/aiFiscalClassificationService';
 
 export interface NfeItemFiscal {
   ncm: string;
@@ -16,7 +15,6 @@ export interface NfeItemFiscal {
 export interface NfeItemWithFiscal extends Item {
   fiscal: NfeItemFiscal;
   isUnregistered: boolean;
-  pendingNcmSuggestion?: NcmAiSuggestion;
 }
 
 interface Props {
@@ -24,19 +22,11 @@ interface Props {
   items: NfeItemWithFiscal[];
   onUpdateItemFiscal: (index: number, fiscalUpdates: Partial<NfeItemFiscal>) => void;
   onBatchUpdateItems: (updated: NfeItemWithFiscal[]) => void;
-  onSuggestNcm: (index: number) => void;
-  onAcceptNcmSuggestion: (index: number) => void;
-  onRejectNcmSuggestion: (index: number) => void;
-  suggestingNcmIndex: number | null;
 }
 
 export const NfeItemsSection: React.FC<Props> = ({
   items,
   onUpdateItemFiscal,
-  onSuggestNcm,
-  onAcceptNcmSuggestion,
-  onRejectNcmSuggestion,
-  suggestingNcmIndex,
 }) => {
   // Contadores informativos
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
@@ -70,10 +60,6 @@ export const NfeItemsSection: React.FC<Props> = ({
             key={`${item.productId || 'item'}_${index}`}
             item={item}
             onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
-            onSuggestNcm={() => onSuggestNcm(index)}
-            onAcceptNcmSuggestion={() => onAcceptNcmSuggestion(index)}
-            onRejectNcmSuggestion={() => onRejectNcmSuggestion(index)}
-            isSuggestingNcm={suggestingNcmIndex === index}
           />
         ))}
       </div>

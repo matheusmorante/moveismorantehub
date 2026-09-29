@@ -157,11 +157,6 @@ const ShippingData = ({
                     className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${shipping.noAddress ? 'translate-x-6' : 'translate-x-1'}`}
                   />
                 </button>
-                <span
-                  className={`text-[9px] font-black uppercase tracking-widest ${shipping.noAddress ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}
-                >
-                  {shipping.noAddress ? 'Sim' : 'Não'}
-                </span>
               </div>
             </div>
 

@@ -4,7 +4,7 @@ import type { Product, Variation } from '@/pages/types/product.type';
 export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 30;
 
 export type UnavailabilityStatusFilter = 'all' | 'active' | 'cancelled';
-export type UnavailabilityProductKindFilter = 'all' | 'normal' | 'salvado';
+export type UnavailabilityProductKindFilter = 'all' | 'normal' | 'salvado' | 'usado';
 
 export interface StockUnavailabilityFilters {
   page: number;
@@ -26,7 +26,7 @@ export interface StockUnavailability {
   observation: string | null;
   photos: string[] | null;
   created_at: string;
-  products: { id: string; name: string; sku: string; product_kind: 'normal' | 'salvado' | null };
+  products: { id: string; name: string; sku: string; product_kind: 'normal' | 'salvado' | 'usado' | null };
   product_variations: { name: string; sku: string };
   suppliers: { fantasy_name: string } | null;
 }

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { AuditItem } from '../modals/InventoryAuditModal';
+import type { AuditItem } from '../types/inventoryAudit.types';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type InventoryMove from '@/pages/types/inventoryMove.type';
 
 interface InventoryReviewModalProps {
   readonly items: AuditItem[];

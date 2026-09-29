@@ -9,6 +9,7 @@ export interface ChannelStatusBadgesProps {
   readonly onToggleCatalog?: (e: React.MouseEvent) => void;
   readonly canManageCatalog?: boolean;
   readonly isParent?: boolean;
+  readonly isSalvado?: boolean;
   readonly size?: 'sm' | 'xs';
   readonly disabled?: boolean;
   readonly isDraft?: boolean;
@@ -27,6 +28,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   onToggleCatalog,
   canManageCatalog = true,
   isParent = false,
+  isSalvado = false,
   size = 'sm',
   disabled = false,
   isDraft = false,
@@ -36,11 +38,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 }) => {
   const [showPopover, setShowPopover] = useState(false);
   const [showDisabledPopover, setShowDisabledPopover] = useState(false);
+  const [showSalvadoPopover, setShowSalvadoPopover] = useState(false);
   const erpBadgeAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isCatalogPublished = !isDraft && catalogStatus === 'published';
-  const isERPActive = !isDraft && active !== false;
+  const isERPActive = !isDraft && !isSalvado && active !== false;
+  const isERPDisabled = disabled || isSalvado;
 
   const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
   const py = size === 'xs' ? 'py-0.5' : 'py-1';
@@ -50,6 +54,12 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const handleERPClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isSalvado) {
+      toast.warning(
+        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+      );
+      return;
+    }
     if (isParent) return; // O status do pai é estritamente derivado das variações
     if (isDraft) {
       toast.warning(
@@ -82,21 +92,39 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
         /* No pai: Somente visualização com popover explicativo no hover */
         <div
           ref={erpBadgeAnchorRef}
-          className="relative inline-flex items-center cursor-help"
-          onMouseEnter={() => setShowPopover(true)}
-          onMouseLeave={() => setShowPopover(false)}
-          aria-label="Status ERP derivado das variações"
+          className={`relative inline-flex items-center ${isSalvado ? 'cursor-not-allowed' : 'cursor-help'}`}
+          onMouseEnter={() => (isSalvado ? setShowSalvadoPopover(true) : setShowPopover(true))}
+          onMouseLeave={() => {
+            setShowPopover(false);
+            setShowSalvadoPopover(false);
+          }}
+          title={
+            isSalvado
+              ? 'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+              : undefined
+          }
+          aria-label={
+            isSalvado
+              ? 'Status ERP: Desativado (Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.)'
+              : 'Status ERP derivado das variações'
+          }
         >
           <div
             className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isERPActive
-                ? 'border-emerald-200/80 dark:border-emerald-800/50'
-                : 'border-slate-200/80 dark:border-slate-700/60'
+              isSalvado
+                ? 'border-slate-300 dark:border-slate-700 opacity-50 bg-slate-200/80 dark:bg-slate-800/80 grayscale'
+                : isERPActive
+                  ? 'border-emerald-200/80 dark:border-emerald-800/50'
+                  : 'border-slate-200/80 dark:border-slate-700/60'
             }`}
           >
             {/* Tag Fixa ERP */}
             <span
-              className={`bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 font-extrabold ${textSize} ${pxTag} ${py} flex items-center border-r border-blue-100 dark:border-blue-900/40`}
+              className={`${
+                isSalvado
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
+                  : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
+              } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
             >
               ERP
             </span>
@@ -104,20 +132,24 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Status Somente Leitura ERP */}
             <span
               className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isERPActive
-                  ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
+                isSalvado
+                  ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
+                  : isERPActive
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
               }`}
             >
               <span
-                className={`${dotSize} rounded-full shrink-0 ${isERPActive ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                className={`${dotSize} rounded-full shrink-0 ${
+                  isSalvado ? 'bg-slate-400 dark:bg-slate-600' : isERPActive ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
               />
               <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
             </span>
           </div>
 
           {/* Popover Explicativo no Hover do Pai */}
-          {showPopover && (
+          {showPopover && !isSalvado && (
             <DropdownPortal
               isOpen={showPopover}
               anchorRef={erpBadgeAnchorRef}
@@ -153,54 +185,84 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           )}
         </div>
       ) : (
-        /* Na variação: Botão interativo normal */
-        <button
-          type="button"
-          onClick={handleERPClick}
-          disabled={disabled}
-          onMouseEnter={() => disabled && setShowDisabledPopover(true)}
-          onMouseLeave={() => disabled && setShowDisabledPopover(false)}
-          aria-label={`Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`}
-          title={
-            disabled
-              ? undefined
-              : isDraft
-                ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
-                : isERPActive
-                  ? 'Clique para desativar esta variação no ERP'
-                  : 'Clique para ativar esta variação no ERP'
-          }
-          className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
-            disabled
-              ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
-              : isERPActive
-                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
-                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
-          }`}
+        /* Na variação ou produto simples: Botão interativo */
+        <div
+          ref={!isParent ? erpBadgeAnchorRef : undefined}
+          className="relative inline-flex items-center"
+          onMouseEnter={() => {
+            if (isSalvado) {
+              setShowSalvadoPopover(true);
+            } else if (disabled) {
+              setShowDisabledPopover(true);
+            }
+          }}
+          onMouseLeave={() => {
+            setShowSalvadoPopover(false);
+            setShowDisabledPopover(false);
+          }}
         >
-          {/* Tag Fixa ERP */}
-          <span
-            className={`bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 font-extrabold ${textSize} ${pxTag} ${py} flex items-center border-r border-blue-100 dark:border-blue-900/40`}
-          >
-            ERP
-          </span>
-
-          {/* Status Interativo ERP */}
-          <span
-            className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-              disabled
-                ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
-                : isERPActive
-                  ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
+          <button
+            type="button"
+            onClick={handleERPClick}
+            disabled={isERPDisabled}
+            aria-label={
+              isSalvado
+                ? 'Status ERP: Desativado (Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.)'
+                : `Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`
+            }
+            title={
+              isSalvado
+                ? 'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+                : disabled
+                  ? undefined
+                  : isDraft
+                    ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
+                    : isERPActive
+                      ? 'Clique para desativar esta variação no ERP'
+                      : 'Clique para ativar esta variação no ERP'
+            }
+            className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
+              isSalvado
+                ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
+                : disabled
+                  ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+                  : isERPActive
+                    ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer active:scale-95'
+                    : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer active:scale-95'
             }`}
           >
+            {/* Tag Fixa ERP */}
             <span
-              className={`${dotSize} rounded-full shrink-0 ${isERPActive ? 'bg-emerald-500' : 'bg-slate-400'}`}
-            />
-            <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
-          </span>
-        </button>
+              className={`${
+                isSalvado
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
+                  : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
+              } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
+            >
+              ERP
+            </span>
+
+            {/* Status Interativo ERP */}
+            <span
+              className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
+                isSalvado
+                  ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
+                  : disabled
+                    ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
+                    : isERPActive
+                      ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <span
+                className={`${dotSize} rounded-full shrink-0 ${
+                  isSalvado ? 'bg-slate-400 dark:bg-slate-600' : isERPActive ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
+              />
+              <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
+            </span>
+          </button>
+        </div>
       )}
 
       {/* Botão Catálogo (apenas para itens que não são agrupadores de produto pai) */}
@@ -269,6 +331,25 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
               <span>Ação Indisponível</span>
             </div>
             <p className="text-slate-200 leading-snug">{disabledReason}</p>
+          </div>
+        </DropdownPortal>
+      )}
+
+      {showSalvadoPopover && (
+        <DropdownPortal
+          isOpen={showSalvadoPopover}
+          anchorRef={erpBadgeAnchorRef}
+          className="min-w-[240px] max-w-[280px] pointer-events-none"
+          onClose={() => setShowSalvadoPopover(false)}
+        >
+          <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
+            <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
+              <i className="bi bi-info-circle-fill text-[12px]" />
+              <span>Origem do Estoque: Salvados</span>
+            </div>
+            <p className="text-slate-200 leading-snug">
+              Produtos de origem de estoque <strong>Salvados</strong> não podem ser ativados no ERP, apenas no catálogo digital.
+            </p>
           </div>
         </DropdownPortal>
       )}

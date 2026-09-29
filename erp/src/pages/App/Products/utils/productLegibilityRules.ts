@@ -8,6 +8,7 @@ export interface ERPLegibilityResult {
     unitPrice: boolean;
     categories: boolean;
     supplier: boolean;
+    origin: boolean;
   };
 }
 
@@ -74,6 +75,13 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
     }
   }
 
+  const isNormalOrigin = data.productKind === 'normal' || !data.productKind;
+  if (!isNormalOrigin) {
+    errors.push(
+      'Origem do estoque deve ser Normal (produtos com origem Salvados não podem ser ativados no ERP).'
+    );
+  }
+
   return {
     isLegible: errors.length === 0,
     errors,
@@ -82,6 +90,7 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
       unitPrice: hasValidPrice,
       categories: hasValidCategories,
       supplier: hasValidSupplier,
+      origin: isNormalOrigin,
     },
   };
 }

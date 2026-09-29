@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import type { CardVariationItem } from './ProductCardVariationList';
@@ -31,7 +32,41 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
 }) => {
+  const navigate = useNavigate();
+
   if (!isMenuOpen) return null;
+
+  const handlePrintIdentificationLabel = () => {
+    const parentTitle = product.name || product.title || '';
+    const varName = v.name || (v as any).displayName || '';
+    const fullName =
+      parentTitle && varName && !parentTitle.includes(varName)
+        ? `${parentTitle} - ${varName}`
+        : varName || parentTitle;
+
+    navigate('/estoque/etiquetas?cat=identificacao', {
+      state: {
+        product: {
+          ...product,
+          id: v.id || product.id,
+          parentId: product.id,
+          name: fullName,
+          title: fullName,
+          description: fullName,
+          variation: varName,
+          variationName: varName,
+          sku: v.sku || product.sku || product.code,
+          barcode: (v as any).barcode || (v as any).ean || v.sku || product.code,
+          unitPrice: v.unitPrice || v.price || product.unitPrice,
+          isVariation: true,
+          images: Array.isArray(v.images) && v.images.length > 0 ? v.images : product.images,
+          parentImages: product.images,
+        },
+        quantity: 10,
+        fillSheet: true,
+      },
+    });
+  };
 
   return (
     <DropdownPortal
@@ -46,40 +81,26 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
           onClick={(e) => {
             e.stopPropagation();
             onSetActiveVarMenuId(null);
+            handlePrintIdentificationLabel();
+          }}
+          className="w-full px-3.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer text-blue-600 dark:text-blue-400"
+        >
+          <i className="bi bi-qr-code text-blue-500" />
+          Imprimir Etiqueta de Identificação
+        </button>
+      )}
+      {!v.mergedToVariationId && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSetActiveVarMenuId(null);
             onEdit(product);
           }}
           className="w-full px-3.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
         >
           <i className="bi bi-pencil text-slate-400" />
           Editar Produto
-        </button>
-      )}
-      {onShowHistory && !v.mergedToVariationId && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSetActiveVarMenuId(null);
-            onShowHistory({ ...product, selectedVariationId: v.id });
-          }}
-          className="w-full px-3.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-        >
-          <i className="bi bi-clock-history text-slate-400" />
-          Histórico de Preços
-        </button>
-      )}
-      {onLaunchStock && !v.mergedToVariationId && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSetActiveVarMenuId(null);
-            onLaunchStock({ ...product, selectedVariationId: v.id });
-          }}
-          className="w-full px-3.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-        >
-          <i className="bi bi-box-seam text-slate-400" />
-          Lançar Estoque
         </button>
       )}
       {onMoveToAnotherFamily && !v.mergedToVariationId && (
