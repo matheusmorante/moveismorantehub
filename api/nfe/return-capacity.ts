@@ -38,10 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
   const supabase = createClient(supabaseUrl, serviceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(
-    supabase,
-    req.headers.authorization
-  );
+  const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({
       success: false,
@@ -194,11 +191,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       '[NF-e Return Capacity] Falha ao calcular saldo fiscal:',
       error?.message || 'erro desconhecido'
     );
-    return res
-      .status(503)
-      .json({
-        success: false,
-        error: error?.message || 'Não foi possível validar o saldo faturado.',
-      });
+    return res.status(503).json({
+      success: false,
+      error: error?.message || 'Não foi possível validar o saldo faturado.',
+    });
   }
 }

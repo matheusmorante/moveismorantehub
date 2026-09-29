@@ -12,14 +12,15 @@ export async function authorizeFiscalOperator(
   const headerValue = Array.isArray(authorizationHeader)
     ? authorizationHeader[0]
     : authorizationHeader;
-  const token = String(headerValue || '').replace(/^Bearer\s+/i, '').trim();
+  const token = String(headerValue || '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
   if (!token) return { ok: false, status: 401, message: 'Autenticação necessária.' };
 
   try {
     const { data, error } = await client.auth.getUser(token);
     const user = data?.user;
-    if (error || !user?.id)
-      return { ok: false, status: 401, message: 'Sessão inválida.' };
+    if (error || !user?.id) return { ok: false, status: 401, message: 'Sessão inválida.' };
 
     const { data: profile, error: profileError } = await client
       .from('profiles')

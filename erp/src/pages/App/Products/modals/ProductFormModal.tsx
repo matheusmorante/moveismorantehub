@@ -220,10 +220,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           )}
 
           {activeTab === 'fiscal' && (
-            <ProductFiscalTab
-              formData={formData}
-              setFormData={setFormData}
-            />
+            <ProductFiscalTab formData={formData} setFormData={setFormData} />
           )}
         </div>
 

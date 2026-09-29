@@ -7,18 +7,13 @@ function parseElement(xml: string, expectedName: string): Element {
   if (!xml || /<!DOCTYPE|<!ENTITY|<\?/i.test(xml))
     throw new Error('Bloco fiscal original inválido.');
   let error = '';
+  const onParseError = (level: string, message: string) => {
+    if (level === 'warning' && message.includes('errorHandler') && message.includes('deprecated')) return;
+    error ||= message;
+  };
   const document = new DOMParser({
-    errorHandler: {
-      warning: (message) => {
-        error ||= message;
-      },
-      error: (message) => {
-        error ||= message;
-      },
-      fatalError: (message) => {
-        error ||= message;
-      },
-    },
+    onError: onParseError,
+    errorHandler: onParseError,
   }).parseFromString(xml, 'application/xml');
   if (
     error ||

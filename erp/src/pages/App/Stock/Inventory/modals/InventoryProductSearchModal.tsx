@@ -87,7 +87,12 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
           )}
 
           {!loading &&
-            filtered.map(({ p, v, key }) => {
+            filtered
+              .filter(({ p }) => {
+                const kind = (p as any)?.productKind || (p as any)?.product_kind;
+                return kind !== 'salvado' && kind !== 'usado';
+              })
+              .map(({ p, v, key }) => {
               const displayName =
                 getVariationDisplayName(p, v) || p.description || p.name || 'Produto';
               const systemStock = v ? Number(v.stock ?? 0) : Number(p.stock ?? 0);

@@ -43,15 +43,13 @@ export function NativeSettingsScreen({
   const updateTheme = async (darkMode: boolean) => {
     setIsDarkMode(darkMode);
     const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
-    const { error } = await supabase
-      .from('settings')
-      .upsert({
-        id: 'app',
-        data: {
-          ...(data?.data || {}),
-          mobileSettings: { ...(data?.data?.mobileSettings || {}), darkMode },
-        },
-      });
+    const { error } = await supabase.from('settings').upsert({
+      id: 'app',
+      data: {
+        ...(data?.data || {}),
+        mobileSettings: { ...(data?.data?.mobileSettings || {}), darkMode },
+      },
+    });
     if (error) Alert.alert('Não foi possível salvar a aparência', error.message);
   };
   return (

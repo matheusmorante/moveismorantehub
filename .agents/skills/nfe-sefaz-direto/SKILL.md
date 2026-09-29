@@ -159,5 +159,5 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
 - **CNPJ:** `44.512.248/0001-07`
 - **Inscrição Estadual (IE):** `9091234567` | **CRT:** `1 - Simples Nacional`
 - **Endereço Completo:** R. Cascavel, 306, Guaraituba, Colombo - PR, CEP: 83410-270 (Código IBGE Município: `4105805`)
-- **CSC NFC-e Homologação SEFAZ-PR:** `cscId: "000001"`, `cscToken: "XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF"`
+- **CSC NFC-e Homologação SEFAZ-PR:** carregar exclusivamente do armazenamento seguro de secrets em runtime; nunca registrar valor em skill, documentação, logs ou bundle do cliente.
 - **Numeração Sequencial Inicial:** Padrão configurado a partir de `#000700` (`nfeNextNumber: 700`, `nfceNextNumber: 700`).

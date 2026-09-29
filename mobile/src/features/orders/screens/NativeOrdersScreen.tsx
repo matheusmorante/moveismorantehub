@@ -1,16 +1,13 @@
 import React, { useRef } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { ShoppingBag } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MobileOrderCard } from '../components/MobileOrderCard';
 import { OrdersHeader } from '../components/OrdersHeader';
 import { MobileOrderPagination } from '../components/MobileOrderPagination';
@@ -23,11 +20,8 @@ interface Props {
 }
 
 export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder }) => {
-  const insets = useSafeAreaInsets();
   const orders = useMobileOrders();
   const scrollViewRef = useRef<ScrollView>(null);
-  const topInset =
-    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
   const handlePageChange = (page: number) => {
     orders.setCurrentPage(page);
@@ -35,7 +29,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
   };
 
   return (
-    <View style={[styles.container, isDarkMode && styles.dark, { paddingTop: topInset }]}>
+    <View style={[styles.container, isDarkMode && styles.dark]}>
       {orders.loading && !orders.refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#2563eb" />

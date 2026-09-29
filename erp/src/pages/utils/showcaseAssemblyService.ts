@@ -13,12 +13,16 @@ export interface ShowcaseAssembly {
   deleted?: boolean;
 }
 
-export const getShowcaseAssemblies = async () => {
-  const { data, error } = await supabase
+export const getShowcaseAssemblies = async (limit?: number) => {
+  let query = supabase
     .from(TABLE_NAME)
     .select('*')
     .eq('deleted', false)
     .order('date', { ascending: false });
+
+  if (limit != null) query = query.limit(limit);
+
+  const { data, error } = await query;
 
   if (error) {
     // Tabela pode não existir ainda (404 do PostgREST)

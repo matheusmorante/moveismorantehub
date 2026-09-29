@@ -94,7 +94,7 @@ export const fetchInboundInvoicesPage = async (
 
     let query = supabase
       .from('inbound_invoices')
-      .select('*, inbound_invoice_items(*)', { count: 'exact' });
+      .select('*, inbound_invoice_items(*), supplier:people(stock_origins)', { count: 'exact' });
 
     if (!isAccessKeySearch) {
       if (startDate) {
@@ -229,6 +229,9 @@ export const fetchInboundInvoicesPage = async (
             emitterIe: row.emitente_ie || undefined,
             emitterAddress: row.emitente_endereco || {},
             supplierId: row.supplier_id || undefined,
+            supplierStockOrigins: Array.isArray(row.supplier?.stock_origins)
+              ? row.supplier.stock_origins
+              : undefined,
             recipientCnpj: row.destinatario_cnpj || '',
             recipientName: row.destinatario_nome || '',
             totalProducts: Number(row.valor_produtos || 0),
@@ -375,7 +378,10 @@ export const checkInboundInvoiceKeyExists = async (
   if (localMatch) return localMatch;
 
   try {
-    let query = supabase.from('inbound_invoices').select('*').eq('chave_acesso', cleanKey);
+    let query = supabase
+      .from('inbound_invoices')
+      .select('*, supplier:people(stock_origins)')
+      .eq('chave_acesso', cleanKey);
 
     if (currentInvoiceId && isValidUuid(currentInvoiceId)) {
       query = query.neq('id', currentInvoiceId);
@@ -395,6 +401,9 @@ export const checkInboundInvoiceKeyExists = async (
         emitterIe: data.emitente_ie || undefined,
         emitterAddress: data.emitente_endereco || {},
         supplierId: data.supplier_id || undefined,
+        supplierStockOrigins: Array.isArray(data.supplier?.stock_origins)
+          ? data.supplier.stock_origins
+          : undefined,
         recipientCnpj: data.destinatario_cnpj || '',
         recipientName: data.destinatario_nome || '',
         totalProducts: Number(data.valor_produtos || 0),

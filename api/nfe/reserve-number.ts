@@ -14,7 +14,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Método inválido.' });
+  if (req.method !== 'POST')
+    return res.status(405).json({ success: false, error: 'Método inválido.' });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey)
@@ -27,7 +28,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const model = String(req.body?.model || '');
   const environment = Number(req.body?.environment);
   const requestedSeries = String(req.body?.series || '');
-  if (!['55', '65'].includes(model) || ![1, 2].includes(environment) || !/^[0-9]{1,3}$/.test(requestedSeries))
+  if (
+    !['55', '65'].includes(model) ||
+    ![1, 2].includes(environment) ||
+    !/^[0-9]{1,3}$/.test(requestedSeries)
+  )
     return res.status(400).json({ success: false, error: 'Modelo, ambiente ou série inválidos.' });
   if (environment === 1 && req.body?.productionConfirmed !== true)
     return res.status(400).json({ success: false, error: 'Confirmação de produção ausente.' });
@@ -48,7 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     environment as 1 | 2
   );
   if (series !== requestedSeries || !Number.isInteger(minimumNumber) || minimumNumber < 1)
-    return res.status(409).json({ success: false, error: 'Série ou numeração fiscal mudou; atualize as configurações e tente novamente.' });
+    return res.status(409).json({
+      success: false,
+      error: 'Série ou numeração fiscal mudou; atualize as configurações e tente novamente.',
+    });
 
   const { data: number, error } = await db.rpc('reserve_next_nfe_number', {
     p_modelo: model,
@@ -57,7 +65,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     p_numero_minimo: minimumNumber,
   });
   if (error || !Number.isInteger(number) || number < minimumNumber)
-    return res.status(503).json({ success: false, error: 'Não foi possível reservar a numeração fiscal.' });
+    return res
+      .status(503)
+      .json({ success: false, error: 'Não foi possível reservar a numeração fiscal.' });
 
   return res.status(200).json({ success: true, number, series });
 }

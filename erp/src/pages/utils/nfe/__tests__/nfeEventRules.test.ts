@@ -3,7 +3,9 @@ import {
   decideCancellationRecovery,
   decideOperationDraftRecovery,
   formatCancellationTimeRemaining,
+  findRegisteredSefazCceEvent,
   getCancellationWindow,
+  parseSefazCceEvent,
   parseSefazCancellationEvent,
   parseSefazNfeSituation,
   validateCancellationReason,
@@ -35,6 +37,31 @@ describe('regras do evento de cancelamento NF-e', () => {
         '<retEnvEvento><cStat>128</cStat><xMotivo>Lote processado</xMotivo></retEnvEvento>'
       ).pending
     ).toBe(true);
+  });
+
+  it('só confirma CC-e vinculada e sinaliza resposta incerta para reconciliação', () => {
+    const registered = parseSefazCceEvent(
+      '<retEnvEvento><retEvento><infEvento><cStat>135</cStat><xMotivo>CC-e registrada</xMotivo><nProt>141260000000002</nProt><dhRegEvento>2026-09-29T12:00:00-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento>'
+    );
+    expect(registered.registered).toBe(true);
+    expect(registered.protocolNumber).toBe('141260000000002');
+    expect(
+      parseSefazCceEvent(
+        '<retEnvEvento><retEvento><infEvento><cStat>136</cStat><xMotivo>Evento sem vínculo</xMotivo></infEvento></retEvento></retEnvEvento>'
+      ).pending
+    ).toBe(true);
+    expect(
+      parseSefazCceEvent(
+        '<retEnvEvento><cStat>128</cStat><xMotivo>Lote processado</xMotivo></retEnvEvento>'
+      ).pending
+    ).toBe(true);
+  });
+
+  it('reconhece CC-e na consulta de protocolo pela sequência correta', () => {
+    const consultation =
+      '<retConsSitNFe><procEventoNFe><evento><infEvento><tpEvento>110110</tpEvento><nSeqEvento>3</nSeqEvento></infEvento></evento><retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo><nProt>141260000000003</nProt><dhRegEvento>2026-09-29T12:00:00-03:00</dhRegEvento></infEvento></retEvento></procEventoNFe></retConsSitNFe>';
+    expect(findRegisteredSefazCceEvent(consultation, 3)?.registered).toBe(true);
+    expect(findRegisteredSefazCceEvent(consultation, 2)).toBeNull();
   });
 
   it('calcula os prazos distintos paranaenses para NF-e e NFC-e', () => {

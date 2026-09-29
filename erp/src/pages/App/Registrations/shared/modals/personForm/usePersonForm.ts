@@ -112,6 +112,7 @@ export const usePersonForm = ({
     roles: ['seller'],
     additionalContacts: [],
     observations: '',
+    stockOrigins: collectionName === 'suppliers' ? ['normal'] : undefined,
   });
 
   const [loading, setLoading] = useState(false);
@@ -300,6 +301,7 @@ export const usePersonForm = ({
         position: title === 'Vendedor' ? 'Vendedor' : '',
         additionalContacts: [],
         observations: '',
+        stockOrigins: collectionName === 'suppliers' ? ['normal'] : undefined,
       });
     }
     isInitialMount.current = true;

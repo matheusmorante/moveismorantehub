@@ -28,7 +28,7 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.reserve_nfe_outbound_emission(
-    p_order_id uuid,
+    p_order_id text,
     p_modelo varchar(2),
     p_ambiente integer,
     p_emission_request_id uuid,
@@ -102,10 +102,10 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.reserve_nfe_outbound_emission(
-    uuid, varchar, integer, uuid, varchar, text, integer, varchar
+    text, varchar, integer, uuid, varchar, text, integer, varchar
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_nfe_outbound_emission(
-    uuid, varchar, integer, uuid, varchar, text, integer, varchar
+    text, varchar, integer, uuid, varchar, text, integer, varchar
 ) TO service_role;
 
 -- This legacy SECURITY DEFINER function has no current application callers.

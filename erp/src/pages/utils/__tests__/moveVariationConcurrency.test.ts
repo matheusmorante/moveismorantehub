@@ -174,17 +174,15 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
     ]);
     expect(errP).toBeNull();
 
-    const { error: errV } = await supabase
-      .from('product_variations')
-      .insert([
-        {
-          id: varZId,
-          product_id: parentBId,
-          sku: `${testCodeB}-01`,
-          name: 'Var Z',
-          attributes: { Cor: 'Preto' },
-        },
-      ]);
+    const { error: errV } = await supabase.from('product_variations').insert([
+      {
+        id: varZId,
+        product_id: parentBId,
+        sku: `${testCodeB}-01`,
+        name: 'Var Z',
+        attributes: { Cor: 'Preto' },
+      },
+    ]);
     expect(errV).toBeNull();
 
     // Duas requisições simultâneas tentando mover a mesma variação para alvos diferentes
@@ -224,22 +222,20 @@ describe('Auditoria E2E e Concorrência de Mover Variação via RPC Postgres', (
     const varId = crypto.randomUUID();
     const originalSku = `ORIG-${Date.now()}`;
 
-    const { error: errP } = await supabase
-      .from('products')
-      .insert([
-        {
-          id: parentAId,
-          name: 'Pai Origem Rollback',
-          slug: `pai-a-${Date.now()}-5`,
-          code: 'ORIG',
-          description: 'Desc',
-          active: true,
-          deleted: false,
-          price: 100,
-          unit_price: 100,
-          cost_price: 50,
-        },
-      ]);
+    const { error: errP } = await supabase.from('products').insert([
+      {
+        id: parentAId,
+        name: 'Pai Origem Rollback',
+        slug: `pai-a-${Date.now()}-5`,
+        code: 'ORIG',
+        description: 'Desc',
+        active: true,
+        deleted: false,
+        price: 100,
+        unit_price: 100,
+        cost_price: 50,
+      },
+    ]);
     expect(errP).toBeNull();
 
     const { error: errV } = await supabase

@@ -175,11 +175,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
         ],
       };
 
-      const result = validateErpActivationRequirements(
-        'var-1',
-        [salvadoParent],
-        [salvadoParent]
-      );
+      const result = validateErpActivationRequirements('var-1', [salvadoParent], [salvadoParent]);
 
       expect(result.isValid).toBe(false);
       expect(result.errorMessage).toBe(

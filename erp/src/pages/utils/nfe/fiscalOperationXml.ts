@@ -53,18 +53,13 @@ const namespace = 'http://www.portalfiscal.inf.br/nfe';
 function parseBlock(xml: string, expected: string): Element {
   if (!xml || /<!DOCTYPE|<!ENTITY|<\?/i.test(xml)) throw new Error(`Bloco ${expected} inválido.`);
   let parseError = '';
+  const onParseError = (level: string, message: string) => {
+    if (level === 'warning' && message.includes('errorHandler') && message.includes('deprecated')) return;
+    parseError ||= message;
+  };
   const document = new DOMParser({
-    errorHandler: {
-      warning: (message) => {
-        parseError ||= message;
-      },
-      error: (message) => {
-        parseError ||= message;
-      },
-      fatalError: (message) => {
-        parseError ||= message;
-      },
-    },
+    onError: onParseError,
+    errorHandler: onParseError,
   }).parseFromString(`<wrapper xmlns="${namespace}">${xml}</wrapper>`, 'application/xml');
   if (parseError || !document?.documentElement)
     throw new Error(`Bloco ${expected} não é XML válido.`);

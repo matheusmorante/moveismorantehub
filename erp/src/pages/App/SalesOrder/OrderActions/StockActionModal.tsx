@@ -3,6 +3,7 @@ import Order from '../../../types/order.type';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import { formatOrderCode } from '@/pages/utils/orderCode';
+import { isStockEligibleSaleItem } from '@/pages/utils/saleInventoryRules';
 
 interface Props {
   readonly isOpen: boolean;
@@ -41,9 +42,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
       return;
     }
 
-    const catalogItems = order.items.filter(
-      (item) => Boolean(item.productId?.trim()) && !item.isTemporaryProduct
-    );
+    const catalogItems = order.items.filter(isStockEligibleSaleItem);
     if (catalogItems.length === 0) {
       toast.error('Não há itens vinculados ao catálogo para movimentar no estoque.');
       return;
@@ -66,7 +65,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
         observation: observation,
         unitPrice: item.unitPrice,
         relatedEntityId: order.id,
-        relatedEntityType: 'sales_order',
+        relatedEntityType: 'sales_order' as const,
       }));
 
       // Execute moves

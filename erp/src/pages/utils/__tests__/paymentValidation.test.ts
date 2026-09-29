@@ -53,10 +53,12 @@ describe('validação das formas de pagamento ao concluir o pedido', () => {
   });
 
   it('aceita Verificar como forma válida ao concluir a venda', () => {
-    expect(validatePayments(
-      [{ method: 'Verificar', amount: 100, fee: 0, feeType: 'fixed', status: 'Pendente' }],
-      0
-    )).toEqual({});
+    expect(
+      validatePayments(
+        [{ method: 'Verificar', amount: 100, fee: 0, feeType: 'fixed', status: 'Pendente' }],
+        0
+      )
+    ).toEqual({});
     expect(validateOrder(validOrder('scheduled', 'Verificar'))).not.toHaveProperty(
       'payment_0_method'
     );

@@ -32,10 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(
-    supabase,
-    req.headers.authorization
-  );
+  const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({
       success: false,
@@ -87,24 +84,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', doc.id);
-      return res
-        .status(200)
-        .json({
-          success: false,
-          state: 'not_found',
-          cStat: situation.cStat,
-          xMotivo: situation.xMotivo,
-        });
+      return res.status(200).json({
+        success: false,
+        state: 'not_found',
+        cStat: situation.cStat,
+        xMotivo: situation.xMotivo,
+      });
     }
     if (situation.state === 'unknown') {
-      return res
-        .status(502)
-        .json({
-          success: false,
-          pending: true,
-          cStat: situation.cStat,
-          xMotivo: situation.xMotivo || 'A consulta não confirmou a situação atual.',
-        });
+      return res.status(502).json({
+        success: false,
+        pending: true,
+        cStat: situation.cStat,
+        xMotivo: situation.xMotivo || 'A consulta não confirmou a situação atual.',
+      });
     }
     if (situation.state === 'cancelled') {
       const cancellation = situation.cancellationEventXml || '';
@@ -145,16 +138,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', doc.id)
         .in('status', ['autorizada', 'homologada', 'pendente', 'processando']);
-      return res
-        .status(200)
-        .json({
-          success: true,
-          state: 'cancelled',
-          cStat: situation.cStat,
-          xMotivo: situation.xMotivo,
-          protocolNumber,
-          reconciliationRequired: Boolean(updateError),
-        });
+      return res.status(200).json({
+        success: true,
+        state: 'cancelled',
+        cStat: situation.cStat,
+        xMotivo: situation.xMotivo,
+        protocolNumber,
+        reconciliationRequired: Boolean(updateError),
+      });
     }
     const protocolBlock =
       responseXml.match(/<infProt\b[^>]*>[\s\S]*?<\/infProt>/i)?.[0] || responseXml;
@@ -171,26 +162,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .eq('id', doc.id)
       .in('status', ['pendente', 'processando', 'erro']);
-    return res
-      .status(200)
-      .json({
-        success: true,
-        state: 'authorized',
-        cStat: situation.cStat,
-        xMotivo: situation.xMotivo,
-        protocolNumber,
-        protocolDate,
-        reconciliationRequired: Boolean(documentSyncError),
-      });
+    return res.status(200).json({
+      success: true,
+      state: 'authorized',
+      cStat: situation.cStat,
+      xMotivo: situation.xMotivo,
+      protocolNumber,
+      protocolDate,
+      reconciliationRequired: Boolean(documentSyncError),
+    });
   } catch (err: any) {
     console.error('[NF-e Consult] Falha na consulta SEFAZ:', err?.message || 'erro desconhecido');
-    return res
-      .status(502)
-      .json({
-        success: false,
-        pending: true,
-        error:
-          'Não foi possível confirmar a situação do documento na SEFAZ. Nenhum novo evento foi enviado.',
-      });
+    return res.status(502).json({
+      success: false,
+      pending: true,
+      error:
+        'Não foi possível confirmar a situação do documento na SEFAZ. Nenhum novo evento foi enviado.',
+    });
   }
 }

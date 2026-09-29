@@ -4,6 +4,25 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
 
 ---
 
+## 0. Organização de Arquivos, Pastas e Princípios de Programação do Módulo de Produtos (ERP & Mobile)
+- **Status**: Planejado / Em Análise 📦🧹🏗️
+- **Data**: 29/09/2026
+- **Objetivo**: Aplicar os princípios de organização estruturada de pastas (`organizacao-arquivos-diretorios`) e modularização de código (`modularizacao_codigo`) em todo o módulo de produtos (ERP e Mobile), preservando 100% das regras de negócio, contratos TypeScript e retrocompatibilidade de imports.
+- **Diagnóstico Inicial**:
+  1. **ERP (`erp/src/pages/App/Products`)**:
+     - `AddForm/`: Pasta com arquivo placeholder (`AddForm/index.tsx`, 12 linhas) sem nenhum import ativo no sistema; passível de limpeza segura ou consolidação.
+     - `WhatsAppMarketplace.tsx`: Tela de 272 linhas localizada solta na raiz do módulo `Products` em vez de subpasta dedicada ou módulo de integrações/marketplace.
+     - `MetaCatalog/`: Contém resquício de merge (`index.tsx.rej`, 2.5KB) que deve ser removido com segurança.
+     - `Index.tsx`: Arquivo central com 581 linhas contendo tipos `any` nos estados (`editingProduct`, `initialFormData`, `variationParentProduct`, `historyProduct`, `stockLaunchTarget`), múltiplos hooks e orquestração acumulada. Pode receber tipagem estrita e extração limpa de orquestradores.
+     - `ProductFilters.tsx`: Reexportador na raiz que pode ser mantido como barrel retrocompatível.
+  2. **Mobile (`mobile/src/features/products`)**:
+     - Estrutura já modularizada com `categories/`, `components/`, `domain/`, `hooks/`, `modals/`, `screens/`, `services/`.
+     - Analisar conformidade com SRP, tipagens estritas sem `any` e barreis de exportação.
+  3. **Serviços Compartilhados (`erp/src/pages/utils/productService`)**:
+     - 21 arquivos já divididos com testes unitários focados (`productMutationService`, `productPersistenceService`, `productSkuService`, etc.).
+     - Avaliar se há acoplamentos residuais ou inconsistências de contratos.
+
+
 ## 0. Correção do Botão de Imprimir Pedido e Recibo no ERP (Impressão Direta & Fallback do Navegador)
 - **Status**: Concluído e 100% Validado! 🖨️📄✨✅
 - **Data**: 25/09/2026

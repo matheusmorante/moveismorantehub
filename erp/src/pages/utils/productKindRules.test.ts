@@ -182,4 +182,3 @@ describe('tipo único Normal/Salvado para produtos e composições', () => {
     expect(dbData.active).toBe(true);
   });
 });
-

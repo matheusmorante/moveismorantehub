@@ -86,12 +86,10 @@ describe('conclusão do inventário mobile', () => {
   });
 
   it('preserva o rascunho numa falha e reenvia com o mesmo ID na tentativa seguinte', async () => {
-    rpc
-      .mockResolvedValueOnce({ data: null, error: new Error('network') })
-      .mockResolvedValueOnce({
-        data: { auditId: 'audit-1', status: 'already_processed' },
-        error: null,
-      });
+    rpc.mockResolvedValueOnce({ data: null, error: new Error('network') }).mockResolvedValueOnce({
+      data: { auditId: 'audit-1', status: 'already_processed' },
+      error: null,
+    });
     const params = makeParams();
     expect(await executeInventoryFinalization(params)).toBe(false);
     expect(removeDraft).not.toHaveBeenCalled();

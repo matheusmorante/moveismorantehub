@@ -25,7 +25,6 @@ export const aiService = {
   extractProductColor: aiProductCatalogService.extractProductColor.bind(aiProductCatalogService),
   generateProductDescription:
     aiProductCatalogService.generateProductDescription.bind(aiProductCatalogService),
-  suggestCategory: aiProductCatalogService.suggestCategory.bind(aiProductCatalogService),
   generateComboName: aiProductCatalogService.generateComboName.bind(aiProductCatalogService),
   suggestPrices: aiProductCatalogService.suggestPrices.bind(aiProductCatalogService),
   improveProductDescription:

@@ -16,10 +16,7 @@ interface ProductFiscalTabProps {
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
 }
 
-const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
-  formData,
-  setFormData,
-}) => {
+const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormData }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Fechar modal com tecla Escape
@@ -90,10 +87,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
             </div>
           ) : (
             <>
-              <ProductNcmSelector
-                formData={formData}
-                setFormData={setFormData}
-              />
+              <ProductNcmSelector formData={formData} setFormData={setFormData} />
 
               {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
               {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (

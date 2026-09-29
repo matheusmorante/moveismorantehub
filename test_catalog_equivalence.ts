@@ -2,7 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import assert from 'node:assert';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
+const SUPABASE_KEY =
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -168,7 +170,9 @@ async function deepFetch(shallowRow: any) {
 
     let v = undefined;
     if (hasVar) {
-      v = (comp.variations || []).find((varItem: any) => varItem.id === shallowRow.composition_variation_id);
+      v = (comp.variations || []).find(
+        (varItem: any) => varItem.id === shallowRow.composition_variation_id
+      );
     }
 
     const p = {
@@ -207,7 +211,7 @@ function extractOrderSelectionContract(selection: any) {
     const compositionItems = v ? v.items : p.variations?.[0]?.items || [];
     return {
       isComposition: true,
-      code: v ? (v.sku || p.code) : p.code,
+      code: v ? v.sku || p.code : p.code,
       description: v ? `${p.description} - ${v.name}` : p.description,
       unitPrice: Number(p.unitPrice || 0),
       items: (compositionItems || []).map((ci: any) => ({
@@ -224,7 +228,7 @@ function extractOrderSelectionContract(selection: any) {
     isComposition: false,
     productId: p.id,
     variationId: v?.id,
-    code: v ? (v.sku || p.code) : p.code,
+    code: v ? v.sku || p.code : p.code,
     description: v ? `${p.description} - ${v.name}` : p.description,
     unitPrice: Number(v ? (v.unitPrice ?? p.unitPrice) : p.unitPrice),
     costPrice: Number(v ? (v.costPrice ?? p.costPrice) : p.costPrice),
@@ -243,7 +247,7 @@ async function runAudit() {
   console.log('1. Testando caso crítico: Produto pai com variações 100% inativas...');
   const testProdId = crypto.randomUUID();
   const testVarId1 = crypto.randomUUID();
-  
+
   const { error: insErr1 } = await supabase.from('products').insert({
     id: testProdId,
     name: 'TESTE_PAI_TODAS_INATIVAS',
@@ -267,12 +271,19 @@ async function runAudit() {
     price: 100,
     active: false, // INATIVA!
   });
-  if (insVarErr1) throw new Error(`Falha ao inserir variação teste 1: ${JSON.stringify(insVarErr1)}`);
+  if (insVarErr1)
+    throw new Error(`Falha ao inserir variação teste 1: ${JSON.stringify(insVarErr1)}`);
 
   try {
     const shallowRes = await runShallowSearch('TESTE_PAI_TODAS_INATIVAS');
-    console.log(`   Resultado Shallow para produto com variação inativa: count = ${shallowRes.length}`);
-    assert.strictEqual(shallowRes.length, 0, 'REGRESSÃO: Produto pai apareceu quando todas as variações eram inativas!');
+    console.log(
+      `   Resultado Shallow para produto com variação inativa: count = ${shallowRes.length}`
+    );
+    assert.strictEqual(
+      shallowRes.length,
+      0,
+      'REGRESSÃO: Produto pai apareceu quando todas as variações eram inativas!'
+    );
     console.log('   ✅ PASSOU: Produto pai com variações inativas NÃO apareceu no shallow.');
   } finally {
     await supabase.from('product_variations').delete().eq('product_id', testProdId);
@@ -299,11 +310,17 @@ async function runAudit() {
 
   try {
     const shallowRes = await runShallowSearch('TESTE_PRODUTO_SIMPLES_SEM_VAR');
-    assert.strictEqual(shallowRes.length, 1, 'Produto simples deveria ter retornado exatamente 1 resultado.');
+    assert.strictEqual(
+      shallowRes.length,
+      1,
+      'Produto simples deveria ter retornado exatamente 1 resultado.'
+    );
     assert.strictEqual(shallowRes[0].key, `p-${simpleProdId}`);
     assert.strictEqual(shallowRes[0].parent_name, 'TESTE_PRODUTO_SIMPLES_SEM_VAR');
     assert.strictEqual(shallowRes[0].variation_name, null);
-    console.log('   ✅ PASSOU: Produto simples retornou key p-{id}, parent_name e variation_name null.');
+    console.log(
+      '   ✅ PASSOU: Produto simples retornou key p-{id}, parent_name e variation_name null.'
+    );
   } finally {
     await supabase.from('products').update({ deleted: true, active: false }).eq('id', simpleProdId);
   }
@@ -329,10 +346,25 @@ async function runAudit() {
   if (insErr3) throw new Error(`Falha ao inserir produto teste 3: ${JSON.stringify(insErr3)}`);
 
   const { error: insVarErr3 } = await supabase.from('product_variations').insert([
-    { id: mixedVarActive, product_id: mixedProdId, name: 'ATIVA', sku: 'MIX-ACT', active: true, price: 300 },
-    { id: mixedVarInactive, product_id: mixedProdId, name: 'INATIVA', sku: 'MIX-INA', active: false, price: 300 },
+    {
+      id: mixedVarActive,
+      product_id: mixedProdId,
+      name: 'ATIVA',
+      sku: 'MIX-ACT',
+      active: true,
+      price: 300,
+    },
+    {
+      id: mixedVarInactive,
+      product_id: mixedProdId,
+      name: 'INATIVA',
+      sku: 'MIX-INA',
+      active: false,
+      price: 300,
+    },
   ]);
-  if (insVarErr3) throw new Error(`Falha ao inserir variações teste 3: ${JSON.stringify(insVarErr3)}`);
+  if (insVarErr3)
+    throw new Error(`Falha ao inserir variações teste 3: ${JSON.stringify(insVarErr3)}`);
 
   try {
     const shallowRes = await runShallowSearch('TESTE_PROD_MISTO');
@@ -340,7 +372,9 @@ async function runAudit() {
     assert.strictEqual(shallowRes[0].key, `v-${mixedVarActive}-${mixedProdId}`);
     assert.strictEqual(shallowRes[0].parent_name, 'TESTE_PROD_MISTO');
     assert.strictEqual(shallowRes[0].variation_name, 'ATIVA');
-    console.log('   ✅ PASSOU: Apenas a variação ativa apareceu, o pai e a inativa foram omitidos.');
+    console.log(
+      '   ✅ PASSOU: Apenas a variação ativa apareceu, o pai e a inativa foram omitidos.'
+    );
   } finally {
     await supabase.from('product_variations').delete().eq('product_id', mixedProdId);
     await supabase.from('products').update({ deleted: true, active: false }).eq('id', mixedProdId);
@@ -358,7 +392,8 @@ async function runAudit() {
     active: true,
     manual_price: 500,
   });
-  if (insCompErr) throw new Error(`Falha ao inserir composição teste 4: ${JSON.stringify(insCompErr)}`);
+  if (insCompErr)
+    throw new Error(`Falha ao inserir composição teste 4: ${JSON.stringify(insCompErr)}`);
 
   const { error: insCompVarErr } = await supabase.from('composition_variations').insert({
     id: testCompVarInactive,
@@ -367,12 +402,21 @@ async function runAudit() {
     sku: 'COMP-VAR-INA',
     active: false,
   });
-  if (insCompVarErr) throw new Error(`Falha ao inserir variação composição teste 4: ${JSON.stringify(insCompVarErr)}`);
+  if (insCompVarErr)
+    throw new Error(
+      `Falha ao inserir variação composição teste 4: ${JSON.stringify(insCompVarErr)}`
+    );
 
   try {
     const shallowRes = await runShallowSearch('TESTE_COMP_TODAS_INATIVAS');
-    console.log(`   Resultado Shallow para composição com variação inativa: count = ${shallowRes.length}`);
-    assert.strictEqual(shallowRes.length, 0, 'REGRESSÃO: Composição pai apareceu quando todas as variações eram inativas!');
+    console.log(
+      `   Resultado Shallow para composição com variação inativa: count = ${shallowRes.length}`
+    );
+    assert.strictEqual(
+      shallowRes.length,
+      0,
+      'REGRESSÃO: Composição pai apareceu quando todas as variações eram inativas!'
+    );
     console.log('   ✅ PASSOU: Composição pai com variações inativas NÃO apareceu no shallow.');
   } finally {
     await supabase.from('composition_variations').delete().eq('composition_id', testCompId);
@@ -400,18 +444,20 @@ async function runAudit() {
       return aName.localeCompare(bName);
     });
 
-    const expectedKeys = rankedLegacy.slice(0, shallowAll.length).map(x => x.key);
-    const actualKeys = shallowAll.map(x => x.key);
+    const expectedKeys = rankedLegacy.slice(0, shallowAll.length).map((x) => x.key);
+    const actualKeys = shallowAll.map((x) => x.key);
 
     console.log(`   Keys Retornadas pelo Shallow (Total: ${actualKeys.length})`);
-    
+
     // 5.2 Validação de Payload Profundo (deepFetch vs legado):
     console.log('\n   Comparando deepFetch dos itens retornados com o legado...');
     let testedCount = 0;
     for (const shallowItem of shallowAll) {
-      const legacyItem = legacyAll.find(x => x.key === shallowItem.key);
+      const legacyItem = legacyAll.find((x) => x.key === shallowItem.key);
       if (!legacyItem) {
-        throw new Error(`Item ${shallowItem.key} (${shallowItem.display_name}) encontrado no shallow não existe no resultado legado!`);
+        throw new Error(
+          `Item ${shallowItem.key} (${shallowItem.display_name}) encontrado no shallow não existe no resultado legado!`
+        );
       }
 
       const deepSelected = await deepFetch(shallowItem);
@@ -425,13 +471,17 @@ async function runAudit() {
       );
       testedCount++;
     }
-    console.log(`   ✅ PASSOU: Todos os ${testedCount} itens do Deep Fetch têm contrato idêntico ao legado.`);
+    console.log(
+      `   ✅ PASSOU: Todos os ${testedCount} itens do Deep Fetch têm contrato idêntico ao legado.`
+    );
   }
 
   // Teste 6: Caracteres especiais (% e _)
   console.log('\n6. Testando busca com caracteres especiais (%, _, \\)...');
   const specialRes1 = await runShallowSearch('%');
-  console.log(`   Busca por "%": retornou ${specialRes1.length} itens (sem estourar SQL ou LIKE wildcard não tratado).`);
+  console.log(
+    `   Busca por "%": retornou ${specialRes1.length} itens (sem estourar SQL ou LIKE wildcard não tratado).`
+  );
   const specialRes2 = await runShallowSearch('_');
   console.log(`   Busca por "_": retornou ${specialRes2.length} itens.`);
   const specialRes3 = await runShallowSearch('\\');

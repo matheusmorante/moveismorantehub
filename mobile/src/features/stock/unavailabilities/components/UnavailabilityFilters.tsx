@@ -1,9 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import type {
-  UnavailabilityProductKindFilter,
-  UnavailabilityStatusFilter,
-} from '../types';
+import type { UnavailabilityProductKindFilter, UnavailabilityStatusFilter } from '../types';
 
 interface Props {
   isDarkMode: boolean;
@@ -35,7 +32,11 @@ export const UnavailabilityFilters: React.FC<Props> = ({
 }) => {
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         <View style={styles.group}>
           {STATUS_OPTIONS.map((opt) => {
             const active = statusFilter === opt.key;

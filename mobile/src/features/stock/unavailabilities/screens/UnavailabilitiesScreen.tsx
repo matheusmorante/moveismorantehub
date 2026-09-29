@@ -50,8 +50,8 @@ export const UnavailabilitiesScreen: React.FC<Props> = ({
   const userRoles = Array.isArray(userProfile?.roles)
     ? userProfile.roles
     : userProfile?.role
-    ? [userProfile.role]
-    : [];
+      ? [userProfile.role]
+      : [];
   const canManageStock =
     userRoles.includes('administrator') ||
     userRoles.includes('manager') ||

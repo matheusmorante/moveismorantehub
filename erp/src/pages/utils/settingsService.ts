@@ -304,7 +304,12 @@ const deepMerge = (target: any, source: any) => {
 const migrateSettings = (settings: any): AppSettings => {
   if (!settings) return settings;
   // Legacy fiscal credentials must not survive in browser storage or cloud sync.
-  for (const key of ['certificateBase64', 'certificatePassword', 'certificateFileName', 'cscToken']) {
+  for (const key of [
+    'certificateBase64',
+    'certificatePassword',
+    'certificateFileName',
+    'cscToken',
+  ]) {
     delete settings[key];
   }
 

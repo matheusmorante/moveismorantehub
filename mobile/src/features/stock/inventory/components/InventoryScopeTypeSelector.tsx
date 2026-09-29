@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
-import { Package, Users, Filter, X, Search } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Package, Filter, X } from 'lucide-react-native';
 import type { InventoryScopeType, ScopeSupplier } from '../hooks/useInventoryScopeBuilder';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
-import { filterScopeSuppliers } from './filterScopeSuppliers';
 
 interface Props {
   isDarkMode: boolean;
-  suppliers: ScopeSupplier[];
+  suppliers?: ScopeSupplier[];
   expandedType: InventoryScopeType | null;
   onToggleExpand: (type: InventoryScopeType) => void;
-  selectedSupplierId: string | null;
-  onSelectSupplier: (supplierId: string | null) => void;
+  selectedSupplierId?: string | null;
+  onSelectSupplier?: (supplierId: string | null) => void;
   customProducts: SearchableProduct[];
   onOpenSearch: () => void;
   onRemoveCustomProduct: (product: SearchableProduct) => void;
@@ -20,19 +19,13 @@ interface Props {
 
 export const InventoryScopeTypeSelector: React.FC<Props> = ({
   isDarkMode,
-  suppliers,
   expandedType,
   onToggleExpand,
-  selectedSupplierId,
-  onSelectSupplier,
   customProducts,
   onOpenSearch,
   onRemoveCustomProduct,
   onConfirmType,
 }) => {
-  const [supplierSearch, setSupplierSearch] = useState('');
-  const visibleSuppliers = filterScopeSuppliers(suppliers, supplierSearch);
-  const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
@@ -40,7 +33,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
 
   return (
     <View style={styles.optionsContainer}>
-      {/* 1. Estoque Completo */}
+      {/* 1. Estoque Completo: Etapas por Fornecedor */}
       <TouchableOpacity
         testID="scope-full-stock-btn"
         style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
@@ -51,108 +44,17 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
             <Package size={24} color="#10b981" />
           </View>
           <View style={styles.flex1}>
-            <Text style={[styles.typeTitle, { color: textPrimary }]}>Estoque Completo</Text>
+            <Text style={[styles.typeTitle, { color: textPrimary }]}>
+              Estoque Completo: Etapas por Fornecedor
+            </Text>
             <Text style={[styles.typeDesc, { color: muted }]}>
-              Todas as variações ativas cadastradas no sistema.
+              Todas as variações ativas cadastradas no sistema divididas por fornecedor.
             </Text>
           </View>
         </View>
       </TouchableOpacity>
 
-      {/* 2. Por Fornecedor */}
-      <View style={{ marginBottom: expandedType === 'supplier' ? 12 : 0 }}>
-        <TouchableOpacity
-          style={[
-            styles.typeOption,
-            { backgroundColor: surface, borderColor: border },
-            expandedType === 'supplier' ? styles.expandedOptionBorder : {},
-          ]}
-          onPress={() => onToggleExpand('supplier')}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.typeIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-              <Users size={24} color="#3b82f6" />
-            </View>
-            <View style={styles.flex1}>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>Por Fornecedor</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>
-                Selecione um fornecedor e conte as variações relacionadas.
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {expandedType === 'supplier' && (
-          <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>
-              Selecione o fornecedor para iniciar:
-            </Text>
-            <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
-              <Search size={18} color={muted} />
-              <TextInput
-                testID="inventory-supplier-search"
-                value={supplierSearch}
-                onChangeText={setSupplierSearch}
-                placeholder="Pesquisar fornecedor"
-                placeholderTextColor={muted}
-                style={[styles.searchInput, { color: textPrimary }]}
-              />
-            </View>
-            <View style={styles.chipsRow}>
-              {visibleSuppliers.map((s) => {
-                const isSelected = selectedSupplierId === s.id;
-                return (
-                  <TouchableOpacity
-                    key={s.id}
-                    testID="supplier-chip"
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: isSelected ? '#3b82f6' : border,
-                        backgroundColor: isSelected
-                          ? isDarkMode
-                            ? 'rgba(59, 130, 246, 0.25)'
-                            : 'rgba(59, 130, 246, 0.12)'
-                          : bg,
-                      },
-                    ]}
-                    onPress={() => onSelectSupplier(isSelected ? null : s.id)}
-                  >
-                    <Text
-                      style={{
-                        color: isSelected ? '#2563eb' : textPrimary,
-                        fontWeight: isSelected ? '700' : '500',
-                      }}
-                    >
-                      {s.full_name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {visibleSuppliers.length === 0 && (
-              <Text style={{ color: muted, marginTop: 12 }}>
-                {suppliers.length === 0
-                  ? 'Nenhum fornecedor disponível no catálogo local.'
-                  : 'Nenhum fornecedor encontrado.'}
-              </Text>
-            )}
-            {selectedSupplierId && (
-              <TouchableOpacity
-                testID="continue-supplier-btn"
-                style={[styles.actionButton, { backgroundColor: '#2563eb' }]}
-                onPress={() => onConfirmType('supplier', selectedSupplierId)}
-              >
-                <Text style={styles.actionButtonText}>
-                  Continuar com {suppliers.find((s) => s.id === selectedSupplierId)?.full_name}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* 3. Seleção Personalizada */}
+      {/* 2. Seleção Personalizada */}
       <View style={{ marginBottom: expandedType === 'custom' ? 12 : 0 }}>
         <TouchableOpacity
           style={[

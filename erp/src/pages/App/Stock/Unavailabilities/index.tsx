@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { CheckCircle2, FilterX, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
-import UnavailabilityFormModal from './UnavailabilityFormModal';
+import UnavailabilityFormModal from './modals/UnavailabilityFormModal';
 import LabelPrint from './LabelPrint';
 import {
   fetchStockUnavailabilities,
@@ -130,7 +130,8 @@ export default function UnavailabilitiesPage() {
             Nenhuma indisponibilidade registrada
           </h3>
           <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
-            O estoque está 100% liberado. Não há itens com avarias, defeitos ou bloqueios de saída no momento.
+            O estoque está 100% liberado. Não há itens com avarias, defeitos ou bloqueios de saída
+            no momento.
           </p>
           {canManageStock && (
             <button
@@ -196,8 +197,8 @@ export default function UnavailabilitiesPage() {
                       {item.products?.product_kind === 'salvado'
                         ? 'Salvados'
                         : item.products?.product_kind === 'usado'
-                        ? 'Usados'
-                        : 'Normal'}
+                          ? 'Usados'
+                          : 'Normal'}
                     </td>
                     <td className="px-4 py-2">{item.suppliers?.fantasy_name || '-'}</td>
                     <td className="px-4 py-2">

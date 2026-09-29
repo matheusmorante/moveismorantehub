@@ -1,8 +1,18 @@
 import { useCallback } from 'react';
 import Item from '@/pages/types/items.type';
-import Product, { Variation } from '@/pages/types/product.type';
 import { getSelectedProductPricing } from '@/pages/utils/productPricing';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { getProductKind } from '@/pages/utils/productKindRules';
+
+const selectedStockOrigin = (product: any, variation?: any, chosenOrigin?: Item['condition']): Item['condition'] => {
+  const kind = getProductKind(product);
+  if (kind === 'salvado') return 'salvado';
+  if (kind === 'usado') return 'usado';
+  if (chosenOrigin === 'salvado' || chosenOrigin === 'usado') return chosenOrigin;
+  if (variation?.condition === 'salvado' || variation?.condition === 'usado') return variation.condition;
+  if (product.condition === 'salvado' || product.condition === 'usado') return product.condition;
+  return 'novo';
+};
 
 export function useOrderProductSelection(
   items: Item[],
@@ -21,9 +31,12 @@ export function useOrderProductSelection(
 
         setItems((currentItems) => {
           const newItems = [...currentItems];
+          const chosenOrigin = currentItems[index]?.condition;
           const explodedItems = compositionItems.map((compItem: any) => {
             const realProduct = compItem.product;
             const realVariation = compItem.variation;
+            const condition = selectedStockOrigin(realProduct, realVariation, chosenOrigin);
+            const movesStock = condition === 'novo';
 
             const pricing = getSelectedProductPricing(realProduct, realVariation);
             const selectedCost = realVariation
@@ -41,9 +54,9 @@ export function useOrderProductSelection(
             return {
               id: crypto.randomUUID(), // fake id para novo item
               orderItemId: crypto.randomUUID(),
-              productId: realProduct.id,
-              variationId: realVariation?.id,
-              isTemporaryProduct: false,
+              productId: movesStock ? realProduct.id : undefined,
+              variationId: movesStock ? realVariation?.id : undefined,
+              isTemporaryProduct: !movesStock,
               code: resolvedCode || '',
               description: getSelectedProductDisplayName(realProduct, realVariation),
               unitPrice: pricing.unitPrice,
@@ -56,13 +69,7 @@ export function useOrderProductSelection(
               ),
               costPrice: Number(selectedCost) || 0,
               handlingType: '',
-              condition:
-                realVariation?.condition ||
-                (realProduct.productKind === 'salvado'
-                  ? 'salvado'
-                  : realProduct.productKind === 'usado' || realProduct.condition === 'usado'
-                  ? 'usado'
-                  : 'novo'),
+              condition,
             };
           });
 
@@ -95,11 +102,13 @@ export function useOrderProductSelection(
       setItems((currentItems) =>
         currentItems.map((item, i) => {
           if (i === index) {
+            const condition = selectedStockOrigin(product, variation, item.condition);
+            const movesStock = condition === 'novo';
             return {
               ...item,
-              productId: product.id,
-              variationId: variation?.id,
-              isTemporaryProduct: false,
+              productId: movesStock ? product.id : undefined,
+              variationId: movesStock ? variation?.id : undefined,
+              isTemporaryProduct: !movesStock,
               code: resolvedCode,
               description: fullDescription,
               unitPrice: pricing.unitPrice,
@@ -107,13 +116,7 @@ export function useOrderProductSelection(
               discountType: pricing.discountType,
               costPrice: Number(selectedCost) || 0,
               handlingType: '',
-              condition:
-                variation?.condition ||
-                (product.productKind === 'salvado'
-                  ? 'salvado'
-                  : product.productKind === 'usado' || product.condition === 'usado'
-                  ? 'usado'
-                  : 'novo'),
+              condition,
             };
           }
           return item;
@@ -128,7 +131,7 @@ export function useOrderProductSelection(
       setItems((currentItems) =>
         currentItems.map((item, i) => {
           if (i === index) {
-            const updated = { ...item, [field]: value };
+            const updated = { ...item, [field]: value } as Item & { total?: number };
             if (field === 'unitPrice' || field === 'quantity' || field === 'unitDiscount') {
               const price = field === 'unitPrice' ? Number(value) : item.unitPrice || 0;
               const qty = field === 'quantity' ? Number(value) : item.quantity || 1;

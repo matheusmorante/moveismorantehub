@@ -141,7 +141,11 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             >
               <span
                 className={`${dotSize} rounded-full shrink-0 ${
-                  isSalvado ? 'bg-slate-400 dark:bg-slate-600' : isERPActive ? 'bg-emerald-500' : 'bg-slate-400'
+                  isSalvado
+                    ? 'bg-slate-400 dark:bg-slate-600'
+                    : isERPActive
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-400'
                 }`}
               />
               <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
@@ -256,7 +260,11 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             >
               <span
                 className={`${dotSize} rounded-full shrink-0 ${
-                  isSalvado ? 'bg-slate-400 dark:bg-slate-600' : isERPActive ? 'bg-emerald-500' : 'bg-slate-400'
+                  isSalvado
+                    ? 'bg-slate-400 dark:bg-slate-600'
+                    : isERPActive
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-400'
                 }`}
               />
               <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
@@ -348,7 +356,8 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
               <span>Origem do Estoque: Salvados</span>
             </div>
             <p className="text-slate-200 leading-snug">
-              Produtos de origem de estoque <strong>Salvados</strong> não podem ser ativados no ERP, apenas no catálogo digital.
+              Produtos de origem de estoque <strong>Salvados</strong> não podem ser ativados no ERP,
+              apenas no catálogo digital.
             </p>
           </div>
         </DropdownPortal>

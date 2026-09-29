@@ -399,22 +399,25 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                         aria-label="Opções da nota fiscal"
                         className="absolute right-0 z-[100] mt-1 w-48 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-2xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95"
                       >
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(null);
-                            onManageMappings(inv);
-                          }}
-                          className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                        >
-                          <i
-                            className="bi bi-link-45deg text-blue-600 text-sm"
-                            aria-hidden="true"
-                          />
-                          Gerenciar vínculos
-                        </button>
+                        {(!inv.supplierStockOrigins ||
+                          inv.supplierStockOrigins.includes('normal')) && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              onManageMappings(inv);
+                            }}
+                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                          >
+                            <i
+                              className="bi bi-link-45deg text-blue-600 text-sm"
+                              aria-hidden="true"
+                            />
+                            Gerenciar vínculos
+                          </button>
+                        )}
 
                         {inv.rawXml && (
                           <button

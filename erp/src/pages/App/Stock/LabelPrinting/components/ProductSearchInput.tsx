@@ -124,14 +124,16 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
           .from('products')
           .select(LABEL_PRODUCT_COLUMNS)
           .is('deleted_at', null)
+            .or('product_kind.eq.normal,product_kind.is.null')
           .or('is_combo.eq.false,is_combo.is.null')
           .or(buildProductSearchFilter(term))
           .limit(50);
 
         const variationsQuery = supabase
           .from('product_variations')
-          .select(LABEL_VARIATION_COLUMNS)
-          .is('merged_to_variation_id', null)
+          .select(LABEL_VARIATION_COLUMNS.replace('products(', 'products!inner('))
+            .is('merged_to_variation_id', null)
+            .or('product_kind.eq.normal,product_kind.is.null', { foreignTable: 'products' })
           .or(buildVariationSearchFilter(term))
           .limit(50);
 

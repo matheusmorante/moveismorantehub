@@ -37,7 +37,7 @@
 
 - Código/arquitetura: `design-patterns`, `modularizacao_codigo`, `modelagem-negocio-arquitetura`.
 - Banco/Supabase: `database-supabase`, `supabase-egress-guard`.
-- ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`, `nfe-sefaz-direto`.
+- ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`, `nfe-sefaz-direto`; NF-e/NFC-e, XML, DANFE, eventos, tributação ou SEFAZ exigem também `fiscal-nfe-nfce-official-docs` e o índice `docs/fiscal/manuais/README.md`.
 - Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
 - Refatoração/limpeza: `safe-refactor`, `surgical-patch`, `limpeza-projeto-segura`.
 - Deploy/release: `release`, `mobile-eas-publicacao`.

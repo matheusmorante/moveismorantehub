@@ -49,7 +49,8 @@ export const UnavailabilityEmptyState: React.FC<Props> = ({
         Nenhuma indisponibilidade registrada
       </Text>
       <Text style={[styles.subtitle, isDarkMode && styles.subtitleDark]}>
-        O estoque está 100% liberado. Não há itens com avarias, defeitos ou bloqueios de saída no momento.
+        O estoque está 100% liberado. Não há itens com avarias, defeitos ou bloqueios de saída no
+        momento.
       </Text>
       {canManageStock && (
         <TouchableOpacity

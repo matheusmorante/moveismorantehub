@@ -31,9 +31,7 @@ export const finalizeWebInventory = async (
   const existing = await getInventorySubmission(auditId);
   const draft = await getWebInventoryDraft(auditId);
   const responsibleName = String(observation.responsibleName || draft?.responsibleName || '');
-  const submissionObservation = responsibleName
-    ? { ...observation, responsibleName }
-    : observation;
+  const submissionObservation = responsibleName ? { ...observation, responsibleName } : observation;
   if (!existing && adjustments.some((item) => !item.variationId)) {
     throw new Error('Selecione a variação dos produtos com ajuste antes de concluir o inventário.');
   }

@@ -183,7 +183,8 @@ export const PriceLabelArtItem: React.FC<{ config: any }> = ({ config }) => {
   const oppId =
     config.opportunityId ||
     config.opportunity_id ||
-    config.opportunity?.id || config.opportunity?.slug ||
+    config.opportunity?.id ||
+    config.opportunity?.slug ||
     config.opportunity ||
     'none';
   const effectiveOppId = oppId || 'none';

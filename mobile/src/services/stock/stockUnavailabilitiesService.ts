@@ -25,7 +25,12 @@ export interface StockUnavailability {
   observation: string | null;
   photos: string[] | null;
   created_at: string;
-  products: { id: string; name: string; sku: string; product_kind: 'normal' | 'salvado' | 'usado' | null } | null;
+  products: {
+    id: string;
+    name: string;
+    sku: string;
+    product_kind: 'normal' | 'salvado' | 'usado' | null;
+  } | null;
   product_variations: { name: string; sku: string } | null;
   suppliers: { fantasy_name: string } | null;
 }

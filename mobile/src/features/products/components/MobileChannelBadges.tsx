@@ -82,22 +82,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
           style={[
             styles.bipartiteStatus,
             erpActive ? styles.statusActiveBg : styles.statusInactiveBg,
-            dark &&
-              (erpActive ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+            dark && (erpActive ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
           ]}
         >
           <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: erpActive ? '#10b981' : '#94a3b8' },
-            ]}
+            style={[styles.statusDot, { backgroundColor: erpActive ? '#10b981' : '#94a3b8' }]}
           />
-          <Text
-            style={[
-              styles.bipartiteStatusText,
-              { color: erpActive ? '#047857' : '#64748b' },
-            ]}
-          >
+          <Text style={[styles.bipartiteStatusText, { color: erpActive ? '#047857' : '#64748b' }]}>
             {erpActive ? 'Ativo' : 'Desativado'}
           </Text>
         </View>

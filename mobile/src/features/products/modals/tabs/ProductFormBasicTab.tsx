@@ -100,17 +100,15 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
     formData.productKind === 'salvado' || formData.condition === 'salvado'
       ? 'salvado'
       : formData.productKind === 'usado' || formData.condition === 'usado'
-      ? 'usado'
-      : 'normal';
+        ? 'usado'
+        : 'normal';
 
   const isNormal = currentOrigin === 'normal';
   const isSalvado = currentOrigin === 'salvado';
   const isUsado = currentOrigin === 'usado';
 
   const handleSelectOrigin = (origin: 'normal' | 'salvado' | 'usado') => {
-    const salvadoOpp = opportunities.find((o) =>
-      o.name?.toLowerCase().includes('salvado')
-    );
+    const salvadoOpp = opportunities.find((o) => o.name?.toLowerCase().includes('salvado'));
     setFormData((prev: any) => {
       const next = {
         ...prev,

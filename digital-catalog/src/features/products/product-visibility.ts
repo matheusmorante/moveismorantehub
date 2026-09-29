@@ -4,9 +4,8 @@ export const isPublicCatalogProduct = (product?: {
   deleted_at?: string | null;
 }): boolean => product?.status === 'published' && !product.deleted_at;
 
-export const isPublicCatalogVariation = (variation?: {
-  status?: string | null;
-}): boolean => variation?.status === 'published';
+export const isPublicCatalogVariation = (variation?: { status?: string | null }): boolean =>
+  variation?.status === 'published';
 
 /** Todo produto possui ao menos uma variação: sem variação pública, não há item público. */
 export const hasPublicCatalogItem = (product?: {

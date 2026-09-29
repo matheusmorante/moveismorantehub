@@ -23,6 +23,7 @@ export const mapToDB = (collectionName: string, person: Partial<Person>) => {
   if (p.leadTime !== undefined) dbObj.lead_time = p.leadTime;
   if (p.deleted !== undefined) dbObj.deleted = p.deleted;
   if (p.marketingOrigin !== undefined) dbObj.marketing_origin = p.marketingOrigin;
+  if (p.stockOrigins !== undefined) dbObj.stock_origins = p.stockOrigins;
 
   if (
     p.fullAddress ||
@@ -141,6 +142,7 @@ export const mapFromDB = (data: any): Person => {
     type: data.person_type as any,
     leadTime: data.lead_time || 0,
     marketingOrigin: data.marketing_origin || '',
+    stockOrigins: Array.isArray(data.stock_origins) ? data.stock_origins : ['normal'],
     additionalContacts:
       data.additional_contacts ||
       (typeof parsedAddress === 'object' && parsedAddress !== null

@@ -1,5 +1,5 @@
 import React from 'react';
-import Product, { Variation } from '../pages/types/product.type';
+import Product, { ProductKind, Variation } from '../pages/types/product.type';
 import DropdownPortal from './shared/DropdownPortal';
 import TruncatedProductTitle from './TruncatedProductTitle';
 import { getVariationDisplayName } from './productAutocompleteUtils';
@@ -28,6 +28,7 @@ interface ProductAutocompleteProps {
   parentsOnly?: boolean;
   /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
   includeDeactivated?: boolean;
+  allowedProductKinds?: readonly ProductKind[];
   products?: Product[];
   clearOnSelect?: boolean;
   disabled?: boolean;
@@ -55,6 +56,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   excludeCombos = false,
   parentsOnly = false,
   includeDeactivated = false,
+  allowedProductKinds,
   products: localProducts,
   clearOnSelect = false,
   disabled = false,
@@ -76,6 +78,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     parentsOnly,
     variationsOnly,
     includeDeactivated,
+    allowedProductKinds,
     localProducts,
     excludeCombos,
     onChange: (v) => {

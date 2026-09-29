@@ -27,7 +27,15 @@ function response() {
     },
     end: vi.fn(),
   };
-  return { res, get statusCode() { return statusCode; }, get body() { return body; } };
+  return {
+    res,
+    get statusCode() {
+      return statusCode;
+    },
+    get body() {
+      return body;
+    },
+  };
 }
 
 describe('ponte mTLS DF-e', () => {
@@ -36,14 +44,24 @@ describe('ponte mTLS DF-e', () => {
     process.env.SEFAZ_BRIDGE_TOKEN = 'bridge-test-token';
     process.env.NFE_CERTIFICATE_BASE64 = 'server-pfx';
     process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
-    mocks.extractCertificateAndKey.mockReturnValue({ certPem: 'server-cert', privateKeyPem: 'server-key' });
-    mocks.sendDistDfeSoapToSefaz.mockResolvedValue({ statusCode: 200, responseXml: '<ret/>', durationMs: 1 });
+    mocks.extractCertificateAndKey.mockReturnValue({
+      certPem: 'server-cert',
+      privateKeyPem: 'server-key',
+    });
+    mocks.sendDistDfeSoapToSefaz.mockResolvedValue({
+      statusCode: 200,
+      responseXml: '<ret/>',
+      durationMs: 1,
+    });
   });
 
   it('recusa token não configurado no servidor', async () => {
     const handler = (await import('../../../../../../api/nfe/dist-dfe')).default;
     const result = response();
-    await handler({ method: 'POST', headers: { authorization: 'Bearer legacy-master-token' } } as any, result.res);
+    await handler(
+      { method: 'POST', headers: { authorization: 'Bearer legacy-master-token' } } as any,
+      result.res
+    );
     expect(result.statusCode).toBe(401);
     expect(mocks.sendDistDfeSoapToSefaz).not.toHaveBeenCalled();
   });
@@ -51,13 +69,23 @@ describe('ponte mTLS DF-e', () => {
   it('ignora chave privada enviada pelo cliente e usa o A1 do servidor', async () => {
     const handler = (await import('../../../../../../api/nfe/dist-dfe')).default;
     const result = response();
-    await handler({
-      method: 'POST',
-      headers: { authorization: 'Bearer bridge-test-token' },
-      body: { certPem: 'client-cert', privateKeyPem: 'client-key', soapEnvelope: '<soap/>', environment: 'homologation' },
-    } as any, result.res);
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer bridge-test-token' },
+        body: {
+          certPem: 'client-cert',
+          privateKeyPem: 'client-key',
+          soapEnvelope: '<soap/>',
+          environment: 'homologation',
+        },
+      } as any,
+      result.res
+    );
     expect(result.statusCode).toBe(200);
     expect(mocks.extractCertificateAndKey).toHaveBeenCalledWith('server-pfx', 'server-password');
-    expect(mocks.sendDistDfeSoapToSefaz).toHaveBeenCalledWith(expect.objectContaining({ certPem: 'server-cert', privateKeyPem: 'server-key' }));
+    expect(mocks.sendDistDfeSoapToSefaz).toHaveBeenCalledWith(
+      expect.objectContaining({ certPem: 'server-cert', privateKeyPem: 'server-key' })
+    );
   });
 });

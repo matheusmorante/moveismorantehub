@@ -118,16 +118,14 @@ export const postCreatorService = {
       if (!error && data) {
         const values = data.map(campaignFromRow);
         if (!values.length)
-          await supabase
-            .from('post_creator_campaigns')
-            .upsert({
-              id: fallbackCampaign.id,
-              name: fallbackCampaign.name,
-              description: fallbackCampaign.description,
-              active: true,
-              created_at: fallbackCampaign.createdAt,
-              updated_at: fallbackCampaign.updatedAt,
-            });
+          await supabase.from('post_creator_campaigns').upsert({
+            id: fallbackCampaign.id,
+            name: fallbackCampaign.name,
+            description: fallbackCampaign.description,
+            active: true,
+            created_at: fallbackCampaign.createdAt,
+            updated_at: fallbackCampaign.updatedAt,
+          });
         writeLocal('campaigns', values.length ? values : [fallbackCampaign]);
         return values.length ? values : [fallbackCampaign];
       }
@@ -394,21 +392,19 @@ export const postCreatorService = {
         .map(normalizePreview)
         .filter((item) => item.id !== normalized.id),
     ]);
-    const { error } = await supabase
-      .from('post_creator_previews')
-      .upsert({
-        id: normalized.id,
-        campaign_id: normalized.campaignId,
-        product_id: normalized.productId,
-        format: normalized.format,
-        input_hash: normalized.inputHash,
-        image_url: normalized.imageUrl,
-        status: normalized.status,
-        accepted: normalized.accepted,
-        pinned: normalized.pinned,
-        created_at: normalized.createdAt,
-        updated_at: normalized.updatedAt,
-      });
+    const { error } = await supabase.from('post_creator_previews').upsert({
+      id: normalized.id,
+      campaign_id: normalized.campaignId,
+      product_id: normalized.productId,
+      format: normalized.format,
+      input_hash: normalized.inputHash,
+      image_url: normalized.imageUrl,
+      status: normalized.status,
+      accepted: normalized.accepted,
+      pinned: normalized.pinned,
+      created_at: normalized.createdAt,
+      updated_at: normalized.updatedAt,
+    });
     if (error) throw error;
     await this.prunePreviewHistory(normalized.campaignId, normalized.productId, normalized.format);
   },

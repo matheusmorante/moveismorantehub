@@ -342,8 +342,8 @@ export const ProductFormScreen: React.FC<Props> = ({
           (product.condition === 'salvado' || product.is_salvado
             ? 'salvado'
             : product.condition === 'usado'
-            ? 'usado'
-            : 'normal'),
+              ? 'usado'
+              : 'normal'),
         condition: product.condition || (product.is_salvado ? 'salvado' : 'novo'),
         category: product.category || '',
         categoryId: product.category_id || product.categoryId || '',
@@ -690,10 +690,8 @@ export const ProductFormScreen: React.FC<Props> = ({
       }
       setSaving(true);
       try {
-        const isSalvado =
-          formData.productKind === 'salvado' || formData.condition === 'salvado';
-        const isUsado =
-          formData.productKind === 'usado' || formData.condition === 'usado';
+        const isSalvado = formData.productKind === 'salvado' || formData.condition === 'salvado';
+        const isUsado = formData.productKind === 'usado' || formData.condition === 'usado';
         const forceInactive = saveAsDraft || isSalvado;
 
         await onSave({

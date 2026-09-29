@@ -131,36 +131,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(409)
         .json({ success: false, error: 'Ambiente fiscal inválido no rascunho.' });
     if (draft.status === 'authorized' && draft.document_id) {
-      return res
-        .status(200)
-        .json({
-          success: true,
-          status: 'authorized',
-          documentId: draft.document_id,
-          accessKey: draft.access_key,
-        });
+      return res.status(200).json({
+        success: true,
+        status: 'authorized',
+        documentId: draft.document_id,
+        accessKey: draft.access_key,
+      });
     }
     if (draft.status === 'rejected')
-      return res
-        .status(409)
-        .json({
-          success: false,
-          status: 'rejected',
-          error:
-            'A SEFAZ rejeitou esta tentativa. Revise o motivo antes de iniciar uma nova operação fiscal.',
-        });
+      return res.status(409).json({
+        success: false,
+        status: 'rejected',
+        error:
+          'A SEFAZ rejeitou esta tentativa. Revise o motivo antes de iniciar uma nova operação fiscal.',
+      });
     if (!['ready', 'transmitting', 'unknown'].includes(draft.status)) {
       return res
         .status(409)
         .json({ success: false, error: 'Conclua e salve a revisão fiscal antes de transmitir.' });
     }
     if (environment === 1 && req.body?.productionConfirmed !== true) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Confirme explicitamente a transmissão deste documento em Produção.',
-        });
+      return res.status(400).json({
+        success: false,
+        error: 'Confirme explicitamente a transmissão deste documento em Produção.',
+      });
     }
     if (!draft.review_data || !draft.nature_of_operation || !draft.reviewed_at) {
       return res
@@ -174,12 +168,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', draft.original_document_id)
       .maybeSingle();
     if (sourceError || !source || source.modelo !== '55') {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: 'Documento original incompatível com esta operação fiscal.',
-        });
+      return res.status(409).json({
+        success: false,
+        error: 'Documento original incompatível com esta operação fiscal.',
+      });
     }
     if (
       source.chave_acesso !== draft.original_access_key ||
@@ -218,12 +210,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       .in('id', originalIds);
     if (originalLinesError || !originalLines || originalLines.length !== lines.length) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: 'Não foi possível carregar todos os itens da NF-e original.',
-        });
+      return res.status(409).json({
+        success: false,
+        error: 'Não foi possível carregar todos os itens da NF-e original.',
+      });
     }
     const originalById = new Map(originalLines.map((line) => [line.id, line]));
 
@@ -282,29 +272,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           '[NF-e Draft] SEFAZ autorizou, mas a RPC de persistência falhou:',
           persistError?.message || 'sem id'
         );
-        return res
-          .status(503)
-          .json({
-            success: true,
-            pending: true,
-            reconciliationRequired: true,
-            accessKey: authorizedAccessKey,
-            protocolNumber,
-            error:
-              'A SEFAZ autorizou, mas falta reconciliar a gravação local. Consulte novamente; não retransmita.',
-          });
-      }
-      return res
-        .status(200)
-        .json({
+        return res.status(503).json({
           success: true,
-          status: 'authorized',
-          documentId,
+          pending: true,
+          reconciliationRequired: true,
           accessKey: authorizedAccessKey,
           protocolNumber,
-          cStat: authorization.cStat,
-          xMotivo: authorization.xMotivo,
+          error:
+            'A SEFAZ autorizou, mas falta reconciliar a gravação local. Consulte novamente; não retransmita.',
         });
+      }
+      return res.status(200).json({
+        success: true,
+        status: 'authorized',
+        documentId,
+        accessKey: authorizedAccessKey,
+        protocolNumber,
+        cStat: authorization.cStat,
+        xMotivo: authorization.xMotivo,
+      });
     };
 
     const consultKey = async (accessKey: string): Promise<string> => {
@@ -321,14 +307,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const reconcileStoredAttempt = async (allowRetryAfterNotFound: boolean) => {
       if (!draft.access_key || !draft.signed_xml) {
-        return res
-          .status(409)
-          .json({
-            success: false,
-            pending: true,
-            error:
-              'Tentativa sem chave/XML persistidos; requer reconciliação manual e não pode ser retransmitida.',
-          });
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error:
+            'Tentativa sem chave/XML persistidos; requer reconciliação manual e não pode ser retransmitida.',
+        });
       }
       let queryXml: string;
       try {
@@ -338,15 +322,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           '[NF-e Draft] Consulta após tentativa inconclusiva falhou:',
           error instanceof Error ? error.message : 'erro desconhecido'
         );
-        return res
-          .status(502)
-          .json({
-            success: false,
-            pending: true,
-            accessKey: draft.access_key,
-            error:
-              'Não foi possível reconciliar a tentativa na SEFAZ. Nenhuma retransmissão foi feita.',
-          });
+        return res.status(502).json({
+          success: false,
+          pending: true,
+          accessKey: draft.access_key,
+          error:
+            'Não foi possível reconciliar a tentativa na SEFAZ. Nenhuma retransmissão foi feita.',
+        });
       }
       const situation = parseSefazNfeSituation(queryXml);
       const recoveryDecision = decideOperationDraftRecovery(situation.cStat, situation.state);
@@ -361,48 +343,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .select('id')
           .maybeSingle();
         if (error || !ready)
-          return res
-            .status(503)
-            .json({
-              success: false,
-              pending: true,
-              accessKey: draft.access_key,
-              error:
-                'A SEFAZ não localizou a chave, mas não foi possível liberar a repetição segura. Tente consultar novamente.',
-            });
-        return res
-          .status(409)
-          .json({
+          return res.status(503).json({
             success: false,
-            retryAllowed: true,
-            status: 'ready',
+            pending: true,
             accessKey: draft.access_key,
             error:
-              'A consulta à SEFAZ retornou cStat 217 (chave não localizada). Uma nova tentativa poderá reutilizar exatamente a mesma chave e XML.',
+              'A SEFAZ não localizou a chave, mas não foi possível liberar a repetição segura. Tente consultar novamente.',
           });
-      }
-      return res
-        .status(202)
-        .json({
+        return res.status(409).json({
           success: false,
-          pending: true,
+          retryAllowed: true,
+          status: 'ready',
           accessKey: draft.access_key,
-          cStat: situation.cStat,
-          error: situation.xMotivo || 'A SEFAZ ainda não confirmou a situação. Não retransmita.',
+          error:
+            'A consulta à SEFAZ retornou cStat 217 (chave não localizada). Uma nova tentativa poderá reutilizar exatamente a mesma chave e XML.',
         });
+      }
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        accessKey: draft.access_key,
+        cStat: situation.cStat,
+        error: situation.xMotivo || 'A SEFAZ ainda não confirmou a situação. Não retransmita.',
+      });
     };
 
     if (draft.status === 'transmitting' || draft.status === 'unknown')
       return reconcileStoredAttempt(true);
 
     if (environment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      return res
-        .status(503)
-        .json({
-          success: false,
-          error:
-            'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
-        });
+      return res.status(503).json({
+        success: false,
+        error:
+          'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
+      });
     }
 
     const review = draft.review_data as Record<string, unknown>;
@@ -421,12 +395,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         p_numero_minimo: minimumNumber,
       });
       if (numberError || typeof reservedNumber !== 'number' || reservedNumber < 1) {
-        return res
-          .status(503)
-          .json({
-            success: false,
-            error: 'Não foi possível reservar número fiscal seguro para o rascunho.',
-          });
+        return res.status(503).json({
+          success: false,
+          error: 'Não foi possível reservar número fiscal seguro para o rascunho.',
+        });
       }
       nfeNumber = reservedNumber;
       const now = new Date();
@@ -501,14 +473,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('id')
         .maybeSingle();
       if (claimError || !claimed)
-        return res
-          .status(409)
-          .json({
-            success: false,
-            pending: true,
-            error:
-              'Outro processo alterou este rascunho. Consulte a chave/estado antes de repetir.',
-          });
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error: 'Outro processo alterou este rascunho. Consulte a chave/estado antes de repetir.',
+        });
     } else {
       nfeNumber = Number(accessKey.slice(25, 34));
       series = String(Number(accessKey.slice(22, 25)));
@@ -520,13 +489,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('id')
         .maybeSingle();
       if (claimError || !claimed)
-        return res
-          .status(409)
-          .json({
-            success: false,
-            pending: true,
-            error: 'Outro processo iniciou o rascunho. Consulte o estado antes de repetir.',
-          });
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error: 'Outro processo iniciou o rascunho. Consulte o estado antes de repetir.',
+        });
     }
 
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${signedXml}</enviNFe>`;
@@ -577,26 +544,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('status', 'transmitting');
     if (rejectionSyncError)
       console.error('[NF-e Draft] Rejeição SEFAZ não persistida:', rejectionSyncError.message);
-    return res
-      .status(authorization.pending ? 202 : 422)
-      .json({
-        success: false,
-        pending: authorization.pending,
-        status: rejectionSyncError ? 'unknown' : 'rejected',
-        cStat: authorization.cStat,
-        xMotivo: authorization.xMotivo,
-        error: authorization.xMotivo || 'A SEFAZ não autorizou o documento.',
-      });
+    return res.status(authorization.pending ? 202 : 422).json({
+      success: false,
+      pending: authorization.pending,
+      status: rejectionSyncError ? 'unknown' : 'rejected',
+      cStat: authorization.cStat,
+      xMotivo: authorization.xMotivo,
+      error: authorization.xMotivo || 'A SEFAZ não autorizou o documento.',
+    });
   } catch (error) {
     console.error(
       '[NF-e Draft] Erro no fluxo de emissão:',
       error instanceof Error ? error.message : 'erro desconhecido'
     );
-    return res
-      .status(500)
-      .json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Erro interno na emissão fiscal.',
-      });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro interno na emissão fiscal.',
+    });
   }
 }

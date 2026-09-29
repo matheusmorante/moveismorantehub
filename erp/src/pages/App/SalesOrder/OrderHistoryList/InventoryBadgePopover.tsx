@@ -1,12 +1,24 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Package, PackageMinus, PackagePlus, PackageX, X } from 'lucide-react';
+import { AlertTriangle, Check, PackageMinus, PackagePlus, PackageX, X } from 'lucide-react';
 import Order from '../../../types/order.type';
 import {
   InventoryBadgeContentResult,
   ItemMovementDisplay,
   getOrderItemsMovementList,
 } from './inventoryBadgeContent';
+
+const MovementWarning = ({ tooltip }: { tooltip: string }) => (
+  <span
+    className="justify-self-center inline-flex items-center justify-center text-amber-500 dark:text-amber-400 cursor-help"
+    title={tooltip}
+    aria-label={tooltip}
+    role="img"
+    tabIndex={0}
+  >
+    <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+  </span>
+);
 
 const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDisplay) => {
   const movement = order?.linkedReturnMovement;
@@ -27,12 +39,23 @@ const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDispl
     };
   }
 
-  if (item.status === 'unregistered') {
+  if (item.status === 'non_stock') {
     return {
-      label: 'Sem cadastro',
+      label: '',
       badgeClass:
         'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      tooltip: 'Item sem cadastro no banco não gera entrada de estoque.',
+      tooltip: `Não foi gerada entrada de estoque porque este item tem origem ${item.statusLabel}.`,
+      warning: true,
+    };
+  }
+
+  if (item.status === 'unregistered') {
+    return {
+      label: '',
+      badgeClass:
+        'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+      tooltip: 'Não foi gerada entrada de estoque porque este produto convencional ainda não está cadastrado ou vinculado ao catálogo.',
+      warning: true,
     };
   }
 
@@ -91,8 +114,6 @@ export const InventoryBadgePopover = ({
   isReturn,
   hasMovement,
   isReversed,
-  isPartialReturn,
-  isFullReturn,
   order,
   onClose,
   onMouseEnter,
@@ -100,7 +121,7 @@ export const InventoryBadgePopover = ({
 }: InventoryBadgePopoverProps) => {
   if (typeof document === 'undefined') return null;
 
-  const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed);
+  const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed, isReturn);
   const hasLinkedReturn = !isReturn && Boolean(order?.returnOrderId);
 
   return createPortal(
@@ -163,10 +184,10 @@ export const InventoryBadgePopover = ({
             className={`grid gap-2 mb-2 shrink-0 ${hasLinkedReturn ? 'grid-cols-[minmax(0,1fr)_92px_92px]' : 'grid-cols-[minmax(0,1fr)_92px]'}`}
           >
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Itens da Venda ({itemsMovement.length})
+              Itens da {isReturn ? 'Devolução' : 'Venda'} ({itemsMovement.length})
             </span>
             <span className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Saída
+              {isReturn ? 'Entrada' : 'Saída'}
             </span>
             {hasLinkedReturn && (
               <span className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -196,23 +217,31 @@ export const InventoryBadgePopover = ({
                   </span>
                 </div>
 
-                <span
-                  className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${item.statusBadgeClass}`}
-                  title={item.tooltip}
-                >
-                  {item.statusLabel}
-                </span>
+                {item.status === 'non_stock' || item.status === 'unregistered' ? (
+                  <MovementWarning tooltip={item.tooltip ?? ''} />
+                ) : (
+                  <span
+                    className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${item.statusBadgeClass}`}
+                    title={item.tooltip}
+                  >
+                    {item.statusLabel}
+                  </span>
+                )}
                 {hasLinkedReturn &&
                   (() => {
                     const entry = getReturnEntryDisplay(order, item);
                     return (
                       entry && (
-                        <span
-                          className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${entry.badgeClass}`}
-                          title={entry.tooltip}
-                        >
-                          {entry.label}
-                        </span>
+                        entry.warning ? (
+                          <MovementWarning tooltip={entry.tooltip} />
+                        ) : (
+                          <span
+                            className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${entry.badgeClass}`}
+                            title={entry.tooltip}
+                          >
+                            {entry.label}
+                          </span>
+                        )
                       )
                     );
                   })()}

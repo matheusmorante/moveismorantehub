@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.nfe_operation_drafts (
   finalidade smallint NOT NULL,
   original_document_id uuid NOT NULL REFERENCES public.nfe_documents(id) ON DELETE RESTRICT,
   original_access_key varchar(44) NOT NULL CHECK (original_access_key ~ '^[0-9]{44}$'),
-  return_order_id uuid REFERENCES public.orders(id) ON DELETE RESTRICT,
+  return_order_id text REFERENCES public.orders(id) ON DELETE RESTRICT,
   environment smallint NOT NULL CHECK (environment IN (1, 2)),
   status text NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft', 'ready', 'transmitting', 'authorized', 'rejected', 'unknown')),
@@ -75,7 +75,7 @@ GRANT ALL ON public.nfe_operation_drafts, public.nfe_operation_draft_lines,
 CREATE OR REPLACE FUNCTION public.prepare_nfe_operation_draft(
   p_kind text,
   p_original_document_id uuid,
-  p_return_order_id uuid,
+  p_return_order_id text,
   p_environment smallint,
   p_reason text,
   p_user_id uuid
@@ -193,7 +193,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,uuid,smallint,text,uuid)
+REVOKE ALL ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,text,smallint,text,uuid)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,uuid,smallint,text,uuid)
+GRANT EXECUTE ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,text,smallint,text,uuid)
   TO service_role;

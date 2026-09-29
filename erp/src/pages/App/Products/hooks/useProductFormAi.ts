@@ -50,36 +50,18 @@ export function useProductFormAi(
     setIsGeneratingCategory(true);
     try {
       const direct = matchCategoryByRules(title, availableCategories as any);
-      if (direct) {
-        setFormData((prev: Partial<Product>) => {
-          if (prev.categoryIds?.includes(direct.id)) return prev;
-          return { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] };
-        });
-        if (!isAutoTrigger)
-          toast.success(`Categoria identificada: ${direct.name || direct.category}`);
+      if (!direct) {
+        if (!isAutoTrigger) {
+          toast.warning('Não encontrei uma categoria com confiança. Selecione manualmente.');
+        }
         return;
       }
 
-      const categoryNames = availableCategories
-        .map((c) => c.name || c.category || '')
-        .filter(Boolean);
-      const suggestionRes = await aiService.suggestCategory(title, categoryNames);
-      const suggestedCatName =
-        typeof suggestionRes === 'string' ? suggestionRes : suggestionRes?.category || '';
-      if (suggestedCatName?.trim()) {
-        const found = availableCategories.find(
-          (c) =>
-            (c.name || c.category || '').trim().toLowerCase() ===
-            suggestedCatName.trim().toLowerCase()
-        );
-        if (found) {
-          setFormData((prev: Partial<Product>) => {
-            if (prev.categoryIds?.includes(found.id)) return prev;
-            return { ...prev, categoryIds: [...(prev.categoryIds || []), found.id] };
-          });
-          if (!isAutoTrigger) toast.success(`Categoria sugerida: ${found.name || found.category}`);
-        }
-      }
+      setFormData((prev: Partial<Product>) => {
+        if (prev.categoryIds?.includes(direct.id)) return prev;
+        return { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] };
+      });
+      if (!isAutoTrigger) toast.success(`Categoria identificada: ${direct.name || direct.category}`);
     } catch (error: unknown) {
       console.error(error);
     } finally {

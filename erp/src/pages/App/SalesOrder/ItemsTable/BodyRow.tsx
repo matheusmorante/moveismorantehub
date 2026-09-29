@@ -11,6 +11,14 @@ import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { ValidationErrors } from '../../../utils/validations';
 import { getSettings } from '@/pages/utils/settingsService';
 import ServiceAutocomplete from './ServiceAutocomplete';
+import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
+
+const STOCK_ORIGIN_PRODUCT_KINDS = {
+  '': ['normal', 'salvado'],
+  novo: ['normal'],
+  salvado: ['salvado'],
+  usado: ['usado'],
+} as const;
 
 interface Props {
   item: Item;
@@ -51,14 +59,34 @@ const BodyRow = ({
   onToggleExpand,
 }: Props) => {
   const isService = item.itemType === 'service';
+  const nonStockOrigin = getNonStockOrigin(item);
   const shouldHideHandling = Boolean(isService || hideHandling || isBudget || isReturn);
-  const isLinkedProduct = Boolean(!isService && item.description?.trim() && item.productId);
-  const isTemporaryProduct = Boolean(!isService && item.description?.trim() && !item.productId);
+  const isLinkedProduct = Boolean(
+    !isService &&
+      item.description?.trim() &&
+      item.productId &&
+      !item.isTemporaryProduct &&
+      !nonStockOrigin
+  );
+  const isTemporaryProduct = Boolean(!isService && item.description?.trim() && (!item.productId || nonStockOrigin));
   const errorKey = `item_${idx}_description`;
   const error = errors[errorKey];
   const handlingErrorKey = `item_${idx}_handlingType`;
   const handlingError = !isService && errors[handlingErrorKey];
   const itemHasError = Boolean(error || handlingError);
+  const handleStockOriginChange = (rawCondition: string) => {
+    const condition = rawCondition as Item['condition'];
+    if (condition === 'salvado' || condition === 'usado') {
+      onBatchChange(idx, {
+        condition,
+        productId: undefined,
+        variationId: undefined,
+        isTemporaryProduct: true,
+      });
+      return;
+    }
+    onBatchChange(idx, { condition: condition || '', isTemporaryProduct: item.isTemporaryProduct });
+  };
   const settings = getSettings();
   const linkableProductItems = productItems.filter((product) => Boolean(product.description?.trim()));
   const serviceProductLink = isService ? (
@@ -272,7 +300,6 @@ const BodyRow = ({
                     </span>
                   )}
                 </span>
-                {isTemporaryProduct && <TemporaryProductAlert />}
                 {item.handlingType && !shouldHideHandling && (
                   <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-500">
                     {item.handlingType}
@@ -390,7 +417,6 @@ const BodyRow = ({
           >
             <span>{isService ? 'Descrição do Serviço' : 'Descrição do Item'}</span>{' '}
             <span className="text-red-500">*</span>
-            {isTemporaryProduct && <TemporaryProductAlert />}
           </label>
           {isService ? (
             <ServiceAutocomplete
@@ -405,6 +431,10 @@ const BodyRow = ({
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
+              allowedProductKinds={
+                STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']
+              }
+              includeDeactivated
               placeholder="Buscar produto no catálogo..."
               isTemporary={isTemporaryProduct}
               isSelected={isLinkedProduct}
@@ -474,15 +504,16 @@ const BodyRow = ({
             {!isService && (
               <div className="w-full sm:w-[130px] md:w-[150px] shrink-0">
                 <label className="text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 text-slate-400 dark:text-slate-500">
-                  Origem do estoque <span className="text-red-500">*</span>
+                  Origem do estoque
                 </label>
                 <select
                   className="w-full appearance-none border-b-2 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
-                  value={item.condition || 'novo'}
-                  onChange={(e) => {
-                    onChange(idx, 'condition', e.target.value);
-                  }}
+                  value={item.condition ?? ''}
+                  onChange={(e) => handleStockOriginChange(e.target.value)}
                 >
+                  <option value="" className="dark:bg-slate-900">
+                    Todos
+                  </option>
                   <option value="novo" className="dark:bg-slate-900">
                     Normal
                   </option>
@@ -608,11 +639,12 @@ const BodyRow = ({
             <div className="mt-1 flex items-center gap-2">
               <select
                 className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
-                value={item.condition || 'novo'}
-                onChange={(e) => onChange(idx, 'condition', e.target.value)}
+                value={item.condition ?? ''}
+                onChange={(e) => handleStockOriginChange(e.target.value)}
                 title="Origem do estoque"
                 aria-label="Origem do estoque"
               >
+                <option value="">Todos</option>
                 <option value="novo">Normal</option>
                 <option value="salvado">Salvados</option>
                 <option value="usado">Usados</option>
@@ -634,6 +666,10 @@ const BodyRow = ({
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
+              allowedProductKinds={
+                STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']
+              }
+              includeDeactivated
               placeholder="Busque ou digite um produto..."
               isTemporary={isTemporaryProduct}
               isSelected={isLinkedProduct}
@@ -642,11 +678,12 @@ const BodyRow = ({
             <div className="mt-1 flex items-center gap-2">
               <select
                 className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
-                value={item.condition || 'novo'}
-                onChange={(e) => onChange(idx, 'condition', e.target.value)}
+                value={item.condition ?? ''}
+                onChange={(e) => handleStockOriginChange(e.target.value)}
                 title="Origem do estoque"
                 aria-label="Origem do estoque"
               >
+                <option value="">Todos</option>
                 <option value="novo">Normal</option>
                 <option value="salvado">Salvados</option>
                 <option value="usado">Usados</option>
@@ -664,11 +701,6 @@ const BodyRow = ({
               <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
                 <i className="bi bi-check-circle-fill text-emerald-500 text-[10px]" />
                 <span>Produto vinculado ao catálogo</span>
-              </div>
-            )}
-            {isTemporaryProduct && (
-              <div className="mt-0.5 ml-1">
-                <TemporaryProductAlert />
               </div>
             )}
           </>
@@ -817,21 +849,5 @@ const BodyRow = ({
     </tr>
   );
 };
-
-const TemporaryProductAlert = () => (
-  <span
-    className="relative inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 group/temp-alert"
-    tabIndex={0}
-    aria-label="Produto sem cadastro"
-  >
-    <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xs cursor-help" />
-    <span>Produto sem cadastro</span>
-    <span className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-72 rounded-xl bg-slate-900 px-3 py-2 text-[9px] font-bold normal-case leading-relaxed tracking-normal text-white shadow-xl group-hover/temp-alert:block group-focus/temp-alert:block">
-      Produto sem cadastro: este item não gera movimentação de estoque (nem na venda, nem na
-      devolução, nem na conciliação comercial). Selecione um produto da lista para vinculá-lo ao
-      catálogo.
-    </span>
-  </span>
-);
 
 export default BodyRow;

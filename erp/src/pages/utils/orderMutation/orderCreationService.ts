@@ -7,6 +7,7 @@ import {
 } from '../orderSnapshotResolution';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderCreationNotifications } from './orderNotificationDispatcher';
+import { removeNonStockItemLinks } from '../saleInventoryRules';
 
 /**
  * Criação atômica e persistência de pedidos com resolução de cliente, regras de estoque e notificações.
@@ -21,7 +22,7 @@ export const executeSaveOrder = async (
   }
 
   try {
-    let orderToSave = await resolveOrderCustomerSnapshot(order);
+    let orderToSave = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order));
     delete orderToSave.id;
     orderToSave.deleted = false;
     orderToSave.deletedAt = null;

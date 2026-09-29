@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,12 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { X, Check, Search } from 'lucide-react-native';
-import { supabase } from '../../../../services/supabaseClient';
-import { searchProducts } from '../../../../services/stockService';
-import { createStockUnavailability } from '../../../../services/stock/stockUnavailabilitiesService';
-import { REASONS, TREATMENTS, LOCATIONS } from '../types';
+import { REASONS, TREATMENTS } from '../types';
+import { useMobileUnavailabilityForm } from '../hooks/useMobileUnavailabilityForm';
 
 interface Props {
   isOpen: boolean;
@@ -31,129 +28,16 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
   onClose,
   onSuccess,
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [productQuery, setProductQuery] = useState('');
-  const [productSuggestions, setProductSuggestions] = useState<any[]>([]);
-  const [isSearchingProduct, setIsSearchingProduct] = useState(false);
-  const [selectedProductVariation, setSelectedProductVariation] = useState<any | null>(null);
-
-  const [quantity, setQuantity] = useState('1');
-  const [reason, setReason] = useState<string>(REASONS[0]);
-  const [treatment, setTreatment] = useState<string>(TREATMENTS[0]);
-  const [physicalLocation, setPhysicalLocation] = useState<string>(LOCATIONS[0]);
-  const [observation, setObservation] = useState('');
-
-  const [suppliers, setSuppliers] = useState<{ id: string; fantasy_name: string }[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Busca fornecedores
-    const fetchSuppliers = async () => {
-      try {
-        const { data } = await supabase
-          .from('suppliers')
-          .select('id, fantasy_name')
-          .order('fantasy_name');
-        if (data) setSuppliers(data);
-      } catch (e) {
-        console.warn('Erro ao carregar fornecedores no mobile:', e);
-      }
-    };
-    fetchSuppliers();
-  }, [isOpen]);
-
-  // Debounced search de produtos com variação
-  useEffect(() => {
-    if (productQuery.trim().length < 2 || selectedProductVariation) {
-      setProductSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setIsSearchingProduct(true);
-      try {
-        const results = await searchProducts(productQuery);
-        setProductSuggestions(results);
-      } catch (e) {
-        console.warn('Erro na busca de produtos:', e);
-      } finally {
-        setIsSearchingProduct(false);
-      }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [productQuery, selectedProductVariation]);
-
-  const resetForm = () => {
-    setSelectedProductVariation(null);
-    setProductQuery('');
-    setQuantity('1');
-    setReason(REASONS[0]);
-    setTreatment(TREATMENTS[0]);
-    setPhysicalLocation(LOCATIONS[0]);
-    setSelectedSupplierId('');
-    setObservation('');
-    setIsLoading(false);
-  };
-
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedProductVariation) {
-      Alert.alert('Atenção', 'Selecione uma variação do produto.');
-      return;
-    }
-
-    const qty = parseFloat(quantity.replace(',', '.'));
-    if (isNaN(qty) || qty <= 0) {
-      Alert.alert('Atenção', 'Informe uma quantidade válida maior que zero.');
-      return;
-    }
-
-    if (treatment === 'Devolução ao fornecedor' && !selectedSupplierId) {
-      Alert.alert('Atenção', 'Selecione o fornecedor para a devolução.');
-      return;
-    }
-
-    const currentStock = Number(selectedProductVariation.stock || 0);
-    if (qty > currentStock) {
-      Alert.alert(
-        'Estoque insuficiente',
-        `A quantidade informada (${qty}) é maior que o saldo em estoque (${currentStock}).`
-      );
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await createStockUnavailability({
-        productId: selectedProductVariation.id,
-        variationId: selectedProductVariation.variation_id,
-        quantity: qty,
-        reason,
-        treatment,
-        physicalLocation,
-        observation: observation.trim() || undefined,
-        supplierId: selectedSupplierId || null,
-      });
-
-      Alert.alert('Sucesso', 'Indisponibilidade registrada com sucesso!');
-      resetForm();
-      onSuccess();
-    } catch (error: any) {
-      Alert.alert('Erro ao registrar', error?.message || 'Falha ao registrar indisponibilidade.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { state, actions } = useMobileUnavailabilityForm({
+    isOpen,
+    onClose,
+    onSuccess,
+  });
 
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={handleClose}>
+    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={actions.handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -164,7 +48,7 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
             <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
               Nova Indisponibilidade
             </Text>
-            <TouchableOpacity onPress={handleClose} hitSlop={8}>
+            <TouchableOpacity onPress={actions.handleClose} hitSlop={8}>
               <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -172,21 +56,24 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
           <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
             {/* Produto / Variação */}
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Produto e Variação *</Text>
-              {selectedProductVariation ? (
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Produto e Variação <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              {state.selectedProductVariation ? (
                 <View style={[styles.selectedCard, isDarkMode && styles.selectedCardDark]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.selectedTitle, isDarkMode && styles.selectedTitleDark]}>
-                      {selectedProductVariation.variationName}
+                      {state.selectedProductVariation.variationName}
                     </Text>
                     <Text style={styles.selectedSku}>
-                      SKU: {selectedProductVariation.sku} • Saldo: {selectedProductVariation.stock}
+                      SKU: {state.selectedProductVariation.sku} • Saldo:{' '}
+                      {state.selectedProductVariation.stock}
                     </Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => {
-                      setSelectedProductVariation(null);
-                      setProductQuery('');
+                      actions.setSelectedProductVariation(null);
+                      actions.setProductQuery('');
                     }}
                     style={styles.clearSelectedBtn}
                   >
@@ -201,21 +88,25 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
                       style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
                       placeholder="Buscar por nome ou SKU..."
                       placeholderTextColor="#94a3b8"
-                      value={productQuery}
-                      onChangeText={setProductQuery}
+                      value={state.productQuery}
+                      onChangeText={actions.setProductQuery}
+                      autoCapitalize="none"
                     />
-                    {isSearchingProduct && <ActivityIndicator size="small" color="#2563eb" />}
+                    {state.isSearchingProduct && <ActivityIndicator size="small" color="#dc2626" />}
                   </View>
 
-                  {productSuggestions.length > 0 && (
-                    <View style={[styles.suggestionsList, isDarkMode && styles.suggestionsListDark]}>
-                      {productSuggestions.map((item) => (
+                  {/* Sugestões de variações */}
+                  {state.productSuggestions.length > 0 && (
+                    <View
+                      style={[styles.suggestionsList, isDarkMode && styles.suggestionsListDark]}
+                    >
+                      {state.productSuggestions.map((item) => (
                         <TouchableOpacity
                           key={`${item.id}-${item.variation_id}`}
                           style={[styles.suggestionItem, isDarkMode && styles.suggestionItemDark]}
                           onPress={() => {
-                            setSelectedProductVariation(item);
-                            setProductSuggestions([]);
+                            actions.setSelectedProductVariation(item);
+                            actions.setProductQuery('');
                           }}
                         >
                           <Text style={[styles.suggestionName, isDarkMode && styles.textLight]}>
@@ -232,65 +123,49 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
               )}
             </View>
 
-            {/* Quantidade e Local */}
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={[styles.label, isDarkMode && styles.labelDark]}>Quantidade *</Text>
-                <TextInput
-                  style={[styles.input, isDarkMode && styles.inputDark]}
-                  keyboardType="numeric"
-                  value={quantity}
-                  onChangeText={setQuantity}
-                />
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1.5 }]}>
-                <Text style={[styles.label, isDarkMode && styles.labelDark]}>Local Físico *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsRow}>
-                  {LOCATIONS.map((loc) => (
-                    <TouchableOpacity
-                      key={loc}
-                      style={[
-                        styles.pill,
-                        isDarkMode && styles.pillDark,
-                        physicalLocation === loc && styles.pillActive,
-                      ]}
-                      onPress={() => setPhysicalLocation(loc)}
-                    >
-                      <Text
-                        style={[
-                          styles.pillText,
-                          isDarkMode && styles.textLight,
-                          physicalLocation === loc && styles.pillTextActive,
-                        ]}
-                      >
-                        {loc}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+            {/* Quantidade */}
+            <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Quantidade <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  isDarkMode && styles.inputDark,
+                  state.isFieldsDisabled && styles.inputDisabled,
+                ]}
+                keyboardType="numeric"
+                value={state.quantity}
+                onChangeText={actions.setQuantity}
+                placeholder="Ex: 1"
+                placeholderTextColor="#94a3b8"
+                editable={!state.isFieldsDisabled}
+              />
             </View>
 
             {/* Motivo */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Motivo *</Text>
+            <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Motivo <Text style={styles.requiredMark}>*</Text>
+              </Text>
               <View style={styles.wrapPills}>
                 {REASONS.map((r) => (
                   <TouchableOpacity
                     key={r}
+                    disabled={state.isFieldsDisabled}
                     style={[
                       styles.pill,
                       isDarkMode && styles.pillDark,
-                      reason === r && styles.pillActive,
+                      state.reason === r && styles.pillActive,
+                      state.isFieldsDisabled && styles.pillDisabled,
                     ]}
-                    onPress={() => setReason(r)}
+                    onPress={() => actions.setReason(r)}
                   >
                     <Text
                       style={[
                         styles.pillText,
                         isDarkMode && styles.textLight,
-                        reason === r && styles.pillTextActive,
+                        state.reason === r && styles.pillTextActive,
                       ]}
                     >
                       {r}
@@ -301,24 +176,28 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
             </View>
 
             {/* Tratativa */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, isDarkMode && styles.labelDark]}>Tratativa *</Text>
+            <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
+              <Text style={[styles.label, isDarkMode && styles.labelDark]}>
+                Tratativa <Text style={styles.requiredMark}>*</Text>
+              </Text>
               <View style={styles.wrapPills}>
                 {TREATMENTS.map((t) => (
                   <TouchableOpacity
                     key={t}
+                    disabled={state.isFieldsDisabled}
                     style={[
                       styles.pill,
                       isDarkMode && styles.pillDark,
-                      treatment === t && styles.pillActive,
+                      state.treatment === t && styles.pillActive,
+                      state.isFieldsDisabled && styles.pillDisabled,
                     ]}
-                    onPress={() => setTreatment(t)}
+                    onPress={() => actions.setTreatment(t)}
                   >
                     <Text
                       style={[
                         styles.pillText,
                         isDarkMode && styles.textLight,
-                        treatment === t && styles.pillTextActive,
+                        state.treatment === t && styles.pillTextActive,
                       ]}
                     >
                       {t}
@@ -328,49 +207,67 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
               </View>
             </View>
 
-            {/* Fornecedor (se devolução) */}
-            {treatment === 'Devolução ao fornecedor' && (
-              <View style={styles.inputGroup}>
+            {/* Fornecedor Alvo (se devolução) */}
+            {state.treatment === 'Devolução ao fornecedor' && (
+              <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
                 <Text style={[styles.label, isDarkMode && styles.labelDark]}>
-                  Fornecedor * (obrigatório para devolução)
+                  Fornecedor Alvo <Text style={styles.requiredMark}>*</Text>
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsRow}>
-                  {suppliers.map((s) => (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={[
-                        styles.pill,
-                        isDarkMode && styles.pillDark,
-                        selectedSupplierId === s.id && styles.pillActive,
-                      ]}
-                      onPress={() => setSelectedSupplierId(s.id)}
-                    >
-                      <Text
+                {state.suppliers.length === 0 ? (
+                  <Text style={[styles.emptySupplierText, isDarkMode && styles.textLight]}>
+                    Nenhum fornecedor vinculado a este produto.
+                  </Text>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.pillsRow}
+                  >
+                    {state.suppliers.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        disabled={state.isFieldsDisabled}
                         style={[
-                          styles.pillText,
-                          isDarkMode && styles.textLight,
-                          selectedSupplierId === s.id && styles.pillTextActive,
+                          styles.pill,
+                          isDarkMode && styles.pillDark,
+                          state.selectedSupplierId === s.id && styles.pillActive,
+                          state.isFieldsDisabled && styles.pillDisabled,
                         ]}
+                        onPress={() => actions.setSelectedSupplierId(s.id)}
                       >
-                        {s.fantasy_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                        <Text
+                          style={[
+                            styles.pillText,
+                            isDarkMode && styles.textLight,
+                            state.selectedSupplierId === s.id && styles.pillTextActive,
+                          ]}
+                        >
+                          {s.fantasy_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             )}
 
             {/* Observação */}
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Observação</Text>
               <TextInput
-                style={[styles.input, styles.textArea, isDarkMode && styles.inputDark]}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  isDarkMode && styles.inputDark,
+                  state.isFieldsDisabled && styles.inputDisabled,
+                ]}
                 placeholder="Detalhes adicionais (opcional)..."
                 placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={3}
-                value={observation}
-                onChangeText={setObservation}
+                value={state.observation}
+                onChangeText={actions.setObservation}
+                editable={!state.isFieldsDisabled}
               />
             </View>
           </ScrollView>
@@ -379,8 +276,8 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
           <View style={[styles.modalFooter, isDarkMode && styles.modalFooterDark]}>
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={handleClose}
-              disabled={isLoading}
+              onPress={actions.handleClose}
+              disabled={state.isLoading}
             >
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
@@ -388,12 +285,12 @@ export const UnavailabilityFormModal: React.FC<Props> = ({
             <TouchableOpacity
               style={[
                 styles.submitBtn,
-                (!selectedProductVariation || isLoading) && styles.submitBtnDisabled,
+                (!state.selectedProductVariation || state.isLoading) && styles.submitBtnDisabled,
               ]}
-              onPress={handleSubmit}
-              disabled={!selectedProductVariation || isLoading}
+              onPress={actions.handleSubmit}
+              disabled={!state.selectedProductVariation || state.isLoading}
             >
-              {isLoading ? (
+              {state.isLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <>
@@ -446,7 +343,8 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
   },
   formScroll: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   inputGroup: {
     marginBottom: 14,
@@ -454,11 +352,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#334155',
     marginBottom: 6,
   },
+  requiredMark: {
+    color: '#dc2626',
+  },
   labelDark: {
-    color: '#94a3b8',
+    color: '#cbd5e1',
   },
   textLight: {
     color: '#e2e8f0',
@@ -478,13 +379,13 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     color: '#f8fafc',
   },
+  inputDisabled: {
+    backgroundColor: '#f1f5f9',
+    color: '#94a3b8',
+  },
   textArea: {
     height: 70,
     textAlignVertical: 'top',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
   },
   searchBox: {
     flexDirection: 'row',
@@ -589,6 +490,9 @@ const styles = StyleSheet.create({
   pillActive: {
     backgroundColor: '#dc2626',
   },
+  pillDisabled: {
+    opacity: 0.6,
+  },
   pillText: {
     fontSize: 12,
     color: '#475569',
@@ -597,6 +501,15 @@ const styles = StyleSheet.create({
   pillTextActive: {
     color: '#ffffff',
     fontWeight: '600',
+  },
+  disabledGroup: {
+    opacity: 0.55,
+  },
+  emptySupplierText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
   modalFooter: {
     flexDirection: 'row',

@@ -4,23 +4,67 @@ Este documento registra ideias, planos arquiteturais e melhorias planejadas para
 
 ---
 
+## 2. Modos de Inventário e Bloqueio de Origem Salvados e Usados (ERP & Mobile)
+- **Status:** Concluído e Validado! 📦📋✨
+- **Data:** 29/09/2026
+- **Contexto:**
+  - O usuário solicitou ajuste nos modos de inventário:
+    1. Renomear o modo "Estoque Completo" para: `"Estoque Completo: Etapas por Fornecedor"`.
+    2. Remover o modo independente "Por Fornecedor", mantendo exclusivamente:
+       - `Estoque Completo: Etapas por Fornecedor` (full)
+       - `Seleção Personalizada` (custom)
+    3. Bloquear seleção e contagem de produtos e fornecedores de origem `salvado` e `usado` em ambos os modos (pois salvados e usados não participam do inventário de rotina de estoque novo).
+- **Ações Executadas:**
+  1. **ERP Web:**
+     - `InventoryScopeTypeSelector.tsx`: atualizado título do modo completo e removida opção individual de fornecedor.
+     - `offlineInventoryCatalog.ts`: adicionado campo `product_kind` e filtragem para ignorar `product_kind === 'salvado' || product_kind === 'usado'` tanto no escopo quanto no scanner/match de código de barras.
+     - `InventoryProductSearchModal.tsx`: filtrados produtos salvados/usados na listagem de busca avulsa.
+  2. **Mobile:**
+     - `InventoryScopeTypeSelector.tsx`: renomeado modo completo para "Estoque Completo: Etapas por Fornecedor", removida seleção colapsável de fornecedor e limpos imports/estados órfãos.
+     - `InventoryScopeTypeSelector.test.tsx`: atualizado teste unitário validando a nova nomenclatura e ausência do modo removido.
+     - `offlineInventoryCatalog.ts`: adicionado `product_kind` à sincronização offline e filtrado no escopo e no scanner/match para ignorar salvados e usados.
+     - `InventoryProductSearchModal.tsx`: integrado ao catálogo offline filtrado.
+
+---
+
 ## 1. Módulo de Indisponibilidades de Estoque: Refatoração de UX (ERP) e Replicação no Mobile
-- **Status:** Em implementação 📦📱✨
+- **Status:** Concluído e Validado! 📦📱🎉
 - **Data:** 29/09/2026
 - **Contexto:**
   - O usuário relatou que a tela de indisponibilidades no ERP exibia a mensagem "Nenhuma indisponibilidade encontrada." como se fosse um erro de sistema ou busca que falhou, mesmo sem nenhuma indisponibilidade criada pelo usuário (o que representa o estado ideal e regular do estoque).
   - O aplicativo Mobile ainda não possuía a tela nem o serviço de indisponibilidades implementados.
+   - Solicitação posterior do usuário:
+     1. Remoção do campo "Local Físico" do formulário de indisponibilidade, fixando o valor padrão "Depósito" no ERP e no Mobile.
+     2. Desativação prévia dos campos (quantidade, motivo, tratativa, fornecedor, observação) até que o produto/variação seja selecionado.
+     3. Campo de fornecedor renomeado para "Fornecedor Alvo *" e exibido exclusivamente quando a tratativa for "Devolução ao fornecedor".
+     4. Restrição estrita de fornecedores: apenas fornecedores vinculados ao produto escolhido (`supplier_id`, `main_supplier_id`, `supplier_ids`) são listados nas opções.
 - **Ações Planejadas & Executadas:**
   1. **ERP Web (`erp/src/pages/App/Stock/Unavailabilities/`):**
      - Substituição da mensagem crua da tabela por um Empty State visual amigável e profissional quando a tabela estiver vazia ("Nenhuma indisponibilidade registrada - O estoque está sem bloqueios ou avarias").
      - Diferenciação entre "estoque sem indisponibilidades" (estado positivo normal) e "nenhum registro para os filtros selecionados" (com botão de limpar filtros).
      - Ocultação da barra de paginação quando `totalCount === 0`.
      - Tratamento seguro de parâmetro `:id` no roteador para evitar falsos toasts de erro.
+     - Remoção do campo "Local Físico" no modal de cadastro, fixando o envio automático de 'Depósito' para o backend.
+     - Campos desativados (`disabled={!selectedVariation || isLoading}`) até a seleção da variação do produto.
+     - Campo renomeado para "Fornecedor Alvo *" e condicionado estritamente à tratativa de devolução, filtrando apenas fornecedores associados ao produto.
+     - 7 testes unitários do Vitest 100% aprovados sem qualquer erro ou warning.
   2. **Mobile (`mobile/src/features/stock/unavailabilities/` e `mobile/src/services/stock/stockUnavailabilitiesService.ts`):**
      - Replicação completa do módulo no aplicativo React Native, seguindo rigorosamente a skill `erp-web-to-mobile-replication`.
      - Serviço Supabase reutilizando os mesmos contratos, queries e RPCs transacionais (`create_stock_unavailability` e `undo_stock_unavailability`).
      - Telas e componentes nativos: `UnavailabilitiesScreen`, `UnavailabilityCard`, `UnavailabilityFilters`, `UnavailabilityEmptyState` e modal de cadastro `UnavailabilityFormModal`.
-     - Integração na barra de abas de Estoque (`NativeStockScreen.tsx`) com chave `unavailabilities`.
+     - Campo "Local Físico" removido do modal mobile, mantendo envio de 'Depósito' padrão.
+     - Campos dependentes bloqueados (`editable={!isFieldsDisabled}`, `disabled={isFieldsDisabled}` com opacidade visual) até seleção do produto.
+     - Campo renomeado para "Fornecedor Alvo *", condicionado a "Devolução ao fornecedor" e filtrando fornecedores vinculados ao produto selecionado com feedback caso o produto não tenha fornecedor cadastrado.
+     - Integração na barra de abas de Estoque (`NativeStockScreen.tsx`) com chave `unavailabilities` e preservação dos atalhos de navegação.
+     - Validação estática de TypeScript sem nenhum erro no módulo.
+  3. **Modularização Arquitetural e Organização de Arquivos (`modularizacao_codigo` e `organizacao-arquivos-diretorios`):**
+     - **Separação de Camadas (UI vs Application/Hooks vs Infra/Services)**:
+       - No ERP, os estados e regras foram extraídos para o custom hook `hooks/useUnavailabilityForm.ts`.
+       - A consulta de fornecedores foi isolada em `services/unavailabilitySupplierService.ts`.
+       - Tipos TypeScript estritos e enums foram definidos em `types/unavailabilityForm.types.ts` sem nenhum `any`.
+       - O componente visual foi movido para `modals/UnavailabilityFormModal.tsx` com padrão visual de borda apenas embaixo (`border-b-2`) e acessibilidade completa.
+       - A raiz de `Unavailabilities/` mantém um proxy reexportador (`UnavailabilityFormModal.tsx`) para preservar 100% dos imports existentes sem regressão.
+       - No Mobile, o hook dedicado `hooks/useMobileUnavailabilityForm.ts` desacoplou lógica de busca de produtos/fornecedores e validações, deixando o modal de apresentação puramente declarativo.
 
 ---
 
@@ -142,6 +186,22 @@ Este documento registra ideias, planos arquiteturais e melhorias planejadas para
 
 ---
 
-## 4. Próximas Ideias Registradas
+---
+
+## 4. Gestão de Builds e Ciclo de Cota do EAS (Expo)
+- **Status:** Monitorado / Cota Gratuita Mensal Esgotada ⏳📲
+- **Data:** 29/09/2026
+- **Contexto:**
+  - O EAS Build rejeitou nova compilação nativa de Android informando que as builds gratuitas da conta `@morante` do plano Free se esgotaram neste ciclo.
+  - **Previsão de Reset:** Quinta-feira, 01/10/2026 (em aproximadamente 1 dia e 9 horas).
+  - **Alternativa e Continuidade:** O canal de **Updates OTA (`eas update`)** continua 100% operacional e sem custos, permitindo publicar ajustes de telas, regras de negócio e correções visuais sem necessidade de compilação nativa até a virada do mês.
+- **Resolução do Erro checkForUpdateAsync (29/09/2026):**
+  - O APK compilado sem a flag `channel` explícita no AndroidManifest recorre ao canal padrão (`default`).
+  - O canal `default` não existia no projeto EAS da nuvem, fazendo o servidor responder com status 404 para o app instalado, disparando a rejeição `'expo-updates:checkForUpdateAsync was rejected'`.
+  - Canal `default` criado no EAS e vinculado diretamente à branch `production` com `runtimeVersion 1.6.0`, normalizando as respostas para 200 OK tanto em `production` quanto em `default`.
+
+---
+
+## 5. Próximas Ideias Registradas
 - Sincronização automática contínua de DF-e via cron/pg_cron no backend do Supabase em background de hora em hora.
 - Auditoria periódica de divergências de estoque por curva ABC no app mobile com alertas inteligentes.

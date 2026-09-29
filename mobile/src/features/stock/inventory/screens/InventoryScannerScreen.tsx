@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { X } from 'lucide-react-native';
+import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
 import { recognizeText } from 'expo-mlkit-ocr';
 import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
 
@@ -113,6 +114,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           Boolean(result.itemId)
         ) {
           triggerFrameBorder('success');
+          playInventoryCountSound();
           setUnitsRead((count) => count + 1);
           if (result.itemId) setProductsRead((previous) => new Set(previous).add(result.itemId!));
         }
@@ -277,7 +279,8 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               )}
               <Text style={styles.sessionText}>
                 {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'} ·{' '}
-                {productsRead.size} {productsRead.size === 1 ? 'produto contado' : 'produtos contados'}
+                {productsRead.size}{' '}
+                {productsRead.size === 1 ? 'produto contado' : 'produtos contados'}
               </Text>
               <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
                 <Text style={styles.finishButtonText}>FINALIZAR LEITURA</Text>
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 24,
-    paddingBottom: 48,
+    paddingBottom: 80,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
   },
@@ -420,7 +423,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     width: '100%',
     alignItems: 'center',
-    transform: [{ translateY: -10 }],
+    marginBottom: 16,
   },
   finishButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   captureButton: {

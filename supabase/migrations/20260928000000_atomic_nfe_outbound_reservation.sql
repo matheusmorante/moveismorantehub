@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION public.reserve_nfe_outbound_emission(
-    p_order_id uuid,
+    p_order_id text,
     p_modelo varchar(2),
     p_ambiente integer,
     p_emission_request_id uuid,

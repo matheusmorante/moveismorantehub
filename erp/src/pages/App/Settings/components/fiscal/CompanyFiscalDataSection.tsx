@@ -251,7 +251,8 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
             />
           </div>
           <p className="self-end text-sm text-slate-600 dark:text-slate-300">
-            Guarde o CSC secreto fora do navegador e configure-o somente no serviço fiscal que o utilizar.
+            Guarde o CSC secreto fora do navegador e configure-o somente no serviço fiscal que o
+            utilizar.
           </p>
         </div>
       </div>

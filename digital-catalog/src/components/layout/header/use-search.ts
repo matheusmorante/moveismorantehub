@@ -3,6 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import {
+  filterPublicCatalogSuggestions,
+  isCatalogSearchLongEnough,
+  MAX_PRODUCT_SEARCH_SUGGESTIONS,
+  orderCatalogSearchResultsByIds,
+} from '@/features/products/product-search-suggestions';
 
 export function useSearch() {
   const router = useRouter();
@@ -74,7 +80,7 @@ export function useSearch() {
   // Busca sugestões em tempo real ao digitar (Debounce)
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
+    if (!isOpen || !isCatalogSearchLongEnough(trimmed)) {
       setSuggestions({ environments: [], categories: [], products: [] });
       setShowSuggestions(false);
       return;
@@ -82,6 +88,7 @@ export function useSearch() {
 
     setLoadingSuggestions(true);
     setShowSuggestions(true);
+    let isCurrent = true;
 
     const timer = setTimeout(async () => {
       try {
@@ -121,33 +128,39 @@ export function useSearch() {
         const environments = matched.filter((c) => c.type === 'environment').slice(0, 5);
         const categories = matched.filter((c) => c.type === 'category').slice(0, 5);
 
-        // 2. Buscar Produtos no Supabase (com suporte a múltiplos tokens)
-        let prodQuery = supabase
-          .from('products')
-          .select('id, name, price, promo_price, slug, product_images(image_url, is_main)')
-          .eq('status', 'published');
+        // Sugestões usam a mesma busca do catálogo, com a página limitada a cinco.
+        const { data: searchRows, error: prodErr } = await supabase.rpc(
+          'search_catalog_product_page',
+          {
+            p_search: trimmed,
+            p_category_ids: null,
+            p_environment_category_ids: null,
+            p_type: 'all',
+            p_min_price: 0,
+            p_max_price: 10000,
+            p_page: 1,
+            p_page_size: MAX_PRODUCT_SEARCH_SUGGESTIONS,
+            p_sort_by: 'newest',
+          }
+        );
+        if (prodErr) throw prodErr;
 
-        // Usar o primeiro token principal para pré-filtrar no banco
-        const mainToken = queryTokens[0] || trimmed;
-        prodQuery = prodQuery
-          .or(`name.ilike.%${mainToken}%,name.ilike.%${trimmed.replace(/\s+/g, '-')}%`)
-          .limit(20);
-
-        const { data: prodData, error: prodErr } = await prodQuery;
-
+        const orderedIds = (searchRows || []).map((row: { product_id: string }) => row.product_id);
         let products: any[] = [];
-        if (!prodErr && prodData) {
-          // Refinar match com todos os tokens no frontend
-          const filtered = prodData
-            .filter((p: any) => {
-              const cleanProdName = normalizeText(p.name);
-              return queryTokens.every((token) => {
-                const synonyms = getSynonyms(token);
-                return synonyms.some((syn) => cleanProdName.includes(syn));
-              });
-            })
-            .slice(0, 5);
+        if (orderedIds.length > 0) {
+          const { data: prodData, error: detailsError } = await supabase
+            .from('products')
+            .select(
+              'id, name, price, promo_price, slug, status, deleted_at, product_images(image_url, is_main), product_variations(status)'
+            )
+            .eq('status', 'published')
+            .is('deleted_at', null)
+            .in('id', orderedIds);
+          if (detailsError) throw detailsError;
 
+          const filtered = filterPublicCatalogSuggestions(
+            orderCatalogSearchResultsByIds(prodData || [], orderedIds)
+          );
           products = filtered.map((p: any) => {
             const mainImg =
               p.product_images?.find((img: any) => img.is_main)?.image_url ||
@@ -164,20 +177,25 @@ export function useSearch() {
           });
         }
 
-        setSuggestions({
-          environments,
-          categories,
-          products,
-        });
+        if (isCurrent) {
+          setSuggestions({
+            environments,
+            categories,
+            products,
+          });
+        }
       } catch (err) {
-        console.error('Erro ao buscar sugestões:', err);
+        if (isCurrent) console.error('Erro ao buscar sugestões:', err);
       } finally {
-        setLoadingSuggestions(false);
+        if (isCurrent) setLoadingSuggestions(false);
       }
-    }, 200); // 200ms debounce
+    }, 300);
 
-    return () => clearTimeout(timer);
-  }, [query, allDbCategories]);
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [isOpen, query, allDbCategories]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

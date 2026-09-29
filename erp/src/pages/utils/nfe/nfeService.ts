@@ -9,6 +9,9 @@ import { supabase } from '../supabaseConfig';
 import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
 import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { resolveNfeSequenceSettings } from './nfeSequenceSettings';
+import { canIssueCce } from './nfeCce';
+
+export { canIssueCce };
 
 export interface NfeEmissionResult {
   success: boolean;
@@ -41,7 +44,8 @@ async function getNextNfeNumber(
 ): Promise<number> {
   try {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.access_token) throw new Error('Sessão fiscal expirada.');
+    if (sessionError || !sessionData.session?.access_token)
+      throw new Error('Sessão fiscal expirada.');
     const response = await fetch('/api/nfe/reserve-number', {
       method: 'POST',
       headers: {
@@ -384,19 +388,3 @@ export function canCancelFiscalDocument(doc: {
  * Avalia se o documento fiscal permite emissão de Carta de Correção (CC-e)
  * Regra estrita: CC-e é permitida EXCLUSIVAMENTE para NF-e (Mod. 55). NFC-e (Mod. 65) NÃO aceita CC-e (Rejeição SEFAZ).
  */
-export function canIssueCce(doc: { modelo?: '55' | '65'; status?: string }): {
-  canIssue: boolean;
-  reason?: string;
-} {
-  if (!doc) return { canIssue: false, reason: 'Documento não informado' };
-  if (doc.modelo === '65') {
-    return {
-      canIssue: false,
-      reason: 'A SEFAZ não permite Carta de Correção (CC-e) para NFC-e (Modelo 65).',
-    };
-  }
-  if (doc.status !== 'autorizada') {
-    return { canIssue: false, reason: 'Apenas NF-e autorizadas podem receber CC-e.' };
-  }
-  return { canIssue: true };
-}

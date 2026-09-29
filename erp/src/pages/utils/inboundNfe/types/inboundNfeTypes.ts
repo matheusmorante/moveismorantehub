@@ -117,6 +117,7 @@ export interface InboundInvoice {
   emitterIe?: string;
   emitterAddress?: Record<string, unknown>;
   supplierId?: string;
+  supplierStockOrigins?: string[];
 
   // Transport
   modFrete?: string;

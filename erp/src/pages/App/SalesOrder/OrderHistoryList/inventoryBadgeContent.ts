@@ -1,6 +1,7 @@
 import { binaryOrderBadgeClass } from './orderBadgeStyles';
 import Order from '../../../types/order.type';
 import Item from '../../../types/items.type';
+import { getNonStockOrigin } from '../../../utils/saleInventoryRules';
 
 export interface InventoryBadgeContentOptions {
   isReturn: boolean;
@@ -17,7 +18,7 @@ export interface InventoryBadgeContentResult {
   badgeColorClass: string;
 }
 
-export type ItemMovementStatus = 'effective' | 'reversed' | 'not_effective' | 'unregistered';
+export type ItemMovementStatus = 'effective' | 'reversed' | 'not_effective' | 'unregistered' | 'non_stock';
 
 export interface ItemMovementDisplay {
   description: string;
@@ -107,7 +108,8 @@ export const getInventoryBadgeContent = ({
 export const getOrderItemsMovementList = (
   order?: Order,
   hasMovement: boolean = false,
-  isReversed: boolean = false
+  isReversed: boolean = false,
+  isReturn: boolean = false
 ): ItemMovementDisplay[] => {
   if (!order || !order.items || order.items.length === 0) return [];
 
@@ -121,6 +123,20 @@ export const getOrderItemsMovementList = (
     const description = item.description || (item as any).name || 'Produto';
     const quantity = item.quantity || 1;
     const productId = item.productId;
+    const nonStockOrigin = getNonStockOrigin(item);
+    if (nonStockOrigin) {
+      const originLabel = nonStockOrigin === 'salvado' ? 'Salvados' : 'Usados';
+      return {
+        description,
+        quantity,
+        productId,
+        status: 'non_stock',
+        statusLabel: originLabel,
+        statusBadgeClass:
+          'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+        tooltip: `Não foi gerada ${isReturn ? 'entrada' : 'saída'} de estoque porque este item tem origem ${originLabel}.`,
+      };
+    }
     const isUnregistered =
       !item.productId || item.productId.trim() === '' || Boolean(item.isTemporaryProduct);
 
@@ -133,7 +149,7 @@ export const getOrderItemsMovementList = (
         statusLabel: 'Sem Cadastro',
         statusBadgeClass:
           'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-        tooltip: 'Item sem cadastro no banco não gera saída de estoque.',
+        tooltip: `Não foi gerada ${isReturn ? 'entrada' : 'saída'} de estoque porque este produto convencional ainda não está cadastrado ou vinculado ao catálogo.`,
       };
     }
 

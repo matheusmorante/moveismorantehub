@@ -42,9 +42,7 @@ class NcmService {
     }
   }
 
-  async getCatalogEntry(
-    code: string
-  ): Promise<{
+  async getCatalogEntry(code: string): Promise<{
     code: string;
     official_description: string;
     active: boolean;

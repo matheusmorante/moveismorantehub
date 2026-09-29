@@ -22,8 +22,8 @@ export const UnavailabilityCard: React.FC<Props> = ({
     item.products?.product_kind === 'salvado'
       ? 'Salvados'
       : item.products?.product_kind === 'usado'
-      ? 'Usados'
-      : 'Normal';
+        ? 'Usados'
+        : 'Normal';
 
   const formattedDate = new Date(item.created_at).toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -41,12 +41,7 @@ export const UnavailabilityCard: React.FC<Props> = ({
           <Text style={[styles.kindBadge, isDarkMode && styles.textMutedDark]}>{productKind}</Text>
         </View>
 
-        <View
-          style={[
-            styles.statusBadge,
-            isActive ? styles.statusActive : styles.statusCancelled,
-          ]}
-        >
+        <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusCancelled]}>
           <Text
             style={[
               styles.statusText,

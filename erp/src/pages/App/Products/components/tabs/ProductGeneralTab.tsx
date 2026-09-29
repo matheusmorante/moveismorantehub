@@ -8,7 +8,11 @@ import {
   searchProductCategories,
   type ProductCategoryOption,
 } from './productCategoryEnvironment';
-import { matchCategoryByRules } from '@/pages/utils/categoryResolutionService';
+import {
+  keepManualCategorySelection,
+  matchCategoryByRules,
+  rankCategoryCandidates,
+} from '@/pages/utils/categoryResolutionService';
 import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 
 interface ProductGeneralTabProps {
@@ -55,6 +59,20 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     () => searchProductCategories(selectableCategories, [...availableCategories], categorySearch),
     [selectableCategories, availableCategories, categorySearch]
   );
+
+  const productNameCategoryCandidates = React.useMemo(
+    () => rankCategoryCandidates(formData.name || '', selectableCategories),
+    [formData.name, selectableCategories]
+  );
+  const topCategoryCandidate = productNameCategoryCandidates[0];
+  const secondCategoryCandidate = productNameCategoryCandidates[1];
+  const categorySuggestions =
+    !formData.categoryIds?.length && topCategoryCandidate?.score >= 0.7
+      ? secondCategoryCandidate &&
+        topCategoryCandidate.score - secondCategoryCandidate.score < 0.12
+        ? productNameCategoryCandidates.slice(0, 2)
+        : [topCategoryCandidate]
+      : [];
 
   const handleToggleCategory = React.useCallback(
     (catId: string, isChecked: boolean) => {
@@ -154,7 +172,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               }}
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
             >
-              <option value="normal">Normal</option>
+              <option value="normal">Convencional</option>
               <option value="salvado">Salvados</option>
               <option value="usado">Usados</option>
             </select>
@@ -230,8 +248,11 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                   );
                   if (matchedCategory) {
                     setFormData((prev) => {
-                      if (prev.categoryIds?.includes(matchedCategory.id)) return prev;
-                      return { ...prev, categoryIds: [matchedCategory.id] };
+                      if (prev.categoryIds?.length) return prev;
+                      return {
+                        ...prev,
+                        categoryIds: keepManualCategorySelection([], matchedCategory.id),
+                      };
                     });
                     if (setValidationErrors) {
                       setValidationErrors((prev) => {
@@ -258,6 +279,37 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             }`}
             placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
           />
+          {categorySuggestions.length > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400"
+              aria-live="polite"
+            >
+              <span>Confira a sugestão pelo nome:</span>
+              {categorySuggestions.map(({ category }) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className="rounded-md border border-blue-200 px-2 py-1 font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
+                  onClick={() => {
+                    setFormData((prev) => {
+                      if (prev.categoryIds?.length) return prev;
+                      return {
+                        ...prev,
+                        categoryIds: keepManualCategorySelection([], category.id),
+                      };
+                    });
+                    setValidationErrors?.((prev) => {
+                      const next = { ...prev };
+                      delete next.categoryIds;
+                      return next;
+                    });
+                  }}
+                >
+                  Usar {category.name || category.category}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Catalog / Ecommerce Title Section (Exibido apenas se diferenciarTitulo for true) */}
@@ -334,7 +386,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 {isGeneratingCategory && (
                   <span className="inline-flex items-center gap-1 text-[9px] font-black bg-amber-100 text-amber-800 dark:bg-amber-955/80 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-300/80 dark:border-amber-700/80 animate-pulse select-none">
                     <i className="bi bi-stars text-amber-500 animate-spin text-[10px]" />
-                    <span>IA analisando categoria...</span>
+                    <span>Analisando o nome do produto...</span>
                   </span>
                 )}
               </div>

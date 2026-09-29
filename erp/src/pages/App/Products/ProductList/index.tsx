@@ -167,7 +167,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
           </div>
         )}
         <div className="p-0.5 sm:p-2 lg:p-4">
-
           <ProductTable
             products={paginatedProducts}
             onEdit={onEdit}

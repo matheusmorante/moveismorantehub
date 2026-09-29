@@ -44,7 +44,7 @@ export function OrdersHeader({ dark, search, onSearch, onRefresh }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingBottom: 8,
     gap: 10,
   },
   top: {

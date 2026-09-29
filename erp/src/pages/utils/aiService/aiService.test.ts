@@ -19,7 +19,6 @@ describe('aiService Facade & Modularization', () => {
     expect(typeof aiService.generateMarketplaceTitle).toBe('function');
     expect(typeof aiService.generateProductDescription).toBe('function');
     expect(typeof aiService.suggestPrices).toBe('function');
-    expect(typeof aiService.suggestCategory).toBe('function');
     expect(typeof aiService.generateComboName).toBe('function');
     expect(typeof aiService.extractProductColor).toBe('function');
   });

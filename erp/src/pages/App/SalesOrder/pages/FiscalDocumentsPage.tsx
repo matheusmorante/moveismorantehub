@@ -4,6 +4,7 @@ import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { openDanfePrintWindow } from '@/pages/utils/nfe/danfeGenerator';
 import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeService';
+import { validateNfeCce } from '@/pages/utils/nfe/nfeCce';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
@@ -57,6 +58,12 @@ export default function FiscalDocumentsPage() {
   const [showCceModal, setShowCceModal] = useState(false);
   const [cceText, setCceText] = useState('');
   const [isSubmittingCce, setIsSubmittingCce] = useState(false);
+  const [isLoadingCceInfo, setIsLoadingCceInfo] = useState(false);
+  const [ccePreviousCorrection, setCcePreviousCorrection] = useState('');
+  const [cceNextSequence, setCceNextSequence] = useState<number | null>(1);
+  const [ccePending, setCcePending] = useState(false);
+  const [cceRequestId, setCceRequestId] = useState<string | null>(null);
+  const [productionCceConfirmed, setProductionCceConfirmed] = useState(false);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -298,6 +305,142 @@ export default function FiscalDocumentsPage() {
     }
   };
 
+  const loadCceHistory = async (document: NfeDocumentRecord) => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.access_token)
+      throw new Error('Faça login novamente para consultar o histórico de CC-e.');
+    const response = await fetch(`/api/nfe/cce?documentId=${encodeURIComponent(document.id)}`, {
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success)
+      throw new Error(result.error || 'Não foi possível consultar o histórico de CC-e.');
+    setCcePreviousCorrection(String(result.previousCorrection || ''));
+    setCceText(String(result.previousCorrection || ''));
+    setCceNextSequence(typeof result.nextSequence === 'number' ? result.nextSequence : null);
+    setCcePending(Boolean(result.pending));
+    setCceRequestId(null);
+  };
+
+  const handleOpenCce = async (document: NfeDocumentRecord) => {
+    setSelectedDoc(document);
+    setShowCceModal(true);
+    setCceText('');
+    setCcePreviousCorrection('');
+    setCceNextSequence(null);
+    setCcePending(false);
+    setCceRequestId(null);
+    setProductionCceConfirmed(false);
+    setIsLoadingCceInfo(true);
+    try {
+      await loadCceHistory(document);
+    } catch (error: any) {
+      toast.error(error.message || 'Não foi possível carregar o histórico de CC-e.');
+    } finally {
+      setIsLoadingCceInfo(false);
+    }
+  };
+
+  const handleReconcileCce = async () => {
+    if (!selectedDoc || isSubmittingCce) return;
+    setIsSubmittingCce(true);
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session?.access_token)
+        throw new Error('Faça login novamente para consultar a tentativa.');
+      const response = await fetch('/api/nfe/cce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({ action: 'reconcile', documentId: selectedDoc.id }),
+      });
+      const result = await response.json();
+      if (result.pending) {
+        setCcePending(true);
+        toast.warning(result.error || 'A SEFAZ ainda não confirmou o resultado da CC-e.');
+        return;
+      }
+      if (!response.ok || !result.success)
+        throw new Error(result.error || result.xMotivo || 'A reconciliação da CC-e falhou.');
+      toast.success(
+        `CC-e ${result.sequence} confirmada pela SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
+      );
+      await loadCceHistory(selectedDoc);
+    } catch (error: any) {
+      toast.error(error.message || 'Não foi possível reconciliar a CC-e.');
+    } finally {
+      setIsSubmittingCce(false);
+    }
+  };
+
+  const handleSubmitCce = async () => {
+    if (!selectedDoc || isSubmittingCce || ccePending) return;
+    const correctionError = validateNfeCce(cceText);
+    if (correctionError) {
+      toast.error(correctionError);
+      return;
+    }
+    if (selectedDoc.ambiente === 1 && !productionCceConfirmed) {
+      toast.error('Confirme que deseja transmitir a CC-e no ambiente de Produção.');
+      return;
+    }
+
+    setIsSubmittingCce(true);
+    let transmissionStarted = false;
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session?.access_token)
+        throw new Error('Faça login novamente para transmitir a CC-e.');
+      const requestId = cceRequestId || window.crypto.randomUUID();
+      setCceRequestId(requestId);
+      transmissionStarted = true;
+      const response = await fetch('/api/nfe/cce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          action: 'transmit',
+          documentId: selectedDoc.id,
+          correction: cceText,
+          requestId,
+          productionConfirmed: productionCceConfirmed,
+        }),
+      });
+      const result = await response.json();
+      if (result.pending) {
+        setCcePending(true);
+        toast.warning(result.error || 'Resultado incerto. Consulte a SEFAZ antes de repetir.');
+        return;
+      }
+      if (!response.ok || !result.success) {
+        setCceRequestId(null);
+        throw new Error(result.error || result.xMotivo || 'A SEFAZ não confirmou a CC-e.');
+      }
+      toast.success(
+        `CC-e ${result.sequence} registrada pela SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
+      );
+      setShowCceModal(false);
+      setCceText('');
+      setCcePreviousCorrection('');
+      setCceRequestId(null);
+      setSelectedDoc(null);
+      await loadDocuments();
+    } catch (error: any) {
+      if (transmissionStarted) setCcePending(true);
+      toast.error(
+        transmissionStarted
+          ? 'Não foi possível confirmar a resposta. Consulte a tentativa antes de enviar novamente.'
+          : error.message || 'Erro ao transmitir a CC-e.'
+      );
+    } finally {
+      setIsSubmittingCce(false);
+    }
+  };
+
   const getCancellationDeadlineLabel = (doc: NfeDocumentRecord) => {
     if (!['autorizada', 'homologada'].includes(doc.status)) return null;
     const window = getCancellationWindow(
@@ -509,10 +652,7 @@ export default function FiscalDocumentsPage() {
                         {/* CC-e (Carta de Correção) - EXCLUSIVO PARA NF-e (Modelo 55) */}
                         {canIssueCce(doc).canIssue && (
                           <button
-                            onClick={() => {
-                              setSelectedDoc(doc);
-                              setShowCceModal(true);
-                            }}
+                            onClick={() => void handleOpenCce(doc)}
                             title="Emitir Carta de Correção (CC-e) - Exclusivo NF-e 55"
                             className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-600 dark:hover:text-white transition-all cursor-pointer"
                           >
@@ -561,23 +701,65 @@ export default function FiscalDocumentsPage() {
             </div>
 
             <div className="space-y-4">
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                A CC-e é permitida exclusivamente para retificação de erros na NF-e que não estejam
-                relacionados a valores, impostos, data de emissão ou mudança de destinatário.
-              </p>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                <p className="font-bold">
+                  A nova CC-e substitui as anteriores. Inclua neste texto todas as correções que ainda devem valer.
+                </p>
+                <p className="mt-2">
+                  Não use para alterar valores da operação, base/alíquota/imposto, quantidade, emitente ou destinatário,
+                  nem as datas de emissão ou saída. A CC-e só pode corrigir informação permitida para NF-e modelo 55.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>
+                  {isLoadingCceInfo
+                    ? 'Consultando histórico na SEFAZ…'
+                    : cceNextSequence
+                      ? `Próxima sequência: ${cceNextSequence} de 20`
+                      : 'Não foi possível determinar a próxima sequência.'}
+                </span>
+                {ccePreviousCorrection && !isLoadingCceInfo && (
+                  <span className="font-semibold">Texto da última CC-e carregado para revisão.</span>
+                )}
+              </div>
+              {ccePending && (
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs leading-relaxed text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
+                  Há uma tentativa sem resultado confirmado. Consulte a SEFAZ antes de iniciar outra transmissão.
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                  Texto da Correção (Mínimo 15 caracteres)
+                  Texto da Correção (15 a 1000 caracteres)
                 </label>
                 <textarea
                   value={cceText}
                   onChange={(e) => setCceText(e.target.value)}
-                  placeholder="Exemplo: Correção do endereço de entrega para complemento Bloco B Apto 102."
-                  rows={4}
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-amber-500 transition-all resize-none"
+                  placeholder="Descreva a correção permitida pela SEFAZ."
+                  rows={5}
+                  maxLength={1000}
+                  disabled={isLoadingCceInfo || ccePending || isSubmittingCce}
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-amber-500 transition-all resize-y disabled:opacity-60"
                 />
+                <div className="mt-2 text-right text-[11px] text-slate-400">{cceText.trim().length}/1000</div>
               </div>
+              {selectedDoc.ambiente === 1 && (
+                <label className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs leading-relaxed text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+                  <input
+                    type="checkbox"
+                    checked={productionCceConfirmed}
+                    onChange={(event) => setProductionCceConfirmed(event.target.checked)}
+                    disabled={isSubmittingCce || ccePending}
+                    className="mt-0.5 accent-red-600"
+                  />
+                  <span>Confirmo a transmissão desta CC-e no ambiente de produção.</span>
+                </label>
+              )}
+              {cceNextSequence !== null && cceNextSequence > 20 && (
+                <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+                  Esta NF-e já atingiu o limite de 20 Cartas de Correção.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -586,40 +768,42 @@ export default function FiscalDocumentsPage() {
                   setShowCceModal(false);
                   setSelectedDoc(null);
                   setCceText('');
+                  setCcePreviousCorrection('');
+                  setCceRequestId(null);
+                  setCcePending(false);
+                  setProductionCceConfirmed(false);
                 }}
                 disabled={isSubmittingCce}
-                className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
               >
-                Voltar
+                Fechar
               </button>
-              <button
-                onClick={async () => {
-                  if (!cceText || cceText.trim().length < 15) {
-                    toast.error('O texto da CC-e deve ter no mínimo 15 caracteres.');
-                    return;
+              {ccePending ? (
+                <button
+                  onClick={() => void handleReconcileCce()}
+                  disabled={isSubmittingCce || isLoadingCceInfo}
+                  className="px-5 py-2.5 rounded-2xl bg-sky-600 text-white hover:bg-sky-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingCce ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-arrow-clockwise" />}
+                  Consultar resultado na SEFAZ
+                </button>
+              ) : (
+                <button
+                  onClick={() => void handleSubmitCce()}
+                  disabled={
+                    isLoadingCceInfo ||
+                    isSubmittingCce ||
+                    !cceNextSequence ||
+                    cceNextSequence > 20 ||
+                    Boolean(validateNfeCce(cceText)) ||
+                    (selectedDoc.ambiente === 1 && !productionCceConfirmed)
                   }
-                  setIsSubmittingCce(true);
-                  try {
-                    toast.success(`CC-e vinculada com sucesso à NF-e #${selectedDoc.numero_nfe}!`);
-                    setShowCceModal(false);
-                    setCceText('');
-                    setSelectedDoc(null);
-                  } catch (err: any) {
-                    toast.error(`Erro ao emitir CC-e: ${err.message}`);
-                  } finally {
-                    setIsSubmittingCce(false);
-                  }
-                }}
-                disabled={isSubmittingCce}
-                className="px-5 py-2.5 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-600/30"
-              >
-                {isSubmittingCce ? (
-                  <i className="bi bi-arrow-repeat animate-spin" />
-                ) : (
-                  <i className="bi bi-send-fill" />
-                )}
-                Transmitir CC-e à SEFAZ
-              </button>
+                  className="px-5 py-2.5 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingCce ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-send-fill" />}
+                  Transmitir CC-e à SEFAZ
+                </button>
+              )}
             </div>
           </div>
         </div>

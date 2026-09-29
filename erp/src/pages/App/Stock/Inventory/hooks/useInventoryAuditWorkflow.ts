@@ -218,9 +218,7 @@ export const useInventoryAuditWorkflow = (
       isActive: snapshot.isActive,
     }));
 
-    const responsible = employees.find(
-      (employee) => String(employee.id) === config.responsibleId
-    );
+    const responsible = employees.find((employee) => String(employee.id) === config.responsibleId);
     const nextScope = {
       name: config.name,
       hasStages: config.hasStages,

@@ -15,6 +15,8 @@ describe('devolução de produto cadastrado', () => {
     expect(getReturnUnitCost(item)).toBe(100);
     expect(shouldCreateReturnEntry({ ...item, productId: 'produto-teste' }, false)).toBe(true);
     expect(shouldCreateReturnEntry({ ...item, productId: 'produto-teste' }, true)).toBe(false);
+    expect(shouldCreateReturnEntry({ ...item, productId: 'salvado', condition: 'salvado' }, false)).toBe(false);
+    expect(shouldCreateReturnEntry({ ...item, productId: 'usado', condition: 'usado' }, false)).toBe(false);
   });
 
   it('só movimenta devolução atendida, preservando a data de cadastro da devolução', () => {

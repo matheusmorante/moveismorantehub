@@ -1,7 +1,7 @@
 -- Migration para criação da tabela nfe_documents e controle sequencial de numeração para NF-e e NFC-e
 CREATE TABLE IF NOT EXISTS nfe_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+    order_id TEXT REFERENCES public.orders(id) ON DELETE SET NULL,
     numero_nfe INTEGER NOT NULL,
     serie VARCHAR(4) NOT NULL DEFAULT '1',
     chave_acesso VARCHAR(44) UNIQUE,

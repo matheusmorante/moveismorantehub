@@ -184,7 +184,6 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
           })}
         </div>
       </div>
-
     </div>
   );
 };

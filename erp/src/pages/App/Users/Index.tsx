@@ -70,10 +70,7 @@ const UsersManagement = () => {
   const saveRoles = async (roles: UserRole[]) => {
     if (!isAdministrator || !selected) return;
     const role = getPrimaryRole(roles);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role, roles })
-      .eq('id', selected.id);
+    const { error } = await supabase.from('profiles').update({ role, roles }).eq('id', selected.id);
     if (error) {
       toast.error('Não foi possível salvar os cargos.');
       throw error;

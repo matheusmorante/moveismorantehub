@@ -192,7 +192,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       const [products, variations, labels, suppliers, deletions] = await Promise.all([
         fetchChangedRows(
           'products',
-          'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, supplier_id, main_supplier_id, supplier_ids, updated_at',
+          'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
           previous.cursors.products,
           ['item_type', 'product']
         ),
@@ -266,6 +266,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'deleted_at',
           'is_draft',
           'item_type',
+          'product_kind',
           'supplier_id',
           'main_supplier_id',
           'supplier_ids',
@@ -421,6 +422,8 @@ export const resolveOfflineInventoryMatch = (
     product.deleted ||
     product.deleted_at ||
     product.is_draft ||
+    product.product_kind === 'salvado' ||
+    product.product_kind === 'usado' ||
     variation.deleted
   )
     return null;
@@ -487,7 +490,9 @@ export const getOfflineInventoryCatalogProducts = async (): Promise<any[]> => {
       product.item_type !== 'product' ||
       product.deleted ||
       product.deleted_at ||
-      product.is_draft
+      product.is_draft ||
+      product.product_kind === 'salvado' ||
+      product.product_kind === 'usado'
     )
       return [];
     const supplierIds = [

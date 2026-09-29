@@ -74,13 +74,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   try {
     const payload = req.body || {};
-    let {
-      soapEnvelope,
-      cleanCnpj,
-      ultNsu,
-      tpAmb = '1',
-      environment = 'production',
-    } = payload;
+    let { soapEnvelope, cleanCnpj, ultNsu, tpAmb = '1', environment = 'production' } = payload;
 
     // A ponte nunca aceita chave privada do cliente ou da tabela settings.
     const pfx = process.env.NFE_CERTIFICATE_BASE64;

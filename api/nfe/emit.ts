@@ -92,10 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(503)
         .json({ success: false, error: 'Serviço fiscal sem credencial segura do banco.' });
     supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey);
-    const fiscalAuthorization = await authorizeFiscalOperator(
-      supabase,
-      req.headers.authorization
-    );
+    const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
     if (!fiscalAuthorization.ok)
       return res.status(fiscalAuthorization.status).json({
         success: false,
@@ -106,13 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(400)
         .json({ success: false, error: 'Confirmação explícita de Produção ausente.' });
     if (selectedEnvironment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      return res
-        .status(503)
-        .json({
-          success: false,
-          error:
-            'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
-        });
+      return res.status(503).json({
+        success: false,
+        error:
+          'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
+      });
     }
     const { data: orderRow, error: orderError } = await supabase
       .from('orders')
@@ -127,13 +122,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       !['sale', 'showroom'].includes(String(orderRow.order_type)) ||
       ['cancelled', 'cancelado'].includes(String(orderRow.status).toLowerCase())
     ) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error:
-            'A emissão de saída só pode ser solicitada para pedido comercial válido. Devoluções e estornos usam o fluxo fiscal próprio.',
-        });
+      return res.status(409).json({
+        success: false,
+        error:
+          'A emissão de saída só pode ser solicitada para pedido comercial válido. Devoluções e estornos usam o fluxo fiscal próprio.',
+      });
     }
     let documentId: string;
     let signedXml = String(xml);
@@ -153,47 +146,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .status(404)
           .json({ success: false, error: 'Documento original não encontrado para retransmissão.' });
       if (retryDoc.status !== 'erro')
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: 'Apenas notas em situação de Erro (217) podem ser retransmitidas.',
-          });
+        return res.status(400).json({
+          success: false,
+          error: 'Apenas notas em situação de Erro (217) podem ser retransmitidas.',
+        });
       if (
         ![1, 2].includes(selectedEnvironment) ||
         !['55', '65'].includes(String(model)) ||
         Number(retryDoc.ambiente) !== selectedEnvironment ||
         String(retryDoc.modelo) !== String(model)
       ) {
-        return res
-          .status(409)
-          .json({
-            success: false,
-            error: 'Ambiente ou modelo da retransmissão deve corresponder ao documento original.',
-          });
+        return res.status(409).json({
+          success: false,
+          error: 'Ambiente ou modelo da retransmissão deve corresponder ao documento original.',
+        });
       }
       if (
         Number(retryDoc.ambiente) === 1 &&
         !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)
       ) {
-        return res
-          .status(503)
-          .json({
-            success: false,
-            error: 'Transmissões em Produção estão desabilitadas neste servidor.',
-          });
+        return res.status(503).json({
+          success: false,
+          error: 'Transmissões em Produção estão desabilitadas neste servidor.',
+        });
       }
       if (
         String(retryDoc.motivo_status || '').indexOf('217') === -1 &&
         String(retryDoc.motivo_status || '').indexOf('não consta') === -1
       ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error:
-              'Apenas notas não encontradas na SEFAZ (217) podem ser retransmitidas sem nova numeração.',
-          });
+        return res.status(400).json({
+          success: false,
+          error:
+            'Apenas notas não encontradas na SEFAZ (217) podem ser retransmitidas sem nova numeração.',
+        });
       }
       const retryXml = typeof retryDoc.xml_nfe === 'string' ? retryDoc.xml_nfe : '';
       const retryEnvelopeError = validateOrdinaryOutboundEnvelope({
@@ -205,13 +190,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         series: String(retryDoc.serie || ''),
       });
       if (retryEnvelopeError) {
-        return res
-          .status(409)
-          .json({
-            success: false,
-            error:
-              'XML persistido não confere com a chave e a numeração originais; retransmissão bloqueada.',
-          });
+        return res.status(409).json({
+          success: false,
+          error:
+            'XML persistido não confere com a chave e a numeração originais; retransmissão bloqueada.',
+        });
       }
 
       // Reativa o documento para bloquear concorrência durante a transmissão
@@ -221,12 +204,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', retryDoc.id)
         .eq('status', 'erro');
       if (reactivateErr)
-        return res
-          .status(409)
-          .json({
-            success: false,
-            error: 'A nota não pôde ser reativada. Pode já estar em processamento.',
-          });
+        return res.status(409).json({
+          success: false,
+          error: 'A nota não pôde ser reativada. Pode já estar em processamento.',
+        });
 
       documentId = retryDoc.id;
       signedXml = retryXml; // preserva a assinatura, chave e número da tentativa original
@@ -264,23 +245,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (rpcErr) {
           if (rpcErr.message.includes('ALREADY_ACTIVE')) {
-            return res
-              .status(409)
-              .json({
-                success: false,
-                pending: true,
-                documentId: rpcErr.message.split(':')[2],
-                error:
-                  'Já existe uma tentativa ativa ou em andamento para esse pedido. Consulte a situação.',
-              });
+            return res.status(409).json({
+              success: false,
+              pending: true,
+              documentId: rpcErr.message.split(':')[2],
+              error:
+                'Já existe uma tentativa ativa ou em andamento para esse pedido. Consulte a situação.',
+            });
           }
           if (rpcErr.message.includes('DUPLICATE_IDEMPOTENCY')) {
-            return res
-              .status(409)
-              .json({
-                success: false,
-                error: 'Esta tentativa (ID de requisição) já foi registrada.',
-              });
+            return res.status(409).json({
+              success: false,
+              error: 'Esta tentativa (ID de requisição) já foi registrada.',
+            });
           }
           throw rpcErr;
         }
@@ -288,12 +265,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         documentId = String(reservedId);
         reservedDocumentId = documentId;
       } catch (err: any) {
-        return res
-          .status(503)
-          .json({
-            success: false,
-            error: 'Não foi possível reservar a emissão de forma atômica. Tente novamente.',
-          });
+        return res.status(503).json({
+          success: false,
+          error: 'Não foi possível reservar a emissão de forma atômica. Tente novamente.',
+        });
       }
     }
 
@@ -320,8 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', documentId);
       return res.status(400).json({
         success: false,
-        error:
-          'Certificado digital A1 não configurado no servidor fiscal.',
+        error: 'Certificado digital A1 não configurado no servidor fiscal.',
       });
     }
 

@@ -14,6 +14,11 @@ import { cn } from '@/lib/utils';
 
 import { slugifyText } from '@/lib/slug-utils';
 import { hasPublicCatalogItem, isPublicCatalogVariation } from '../product-visibility';
+import {
+  CATALOG_PRODUCT_PAGE_SIZE,
+  isCatalogSearchLongEnough,
+  orderCatalogSearchResultsByIds,
+} from '../product-search-suggestions';
 import { getCachedStoreStyleSettings } from '@/lib/store-settings-cache';
 
 interface ProductGridProps {
@@ -28,7 +33,7 @@ interface ProductGridProps {
   };
 }
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = CATALOG_PRODUCT_PAGE_SIZE;
 
 export function ProductGrid({ filters }: ProductGridProps) {
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -41,6 +46,12 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [dbCategoriesList, setDbCategoriesList] = useState<any[]>([]);
   const gridRef = useRef<HTMLDivElement>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState(filters?.search || '');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(filters?.search || ''), 300);
+    return () => clearTimeout(timer);
+  }, [filters?.search]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -58,9 +69,18 @@ export function ProductGrid({ filters }: ProductGridProps) {
   }, []);
 
   useEffect(() => {
+    let isCurrent = true;
+
     async function fetchProducts() {
       setLoading(true);
       try {
+        if (debouncedSearch.trim() && !isCatalogSearchLongEnough(debouncedSearch)) {
+          setRawDbProducts([]);
+          setAllProducts([]);
+          setTotalProducts(0);
+          return;
+        }
+
         let allowedCategoryIds: string[] = [];
 
         if (filters?.envs && filters.envs.length > 0) {
@@ -92,30 +112,55 @@ export function ProductGrid({ filters }: ProductGridProps) {
           }
         }
 
-        function buildProductsQuery(hasDeletedAt: boolean, hasOpportunities: boolean) {
-          let q = supabase.from('products');
-          const searchTerm = filters?.search?.trim();
+        const selectedCategoryIds = Array.from(
+          new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
+        );
+        const searchTerm = isCatalogSearchLongEnough(debouncedSearch) ? debouncedSearch.trim() : '';
 
-          const selectedCategoryIds = Array.from(
-            new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
+        let searchProductIds: string[] | null = null;
+        let searchResultCount: number | null = null;
+        if (searchTerm) {
+          const { data: searchRows, error: searchError } = await supabase.rpc(
+            'search_catalog_product_page',
+            {
+              p_search: searchTerm,
+              p_category_ids: filters?.cats?.length ? filters.cats : null,
+              p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,
+              p_type: resolvedOppId,
+              p_min_price: filters?.minPrice ?? 0,
+              p_max_price: filters?.maxPrice ?? 10000,
+              p_page: currentPage,
+              p_page_size: ITEMS_PER_PAGE,
+              p_sort_by: filters?.sortBy || 'newest',
+            }
           );
+          if (searchError) throw searchError;
+          searchProductIds = (searchRows || []).map(
+            (row: { product_id: string }) => row.product_id
+          );
+          searchResultCount = Number(searchRows?.[0]?.total_count || 0);
+        }
+
+        function buildProductsQuery(
+          hasDeletedAt: boolean,
+          hasOpportunities: boolean,
+          productIds?: string[]
+        ) {
+          let q = supabase.from('products');
 
           // Categorias são exclusivamente relacionais: um produto pode ter várias.
           // O !inner permite filtrar e paginar no servidor sem depender de category_id legado.
-          const productCategoriesSelect =
-            selectedCategoryIds.length > 0
+          const productCategoriesSelect = productIds
+            ? 'product_categories(category_id, categories(name))'
+            : selectedCategoryIds.length > 0
               ? 'product_categories!inner(category_id, categories(name))'
               : 'product_categories(category_id, categories(name))';
-          const categorySearchSelect = searchTerm
-            ? ', search_categories:product_categories(category_id, categories!inner(name))'
-            : '';
-
           const selColumns =
             `
             id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
             product_images(image_url, is_main),
             product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
-            ${productCategoriesSelect}${categorySearchSelect}
+            ${productCategoriesSelect}
           ` +
             (hasOpportunities
               ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)`
@@ -128,30 +173,25 @@ export function ProductGrid({ filters }: ProductGridProps) {
             q = q.is('deleted_at', null);
           }
 
-          if (searchTerm) {
-            // A relação com categorias participa da mesma busca textual. A alias
-            // mantém a união (texto do produto OU nome da categoria) no servidor.
-            q = q
-              .ilike('search_categories.categories.name', `%${searchTerm}%`)
-              .or(
-                `name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,code.ilike.%${searchTerm}%,search_categories.not.is.null`
-              );
+          if (productIds) {
+            q = q.in('id', productIds);
           }
 
-          if (selectedCategoryIds.length > 0) {
+          if (!productIds && selectedCategoryIds.length > 0) {
             q = q.in('product_categories.category_id', selectedCategoryIds);
           }
 
-          if (resolvedOppId === 'salvados') {
+          if (!productIds && resolvedOppId === 'salvados') {
             q = q.eq('is_salvado', true);
-          } else if (resolvedOppId === 'promotion') {
+          } else if (!productIds && resolvedOppId === 'promotion') {
             q = q.not('promo_price', 'is', null);
-          } else if (resolvedOppId && resolvedOppId !== 'all') {
+          } else if (!productIds && resolvedOppId && resolvedOppId !== 'all') {
             q = q.eq('opportunity_id', resolvedOppId);
           }
 
-          if ((filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
-          if ((filters?.maxPrice ?? 10000) < 10000) q = q.lte('price', filters!.maxPrice);
+          if (!productIds && (filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
+          if (!productIds && (filters?.maxPrice ?? 10000) < 10000)
+            q = q.lte('price', filters!.maxPrice);
 
           const sortBy = filters?.sortBy || 'newest';
           if (sortBy === 'price-asc') q = q.order('price', { ascending: true });
@@ -159,6 +199,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           else if (sortBy === 'title-asc') q = q.order('name', { ascending: true });
           else q = q.order('created_at', { ascending: false });
 
+          if (productIds) return q;
           const from = (currentPage - 1) * ITEMS_PER_PAGE;
           return q.range(from, from + ITEMS_PER_PAGE - 1);
         }
@@ -167,10 +208,28 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
         let hasDeletedAt = true;
         let hasOpportunities = true;
-        let result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
-        let data = result.data;
-        let error = result.error;
-        let count = result.count;
+        let data: any[] | null = null;
+        let error: any = null;
+        let count: number | null = null;
+        if (searchProductIds) {
+          count = searchResultCount;
+          if (searchProductIds.length > 0) {
+            const result = await buildProductsQuery(
+              hasDeletedAt,
+              hasOpportunities,
+              searchProductIds
+            );
+            data = result.data;
+            error = result.error;
+          } else {
+            data = [];
+          }
+        } else {
+          const result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
+          data = result.data;
+          error = result.error;
+          count = result.count;
+        }
 
         if (error) {
           console.warn(
@@ -185,11 +244,19 @@ export function ProductGrid({ filters }: ProductGridProps) {
             hasOpportunities = false;
           }
 
-          const secondAttempt = await buildProductsQuery(hasDeletedAt, hasOpportunities);
+          const secondAttempt = await buildProductsQuery(
+            hasDeletedAt,
+            hasOpportunities,
+            searchProductIds !== null ? searchProductIds : undefined
+          );
 
           if (secondAttempt.error) {
             if (secondAttempt.error.code === '42703' || secondAttempt.error.code === '42P01') {
-              const thirdAttempt = await buildProductsQuery(false, false);
+              const thirdAttempt = await buildProductsQuery(
+                false,
+                false,
+                searchProductIds !== null ? searchProductIds : undefined
+              );
               if (thirdAttempt.error) throw thirdAttempt.error;
               data = thirdAttempt.data;
               count = thirdAttempt.count;
@@ -203,7 +270,9 @@ export function ProductGrid({ filters }: ProductGridProps) {
           }
         }
 
-        const rawProducts = data || [];
+        const rawProducts = searchProductIds
+          ? orderCatalogSearchResultsByIds(data || [], searchProductIds)
+          : data || [];
         let results: any[] = [];
 
         for (const p of rawProducts) {
@@ -282,25 +351,31 @@ export function ProductGrid({ filters }: ProductGridProps) {
         }
 
         const { data: styleData, error: styleError } = await stylePromise;
+        if (!isCurrent) return;
         if (!styleError && styleData)
           setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings);
 
         const { data: catsList } = await supabase.from('categories').select('id, name, slug, type');
+        if (!isCurrent) return;
         setDbCategoriesList(catsList || []);
         setRawDbProducts(results);
-        setTotalProducts(count || 0);
+        if (results.length === 0) setAllProducts([]);
+        setTotalProducts(searchProductIds ? searchResultCount || 0 : count || 0);
       } catch (error) {
-        console.error('Erro ao carregar produtos:', error);
+        if (isCurrent) console.error('Erro ao carregar produtos:', error);
       } finally {
-        setLoading(false);
+        if (isCurrent) setLoading(false);
       }
     }
 
     fetchProducts();
+    return () => {
+      isCurrent = false;
+    };
   }, [
     refreshTrigger,
     currentPage,
-    filters?.search,
+    debouncedSearch,
     filters?.minPrice,
     filters?.maxPrice,
     filters?.type,
@@ -313,6 +388,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
     if (rawDbProducts.length === 0) return;
 
     let filtered = [...rawDbProducts];
+    const isServerSearch = isCatalogSearchLongEnough(debouncedSearch);
 
     // Refazer os filtros locais que antes estavam misturados no fetch
     if (filters?.minPrice !== undefined) {
@@ -323,15 +399,15 @@ export function ProductGrid({ filters }: ProductGridProps) {
     }
 
     const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
-    let typeFilter = filters?.type || 'all';
+    const typeFilter = filters?.type || 'all';
 
-    if (typeFilter === 'salvados' || typeFilter === SALVADOS_OPP_ID) {
+    if (!isServerSearch && (typeFilter === 'salvados' || typeFilter === SALVADOS_OPP_ID)) {
       filtered = filtered.filter(
         (p) => p.opportunity_id === SALVADOS_OPP_ID || p.opportunities?.name === 'Salvados'
       );
-    } else if (typeFilter === 'promotion' || typeFilter === 'promocao') {
+    } else if (!isServerSearch && (typeFilter === 'promotion' || typeFilter === 'promocao')) {
       filtered = filtered.filter((p) => p.promo_price != null);
-    } else if (typeFilter && typeFilter !== 'all') {
+    } else if (!isServerSearch && typeFilter && typeFilter !== 'all') {
       filtered = filtered.filter(
         (p) =>
           p.opportunity_id === typeFilter ||
@@ -341,11 +417,12 @@ export function ProductGrid({ filters }: ProductGridProps) {
     }
 
     const sort = filters?.sortBy || 'newest';
-    if (sort === 'price-asc')
+    if (!isServerSearch && sort === 'price-asc')
       filtered.sort((a, b) => (a.promo_price || a.price || 0) - (b.promo_price || b.price || 0));
-    if (sort === 'price-desc')
+    if (!isServerSearch && sort === 'price-desc')
       filtered.sort((a, b) => (b.promo_price || b.price || 0) - (a.promo_price || a.price || 0));
-    if (sort === 'title-asc') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!isServerSearch && sort === 'title-asc')
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     const normalizeSearch = (str: string) => {
       if (!str) return '';
@@ -425,7 +502,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
       return [token, `${token}s`, norm];
     };
 
-    if (filters?.envs && filters.envs.length > 0) {
+    if (!isServerSearch && filters?.envs && filters.envs.length > 0) {
       const envCategoryNames = (dbCategoriesList || [])
         .filter((c) => filters.envs.includes(c.id))
         .map((c) => normalizeSearch(c.name));
@@ -457,7 +534,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
       });
     }
 
-    if (filters?.cats && filters.cats.length > 0) {
+    if (!isServerSearch && filters?.cats && filters.cats.length > 0) {
       const allCatTargetIds = new Set<string>();
 
       filters.cats.forEach((catItem: string) => {
@@ -507,29 +584,8 @@ export function ProductGrid({ filters }: ProductGridProps) {
       }
     }
 
-    if (filters?.search) {
-      const rawSearch = normalizeSearch(filters.search);
-      const searchTokens = rawSearch.split(' ').filter((token) => token.length >= 2);
-
-      filtered = filtered.filter((p) => {
-        const cleanName = normalizeSearch(p.name || '');
-        const cleanDesc = normalizeSearch(p.description || '');
-        const cleanCats = (p.product_categories || [])
-          .map((pc: any) => normalizeSearch(pc.categories?.name || ''))
-          .join(' ');
-
-        const cleanSku = normalizeSearch(p.sku || p.code || '');
-        const fullSearchableText = `${cleanName} ${cleanDesc} ${cleanCats} ${cleanSku}`;
-
-        return searchTokens.every((token) => {
-          const synonyms = getSynonyms(token);
-          return synonyms.some((syn) => fullSearchableText.includes(syn));
-        });
-      });
-    }
-
     setAllProducts(filtered);
-  }, [filters, rawDbProducts, dbCategoriesList]);
+  }, [filters, rawDbProducts, dbCategoriesList, debouncedSearch]);
 
   useEffect(() => {
     setCurrentPage(1);

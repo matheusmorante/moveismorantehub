@@ -84,25 +84,29 @@ export const InboundPostImportActionModal: React.FC<InboundPostImportActionModal
         </div>
 
         {/* Pergunta de Gerenciamento de Vínculos */}
-        <div className="mt-4 text-center px-1">
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-            Deseja gerenciar os vínculos dos produtos desta nota fiscal agora?
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            Vincule os produtos do fornecedor aos itens do catálogo para dar entrada no estoque.
-          </p>
-        </div>
+        {(!invoice.supplierStockOrigins || invoice.supplierStockOrigins.includes('normal')) && (
+          <div className="mt-4 text-center px-1">
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              Deseja gerenciar os vínculos dos produtos desta nota fiscal agora?
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Vincule os produtos do fornecedor aos itens do catálogo para dar entrada no estoque.
+            </p>
+          </div>
+        )}
 
         {/* Ações */}
         <footer className="mt-6 flex flex-col sm:flex-row-reverse gap-2.5">
-          <button
-            type="button"
-            onClick={onManageMappings}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer flex-1"
-          >
-            <i className="bi bi-link-45deg text-sm" aria-hidden="true" />
-            Gerenciar vínculos
-          </button>
+          {(!invoice.supplierStockOrigins || invoice.supplierStockOrigins.includes('normal')) && (
+            <button
+              type="button"
+              onClick={onManageMappings}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer flex-1"
+            >
+              <i className="bi bi-link-45deg text-sm" aria-hidden="true" />
+              Gerenciar vínculos
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

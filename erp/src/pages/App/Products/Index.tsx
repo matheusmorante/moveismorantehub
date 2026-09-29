@@ -1,11 +1,10 @@
 import React from 'react';
-import {
-  ProductFilters as ProductFiltersType,
+import Product, {
   ProductVisibilitySettings,
   Variation,
-} from '../../types/product';
+} from '../../types/product.type';
 import ProductList from './ProductList';
-import ProductFilters from './ProductFilters';
+import ProductFilters, { ProductFiltersData } from './ProductFilters';
 import ProductFormModal from './modals/ProductFormModal';
 import VariationFormModal from './modals/VariationFormModal';
 import PriceHistoryModal from './modals/PriceHistoryModal';
@@ -31,23 +30,23 @@ interface ProductsProps {
 }
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
-  const [filters, setFilters] = React.useState<ProductFiltersType>({});
+  const [filters, setFilters] = React.useState<Partial<ProductFiltersData>>({});
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
   const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);
-  const [editingProduct, setEditingProduct] = React.useState<any | null>(null);
-  const [initialFormData, setInitialFormData] = React.useState<any | null>(null);
+  const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
+  const [initialFormData, setInitialFormData] = React.useState<Partial<Product> | null>(null);
 
   const [isVariationModalOpen, setIsVariationModalOpen] = React.useState(false);
   const [editingVariation, setEditingVariation] = React.useState<Variation | null>(null);
-  const [variationParentProduct, setVariationParentProduct] = React.useState<any | null>(null);
+  const [variationParentProduct, setVariationParentProduct] = React.useState<Product | null>(null);
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = React.useState(false);
-  const [historyProduct, setHistoryProduct] = React.useState<any | null>(null);
+  const [historyProduct, setHistoryProduct] = React.useState<Product | null>(null);
 
   const [isStockModalOpen, setIsStockModalOpen] = React.useState(false);
   const [stockLaunchTarget, setStockLaunchTarget] = React.useState<{
-    product?: any;
+    product?: Product | null;
     variation?: Variation;
   } | null>(null);
 
@@ -243,7 +242,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 title={currentTitle}
                 onCloseTrash={handleCloseSpecialView}
                 visibilitySettings={visibilitySettings}
-                onEdit={(p: any) => {
+                onEdit={(p: Product) => {
                   if (p.isVariation) {
                     setVariationParentProduct(p);
                     setEditingVariation(resolveProductVariation(p));
@@ -253,11 +252,11 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                     setIsFormModalOpen(true);
                   }
                 }}
-                onShowHistory={(p) => {
+                onShowHistory={(p: Product) => {
                   setHistoryProduct(p);
                   setIsHistoryModalOpen(true);
                 }}
-                onLaunchStock={(p: any) => {
+                onLaunchStock={(p: Product) => {
                   if (p.isVariation) {
                     setStockLaunchTarget({ variation: resolveProductVariation(p) });
                   } else {
@@ -298,9 +297,13 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 </button>
 
                 {accordionOpen.summary && (
-                    <div className="flex flex-col gap-2 mt-3 animate-fade-in">
+                  <div className="flex flex-col gap-2 mt-3 animate-fade-in">
                     {mode !== 'composition' && (
-                      <div role="tablist" aria-label="Canal do resumo" className="grid grid-cols-2 rounded-xl bg-slate-100 dark:bg-slate-950 p-1">
+                      <div
+                        role="tablist"
+                        aria-label="Canal do resumo"
+                        className="grid grid-cols-2 rounded-xl bg-slate-100 dark:bg-slate-950 p-1"
+                      >
                         <button
                           type="button"
                           role="tab"
@@ -350,9 +353,16 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                         type="button"
                         onClick={() => {
                           setIsTrashOpen(false);
-                          setFilters((prev) => summaryChannel === 'erp'
-                            ? { ...prev, activeOnly: true, status: undefined, isDraft: undefined }
-                            : { ...prev, activeOnly: undefined, status: 'published', isDraft: undefined });
+                          setFilters((prev) =>
+                            summaryChannel === 'erp'
+                              ? { ...prev, activeOnly: true, status: undefined, isDraft: undefined }
+                              : {
+                                  ...prev,
+                                  activeOnly: undefined,
+                                  status: 'published',
+                                  isDraft: undefined,
+                                }
+                          );
                         }}
                         className={`p-3 rounded-2xl border text-left transition-colors ${(summaryChannel === 'erp' ? filters.activeOnly === true && !filters.isDraft : filters.status === 'published') ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                       >
@@ -368,9 +378,19 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                         onClick={() => {
                           setIsTrashOpen(false);
                           if (summaryChannel === 'erp') {
-                            setFilters((prev) => ({ ...prev, activeOnly: false, status: undefined, isDraft: undefined }));
+                            setFilters((prev) => ({
+                              ...prev,
+                              activeOnly: false,
+                              status: undefined,
+                              isDraft: undefined,
+                            }));
                           } else {
-                            setFilters((prev) => ({ ...prev, activeOnly: undefined, status: 'hidden', isDraft: undefined }));
+                            setFilters((prev) => ({
+                              ...prev,
+                              activeOnly: undefined,
+                              status: 'hidden',
+                              isDraft: undefined,
+                            }));
                           }
                         }}
                         className={`p-3 rounded-2xl border text-left transition-colors ${(summaryChannel === 'erp' ? filters.activeOnly === false : filters.status === 'hidden') ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
@@ -529,29 +549,33 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
         product={historyProduct}
       />
 
-      <VariationFormModal
-        isOpen={isVariationModalOpen}
-        onClose={() => {
-          setIsVariationModalOpen(false);
-          setEditingVariation(null);
-          setVariationParentProduct(null);
-          productListRef.current?.refresh();
-          fetchStats();
-        }}
-        parentId={variationParentProduct?.parentId || ''}
-        parentProduct={variationParentProduct || ({} as any)}
-        variation={editingVariation}
-      />
+      {isVariationModalOpen && variationParentProduct && (
+        <VariationFormModal
+          isOpen={isVariationModalOpen}
+          onClose={() => {
+            setIsVariationModalOpen(false);
+            setEditingVariation(null);
+            setVariationParentProduct(null);
+            productListRef.current?.refresh();
+            fetchStats();
+          }}
+          parentId={variationParentProduct.parentId || variationParentProduct.id || ''}
+          parentProduct={variationParentProduct}
+          variation={editingVariation}
+        />
+      )}
 
-      <StockLaunchModal
-        isOpen={isStockModalOpen}
-        onClose={() => {
-          setIsStockModalOpen(false);
-          setStockLaunchTarget(null);
-        }}
-        targetProduct={stockLaunchTarget?.product || null}
-        targetVariation={stockLaunchTarget?.variation}
-      />
+      {isStockModalOpen && (
+        <StockLaunchModal
+          isOpen={isStockModalOpen}
+          onClose={() => {
+            setIsStockModalOpen(false);
+            setStockLaunchTarget(null);
+          }}
+          targetProduct={stockLaunchTarget?.product || null}
+          targetVariation={stockLaunchTarget?.variation}
+        />
+      )}
     </div>
   );
 };

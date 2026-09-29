@@ -1,30 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import { formatDate } from '@/pages/utils/formatters';
+import React, { useEffect, useRef, useState } from 'react';
 import Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
-import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
-import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import {
   ShowcaseAssembly,
-  getShowcaseAssemblies,
   deleteShowcaseAssembly,
 } from '@/pages/utils/showcaseAssemblyService';
-import { getOrderTypeClasses } from '@/pages/utils/orderTypeColorUtils';
-import { Drill } from '@/components/shared/DrillIcon';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { useAssemblyListQuery } from './hooks/useAssemblyListQuery';
 import AssemblyCard from './components/AssemblyCard';
+import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
+
+const getLocalDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const formatUpcomingDate = (dateKey: string) => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' }).toLocaleUpperCase('pt-BR');
+  return `AGENDADO PARA ${weekday}, ${day}/${String(month).padStart(2, '0')}`;
+};
 
 const AssemblyListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const isStandalone = window.location.pathname.includes('/assembly-schedule');
-  const hasInitialScrolled = React.useRef(false);
+  const hasInitialScrolled = useRef(false);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAssembly, setSelectedAssembly] = useState<ShowcaseAssembly | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const { assemblies, loading, refetchAssemblies } = useAssemblyListQuery();
 
@@ -34,7 +40,7 @@ const AssemblyListPage = () => {
       await deleteShowcaseAssembly(id);
       toast.success('Montagem excluída!');
       refetchAssemblies();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao excluir montagem.');
     }
   };
@@ -57,24 +63,36 @@ const AssemblyListPage = () => {
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
   };
 
-  const filteredAssemblies = assemblies.filter(
-    (item) =>
-      normalizeSearchTerm(item.title).includes(normalizeSearchTerm(searchTerm)) ||
-      normalizeSearchTerm(item.id || '').includes(normalizeSearchTerm(searchTerm))
-  );
+  const todayKey = getLocalDateKey(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = getLocalDateKey(yesterday);
+  const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
+  const filteredAssemblies = assemblies.filter((item) => {
+    if (isStandalone && item.origin === 'order' && item.isOutside) return false;
+    if (isStandalone && item.date && item.date < yesterdayKey) return false;
+
+    const searchableText = [
+      item.title,
+      item.customerName,
+      item.subtitle,
+      item.id,
+      item.item?.description,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return normalizeSearchTerm(searchableText).includes(normalizedSearchTerm);
+  });
 
   useEffect(() => {
-    if (loading || filteredAssemblies.length === 0 || hasInitialScrolled.current) return;
-
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (!isStandalone || loading || filteredAssemblies.length === 0 || hasInitialScrolled.current) return;
 
     // Find the closest date (today or future)
     const availableDates = filteredAssemblies
       .map((a) => a.date)
       .filter(Boolean)
       .sort();
-    const targetDate = availableDates.find((d) => d >= todayStr) || availableDates[0];
+    const targetDate = availableDates.find((d) => d >= todayKey) || availableDates[0];
 
     if (!targetDate) return;
 
@@ -85,17 +103,19 @@ const AssemblyListPage = () => {
         hasInitialScrolled.current = true;
       }
     }, 500);
-  }, [filteredAssemblies, loading]);
+  }, [filteredAssemblies, isStandalone, loading, todayKey]);
 
   // ─── Header ───────────────────────────────────────────────────
   const renderHeader = () => (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div>
         <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-          Montagem no Depósito
+          {isStandalone ? 'Montagem no Depósito' : 'Lista de Montagens'}
         </h1>
         <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
-          {isStandalone ? 'Visualização em Tempo Real' : 'Gestão de serviços técnicos e montagens'}
+          {isStandalone
+            ? 'Visualização em Tempo Real'
+            : 'Montagens agendadas para hoje e próximos dias'}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -144,6 +164,173 @@ const AssemblyListPage = () => {
       </div>
     </div>
   );
+
+  const renderAssemblyList = () => {
+    const scopedAssemblies = filteredAssemblies.filter((item) => {
+      if (item.origin === 'order') {
+        const status = String(item.status || '').trim().toLowerCase();
+        if (
+          item.pendingScheduling ||
+          status === 'draft' ||
+          status === 'rascunho' ||
+          !item.date ||
+          item.date < todayKey
+        ) {
+          return false;
+        }
+      } else if (!item.date || item.date < todayKey) {
+        return false;
+      }
+      return true;
+    });
+
+    const grouped = scopedAssemblies.reduce(
+      (groups, item) => {
+        groups[item.date] ||= [];
+        groups[item.date].push(item);
+        return groups;
+      },
+      {} as Record<string, any[]>
+    );
+    const dateKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+    const sections = dateKeys.map((dateKey) => ({
+      key: dateKey,
+      title: dateKey === todayKey ? `PARA HOJE · ${grouped[dateKey].length}` : formatUpcomingDate(dateKey),
+      count: grouped[dateKey].length,
+      items: grouped[dateKey],
+    }));
+
+    const toggleSection = (key: string) => {
+      setCollapsedSections((previous) => ({
+        ...previous,
+        [key]: !(previous[key] ?? key !== todayKey),
+      }));
+    };
+
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex flex-wrap items-center gap-2 px-1 pb-1">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+            <i className="bi bi-tools" /> Montagem no depósito
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
+            <i className="bi bi-tools" /> Montagem fora
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-3 py-16 text-sm font-semibold text-slate-500 dark:text-slate-400">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            Carregando montagens...
+          </div>
+        ) : sections.length === 0 ? (
+          <div className="py-16 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+            Nenhuma montagem agendada para hoje ou próximos dias.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sections.map((section) => {
+              const isCollapsed = collapsedSections[section.key] ?? section.key !== todayKey;
+              return (
+                <section key={section.key} className="space-y-2">
+                  <button
+                    type="button"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleSection(section.key)}
+                    className="sticky top-0 z-10 flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 px-3 py-2.5 text-left shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                      <i className="bi bi-calendar3 text-blue-600 dark:text-blue-400" />
+                      <span className="truncate">{section.title}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
+                      </span>
+                      <i
+                        className={`bi ${isCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'} text-blue-600 dark:text-blue-400`}
+                      />
+                    </span>
+                  </button>
+
+                  {!isCollapsed && (
+                    <div className="space-y-2">
+                      {section.items.map((item: any) => {
+                        if (item.origin === 'order') {
+                          const quantity = Number(item.item?.quantity || item.item?.qty || 1);
+                          const productName = `${quantity > 1 ? `${quantity}x ` : ''}${item.title}`;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setSelectedOrder(item.fullData as Order)}
+                              aria-label={`Abrir pedido: ${productName} — ${item.customerName}`}
+                              className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-opacity hover:opacity-80 ${
+                                item.isOutside
+                                  ? 'border-red-300 bg-red-100 text-red-950 dark:border-red-800 dark:bg-red-950/60 dark:text-red-100'
+                                  : 'border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100'
+                              }`}
+                            >
+                              <span className="min-w-0 flex-1 text-sm leading-5">
+                                <span className="font-extrabold">{productName}</span>
+                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                  {' '}— {item.customerName}
+                                </span>
+                              </span>
+                              <i className="bi bi-chevron-right shrink-0 text-sm text-slate-500 dark:text-slate-400" />
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-900 dark:bg-rose-950/40"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleEditShowcase(item.fullData)}
+                              className="min-w-0 flex-1 text-left text-sm text-slate-800 dark:text-slate-100"
+                            >
+                              <span className="font-extrabold">
+                                {Number(item.items?.[0]?.quantity || 1) > 1
+                                  ? `${item.items[0].quantity}x `
+                                  : ''}
+                                {item.title}
+                              </span>
+                              <span className="ml-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                — Mostruário
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditShowcase(item.fullData)}
+                              aria-label="Editar montagem de mostruário"
+                              className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-blue-600 dark:hover:bg-slate-800"
+                            >
+                              <i className="bi bi-pencil-square" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteShowcase(item.id)}
+                              aria-label="Excluir montagem de mostruário"
+                              className="rounded-lg p-2 text-slate-500 hover:bg-white hover:text-red-600 dark:hover:bg-slate-800"
+                            >
+                              <i className="bi bi-trash" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ─── Timeline View ────────────────────────────────────────────
   const renderTimelineView = () => {
@@ -231,24 +418,7 @@ const AssemblyListPage = () => {
 
             {/* ── Linha vertical da timeline ── */}
             <div className="relative border-l-2 border-slate-100 dark:border-slate-800 ml-3">
-              {grouped[dateKey].map((item: any, idx: number) => {
-                const isShowcase = item.origin === 'showcase';
-                const isFulfilled = item.status === 'fulfilled';
-
-                // Cores dinâmicas como no cronograma
-                const cls = getOrderTypeClasses(isShowcase ? 'rose' : 'orange');
-
-                let displayTime = 'Horário Livre';
-                if (item.timeInfo) {
-                  displayTime =
-                    item.timeInfo.type === 'range' &&
-                    item.timeInfo.startTime &&
-                    item.timeInfo.endTime
-                      ? `${item.timeInfo.startTime} - ${item.timeInfo.endTime}`
-                      : item.timeInfo.startTime || item.timeInfo.time || 'Horário Livre';
-                }
-
-                return (
+              {grouped[dateKey].map((item: any, idx: number) => (
                   <AssemblyCard
                     key={item.id + idx}
                     item={item}
@@ -257,8 +427,7 @@ const AssemblyListPage = () => {
                     handleEditShowcase={handleEditShowcase}
                     handleDeleteShowcase={handleDeleteShowcase}
                   />
-                );
-              })}
+              ))}
             </div>
           </div>
         ))}
@@ -277,14 +446,22 @@ const AssemblyListPage = () => {
         }}
       />
 
-      {renderTimelineView()}
+      {isStandalone ? renderTimelineView() : renderAssemblyList()}
 
       <ShowcaseAssemblyModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         assembly={selectedAssembly}
-        onSaveSuccess={() => fetchAllAssemblies()}
+        onSaveSuccess={() => refetchAssemblies()}
       />
+
+      {selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          isReadOnly
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 };

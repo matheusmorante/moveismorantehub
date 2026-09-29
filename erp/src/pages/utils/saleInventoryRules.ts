@@ -1,15 +1,35 @@
 import type Order from '../types/order.type';
 import type { Item } from '../types/items.type';
 
+export const getNonStockOrigin = (item?: Item): 'salvado' | 'usado' | null =>
+  item?.condition === 'salvado' || item?.condition === 'usado' ? item.condition : null;
+
+export const removeNonStockItemLinks = (order: Order): Order => {
+  if (order.orderType !== 'sale' && order.orderType !== 'return') return order;
+  const items = order.items || [];
+  if (!items.some((item) => getNonStockOrigin(item) && (item.productId || item.variationId || !item.isTemporaryProduct))) {
+    return order;
+  }
+  return {
+    ...order,
+    items: items.map((item) =>
+      getNonStockOrigin(item)
+        ? { ...item, productId: undefined, variationId: undefined, isTemporaryProduct: true }
+        : item
+    ),
+  };
+};
+
 export const isTemporarySaleItem = (item?: Item) =>
-  Boolean(item && (!item.productId?.trim() || item.isTemporaryProduct));
+  Boolean(item && (!item.productId?.trim() || item.isTemporaryProduct || getNonStockOrigin(item)));
 
 export const hasTemporarySaleItem = (order: Order) => (order.items || []).some(isTemporarySaleItem);
 
 export const isTemporarySaleItemReconciliation = (previous?: Item, current?: Item) =>
   isTemporarySaleItem(previous) &&
   Boolean(current?.productId?.trim()) &&
-  !current?.isTemporaryProduct;
+  !current?.isTemporaryProduct &&
+  !getNonStockOrigin(current);
 
 export const canMaintainSaleStock = (order: Order) =>
   order.orderType === 'sale' && ['scheduled', 'fulfilled'].includes(order.status || '');
@@ -33,9 +53,9 @@ export const getSaleInventoryDate = (order: Order, historical: boolean = false, 
   order.date || (historical ? order.date : undefined) || now.toISOString();
 
 /** Verifica se um item de venda é elegível para movimentação física no estoque. */
-export const isStockEligibleSaleItem = (item?: Item): boolean =>
+export const isStockEligibleSaleItem = (item?: Item): item is Item & { productId: string } =>
   Boolean(
-    item && item.productId?.trim() && !item.isTemporaryProduct && item.itemType !== 'service'
+    item && item.productId?.trim() && !item.isTemporaryProduct && !getNonStockOrigin(item) && item.itemType !== 'service'
   );
 
 /**

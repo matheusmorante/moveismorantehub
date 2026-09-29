@@ -72,6 +72,35 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
+  it('envia somente itens normais vinculados à RPC ao criar ou atender a venda', async () => {
+    const items = [
+      { productId: 'normal', condition: 'novo', quantity: 1 },
+      { productId: 'salvado', variationId: 'var-s', condition: 'salvado', quantity: 1 },
+      { productId: 'usado', variationId: 'var-u', condition: 'usado', quantity: 1 },
+    ];
+    const order = { ...scheduledSale, items };
+    mocks.rpc.mockResolvedValue({
+      data: { id: 'pedido-1', order_index: 123, order_data: order },
+      error: null,
+    });
+
+    await executeSaveOrder(order as any, vi.fn());
+    const createdItems = mocks.rpc.mock.calls[0][1].p_items;
+    expect(createdItems.map((item: any) => item.productId)).toEqual(['normal', undefined, undefined]);
+    expect(createdItems.slice(1)).toEqual([
+      expect.objectContaining({ condition: 'salvado', isTemporaryProduct: true }),
+      expect.objectContaining({ condition: 'usado', isTemporaryProduct: true }),
+    ]);
+
+    mocks.rpc.mockClear();
+    await executeUpdateOrder('pedido-1', { status: 'fulfilled' } as any, {
+      ...order,
+      id: 'pedido-1',
+      orderIndex: 123,
+    } as any);
+    expect(mocks.rpc.mock.calls[0][1].p_items).toEqual(createdItems);
+  });
+
   it('envia todas as formas de pagamento uma única vez ao criar a venda', async () => {
     mocks.rpc.mockResolvedValue({
       data: { id: 'pedido-1', order_index: 123, order_data: scheduledSale },

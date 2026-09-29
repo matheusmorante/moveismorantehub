@@ -206,11 +206,10 @@ export const getOrdersByCustomerInfo = async (
 /**
  * Busca dados enxutos de pedidos apenas com informações de clientes
  */
-export const getOrdersCustomerDataOnly = async (
-  options?: { limit?: number; searchTerm?: string }
-): Promise<
-  { id: string; date: string; customerData: any; deleted: boolean }[]
-> => {
+export const getOrdersCustomerDataOnly = async (options?: {
+  limit?: number;
+  searchTerm?: string;
+}): Promise<{ id: string; date: string; customerData: any; deleted: boolean }[]> => {
   try {
     const limit = options?.limit ?? 50;
     let query = supabase

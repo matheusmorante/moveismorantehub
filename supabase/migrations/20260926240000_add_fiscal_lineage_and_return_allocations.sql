@@ -2,7 +2,7 @@ ALTER TABLE public.nfe_documents
   ADD COLUMN IF NOT EXISTS document_type text NOT NULL DEFAULT 'outbound',
   ADD COLUMN IF NOT EXISTS finalidade smallint NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS original_document_id uuid REFERENCES public.nfe_documents(id) ON DELETE RESTRICT,
-  ADD COLUMN IF NOT EXISTS related_return_order_id uuid REFERENCES public.orders(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS related_return_order_id text REFERENCES public.orders(id) ON DELETE RESTRICT,
   ADD COLUMN IF NOT EXISTS fiscal_draft jsonb;
 
 DO $$
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.nfe_document_items (
 
 CREATE TABLE IF NOT EXISTS public.nfe_return_item_allocations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  return_order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
+  return_order_id text NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
   return_item_index integer NOT NULL CHECK (return_item_index >= 0),
   original_document_id uuid NOT NULL REFERENCES public.nfe_documents(id) ON DELETE RESTRICT,
   original_item_number integer NOT NULL CHECK (original_item_number > 0),
@@ -114,12 +114,12 @@ BEGIN
       RAISE EXCEPTION 'Identificador da devolução já utilizado por outra solicitação';
     END IF;
     SELECT count(*) INTO v_existing_allocations FROM public.nfe_return_item_allocations
-     WHERE return_order_id::text = p_order_id;
+     WHERE return_order_id = p_order_id;
     IF v_existing_allocations <> v_requested_allocations OR EXISTS (
       SELECT 1 FROM jsonb_array_elements(p_fiscal_allocations) requested(value)
        WHERE NOT EXISTS (
          SELECT 1 FROM public.nfe_return_item_allocations saved
-          WHERE saved.return_order_id::text = p_order_id
+          WHERE saved.return_order_id = p_order_id
             AND saved.return_item_index = (requested.value->>'returnItemIndex')::integer
             AND saved.original_document_id = (requested.value->>'originalDocumentId')::uuid
             AND saved.original_item_number = (requested.value->>'originalItemNumber')::integer
@@ -204,12 +204,12 @@ BEGIN
   v_result := public.create_return_order_with_capacity(p_order_id, p_order_payload, p_items, p_payments);
   IF COALESCE((v_result->>'idempotent_replay')::boolean, false) THEN
     SELECT count(*) INTO v_existing_allocations FROM public.nfe_return_item_allocations
-     WHERE return_order_id = (v_result->>'id')::uuid;
+     WHERE return_order_id = v_result->>'id';
     IF v_existing_allocations <> v_requested_allocations OR EXISTS (
       SELECT 1 FROM jsonb_array_elements(p_fiscal_allocations) requested(value)
        WHERE NOT EXISTS (
          SELECT 1 FROM public.nfe_return_item_allocations saved
-          WHERE saved.return_order_id = (v_result->>'id')::uuid
+          WHERE saved.return_order_id = v_result->>'id'
             AND saved.return_item_index = (requested.value->>'returnItemIndex')::integer
             AND saved.original_document_id = (requested.value->>'originalDocumentId')::uuid
             AND saved.original_item_number = (requested.value->>'originalItemNumber')::integer
@@ -224,7 +224,7 @@ BEGIN
     INSERT INTO public.nfe_return_item_allocations(
       return_order_id, return_item_index, original_document_id, original_item_number, quantity
     ) VALUES (
-      (v_result->>'id')::uuid,
+      v_result->>'id',
       (v_allocation->>'returnItemIndex')::integer,
       (v_allocation->>'originalDocumentId')::uuid,
       (v_allocation->>'originalItemNumber')::integer,

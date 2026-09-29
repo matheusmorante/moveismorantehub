@@ -169,6 +169,43 @@ export const PersonIdentificationSection: React.FC<PersonIdentificationSectionPr
           />
         </div>
       )}
+
+      {collectionName === 'suppliers' && (
+        <div className="md:col-span-2 flex flex-col gap-2 mt-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            Tipos de produtos fornecidos
+          </label>
+          <div className="flex gap-4 items-center">
+            {[
+              { id: 'normal', label: 'Convencional' },
+              { id: 'salvados', label: 'Salvados' },
+              { id: 'usados', label: 'Usados' },
+            ].map((option) => (
+              <label key={option.id} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.stockOrigins?.includes(option.id as any) || false}
+                  onChange={(e) => {
+                    const current = formData.stockOrigins || [];
+                    if (e.target.checked) {
+                      setFormData({ ...formData, stockOrigins: [...current, option.id as any] });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        stockOrigins: current.filter((id) => id !== option.id),
+                      });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                />
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  {option.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -30,6 +30,7 @@ Executar contra os web services oficiais de homologação SEFAZ-PR, sem dados re
 | Rejeição fiscal conhecida | 55 e 65 | XML, `cStat`/motivo, estado rejeitado no banco e orientação/UI sem falso sucesso | ⬜ Não executado nesta auditoria |
 | Consulta posterior de documento autorizado | 55 e 65 | resposta de consulta, protocolo/estado reconciliado no banco e UI atualizada | ⬜ Não executado nesta auditoria |
 | Cancelamento fiscal elegível | 55 e 65 | evento transmitido, retorno SEFAZ, protocolo e estado reconciliado; respeitar regra de circulação/prazo do modelo | ⬜ Não executado nesta auditoria |
+| Carta de Correção Eletrônica | 55 | evento 110110 assinado/transmitido, sequência, `cStat`/protocolo, XML/resposta persistidos e tentativa repetida idempotente | ⬜ Não executado nesta auditoria |
 | Emissão com resposta perdida/pendente e recuperação | 55 e 65 | tentativa e XML persistidos antes do envio, consulta posterior e reconciliação sem duplicar autorização | ⬜ Não executado nesta auditoria |
 
 **Gate:** só marcar P0 concluído e reavaliar liberação de produção quando todas as linhas aplicáveis tiverem evidências anexadas e revisadas. Não registrar chaves, dados pessoais ou XML integral em logs públicos; armazenar artefatos de homologação com acesso restrito.
@@ -49,7 +50,7 @@ Evidência local já indicada: reserva atômica foi exercitada com duas conexõe
 - [ ] Inutilização de faixa numérica pelo serviço e leiaute próprios `inutNFe`.
 - [ ] Contingência offline de NFC-e, incluindo guarda de XML assinado, transmissão posterior e reconciliação.
 - [ ] Contingências de NF-e aplicáveis ao PR (SVC-RS/EPEC), com regras e serviços separados da NFC-e.
-- [ ] Carta de Correção Eletrônica (CC-e), somente para modelo 55. A tela atual contém modal, mas o botão apenas mostra toast de sucesso e não transmite evento ao backend/SEFAZ.
+- [x] Carta de Correção Eletrônica (CC-e), somente para modelo 55. API/UI, sequência/idempotência, confirmação do retorno e reconciliação estão implementadas e cobertas por testes locais focados; falta validar na matriz de homologação P0.
 
 ### 🟢 P3 — UX de rejeições
 

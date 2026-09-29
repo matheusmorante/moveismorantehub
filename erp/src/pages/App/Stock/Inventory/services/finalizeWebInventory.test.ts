@@ -44,7 +44,11 @@ describe('commit do inventário web', () => {
     await finalizeWebInventory(
       draft.id,
       draft.code,
-      { status: 'completed', responsibleId: draft.responsibleId, responsibleName: draft.responsibleName },
+      {
+        status: 'completed',
+        responsibleId: draft.responsibleId,
+        responsibleName: draft.responsibleName,
+      },
       adjustments
     );
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -63,12 +67,10 @@ describe('commit do inventário web', () => {
   });
 
   it('preserva a contagem quando o Supabase falha e permite retomar com o mesmo ID', async () => {
-    rpc
-      .mockResolvedValueOnce({ data: null, error: new Error('offline') })
-      .mockResolvedValueOnce({
-        data: { auditId: draft.id, status: 'already_processed' },
-        error: null,
-      });
+    rpc.mockResolvedValueOnce({ data: null, error: new Error('offline') }).mockResolvedValueOnce({
+      data: { auditId: draft.id, status: 'already_processed' },
+      error: null,
+    });
     await expect(
       finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments)
     ).rejects.toThrow('offline');

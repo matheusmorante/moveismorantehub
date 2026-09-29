@@ -1,5 +1,4 @@
 import { removeAccents } from './textUtils';
-import { aiService } from './aiService';
 
 export interface CategoryCandidate {
   id: string;
@@ -7,261 +6,214 @@ export interface CategoryCandidate {
   category?: string;
 }
 
-/**
- * Normaliza o texto removendo acentos, pontuações e convertendo para minúsculas.
- */
+export interface RankedCategoryCandidate {
+  category: CategoryCandidate;
+  score: number;
+  matchedAlias: string;
+}
+
+type CategoryAliasRule = {
+  readonly category: string;
+  readonly aliases: readonly string[];
+};
+
+// Aliases foram conferidos contra os nomes das categorias e produtos já classificados
+// no catálogo MoranteHub; abreviações como "G ROUPA" vêm do histórico real.
+const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
+  {
+    category: 'Guarda-Roupas',
+    aliases: [
+      'guarda roupa',
+      'roupeiro',
+      'armario roupa',
+      'g roupa',
+      'armario de quarto',
+    ],
+  },
+  {
+    category: 'Balcões para Pia',
+    aliases: [
+      'balcao pia',
+      'balcao de pia',
+      'balcao para pia',
+      'gabinete pia',
+      'gabinete para pia',
+    ],
+  },
+  { category: 'Balcões para Cooktop', aliases: ['balcao cooktop', 'balcao para cooktop'] },
+  { category: 'Balcões com Fruteiras', aliases: ['balcao fruteira', 'balcao com fruteira'] },
+  { category: 'Balcões com Tampo', aliases: ['balcao com tampo', 'balcao tampo'] },
+  {
+    category: 'Balcões para Filtro de Àgua',
+    aliases: ['balcao filtro', 'balcao para filtro', 'balcao para agua'],
+  },
+  { category: 'Armários Aéreos', aliases: ['armario aereo', 'armarios aereos', 'aereo cozinha'] },
+  { category: 'Armários para Fornos', aliases: ['armario forno', 'armario para forno', 'torre quente'] },
+  { category: 'Paneleiros', aliases: ['paneleiro', 'paneleiros', 'armario paneleiro'] },
+  {
+    category: 'Cozinhas Moduladas e Compactas',
+    aliases: ['cozinha modulada', 'cozinha compacta', 'jogo de cozinha', 'cozinha planejada'],
+  },
+  { category: 'Conjunto para Sala de Jantar', aliases: ['conjunto sala jantar', 'cj sala jantar'] },
+  { category: 'Mesa para Sala de Jantar', aliases: ['mesa sala jantar', 'mesa para jantar'] },
+  { category: 'Cadeiras para Sala de Jantar', aliases: ['cadeira sala jantar', 'cadeiras jantar'] },
+  { category: 'Mesas para Escritório', aliases: ['mesa escritorio', 'escrivaninha', 'mesa para escritorio'] },
+  { category: 'Cadeiras para Escritório', aliases: ['cadeira escritorio', 'cadeira para escritorio'] },
+  { category: 'Conjuntos para Banheiro', aliases: ['conjunto banheiro', 'conjunto para banheiro'] },
+  { category: 'Espelheira para Banheiro', aliases: ['espelheira banheiro', 'espelheira para banheiro'] },
+  { category: 'Cristaleiras', aliases: ['cristaleira'] },
+  { category: 'Berços', aliases: ['berco', 'mini cama bebe'] },
+  { category: 'Cômodas', aliases: ['comoda'] },
+  { category: 'Sapateiras', aliases: ['sapateira'] },
+  { category: 'Cabeceiras', aliases: ['cabeceira'] },
+  { category: 'Beliches', aliases: ['beliche'] },
+  { category: 'Treliches', aliases: ['treliche'] },
+  { category: 'Colchões', aliases: ['colchao'] },
+  { category: 'Camas/Bases Box', aliases: ['cama box', 'base box', 'base bau', 'cama casal', 'cama solteiro'] },
+  { category: 'Mesas de Cabeceira', aliases: ['mesa cabeceira', 'criado mudo', 'mesa de cabeceira'] },
+  { category: 'Aparadores Buffets', aliases: ['aparador sala', 'buffet sala'] },
+  { category: 'Racks', aliases: ['rack tv', 'rack para tv', 'rack'] },
+  { category: 'Painéis', aliases: ['painel tv', 'painel para tv'] },
+  { category: 'Homes', aliases: ['home para tv', 'home tv'] },
+  { category: 'Estantes', aliases: ['estante'] },
+  { category: 'Poltronas', aliases: ['poltrona'] },
+  { category: 'Sofás', aliases: ['sofa', 'sofa cama'] },
+  { category: 'Penteadeiras', aliases: ['penteadeira'] },
+  { category: 'Armários Multiuso', aliases: ['armario multiuso', 'multiuso'] },
+  { category: 'Pias', aliases: ['pia de granito', 'pia de marmore', 'pia inox'] },
+  { category: 'Tampos', aliases: ['tampo para balcao', 'tampo de balcao'] },
+];
+
+const IGNORE_TOKENS = new Set(['de', 'da', 'do', 'das', 'dos', 'para', 'com', 'em', 'por']);
+const BATHROOM_CONTEXT = ['banheiro', 'banho'];
+const KITCHEN_CATEGORIES = new Set([
+  'balcoes para pia',
+  'balcoes para cooktop',
+  'balcoes com fruteiras',
+  'balcoes com tampo',
+  'balcoes para filtro de agua',
+  'armarios aereos',
+  'armarios para fornos',
+  'paneleiros',
+  'cozinhas moduladas e compactas',
+]);
+
 function normalize(value: string): string {
   return removeAccents(value || '')
     .toLowerCase()
+    .replace(/\bg\s+roupa\b/g, 'guarda roupa')
+    .replace(/\b(\d+)\s*pt\b/g, '$1 portas')
+    .replace(/\b(\d+)\s*p\b/g, '$1 portas')
+    .replace(/\b(\d+)\s*gv\b/g, '$1 gavetas')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-/**
- * Regras heurísticas de alta precisão para categorização de móveis do ERP Morante Hub.
- * Atende aos padrões estabelecidos:
- * - "balcão para pia" -> "Balcões para Pia"
- * - "paneleiro" -> "Paneleiros"
- * - "armário aéreo" -> "Armários Aéreos"
- * - "cristaleira" -> "Cristaleiras"
- * - "mesa de jantar" -> "Conjunto para Sala de Jantar"
- * - "mesa para escritório" / "escrivaninha" -> "Mesas para Escritório"
- */
+function levenshteinDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    let previous = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const diagonal = previous;
+      previous = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return row[b.length];
+}
+
+function tokenMatches(input: string, expected: string): boolean {
+  if (input === expected || (input.length > 3 && input.replace(/s$/, '') === expected.replace(/s$/, ''))) {
+    return true;
+  }
+  if (Math.min(input.length, expected.length) < 5) return false;
+  return levenshteinDistance(input, expected) === 1;
+}
+
+function aliasScore(titleTokens: readonly string[], alias: string): number {
+  const aliasTokens = normalize(alias).split(' ').filter((token) => !IGNORE_TOKENS.has(token));
+  if (!aliasTokens.length) return 0;
+
+  let matched = 0;
+  let fuzzy = false;
+  for (const expected of aliasTokens) {
+    const found = titleTokens.find((token) => tokenMatches(token, expected));
+    if (found) {
+      matched += 1;
+      if (found !== expected && found.replace(/s$/, '') !== expected.replace(/s$/, '')) fuzzy = true;
+    }
+  }
+
+  if (!matched) return 0;
+  const coverage = matched / aliasTokens.length;
+  const score = 0.55 + coverage * 0.42 - (fuzzy ? 0.055 : 0);
+  return Math.round(score * 100) / 100;
+}
+
+function matchingRule(categoryName: string): CategoryAliasRule | undefined {
+  const normalizedName = normalize(categoryName);
+  return CATEGORY_ALIAS_RULES.find((rule) => normalize(rule.category) === normalizedName);
+}
+
+export function rankCategoryCandidates(
+  title: string,
+  categories: readonly CategoryCandidate[]
+): RankedCategoryCandidate[] {
+  if (!title?.trim() || !categories?.length) return [];
+
+  const normalizedTitle = normalize(title);
+  const titleTokens = normalizedTitle.split(' ').filter((token) => !IGNORE_TOKENS.has(token));
+  const hasBathroomContext = BATHROOM_CONTEXT.some((token) => titleTokens.includes(token));
+  const scores: RankedCategoryCandidate[] = [];
+
+  for (const category of categories) {
+    const categoryName = category.name || category.category || '';
+    if (!categoryName) continue;
+
+    const normalizedCategory = normalize(categoryName);
+    if (hasBathroomContext && KITCHEN_CATEGORIES.has(normalizedCategory)) continue;
+
+    const rule = matchingRule(categoryName);
+    const aliases = rule?.aliases || [categoryName];
+    let best = { score: 0, matchedAlias: '' };
+    for (const alias of aliases) {
+      const score = aliasScore(titleTokens, alias);
+      if (score > best.score) best = { score, matchedAlias: alias };
+    }
+    if (best.score > 0) scores.push({ category, ...best });
+  }
+
+  return scores.sort((a, b) => b.score - a.score || (a.category.name || '').localeCompare(b.category.name || ''));
+}
+
+const AUTO_SELECT_MIN_SCORE = 0.86;
+const AUTO_SELECT_MIN_MARGIN = 0.12;
+
 export function matchCategoryByRules(
   title: string,
   categories: readonly CategoryCandidate[]
 ): CategoryCandidate | null {
-  if (!title?.trim() || !categories?.length) return null;
-
-  const normTitle = normalize(title);
-
-  const findByName = (targetName: string): CategoryCandidate | undefined => {
-    const normTarget = normalize(targetName);
-    return categories.find((c) => {
-      const cName = normalize(c.name || c.category || '');
-      return cName === normTarget || cName.includes(normTarget);
-    });
-  };
-
-  // 1. Balcões
-  if (normTitle.includes('balcao') || normTitle.includes('gabinete')) {
-    if (normTitle.includes('pia')) {
-      const matched =
-        findByName('Balcões para Pia') || findByName('Balcao Pia') || findByName('Pias');
-      if (matched) return matched;
-    }
-    if (normTitle.includes('cooktop')) {
-      const matched = findByName('Balcões para Cooktop');
-      if (matched) return matched;
-    }
-    if (normTitle.includes('fruteira')) {
-      const matched = findByName('Balcões com Fruteiras');
-      if (matched) return matched;
-    }
-    if (normTitle.includes('tampo')) {
-      const matched = findByName('Balcões com Tampo');
-      if (matched) return matched;
-    }
-    if (normTitle.includes('filtro')) {
-      const matched = findByName('Balcões para Filtro');
-      if (matched) return matched;
-    }
-    // Fallback para balcão genérico com pia se não especificado
-    const matched = findByName('Balcões para Pia') || findByName('Balcões com Tampo');
-    if (matched) return matched;
-  }
-
-  // 2. Paneleiros
-  if (normTitle.includes('paneleiro')) {
-    const matched = findByName('Paneleiros') || findByName('Paneleiro');
-    if (matched) return matched;
-  }
-
-  // 3. Armários Aéreos
-  if (normTitle.includes('aereo') || normTitle.includes('armario aereo')) {
-    const matched = findByName('Armários Aéreos') || findByName('Armario Aereo');
-    if (matched) return matched;
-  }
-
-  // 4. Cristaleiras
-  if (normTitle.includes('cristaleira')) {
-    const matched = findByName('Cristaleiras') || findByName('Cristaleira');
-    if (matched) return matched;
-  }
-
-  // 5. Mesas e Cadeiras de Escritório vs Sala de Jantar
-  if (normTitle.includes('escritorio') || normTitle.includes('escrivaninha')) {
-    if (normTitle.includes('cadeira')) {
-      const matched = findByName('Cadeiras para Escritório');
-      if (matched) return matched;
-    }
-    const matched = findByName('Mesas para Escritório') || findByName('Escritório');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('jantar')) {
-    if (normTitle.includes('cadeira')) {
-      const matched = findByName('Cadeiras para Sala de Jantar') || findByName('Sala de Jantar');
-      if (matched) return matched;
-    }
-    const matched = findByName('Conjunto para Sala de Jantar') || findByName('Sala de Jantar');
-    if (matched) return matched;
-  }
-
-  // 6. Dormitório / Quarto
-  if (
-    normTitle.includes('guarda roupa') ||
-    normTitle.includes('roupeiro') ||
-    normTitle.includes('g roupa')
-  ) {
-    const matched = findByName('Guarda-Roupas') || findByName('Guarda Roupa');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('berco') || normTitle.includes('berço')) {
-    const matched = findByName('Berço') || findByName('Berços');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('comoda')) {
-    const matched = findByName('Cômodas') || findByName('Comoda');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('sapateira')) {
-    const matched = findByName('Sapateiras') || findByName('Sapateira');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('cabeceira')) {
-    const matched = findByName('Cabeceiras') || findByName('Cabeceira');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('beliche')) {
-    const matched = findByName('Beliches') || findByName('Beliche');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('treliche')) {
-    const matched = findByName('Treliches') || findByName('Treliche');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('colchao')) {
-    const matched = findByName('Colchões') || findByName('Colchao');
-    if (matched) return matched;
-  }
-
-  if (
-    normTitle.includes('cama') ||
-    normTitle.includes('box') ||
-    normTitle.includes('base bau') ||
-    normTitle.includes('base box')
-  ) {
-    const matched =
-      findByName('Camas/Base Box') ||
-      findByName('Camas/Bases Box') ||
-      findByName('Base Box') ||
-      findByName('Camas');
-    if (matched) return matched;
-  }
-
-  if (
-    normTitle.includes('cabeceira') ||
-    normTitle.includes('criado mudo') ||
-    normTitle.includes('mesa de cabeceira')
-  ) {
-    const matched = findByName('Mesas de Cabeceira');
-    if (matched) return matched;
-  }
-
-  // 7. Sala de Estar
-  if (normTitle.includes('aparador') || normTitle.includes('buffet')) {
-    const matched = findByName('Aparadores Buffets');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('rack')) {
-    const matched = findByName('Racks') || findByName('Rack');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('painel')) {
-    const matched = findByName('Painéis') || findByName('Painel');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('home')) {
-    const matched = findByName('Homes') || findByName('Home');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('estante')) {
-    const matched = findByName('Estantes') || findByName('Estante');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('poltrona')) {
-    const matched = findByName('Poltronas') || findByName('Poltrona');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('sofa') || normTitle.includes('estof')) {
-    const matched = findByName('Sofás') || findByName('Sofa');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('penteadeira')) {
-    const matched = findByName('Penteadeiras') || findByName('Penteadeira');
-    if (matched) return matched;
-  }
-
-  if (normTitle.includes('multiuso')) {
-    const matched =
-      findByName('Armários Multiuso') || findByName('Armario Multiuso') || findByName('Multiuso');
-    if (matched) return matched;
-  }
-
-  return null;
+  const ranked = rankCategoryCandidates(title, categories);
+  const [best, second] = ranked;
+  if (!best || best.score < AUTO_SELECT_MIN_SCORE) return null;
+  if (second && best.score - second.score < AUTO_SELECT_MIN_MARGIN) return null;
+  return best.category;
 }
 
-/**
- * Resolve automaticamente a categoria do produto:
- * 1. Primeiro via regras heurísticas dos padrões do sistema (rápido e determinístico)
- * 2. Em caso de não correspondência direta, aciona a IA com o catálogo de categorias
- */
+export function keepManualCategorySelection(
+  selectedIds: readonly string[],
+  suggestedId: string | null | undefined
+): string[] {
+  if (selectedIds.length || !suggestedId) return [...selectedIds];
+  return [suggestedId];
+}
+
+/** Resolve automaticamente apenas com regras locais; nunca chama serviços de IA. */
 export async function resolveAutoCategory(
   title: string,
   availableCategories: readonly CategoryCandidate[]
 ): Promise<CategoryCandidate | null> {
-  if (!title?.trim() || !availableCategories?.length) return null;
-
-  // 1. Tentar correspondência direta por regras
-  const directMatch = matchCategoryByRules(title, availableCategories);
-  if (directMatch) return directMatch;
-
-  // 2. Chamar IA para sugerir categoria dentre as disponíveis
-  try {
-    const categoryNames = availableCategories
-      .map((c) => c.name || c.category || '')
-      .filter(Boolean);
-
-    const aiResult = await aiService.suggestCategory(title, categoryNames);
-    const suggestedName = typeof aiResult === 'string' ? aiResult : aiResult?.category || '';
-
-    if (suggestedName?.trim()) {
-      const normSuggested = normalize(suggestedName);
-      const found = availableCategories.find((c) => {
-        const normCat = normalize(c.name || c.category || '');
-        return normCat === normSuggested;
-      });
-      if (found) return found;
-    }
-  } catch (err) {
-    console.warn('[categoryResolutionService] Falha ao sugerir categoria via IA:', err);
-  }
-
-  return null;
+  return matchCategoryByRules(title, availableCategories);
 }

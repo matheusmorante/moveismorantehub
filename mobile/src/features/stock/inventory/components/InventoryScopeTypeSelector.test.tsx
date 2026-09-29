@@ -29,21 +29,13 @@ vi.mock('lucide-react-native', () => ({
 import { InventoryScopeTypeSelector } from './InventoryScopeTypeSelector';
 import { filterScopeSuppliers } from './filterScopeSuppliers';
 
-describe('seleção de fornecedor no inventário', () => {
-  const suppliers = [
-    { id: '1', full_name: 'Fábrica São José' },
-    { id: '2', full_name: 'Móveis Alfa' },
-  ];
-
-  it('exibe o campo de pesquisa ao abrir o modo por fornecedor', () => {
+describe('seleção de escopo no inventário', () => {
+  it('exibe as opções de Estoque Completo: Etapas por Fornecedor e Seleção Personalizada', () => {
     const html = renderToStaticMarkup(
       <InventoryScopeTypeSelector
         isDarkMode={false}
-        suppliers={suppliers}
-        expandedType="supplier"
+        expandedType={null}
         onToggleExpand={() => {}}
-        selectedSupplierId={null}
-        onSelectSupplier={() => {}}
         customProducts={[]}
         onOpenSearch={() => {}}
         onRemoveCustomProduct={() => {}}
@@ -51,11 +43,16 @@ describe('seleção de fornecedor no inventário', () => {
       />
     );
 
-    expect(html).toContain('placeholder="Pesquisar fornecedor"');
-    expect(html).toContain('Fábrica São José');
+    expect(html).toContain('Estoque Completo: Etapas por Fornecedor');
+    expect(html).toContain('Seleção Personalizada');
+    expect(html).not.toContain('Por Fornecedor');
   });
 
-  it('pesquisa nomes sem depender de maiúsculas ou acentos', () => {
+  it('pesquisa nomes de fornecedores no helper sem depender de maiúsculas ou acentos', () => {
+    const suppliers = [
+      { id: '1', full_name: 'Fábrica São José' },
+      { id: '2', full_name: 'Móveis Alfa' },
+    ];
     expect(filterScopeSuppliers(suppliers, 'sao jose')).toEqual([suppliers[0]]);
     expect(filterScopeSuppliers(suppliers, 'ALFA')).toEqual([suppliers[1]]);
     expect(filterScopeSuppliers(suppliers, 'inexistente')).toEqual([]);

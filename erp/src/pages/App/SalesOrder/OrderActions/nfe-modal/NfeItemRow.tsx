@@ -14,10 +14,7 @@ interface Props {
   onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
 }
 
-export const NfeItemRow: React.FC<Props> = ({
-  item,
-  onUpdateFiscal,
-}) => {
+export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const itemTotal =
     (item.quantity || 1) * (item.unitPrice || 0) - (item.unitDiscount || 0) * (item.quantity || 1);
@@ -95,7 +92,6 @@ export const NfeItemRow: React.FC<Props> = ({
           </button>
         </div>
       </div>
-
 
       {/* Campos Tributários Avançados (Sanfona Expansível com Selects) */}
       {isExpanded && (

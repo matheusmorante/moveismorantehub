@@ -8,6 +8,7 @@ import {
 import { validateOrderStatusTransition } from '../orderStatusTransitionRules';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
+import { removeNonStockItemLinks } from '../saleInventoryRules';
 
 const TABLE_NAME = 'orders';
 
@@ -67,7 +68,7 @@ export const executeUpdateOrder = async (
       merged.orderNumber = newIndex;
     }
 
-    merged = await resolveOrderCustomerSnapshot(merged as Order);
+    merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
     if (merged.id) delete merged.id;
 
     // 2. Validação da transição de status

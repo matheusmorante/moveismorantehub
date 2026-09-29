@@ -433,14 +433,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
               description="Roteiro de montadores"
               onClick={() => setActiveMenu(null)}
             />
-            <DropdownItem
-              to="/sales-order/freight-calculation"
-              icon="bi-calculator"
-              title="Cálculo de frete"
-              description="Simulação de custos"
-              onClick={() => setActiveMenu(null)}
-            />
-
             <DropdownSeparator />
 
             <DropdownGroup title="Mobile" />

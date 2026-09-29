@@ -79,6 +79,55 @@ export const parseSefazCancellationEvent = (xml: string): SefazEventResult => {
   };
 };
 
+/** CC-e only succeeds when the SEFAZ links the registered event to this NF-e. */
+export const parseSefazCceEvent = (xml: string): SefazEventResult => {
+  const eventResponse = xml.match(/<retEvento\b[^>]*>[\s\S]*?<\/retEvento>/i)?.[0];
+  if (!eventResponse) {
+    const lotStatus = readTag(xml, 'cStat');
+    return {
+      cStat: lotStatus,
+      xMotivo: readTag(xml, 'xMotivo') || 'Retorno da SEFAZ sem resultado final da CC-e.',
+      protocolNumber: null,
+      protocolDate: null,
+      registered: false,
+      pending: lotStatus === '128' || !lotStatus,
+    };
+  }
+  const cStat = readTag(eventResponse, 'cStat');
+  return {
+    cStat,
+    xMotivo: readTag(eventResponse, 'xMotivo'),
+    protocolNumber: readTag(eventResponse, 'nProt'),
+    protocolDate: readTag(eventResponse, 'dhRegEvento'),
+    registered: cStat === '135',
+    // 136 is registered without a document link; 573 may mean the prior request landed.
+    pending: cStat === '128' || cStat === '136' || cStat === '573',
+  };
+};
+
+/** Finds a previously registered CC-e in the SEFAZ protocol consultation response. */
+export const findRegisteredSefazCceEvent = (
+  xml: string,
+  sequence: number
+): SefazEventResult | null => {
+  const eventBlocks = [...xml.matchAll(/<procEventoNFe\b[^>]*>[\s\S]*?<\/procEventoNFe>/gi)].map(
+    (match) => match[0]
+  );
+  const event = eventBlocks.find(
+    (block) => readTag(block, 'tpEvento') === '110110' && Number(readTag(block, 'nSeqEvento')) === sequence
+  );
+  if (!event) return null;
+  const cStat = readTag(event, 'cStat');
+  return {
+    cStat,
+    xMotivo: readTag(event, 'xMotivo'),
+    protocolNumber: readTag(event, 'nProt'),
+    protocolDate: readTag(event, 'dhRegEvento'),
+    registered: cStat === '135',
+    pending: cStat !== '135',
+  };
+};
+
 export const parseSefazNfeSituation = (xml: string): SefazNfeSituation => {
   const eventBlocks = [...xml.matchAll(/<procEventoNFe\b[^>]*>[\s\S]*?<\/procEventoNFe>/gi)].map(
     (match) => match[0]

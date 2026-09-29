@@ -88,18 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')
     return res.status(405).json({ success: false, error: 'Método não permitido.' });
   if (!supabaseServiceKey)
-    return res
-      .status(503)
-      .json({
-        success: false,
-        error: 'Serviço fiscal indisponível: credencial segura do banco não configurada.',
-      });
+    return res.status(503).json({
+      success: false,
+      error: 'Serviço fiscal indisponível: credencial segura do banco não configurada.',
+    });
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(
-    supabase,
-    req.headers.authorization
-  );
+  const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({
       success: false,
@@ -123,23 +118,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (docError || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
     if (!['autorizada', 'homologada'].includes(doc.status))
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: 'Somente documento autorizado pode receber evento de cancelamento.',
-        });
+      return res.status(409).json({
+        success: false,
+        error: 'Somente documento autorizado pode receber evento de cancelamento.',
+      });
     if (
       !['55', '65'].includes(String(doc.modelo)) ||
       ![1, 2].includes(Number(doc.ambiente)) ||
       !/^\d{44}$/.test(String(doc.chave_acesso || ''))
     ) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: 'Modelo, ambiente ou chave de acesso do documento inválidos.',
-        });
+      return res.status(409).json({
+        success: false,
+        error: 'Modelo, ambiente ou chave de acesso do documento inválidos.',
+      });
     }
     if (Number(doc.ambiente) === 1 && req.body?.productionConfirmed !== true) {
       return res
@@ -147,21 +138,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ success: false, error: 'Confirme explicitamente o cancelamento em Produção.' });
     }
     if (!doc.numero_protocolo || !doc.xml_nfe)
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error: 'A nota não contém XML autorizado e protocolo original para referenciar o evento.',
-        });
+      return res.status(409).json({
+        success: false,
+        error: 'A nota não contém XML autorizado e protocolo original para referenciar o evento.',
+      });
 
     if (!doc.order_id)
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error:
-            'Documento sem vínculo com o pedido; não é possível comprovar se a mercadoria circulou.',
-        });
+      return res.status(409).json({
+        success: false,
+        error:
+          'Documento sem vínculo com o pedido; não é possível comprovar se a mercadoria circulou.',
+      });
     let physicalCirculationConfirmed = false;
     if (doc.order_id) {
       const { data: order, error: orderError } = await supabase
@@ -170,12 +157,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', doc.order_id)
         .maybeSingle();
       if (orderError)
-        return res
-          .status(503)
-          .json({
-            success: false,
-            error: 'Não foi possível verificar a circulação da mercadoria.',
-          });
+        return res.status(503).json({
+          success: false,
+          error: 'Não foi possível verificar a circulação da mercadoria.',
+        });
       physicalCirculationConfirmed = orderShowsPhysicalCirculation(order, String(doc.modelo));
     }
 
@@ -195,26 +180,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         priorEvent.status === 'transmitting' &&
         Date.now() - new Date(priorEvent.requested_at).getTime() < 30_000
       ) {
-        return res
-          .status(202)
-          .json({
-            success: false,
-            pending: true,
-            error:
-              'A transmissão anterior ainda pode estar em andamento; aguarde antes de consultar novamente.',
-          });
+        return res.status(202).json({
+          success: false,
+          pending: true,
+          error:
+            'A transmissão anterior ainda pode estar em andamento; aguarde antes de consultar novamente.',
+        });
       }
       // Timeout/rejeição nunca autoriza reenvio por si só: consulte a situação atual na SEFAZ.
       const pfx = process.env.NFE_CERTIFICATE_BASE64;
       const password = process.env.NFE_CERTIFICATE_PASSWORD;
       if (!pfx)
-        return res
-          .status(503)
-          .json({
-            success: false,
-            pending: true,
-            error: 'Certificado indisponível para reconciliar; nenhum novo evento foi enviado.',
-          });
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          error: 'Certificado indisponível para reconciliar; nenhum novo evento foi enviado.',
+        });
       const certificate = extractCertificateAndKey(pfx, password || '');
       const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${Number(doc.ambiente)}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
       let situationXml: string;
@@ -235,14 +216,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           privateKeyPem: certificate.privateKeyPem,
         });
       } catch {
-        return res
-          .status(502)
-          .json({
-            success: false,
-            pending: true,
-            error:
-              'Consulta SEFAZ falhou; resultado continua incerto e nenhum novo evento foi transmitido.',
-          });
+        return res.status(502).json({
+          success: false,
+          pending: true,
+          error:
+            'Consulta SEFAZ falhou; resultado continua incerto e nenhum novo evento foi transmitido.',
+        });
       }
       const situation = parseSefazNfeSituation(situationXml);
       const recoveryDecision = decideCancellationRecovery(priorEvent.status, situation.state);
@@ -266,68 +245,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
           .eq('id', doc.id)
           .in('status', ['autorizada', 'homologada']);
-        return res
-          .status(200)
-          .json({
-            success: !eventUpdateError && !docUpdateError,
-            status: 'cancelada',
-            cStat: situation.cStat,
-            xMotivo: situation.xMotivo,
-            reconciliationRequired: Boolean(eventUpdateError || docUpdateError),
-          });
+        return res.status(200).json({
+          success: !eventUpdateError && !docUpdateError,
+          status: 'cancelada',
+          cStat: situation.cStat,
+          xMotivo: situation.xMotivo,
+          reconciliationRequired: Boolean(eventUpdateError || docUpdateError),
+        });
       }
       if (recoveryDecision === 'still_uncertain')
-        return res
-          .status(202)
-          .json({
-            success: false,
-            pending: true,
-            cStat: situation.cStat,
-            error:
-              'A consulta não confirmou nem cancelamento nem autorização ativa. Nenhum novo evento foi enviado.',
-          });
+        return res.status(202).json({
+          success: false,
+          pending: true,
+          cStat: situation.cStat,
+          error:
+            'A consulta não confirmou nem cancelamento nem autorização ativa. Nenhum novo evento foi enviado.',
+        });
       if (recoveryDecision === 'manual_reconciliation')
-        return res
-          .status(409)
-          .json({
-            success: false,
-            pending: true,
-            cStat: situation.cStat,
-            error:
-              'O histórico local já registra evento aceito, mas a consulta ainda não o reflete. Não retransmita; reconciliação fiscal necessária.',
-          });
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          cStat: situation.cStat,
+          error:
+            'O histórico local já registra evento aceito, mas a consulta ainda não o reflete. Não retransmita; reconciliação fiscal necessária.',
+        });
     }
     if (physicalCirculationConfirmed) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error:
-            'Há confirmação de circulação/entrega. A NF-e original deve permanecer válida; siga o fluxo fiscal de devolução.',
-        });
+      return res.status(409).json({
+        success: false,
+        error:
+          'Há confirmação de circulação/entrega. A NF-e original deve permanecer válida; siga o fluxo fiscal de devolução.',
+      });
     }
     const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), doc.created_at);
     const cancellationWindow = getCancellationWindow(String(doc.modelo), authorizedAt);
     if (!cancellationWindow.valid || cancellationWindow.expired) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          error:
-            String(doc.modelo) === '65'
-              ? 'Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado.'
-              : 'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.',
-        });
+      return res.status(409).json({
+        success: false,
+        error:
+          String(doc.modelo) === '65'
+            ? 'Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado.'
+            : 'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.',
+      });
     }
 
     if (Number(doc.ambiente) === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      return res
-        .status(503)
-        .json({
-          success: false,
-          error:
-            'Eventos em Produção estão desabilitados neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
-        });
+      return res.status(503).json({
+        success: false,
+        error:
+          'Eventos em Produção estão desabilitados neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
+      });
     }
 
     const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;
@@ -366,14 +333,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('id')
       .single();
     if (reserveError || !event?.id) {
-      return res
-        .status(409)
-        .json({
-          success: false,
-          pending: true,
-          error:
-            'Outra solicitação pode já estar em andamento. Confira os eventos fiscais antes de repetir.',
-        });
+      return res.status(409).json({
+        success: false,
+        pending: true,
+        error:
+          'Outra solicitação pode já estar em andamento. Confira os eventos fiscais antes de repetir.',
+      });
     }
 
     let responseXml: string;
@@ -395,13 +360,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           xmotivo: 'Transmissão iniciada, mas a resposta da SEFAZ não foi confirmada.',
         })
         .eq('id', event.id);
-      return res
-        .status(502)
-        .json({
-          success: false,
-          pending: true,
-          error: 'Resultado incerto após envio à SEFAZ. Não reenvie; consulte a situação fiscal.',
-        });
+      return res.status(502).json({
+        success: false,
+        pending: true,
+        error: 'Resultado incerto após envio à SEFAZ. Não reenvie; consulte a situação fiscal.',
+      });
     }
 
     const result = parseSefazCancellationEvent(responseXml);
@@ -419,24 +382,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .eq('id', event.id);
     if (eventUpdateError)
-      return res
-        .status(503)
-        .json({
-          success: result.registered,
-          pending: result.registered,
-          error: result.registered
-            ? 'SEFAZ confirmou o cancelamento, mas a atualização do histórico local precisa de reconciliação.'
-            : 'Não foi possível persistir o retorno fiscal.',
-        });
+      return res.status(503).json({
+        success: result.registered,
+        pending: result.registered,
+        error: result.registered
+          ? 'SEFAZ confirmou o cancelamento, mas a atualização do histórico local precisa de reconciliação.'
+          : 'Não foi possível persistir o retorno fiscal.',
+      });
     if (!result.registered)
-      return res
-        .status(result.pending ? 202 : 422)
-        .json({
-          success: false,
-          pending: result.pending,
-          cStat: result.cStat,
-          xMotivo: result.xMotivo || 'A SEFAZ não confirmou o cancelamento.',
-        });
+      return res.status(result.pending ? 202 : 422).json({
+        success: false,
+        pending: result.pending,
+        cStat: result.cStat,
+        xMotivo: result.xMotivo || 'A SEFAZ não confirmou o cancelamento.',
+      });
 
     const { error: documentUpdateError } = await supabase
       .from('nfe_documents')
@@ -447,26 +406,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .eq('id', doc.id)
       .in('status', ['autorizada', 'homologada']);
-    return res
-      .status(200)
-      .json({
-        success: true,
-        status: 'cancelada',
-        cStat: result.cStat,
-        xMotivo: result.xMotivo,
-        protocolNumber: result.protocolNumber,
-        reconciliationRequired: Boolean(documentUpdateError),
-      });
+    return res.status(200).json({
+      success: true,
+      status: 'cancelada',
+      cStat: result.cStat,
+      xMotivo: result.xMotivo,
+      protocolNumber: result.protocolNumber,
+      reconciliationRequired: Boolean(documentUpdateError),
+    });
   } catch (error: any) {
     console.error(
       '[NF-e Cancel] Falha no fluxo de cancelamento fiscal:',
       error?.message || 'erro desconhecido'
     );
-    return res
-      .status(500)
-      .json({
-        success: false,
-        error: 'Erro interno ao processar o evento fiscal de cancelamento.',
-      });
+    return res.status(500).json({
+      success: false,
+      error: 'Erro interno ao processar o evento fiscal de cancelamento.',
+    });
   }
 }

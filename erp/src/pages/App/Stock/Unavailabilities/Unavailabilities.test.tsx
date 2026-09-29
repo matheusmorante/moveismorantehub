@@ -14,15 +14,29 @@ import {
 } from '@/pages/utils/stockUnavailabilityService';
 import { toast } from 'react-toastify';
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        order: vi.fn().mockResolvedValue({ data: [], error: null }),
-      })),
-    })),
-  },
-}));
+vi.mock('@/pages/utils/supabaseConfig', () => {
+  const createQueryBuilder = () => {
+    const builder: any = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      in: vi.fn(() => builder),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      single: vi
+        .fn()
+        .mockResolvedValue({ data: { supplier_id: 'sup-1', supplier_ids: [] }, error: null }),
+      maybeSingle: vi
+        .fn()
+        .mockResolvedValue({ data: { supplier_id: 'sup-1', supplier_ids: [] }, error: null }),
+    };
+    return builder;
+  };
+
+  return {
+    supabase: {
+      from: vi.fn(() => createQueryBuilder()),
+    },
+  };
+});
 
 vi.mock('@/pages/utils/stockUnavailabilityService', () => ({
   STOCK_UNAVAILABILITIES_PAGE_SIZE: 30,
@@ -208,12 +222,8 @@ describe('UnavailabilitiesPage', () => {
       totalCount: 0,
     });
     renderPage();
-    expect(
-      await screen.findByText('Nenhuma indisponibilidade registrada')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/O estoque está 100% liberado/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Nenhuma indisponibilidade registrada')).toBeInTheDocument();
+    expect(screen.getByText(/O estoque está 100% liberado/i)).toBeInTheDocument();
     // Garante que não renderiza o texto frio que parecia erro
     expect(screen.queryByText('Nenhuma indisponibilidade encontrada.')).not.toBeInTheDocument();
     // Garante que a paginação não fica exibindo 0-0 de 0

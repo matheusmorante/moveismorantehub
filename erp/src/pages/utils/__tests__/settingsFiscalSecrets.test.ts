@@ -37,7 +37,12 @@ describe('credenciais fiscais em configurações compartilhadas', () => {
 
     const savedData = upsert.mock.calls[0][0].data;
     expect(savedData.companyCnpj).toBe('44512248000107');
-    for (const key of ['certificateBase64', 'certificatePassword', 'certificateFileName', 'cscToken']) {
+    for (const key of [
+      'certificateBase64',
+      'certificatePassword',
+      'certificateFileName',
+      'cscToken',
+    ]) {
       expect(savedData).not.toHaveProperty(key);
     }
   });

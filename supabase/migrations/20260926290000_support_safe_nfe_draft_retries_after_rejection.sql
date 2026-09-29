@@ -19,7 +19,7 @@ ALTER TABLE public.nfe_operation_draft_allocations
 CREATE OR REPLACE FUNCTION public.prepare_nfe_operation_draft(
   p_kind text,
   p_original_document_id uuid,
-  p_return_order_id uuid,
+  p_return_order_id text,
   p_environment smallint,
   p_reason text,
   p_user_id uuid
@@ -137,9 +137,9 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,uuid,smallint,text,uuid)
+REVOKE ALL ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,text,smallint,text,uuid)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,uuid,smallint,text,uuid)
+GRANT EXECUTE ON FUNCTION public.prepare_nfe_operation_draft(text,uuid,text,smallint,text,uuid)
   TO service_role;
 
 -- The authorization RPC must persist only the exact key and signed XML that

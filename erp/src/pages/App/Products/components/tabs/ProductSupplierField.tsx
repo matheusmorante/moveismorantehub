@@ -12,6 +12,16 @@ interface ProductSupplierFieldProps {
 }
 
 const MAX_SUPPLIERS = 3;
+type SupplierStockOrigin = NonNullable<Person['stockOrigins']>[number];
+
+const getSupplierStockOrigin = (productKind: Product['productKind']): SupplierStockOrigin => {
+  if (productKind === 'salvado') return 'salvados';
+  if (productKind === 'usado') return 'usados';
+  return 'normal';
+};
+
+const supplierProvidesOrigin = (supplier: Person, origin: SupplierStockOrigin) =>
+  (supplier.stockOrigins ?? ['normal']).includes(origin);
 
 export function ProductSupplierField({
   formData,
@@ -24,6 +34,7 @@ export function ProductSupplierField({
   const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
   const [extraSuppliers, setExtraSuppliers] = useState<Person[]>([]);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const requiredStockOrigin = getSupplierStockOrigin(formData.productKind);
 
   // Fechar dropdown ao pressionar Escape
   useEffect(() => {
@@ -61,6 +72,7 @@ export function ProductSupplierField({
     return allSuppliers.filter((supplier) => {
       const sid = String(supplier.id || '');
       if (selectedIds.includes(sid)) return false;
+      if (!supplierProvidesOrigin(supplier, requiredStockOrigin)) return false;
       const name = (
         supplier.fullName ||
         supplier.socialName ||
@@ -70,10 +82,11 @@ export function ProductSupplierField({
       ).toLowerCase();
       return name.includes(query);
     });
-  }, [allSuppliers, selectedIds, search]);
+  }, [allSuppliers, selectedIds, requiredStockOrigin, search]);
 
   const addSupplier = (supplier: Person) => {
     if (!supplier || !supplier.id) return;
+    if (!supplierProvidesOrigin(supplier, requiredStockOrigin)) return;
     const sid = String(supplier.id);
     if (selectedIds.includes(sid) || selectedIds.length >= MAX_SUPPLIERS) return;
 

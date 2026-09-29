@@ -205,11 +205,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           taxes_xml: normalizeReviewedFiscalBlock(String(line.taxes_xml || ''), 'imposto'),
         }));
       } catch (error) {
-        return res
-          .status(400)
-          .json({
-            error: error instanceof Error ? error.message : 'Bloco fiscal de item inválido.',
-          });
+        return res.status(400).json({
+          error: error instanceof Error ? error.message : 'Bloco fiscal de item inválido.',
+        });
       }
       const { data: savedId, error: reviewError } = await db.rpc(
         'save_nfe_operation_draft_review',
@@ -258,11 +256,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       source.status !== (environment === 1 ? 'autorizada' : 'homologada') ||
       !source.numero_protocolo
     ) {
-      return res
-        .status(409)
-        .json({
-          error: 'Documento original não autorizado e protocolado no ambiente selecionado.',
-        });
+      return res.status(409).json({
+        error: 'Documento original não autorizado e protocolado no ambiente selecionado.',
+      });
     }
     if (kind === 'estorno') {
       if (
@@ -271,12 +267,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         req.body?.goodsDidNotCirculate !== true ||
         reason.length < 15
       )
-        return res
-          .status(400)
-          .json({
-            error:
-              'Confirme operação não realizada, ausência de circulação e justifique o estorno.',
-          });
+        return res.status(400).json({
+          error: 'Confirme operação não realizada, ausência de circulação e justifique o estorno.',
+        });
       const { data: order, error: orderError } = await db
         .from('orders')
         .select('id,status,delivery_status,delivery_method,order_data')
@@ -288,22 +281,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         !['cancelled', 'cancelado'].includes(order.status) ||
         showsPhysicalCirculation(order, source.modelo)
       ) {
-        return res
-          .status(409)
-          .json({
-            error:
-              'O pedido precisa estar cancelado e sem evidência de circulação para preparar estorno.',
-          });
+        return res.status(409).json({
+          error:
+            'O pedido precisa estar cancelado e sem evidência de circulação para preparar estorno.',
+        });
       }
       const authorizedAt = getAuthorizedAt(source.xml_protocolo || '', '');
       const window = getCancellationWindow(source.modelo, authorizedAt);
       if (!window.valid || !window.expired) {
-        return res
-          .status(409)
-          .json({
-            error:
-              'Prazo de cancelamento não comprovadamente expirado. Verifique o protocolo original.',
-          });
+        return res.status(409).json({
+          error:
+            'Prazo de cancelamento não comprovadamente expirado. Verifique o protocolo original.',
+        });
       }
     } else if (!returnOrderId) {
       return res.status(400).json({ error: 'Informe a devolução comercial atendida.' });

@@ -4,6 +4,6 @@
     "noEmit": true,
     "incremental": false
   },
-  "include": ["nfe/emit.ts", "nfe/reserve-number.ts", "nfe/fiscalDatabaseTypes.ts"],
+  "include": ["nfe/emit.ts", "nfe/reserve-number.ts", "nfe/cce.ts", "nfe/fiscalDatabaseTypes.ts"],
   "exclude": ["../node_modules", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
 }

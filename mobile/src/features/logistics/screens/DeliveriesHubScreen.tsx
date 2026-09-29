@@ -46,6 +46,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
+  const dateScopeDisabled = activeTab === 'assemblies';
   const tabsScrollRef = useRef<ScrollView>(null);
   const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
   const tabLayouts = useRef<Partial<Record<DeliveriesSubTab, { x: number; width: number }>>>({});
@@ -168,48 +169,62 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark]}>
         <View style={styles.titleRow}>
-          {/* Filtro Global de Período posicionado na linha do título: [ Hoje ] [ Dias seguintes ] */}
-          {activeTab !== 'assemblies' && (
-            <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
-              <TouchableOpacity
+          {/* O período não se aplica às montagens, mas os controles permanecem visíveis. */}
+          <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
+            <TouchableOpacity
+              style={[
+                styles.dateScopeBtn,
+                dateScopeDisabled && styles.dateScopeBtnDisabled,
+                dateScopeDisabled && isDarkMode && styles.dateScopeBtnDisabledDark,
+                !dateScopeDisabled && scheduleDateScope === 'today' && styles.dateScopeBtnActive,
+              ]}
+              onPress={() => setScheduleDateScope('today')}
+              disabled={dateScopeDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: dateScopeDisabled }}
+              accessibilityHint={dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined}
+              activeOpacity={0.8}
+            >
+              <Text
                 style={[
-                  styles.dateScopeBtn,
-                  scheduleDateScope === 'today' && styles.dateScopeBtnActive,
+                  styles.dateScopeBtnText,
+                  isDarkMode && styles.dateScopeBtnTextDark,
+                  !dateScopeDisabled && scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
+                  dateScopeDisabled && styles.dateScopeBtnTextDisabled,
+                  dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
                 ]}
-                onPress={() => setScheduleDateScope('today')}
-                activeOpacity={0.8}
               >
-                <Text
-                  style={[
-                    styles.dateScopeBtnText,
-                    isDarkMode && styles.dateScopeBtnTextDark,
-                    scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
-                  ]}
-                >
-                  Hoje
-                </Text>
-              </TouchableOpacity>
+                Hoje
+              </Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
+            <TouchableOpacity
+              style={[
+                styles.dateScopeBtn,
+                dateScopeDisabled && styles.dateScopeBtnDisabled,
+                dateScopeDisabled && isDarkMode && styles.dateScopeBtnDisabledDark,
+                !dateScopeDisabled && scheduleDateScope === 'next_days' && styles.dateScopeBtnActive,
+              ]}
+              onPress={() => setScheduleDateScope('next_days')}
+              disabled={dateScopeDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: dateScopeDisabled }}
+              accessibilityHint={dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined}
+              activeOpacity={0.8}
+            >
+              <Text
                 style={[
-                  styles.dateScopeBtn,
-                  scheduleDateScope === 'next_days' && styles.dateScopeBtnActive,
+                  styles.dateScopeBtnText,
+                  isDarkMode && styles.dateScopeBtnTextDark,
+                  !dateScopeDisabled && scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
+                  dateScopeDisabled && styles.dateScopeBtnTextDisabled,
+                  dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
                 ]}
-                onPress={() => setScheduleDateScope('next_days')}
-                activeOpacity={0.8}
               >
-                <Text
-                  style={[
-                    styles.dateScopeBtnText,
-                    isDarkMode && styles.dateScopeBtnTextDark,
-                    scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
-                  ]}
-                >
-                  Dias Seguintes
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                Dias Seguintes
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
@@ -446,22 +461,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 26,
+    borderRadius: 20,
     padding: 3,
-    gap: 14,
+    gap: 8,
   },
   dateScopeContainerDark: {
     backgroundColor: '#0f172a',
     borderColor: '#334155',
   },
   dateScopeBtn: {
-    minHeight: 44,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 22,
+    minHeight: 32,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dateScopeBtnDisabled: {
+    backgroundColor: '#e2e8f0',
+    opacity: 0.55,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  dateScopeBtnDisabledDark: {
+    backgroundColor: '#475569',
   },
   dateScopeBtnActive: {
     backgroundColor: '#0055ff',
@@ -472,7 +496,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   dateScopeBtnText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0055ff',
   },
@@ -482,6 +506,12 @@ const styles = StyleSheet.create({
   dateScopeBtnTextActive: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  dateScopeBtnTextDisabled: {
+    color: '#64748b',
+  },
+  dateScopeBtnTextDisabledDark: {
+    color: '#cbd5e1',
   },
   textLight: {
     color: '#f8fafc',

@@ -7,6 +7,7 @@ import {
   isPartialSaleStockMovement,
   isStockEligibleSaleItem,
   isTemporarySaleItemReconciliation,
+  removeNonStockItemLinks,
   getSaleInventoryDate,
   shouldProcessSaleStock,
 } from '../saleInventoryRules';
@@ -40,6 +41,37 @@ describe('regras de estoque de pedido de venda', () => {
     expect(canCreateSaleExitForItem(sale('scheduled', temporary), temporary, false)).toBe(false);
     expect(canCreateSaleExitForItem(sale('scheduled', linked), linked, false)).toBe(true);
     expect(canCreateSaleExitForItem(sale('scheduled', linked), linked, true)).toBe(false);
+  });
+
+  it('movimenta apenas itens normais e remove vínculos legados de salvados e usados', () => {
+    const base = {
+      description: 'Produto',
+      quantity: 1,
+      unitPrice: 100,
+      unitDiscount: 0,
+      discountType: 'fixed' as const,
+      handlingType: '',
+      isTemporaryProduct: false,
+    };
+    const normal = { ...base, productId: 'normal', condition: 'novo' as const };
+    const salvado = { ...base, productId: 'salvado', variationId: 'variacao-s', condition: 'salvado' as const };
+    const usado = { ...base, productId: 'usado', variationId: 'variacao-u', condition: 'usado' as const };
+
+    for (const status of ['scheduled', 'fulfilled']) {
+      const order = { orderType: 'sale', status, items: [normal, salvado, usado] } as Order;
+      const sanitized = removeNonStockItemLinks(order);
+      expect(sanitized.items?.[0].productId).toBe('normal');
+      expect(sanitized.items?.slice(1)).toEqual([
+        expect.objectContaining({ condition: 'salvado', productId: undefined, variationId: undefined, isTemporaryProduct: true }),
+        expect.objectContaining({ condition: 'usado', productId: undefined, variationId: undefined, isTemporaryProduct: true }),
+      ]);
+      expect(removeNonStockItemLinks(sanitized)).toBe(sanitized);
+      expect(canCreateSaleExitForItem(order, normal, false)).toBe(true);
+      expect(canCreateSaleExitForItem(order, salvado, false)).toBe(false);
+      expect(canCreateSaleExitForItem(order, usado, false)).toBe(false);
+      expect(isStockEligibleSaleItem(salvado)).toBe(false);
+      expect(isStockEligibleSaleItem(usado)).toBe(false);
+    }
   });
 
   it('define a data da movimentação de saída com base na data de cadastro do pedido', () => {

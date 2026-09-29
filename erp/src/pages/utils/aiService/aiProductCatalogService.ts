@@ -185,33 +185,6 @@ Retorne apenas o texto da descrição.`;
     }
   },
 
-  async suggestCategory(title: string, categories: string[]) {
-    const prompt = `Dada a lista de categorias disponíveis abaixo:
-${categories.join(', ')}
-
-Qual é a categoria mais adequada para o produto: "${title}"?
-Retorne APENAS um JSON no formato: {"category": "NOME DA CATEGORIA"}
-Se nenhuma for adequada, escolha a mais próxima da lista. Sem blocos markdown adicionais.`;
-
-    try {
-      const textResponse = await callGeminiDirect(prompt, true, {
-        tier: 'lite',
-        moduleSource: 'products',
-        operation: 'catalog_suggest_category',
-      });
-      const clean = textResponse
-        .trim()
-        .replace(/^```json/, '')
-        .replace(/^```/, '')
-        .replace(/```$/, '')
-        .trim();
-      const parsed = JSON.parse(clean);
-      return { category: parsed.category || '' };
-    } catch {
-      return { category: '' };
-    }
-  },
-
   async generateComboName(items: string) {
     const prompt = `Crie um nome comercial chamativo para um conjunto/combo composto pelos itens: ${items}.
 Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;

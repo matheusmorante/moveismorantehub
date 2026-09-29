@@ -163,10 +163,9 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
 
     const productLink = screen.getByRole('combobox', { name: 'Vincular produto' });
     expect(screen.getByText('Vincular produto')).toBeTruthy();
-    expect(Array.from((productLink as HTMLSelectElement).options).map((option) => option.value)).toEqual([
-      '',
-      'product-described',
-    ]);
+    expect(
+      Array.from((productLink as HTMLSelectElement).options).map((option) => option.value)
+    ).toEqual(['', 'product-described']);
   });
 
   it('o botão contextual de adicionar deve mudar conforme a aba selecionada e ser único na linha das abas', () => {

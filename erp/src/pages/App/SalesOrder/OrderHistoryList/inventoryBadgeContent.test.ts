@@ -39,6 +39,27 @@ describe('getOrderItemsMovementList', () => {
     expect(result[0].quantity).toBe(2);
   });
 
+  it('mostra Salvados e Usados em amarelo sem confundir com item sem cadastro', () => {
+    const order = {
+      orderType: 'sale',
+      status: 'fulfilled',
+      stockProcessed: true,
+      movedProductIds: ['prod-123'],
+      items: [
+        itemCadastrado,
+        { ...itemCadastrado, productId: undefined, condition: 'salvado' },
+        { ...itemCadastrado, productId: 'legado-usado', condition: 'usado' },
+      ],
+    } as Order;
+
+    const result = getOrderItemsMovementList(order, true);
+    expect(result.map((item) => item.statusLabel)).toEqual(['Efetivada', 'Salvados', 'Usados']);
+    expect(result[1].status).toBe('non_stock');
+    expect(result[2].status).toBe('non_stock');
+    expect(result[1].statusBadgeClass).toContain('amber');
+    expect(result[2].statusBadgeClass).toContain('amber');
+  });
+
   it('identifica item cadastrado com movimentação efetivada', () => {
     const order: Order = {
       orderType: 'sale',

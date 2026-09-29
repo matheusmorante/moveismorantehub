@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeSearchTerm, removeAccents } from '../textUtils';
-import { matchesCustomerSearch, getCustomerSearchQuery, canSearchCustomers } from '../customerSearch';
+import {
+  matchesCustomerSearch,
+  getCustomerSearchQuery,
+  canSearchCustomers,
+} from '../customerSearch';
 
 // Simulação de base de dados realista para validação funcional das buscas
 const mockProducts = [
@@ -40,10 +44,16 @@ const mockPeople = [
 ];
 
 const mockNcms = [
-  { code: '94035000', official_description: 'Móveis de madeira do tipo utilizado em quartos de dormir' },
+  {
+    code: '94035000',
+    official_description: 'Móveis de madeira do tipo utilizado em quartos de dormir',
+  },
   { code: '94036000', official_description: 'Outros móveis de madeira' },
   { code: '94016100', official_description: 'Assentos estofados com armação de madeira' },
-  { code: '94042100', official_description: 'Colchões de borracha alveolar ou de plásticos alveolares' },
+  {
+    code: '94042100',
+    official_description: 'Colchões de borracha alveolar ou de plásticos alveolares',
+  },
 ];
 
 // Algoritmo canônico de similaridade trigram (Jaccard sobre 3-gramas)
@@ -128,22 +138,17 @@ function searchProductsFunctional(
 }
 
 // Helper funcional de busca de pessoas
-function searchPeopleFunctional(
-  query: string,
-  people: typeof mockPeople,
-  limit = 10
-) {
+function searchPeopleFunctional(query: string, people: typeof mockPeople, limit = 10) {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
   const rawDigits = trimmed.replace(/\D/g, '');
-  const isCpfCnpjSearch = rawDigits.length >= 8 && rawDigits.length === trimmed.replace(/[\.\-\/\s]/g, '').length;
+  const isCpfCnpjSearch =
+    rawDigits.length >= 8 && rawDigits.length === trimmed.replace(/[\.\-\/\s]/g, '').length;
 
   // Busca determinística por documento (B-tree)
   if (isCpfCnpjSearch) {
-    return people
-      .filter((p) => p.cpf_cnpj.replace(/\D/g, '').includes(rawDigits))
-      .slice(0, limit);
+    return people.filter((p) => p.cpf_cnpj.replace(/\D/g, '').includes(rawDigits)).slice(0, limit);
   }
 
   // Busca textual em full_name ou social_name com tolerância a acentos
@@ -151,19 +156,18 @@ function searchPeopleFunctional(
   return people
     .filter((p) => {
       const matchFullName = normalizeSearchTerm(p.full_name).includes(clean);
-      const matchSocialName = p.social_name ? normalizeSearchTerm(p.social_name).includes(clean) : false;
-      const trigramName = calculateWordTrigramSimilarity(clean, normalizeSearchTerm(p.full_name)) > 0.3;
+      const matchSocialName = p.social_name
+        ? normalizeSearchTerm(p.social_name).includes(clean)
+        : false;
+      const trigramName =
+        calculateWordTrigramSimilarity(clean, normalizeSearchTerm(p.full_name)) > 0.3;
       return matchFullName || matchSocialName || trigramName;
     })
     .slice(0, limit);
 }
 
 // Helper funcional de busca de NCM
-function searchNcmsFunctional(
-  searchTerm: string,
-  ncms: typeof mockNcms,
-  maxResults = 20
-) {
+function searchNcmsFunctional(searchTerm: string, ncms: typeof mockNcms, maxResults = 20) {
   const clean = searchTerm.trim();
   if (clean.length < 2) return [];
 
@@ -171,9 +175,7 @@ function searchNcmsFunctional(
   const isCodeSearch = digits.length >= 2 && digits.length === clean.length;
 
   if (isCodeSearch) {
-    return ncms
-      .filter((n) => n.code.startsWith(digits))
-      .slice(0, maxResults);
+    return ncms.filter((n) => n.code.startsWith(digits)).slice(0, maxResults);
   }
 
   const cleanText = normalizeSearchTerm(clean);

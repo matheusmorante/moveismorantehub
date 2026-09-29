@@ -8,11 +8,13 @@
     "src/pages/utils/nfe/nfeEnvironment.ts",
     "src/pages/utils/nfe/nfeSequenceSettings.ts",
     "src/pages/utils/nfe/nfeEventRules.ts",
+    "src/pages/utils/nfe/nfeCce.ts",
     "src/pages/utils/nfe/fiscalEnvelope.ts",
     "src/pages/utils/nfe/nfeService.ts",
     "src/pages/App/SalesOrder/OrderActions/NfeEmissionModal.tsx",
     "src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeOrderSummary.tsx",
     "src/pages/App/SalesOrder/OrderActions/nfe-modal/useNfeEmission.ts",
+    "src/pages/App/SalesOrder/pages/FiscalDocumentsPage.tsx",
     "src/pages/App/Settings/components/fiscal/CompanyFiscalDataSection.tsx"
   ],
   "exclude": [

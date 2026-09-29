@@ -33,6 +33,7 @@ export type Person = {
   updatedAt?: string;
   additionalContacts?: { name: string; phone: string }[];
   observations?: string;
+  stockOrigins?: ('normal' | 'salvados' | 'usados')[];
 };
 
 export type PersonVisibilitySettings = {

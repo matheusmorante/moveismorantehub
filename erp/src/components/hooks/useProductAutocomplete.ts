@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import Product from '../../pages/types/product.type';
+import Product, { ProductKind } from '../../pages/types/product.type';
+import { getProductKind, isSalvadoProduct } from '../../pages/utils/productKindRules';
 import {
   fetchAllProductSearchResults,
   getVariationDisplayName,
@@ -13,6 +14,7 @@ interface UseProductAutocompleteProps {
   parentsOnly?: boolean;
   variationsOnly?: boolean;
   includeDeactivated?: boolean;
+  allowedProductKinds?: readonly ProductKind[];
   localProducts?: Product[];
   onChange?: (value: string) => void;
   excludeCombos?: boolean;
@@ -24,6 +26,7 @@ export function useProductAutocomplete({
   parentsOnly = false,
   variationsOnly = false,
   includeDeactivated = false,
+  allowedProductKinds,
   localProducts,
   onChange,
   excludeCombos = false,
@@ -85,9 +88,12 @@ export function useProductAutocomplete({
         const searchNormWords = words.map(normalizeProductSearch);
 
         (productsData || []).forEach((p: Product) => {
+          const productKind = getProductKind(p);
+          if (allowedProductKinds && !allowedProductKinds.includes(productKind)) return;
+
           if (
             excludeCombos &&
-            (p.isCombo || p.itemType === 'combo' || (p as any).item_type === 'combo')
+            (p.isCombo || (p as any).itemType === 'combo' || (p as any).item_type === 'combo')
           ) {
             return;
           }
@@ -103,8 +109,13 @@ export function useProductAutocomplete({
           }
 
           const variations = p.variations || [];
+          const isSalvado = isSalvadoProduct(p);
+          const parentIsSelectable = allowedProductKinds
+            ? isSalvado || p.active !== false
+            : includeDeactivated || p.active !== false;
 
           if (parentsOnly) {
+            if (!parentIsSelectable) return;
             const baseName = (p.name || p.title || '').trim();
             const matchesAll = searchNormWords.every(
               (word) =>
@@ -114,8 +125,10 @@ export function useProductAutocomplete({
             if (matchesAll) items.push({ product: p });
           } else if (variations.length > 0) {
             variations.forEach((v) => {
-              const baseName = (p.name || p.title || '').trim();
-              if ((includeDeactivated || v.active !== false) && !v.mergedToVariationId) {
+              const variationIsSelectable = allowedProductKinds
+                ? isSalvado || v.active !== false
+                : includeDeactivated || v.active !== false;
+              if (variationIsSelectable && !v.mergedToVariationId) {
                 const fullName = getVariationDisplayName(p, v);
                 const normFullName = normalizeProductSearch(fullName);
                 const normSku = normalizeProductSearch(v.sku || '');
@@ -131,7 +144,7 @@ export function useProductAutocomplete({
             });
           } else if (!variationsOnly) {
             const baseName = (p.name || p.title || '').trim();
-            if (includeDeactivated || p.active !== false) {
+            if (parentIsSelectable) {
               const matchesAll = searchNormWords.every(
                 (word) =>
                   normalizeProductSearch(baseName).includes(word) ||
@@ -165,6 +178,8 @@ export function useProductAutocomplete({
     variationsOnly,
     parentsOnly,
     includeDeactivated,
+    excludeCombos,
+    allowedProductKinds,
     localProducts,
     refreshKey,
   ]);

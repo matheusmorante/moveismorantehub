@@ -158,9 +158,14 @@ const AssemblyList = ({ onClose }: Props) => {
               <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                 Lista de Montagens
               </h2>
-              <p className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest mt-1">
-                Gerencie montagens de pedidos e mostruário.
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="flex items-center gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                  <i className="bi bi-tools text-[10px]" /> DEPÓSITO
+                </span>
+                <span className="flex items-center gap-1 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                  <i className="bi bi-truck text-[10px]" /> FORA
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -309,81 +314,95 @@ const AssemblyList = ({ onClose }: Props) => {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {assemblies.map((as) => (
-                    <div
-                      key={as.id}
-                      className={`group bg-white dark:bg-slate-900 p-6 rounded-[2rem] border transition-all ${as.status === 'completed' ? 'border-emerald-100 bg-emerald-50/20 dark:border-emerald-900/20 dark:bg-emerald-900/5' : 'border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-950 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5'}`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex gap-4">
+                <div className="flex flex-col gap-6">
+                  {Object.entries(
+                    assemblies.reduce((acc, as) => {
+                      const d = new Date(as.date + 'T00:00:00');
+                      const today = new Date();
+                      let key = d.toLocaleDateString('pt-BR');
+                      if (
+                        d.getDate() === today.getDate() &&
+                        d.getMonth() === today.getMonth() &&
+                        d.getFullYear() === today.getFullYear()
+                      ) {
+                        key = 'PARA HOJE';
+                      }
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(as);
+                      return acc;
+                    }, {} as Record<string, Assembly[]>)
+                  ).map(([dateLabel, groupAssemblies]) => (
+                    <div key={dateLabel} className="mb-2 animate-fade-in">
+                      <div className="flex items-center gap-2 mb-3 px-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <i className="bi bi-calendar3 text-indigo-600 dark:text-indigo-400" />
+                        <h3 className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex-1">
+                          {dateLabel}
+                        </h3>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                          {groupAssemblies.length} {groupAssemblies.length === 1 ? 'montagem' : 'montagens'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {groupAssemblies.map((as) => (
                           <div
-                            className={`w-14 h-14 flex items-center justify-center rounded-2xl text-xl transition-transform group-hover:scale-110 ${as.type === 'showroom' ? 'bg-red-50 text-red-500 dark:bg-red-900/20' : 'bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20'}`}
+                            key={as.id}
+                            className={`group relative p-4 rounded-xl border transition-all shadow-sm hover:shadow-md ${
+                              as.type === 'delivery'
+                                ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-900/60'
+                                : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60'
+                            } ${as.status === 'completed' ? 'opacity-60 grayscale' : ''}`}
                           >
-                            <i
-                              className={`bi ${as.type === 'showroom' ? 'bi-shop' : 'bi-house'}`}
-                            />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span
-                                className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${as.type === 'showroom' ? 'bg-red-100 text-red-600 dark:bg-red-900/40' : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40'}`}
-                              >
-                                {as.type === 'showroom' ? 'Mostruário' : 'Entrega'}
-                              </span>
-                              <span
-                                className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full ${as.status === 'completed' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/40'}`}
-                              >
-                                {as.status === 'completed' ? 'Concluída' : 'Pendente'}
-                              </span>
-                            </div>
-                            <h4
-                              className={`text-lg font-black leading-tight mb-2 ${as.status === 'completed' ? 'text-slate-400 dark:text-slate-600 line-through' : 'text-slate-800 dark:text-slate-100'}`}
-                            >
-                              {as.item}
-                            </h4>
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-bold text-[11px]">
-                                <i className="bi bi-calendar3" />
-                                {new Date(as.date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                              </div>
-                              {as.time && (
-                                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-bold text-[11px]">
-                                  <i className="bi bi-clock" />
-                                  {as.time}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm leading-snug text-slate-900 dark:text-slate-100 font-extrabold line-clamp-2">
+                                  {as.item}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  <span
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                      as.type === 'delivery'
+                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                    }`}
+                                  >
+                                    {as.type === 'delivery' ? 'MONTAGEM FORA' : 'MONTAGEM NO DEPÓSITO'}
+                                  </span>
+                                  {as.time && (
+                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                      <i className="bi bi-clock mr-1" /> {as.time}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
+                              </div>
+                              <i className="bi bi-chevron-right text-slate-400 dark:text-slate-500 text-lg mt-1" />
+                            </div>
+
+                            {/* Ações (Hover) */}
+                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+                              <button
+                                onClick={() => toggleStatus(as)}
+                                title={as.status === 'completed' ? 'Marcar como pendente' : 'Marcar como concluída'}
+                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                              >
+                                <i
+                                  className={`bi ${as.status === 'completed' ? 'bi-arrow-counterclockwise' : 'bi-check2-all'}`}
+                                />
+                              </button>
+                              <button
+                                onClick={() => startEdit(as)}
+                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400"
+                              >
+                                <i className="bi bi-pencil" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(as.id)}
+                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-red-600 dark:text-red-400"
+                              >
+                                <i className="bi bi-trash" />
+                              </button>
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => toggleStatus(as)}
-                            title={
-                              as.status === 'completed'
-                                ? 'Marcar como pendente'
-                                : 'Marcar como concluída'
-                            }
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${as.status === 'completed' ? 'bg-amber-50 text-amber-500 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-500 hover:bg-emerald-100'}`}
-                          >
-                            <i
-                              className={`bi ${as.status === 'completed' ? 'bi-arrow-counterclockwise' : 'bi-check2-all'}`}
-                            />
-                          </button>
-                          <button
-                            onClick={() => startEdit(as)}
-                            className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-500 hover:bg-blue-100 rounded-xl transition-all"
-                          >
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(as.id)}
-                            className="w-10 h-10 flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 rounded-xl transition-all"
-                          >
-                            <i className="bi bi-trash" />
-                          </button>
-                        </div>
+                        ))}
                       </div>
                     </div>
                   ))}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { DollarSign, FileText, Flame } from 'lucide-react-native';
+import { DollarSign, FileText } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
 import { OrderItemChip } from '../../orders/OrderItemChip';
 
@@ -10,18 +10,6 @@ interface ItemsSectionProps {
   total?: number;
   pendingTotal?: number;
   dark?: boolean;
-}
-
-function resolveOpportunityLabel(item: any): string | null {
-  const rawOpp = item.opportunityName || item.opportunity?.name || item.opportunity;
-  if (typeof rawOpp === 'string' && rawOpp.trim()) {
-    const trimmed = rawOpp.trim();
-    return /^salvado$/i.test(trimmed) ? 'Queima dos Salvados' : trimmed;
-  }
-  if (item.condition === 'salvado' || item.is_salvado) {
-    return 'Queima dos Salvados';
-  }
-  return null;
 }
 
 export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSectionProps) {
@@ -54,22 +42,10 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
             const displayFinalPrice = finalTotalPrice;
             const displayOriginalPrice = hasDiscount ? unitPrice * qty : finalTotalPrice;
 
-            const opportunityLabel = resolveOpportunityLabel(item);
-
             return (
               <View key={index} style={[styles.itemCard, dark && styles.itemCardDark]}>
                 <View style={styles.itemInfo}>
                   <OrderItemChip item={item} handlingOptions={handlingOptions} dark={dark} />
-                  {opportunityLabel ? (
-                    <View style={styles.tagsRow}>
-                      <View style={[styles.oppBadge, dark && styles.oppBadgeDark]}>
-                        <Flame size={10} color={dark ? '#fbbf24' : '#d97706'} />
-                        <Text style={[styles.oppBadgeText, dark && styles.oppBadgeTextDark]}>
-                          {opportunityLabel}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
                 </View>
 
                 <View style={styles.priceContainer}>
@@ -114,7 +90,6 @@ const styles = StyleSheet.create({
   light: { color: '#f8fafc' },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   itemsListContainer: { gap: 8, marginTop: 4 },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'flex-start' },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,34 +107,6 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   itemInfo: { flex: 1, gap: 4 },
-  oppBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#fcd34d',
-    maxWidth: '100%',
-  },
-  oppBadgeDark: {
-    backgroundColor: '#451a03',
-    borderColor: '#b45309',
-  },
-  oppBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: '#92400e',
-    flexShrink: 1,
-  },
-  oppBadgeTextDark: {
-    color: '#fcd34d',
-  },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
   totalCard: {

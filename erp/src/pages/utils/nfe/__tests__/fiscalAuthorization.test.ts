@@ -7,7 +7,9 @@ describe('fiscal operation role policy', () => {
   });
 
   it('allows an operator role stored in the multi-role field', () => {
-    expect(hasFiscalOperationRole({ role: 'accountant', roles: ['accountant', 'seller'] })).toBe(true);
+    expect(hasFiscalOperationRole({ role: 'accountant', roles: ['accountant', 'seller'] })).toBe(
+      true
+    );
   });
 
   it.each(['accountant', 'stockist', 'deliverer', 'pending', '', null])(

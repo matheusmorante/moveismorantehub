@@ -11,6 +11,7 @@ import {
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatOrderCode } from './orderCode';
 import { getSaleInventoryDate, shouldProcessSaleStock } from './saleItemInventorySync';
+import { isStockEligibleSaleItem } from './saleInventoryRules';
 
 /**
  * Lógica centralizada para movimentação de saídas de estoque em vendas.
@@ -44,7 +45,7 @@ export async function handleStockAndBusinessRules(
     const movementDate = getSaleInventoryDate(order, historical);
 
     for (const item of order.items) {
-      if (item.productId && item.productId.trim() !== '' && !item.isTemporaryProduct) {
+      if (isStockEligibleSaleItem(item)) {
         itemsProcessed++;
         const { data: p } = await supabase
           .from('products')

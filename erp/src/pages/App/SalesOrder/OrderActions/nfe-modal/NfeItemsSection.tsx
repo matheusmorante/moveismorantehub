@@ -24,10 +24,7 @@ interface Props {
   onBatchUpdateItems: (updated: NfeItemWithFiscal[]) => void;
 }
 
-export const NfeItemsSection: React.FC<Props> = ({
-  items,
-  onUpdateItemFiscal,
-}) => {
+export const NfeItemsSection: React.FC<Props> = ({ items, onUpdateItemFiscal }) => {
   // Contadores informativos
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
 
