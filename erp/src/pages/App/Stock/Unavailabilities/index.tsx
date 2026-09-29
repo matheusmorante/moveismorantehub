@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { CheckCircle2, FilterX, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import UnavailabilityFormModal from './UnavailabilityFormModal';
@@ -36,12 +37,12 @@ export default function UnavailabilitiesPage() {
         page: currentPage,
         status: statusFilter,
         productKind: productKindFilter,
-        id,
+        id: id && id !== 'undefined' && id.trim() !== '' ? id : undefined,
       });
       setUnavailabilities(result.data);
       setTotalCount(result.totalCount);
 
-      if (id) {
+      if (id && id !== 'undefined' && id.trim() !== '') {
         const found = result.data.find((item) => item.id === id);
         if (found) setLabelItem(found);
         else toast.error('Indisponibilidade não encontrada.');
@@ -119,98 +120,160 @@ export default function UnavailabilitiesPage() {
         </label>
       </div>
 
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-2">Data</th>
-              <th className="px-4 py-2">Produto / Variação</th>
-              <th className="px-4 py-2">Origem</th>
-              <th className="px-4 py-2">Fornecedor</th>
-              <th className="px-4 py-2">Motivo/Tratativa</th>
-              <th className="px-4 py-2">Local</th>
-              <th className="px-4 py-2">Qtd</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2 text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+      {/* Estado vazio para estoque sem indisponibilidades cadastradas */}
+      {!isLoading && totalCount === 0 && statusFilter === 'all' && productKindFilter === 'all' ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center my-4">
+          <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 size={32} />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">
+            Nenhuma indisponibilidade registrada
+          </h3>
+          <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+            O estoque está 100% liberado. Não há itens com avarias, defeitos ou bloqueios de saída no momento.
+          </p>
+          {canManageStock && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
+            >
+              <Plus size={18} />
+              Nova indisponibilidade
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded shadow overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <td className="p-4 text-center" colSpan={9}>
-                  Carregando indisponibilidades…
-                </td>
+                <th className="px-4 py-2">Data</th>
+                <th className="px-4 py-2">Produto / Variação</th>
+                <th className="px-4 py-2">Origem</th>
+                <th className="px-4 py-2">Fornecedor</th>
+                <th className="px-4 py-2">Motivo/Tratativa</th>
+                <th className="px-4 py-2">Local</th>
+                <th className="px-4 py-2">Qtd</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2 text-center">Ações</th>
               </tr>
-            ) : unavailabilities.length === 0 ? (
-              <tr>
-                <td className="p-4 text-center" colSpan={9}>
-                  Nenhuma indisponibilidade encontrada.
-                </td>
-              </tr>
-            ) : (
-              unavailabilities.map((item) => (
-                <tr key={item.id} className="border-b">
-                  <td className="px-4 py-2">{new Date(item.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-2">
-                    {item.product_variations?.name || item.products?.name}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td className="p-8 text-center text-gray-500" colSpan={9}>
+                    Carregando indisponibilidades…
                   </td>
-                  <td className="px-4 py-2">
-                    {item.products?.product_kind === 'salvado' ? 'Salvados' : item.products?.product_kind === 'usado' ? 'Usados' : 'Normal'}
-                  </td>
-                  <td className="px-4 py-2">{item.suppliers?.fantasy_name || '-'}</td>
-                  <td className="px-4 py-2">
-                    {item.reason} / {item.treatment}
-                  </td>
-                  <td className="px-4 py-2">{item.physical_location}</td>
-                  <td className="px-4 py-2 text-red-600 font-bold">-{item.quantity}</td>
-                  <td className="px-4 py-2">{item.status === 'active' ? 'Ativa' : 'Desfeita'}</td>
-                  <td className="px-4 py-2 text-center flex gap-2 justify-center">
-                    {canManageStock && item.status === 'active' && (
-                      <button onClick={() => void handleUndo(item.id)} className="text-gray-500">
-                        Desfazer
-                      </button>
-                    )}
-                    <button onClick={() => setLabelItem(item)} className="text-blue-500">
-                      Imprimir
+                </tr>
+              ) : unavailabilities.length === 0 ? (
+                <tr>
+                  <td className="p-8 text-center text-gray-500" colSpan={9}>
+                    <p className="font-medium text-gray-700 mb-2">
+                      Nenhum registro encontrado para os filtros selecionados.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setProductKindFilter('all');
+                        setCurrentPage(1);
+                      }}
+                      className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      <FilterX size={16} />
+                      Limpar filtros
                     </button>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <nav
-        aria-label="Paginação de indisponibilidades"
-        className="flex items-center justify-between gap-3 py-4"
-      >
-        <span>
-          Exibindo {totalCount === 0 ? 0 : (currentPage - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE + 1}
-          –{Math.min(currentPage * STOCK_UNAVAILABILITIES_PAGE_SIZE, totalCount)} de {totalCount}
-        </span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            aria-label="Página anterior"
-            disabled={isLoading || currentPage <= 1}
-            onClick={() => setCurrentPage((page) => page - 1)}
-          >
-            Anterior
-          </button>
-          <span>
-            Página {currentPage} de {totalPages}
-          </span>
-          <button
-            type="button"
-            aria-label="Próxima página"
-            disabled={isLoading || currentPage >= totalPages}
-            onClick={() => setCurrentPage((page) => page + 1)}
-          >
-            Próxima
-          </button>
+              ) : (
+                unavailabilities.map((item) => (
+                  <tr key={item.id} className="border-b">
+                    <td className="px-4 py-2">{new Date(item.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-2">
+                      {item.product_variations?.name || item.products?.name}
+                    </td>
+                    <td className="px-4 py-2">
+                      {item.products?.product_kind === 'salvado'
+                        ? 'Salvados'
+                        : item.products?.product_kind === 'usado'
+                        ? 'Usados'
+                        : 'Normal'}
+                    </td>
+                    <td className="px-4 py-2">{item.suppliers?.fantasy_name || '-'}</td>
+                    <td className="px-4 py-2">
+                      {item.reason} / {item.treatment}
+                    </td>
+                    <td className="px-4 py-2">{item.physical_location}</td>
+                    <td className="px-4 py-2 text-red-600 font-bold">-{item.quantity}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          item.status === 'active'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {item.status === 'active' ? 'Ativa' : 'Desfeita'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-center flex gap-2 justify-center">
+                      {canManageStock && item.status === 'active' && (
+                        <button
+                          onClick={() => void handleUndo(item.id)}
+                          className="text-gray-500 hover:text-red-600 text-xs font-medium"
+                        >
+                          Desfazer
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setLabelItem(item)}
+                        className="text-blue-500 hover:text-blue-700 text-xs font-medium"
+                      >
+                        Imprimir
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </nav>
+      )}
+
+      {!isLoading && totalCount > 0 && (
+        <nav
+          aria-label="Paginação de indisponibilidades"
+          className="flex items-center justify-between gap-3 py-4 text-sm text-gray-600"
+        >
+          <span>
+            Exibindo {(currentPage - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE + 1}–
+            {Math.min(currentPage * STOCK_UNAVAILABILITIES_PAGE_SIZE, totalCount)} de {totalCount}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-label="Página anterior"
+              disabled={isLoading || currentPage <= 1}
+              onClick={() => setCurrentPage((page) => page - 1)}
+              className="px-3 py-1 border rounded disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <span>
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              type="button"
+              aria-label="Próxima página"
+              disabled={isLoading || currentPage >= totalPages}
+              onClick={() => setCurrentPage((page) => page + 1)}
+              className="px-3 py-1 border rounded disabled:opacity-40"
+            >
+              Próxima
+            </button>
+          </div>
+        </nav>
+      )}
 
       <UnavailabilityFormModal
         isOpen={isModalOpen}

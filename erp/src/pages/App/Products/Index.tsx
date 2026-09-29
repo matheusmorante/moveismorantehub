@@ -84,9 +84,12 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const [catalogStats, setCatalogStats] = React.useState({
     total: 0,
     published: 0,
+    hidden: 0,
+    active: 0,
     disabled: 0,
     drafts: 0,
   });
+  const [summaryChannel, setSummaryChannel] = React.useState<'erp' | 'catalog'>('erp');
 
   const fetchStats = React.useCallback(async () => {
     try {
@@ -295,7 +298,29 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 </button>
 
                 {accordionOpen.summary && (
-                  <div className="flex flex-col gap-2 mt-3 animate-fade-in">
+                    <div className="flex flex-col gap-2 mt-3 animate-fade-in">
+                    {mode !== 'composition' && (
+                      <div role="tablist" aria-label="Canal do resumo" className="grid grid-cols-2 rounded-xl bg-slate-100 dark:bg-slate-950 p-1">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={summaryChannel === 'erp'}
+                          onClick={() => setSummaryChannel('erp')}
+                          className={`rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${summaryChannel === 'erp' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                        >
+                          ERP
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={summaryChannel === 'catalog'}
+                          onClick={() => setSummaryChannel('catalog')}
+                          className={`rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${summaryChannel === 'catalog' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                        >
+                          Catálogo
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -303,6 +328,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                         setFilters((prev) => ({
                           ...prev,
                           activeOnly: undefined,
+                          status: undefined,
                           isDraft: undefined,
                         }));
                       }}
@@ -324,33 +350,36 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                         type="button"
                         onClick={() => {
                           setIsTrashOpen(false);
-                          setFilters((prev) => ({ ...prev, activeOnly: true, isDraft: undefined }));
+                          setFilters((prev) => summaryChannel === 'erp'
+                            ? { ...prev, activeOnly: true, status: undefined, isDraft: undefined }
+                            : { ...prev, activeOnly: undefined, status: 'published', isDraft: undefined });
                         }}
-                        className={`p-3 rounded-2xl border text-left transition-colors ${filters.activeOnly === true && !filters.isDraft ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
+                        className={`p-3 rounded-2xl border text-left transition-colors ${(summaryChannel === 'erp' ? filters.activeOnly === true && !filters.isDraft : filters.status === 'published') ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                       >
                         <span className="text-[9px] font-black uppercase text-slate-400 block">
-                          Publicados
+                          {summaryChannel === 'erp' ? 'Ativos' : 'Publicados'}
                         </span>
                         <span className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                          {catalogStats.published}
+                          {summaryChannel === 'erp' ? catalogStats.active : catalogStats.published}
                         </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          setFilters((prev) => ({
-                            ...prev,
-                            activeOnly: prev.activeOnly === false ? undefined : false,
-                            isDraft: undefined,
-                          }));
+                          setIsTrashOpen(false);
+                          if (summaryChannel === 'erp') {
+                            setFilters((prev) => ({ ...prev, activeOnly: false, status: undefined, isDraft: undefined }));
+                          } else {
+                            setFilters((prev) => ({ ...prev, activeOnly: undefined, status: 'hidden', isDraft: undefined }));
+                          }
                         }}
-                        className={`p-3 rounded-2xl border text-left transition-colors ${filters.activeOnly === false ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
+                        className={`p-3 rounded-2xl border text-left transition-colors ${(summaryChannel === 'erp' ? filters.activeOnly === false : filters.status === 'hidden') ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}
                       >
                         <span className="text-[9px] font-black uppercase text-slate-400 block">
-                          Desativados
+                          {summaryChannel === 'erp' ? 'Desativados' : 'Ocultos'}
                         </span>
                         <span className="text-base font-black text-rose-500 dark:text-rose-400 mt-0.5 block">
-                          {catalogStats.disabled}
+                          {summaryChannel === 'erp' ? catalogStats.disabled : catalogStats.hidden}
                         </span>
                       </button>
                       <button
@@ -360,6 +389,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                             ...prev,
                             isDraft: prev.isDraft === true ? undefined : true,
                             activeOnly: undefined,
+                            status: undefined,
                           }));
                         }}
                         className={`col-span-2 p-3 rounded-2xl border flex items-center justify-between text-left transition-colors ${filters.isDraft === true ? 'bg-amber-50 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800 shadow-sm' : 'bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800'}`}

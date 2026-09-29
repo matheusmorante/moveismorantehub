@@ -10,6 +10,7 @@ import { PurchasesScreen } from '../purchases/PurchasesScreen';
 import { InvoicesScreen } from '../invoices';
 import { ReceiptsScreen } from '../receipts/ReceiptsScreen';
 import { SuppliersScreen } from '../suppliers/SuppliersScreen';
+import { UnavailabilitiesScreen } from '../unavailabilities';
 
 interface Props {
   isDarkMode: boolean;
@@ -24,6 +25,7 @@ const TABS = [
   { key: 'invoices', title: 'NF Entrada' },
   { key: 'receipts', title: 'Recebimentos' },
   { key: 'suppliers', title: 'Fornecedores' },
+  { key: 'unavailabilities', title: 'Indisponíveis' },
 ];
 
 export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) => {
@@ -246,6 +248,14 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
             onBack={() => handleTabPress(0)}
+          />
+        );
+      case 7:
+        return (
+          <UnavailabilitiesScreen
+            isDarkMode={isDarkMode}
+            userProfile={userProfile}
+            renderHeader={renderModuleHeader}
           />
         );
       default:

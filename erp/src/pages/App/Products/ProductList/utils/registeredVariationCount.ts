@@ -19,6 +19,8 @@ export interface ProductWithVariations {
 export interface VariationCatalogStats {
   readonly total: number;
   readonly published: number;
+  readonly hidden: number;
+  readonly active: number;
   readonly disabled: number;
   readonly drafts: number;
 }
@@ -49,6 +51,8 @@ export const calculateVariationCatalogStats = (
 ): VariationCatalogStats => {
   let total = 0;
   let published = 0;
+  let hidden = 0;
+  let active = 0;
   let disabled = 0;
   let drafts = 0;
 
@@ -73,13 +77,17 @@ export const calculateVariationCatalogStats = (
 
         if (isVarPublished) {
           published += 1;
+        } else {
+          hidden += 1;
         }
-        if (!isVarActive) {
+        if (isVarActive) {
+          active += 1;
+        } else {
           disabled += 1;
         }
       }
     });
   });
 
-  return { total, published, disabled, drafts };
+  return { total, published, hidden, active, disabled, drafts };
 };

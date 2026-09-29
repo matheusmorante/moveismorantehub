@@ -6,14 +6,13 @@ export const isPublicCatalogProduct = (product?: {
 
 export const isPublicCatalogVariation = (variation?: {
   status?: string | null;
-  active?: boolean | null;
-}): boolean => variation?.status === 'published' && variation?.active !== false;
+}): boolean => variation?.status === 'published';
 
 /** Todo produto possui ao menos uma variação: sem variação pública, não há item público. */
 export const hasPublicCatalogItem = (product?: {
   status?: string | null;
   deleted_at?: string | null;
-  product_variations?: Array<{ status?: string | null; active?: boolean | null }> | null;
+  product_variations?: Array<{ status?: string | null }> | null;
 }): boolean => {
   if (!isPublicCatalogProduct(product)) return false;
   const variations = product?.product_variations || [];

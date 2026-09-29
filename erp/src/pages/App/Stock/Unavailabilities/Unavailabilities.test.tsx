@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
@@ -128,7 +128,7 @@ describe('UnavailabilityFormModal', () => {
     fireEvent.change(screen.getByLabelText('Tratativa *'), {
       target: { value: 'Devolução ao fornecedor' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
     expect(toast.error).toHaveBeenCalledWith('Fornecedor é obrigatório para devolução.');
     expect(createStockUnavailability).not.toHaveBeenCalled();
   });
@@ -139,12 +139,12 @@ describe('UnavailabilityFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Selecionar variação' }));
     fireEvent.change(screen.getByLabelText('Tratativa *'), { target: { value: 'Descarte/perda' } });
     vi.mocked(createStockUnavailability).mockRejectedValueOnce(new Error('Falha da RPC'));
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Falha da RPC'));
     expect(onSuccess).not.toHaveBeenCalled();
 
     vi.mocked(createStockUnavailability).mockResolvedValueOnce({ id: 'unavailability-1' });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Indisponibilidade registrada com sucesso!')
     );
@@ -200,5 +200,23 @@ describe('UnavailabilitiesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
     await waitFor(() => expect(undoStockUnavailability).toHaveBeenCalledWith('unavailability-1'));
     expect(toast.success).toHaveBeenCalledWith('Indisponibilidade desfeita.');
+  });
+
+  it('renders a friendly empty state when there are no unavailabilities registered', async () => {
+    vi.mocked(fetchStockUnavailabilities).mockResolvedValueOnce({
+      data: [],
+      totalCount: 0,
+    });
+    renderPage();
+    expect(
+      await screen.findByText('Nenhuma indisponibilidade registrada')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/O estoque está 100% liberado/i)
+    ).toBeInTheDocument();
+    // Garante que não renderiza o texto frio que parecia erro
+    expect(screen.queryByText('Nenhuma indisponibilidade encontrada.')).not.toBeInTheDocument();
+    // Garante que a paginação não fica exibindo 0-0 de 0
+    expect(screen.queryByLabelText('Paginação de indisponibilidades')).not.toBeInTheDocument();
   });
 });

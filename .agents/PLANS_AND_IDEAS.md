@@ -4,6 +4,26 @@ Este documento registra ideias, planos arquiteturais e melhorias planejadas para
 
 ---
 
+## 1. Módulo de Indisponibilidades de Estoque: Refatoração de UX (ERP) e Replicação no Mobile
+- **Status:** Em implementação 📦📱✨
+- **Data:** 29/09/2026
+- **Contexto:**
+  - O usuário relatou que a tela de indisponibilidades no ERP exibia a mensagem "Nenhuma indisponibilidade encontrada." como se fosse um erro de sistema ou busca que falhou, mesmo sem nenhuma indisponibilidade criada pelo usuário (o que representa o estado ideal e regular do estoque).
+  - O aplicativo Mobile ainda não possuía a tela nem o serviço de indisponibilidades implementados.
+- **Ações Planejadas & Executadas:**
+  1. **ERP Web (`erp/src/pages/App/Stock/Unavailabilities/`):**
+     - Substituição da mensagem crua da tabela por um Empty State visual amigável e profissional quando a tabela estiver vazia ("Nenhuma indisponibilidade registrada - O estoque está sem bloqueios ou avarias").
+     - Diferenciação entre "estoque sem indisponibilidades" (estado positivo normal) e "nenhum registro para os filtros selecionados" (com botão de limpar filtros).
+     - Ocultação da barra de paginação quando `totalCount === 0`.
+     - Tratamento seguro de parâmetro `:id` no roteador para evitar falsos toasts de erro.
+  2. **Mobile (`mobile/src/features/stock/unavailabilities/` e `mobile/src/services/stock/stockUnavailabilitiesService.ts`):**
+     - Replicação completa do módulo no aplicativo React Native, seguindo rigorosamente a skill `erp-web-to-mobile-replication`.
+     - Serviço Supabase reutilizando os mesmos contratos, queries e RPCs transacionais (`create_stock_unavailability` e `undo_stock_unavailability`).
+     - Telas e componentes nativos: `UnavailabilitiesScreen`, `UnavailabilityCard`, `UnavailabilityFilters`, `UnavailabilityEmptyState` e modal de cadastro `UnavailabilityFormModal`.
+     - Integração na barra de abas de Estoque (`NativeStockScreen.tsx`) com chave `unavailabilities`.
+
+---
+
 ## 0. Impressão Direta e Automática no ERP Windows (Epson EcoTank L3250)
 - **Status:** Concluído e Validado no Spooler da Epson L3250! 🖨️⚡🎉
 - **Data:** 24/09/2026

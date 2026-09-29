@@ -29,7 +29,7 @@ export default function UnavailabilityFormModal({
   const [quantity, setQuantity] = useState<string>('1');
   const [reason, setReason] = useState<string>(REASONS[0]);
   const [treatment, setTreatment] = useState<string>(TREATMENTS[0]);
-  const [physicalLocation, setPhysicalLocation] = useState<string>(LOCATIONS[0]);
+  const physicalLocation = 'Depósito';
   const [observation, setObservation] = useState<string>('');
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState<string>('');
@@ -99,7 +99,7 @@ export default function UnavailabilityFormModal({
       setQuantity('1');
       setReason(REASONS[0]);
       setTreatment(TREATMENTS[0]);
-      setPhysicalLocation(LOCATIONS[0]);
+
       setObservation('');
       setSupplierId('');
       setPhotos([]);
@@ -165,7 +165,7 @@ export default function UnavailabilityFormModal({
                 step="0.01"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
               />
             </div>
             <div>
@@ -189,7 +189,7 @@ export default function UnavailabilityFormModal({
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
               >
                 {REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -210,7 +210,7 @@ export default function UnavailabilityFormModal({
                 aria-label="Tratativa *"
                 value={treatment}
                 onChange={(e) => setTreatment(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
               >
                 {TREATMENTS.map((r) => (
                   <option key={r} value={r}>
@@ -229,7 +229,7 @@ export default function UnavailabilityFormModal({
               aria-label="Fornecedor"
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none p-2 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
             >
               <option value="">Selecione...</option>
               {suppliers.map((s) => (

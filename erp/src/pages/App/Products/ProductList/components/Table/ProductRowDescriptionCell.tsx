@@ -160,7 +160,7 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
 
             {/* Status Desativado */}
             {isDeactivated && (
-              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
                 <i className="bi bi-slash-circle text-rose-500" /> Desativado
               </span>
             )}
