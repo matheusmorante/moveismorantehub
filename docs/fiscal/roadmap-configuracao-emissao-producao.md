@@ -3,67 +3,59 @@
 **Atualizado em:** 30/09/2026
 **Fonte de Verdade para:** Emissão de Documentos Fiscais de Saída (NF-e/NFC-e) diretamente com o SEFAZ-PR.
 
-## Ponto de retomada em outro PC — 30/09/2026
+## Ponto de retomada — 30/09/2026
 
-**Trabalho interrompido a pedido da usuária. Não houve autorização real da SEFAZ. A próxima ação é conferir a publicação da correção TLS e consultar a tentativa existente, sem criar outra nota.**
+**A primeira NF-e 55 do pedido 3474 foi autorizada pela SEFAZ-PR em homologação: número 701, série 1, cStat 100, protocolo persistido e status homologada. Produção fiscal continua bloqueada.**
 
-### Escopo autorizado nesta etapa
+### Escopo e fatos preservados
 
-- Prioridade exclusiva: NF-e modelo 55 de saída, pedido real existente, SEFAZ-PR **homologação (`tpAmb=2`)**. Produção fiscal permanece bloqueada; não expandir para NFC-e, eventos, contingência ou outras funções para concluir esta etapa.
-- Preservar pedido original, produtos, variações, quantidades, valores, descontos, frete, pagamentos, estoque, reservas, financeiro e contas a receber. Gravar somente os registros fiscais de homologação. Não inventar dados comerciais/fiscais ausentes.
-- CSOSN 103 configurável no backend como padrão HML somente na ausência de regra/exceção/seleção explícita. Os cinco campos confirmados no modal (NCM, CFOP, origem, CEST, CSOSN) devem chegar iguais ao snapshot e XML; dados inválidos ou incompatíveis são rejeitados.
+- Pedido real existente **3474**, `dc0641a1-f554-4769-a864-314c46a80f2e`, exclusivamente modelo 55 e `tpAmb=2`.
+- Um produto, quantidade 1, R$ 349,00 + frete R$ 30,00; cartão de crédito R$ 379,00. Pedido, itens, pagamentos, estoque, reservas, contas a receber e transações financeiras preservados.
+- Os cinco campos confirmados no modal chegaram iguais aos snapshots e XMLs: NCM 94034000, CFOP 5102, origem 0, CEST vazio e CSOSN 103 (grupo ICMSSN102).
+- A IE correta foi informada pela usuária e já constava no cadastro ao retomar. Sua validade matemática foi conferida; a autorização SEFAZ fornece a evidência real desta emissão. Somente a série HML foi corrigida de 900 para 1, sem reiniciar contador ou alterar configuração de produção.
 
-### Tentativa real já existente — preservar
+### Histórico fiscal vinculado — preservar os três registros
 
-| Informação | Estado registrado |
-|---|---|
-| Pedido | **3474**, `dc0641a1-f554-4769-a864-314c46a80f2e` |
-| Valores verdadeiros | 1 produto, R$ 349,00 + frete R$ 30,00; cartão de crédito R$ 379,00 |
-| Documento fiscal | `a9c29dd4-be12-46c2-9a8b-3effd1852b09` |
-| Requisição original | `a682418b-2a7b-4b74-aa62-1fd75f048bbd` |
-| Modelo / ambiente / série / número | **55 / 2 / 900 / 700** |
-| Estado | **Pendente**, XML assinado salvo, sem protocolo confirmado |
-| Transmissão | `HML_TRANSMISSION_UNCERTAIN`; não comprova recebimento pela SEFAZ |
-| Consulta | `HML_RECONCILIATION_REQUIRED`; reenvio permanece bloqueado |
-| Causa concreta da falha | **`SELF_SIGNED_CERT_IN_CHAIN`** na consulta publicada |
+| Intenção | Documento | Série / número | Resultado |
+|---|---|---|---|
+| Original | `a9c29dd4-be12-46c2-9a8b-3effd1852b09` | 900 / 700 | Erro 244: série incompatível; sem protocolo |
+| Correção de série | `f59bf51f-ce9a-4ccd-b35a-d84639a5f712` | 1 / 700 | Erro 209: IE inválida; sem protocolo |
+| Correção de IE | `b1e4be97-4391-43b9-8d03-bd7e43e3276c` | **1 / 701** | **Homologada, cStat 100, protocolo confirmado** |
 
-A chave de acesso e o XML integral estão no registro fiscal do Supabase; recuperá-los pelo ID acima, sem expor dados pessoais em logs/documentação. Não apagar a tentativa, reiniciar sequência, alterar XML persistido ou gerar outra chave/número para contornar a pendência.
+Requisição autorizada: `5594dbc0-d8a3-4ac8-ae3d-f7fd5aeaa39e`. Cada correção aponta para a anterior por `hml_correction_of_document_id`, tanto no snapshot quanto no documento. XMLs, chaves e protocolos integrais permanecem no Supabase, com acesso restrito; não incluí-los em logs públicos. As rejeições anteriores são imutáveis e não foram apagadas nem alteradas.
 
-### Correções e evidências já obtidas
+### Causas resolvidas e evidências
 
-- Carregamento ESM/CommonJS corrigido com bundle fiscal CJS único e wrappers do ERP; inicialização real passou localmente e na Vercel.
-- Payload completo dos cinco campos, validação estrita, snapshot imutável, comparação com XML antes do SOAP e preservação ao fechar/reabrir o modal implementados. Testes separados e simultâneos até o XML do transporte passaram. NCM inválido digitado não conserva silenciosamente o valor anterior.
-- Pipeline `HML_NORMAL_SALE_V1` reaproveita determinação, composição de serviços/descontos, assinatura, XSD, leases, consulta e persistência. Exceções CFOP/alíquotas/PIS/COFINS incompatíveis bloqueiam a matriz limitada de venda interna CRT 1; não são substituídas.
-- Playwright autenticado acionou a emissão normal do pedido 3474. Campos iguais entre formulário, payload, snapshot e XML persistido: NCM 94034000, CFOP 5102, origem 0, CEST vazio, CSOSN 103 (`ICMSSN102`).
-- Assinatura do XML real verificada independentemente com seu certificado público. A1 dentro da validade, até 25/09/2027.
-- Comparação de conteúdo/hashes antes/depois da tentativa e consultas: pedido, itens, pagamentos, movimentos de estoque vinculados, contas a receber e transações financeiras inalterados. Gatilho fiscal observado apenas vincula o snapshot; não movimenta estoque/financeiro.
-- ID do token ativo HML informado pela usuária: **2**, configurado como **`NFE_ID_CSRT_HOMOLOGACAO=02`**. Segredo existente preservado. Readiness publicado passou com `configurationIssues: []`.
-- Diagnóstico de transporte registra apenas códigos de rede/TLS e status HTTP, sem Axios config, certificados privados, XML ou segredo.
-- Correção TLS implementada em `api/nfe/sefazHmlTrust.ts` e `sefazClient.ts`: raiz ICP-Brasil v10 baixada por HTTPS do ITI, fingerprint comparada com a cadeia do servidor; adicionada às autoridades padrão somente no host HML exato. **`rejectUnauthorized: true` mantido**. Ver [evidência de confiança TLS](sefaz-hml-tls.md).
-- Validações focadas aprovadas: matriz de venda real (10 testes); diagnóstico/transmissão/consulta (28); confiança TLS/serializer (11); demais regressões fiscais/modal preservadas. TypeScript fiscal, lint focado e inicialização passaram após a correção TLS. Esses testes não comprovam autorização SEFAZ.
+- A publicação TLS anterior ficou READY. A consulta real da primeira chave retornou **217**, permitindo o reenvio explícito do mesmo XML/chave; esse reenvio retornou **244**. O transporte TLS está resolvido, com verificação do servidor mantida. Ver [confiança TLS](sefaz-hml-tls.md).
+- O MOC define a faixa 0–889 para emissão normal por contribuinte CNPJ. O padrão HML agora é série 1; configuração explícita incompatível bloqueia antes de reserva/SOAP.
+- A tentativa com série 1 retornou **209**. A validação de IE do Paraná agora ocorre antes da reserva e novamente no snapshot persistido. XML rejeitado por 209 não é consultado/retransmitido como se estivesse pendente.
+- Nova intenção somente após rejeição confirmada 244 com série diferente, ou 209 com IE diferente e válida no novo snapshot. Pendência, consulta 217, autorização e outros códigos bloqueiam outra intenção. Não há correção automática de dados fiscais nem emissão automática no próximo retorno.
+- A tentativa corrigida retornou **100**. Chave/protocolo da resposta conferem com o documento persistido; itens fiscais e histórico foram gravados pela RPC transacional existente.
+- Assinatura do XML autorizado verificada independentemente com o certificado público. Certificado válido até 25/09/2027.
+- Recuperação idempotente da intenção autorizada preservou número, série, XML, protocolo e uma única autorização. Essa recuperação devolve fatos persistidos; não equivale a uma nova consulta SOAP de documento já autorizado.
+- Playwright autenticado confirmou modal HML e os três registros separadamente na tela fiscal, com status iguais aos do banco. A auditoria da tela não acionou emissão, cancelamento ou alteração comercial.
+- Comparação antes/depois de cada transmissão e da recuperação: pedido, itens, pagamentos, movimentos de estoque, contas a receber e transações financeiras inalterados.
+- Testes focados aprovados para série, IE, emissão, recuperação, frontend e consumidor de operação fiscal. PostgreSQL local isolado: **31 assertivas pgTAP**, além de verificações de rollback, replay, duas sessões concorrentes, idempotência e imutabilidade de histórico. Sem testes destrutivos ou de concorrência no remoto.
+- TypeScript do backend fiscal e lint focado passaram. O TypeScript do ERP ainda apresenta erros anteriores fora deste escopo; comparação com HEAD não encontrou novos diagnósticos. Build/publicação fiscal passaram. Advisors remotos antes/depois: **379 alertas existentes, nenhum novo**.
 
-### Publicações e banco
+### Publicação e banco
 
-- Última publicação confirmada pronta, com diagnóstico: `dpl_CLMKYH5exeAjDFc88orZN54mZeUp`, `https://morantehub-qwqpr61jz-matheusmorantes-projects.vercel.app`.
-- **Publicação com correção TLS enviada antes da interrupção:** `dpl_AjcYhTvZFauxjgrLpNRaamqTeCFa`, `https://morantehub-kf17dazo1-matheusmorantes-projects.vercel.app`. O comando de upload concluiu; a resposta inicial era `INITIALIZING`. **Conferir READY/logs no outro PC; execução remota da correção TLS ainda não foi validada. Não publicar outra versão sem necessidade.**
-- Os deployments usam o alvo Vercel `production` para carregar as credenciais existentes, com `--skip-domain`; isso não libera emissão fiscal de produção. O backend permanece HML e não houve promoção manual do domínio principal.
-- Supabase operacional confirmado: **`hkoxhourxwlddgsfdgws`**. Não criar projeto/branch HML nem executar reset, testes destrutivos, fault injection ou concorrência no remoto.
-- Migrations locais 01434–01437 correspondem ao lote remoto `20260930172744_nfe_hml_csosn_snapshot_atomic_isolation`; 01438–01439 ao lote `20260930201939_nfe_modal_selections_and_real_order_hml`. **Já aplicadas: não reaplicar cegamente nem usar `db push` geral.** Advisors antes/depois sem novos alertas fiscais.
-- Docker indisponível. Falhas transacionais/concorrência das migrations novas ainda precisam de PostgreSQL isolado; não apresentar testes em memória como prova de rollback do banco real.
+- Publicação usada na autorização: `dpl_41N7FCiAAkJsJtbioLvP2KsA1wAu`, [deployment](https://morantehub-7dcj1fbq3-matheusmorantes-projects.vercel.app).
+- Publicação final READY, incluindo tratamento de nova intenção após 209 no frontend: `dpl_FzExmdGotaN9BpsboBXwTNE3gp1j`, [deployment](https://morantehub-2ea4w7jpf-matheusmorantes-projects.vercel.app).
+- Alvo Vercel production com `--skip-domain` para usar as credenciais existentes; isso não habilita produção fiscal. API confirmou ambiente 2 e `productionApproved=false`.
+- Projeto Supabase confirmado: `hkoxhourxwlddgsfdgws`. Migrations 01434–01437 e 01438–01439 já estavam aplicadas nos lotes anteriores. Aplicadas e registradas agora: `20260930214601_nfe_hml_series_correction` e `20260930222310_nfe_hml_issuer_ie_correction`. Não usar db push geral nem reaplicar lotes cegamente.
+- Alterações desta continuação estão locais, sem commit/push. Para outro PC, transferir o código por Git, preservando segredos fora do repositório. O banco e os deployments acima já receberam as correções validadas.
 
-### Ordem exata para continuar
+### Próxima etapa
 
-1. Sincronizar o código desta sessão no outro PC. **As alterações estão locais na branch `main`, sem commit/push desta sessão.** Este arquivo isolado não transfere a implementação. Não copiar `.env`, certificado A1, senhas ou segredos para o repositório; autenticar Vercel/Supabase pelos meios existentes no outro PC.
-2. Conferir o estado e os logs de `dpl_AjcYhTvZFauxjgrLpNRaamqTeCFa`. Se READY, verificar `item-defaults` autenticado: ambiente 2, `productionApproved=false`, configuração sem pendências.
-3. Consultar **o documento existente** pelo endpoint `/api/nfe/consult`, com `documentId=a9c29dd4-be12-46c2-9a8b-3effd1852b09`. Usar a publicação TLS acima e registrar o resultado real. Preservar XML/chave/número e comparar novamente os vínculos operacionais.
-4. Se a consulta confirmar autorização, conferir/persistir protocolo, chave, `cStat=100`, XML, itens fiscais, histórico e recuperação idempotente. Se confirmar **217**, permitir somente reenvio explícito do **mesmo documento/XML/chave**, pelo mecanismo de retry já existente. Resposta incerta continua bloqueando reenvio; nenhuma nova numeração.
-5. Investigar eventual rejeição real conforme a documentação oficial. Cada correção/publicação deve estar ligada a uma causa identificada. Não repetir builds sem alterações ou evidência nova.
-6. Após primeira autorização real e ausência comprovada de efeitos comerciais, testar poucos pedidos reais com múltiplos produtos, descontos, frete e formas de pagamento diferentes. A matriz atual é limitada; exceções sem suporte devem bloquear.
-7. Atualizar este roadmap e o relatório com retorno SEFAZ efetivo, protocolo persistido e evidências de isolamento. **Produção fiscal continua fora do escopo.**
+1. Não emitir novamente o pedido 3474: a intenção acima já está autorizada em HML. Recuperar pelo request ID ou consultar pelo document ID; preservar as duas rejeições vinculadas.
+2. Ampliar a matriz modelo 55 com poucos pedidos elegíveis: múltiplos produtos, descontos, frete e formas de pagamento diferentes. Exceções fora da matriz fiscal suportada devem bloquear.
+3. Validar separadamente consulta SOAP posterior, eventos e demais cenários necessários à produção. Recuperação local idempotente não substitui esses cenários.
+4. Produção fiscal e NFC-e 65 continuam fora do aceite desta etapa.
 
-Scripts disponíveis: `scripts/testing/nfe-hml-ui-audit.cjs` (somente leitura por padrão; emissão controlada apenas com `--emit-hml-3474`, que recusa uma tentativa HML existente), `nfe-hml-live.cjs` (readiness/consulta), `nfe-hml-document-audit.cjs` (assinatura do documento salvo), `nfe-operational-audit.cjs` (hashes privados). Para retomar a nota pendente, utilizar consulta/retry por documento; **não repetir o modo de primeira emissão**. Dados pessoais/credenciais são usados apenas em memória e não devem ser incluídos nos artefatos compartilhados.
+Scripts: `nfe-hml-ui-audit.cjs` é somente leitura por padrão; seu modo de primeira emissão recusa histórico existente. `nfe-hml-live.cjs` seleciona a tentativa pela requisição exata, preserva os campos do snapshot e usa retryDocumentId na reconciliação. `nfe-hml-document-audit.cjs` verifica assinatura. `nfe-hml-series-correction-local.cjs` exercita as migrations em PostgreSQL local descartável. Todos ficam em scripts/testing.
 
-Referências complementares: [limites e evidências do pedido real](limites-teste-pedido-real-hml.md), [auditoria fiscal, seção 17](auditoria-dominio-determinacao-tributaria.md), [índice oficial de manuais](manuais/README.md).
+Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md), [limites do pedido real](limites-teste-pedido-real-hml.md), [índice oficial de manuais](manuais/README.md).
 
 ## 1. Estado Atual e Correções Conceituais (Auditoria Revisada)
 
@@ -87,9 +79,9 @@ Executar contra os web services oficiais de homologação SEFAZ-PR. Conforme ins
 
 | Cenário | Modelo | Evidências obrigatórias | Status |
 |---|---:|---|---|
-| Emissão autorizada | 55 | XML assinado/transmitido, chave, `cStat`, protocolo, registro persistido e UI autorizada | ⏳ Pedido 3474, nota 700/900 pendente; falha TLS identificada, correção enviada, sem autorização |
+| Emissão autorizada | 55 | XML assinado/transmitido, chave, `cStat`, protocolo, registro persistido e UI autorizada | ✅ Pedido 3474, NF-e 701/série 1 autorizada em HML (cStat 100); protocolo, itens e UI conferidos |
 | Emissão autorizada | 65 | XML assinado/transmitido, chave, `cStat`, protocolo, registro persistido e UI autorizada | ⬜ Não executado nesta auditoria |
-| Rejeição fiscal conhecida | 55 e 65 | XML, `cStat`/motivo, estado rejeitado no banco e orientação/UI sem falso sucesso | ⬜ Não executado nesta auditoria |
+| Rejeição fiscal conhecida | 55 e 65 | XML, `cStat`/motivo, estado rejeitado no banco e orientação/UI sem falso sucesso | Modelo 55: 244 e 209 preservados no banco e UI; modelo 65 não executado |
 | Consulta posterior de documento autorizado | 55 e 65 | resposta de consulta, protocolo/estado reconciliado no banco e UI atualizada | ⬜ Não executado nesta auditoria |
 | Cancelamento fiscal elegível | 55 e 65 | evento transmitido, retorno SEFAZ, protocolo e estado reconciliado; respeitar regra de circulação/prazo do modelo | ⬜ Não executado nesta auditoria |
 | Carta de Correção Eletrônica | 55 | evento 110110 assinado/transmitido, sequência, `cStat`/protocolo, XML/resposta persistidos e tentativa repetida idempotente | ⬜ Não executado nesta auditoria |

@@ -13,7 +13,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
   return (
     <div className="border-b border-slate-100 dark:border-slate-800 pb-6 space-y-6">
       <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10">
-        <h3 className="text-sm font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2 mb-2">
+        <h3 className="text-sm font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2 mb-2">
           <i className="bi bi-building-fill-check"></i> Dados da Empresa Emitente (SEFAZ-PR)
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
@@ -197,11 +197,14 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
                 </label>
                 <input
                   type="text"
-                  value={settings.nfeHomologationSerie || '900'}
+                  value={settings.nfeHomologationSerie || '1'}
                   onChange={(e) => onChange('nfeHomologationSerie', e.target.value)}
-                  placeholder="900"
+                  placeholder="1"
                   className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
                 />
+                <p className="mt-2 text-xs text-slate-500">
+                  Use uma série entre 0 e 889. A série 900 é reservada à emissão avulsa pelo Fisco.
+                </p>
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-2">
@@ -250,7 +253,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>
-          <p className="self-end text-sm text-slate-600 dark:text-slate-300">
+          <p className="self-end text-sm text-slate-700 dark:text-slate-300">
             Guarde o CSC secreto fora do navegador e configure-o somente no serviço fiscal que o
             utilizar.
           </p>
@@ -266,7 +269,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
           </h4>
         </div>
 
-        <p className="text-sm text-slate-600 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           O A1 e a senha são configurados exclusivamente no servidor fiscal.
         </p>
       </div>

@@ -34,7 +34,7 @@ const candidate: FiscalSnapshotCandidate = {
           CMun: '4105805', XMun: 'COLOMBO', UF: 'PR', CEP: '83410270' } },
     } },
   issuerProfile: { companyCnpj: '12345678000195', companyName: 'EMPRESA HML',
-    companyIE: '1234567890', companyCRT: '1', companyLogradouro: 'RUA TESTE',
+    companyIE: '1234567850', companyCRT: '1', companyLogradouro: 'RUA TESTE',
     companyNumero: '10', companyBairro: 'CENTRO', companyCMun: '4105805',
     companyXMun: 'COLOMBO', companyUF: 'PR', companyCEP: '83410270' },
   emissionRequest: { id: requestId, environment: 2 },
@@ -57,9 +57,9 @@ function database() {
         snapshot_data: { ...candidate, fiscalConfiguration: initialHmlCsosnConfiguration(),
           emissionRequest: { id: requestId, itemCsosnOverrides: capturedOverrides,
           itemFiscalSelections: capturedSelections,
-          requestedModel: '55', environment: 2, series: '900', number: 700 } },
+          requestedModel: '55', environment: 2, series: '1', number: 700 } },
         snapshot_sha256: hash, order_id: runId, environment: 2,
-        requested_model: '55', reserved_number: 700, series: '900',
+        requested_model: '55', reserved_number: 700, series: '1',
       } : document, error: null }),
   }) }) }));
   const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
@@ -74,7 +74,7 @@ function database() {
     }
     if (name === 'reserve_hml_nfe_outbound') {
       document = { id: 'doc-hml', order_id: runId, numero_nfe: 700,
-        serie: '900', chave_acesso: args.p_access_key, modelo: '55', ambiente: 2,
+        serie: '1', chave_acesso: args.p_access_key, modelo: '55', ambiente: 2,
         status: 'processando', xml_nfe: args.p_signed_xml,
         fiscal_ruleset_version: 'HML_TECHNICAL_V1', fiscal_snapshot_id: 'snapshot-hml',
         attemptToken: args.p_attempt_token, leaseExpiresAt: Date.now() + 120000 };
@@ -107,6 +107,53 @@ function database() {
 }
 
 describe('pipeline técnico NF-e 55 HML', () => {
+  it('bloqueia IE com DV inválido antes de reservar número ou contatar a SEFAZ', async () => {
+    const state = database();
+    const invalid = { ...candidate, issuerProfile: { ...candidate.issuerProfile, companyIE: '9091234567' } };
+    const result = await emitHmlTechnical(state.db, command, invalid, {});
+    expect(result.body).toMatchObject({ code: 'HML_ISSUER_IE_INVALID', numberReserved: false, sefazContacted: false });
+    expect(state.calls).toHaveLength(0);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+  it('preserva rejeição 209 em chamadas repetidas sem consulta nem retransmissão', async () => {
+    const state = database();
+    mocks.sendSoapToSefaz.mockResolvedValue('<retEnviNFe><cStat>209</cStat></retEnviNFe>');
+    await emitHmlTechnical(state.db, command, candidate, {});
+    Object.assign(state.document!, { status: 'erro',
+      xml_protocolo: '<retEnviNFe><cStat>209</cStat><xMotivo>IE inválida</xMotivo></retEnviNFe>' });
+    const original = structuredClone(state.document);
+    mocks.sendSoapToSefaz.mockClear();
+    state.calls.length = 0;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await retryHmlTechnical(state.db, 'doc-hml');
+      expect(result.body).toMatchObject({ code: 'HML_ISSUER_IE_CORRECTION_REQUIRED', cStat: '209', pending: false, sefazContacted: false });
+    }
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.calls).toHaveLength(0);
+    expect(state.document).toEqual(original);
+  });
+  it('bloqueia série avulsa 900 antes de reservar snapshot, número ou enviar SOAP', async () => {
+    const state = database();
+    const result = await emitHmlTechnical(state.db, command, candidate, { nfeHomologationSerie: '900' });
+    expect(result.body).toMatchObject({ code: 'HML_SEQUENCE_INVALID', numberReserved: false, sefazContacted: false });
+    expect(state.calls).toHaveLength(0);
+    expect(state.document).toBeNull();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+  it('preserva rejeição 244 e orienta correção sem consultar ou retransmitir o XML rejeitado', async () => {
+    const state = database();
+    mocks.sendSoapToSefaz.mockResolvedValue('<retEnviNFe><cStat>244</cStat></retEnviNFe>');
+    await emitHmlTechnical(state.db, command, candidate, {});
+    Object.assign(state.document!, { status: 'erro', serie: '900',
+      xml_protocolo: '<retEnviNFe><cStat>244</cStat><xMotivo>Série incompatível</xMotivo></retEnviNFe>' });
+    mocks.sendSoapToSefaz.mockClear();
+    state.calls.length = 0;
+    const result = await retryHmlTechnical(state.db, 'doc-hml');
+    expect(result.body).toMatchObject({ code: 'HML_SERIES_CORRECTION_REQUIRED', cStat: '244', pending: false });
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.calls).toHaveLength(0);
+    expect(state.document?.serie).toBe('900');
+  });
   const displayed = { ncm: '94036000', cfop: '5102', origem: '0', cest: '', csosn: '103' };
   it.each([
     ['NCM', { ncm: '94034000' }], ['CFOP', { cfop: '5101' }],

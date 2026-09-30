@@ -39,7 +39,7 @@ Selecionar pedidos distintos existentes: múltiplos produtos; desconto; frete; d
 
 Resposta real de autorização da SEFAZ-PR em homologação, XML assinado válido, chave e protocolo correspondentes persistidos, item fiscal gravado, recuperação idempotente do mesmo resultado e evidência de ausência de efeitos comerciais novos. Passar em testes/endpoint/XSD sem autorização real não conclui a validação. Produção permanece pendente de sua matriz fiscal e liberação própria.
 
-## Estado atual em 30/09/2026
+## Histórico antes da retomada em 30/09/2026
 
 - Pedido escolhido: **3474**, ID `dc0641a1-f554-4769-a864-314c46a80f2e`: um produto existente, quantidade 1, R$ 349,00, frete R$ 30,00, cartão de crédito R$ 379,00. Nenhum valor foi inventado ou modificado. A elegibilidade completa ainda depende do preflight fiscal.
 - O fluxo `HML_NORMAL_SALE_V1` reaproveita snapshot, assinatura, validação XSD, transporte, leases e persistência fiscal, com ambiente 2 obrigatório. A migração remota `20260930201939_nfe_modal_selections_and_real_order_hml` corresponde às migrations locais 1438/1439.
@@ -55,3 +55,13 @@ Resposta real de autorização da SEFAZ-PR em homologação, XML assinado válid
 - Os 10 testes focados da matriz de venda real passaram, incluindo bloqueio de CFOP/alíquota específica do cadastro. TypeScript fiscal e lint focado passaram. Não repetir builds sem mudança ou evidência nova.
 - Advisors remotos antes/depois: nenhum novo alerta fiscal; os alertas anteriores permanecem fora do escopo desta correção.
 - Rollback, falhas transacionais e concorrência das migrations novas ainda precisam de PostgreSQL isolado. Docker está indisponível; esses testes não serão executados de forma destrutiva no banco operacional.
+
+## Estado atual após a retomada em 30/09/2026
+
+- **Critério de conclusão da primeira emissão atingido:** SEFAZ-PR autorizou a NF-e 701/série 1, ambiente 2, com `cStat=100`. Documento `b1e4be97-4391-43b9-8d03-bd7e43e3276c`, requisição `5594dbc0-d8a3-4ac8-ae3d-f7fd5aeaa39e`; protocolo/chave/itens/XML conferidos no Supabase.
+- A confiança TLS foi confirmada em execução real. A consulta da primeira tentativa retornou 217; seu reenvio explícito retornou 244. A série normal foi corrigida para 1, preservando a tentativa original. A tentativa seguinte retornou 209, resolvida com a IE correta informada pela usuária e um novo snapshot vinculado.
+- Os dois documentos rejeitados permanecem intactos; a nota autorizada é o terceiro registro da cadeia. Todos os cinco campos fiscais confirmados no modal foram preservados. Pedido, itens comerciais, pagamentos, estoque, contas a receber e transações financeiras permaneceram inalterados.
+- Assinatura do XML autorizado verificada independentemente. Recuperação idempotente da mesma intenção preservou número, XML, protocolo e histórico, sem outra autorização ou item. Essa recuperação não é nova consulta SOAP posterior.
+- Playwright autenticado confirmou modal HML e os três documentos na tela fiscal, com status iguais aos persistidos. A conferência da tela foi somente leitura.
+- PostgreSQL local isolado ficou disponível: 31 assertivas pgTAP e verificações de rollback, duas sessões concorrentes, idempotência, replay e histórico passaram. Nenhum teste destrutivo/concorrente executado no Supabase operacional.
+- Produção, NFC-e 65 e a matriz de pedidos mais complexos continuam pendentes. Ver [roadmap atualizado](roadmap-configuracao-emissao-producao.md) e [decisões de consistência/compatibilidade](correcao-serie-ie-hml.md).

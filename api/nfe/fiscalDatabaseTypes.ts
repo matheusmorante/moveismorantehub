@@ -54,6 +54,7 @@ export type FiscalDatabase = {
           hml_attempt_token: string | null;
           hml_attempt_expires_at: string | null;
           hml_response_history: Record<string, unknown>[];
+          hml_correction_of_document_id?: string | null;
           created_at: string;
           updated_at: string;
         },

@@ -4,7 +4,7 @@ import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
-import { resolveNfeSequenceSettings } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
+import { resolveNfeSequenceSettings, validateContributorNfeSeries } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import { resolveFiscalDocument, parseFiscalSnapshotReservation,
   type FiscalEmissionCommand, type FiscalSnapshotCandidate, type FiscalSnapshot } from './fiscalSnapshot';
 import { createHmlTechnicalRuleSet, HML_TECHNICAL_RULESET_VERSION } from './hmlTechnicalRuleSet';
@@ -21,6 +21,7 @@ import { fiscalSelectionsEqual } from '../../shared-utils/fiscalItemSelections';
 import { embeddedNfeXml } from './xmlEnvelope';
 import { createHmlNormalSaleRuleSet, HML_NORMAL_SALE_RULESET_VERSION, loadHmlNormalSaleInputs } from './hmlNormalSaleRuleSet';
 import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
+import { validateParanaIssuerIe } from './paranaIssuerIe';
 
 export const isHmlRuleSet = (version: unknown) =>
   version === HML_TECHNICAL_RULESET_VERSION || version === HML_NORMAL_SALE_RULESET_VERSION;
@@ -203,6 +204,16 @@ export async function retryHmlTechnical(
       orderId: doc.order_id, accessKey: doc.chave_acesso, nfeNumber: doc.numero_nfe,
       series: doc.serie, model: '55', environment: 2,
       protocolNumber: doc.numero_protocolo, signedXml: doc.xml_nfe } };
+  if (doc.status === 'erro' && parseSefazAuthorization(String(doc.xml_protocolo || '')).cStat === '244')
+    return failure(409, 'HML_SERIES_CORRECTION_REQUIRED',
+      '244: A SEFAZ rejeitou a série. Corrija a série nas configurações fiscais e solicite uma nova tentativa vinculada; o XML rejeitado será preservado.',
+      { documentId: doc.id, cStat: '244', pending: false, sefazContacted: false,
+        orderId: doc.order_id, nfeNumber: doc.numero_nfe, series: doc.serie, model: '55', environment: 2 });
+  if (doc.status === 'erro' && parseSefazAuthorization(String(doc.xml_protocolo || '')).cStat === '209')
+    return failure(409, 'HML_ISSUER_IE_CORRECTION_REQUIRED',
+      '209: A SEFAZ rejeitou a inscrição estadual do emitente. Confira o cadastro da Receita/PR ou a contabilidade; o XML e a resposta rejeitados serão preservados.',
+      { documentId: doc.id, cStat: '209', pending: false, sefazContacted: false,
+        orderId: doc.order_id, nfeNumber: doc.numero_nfe, series: doc.serie, model: '55', environment: 2 });
   const pfx = process.env.NFE_CERTIFICATE_BASE64;
   if (!pfx) return failure(503, 'HML_CERTIFICATE_UNAVAILABLE', 'Certificado A1 não configurado.');
   let cert: ReturnType<typeof extractCertificateAndKey>;
@@ -224,6 +235,10 @@ export async function retryHmlTechnical(
       'Consulta da chave original inconclusiva; a retransmissão permanece bloqueada.',
       { pending: true, documentId: doc.id, accessKey: doc.chave_acesso, transportDiagnostic }); }
     if (!allowRetransmission || consultation.body.code !== 'HML_CONFIRMED_NOT_FOUND') return consultation;
+    try { validateContributorNfeSeries(doc.serie); }
+    catch { return failure(422, 'HML_RETRY_SERIES_INVALID',
+      'A série do XML original é incompatível com este emissor. A retransmissão foi bloqueada; preserve a tentativa e corrija a configuração fiscal.',
+      { documentId: doc.id, pending: false, sefazContacted: false }); }
     if (!doc.xml_nfe || !doc.chave_acesso || !doc.fiscal_snapshot_id)
       return failure(409, 'HML_RETRY_XML_UNAVAILABLE', 'XML ou snapshot original não disponível.');
     try { await validateNfeAgainstOfficialSchema(doc.xml_nfe); }
@@ -314,6 +329,10 @@ export async function emitHmlTechnical(
     return failure(422, 'HML_FISCAL_DOCUMENT_INCOMPLETE',
       'O pedido não passou pela determinação fiscal.',
       { blockers: preflight.blockers, numberReserved: false, sefazContacted: false });
+  try { validateParanaIssuerIe(preflight.document.issuer.ie); }
+  catch (error) { return failure(422, 'HML_ISSUER_IE_INVALID',
+    error instanceof Error ? error.message : 'Inscrição estadual do emitente inválida.',
+    { numberReserved: false, sefazContacted: false }); }
   const tech = getResponsibleTechnicianConfig();
   const pfx = process.env.NFE_CERTIFICATE_BASE64;
   if (!tech || !pfx)
@@ -327,10 +346,15 @@ export async function emitHmlTechnical(
   catch { return failure(503, 'HML_CERTIFICATE_INVALID', 'Certificado A1 inválido.',
     { numberReserved: false, sefazContacted: false }); }
 
-  const sequence = resolveNfeSequenceSettings(appSettings, '55', 2);
+  let sequence;
+  try { sequence = resolveNfeSequenceSettings(appSettings, '55', 2); }
+  catch (error) { return failure(422, 'HML_SEQUENCE_INVALID',
+    error instanceof Error ? error.message : 'Série HML inválida.',
+    { numberReserved: false, sefazContacted: false }); }
   if (!/^\d{1,3}$/.test(sequence.series) ||
-      !Number.isInteger(sequence.minimumNumber) || sequence.minimumNumber < 1)
-    return failure(422, 'HML_SEQUENCE_INVALID', 'Série ou número inicial HML inválido.');
+      !Number.isInteger(sequence.minimumNumber) || sequence.minimumNumber < 1 || sequence.minimumNumber > 999999999)
+    return failure(422, 'HML_SEQUENCE_INVALID', 'Série ou número inicial HML inválido.',
+      { numberReserved: false, sefazContacted: false });
   const { data: reservationValue, error: reservationError } = await db.rpc('prepare_nfe_fiscal_snapshot', {
     p_order_id: command.orderId, p_emission_request_id: command.emissionRequestId,
     p_modelo: '55', p_ambiente: 2, p_serie: sequence.series,
@@ -373,6 +397,10 @@ export async function emitHmlTechnical(
     return failure(422, 'HML_PERSISTED_SNAPSHOT_INVALID',
       'O snapshot persistido não passou pela determinação fiscal.',
       { blockers: resolved.blockers, numberReserved: true });
+  try { validateParanaIssuerIe(resolved.document.issuer.ie); }
+  catch (error) { return failure(422, 'HML_PERSISTED_ISSUER_IE_INVALID',
+    error instanceof Error ? error.message : 'Inscrição estadual do snapshot inválida.',
+    { numberReserved: true, sefazContacted: false }); }
   const issuedAt = saoPauloTimestamp(reservation.issuedAt);
   const cNf = createHash('sha256').update(command.emissionRequestId).digest('hex');
   const randomCode = String(parseInt(cNf.slice(0, 10), 16) % 100000000).padStart(8, '0');

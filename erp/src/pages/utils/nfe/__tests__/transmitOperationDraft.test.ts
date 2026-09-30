@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -110,6 +110,7 @@ function createDatabase() {
     settings: {
       data: {
         companyCnpj: '44512248000107',
+        companyCMun: '4105805',
         nfeSerie: '1',
         nfeNextNumber: 700,
         certificateBase64: 'mock-pfx',
@@ -235,6 +236,12 @@ async function getHandler() {
 describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('NFE_RESP_TECH_CNPJ', '12345678000195');
+    vi.stubEnv('NFE_RESP_TECH_CONTACT', 'TEST_AUT');
+    vi.stubEnv('NFE_RESP_TECH_EMAIL', 'test@example.invalid');
+    vi.stubEnv('NFE_RESP_TECH_PHONE', '41999999999');
+    vi.stubEnv('NFE_CSRT_ID', '01');
+    vi.stubEnv('NFE_CSRT_SECRET', 'TESTAUT000000000000000000');
     process.env.NFE_PRODUCTION_ENABLED = 'true';
     process.env.NFE_CERTIFICATE_BASE64 = 'server-pfx';
     process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
@@ -245,7 +252,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       certDerBase64: 'mock-der',
     });
     mocks.signNfeXml.mockImplementation((xml: string) => `${xml}<Signature/>`);
-    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<NFe><infNFe/></NFe>');
+    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<NFe><infNFe></infNFe></NFe>');
     mocks.parseAuthorizedInvoiceLines.mockReturnValue([
       {
         invoiceItemNumber: 1,
@@ -258,6 +265,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       },
     ]);
   });
+  afterEach(() => vi.unstubAllEnvs());
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
@@ -362,7 +370,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   it('bloqueia retransmissão após 217 quando o XML armazenado não passa no XSD', async () => {
     const { db, state } = createDatabase();
     state.draft.access_key = '4'.repeat(44);
-    state.draft.signed_xml = '<NFe><infNFe/></NFe><Signature/>';
+    state.draft.signed_xml = '<NFe><infNFe><infRespTec><idCSRT>01</idCSRT><hashCSRT>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</hashCSRT></infRespTec></infNFe></NFe><Signature/>';
     mocks.createClient.mockReturnValue(db);
     mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
       new Error('XML da NF-e não passou pelo schema oficial PL_010f_v1.04: inválido')

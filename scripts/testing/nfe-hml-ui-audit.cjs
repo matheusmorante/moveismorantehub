@@ -54,7 +54,7 @@ async function main() {
     console.log(JSON.stringify({ stage: 'orders-ui', authenticated: true,
       inputs: await page.locator('input').evaluateAll((inputs) => inputs.map((input) =>
         ({ placeholder: input.placeholder, type: input.type, ariaLabel: input.getAttribute('aria-label') }))),
-      buttons: await page.locator('button').allTextContents().then((texts) => texts.map((t) => t.trim()).filter(Boolean).slice(0, 30)),
+      visibleActionCount: await page.locator('button').count(),
     }));
     const knownOrder = page.locator('#order-card-dc0641a1-f554-4769-a864-314c46a80f2e, #order-row-dc0641a1-f554-4769-a864-314c46a80f2e');
     const db = createClient('https://hkoxhourxwlddgsfdgws.supabase.co', env.VITE_SUPABASE_ANON_KEY,
@@ -79,6 +79,26 @@ async function main() {
     await action.click();
     await page.getByRole('heading', { name: 'Emitir nota fiscal de saída', exact: true }).waitFor();
     console.log(JSON.stringify({ stage: 'fiscal-modal', opened: true, homologation: await page.getByText('Homologação · teste sem valor fiscal', { exact: true }).count() > 0 }));
+    if (!mode) {
+      const documents = await db.from('nfe_documents').select('id,status,serie,numero_nfe')
+        .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55');
+      if (documents.error) throw new Error('Read-only fiscal history unavailable.');
+      if (documents.data.length) {
+        await page.goto(`${baseUrl}/fiscal-documents`);
+        await page.getByRole('heading', { name: 'Notas Fiscais (NF-e & NFC-e)', exact: true }).waitFor();
+        for (const document of documents.data) {
+          await page.getByPlaceholder('Buscar por número, chave de acesso, cliente ou CPF/CNPJ...', { exact: true })
+            .fill(String(document.numero_nfe));
+          const row = page.locator('tbody tr').filter({ has: page.getByText(`Série ${document.serie}`, { exact: true }) })
+            .filter({ has: page.getByText(`#${String(document.numero_nfe).padStart(6, '0')}`, { exact: true }) });
+          await row.waitFor();
+          assert.equal(await row.count(), 1, 'Each HML intention must remain individually visible.');
+          assert.equal(await row.locator('td').nth(5).getByText(document.status, { exact: true }).count(), 1);
+        }
+        console.log(JSON.stringify({ stage: 'fiscal-history-ui', attempts: documents.data.length,
+          separateSeriesVisible: true, statusesMatchPersistence: true, emissionTriggered: false }));
+      }
+    }
     if (mode) {
       const keysResult = spawnSync('npx.cmd', ['--yes', 'supabase', 'projects', 'api-keys', '--project-ref', 'hkoxhourxwlddgsfdgws', '--output', 'json'],
         { shell: true, windowsHide: true, encoding: 'utf8', timeout: 60000 });

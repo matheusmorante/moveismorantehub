@@ -17,6 +17,33 @@ describe('emissão NF-e no ERP', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it.each(['244', '209'])('uma rejeição %s confirmada permite nova chave de intenção somente no próximo clique', async (cStat) => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({
+      success: false, pending: false, cStat, documentId: 'rejected-series',
+      xMotivo: 'Série incompatível',
+    }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    const order = { id: `TEST_AUT_correction-${cStat}` } as any;
+    await emitNfeForOrder(order, 2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await emitNfeForOrder(order, 2);
+    const requests = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect(requests[1].emissionRequestId).not.toBe(requests[0].emissionRequestId);
+  });
+  it.each(['244', '209'])('mantém a intenção pendente, mesmo que a resposta mencione %s', async (cStat) => {
+    const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({
+      success: false, pending: true, cStat, error: 'Resposta inconclusiva',
+    }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    const order = { id: `TEST_AUT_uncertain-${cStat}` } as any;
+    await emitNfeForOrder(order, 2);
+    await emitNfeForOrder(order, 2);
+    const requests = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
+    expect(requests[1].emissionRequestId).toBe(requests[0].emissionRequestId);
+  });
+
   it('envia ao backend só pedido, ambiente e chave; não reserva número nem monta XML no navegador', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: false,

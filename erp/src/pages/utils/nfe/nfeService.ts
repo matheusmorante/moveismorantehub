@@ -186,6 +186,13 @@ export async function emitNfeForOrder(
         }),
       });
       const result = await response.json().catch(() => ({}));
+      if (result.success === false && result.pending !== true && ['244', '209'].includes(result.cStat)) {
+        // A confirmed series/IE rejection ends this intention. The next explicit click
+        // uses a new request; the database links it and preserves the rejected XML.
+        fiscalEmissionRequestIds.delete(requestKey);
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey); }
+        catch { /* storage indisponível */ }
+      }
       const metadata = {
         documentId: typeof result.documentId === 'string' ? result.documentId : undefined,
         orderId: typeof result.orderId === 'string' ? result.orderId : undefined,

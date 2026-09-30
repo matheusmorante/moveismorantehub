@@ -75,25 +75,40 @@ async function main() {
     emissionRequestId, environment: 2 }));
   const before = await captureOperationalState(orderId);
   let prior;
-  if (mode === 'repeat' || mode === 'consult') {
+  let savedSelections = {};
+  if (mode !== 'emit') {
     const { data, error } = await db.from('nfe_documents')
-      .select('id,xml_nfe,numero_protocolo,numero_nfe,serie,status')
-      .eq('order_id', orderId).single();
+      .select('id,xml_nfe,xml_protocolo,numero_protocolo,numero_nfe,serie,status,fiscal_snapshot_id,hml_response_history')
+      .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55')
+      .eq('emission_request_id', emissionRequestId).single();
     if (error) throw new Error('Original HML document is unavailable.');
     prior = data;
+    const snapshot = await db.from('nfe_fiscal_snapshots').select('snapshot_data')
+      .eq('id', prior.fiscal_snapshot_id).single();
+    if (snapshot.error || !snapshot.data) throw new Error('Original HML snapshot is unavailable.');
+    const original = snapshot.data.snapshot_data.emissionRequest;
+    savedSelections = { itemFiscalSelections: original.itemFiscalSelections,
+      itemCsosnOverrides: original.itemCsosnOverrides || {} };
+  } else {
+    const existing = await db.from('nfe_documents').select('id', { count: 'exact', head: true })
+      .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55');
+    if (existing.error || existing.count !== 0)
+      throw new Error('Existing HML history requires an explicit document recovery or reviewed correction.');
   }
   const result = mode === 'consult'
     ? request('/api/nfe/consult', { documentId: prior.id })
-    : request('/api/nfe/emit', { orderId, emissionRequestId, environment: 2 });
+    : mode === 'reconcile'
+      ? request('/api/nfe/emit', { retryDocumentId: prior.id, environment: 2 })
+      : request('/api/nfe/emit', { orderId, emissionRequestId, environment: 2, ...savedSelections });
   console.log(JSON.stringify({ stage: 'emission', success: result.success, code: result.code,
     error: result.error, blockers: result.blockers, configurationIssues: result.configurationIssues,
     transportDiagnostic: result.transportDiagnostic,
     pending: result.pending, documentId: result.documentId,
     environment: result.environment, nfeNumber: result.nfeNumber, series: result.series,
-    cStat: result.cStat, xMotivo: result.xMotivo, protocolPresent: Boolean(result.protocolNumber),
+    cStat: result.cStat, xMotivo: result.xMotivo?.replace(/\[[^\]]*\]/g, '[valor omitido]'), protocolPresent: Boolean(result.protocolNumber),
     xmlPresent: Boolean(result.signedXml), numberReserved: result.numberReserved, sefazContacted: result.sefazContacted }));
-  const { data: docs, error } = await db.from('nfe_documents').select('id,status,modelo,ambiente,numero_nfe,serie,xml_nfe,xml_protocolo,numero_protocolo,hml_response_history')
-    .eq('order_id', orderId);
+  const { data: docs, error } = await db.from('nfe_documents').select('id,status,modelo,ambiente,numero_nfe,serie,xml_nfe,xml_protocolo,numero_protocolo,fiscal_snapshot_id,hml_response_history')
+    .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55');
   if (error) throw new Error('Could not verify the persisted attempt.');
   console.log(JSON.stringify({ stage: 'persistence', count: docs.length, documents: docs.map((doc) => ({
     id: doc.id, status: doc.status, model: doc.modelo, environment: doc.ambiente,
@@ -105,9 +120,18 @@ async function main() {
   const after = await captureOperationalState(orderId);
   assert.deepEqual(after, before, 'Operational state changed during the HML test; reconcile without reversing business facts.');
   console.log(JSON.stringify({ stage: 'isolation', operationalStateUnchanged: true }));
+  if (prior && result.sefazContacted === false) {
+    const unchanged = docs.find((doc) => doc.id === prior.id);
+    assert.ok(unchanged);
+    for (const field of Object.keys(prior)) assert.deepEqual(unchanged[field], prior[field]);
+    console.log(JSON.stringify({ stage: 'rejected-recovery', sefazContacted: false,
+      originalXmlAndHistoryPreserved: true }));
+  }
   if (result.success) {
-    assert.equal(docs.length, 1, 'Authorization must persist exactly one document.');
-    const saved = docs[0];
+    assert.equal(docs.filter((doc) => doc.status === 'homologada').length, 1,
+      'The order must have exactly one authorized HML document, preserving rejected history.');
+    const saved = docs.find((doc) => doc.id === result.documentId);
+    assert.ok(saved, 'The recovered document must match the API response.');
     assert.equal(saved.status, 'homologada');
     assert.equal(saved.ambiente, 2);
     assert.equal(saved.modelo, '55');
@@ -120,13 +144,17 @@ async function main() {
     const { count, error: itemError } = await db.from('nfe_document_items')
       .select('id', { count: 'exact', head: true }).eq('document_id', saved.id);
     if (itemError) throw new Error('Could not verify the authorized item snapshot.');
-    assert.equal(count, 1, 'Authorized item snapshot must be stored atomically.');
+    assert.equal(count, (saved.xml_nfe.match(/<det\b/g) || []).length,
+      'Every authorized item must be stored atomically.');
     if (prior) {
       assert.equal(saved.id, prior.id);
       assert.equal(saved.xml_nfe, prior.xml_nfe);
-      assert.equal(saved.numero_protocolo, prior.numero_protocolo);
+      if (prior.numero_protocolo) assert.equal(saved.numero_protocolo, prior.numero_protocolo);
       assert.equal(saved.numero_nfe, prior.numero_nfe);
       assert.equal(saved.serie, prior.serie);
+      if (prior.status === 'homologada')
+        assert.deepEqual(saved.hml_response_history, prior.hml_response_history,
+          'Recovering confirmed facts must not append another authorization.');
     }
     console.log(JSON.stringify({ stage: 'verified', authorized: true,
       persistedProtocolMatches: true, originalDocumentPreserved: Boolean(prior) }));
