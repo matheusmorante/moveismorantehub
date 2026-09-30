@@ -1,5 +1,6 @@
 import https from 'https';
 import axios from 'axios';
+import { hmlSefazTrust } from './sefazHmlTrust';
 
 export interface SefazSoapParams {
   url: string;
@@ -24,11 +25,13 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
   } = params;
 
   // Criar agente HTTPS com mTLS (Chave privada + Certificado do cliente)
+  const trustedCAs = hmlSefazTrust(url);
   const httpsAgent = new https.Agent({
     cert: certPem,
     key: privateKeyPem,
     rejectUnauthorized: true,
     keepAlive: false,
+    ...(trustedCAs ? { ca: trustedCAs } : {}),
   });
 
   const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
