@@ -103,10 +103,12 @@ async function main() {
   console.log(JSON.stringify({ stage: 'emission', success: result.success, code: result.code,
     error: result.error, blockers: result.blockers, configurationIssues: result.configurationIssues,
     transportDiagnostic: result.transportDiagnostic,
+    state: result.state, sefazConsulted: result.sefazConsulted, consultedAt: result.consultedAt,
     pending: result.pending, documentId: result.documentId,
     environment: result.environment, nfeNumber: result.nfeNumber, series: result.series,
     cStat: result.cStat, xMotivo: result.xMotivo?.replace(/\[[^\]]*\]/g, '[valor omitido]'), protocolPresent: Boolean(result.protocolNumber),
-    xmlPresent: Boolean(result.signedXml), numberReserved: result.numberReserved, sefazContacted: result.sefazContacted }));
+    xmlPresent: Boolean(result.signedXml), numberReserved: result.numberReserved, sefazContacted: result.sefazContacted,
+    responseHash: result.responseHash }));
   const { data: docs, error } = await db.from('nfe_documents').select('id,status,modelo,ambiente,numero_nfe,serie,xml_nfe,xml_protocolo,numero_protocolo,fiscal_snapshot_id,hml_response_history')
     .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55');
   if (error) throw new Error('Could not verify the persisted attempt.');
@@ -120,6 +122,37 @@ async function main() {
   const after = await captureOperationalState(orderId);
   assert.deepEqual(after, before, 'Operational state changed during the HML test; reconcile without reversing business facts.');
   console.log(JSON.stringify({ stage: 'isolation', operationalStateUnchanged: true }));
+  if (mode === 'consult') {
+    assert.equal(result.sefazConsulted, true, 'The authorized document must use a fresh SEFAZ consultation.');
+    assert.equal(result.state, 'authorized');
+    assert.equal(result.cStat, '100');
+    assert.equal(result.nfeNumber, prior.numero_nfe);
+    assert.equal(result.series, prior.serie);
+    assert.equal(result.protocolNumber, prior.numero_protocolo);
+    assert.match(result.responseHash || '', /^[a-f0-9]{64}$/);
+    const current = docs.find((doc) => doc.id === prior.id);
+    assert.ok(current, 'The consulted document must still exist.');
+    for (const field of Object.keys(prior)) assert.deepEqual(current[field], prior[field]);
+    const evidence = {
+      type: 'read_only_post_authorization_consult',
+      consultedAt: result.consultedAt,
+      documentId: prior.id,
+      model: prior.modelo,
+      environment: prior.ambiente,
+      number: prior.numero_nfe,
+      series: prior.serie,
+      cStat: result.cStat,
+      state: result.state,
+      responseHash: result.responseHash,
+      persistedDocumentUnchanged: true,
+      commercialStateUnchanged: true,
+    };
+    fs.writeFileSync('.agent/nfe-hml-post-consult-701.json', JSON.stringify(evidence, null, 2));
+    console.log(JSON.stringify({ stage: 'post-authorization-consult',
+      sefazConsulted: true, cStat: result.cStat, protocolMatches: true,
+      responseHash: result.responseHash, persistedDocumentUnchanged: true,
+      artifact: '.agent/nfe-hml-post-consult-701.json' }));
+  }
   if (prior && result.sefazContacted === false) {
     const unchanged = docs.find((doc) => doc.id === prior.id);
     assert.ok(unchanged);
