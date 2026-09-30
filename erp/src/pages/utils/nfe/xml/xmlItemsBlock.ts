@@ -2,6 +2,7 @@ import Order from '@/pages/types/order.type';
 import { AppSettings } from '../../settingsService';
 import { escapeXml } from './xmlEmitterBlock';
 import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import { zeroOwnIcmsGroup } from '../../../../../../shared-utils/fiscalIcmsGroups';
 
 export interface BuildItemsResult {
   itemsXml: string;
@@ -33,7 +34,9 @@ export function buildItemsXml(
       const ncm = String((item as any).fiscal?.ncm || '').replace(/\D/g, '');
       const cest = (fiscal.cest || '').replace(/\D/g, '');
       const cfop = fiscal.cfop || '5102';
-      const csosn = fiscal.cst || '102';
+      const csosn = String((item as any).fiscal?.cst || '');
+      if (settings.companyCRT !== '1') throw new Error('CSOSN exige emitente CRT 1 neste gerador.');
+      const icmsGroup = zeroOwnIcmsGroup(csosn);
       const origem = fiscal.origem || '0';
       const cProd = item.code || item.productId || String(sourceIndex + 1);
       const xProd = isHomologacao
@@ -62,10 +65,10 @@ export function buildItemsXml(
       </prod>
       <imposto>
         <ICMS>
-          <ICMSSN${csosn}>
+          <${icmsGroup}>
             <orig>${origem}</orig>
             <CSOSN>${csosn}</CSOSN>
-          </ICMSSN${csosn}>
+          </${icmsGroup}>
         </ICMS>
         <PIS>
           <PISOutr>

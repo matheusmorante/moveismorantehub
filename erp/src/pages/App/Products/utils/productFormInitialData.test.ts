@@ -20,6 +20,7 @@ describe('INITIAL_PRODUCT_FORM_DATA', () => {
       cest: '',
       ncmDescription: '',
       cfop: '5102',
+      cst: '102',
       icmsPercent: 0,
     });
   });

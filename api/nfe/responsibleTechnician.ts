@@ -9,30 +9,48 @@ export interface ResponsibleTechnicianConfig {
   csrt: string;
 }
 
-export function getResponsibleTechnicianConfig(
-  env: Record<string, string | undefined> = process.env
-): ResponsibleTechnicianConfig | null {
-  const cnpj = String(env.NFE_RESP_TECH_CNPJ || '').replace(/\D/g, '');
-  const contact = String(env.NFE_RESP_TECH_CONTACT || '').trim();
-  const email = String(env.NFE_RESP_TECH_EMAIL || '').trim();
-  const phone = String(env.NFE_RESP_TECH_PHONE || '').replace(/\D/g, '');
-  const csrtId = String(env.NFE_CSRT_ID || '').trim();
-  const csrt = String(env.NFE_CSRT_SECRET || '').trim();
-
-  if (
-    !/^\d{14}$/.test(cnpj) ||
-    contact.length < 2 ||
-    contact.length > 60 ||
-    email.length < 6 ||
-    email.length > 60 ||
-    !/^\d{6,14}$/.test(phone) ||
-    !/^\d{2}$/.test(csrtId) ||
-    !/^[A-Za-z0-9]{16,36}$/.test(csrt)
-  ) {
-    return null;
-  }
+function readResponsibleTechnicianConfig(
+  env: Record<string, string | undefined> = process.env,
+  environment: 1 | 2 = 2
+): ResponsibleTechnicianConfig {
+  const cnpj = String(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ || '').replace(/\D/g, '');
+  const contact = String(env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || '').trim();
+  const email = String(env.NFE_RESP_TECH_EMAIL || env.NFE_RESPONSIBLE_TECH_EMAIL || '').trim();
+  const phone = String(env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE || '').replace(/\D/g, '');
+  const csrtId = String(environment === 2
+    ? env.NFE_ID_CSRT_HOMOLOGACAO || env.NFE_CSRT_ID || ''
+    : env.NFE_ID_CSRT_PRODUCAO || env.NFE_CSRT_ID || '').trim();
+  const csrt = String(environment === 2
+    ? env.NFE_CSRT_HOMOLOGACAO || env.NFE_CSRT_SECRET || ''
+    : env.NFE_CSRT_PRODUCAO || env.NFE_CSRT_SECRET || '').trim();
 
   return { cnpj, contact, email, phone, csrtId, csrt };
+}
+
+function invalidConfigurationFields(config: ResponsibleTechnicianConfig): string[] {
+  const validations: [string, boolean][] = [
+    ['responsibleTechnician.cnpj', /^\d{14}$/.test(config.cnpj)],
+    ['responsibleTechnician.contact', config.contact.length >= 2 && config.contact.length <= 60],
+    ['responsibleTechnician.email', config.email.length >= 6 && config.email.length <= 60],
+    ['responsibleTechnician.phone', /^\d{6,14}$/.test(config.phone)],
+    ['responsibleTechnician.csrtId', /^\d{2}$/.test(config.csrtId)],
+    ['responsibleTechnician.csrt', /^[A-Za-z0-9]{16,36}$/.test(config.csrt)],
+  ];
+  return validations.filter(([, valid]) => !valid).map(([field]) => field);
+}
+
+/** Only field names; never return credentials or their values in diagnostics. */
+export function getResponsibleTechnicianConfigurationIssues(
+  env: Record<string, string | undefined> = process.env, environment: 1 | 2 = 2
+): string[] {
+  return invalidConfigurationFields(readResponsibleTechnicianConfig(env, environment));
+}
+
+export function getResponsibleTechnicianConfig(
+  env: Record<string, string | undefined> = process.env, environment: 1 | 2 = 2
+): ResponsibleTechnicianConfig | null {
+  const config = readResponsibleTechnicianConfig(env, environment);
+  return invalidConfigurationFields(config).length ? null : config;
 }
 
 function escapeXml(value: string): string {

@@ -110,6 +110,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
       : finalVariations,
     itemType: data.item_type || 'product',
     fiscal: {
+      ...data.fiscal,
       ncm: data.fiscal?.ncm || '',
       cest: data.fiscal?.cest || '',
       ncmDescription: data.fiscal?.ncmDescription || '',

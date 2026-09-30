@@ -53,8 +53,8 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
   "cst": "102",
   "icmsPercent": 0,
   "origem": "0",
-  "pisCst": "49",
-  "cofinsCst": "49",
+  "pisCst": "99",
+  "cofinsCst": "99",
   "confidence": 0.95,
   "needsReview": false,
   "missingInformation": [],
@@ -83,10 +83,10 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
         cst: String(parsed.cst || '102'),
         icmsPercent: Number(parsed.icmsPercent || 0),
         origem: String(parsed.origem || '0'),
-        pisCst: String(parsed.pisCst || '49')
+        pisCst: String(parsed.pisCst || '99')
           .replace(/\D/g, '')
           .slice(0, 2),
-        cofinsCst: String(parsed.cofinsCst || '49')
+        cofinsCst: String(parsed.cofinsCst || '99')
           .replace(/\D/g, '')
           .slice(0, 2),
       };
@@ -100,8 +100,8 @@ Retorne SOMENTE JSON válido no formato exato abaixo, sem markdown:
         cst: '102',
         icmsPercent: 0,
         origem: '0',
-        pisCst: '49',
-        cofinsCst: '49',
+        pisCst: '99',
+        cofinsCst: '99',
       };
     }
   },

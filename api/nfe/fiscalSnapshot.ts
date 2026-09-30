@@ -1,3 +1,7 @@
+import { determineWithApprovedRules, type ApprovedFiscalRuleSet } from './fiscalCore';
+import { parseItemCsosnOverrides } from './csosnPolicy';
+import { parseFiscalItemSelections, type FiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
+
 export type FiscalJsonValue =
   | string
   | number
@@ -31,25 +35,35 @@ export type FiscalSnapshot = {
     id: string;
     type: string;
     status: string;
+    deleted?: boolean;
     version: number;
     updatedAt: string;
     data: Record<string, FiscalJsonValue>;
   };
   issuerProfile: Partial<Record<FiscalIssuerProfileKey, FiscalJsonValue>>;
+  /** Raw settings.data.fiscalDefaults, captured as inputs only; no implicit tax decision. */
+  fiscalConfiguration?: Record<string, FiscalJsonValue>;
+  fiscalInputs?: Record<string, FiscalJsonValue>;
   emissionRequest: {
     id: string;
     requestedModel: '55' | '65';
     environment: 1 | 2;
     series: string;
     number: number;
+    itemCsosnOverrides?: Record<string, string>;
+    itemFiscalSelections?: FiscalItemSelections;
   };
 };
 
 /** In-memory facts read by the server before a model/number is determined. */
 export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & {
+  /** SHA-256 computed by PostgreSQL for the persisted, immutable snapshot. */
+  persistedHash?: string;
   emissionRequest: {
     id: string;
     environment: 1 | 2;
+    itemCsosnOverrides?: Record<string, string>;
+    itemFiscalSelections?: FiscalItemSelections;
   };
 };
 
@@ -97,18 +111,29 @@ export type DeterminedTaxGroup =
 
 export type DeterminedFiscalIssuer = {
   cnpj: string;
-  ie?: string;
+  name: string;
+  ie: string;
   crt: string;
   municipalityCode: string;
+  address: FiscalAddress;
+};
+
+export type FiscalAddress = {
+  street: string;
+  number: string;
+  district: string;
+  municipalityCode: string;
+  municipality: string;
+  uf: string;
+  postalCode: string;
 };
 
 export type DeterminedFiscalRecipient = {
   name: string;
-  cpfCnpj?: string;
+  cpfCnpj: string;
   ieIndicator: string;
   ie?: string;
-  uf?: string;
-  municipalityCode?: string;
+  address: FiscalAddress;
 };
 
 export type DeterminedFiscalOperation = {
@@ -117,16 +142,27 @@ export type DeterminedFiscalOperation = {
   purpose: string;
   destination: string;
   presence: string;
+  finalConsumer: '0' | '1';
+  freightMode: string;
 };
 
 export type ReconciledFiscalTotals = {
+  icmsBase: number;
   products: number;
   discount: number;
   freight: number;
   insurance: number;
   otherExpenses: number;
   icms: number;
+  icmsExempt: number;
+  fcp: number;
+  icmsStBase: number;
+  icmsSt: number;
+  fcpSt: number;
+  fcpStRetained: number;
+  ii: number;
   ipi: number;
+  ipiReturned: number;
   pis: number;
   cofins: number;
   invoice: number;
@@ -136,7 +172,18 @@ export type ReconciledFiscalTotals = {
 
 export type DeterminedFiscalItem = {
   itemNumber: number;
-  product: Readonly<Record<string, FiscalJsonValue>>;
+  product: {
+    code: string;
+    description: string;
+    gtin: string;
+    quantity: number;
+    unitValue: number;
+    gross: number;
+    discount: number;
+    freight: number;
+    insurance: number;
+    otherExpenses: number;
+  };
   classification: {
     ncm: string;
     cest?: string;
@@ -172,7 +219,11 @@ export type FiscalDocument = {
 };
 
 export type FiscalDeterminationBlocker = {
-  code: 'APPROVED_FISCAL_RULESET_REQUIRED';
+  code:
+    | 'APPROVED_FISCAL_RULESET_REQUIRED'
+    | 'PRODUCTION_FISCAL_RULESET_REQUIRED'
+    | 'FISCAL_RULESET_NOT_APPLICABLE'
+    | 'FISCAL_DOCUMENT_INCOMPLETE';
   scope: 'document';
   message: string;
 };
@@ -186,6 +237,8 @@ export type FiscalEmissionCommand = {
   environment: 1 | 2;
   emissionRequestId: string;
   productionConfirmed?: boolean;
+  itemCsosnOverrides?: Record<string, string>;
+  itemFiscalSelections?: FiscalItemSelections;
 };
 
 export type FiscalSnapshotReservation = {
@@ -223,6 +276,8 @@ export function parseFiscalEmissionCommand(
     'environment',
     'emissionRequestId',
     'productionConfirmed',
+    'itemCsosnOverrides',
+    'itemFiscalSelections',
   ]);
   if (Object.keys(body).some((field) => !allowedFields.has(field)))
     return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
@@ -239,11 +294,26 @@ export function parseFiscalEmissionCommand(
   )
     return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
 
+  let itemCsosnOverrides: Record<string, string>;
+  try { itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides); }
+  catch (error) { return { error: error instanceof Error ? error.message : 'Escolhas de CSOSN inválidas.' }; }
+  let itemFiscalSelections: FiscalItemSelections;
+  try {
+    itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
+    if (Object.keys(itemFiscalSelections).length && environment !== 2)
+      throw new Error('Seleções provisórias do modal estão habilitadas somente em homologação.');
+    for (const [key, code] of Object.entries(itemCsosnOverrides)) {
+      if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
+        throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
+    }
+  } catch (error) { return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' }; }
   return {
     command: {
       orderId,
       environment: environment as 1 | 2,
       emissionRequestId,
+      ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
+      ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
       ...(body.productionConfirmed === undefined
         ? {}
         : { productionConfirmed: body.productionConfirmed }),
@@ -253,19 +323,10 @@ export function parseFiscalEmissionCommand(
 
 /** No tax rules are eligible until an approved, versioned determination matrix is configured. */
 export function resolveFiscalDocument(
-  _snapshot: FiscalSnapshotCandidate
+  snapshot: FiscalSnapshotCandidate,
+  ruleSet?: ApprovedFiscalRuleSet
 ): FiscalDocumentResolution {
-  return {
-    status: 'blocked',
-    blockers: [
-      {
-        code: 'APPROVED_FISCAL_RULESET_REQUIRED',
-        scope: 'document',
-        message:
-          'A matriz de determinação fiscal aprovada ainda não está configurada. Nenhum modelo, CFOP ou tributo será presumido.',
-      },
-    ],
-  };
+  return determineWithApprovedRules(snapshot, ruleSet);
 }
 
 export function parseFiscalSnapshotReservation(value: unknown): FiscalSnapshotReservation | null {

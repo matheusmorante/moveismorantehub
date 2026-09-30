@@ -9,6 +9,7 @@ export interface NfeItemFiscal {
   cest?: string;
   cfop: string;
   cst: string;
+  csosnSource?: string;
   origem: string;
 }
 

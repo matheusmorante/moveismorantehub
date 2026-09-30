@@ -27,7 +27,9 @@ export const CFOP_OPTIONS: FiscalOption[] = [
 ];
 
 export const CSOSN_OPTIONS: FiscalOption[] = [
-  { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito (Venda padrão)' },
+  { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito' },
+  { value: '103', label: '103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta' },
+  { value: '203', label: '203 - Isenção no Simples Nacional e cobrança de ICMS por ST' },
   {
     value: '500',
     label: '500 - Simples Nacional - ICMS Cobrado Anteriormente por ST (Substituído)',

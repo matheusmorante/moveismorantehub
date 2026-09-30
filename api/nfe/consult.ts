@@ -4,6 +4,7 @@ import { extractCertificateAndKey } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
+import { retryHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -50,6 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (error || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
+    if (isHmlRuleSet(doc.fiscal_ruleset_version)) {
+      const result = await retryHmlTechnical(supabase, doc.id, false);
+      return res.status(result.status).json({ ...result.body,
+        state: result.body.success ? 'authorized'
+          : result.body.code === 'HML_CONFIRMED_NOT_FOUND' ? 'not_found' : 'unknown' });
+    }
     const model = String(doc.modelo) as '55' | '65';
     const environment = Number(doc.ambiente) as 1 | 2;
     const accessKey = String(doc.chave_acesso || '');

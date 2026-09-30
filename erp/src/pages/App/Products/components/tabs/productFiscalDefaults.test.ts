@@ -10,8 +10,8 @@ describe('createInitialProductFiscalInfo', () => {
       cfop: '5102',
       origem: '0',
       icmsPercent: 0,
-      pisCst: '49',
-      cofinsCst: '49',
+      pisCst: '99',
+      cofinsCst: '99',
       codigoServico: '',
     });
   });

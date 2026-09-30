@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { NcmSelect } from './NcmSelect';
+import { composeServiceFiscalValues } from '@/pages/utils/nfe/serviceFiscalComposition';
 import {
   CFOP_OPTIONS,
   CSOSN_OPTIONS,
@@ -16,8 +17,8 @@ interface Props {
 
 export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const itemTotal =
-    (item.quantity || 1) * (item.unitPrice || 0) - (item.unitDiscount || 0) * (item.quantity || 1);
+  const values = composeServiceFiscalValues([item]).products[0];
+  const itemTotal = (values.vProdCents - values.vDescCents) / 100;
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
   const isNcmValid = cleanNcm.length === 8;
 
@@ -86,7 +87,7 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
             className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
               isExpanded ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''
             }`}
-            title="Ver / editar CFOP, CSOSN/CST, Origem e CEST"
+            title="Ver / editar CFOP, CSOSN, Origem e CEST"
           >
             <i className="bi bi-chevron-down text-xs" />
           </button>
@@ -101,10 +102,12 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
               CFOP *
             </label>
             <select
-              value={item.fiscal?.cfop || '5102'}
+              aria-label="CFOP"
+              value={item.fiscal?.cfop || ''}
               onChange={(e) => onUpdateFiscal('cfop', e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
             >
+              <option value="">Selecione o CFOP</option>
               {CFOP_OPTIONS.map((cf) => (
                 <option key={cf.value} value={cf.value}>
                   {cf.label}
@@ -114,29 +117,36 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
           </div>
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-              CSOSN / CST *
+              CSOSN *
             </label>
             <select
-              value={item.fiscal?.cst || '102'}
+              aria-label="CSOSN"
+              value={item.fiscal?.cst || ''}
               onChange={(e) => onUpdateFiscal('cst', e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
             >
+              <option value="">Selecione o CSOSN</option>
               {CSOSN_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+              Padrão definido nas Configurações Fiscais para este ambiente; ajuste conforme a operação.
+            </p>
           </div>
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
               Origem *
             </label>
             <select
-              value={item.fiscal?.origem || '0'}
+              aria-label="Origem fiscal"
+              value={item.fiscal?.origem || ''}
               onChange={(e) => onUpdateFiscal('origem', e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
             >
+              <option value="">Selecione a origem</option>
               {ORIGEM_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -149,6 +159,7 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
               CEST
             </label>
             <select
+              aria-label="CEST"
               value={item.fiscal?.cest || ''}
               onChange={(e) => onUpdateFiscal('cest', e.target.value)}
               className="w-full px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"

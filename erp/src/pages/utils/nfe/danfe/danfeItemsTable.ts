@@ -13,7 +13,7 @@ export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings)
       const vProd = qCom * vUnCom - itemDiscount;
       const fiscal = (item as any).fiscal || (settings as any).fiscalDefaults || {};
       const ncm = (item as any).fiscal?.ncm || '—';
-      const cst = fiscal.cst || '102';
+      const cst = fiscal.cst || '—';
       const cfop = fiscal.cfop || '5102';
 
       return `

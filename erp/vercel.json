@@ -1,7 +1,12 @@
 {
   "buildCommand": "npm run build",
+  "installCommand": "npm ci --prefix .. && npm ci",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/nfe/emit.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
+    "api/nfe/consult.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 }
+  },
   "rewrites": [
     {
       "source": "/api/facebook-catalog.csv",

@@ -9,6 +9,8 @@ import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { validateNfeAgainstOfficialSchema } from './schemaValidator';
+import { emitHmlTechnical, recoverHmlTechnical, retryHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
+import { embeddedNfeXml } from './xmlEnvelope';
 import {
   appendResponsibleTechnician,
   getResponsibleTechnicianConfig,
@@ -61,6 +63,7 @@ type RetryDocument = {
   modelo: string;
   ambiente: number;
   motivo_status: string | null;
+  fiscal_ruleset_version?: string | null;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -122,20 +125,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: fiscalAuthorization.message,
         });
 
-      if (
-        command.environment === 1 &&
-        (command.productionConfirmed !== true ||
-          !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED))
-      )
+      if (command.environment === 1)
         return res.status(503).json({
           success: false,
-          code: 'NFE_PRODUCTION_BLOCKED',
-          error: 'Emissão em produção não está liberada neste servidor.',
+          code: 'PRODUCTION_FISCAL_RULESET_REQUIRED',
+          error: 'Produção exige uma matriz fiscal aprovada e um pipeline próprio.',
         });
+
+      const recovered = await recoverHmlTechnical(supabase, command);
+      if (recovered) return res.status(recovered.status).json(recovered.body);
 
       const { data: orderRow, error: orderError } = await supabase
         .from('orders')
-        .select('id,order_type,status,order_data,version,updated_at')
+        .select('id,order_type,status,deleted,order_data,version,updated_at')
         .eq('id', command.orderId)
         .maybeSingle();
       if (orderError)
@@ -217,6 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           id: String(orderRow.id),
           type: String(orderRow.order_type),
           status: String(orderRow.status || ''),
+          deleted: orderRow.deleted === true,
           version: Number(orderRow.version),
           updatedAt: String(orderRow.updated_at),
           data: orderRow.order_data as Record<string, FiscalJsonValue>,
@@ -225,8 +228,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         emissionRequest: {
           id: command.emissionRequestId,
           environment: command.environment,
+          itemCsosnOverrides: command.itemCsosnOverrides,
+          itemFiscalSelections: command.itemFiscalSelections,
         },
       };
+      if (command.environment === 2) {
+        const result = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
+        return res.status(result.status).json(result.body);
+      }
       const determination = resolveFiscalDocument(candidate);
       if (determination.status === 'blocked')
         return res.status(422).json({
@@ -305,9 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.body.retryDocumentId) {
       const { data, error } = await supabase
         .from('nfe_documents')
-        .select(
-          'id, order_id, status, xml_nfe, chave_acesso, numero_nfe, serie, modelo, ambiente, motivo_status'
-        )
+        .select('*')
         .eq('id', String(req.body.retryDocumentId))
         .maybeSingle();
 
@@ -321,6 +328,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       orderId = String(retryDoc.order_id || '');
       model = String(retryDoc.modelo || '');
       selectedEnvironment = Number(retryDoc.ambiente);
+
+      if (selectedEnvironment === 1)
+        return res.status(503).json({
+          success: false,
+          code: 'PRODUCTION_FISCAL_RULESET_REQUIRED',
+          error: 'Produção exige uma matriz fiscal aprovada e um pipeline próprio.',
+        });
 
       if (
         !orderId ||
@@ -341,6 +355,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model: model as '55' | '65',
         environment: selectedEnvironment as 1 | 2,
       };
+
+      if (isHmlRuleSet(retryDoc.fiscal_ruleset_version)) {
+        const result = await retryHmlTechnical(supabase, retryDoc.id);
+        return res.status(result.status).json(result.body);
+      }
 
       if (retryDoc.status !== 'erro')
         return res.status(409).json({
@@ -456,7 +475,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!req.body.retryDocumentId && String(model) === '55') {
-      const responsibleTechnician = getResponsibleTechnicianConfig();
+      const responsibleTechnician = getResponsibleTechnicianConfig(process.env, selectedEnvironment as 1 | 2);
       if (!responsibleTechnician)
         return res.status(503).json({
           success: false,
@@ -635,7 +654,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 4. Montar o lote de envio <enviNFe>
     const idLote = String(Date.now()).slice(-15);
-    const enviNfeXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${idLote}</idLote><indSinc>1</indSinc>${signedXml}</enviNFe>`;
+    const enviNfeXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${idLote}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
 
     // 5. Determinar URL da SEFAZ
     const isHomologacao = selectedEnvironment === 2;

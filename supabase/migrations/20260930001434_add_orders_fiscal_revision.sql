@@ -7,9 +7,14 @@ ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
 
 -- Repair a partially-created nullable column without changing non-NULL revisions.
-UPDATE public.orders
-   SET version = 1
- WHERE version IS NULL;
+DO $repair$
+BEGIN
+  -- Avoid firing statement-level commercial triggers when there is nothing to repair.
+  IF EXISTS (SELECT 1 FROM public.orders WHERE version IS NULL) THEN
+    UPDATE public.orders SET version = 1 WHERE version IS NULL;
+  END IF;
+END;
+$repair$;
 
 ALTER TABLE public.orders
   ALTER COLUMN version SET DEFAULT 1,

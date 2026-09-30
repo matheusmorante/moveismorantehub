@@ -3,7 +3,9 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { verifyLocalSupabase } = require('./supabase-local-preflight.cjs');
-const { Client } = require(require.resolve('pg', { paths: [path.join(__dirname, '../../supabase/tests')] }));
+const { Client } = require(require.resolve('pg', {
+  paths: [path.join(__dirname, '../../supabase/tests'), path.join(__dirname, '../../erp')],
+}));
 
 const revisionMigration = fs.readFileSync(
   path.join(__dirname, '../../supabase/migrations/20260930001434_add_orders_fiscal_revision.sql'),
@@ -35,7 +37,7 @@ async function main() {
       CREATE SCHEMA extensions;
       CREATE TABLE public.orders (
         id text PRIMARY KEY, order_type text, status text, order_data jsonb,
-        updated_at timestamptz
+        updated_at timestamptz, deleted boolean NOT NULL DEFAULT false
       );
       CREATE TABLE public.settings (id text PRIMARY KEY, data jsonb);
       CREATE TABLE public.nfe_sequences (
@@ -46,7 +48,7 @@ async function main() {
       CREATE TABLE public.nfe_documents (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), order_id text,
         document_type text, emission_request_id uuid, modelo varchar(2),
-        ambiente integer, serie varchar(4), numero_nfe integer
+        ambiente integer, serie varchar(4), numero_nfe integer, status text
       );
       GRANT USAGE ON SCHEMA public, extensions TO service_role;
       GRANT SELECT, UPDATE ON public.orders, public.settings TO service_role;
@@ -87,12 +89,16 @@ async function main() {
        VALUES ('app', '{"companyCMun":"4106902","companyCnpj":"00000000000000"}'::jsonb)`
     );
 
-    const reserve = (client, requestId, model = '55') =>
+    const alternateOrders = Array.from({ length: 5 }, () => crypto.randomUUID());
+    await test.query(`INSERT INTO public.orders (id,order_type,status,order_data,updated_at)
+      SELECT unnest($1::text[]),'sale','scheduled',order_data,now()
+      FROM public.orders WHERE id=$2`, [alternateOrders, orderId]);
+    const reserve = (client, requestId, model = '55', targetOrderId = orderId) =>
       client.query(
         `SELECT public.prepare_nfe_fiscal_snapshot(
            $1::text, $2::uuid, $3::varchar(2), 2, '1'::varchar(4), 1
          ) AS result`,
-        [orderId, requestId, model]
+        [targetOrderId, requestId, model]
       );
     await test.query('SET ROLE service_role');
     const requestId = crypto.randomUUID();
@@ -101,6 +107,7 @@ async function main() {
     assert.equal(first.snapshotId, repeated.snapshotId);
     assert.equal(first.number, 1);
     assert.equal(repeated.number, 1);
+    await assert.rejects(reserve(test, crypto.randomUUID()), /ALREADY_ACTIVE_FISCAL_ATTEMPT/);
     const { rows: captured } = await test.query(
       `SELECT snapshot_data, snapshot_sha256,
               encode(extensions.digest(convert_to(snapshot_data::text, 'UTF8'), 'sha256'), 'hex')
@@ -125,7 +132,10 @@ async function main() {
     try {
       await secondClient.connect();
       await secondClient.query('SET ROLE service_role');
-      const [a, b] = await Promise.all([reserve(test, otherA), reserve(secondClient, otherB)]);
+      const [a, b] = await Promise.all([
+        reserve(test, otherA, '55', alternateOrders[0]),
+        reserve(secondClient, otherB, '55', alternateOrders[1]),
+      ]);
       assert.deepEqual(
         [a.rows[0].result.number, b.rows[0].result.number].sort((x, y) => x - y),
         [2, 3]
@@ -140,8 +150,8 @@ async function main() {
       await sameKeyClient.connect();
       await sameKeyClient.query('SET ROLE service_role');
       const [a, b] = await Promise.all([
-        reserve(test, sharedRequestId),
-        reserve(sameKeyClient, sharedRequestId),
+        reserve(test, sharedRequestId, '55', alternateOrders[2]),
+        reserve(sameKeyClient, sharedRequestId, '55', alternateOrders[2]),
       ]);
       assert.equal(a.rows[0].result.number, 4);
       assert.equal(a.rows[0].result.snapshotId, b.rows[0].result.snapshotId);
@@ -151,8 +161,8 @@ async function main() {
 
     const { rows: linked } = await test.query(
       `INSERT INTO public.nfe_documents
-         (order_id, document_type, emission_request_id, modelo, ambiente, serie, numero_nfe)
-       VALUES ($1, 'outbound', $2, '55', 2, '1', 1)
+         (order_id, document_type, emission_request_id, modelo, ambiente, serie, numero_nfe, status)
+       VALUES ($1, 'outbound', $2, '55', 2, '1', 1, 'erro')
        RETURNING fiscal_snapshot_id`,
       [orderId, requestId]
     );
@@ -194,14 +204,15 @@ async function main() {
          (emission_request_id, order_id, order_version, order_updated_at,
           requested_model, environment, series, reserved_number,
           snapshot_data, snapshot_sha256, captured_at)
-       SELECT $1, order_id, order_version, order_updated_at,
+       SELECT $1, $3, order_version, order_updated_at,
               requested_model, environment, series, 5,
               snapshot_data, snapshot_sha256, captured_at
          FROM public.nfe_fiscal_snapshots WHERE id = $2`,
-      [conflictId, first.snapshotId]
+      [conflictId, first.snapshotId, alternateOrders[3]]
     );
     await test.query('SET ROLE service_role');
-    await assert.rejects(reserve(test, crypto.randomUUID()), { code: '23505' });
+    await assert.rejects(reserve(test, crypto.randomUUID(), '55', alternateOrders[4]),
+      { code: '23505', constraint: 'uq_nfe_fiscal_snapshot_sequence' });
     await test.query('RESET ROLE');
     const { rows: rolledBack } = await test.query(`
       SELECT ultimo_numero FROM public.nfe_sequences

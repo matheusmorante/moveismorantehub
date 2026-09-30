@@ -15,6 +15,7 @@ export type FiscalDatabase = {
         id: string;
         order_type: string;
         status: string;
+        deleted: boolean;
         order_data: Record<string, unknown> | null;
         version: number;
         updated_at: string;
@@ -25,6 +26,11 @@ export type FiscalDatabase = {
         id: string;
         data: Record<string, unknown> | null;
       }>;
+      products: FiscalTable<{ id: string; fiscal: Record<string, unknown> | null }>;
+      people: FiscalTable<{ id: string; full_name: string; cpf_cnpj: string | null;
+        address: string | null; rg_ie: string | null; person_type_pf_pj: string | null; deleted: boolean }>;
+      ncms: FiscalTable<{ code: string; active: boolean; start_date: string | null; end_date: string | null }>;
+      profiles: FiscalTable<{ id: string; role: string | null; roles: string[] | null }>;
       nfe_documents: FiscalTable<
         {
           id: string;
@@ -43,6 +49,11 @@ export type FiscalDatabase = {
           finalidade: number;
           emission_request_id: string | null;
           fiscal_snapshot_id: string | null;
+          fiscal_ruleset_version: string | null;
+          fiscal_decision_trace: Record<string, unknown>[] | null;
+          hml_attempt_token: string | null;
+          hml_attempt_expires_at: string | null;
+          hml_response_history: Record<string, unknown>[];
           created_at: string;
           updated_at: string;
         },
@@ -195,6 +206,8 @@ export type FiscalDatabase = {
       };
       prepare_nfe_fiscal_snapshot: {
         Args: {
+          p_item_csosn_overrides?: Record<string, string>;
+          p_item_fiscal_selections?: import('../../shared-utils/fiscalItemSelections').FiscalItemSelections;
           p_order_id: string;
           p_emission_request_id: string;
           p_modelo: string;
@@ -216,6 +229,43 @@ export type FiscalDatabase = {
           p_serie: string;
         };
         Returns: string;
+      };
+      reserve_hml_nfe_outbound: {
+        Args: {
+          p_attempt_token: string;
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_access_key: string;
+          p_signed_xml: string;
+          p_number: number;
+          p_series: string;
+          p_decision_trace: Record<string, unknown>[];
+        };
+        Returns: string;
+      };
+      persist_hml_nfe_result: {
+        Args: {
+          p_attempt_token: string;
+          p_document_id: string;
+          p_status: string;
+          p_reason: string;
+          p_response_xml: string;
+          p_protocol: string | null;
+          p_items: Record<string, unknown>[];
+        };
+        Returns: undefined;
+      };
+      reactivate_hml_nfe_retry: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: undefined;
+      };
+      claim_hml_nfe_attempt: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: boolean;
+      };
+      release_hml_nfe_attempt: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

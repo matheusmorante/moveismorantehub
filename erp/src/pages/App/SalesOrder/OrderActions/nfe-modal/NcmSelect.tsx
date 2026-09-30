@@ -60,15 +60,15 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
     <div className="relative w-full" ref={dropdownRef}>
       <div className="relative flex items-center">
         <input
+          aria-label="NCM"
           type="text"
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
             setSearchQuery(val);
-            // Atualiza o NCM no pai se forem 8 digitos
-            if (val.replace(/\D/g, '').length === 8) {
-              onChange(val.replace(/\D/g, '').slice(0, 8));
-            }
+            // Even an incomplete/invalid edit must replace the form value and be rejected,
+            // rather than displaying it while submitting the previous valid code.
+            onChange(val);
             setIsDropdownOpen(true);
           }}
           onFocus={() => setIsDropdownOpen(true)}

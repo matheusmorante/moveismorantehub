@@ -45,7 +45,8 @@ CREATE OR REPLACE FUNCTION public.prepare_nfe_fiscal_snapshot(
   p_modelo varchar(2),
   p_ambiente integer,
   p_serie varchar(4),
-  p_numero_minimo integer
+  p_numero_minimo integer,
+  p_item_csosn_overrides jsonb
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -55,6 +56,7 @@ DECLARE
   v_existing public.nfe_fiscal_snapshots%ROWTYPE;
   v_order public.orders%ROWTYPE;
   v_settings jsonb;
+  v_csosn_configuration jsonb;
   v_issuer_profile jsonb;
   v_snapshot_data jsonb;
   v_snapshot_hash text;
@@ -67,12 +69,18 @@ BEGIN
      OR p_modelo IS NULL OR p_modelo NOT IN ('55', '65')
      OR p_ambiente IS NULL OR p_ambiente NOT IN (1, 2)
      OR COALESCE(p_serie, '') !~ '^[0-9]{1,3}$'
-     OR COALESCE(p_numero_minimo, 0) NOT BETWEEN 1 AND 999999999 THEN
+     OR COALESCE(p_numero_minimo, 0) NOT BETWEEN 1 AND 999999999
+     OR p_item_csosn_overrides IS NULL OR pg_catalog.jsonb_typeof(p_item_csosn_overrides) <> 'object' THEN
     RAISE EXCEPTION 'Parâmetros inválidos para snapshot fiscal.' USING ERRCODE = '22023';
   END IF;
 
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('nfe_snapshot:' || p_emission_request_id::text, 0)
+  );
+  -- Different clicks for the same sale must not consume a second number while
+  -- the first emission has an unresolved outcome.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('nfe_emit:' || p_order_id || ':' || p_modelo || ':' || p_ambiente::text, 0)
   );
 
   SELECT * INTO v_existing
@@ -83,7 +91,9 @@ BEGIN
     IF v_existing.order_id IS DISTINCT FROM p_order_id
        OR v_existing.requested_model IS DISTINCT FROM p_modelo
        OR v_existing.environment IS DISTINCT FROM p_ambiente
-       OR v_existing.series IS DISTINCT FROM p_serie THEN
+       OR v_existing.series IS DISTINCT FROM p_serie
+       OR COALESCE(v_existing.snapshot_data #> '{emissionRequest,itemCsosnOverrides}', '{}'::jsonb)
+            IS DISTINCT FROM p_item_csosn_overrides THEN
       RAISE EXCEPTION 'IDEMPOTENCY_KEY_REUSED' USING ERRCODE = '23505';
     END IF;
 
@@ -96,8 +106,21 @@ BEGIN
     );
   END IF;
 
-  SELECT o.id, o.order_type, o.status, o.order_data, o.version, o.updated_at
-    INTO v_order.id, v_order.order_type, v_order.status, v_order.order_data,
+  IF EXISTS (
+    SELECT 1 FROM public.nfe_fiscal_snapshots AS s
+    WHERE s.order_id = p_order_id AND s.requested_model = p_modelo
+      AND s.environment = p_ambiente AND s.emission_request_id <> p_emission_request_id
+      AND NOT EXISTS (
+        SELECT 1 FROM public.nfe_documents AS d
+        WHERE d.fiscal_snapshot_id = s.id
+          AND d.status NOT IN ('pendente', 'processando')
+      )
+  ) THEN
+    RAISE EXCEPTION 'ALREADY_ACTIVE_FISCAL_ATTEMPT' USING ERRCODE = '23505';
+  END IF;
+
+  SELECT o.id, o.order_type, o.status, o.deleted, o.order_data, o.version, o.updated_at
+    INTO v_order.id, v_order.order_type, v_order.status, v_order.deleted, v_order.order_data,
          v_order.version, v_order.updated_at
     FROM public.orders AS o
    WHERE o.id = p_order_id
@@ -116,6 +139,29 @@ BEGIN
   IF v_order.version IS NULL OR v_order.updated_at IS NULL THEN
     RAISE EXCEPTION 'ORDER_REVISION_UNAVAILABLE' USING ERRCODE = '23514';
   END IF;
+  IF v_order.order_data ->> 'fiscalScenario' = 'HML_TECHNICAL_V1' AND
+     (v_order.status <> 'draft' OR v_order.deleted IS DISTINCT FROM true OR
+      pg_catalog.jsonb_array_length(COALESCE(v_order.order_data -> 'payments', '[]'::jsonb)) <> 0) THEN
+    RAISE EXCEPTION 'HML_ORDER_NOT_ISOLATED' USING ERRCODE = '23514';
+  END IF;
+  IF v_order.order_data ->> 'fiscalScenario' = 'HML_TECHNICAL_V1' AND EXISTS (
+    SELECT 1 FROM public.nfe_fiscal_snapshots AS s
+    WHERE s.order_id = p_order_id AND s.requested_model = '55'
+      AND s.environment = 2 AND s.emission_request_id <> p_emission_request_id
+  ) THEN
+    RAISE EXCEPTION 'HML_ORDER_ALREADY_HAS_ATTEMPT' USING ERRCODE = '23505';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_each_text(p_item_csosn_overrides) AS choice
+    WHERE choice.key !~ '^[1-9][0-9]{0,2}$' OR
+      choice.value NOT IN ('101','102','103','201','202','203','300','400','500','900')) OR
+    (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_each(p_item_csosn_overrides)) > 990 THEN
+    RAISE EXCEPTION 'INVALID_ITEM_CSOSN_OVERRIDES' USING ERRCODE = '22023';
+  END IF;
+  IF v_order.order_data ->> 'fiscalScenario' = 'HML_TECHNICAL_V1' AND EXISTS (
+    SELECT 1 FROM pg_catalog.jsonb_each(p_item_csosn_overrides) AS choice WHERE choice.key <> '1'
+  ) THEN
+    RAISE EXCEPTION 'ITEM_CSOSN_OVERRIDE_OUT_OF_RANGE' USING ERRCODE = '22023';
+  END IF;
 
   SELECT s.data INTO v_settings
     FROM public.settings AS s
@@ -124,6 +170,11 @@ BEGIN
 
   IF NOT FOUND OR v_settings IS NULL OR pg_catalog.jsonb_typeof(v_settings) <> 'object' THEN
     RAISE EXCEPTION 'ISSUER_PROFILE_UNAVAILABLE' USING ERRCODE = '23514';
+  END IF;
+  SELECT data INTO v_csosn_configuration FROM public.settings
+  WHERE id = 'nfe55_hml_csosn_defaults_v1' FOR SHARE;
+  IF v_order.order_data ->> 'fiscalScenario' = 'HML_TECHNICAL_V1' AND v_csosn_configuration IS NULL THEN
+    RAISE EXCEPTION 'HML_CSOSN_CONFIGURATION_UNAVAILABLE' USING ERRCODE = '23514';
   END IF;
 
   v_issuer_profile := pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(
@@ -168,17 +219,20 @@ BEGIN
       'id', v_order.id,
       'type', v_order.order_type,
       'status', v_order.status,
+      'deleted', v_order.deleted,
       'version', v_order.version,
       'updatedAt', v_order.updated_at,
       'data', v_order.order_data
     ),
     'issuerProfile', v_issuer_profile,
+    'fiscalConfiguration', v_csosn_configuration,
     'emissionRequest', pg_catalog.jsonb_build_object(
       'id', p_emission_request_id,
       'requestedModel', p_modelo,
       'environment', p_ambiente,
       'series', p_serie,
-      'number', v_number
+      'number', v_number,
+      'itemCsosnOverrides', p_item_csosn_overrides
     )
   );
   v_snapshot_hash := pg_catalog.encode(
@@ -207,11 +261,25 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.prepare_nfe_fiscal_snapshot(
-  text, uuid, varchar, integer, varchar, integer
+  text, uuid, varchar, integer, varchar, integer, jsonb
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.prepare_nfe_fiscal_snapshot(
-  text, uuid, varchar, integer, varchar, integer
+  text, uuid, varchar, integer, varchar, integer, jsonb
 ) TO service_role;
+
+-- Preserve existing callers while keeping snapshot logic in a single implementation.
+CREATE OR REPLACE FUNCTION public.prepare_nfe_fiscal_snapshot(
+  p_order_id text, p_emission_request_id uuid, p_modelo varchar(2),
+  p_ambiente integer, p_serie varchar(4), p_numero_minimo integer
+) RETURNS jsonb LANGUAGE sql SECURITY INVOKER SET search_path = ''
+AS $function$
+  SELECT public.prepare_nfe_fiscal_snapshot(p_order_id, p_emission_request_id,
+    p_modelo, p_ambiente, p_serie, p_numero_minimo, '{}'::jsonb);
+$function$;
+REVOKE ALL ON FUNCTION public.prepare_nfe_fiscal_snapshot(text,uuid,varchar,integer,varchar,integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prepare_nfe_fiscal_snapshot(text,uuid,varchar,integer,varchar,integer)
+  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.attach_nfe_fiscal_snapshot_to_outbound()
 RETURNS trigger

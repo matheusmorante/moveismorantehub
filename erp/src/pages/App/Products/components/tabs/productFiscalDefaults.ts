@@ -16,8 +16,8 @@ export function createInitialProductFiscalInfo(
     cfop: itemType === 'service' ? '5933' : defaults?.cfop || '5102',
     origem: defaults?.origem || '0',
     icmsPercent: defaults?.icmsPercent || 0,
-    pisCst: defaults?.pisCst || '49',
-    cofinsCst: defaults?.cofinsCst || '49',
+    pisCst: defaults?.pisCst || '99',
+    cofinsCst: defaults?.cofinsCst || '99',
     codigoServico: '',
   };
 }

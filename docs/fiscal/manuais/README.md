@@ -26,6 +26,8 @@ Os PDFs fornecidos foram removidos do repositório a pedido da usuária. Este ar
 
 ## Registro da última verificação
 
+- `last_csosn_check`: 2026-09-30. [MOC 7, Anexo I, revisão 7.03 (outubro/2020), hospedado pelo CONFAZ](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf), grupo N10d, páginas 42–43: CSOSN 102/103/300/400 compartilham `ICMSSN102`, com `orig` e `CSOSN`. O XSD oficial fixado `PL_010f_v1.04` aceita 103 nesse grupo; houve validação automatizada após assinatura. A consulta confirma a estrutura XML, não o enquadramento de toda venda real. O índice/MOC/NTs do Portal Nacional tiveram falha de redirecionamento; esta consulta não é revisão integral das NTs atuais. Endpoints NF-e 4.00 de homologação da SEFA/PR foram reconferidos em 30/09/2026.
+- `last_serializer_check`: 2026-09-30. Foi conferida a página oficial da SEFA/PR para CSRT e a estrutura do XSD `PL_010f_v1.04` já fixado; a abertura direta do índice/MOC no Portal Nacional falhou por redirecionamento nesta sessão. Não considerar esta verificação uma revisão integral do MOC/NTs nem aprovação tributária.
 - `last_official_docs_check`: 2026-09-29.
 - `moc_version_checked`: confirmar a listagem de Manuais em cada tarefa; a versão fornecida anteriormente não deve ser presumida como vigente.
 - `latest_nts_checked`: a lista/avisos oficiais consultados incluem NT 2023.003 v1.30, NT 2014.001 v1.41, NT 2014.002 v1.40, NT 2026.001 v1.02a, NT 2026.004 v1.01, NT 2025.002 v1.51, NT 2026.003 v1.00, NT 2026.002 v1.10 e NT 2026.007 v1.00. Reabrir a lista e confirmar versões, escopo e cronogramas antes de usá-las.

@@ -58,7 +58,7 @@ function response() {
 }
 
 function database() {
-  const from = vi.fn((table: string) => ({
+  const from = vi.fn<(table: string) => any>((table: string) => ({
     select: () => ({
       eq: () => ({
         maybeSingle: async () => ({
@@ -72,6 +72,7 @@ function database() {
                   version: 1,
                   updated_at: '2026-09-30T12:00:00.000Z',
                 }
+              : table === 'nfe_documents' ? null
               : { data: { companyCnpj: '00000000000000', companyCMun: '4106902' } },
           error: null,
         }),
@@ -205,6 +206,47 @@ describe('API de emissão fiscal server-side', () => {
     expect(result.statusCode).toBe(400);
     expect(result.body.code).toBe('INVALID_FISCAL_EMISSION_COMMAND');
     expect(db.from).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('recupera autorização HML antes de ler pedido e configurações atuais', async () => {
+    const db = database();
+    db.from.mockImplementation((table: string) => {
+      if (table !== 'nfe_documents') throw new Error('Pedido/configuração atual não deve ser lido');
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({
+        data: { id: retryDocumentId, order_id: orderId, modelo: '55', ambiente: 2,
+          fiscal_ruleset_version: 'HML_TECHNICAL_V1', status: 'homologada',
+          numero_protocolo: '141260000000001', numero_nfe: 700, serie: '900',
+          chave_acesso: retryAccessKey, xml_nfe: '<XML_ASSINADO_PERSISTIDO/>' },
+        error: null,
+      }) }) }) };
+    });
+    mocks.createClient.mockReturnValue(db);
+    const handler = (await import('../../../../../../api/nfe/emit')).default;
+    const result = response();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer operator-token' },
+      body: { orderId, environment: 2, emissionRequestId } } as any, result.res);
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({ success: true, documentId: retryDocumentId,
+      protocolNumber: '141260000000001', signedXml: '<XML_ASSINADO_PERSISTIDO/>' });
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(mocks.extractCertificateAndKey).not.toHaveBeenCalled();
+  });
+
+  it('mantém produção bloqueada mesmo com confirmação e flag legada', async () => {
+    const db = database();
+    mocks.createClient.mockReturnValue(db);
+    process.env.NFE_PRODUCTION_ENABLED = 'true';
+    const handler = (await import('../../../../../../api/nfe/emit')).default;
+    const result = response();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer operator-token' },
+      body: { orderId, environment: 1, emissionRequestId, productionConfirmed: true } } as any,
+    result.res);
+    expect(result.statusCode).toBe(503);
+    expect(result.body.code).toBe('PRODUCTION_FISCAL_RULESET_REQUIRED');
+    expect(db.from).not.toHaveBeenCalledWith('orders');
+    expect(db.rpc).not.toHaveBeenCalled();
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 

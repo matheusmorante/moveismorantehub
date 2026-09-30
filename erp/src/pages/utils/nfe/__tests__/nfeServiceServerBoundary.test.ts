@@ -44,6 +44,27 @@ describe('emissão NF-e no ERP', () => {
     expect(JSON.parse(String(request.body)).emissionRequestId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
+    await emitNfeForOrder({ id: 'order-123' } as any, 2);
+    const repeated = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    expect(repeated.emissionRequestId).toBe(JSON.parse(String(request.body)).emissionRequestId);
+  });
+
+  it('sends all confirmed item fields and distinguishes explicit CSOSN choices', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({ error: 'pending' }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    await emitNfeForOrder({ id: 'manual-order', items: [
+      { itemType: 'product', fiscal: { cst: '103', csosnSource: 'default', ncm: '94036000', cfop: '5102', origem: '0' } },
+      { itemType: 'service' },
+      { itemType: 'product', fiscal: { cst: '102', csosnSource: 'manual', ncm: '94034000', cfop: '5102', origem: '2', cest: '2804400' } },
+    ] } as any, 2);
+    const [, request] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(request.body)).itemCsosnOverrides).toEqual({ '2': '102' });
+    expect(JSON.parse(String(request.body)).itemFiscalSelections).toEqual({
+      '1': { csosn: '103', ncm: '94036000', cfop: '5102', origem: '0', cest: '' },
+      '2': { csosn: '102', ncm: '94034000', cfop: '5102', origem: '2', cest: '2804400' },
+    });
+    expect(String(request.body)).not.toContain('pis');
   });
 
   it('retransmite usando apenas o ID do documento e devolve a chave fiscal persistida', async () => {

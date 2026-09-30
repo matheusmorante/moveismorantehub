@@ -46,7 +46,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const modelLabel = isPickup ? 'NFC-e · modelo 65 · retirada' : 'NF-e · modelo 55 · entrega';
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="Emitir nota fiscal de saída"
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
@@ -66,6 +67,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
             </div>
           </div>
           <button
+            aria-label="Fechar emissão fiscal"
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >

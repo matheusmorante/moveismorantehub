@@ -8,8 +8,11 @@ import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
 import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { resolveNfeSequenceSettings } from './nfeSequenceSettings';
 import { canIssueCce } from './nfeCce';
+import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
 
 export { canIssueCce };
+
+const fiscalEmissionRequestIds = new Map<string, string>();
 
 export interface NfeEmissionResult {
   success: boolean;
@@ -144,6 +147,29 @@ export async function emitNfeForOrder(
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session?.access_token)
         throw new Error('Sessão fiscal expirada.');
+      const requestKey = `${String(order.id || '')}:55:${environment}`;
+      const storageKey = `nfe-emission-request:${requestKey}`;
+      let storedRequestId: string | null = null;
+      try { storedRequestId = typeof window !== 'undefined'
+        ? window.localStorage.getItem(storageKey) : null; } catch { /* storage indisponível */ }
+      const emissionRequestId = fiscalEmissionRequestIds.get(requestKey) ||
+        (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
+        crypto.randomUUID();
+      fiscalEmissionRequestIds.set(requestKey, emissionRequestId);
+      try { if (typeof window !== 'undefined')
+        window.localStorage.setItem(storageKey, emissionRequestId); } catch { /* storage indisponível */ }
+      const itemCsosnOverrides = Object.fromEntries((order.items || []).filter((item) => item.itemType !== 'service')
+        .flatMap((item, index) => {
+          const fiscal = (item as unknown as { fiscal?: { cst?: string; csosnSource?: string } }).fiscal;
+          return fiscal?.csosnSource === 'manual' && fiscal.cst ? [[String(index + 1), fiscal.cst]] : [];
+        }));
+      const itemFiscalSelections = parseFiscalItemSelections(Object.fromEntries(
+        (order.items || []).filter((item) => item.itemType !== 'service').flatMap((item, index) => {
+          const fiscal = (item as unknown as { fiscal?: { ncm?: string; cfop?: string;
+            origem?: string; cest?: string; cst?: string } }).fiscal;
+          return fiscal ? [[String(index + 1), { ncm: fiscal.ncm, cfop: fiscal.cfop,
+            origem: fiscal.origem, cest: fiscal.cest ?? '', csosn: fiscal.cst }]] : [];
+        })));
       const response = await fetch('/api/nfe/emit', {
         method: 'POST',
         headers: {
@@ -154,17 +180,38 @@ export async function emitNfeForOrder(
           orderId: String(order.id || ''),
           environment,
           productionConfirmed,
-          emissionRequestId: crypto.randomUUID(),
+          emissionRequestId,
+          ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
+          ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
         }),
       });
       const result = await response.json().catch(() => ({}));
+      const metadata = {
+        documentId: typeof result.documentId === 'string' ? result.documentId : undefined,
+        orderId: typeof result.orderId === 'string' ? result.orderId : undefined,
+        accessKey: typeof result.accessKey === 'string' ? result.accessKey : undefined,
+        nfeNumber: Number.isInteger(result.nfeNumber) ? result.nfeNumber : undefined,
+        series: typeof result.series === 'string' ? result.series : undefined,
+        model: result.model === '55' ? '55' as const : undefined,
+        environment,
+        xml: typeof result.signedXml === 'string' ? result.signedXml : undefined,
+        protocolNumber: typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
+        protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : undefined,
+        pending: Boolean(result.pending),
+        cStat: typeof result.cStat === 'string' ? result.cStat : undefined,
+        sefazMessage: typeof result.xMotivo === 'string' ? result.xMotivo : undefined,
+      };
+      if (response.ok && result.success === true)
+        return { success: true, ...metadata,
+          danfeUnavailableReason: 'DANFE HML deve ser gerado do XML fiscal persistido no backend.' };
       return {
         success: false,
-        environment,
+        ...metadata,
         error:
           typeof result.error === 'string'
             ? result.error
-            : 'A emissão não foi preparada pelo Fiscal Core do servidor.',
+            : (typeof result.xMotivo === 'string' ? result.xMotivo
+              : 'A SEFAZ não confirmou a emissão fiscal.'),
       };
     } catch (error) {
       return {

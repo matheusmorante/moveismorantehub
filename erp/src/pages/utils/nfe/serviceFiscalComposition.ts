@@ -1,4 +1,4 @@
-import type { Item } from '@/pages/types/items.type';
+import type { Item } from '../../types/items.type.js';
 const toCents = (value: number) => Math.round((Number(value) || 0) * 100);
 const fromCents = (value: number) => value / 100;
 const getItemNetCents = (item: Item) => {

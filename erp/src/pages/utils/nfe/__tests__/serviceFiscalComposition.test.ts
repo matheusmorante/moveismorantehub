@@ -4,7 +4,9 @@ import { composeServiceFiscalValues } from '../serviceFiscalComposition';
 import { buildItemsXml } from '../xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from '../xml/xmlTotalsBlock';
 
-const product = (id: string, unitPrice: number, quantity = 1): Item => ({
+const product = (id: string, unitPrice: number, quantity = 1): Item & {
+  fiscal: { ncm: string; cfop: string; cst: string; origem: string };
+} => ({
   orderItemId: id,
   itemType: 'product',
   description: `Produto ${id}`,
@@ -14,7 +16,7 @@ const product = (id: string, unitPrice: number, quantity = 1): Item => ({
   unitDiscount: 0,
   discountType: 'fixed',
   handlingType: '',
-  fiscal: { ncm: '94036000' } as any,
+  fiscal: { ncm: '94036000', cfop: '5102', cst: '103', origem: '2' },
 });
 const service = (unitPrice: number, linkedProductOrderItemId?: string, quantity = 1): Item => ({
   orderItemId: `serv-${unitPrice}`,
@@ -27,9 +29,33 @@ const service = (unitPrice: number, linkedProductOrderItemId?: string, quantity 
   handlingType: '',
   linkedProductOrderItemId,
 });
-const settings = { fiscalDefaults: { ncm: '94036000' } } as any;
+const settings = { companyCRT: '1', fiscalDefaults: { ncm: '94036000' } } as any;
 
 describe('service fiscal composition', () => {
+  it('serializes CSOSN 103 in ICMSSN102, preserving origin and other taxes', () => {
+    const item = product('A', 100);
+    const before = structuredClone(item);
+    const { itemsXml } = buildItemsXml({ items: [item] } as any, settings, true);
+    expect(itemsXml).toContain('<ICMSSN102>');
+    expect(itemsXml).toContain('<CSOSN>103</CSOSN>');
+    expect(itemsXml).toContain('<orig>2</orig>');
+    expect(itemsXml).not.toContain('<ICMSSN103>');
+    expect(itemsXml).toContain('<NCM>94036000</NCM>');
+    expect(itemsXml).toContain('<CFOP>5102</CFOP>');
+    expect(itemsXml.match(/<CST>49<\/CST>/g)).toHaveLength(2);
+    expect(item).toEqual(before);
+  });
+
+  it('requires resolved CSOSN and a supported group/regime instead of fabricating a default', () => {
+    for (const cst of ['', '500']) {
+      const item = product('A', 100);
+      item.fiscal.cst = cst;
+      expect(() => buildItemsXml({ items: [item] } as any, settings, true)).toThrow();
+    }
+    expect(() => buildItemsXml({ items: [product('A', 100)] } as any,
+      { ...settings, companyCRT: '3' }, true)).toThrow(/CRT 1/);
+  });
+
   it('routes unlinked services to vOutro; linked values attach to the exact product line', () => {
     const result = composeServiceFiscalValues([
       product('A', 1500),

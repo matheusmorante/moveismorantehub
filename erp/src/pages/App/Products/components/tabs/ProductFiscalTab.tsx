@@ -273,7 +273,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormDa
               PIS CST
             </label>
             <select
-              value={formData.fiscal?.pisCst || '49'}
+              value={formData.fiscal?.pisCst || '99'}
               onChange={(e) =>
                 setFormData({
                   ...formData,
@@ -296,7 +296,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormDa
               COFINS CST
             </label>
             <select
-              value={formData.fiscal?.cofinsCst || '49'}
+              value={formData.fiscal?.cofinsCst || '99'}
               onChange={(e) =>
                 setFormData({
                   ...formData,

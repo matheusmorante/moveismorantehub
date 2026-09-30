@@ -4,6 +4,7 @@ import { NcmSelect } from '../../../SalesOrder/OrderActions/nfe-modal/NcmSelect'
 import { NcmManagementPanel } from './NcmManagementPanel';
 import { CFOP_OPTIONS } from '../../../../utils/nfe/fiscalConstants';
 import { normalizeCfop } from '../../../../utils/nfe/fiscalCfopResolution';
+import { HmlCsosnSettings } from './HmlCsosnSettings';
 
 interface FiscalSettingsSectionProps {
   settings: any;
@@ -18,11 +19,11 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
     ncm: '94036000',
     cest: '',
     cfop: '5102',
-    cst: '102',
+    cst: '',
     icmsPercent: 0,
     origem: '0',
-    pisCst: '49',
-    cofinsCst: '49',
+    pisCst: '99',
+    cofinsCst: '99',
   };
 
   const updateFiscal = (field: string, value: any) => {
@@ -183,21 +184,23 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
       </div>
 
       {/* CSOSN Padrão */}
+      <HmlCsosnSettings />
       <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex-1 max-w-lg">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">
-              CSOSN Padrão
+              CSOSN padrão do cadastro
             </h4>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
               Código de Situação da Operação do ICMS no Simples Nacional.
             </p>
           </div>
           <select
-            value={fiscal.cst || '102'}
+            value={fiscal.cst || ''}
             onChange={(e) => updateFiscal('cst', e.target.value)}
             className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-96 transition-all font-bold"
           >
+            <option value="">Selecione o CSOSN</option>
             {csosns.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -441,7 +444,7 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
             </p>
           </div>
           <select
-            value={fiscal.pisCst || '49'}
+            value={fiscal.pisCst || '99'}
             onChange={(e) => {
               const val = e.target.value;
               onChange('fiscalDefaults', {

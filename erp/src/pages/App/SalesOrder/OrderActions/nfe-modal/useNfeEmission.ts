@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Order from '@/pages/types/order.type';
 import { emitNfeForOrder, NfeEmissionResult, printOrderDanfe } from '@/pages/utils/nfe/nfeService';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
@@ -9,6 +9,17 @@ import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
+import type { FiscalInfo } from '@/pages/types/product.type';
+import { prepareHmlItemCsosns } from '@/pages/utils/nfe/csosnConfigurationService';
+
+// In-memory emission drafts survive modal unmounts; no product/order mutation or persistent PII.
+const fiscalDrafts = new Map<string, Record<number, Partial<NfeItemFiscal>>>();
+const draftKey = (order: Order, environment: number) => JSON.stringify([
+  String(order.id), environment, (order as unknown as { version?: number }).version,
+  (order.items || []).filter((item) => item.itemType !== 'service').map((item) => [
+    item.orderItemId, item.productId, item.variationId, item.quantity, item.unitPrice,
+  ]),
+]);
 
 export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const { profile } = useAuth();
@@ -18,6 +29,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
   const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(false);
+  const manualFiscalFields = useRef(fiscalDrafts);
 
   // Carregar e enriquecer os itens da venda com dados fiscais e detecção de cadastro
   useEffect(() => {
@@ -33,56 +45,71 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     setIsLoadingFiscalData(true);
 
     const enrichItems = async () => {
-      const enrichedList: NfeItemWithFiscal[] = [];
+      try {
+        const enrichedList: NfeItemWithFiscal[] = [];
+        const preparedCsosns =
+          environment === 2 ? await prepareHmlItemCsosns(String(order.id)) : [];
 
-      const productItems = order.items.filter((item) => item.itemType !== 'service');
-      for (const item of productItems) {
-        const isUnregistered = !item.productId;
-        let itemNcm = (item as any).fiscal?.ncm || '';
-        let itemCest = (item as any).fiscal?.cest || '';
-        let itemCfop = (item as any).fiscal?.cfop || defaultFiscal.cfop || '5102';
-        const itemCst = (item as any).fiscal?.cst || defaultFiscal.cst || '102';
-        const itemOrigem = (item as any).fiscal?.origem || defaultFiscal.origem || '0';
+        const productItems = order.items.filter((item) => item.itemType !== 'service');
+        for (const [index, item] of productItems.entries()) {
+          const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
+          if (environment === 2 && !preparedCsosn)
+            throw new Error('CSOSN do item não foi preparado no servidor.');
+          const isUnregistered = !item.productId;
+          const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
+          let catalogFiscal: FiscalInfo | undefined;
 
-        // Se o produto está cadastrado no ERP mas não veio com dados fiscais no snapshot do item,
-        // consulta o cadastro do produto/variação no banco para obter NCM/dados fiscais oficiais
-        if (item.productId) {
-          try {
-            const fullProd = await getFullProduct(item.productId);
-            const variation = item.variationId
-              ? fullProd?.variations?.find((candidate) => candidate.id === item.variationId)
-              : undefined;
-            const catalogFiscal = variation?.fiscal || fullProd?.fiscal;
-            if (!itemNcm && catalogFiscal?.ncm) {
-              itemNcm = catalogFiscal.ncm;
+          // Se o produto está cadastrado no ERP mas não veio com dados fiscais no snapshot do item,
+          // consulta o cadastro do produto/variação no banco para obter NCM/dados fiscais oficiais
+          if (item.productId) {
+            try {
+              const fullProd = await getFullProduct(item.productId);
+              const variation = item.variationId
+                ? fullProd?.variations?.find((candidate) => candidate.id === item.variationId)
+                : undefined;
+              catalogFiscal = {
+                ncm: variation?.fiscal?.ncm || fullProd?.fiscal?.ncm,
+                cest: variation?.fiscal?.cest || fullProd?.fiscal?.cest,
+                cfop: variation?.fiscal?.cfop || fullProd?.fiscal?.cfop,
+                cst: variation?.fiscal?.cst || fullProd?.fiscal?.cst,
+                origem: variation?.fiscal?.origem || fullProd?.fiscal?.origem,
+              };
+            } catch {
+              // ignore
             }
-            if (!itemCest && catalogFiscal?.cest) {
-              itemCest = catalogFiscal.cest;
-            }
-            if (!itemCfop && catalogFiscal?.cfop) {
-              itemCfop = catalogFiscal.cfop;
-            }
-          } catch {
-            // ignore
+          }
+
+          enrichedList.push({
+            ...item,
+            isUnregistered,
+            fiscal: {
+              ncm: savedFiscal?.ncm || catalogFiscal?.ncm || '',
+              cest: savedFiscal?.cest || catalogFiscal?.cest || '',
+              cfop: savedFiscal?.cfop || catalogFiscal?.cfop || defaultFiscal.cfop || '5102',
+              cst: preparedCsosn?.csosn || savedFiscal?.cst || catalogFiscal?.cst || '',
+              csosnSource: preparedCsosn?.source,
+              origem: savedFiscal?.origem || catalogFiscal?.origem || defaultFiscal.origem || '0',
+            },
+          });
+          const manual = manualFiscalFields.current.get(draftKey(order, environment))?.[index];
+          if (manual !== undefined) {
+            enrichedList[index].fiscal = { ...enrichedList[index].fiscal, ...manual,
+              ...(manual.cst !== undefined ? { csosnSource: 'manual' } : {}) };
           }
         }
 
-        enrichedList.push({
-          ...item,
-          isUnregistered,
-          fiscal: {
-            ncm: itemNcm,
-            cest: itemCest,
-            cfop: itemCfop,
-            cst: itemCst,
-            origem: itemOrigem,
-          },
-        });
-      }
-
-      if (isMounted) {
-        setNfeItems(enrichedList);
-        setIsLoadingFiscalData(false);
+        if (isMounted) {
+          setNfeItems(enrichedList);
+          setIsLoadingFiscalData(false);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setNfeItems([]);
+          setIsLoadingFiscalData(false);
+          toast.error(
+            error instanceof Error ? error.message : 'Falha ao preparar CSOSN dos itens.'
+          );
+        }
       }
     };
 
@@ -91,9 +118,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     return () => {
       isMounted = false;
     };
-  }, [order]);
+  }, [order, environment]);
 
   const handleUpdateItemFiscal = (index: number, updates: Partial<NfeItemFiscal>) => {
+    if (order) {
+      const key = draftKey(order, environment);
+      const existing = manualFiscalFields.current.get(key) || {};
+      manualFiscalFields.current.set(key, { ...existing, [index]: { ...existing[index], ...updates } });
+    }
     setNfeItems((prev) =>
       prev.map((item, idx) => {
         if (idx !== index) return item;
@@ -102,6 +134,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           fiscal: {
             ...item.fiscal,
             ...updates,
+            ...(updates.cst !== undefined ? { csosnSource: 'manual' } : {}),
           },
         };
       })
@@ -109,7 +142,21 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   const handleBatchUpdateItems = (updated: NfeItemWithFiscal[]) => {
-    setNfeItems(updated);
+    const key = order ? draftKey(order, environment) : '';
+    const choices = { ...manualFiscalFields.current.get(key) };
+    const resolved = updated.map((item, index) => {
+      const changed = item.fiscal.cst !== nfeItems[index]?.fiscal.cst;
+      const changedFields = Object.fromEntries((['ncm', 'cfop', 'origem', 'cest', 'cst'] as const)
+        .filter((field) => item.fiscal[field] !== nfeItems[index]?.fiscal[field])
+        .map((field) => [field, item.fiscal[field]]));
+      choices[index] = { ...choices[index], ...changedFields };
+      return {
+        ...item,
+        fiscal: { ...item.fiscal, ...(changed ? { csosnSource: 'manual' as const } : {}) },
+      };
+    });
+    if (order) manualFiscalFields.current.set(key, choices);
+    setNfeItems(resolved);
   };
 
   const handleEmit = async (productionConfirmed = false, isRetry = false) => {
@@ -118,6 +165,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       return;
     }
     if (!order) return;
+    if (isLoadingFiscalData || !nfeItems.length) {
+      toast.error('Aguarde a preparação fiscal dos itens antes de emitir.');
+      return;
+    }
+    if (nfeItems.some((item) => !item.fiscal.cst)) {
+      toast.error('Selecione o CSOSN de todos os itens.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       // Constrói pedido com os itens atualizados e dados fiscais específicos

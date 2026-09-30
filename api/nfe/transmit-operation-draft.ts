@@ -391,7 +391,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let nfeNumber: number;
     let series: string;
     if (!accessKey || !signedXml) {
-      const responsibleTechnician = getResponsibleTechnicianConfig();
+      const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
       if (!responsibleTechnician)
         return res.status(503).json({
           success: false,
