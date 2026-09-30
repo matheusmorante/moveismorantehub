@@ -117,7 +117,11 @@ async function consultExisting(
   return { status: 200, body: { success: true, documentId: doc.id,
     orderId: doc.order_id, accessKey: doc.chave_acesso, nfeNumber: doc.numero_nfe,
     series: doc.serie, model: '55', environment: 2,
-    protocolNumber: parsed.protocolNumber, protocolDate: parsed.protocolDate,/** Performs a fresh, read-only SEFAZ query for a document whose authorization is already final. */
+    protocolNumber: parsed.protocolNumber, protocolDate: parsed.protocolDate,
+    signedXml: doc.xml_nfe, cStat: parsed.cStat, xMotivo: parsed.xMotivo } };
+}
+
+/** Performs a fresh, read-only SEFAZ query for a document whose authorization is already final. */
 export async function consultAuthorizedHmlTechnical(
   doc: Pick<HmlDocumentRow,
     'id' | 'order_id' | 'numero_nfe' | 'serie' | 'chave_acesso' | 'modelo' |
@@ -187,10 +191,6 @@ export async function consultAuthorizedHmlTechnical(
     protocolDate: parsed.protocolDate,
     responseHash: createHash('sha256').update(response).digest('hex'),
   } };
-}
-
-
-    signedXml: doc.xml_nfe, cStat: parsed.cStat, xMotivo: parsed.xMotivo } };
 }
 
 async function transmitAndPersist(
