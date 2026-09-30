@@ -1,3 +1,8 @@
+model_verbosity = "medium"
+web_search = "live"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+model_reasoning_summary = "detailed"
 [mcp_servers.calm]
 command = "npx.cmd"
 args = ["--yes", "@eilodon/calm-mcp@0.8.0", "serve", "--project-root", ".", "--preset", "orient,trace,change"]
