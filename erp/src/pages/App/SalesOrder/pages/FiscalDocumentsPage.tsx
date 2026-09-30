@@ -291,6 +291,8 @@ export default function FiscalDocumentsPage() {
       toast.success(
         result.state === 'cancelled'
           ? 'SEFAZ confirmou o cancelamento; documento reconciliado.'
+          : result.sefazConsulted === true
+            ? `Consulta direta à SEFAZ confirmou a autorização${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
           : `Documento autorizado na SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
       );
       await loadDocuments();

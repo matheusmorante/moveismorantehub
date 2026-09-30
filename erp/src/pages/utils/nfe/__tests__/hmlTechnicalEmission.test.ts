@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emitHmlTechnical, retryHmlTechnical } from '../../../../../../api/nfe/emitHmlTechnical';
+import { consultAuthorizedHmlTechnical, emitHmlTechnical, retryHmlTechnical } from '../../../../../../api/nfe/emitHmlTechnical';
 import type { FiscalSnapshotCandidate } from '../../../../../../api/nfe/fiscalSnapshot';
 import { HML_CSOSN_SETTINGS_ID, initialHmlCsosnConfiguration } from '../../../../../../api/nfe/csosnPolicy';
 import { embeddedNfeXml } from '../../../../../../api/nfe/xmlEnvelope';
@@ -237,6 +237,36 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledWith(expect.objectContaining({
       url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
     }));
+  });
+
+  it('faz consulta SOAP real somente leitura e confere a chave/protocolo autorizados persistidos', async () => {
+    const accessKey = '4'.repeat(44);
+    const document = { id: 'doc-hml', order_id: runId, numero_nfe: 701, serie: '1',
+      chave_acesso: accessKey, modelo: '55', ambiente: 2, status: 'homologada',
+      numero_protocolo: '141260000000099', fiscal_ruleset_version: 'HML_NORMAL_SALE_V1' };
+    mocks.sendSoapToSefaz.mockResolvedValue(
+      `<retConsSitNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><protNFe><infProt><chNFe>${accessKey}</chNFe><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>141260000000099</nProt><dhRecbto>2026-09-30T15:00:00-03:00</dhRecbto></infProt></protNFe></retConsSitNFe>`
+    );
+    const result = await consultAuthorizedHmlTechnical(document);
+    expect(result.body).toMatchObject({ success: true, state: 'authorized', sefazConsulted: true,
+      documentId: 'doc-hml', nfeNumber: 701, series: '1', cStat: '100',
+      protocolNumber: document.numero_protocolo, responseHash: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
+      xmlPayload: expect.stringContaining(`<chNFe>${accessKey}</chNFe>`),
+    }));
+  });
+
+  it('preserva a autorização original e exige reconciliação se a consulta não confirmar o protocolo', async () => {
+    const accessKey = '4'.repeat(44);
+    const document = { id: 'doc-hml', order_id: runId, numero_nfe: 701, serie: '1',
+      chave_acesso: accessKey, modelo: '55', ambiente: 2, status: 'homologada',
+      numero_protocolo: '141260000000099', fiscal_ruleset_version: 'HML_NORMAL_SALE_V1' };
+    mocks.sendSoapToSefaz.mockResolvedValue('<retConsSitNFe><cStat>217</cStat><xMotivo>Não consta</xMotivo></retConsSitNFe>');
+    const result = await consultAuthorizedHmlTechnical(document);
+    expect(result).toMatchObject({ status: 409, body: { success: false, pending: true,
+      code: 'HML_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED', sefazConsulted: true } });
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
   });
 
   it('mantém a mesma tentativa pendente após timeout e não envia de novo', async () => {

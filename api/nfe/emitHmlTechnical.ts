@@ -28,6 +28,7 @@ export const isHmlRuleSet = (version: unknown) =>
 
 type Database = SupabaseClient<FiscalDatabase>;
 type Result = { status: number; body: Record<string, unknown> };
+type HmlDocumentRow = FiscalDatabase['public']['Tables']['nfe_documents']['Row'];
 const endpoint = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4';
 const consultEndpoint = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4';
 const failure = (status: number, code: string, error: string, extra: Record<string, unknown> = {}): Result =>
@@ -116,7 +117,79 @@ async function consultExisting(
   return { status: 200, body: { success: true, documentId: doc.id,
     orderId: doc.order_id, accessKey: doc.chave_acesso, nfeNumber: doc.numero_nfe,
     series: doc.serie, model: '55', environment: 2,
-    protocolNumber: parsed.protocolNumber, protocolDate: parsed.protocolDate,
+    protocolNumber: parsed.protocolNumber, protocolDate: parsed.protocolDate,/** Performs a fresh, read-only SEFAZ query for a document whose authorization is already final. */
+export async function consultAuthorizedHmlTechnical(
+  doc: Pick<HmlDocumentRow,
+    'id' | 'order_id' | 'numero_nfe' | 'serie' | 'chave_acesso' | 'modelo' |
+    'ambiente' | 'status' | 'numero_protocolo' | 'fiscal_ruleset_version'>
+): Promise<Result> {
+  if (doc.ambiente !== 2 || doc.modelo !== '55' || doc.status !== 'homologada' ||
+      !isHmlRuleSet(doc.fiscal_ruleset_version) || !/^\d{44}$/.test(doc.chave_acesso) ||
+      !doc.numero_protocolo)
+    return failure(409, 'HML_AUTHORIZED_DOCUMENT_INVALID',
+      'A consulta direta exige uma NF-e 55 de homologação autorizada com chave e protocolo persistidos.');
+
+  const pfx = process.env.NFE_CERTIFICATE_BASE64;
+  if (!pfx)
+    return failure(503, 'HML_CERTIFICATE_UNAVAILABLE', 'Certificado A1 não configurado.');
+  let cert: ReturnType<typeof extractCertificateAndKey>;
+  try { cert = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ''); }
+  catch { return failure(503, 'HML_CERTIFICATE_INVALID', 'Certificado A1 inválido.'); }
+
+  const consultedAt = new Date().toISOString();
+  const query = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
+  let response: string;
+  try {
+    response = await sendSoapToSefaz({
+      url: consultEndpoint,
+      action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
+      serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
+      xmlPayload: query,
+      certPem: cert.certPem,
+      privateKeyPem: cert.privateKeyPem,
+    });
+  } catch (error) {
+    const transportDiagnostic = sefazTransportDiagnostic(error);
+    console.error('SEFAZ_HML_AUTHORIZED_CONSULT', transportDiagnostic);
+    return failure(502, 'HML_AUTHORIZED_CONSULT_UNKNOWN',
+      'A consulta direta à SEFAZ não teve resposta confirmada. A autorização persistida foi preservada.',
+      { pending: true, documentId: doc.id, sefazConsulted: false, transportDiagnostic });
+  }
+
+  const situation = parseSefazNfeSituation(response);
+  const parsed = parseSefazAuthorization(response);
+  if (situation.state !== 'authorized' || !parsed.authorized ||
+      parsed.protocolNumber !== doc.numero_protocolo || !hasProtocolKey(response, doc.chave_acesso)) {
+    return failure(409, 'HML_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED',
+      situation.state === 'cancelled'
+        ? 'A consulta encontrou um estado diferente da autorização persistida. Reconciliação fiscal manual necessária; nenhum dado foi sobrescrito.'
+        : 'A consulta não confirmou a autorização e o protocolo persistidos. Reconciliação fiscal manual necessária; nenhum dado foi sobrescrito.',
+      { pending: true, documentId: doc.id, sefazConsulted: true,
+        cStat: situation.cStat || parsed.cStat, xMotivo: situation.xMotivo || parsed.xMotivo,
+        protocolMatches: parsed.protocolNumber === doc.numero_protocolo,
+        responseHash: createHash('sha256').update(response).digest('hex') });
+  }
+
+  return { status: 200, body: {
+    success: true,
+    state: 'authorized',
+    sefazConsulted: true,
+    consultedAt,
+    documentId: doc.id,
+    orderId: doc.order_id,
+    nfeNumber: doc.numero_nfe,
+    series: doc.serie,
+    model: '55',
+    environment: 2,
+    cStat: parsed.cStat,
+    xMotivo: situation.xMotivo || parsed.xMotivo,
+    protocolNumber: parsed.protocolNumber,
+    protocolDate: parsed.protocolDate,
+    responseHash: createHash('sha256').update(response).digest('hex'),
+  } };
+}
+
+
     signedXml: doc.xml_nfe, cStat: parsed.cStat, xMotivo: parsed.xMotivo } };
 }
 
