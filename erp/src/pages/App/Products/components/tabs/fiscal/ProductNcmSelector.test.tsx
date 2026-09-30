@@ -61,3 +61,21 @@ it('mantém a seleção por busca de texto/código sem controles ou chamadas de 
   fireEvent.click(screen.getByText('Outros móveis de madeira'));
   expect(screen.getByText('94036000')).toBeTruthy();
 });
+
+it('mostra sugestão pendente em amarelo e permite aceitar ou rejeitar', () => {
+  const accept = vi.fn();
+  const reject = vi.fn();
+  render(<ProductNcmSelector formData={{ fiscal: { ncm: '' } }} setFormData={vi.fn()} suggestion={{ code: '94036000', description: 'Móveis de madeira' }} onAcceptSuggestion={accept} onRejectSuggestion={reject} />);
+  const status = screen.getByRole('status');
+  expect(status.textContent).toContain('aguardando confirmação');
+  expect(status.className).toContain('amber');
+  fireEvent.click(screen.getByRole('button', { name: 'Aceitar sugestão de NCM' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Rejeitar sugestão de NCM' }));
+  expect(accept).toHaveBeenCalledOnce();
+  expect(reject).toHaveBeenCalledOnce();
+});
+
+it('não mostra sugestão concorrente quando NCM já está preenchido', () => {
+  render(<ProductNcmSelector formData={{ fiscal: { ncm: '94036000' } }} setFormData={vi.fn()} suggestion={{ code: '12345678', description: 'Outra' }} />);
+  expect(screen.queryByRole('status')).toBeNull();
+});

@@ -14,6 +14,11 @@ import { validateNfeAgainstOfficialSchema } from './schemaValidator';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { isNfeProductionEnabled } from './productionGuard';
+import {
+  appendResponsibleTechnician,
+  getResponsibleTechnicianConfig,
+  hasResponsibleTechnicianCsrt,
+} from './responsibleTechnician';
 import { resolveNfeSequenceSettings } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 
@@ -117,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ success: false, error: 'Rascunho fiscal inválido.' });
   }
 
+  let reservedNfeNumber: number | undefined;
   try {
     const { data: draft, error: draftError } = await db
       .from('nfe_operation_drafts')
@@ -385,6 +391,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let nfeNumber: number;
     let series: string;
     if (!accessKey || !signedXml) {
+      const responsibleTechnician = getResponsibleTechnicianConfig();
+      if (!responsibleTechnician)
+        return res.status(503).json({
+          success: false,
+          error:
+            'Configuração obrigatória de responsável técnico/CSRT da NF-e indisponível no servidor.',
+        });
+      const municipalityCode = String(settings.companyCMun || '').trim();
+      if (!/^\d{7}$/.test(municipalityCode))
+        return res.status(503).json({
+          success: false,
+          error: 'Código IBGE do município do estabelecimento inválido na configuração fiscal.',
+        });
+
       const sequence = resolveNfeSequenceSettings(settings, '55', environment);
       series = sequence.series;
       const minimumNumber = sequence.minimumNumber;
@@ -401,6 +421,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
       nfeNumber = reservedNumber;
+      reservedNfeNumber = reservedNumber;
       const now = new Date();
       const issuedAt = brazilTimestamp(now);
       const generatedKey = generateNfeAccessKey({
@@ -414,7 +435,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       accessKey = generatedKey.accessKey;
       const originalById = new Map(originalLines.map((line) => [line.id, line]));
-      const xml = buildReviewedFiscalOperationXml({
+      const baseXml = buildReviewedFiscalOperationXml({
         kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
         environment,
         originalEnvironment: environment,
@@ -456,6 +477,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           };
         }),
       });
+      const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician);
       await validateNfeAgainstOfficialSchema(xml);
       signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
       await validateNfeAgainstOfficialSchema(signedXml);
@@ -481,6 +503,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       nfeNumber = Number(accessKey.slice(25, 34));
       series = String(Number(accessKey.slice(22, 25)));
+      // A 217 recovery reuses the stored XML, but it still has to pass the
+      // local schema gate before claiming the draft or opening a SOAP request.
+      if (!hasResponsibleTechnicianCsrt(signedXml))
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error:
+            'O XML assinado desta tentativa não contém CSRT. Não é seguro alterá-lo durante retry; faça reconciliação fiscal antes de retransmitir.',
+        });
+      await validateNfeAgainstOfficialSchema(signedXml);
       const { data: claimed, error: claimError } = await db
         .from('nfe_operation_drafts')
         .update({ status: 'transmitting', updated_at: new Date().toISOString() })
@@ -557,9 +589,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       '[NF-e Draft] Erro no fluxo de emissão:',
       error instanceof Error ? error.message : 'erro desconhecido'
     );
-    return res.status(500).json({
+    const message = error instanceof Error ? error.message : 'Erro interno na emissão fiscal.';
+    const schemaFailure = message.startsWith('XML da NF-e não passou pelo schema oficial');
+    return res.status(schemaFailure ? 422 : 500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Erro interno na emissão fiscal.',
+      ...(reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : {}),
+      error: schemaFailure && reservedNfeNumber
+        ? `${message} O número ${reservedNfeNumber} já foi consumido pela sequência; nenhuma transmissão foi feita. Uma nova tentativa reservará outro número.`
+        : message,
     });
   }
 }

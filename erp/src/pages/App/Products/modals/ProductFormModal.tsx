@@ -67,6 +67,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     ecomStatus,
     pricing,
     ai,
+    jev,
     variations,
     draft,
     images,
@@ -220,7 +221,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           )}
 
           {activeTab === 'fiscal' && (
-            <ProductFiscalTab formData={formData} setFormData={setFormData} />
+            <ProductFiscalTab formData={formData} setFormData={setFormData} ncmSuggestion={jev.suggestion} onAcceptNcmSuggestion={jev.acceptSuggestion} onRejectNcmSuggestion={jev.rejectSuggestion} />
           )}
         </div>
 

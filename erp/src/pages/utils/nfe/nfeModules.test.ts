@@ -145,6 +145,7 @@ describe('NF-e XML Builder (Homologação)', () => {
       companyCnpj: '44.512.248.0001/07',
       companyIE: '9091234567',
       companyCRT: '1',
+      companyCMun: '4105805',
     };
 
     const xml = buildNfeXml({

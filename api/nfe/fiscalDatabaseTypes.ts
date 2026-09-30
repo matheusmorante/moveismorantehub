@@ -1,3 +1,5 @@
+import type { FiscalSnapshot } from './fiscalSnapshot';
+
 /** Narrow database contract for the fiscal API; replace with generated Supabase types when available. */
 type FiscalTable<Row, Insert = Partial<Row>> = {
   Row: Row;
@@ -14,6 +16,8 @@ export type FiscalDatabase = {
         order_type: string;
         status: string;
         order_data: Record<string, unknown> | null;
+        version: number;
+        updated_at: string;
         delivery_status: string | null;
         delivery_method: string | null;
       }>;
@@ -38,6 +42,7 @@ export type FiscalDatabase = {
           document_type: string;
           finalidade: number;
           emission_request_id: string | null;
+          fiscal_snapshot_id: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -58,6 +63,20 @@ export type FiscalDatabase = {
           updated_at: string;
         }
       >;
+      nfe_fiscal_snapshots: FiscalTable<{
+        id: string;
+        emission_request_id: string;
+        order_id: string;
+        order_version: number;
+        order_updated_at: string;
+        requested_model: string;
+        environment: number;
+        series: string;
+        reserved_number: number;
+        snapshot_data: FiscalSnapshot;
+        snapshot_sha256: string;
+        captured_at: string;
+      }>;
       nfe_document_items: FiscalTable<{
         id: string;
         document_id: string;
@@ -173,6 +192,17 @@ export type FiscalDatabase = {
           p_numero_minimo: number;
         };
         Returns: number;
+      };
+      prepare_nfe_fiscal_snapshot: {
+        Args: {
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_modelo: string;
+          p_ambiente: number;
+          p_serie: string;
+          p_numero_minimo: number;
+        };
+        Returns: Record<string, unknown>;
       };
       reserve_nfe_outbound_emission: {
         Args: {

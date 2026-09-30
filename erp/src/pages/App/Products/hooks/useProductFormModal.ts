@@ -15,6 +15,7 @@ import { isDraftSaveEligible } from './productDraftRules';
 // Sub-hooks
 import { useProductFormPricing } from './useProductFormPricing';
 import { useProductFormAi } from './useProductFormAi';
+import { useProductJevClassification } from './useProductJevClassification';
 import { useProductFormDraft } from './useProductFormDraft';
 import { useProductFormImages } from './useProductFormImages';
 import { useProductFormVariations } from './useProductFormVariations';
@@ -83,6 +84,7 @@ export function useProductFormModal({
 
   const pricing = useProductFormPricing(formData, setFormData);
   const ai = useProductFormAi(formData, setFormData, availableCategories, isQuickRegister, isOpen);
+  const jev = useProductJevClassification(formData, setFormData, isOpen);
   const variations = useProductFormVariations(formData, setFormData);
   const draft = useProductFormDraft(
     formData,
@@ -369,6 +371,7 @@ export function useProductFormModal({
     ecomStatus,
     pricing,
     ai,
+    jev,
     variations,
     draft,
     images,

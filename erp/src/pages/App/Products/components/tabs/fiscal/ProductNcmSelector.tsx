@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
+import type { PendingNcmSuggestion } from '../../../hooks/useProductJevClassification';
 
 interface ProductNcmSelectorProps {
   formData: Partial<Product>;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  suggestion?: PendingNcmSuggestion | null;
+  onAcceptSuggestion?: () => void;
+  onRejectSuggestion?: () => void;
 }
 
 export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   formData,
   setFormData,
+  suggestion,
+  onAcceptSuggestion,
+  onRejectSuggestion,
 }) => {
   const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -109,6 +116,16 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
         />
       </div>
+      {suggestion && !formData.fiscal?.ncm && (
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="min-w-0 flex-1 text-[10px]">
+            <strong>Sugestão de NCM aguardando confirmação: {suggestion.code}</strong>
+            <p className="truncate">{suggestion.description}</p>
+          </div>
+          <button type="button" aria-label="Aceitar sugestão de NCM" title="Aceitar sugestão de NCM" onClick={onAcceptSuggestion} className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900">✓</button>
+          <button type="button" aria-label="Rejeitar sugestão de NCM" title="Rejeitar sugestão de NCM" onClick={onRejectSuggestion} className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900">×</button>
+        </div>
+      )}
 
       {currentCatalogEntry && !currentCatalogEntry.active && (
         <p

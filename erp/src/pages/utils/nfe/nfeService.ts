@@ -1,9 +1,7 @@
-import Order from '@/pages/types/order.type';
-import { getSettings, AppSettings } from '../settingsService';
-import { validateOrderForNfe, NfeValidationResult } from './nfeValidator';
-import { generateNfeAccessKey } from './nfeAccessKey';
-import { buildNfeXml } from './nfeXmlBuilder';
-import { openDanfePrintWindow, DanfeData } from './danfeGenerator';
+import type Order from '@/pages/types/order.type';
+import { getSettings, type AppSettings } from '../settingsService';
+import { validateOrderForNfe, type NfeValidationResult } from './nfeValidator';
+import { openDanfePrintWindow, type DanfeData } from './danfeGenerator';
 import { updateOrder } from '../orderHistoryService';
 import { supabase } from '../supabaseConfig';
 import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
@@ -16,6 +14,7 @@ export { canIssueCce };
 export interface NfeEmissionResult {
   success: boolean;
   documentId?: string;
+  orderId?: string;
   accessKey?: string;
   nfeNumber?: number;
   series?: string;
@@ -25,6 +24,7 @@ export interface NfeEmissionResult {
   protocolDate?: string;
   xml?: string;
   danfeData?: DanfeData;
+  danfeUnavailableReason?: string;
   error?: string;
   pending?: boolean;
   cStat?: string;
@@ -34,38 +34,7 @@ export interface NfeEmissionResult {
 }
 
 /**
- * Retorna o próximo número sequencial da NF-e / NFC-e respeitando a faixa configurada
- */
-async function getNextNfeNumber(
-  model: '55' | '65',
-  series: string,
-  environment: 1 | 2,
-  productionConfirmed: boolean
-): Promise<number> {
-  try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.access_token)
-      throw new Error('Sessão fiscal expirada.');
-    const response = await fetch('/api/nfe/reserve-number', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-      },
-      body: JSON.stringify({ model, series, environment, productionConfirmed }),
-    });
-    const result = await response.json();
-    if (response.ok && result.success && Number.isInteger(result.number)) return result.number;
-  } catch {
-    // A sequência local não é segura para emissão fiscal concorrente.
-  }
-  throw new Error(
-    'Não foi possível reservar a numeração fiscal oficial. Verifique a sequência no sistema antes de emitir.'
-  );
-}
-
-/**
- * Executa a emissão da NF-e / NFC-e de teste (homologação) ou produção
+ * Solicita a emissão ao Fiscal Core do backend; o navegador não monta o documento.
  */
 export async function emitNfeForOrder(
   order: Order,
@@ -73,17 +42,151 @@ export async function emitNfeForOrder(
   productionConfirmed = false,
   retryDocumentId?: string
 ): Promise<NfeEmissionResult> {
-  const settings: AppSettings = await getSettings();
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
-  if (environment === 1 && !productionConfirmed) {
+  if (!retryDocumentId && environment === 1 && !productionConfirmed) {
     return {
       success: false,
       error: 'Confirme explicitamente a transmissão em Produção antes de emitir.',
     };
   }
+
+  if (retryDocumentId) {
+    let retryResult: any;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session?.access_token)
+        throw new Error('Faça login novamente para retransmitir o documento fiscal.');
+      const response = await fetch('/api/nfe/emit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({ retryDocumentId, productionConfirmed }),
+      });
+      retryResult = await response.json().catch(() => ({}));
+
+      const retryMetadata = {
+        documentId:
+          typeof retryResult.documentId === 'string' ? retryResult.documentId : retryDocumentId,
+        orderId: typeof retryResult.orderId === 'string' ? retryResult.orderId : undefined,
+        accessKey: typeof retryResult.accessKey === 'string' ? retryResult.accessKey : undefined,
+        nfeNumber: Number.isFinite(Number(retryResult.nfeNumber))
+          ? Number(retryResult.nfeNumber)
+          : undefined,
+        series: typeof retryResult.series === 'string' ? retryResult.series : undefined,
+        model:
+          retryResult.model === '55' || retryResult.model === '65' ? retryResult.model : undefined,
+        environment:
+          retryResult.environment === 1 || retryResult.environment === 2
+            ? retryResult.environment
+            : undefined,
+      };
+      const resultFields = {
+        ...retryMetadata,
+        xml: typeof retryResult.signedXml === 'string' ? retryResult.signedXml : undefined,
+        pending: Boolean(retryResult.pending),
+        cStat: retryResult.cStat,
+        sefazMessage: retryResult.xMotivo,
+      };
+
+      if (!response.ok || !retryResult.success)
+        return {
+          success: false,
+          ...resultFields,
+          error:
+            retryResult.error ||
+            retryResult.xMotivo ||
+            'A SEFAZ não confirmou a retransmissão do documento.',
+        };
+
+      if (
+        !retryMetadata.accessKey ||
+        !/^\d{44}$/.test(retryMetadata.accessKey) ||
+        !retryMetadata.nfeNumber ||
+        !retryMetadata.series ||
+        !retryMetadata.model ||
+        !retryMetadata.environment
+      )
+        return {
+          success: false,
+          ...resultFields,
+          pending: true,
+          error:
+            'A SEFAZ confirmou a retransmissão, mas a resposta não trouxe os dados fiscais originais. Consulte o documento antes de qualquer nova tentativa.',
+        };
+
+      return {
+        success: true,
+        ...resultFields,
+        accessKey: retryMetadata.accessKey,
+        nfeNumber: retryMetadata.nfeNumber,
+        series: retryMetadata.series,
+        model: retryMetadata.model,
+        environment: retryMetadata.environment,
+        protocolNumber: retryResult.protocolNumber,
+        protocolDate: retryResult.protocolDate,
+        danfeUnavailableReason:
+          'A retransmissão preserva o XML fiscal original; o DANFE precisa ser gerado diretamente do documento armazenado.',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        documentId: retryDocumentId,
+        pending: Boolean(retryResult?.pending),
+        error: error instanceof Error ? error.message : 'Falha ao retransmitir documento fiscal.',
+      };
+    }
+  }
+
+  if (!retryDocumentId) {
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session?.access_token)
+        throw new Error('Sessão fiscal expirada.');
+      const response = await fetch('/api/nfe/emit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify({
+          orderId: String(order.id || ''),
+          environment,
+          productionConfirmed,
+          emissionRequestId: crypto.randomUUID(),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        environment,
+        error:
+          typeof result.error === 'string'
+            ? result.error
+            : 'A emissão não foi preparada pelo Fiscal Core do servidor.',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        environment,
+        error: error instanceof Error ? error.message : 'Falha ao solicitar emissão fiscal.',
+      };
+    }
+  }
+
+  const settings: AppSettings = await getSettings();
   const model: '55' | '65' = order.shipping?.deliveryMethod === 'pickup' ? '65' : '55';
-  const emissionRequestId = crypto.randomUUID();
   const { series } = resolveNfeSequenceSettings(settings, model, environment);
+
+  if (!/^\d{7}$/.test(String(settings.companyCMun || ''))) {
+    return {
+      success: false,
+      model,
+      environment,
+      error: 'Configure o código IBGE do município do estabelecimento antes de emitir.',
+    };
+  }
 
   if (model === '65' && !settings.cscId) {
     return {
@@ -138,8 +241,7 @@ export async function emitNfeForOrder(
   const invalidNcms = requestedNcms.filter((code) => {
     const entry = ncmByCode.get(code);
     return (
-      !entry ||
-      !entry.active ||
+      !entry?.active ||
       (entry.start_date && entry.start_date > today) ||
       (entry.end_date && entry.end_date < today)
     );
@@ -154,42 +256,10 @@ export async function emitNfeForOrder(
     };
   }
 
-  // 2. Numeração Sequencial
-  let nfeNumber = 0;
-  let accessKey = '';
-  let xml = '';
-
-  if (!retryDocumentId) {
-    nfeNumber = await getNextNfeNumber(model, series, environment, productionConfirmed);
-
-    // 3. Chave de Acesso Oficial (44 dígitos com DV módulo 11)
-    const now = new Date();
-    const yearMonth = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const cnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '');
-    const generatedKey = generateNfeAccessKey({
-      ufCode: '41', // Paraná
-      yearMonth,
-      cnpj,
-      model,
-      series,
-      number: nfeNumber,
-      emissionType: '1',
-    });
-    accessKey = generatedKey.accessKey;
-
-    // 4. Montagem do XML Layout 4.00
-    xml = buildNfeXml({
-      order,
-      settings,
-      accessKey,
-      randomCode: generatedKey.randomCode,
-      checkDigit: generatedKey.checkDigit,
-      nfeNumber,
-      series,
-      model,
-      environment,
-    });
-  }
+  // O fluxo remanescente é somente retry; novas emissões retornam ao backend acima.
+  const nfeNumber = 0;
+  const accessKey = '';
+  const xml = '';
 
   // 5. Envio e Assinatura Digital via Serverless Function Vercel
   let protocolNumber: string | undefined;
@@ -208,14 +278,12 @@ export async function emitNfeForOrder(
         Authorization: `Bearer ${sessionData.session.access_token}`,
       },
       body: JSON.stringify({
-        xml,
         environment,
         orderId: order.id,
         nfeNumber,
         series,
         model,
         accessKey,
-        emissionRequestId,
         productionConfirmed,
         retryDocumentId,
       }),

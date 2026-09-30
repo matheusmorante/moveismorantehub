@@ -48,13 +48,20 @@ export const NfeSuccessCard: React.FC<NfeSuccessCardProps> = ({ result, onPrintD
       </div>
 
       <div className="flex gap-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-900/40">
-        <button
-          type="button"
-          onClick={onPrintDanfe}
-          className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm"
-        >
-          <i className="bi bi-printer-fill" /> Imprimir DANFE
-        </button>
+        {result.danfeData ? (
+          <button
+            type="button"
+            onClick={onPrintDanfe}
+            className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <i className="bi bi-printer-fill" /> Imprimir DANFE
+          </button>
+        ) : (
+          <p className="flex-1 self-center text-[11px] text-amber-700 dark:text-amber-300">
+            {result.danfeUnavailableReason ||
+              'DANFE indisponível porque os dados do documento original não foram carregados.'}
+          </p>
+        )}
         <button
           type="button"
           onClick={() => setShowXml(!showXml)}

@@ -359,6 +359,55 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(state.draft.sefaz_response_xml).toBe(rejectedReply);
   });
 
+  it('bloqueia retransmissão após 217 quando o XML armazenado não passa no XSD', async () => {
+    const { db, state } = createDatabase();
+    state.draft.access_key = '4'.repeat(44);
+    state.draft.signed_xml = '<NFe><infNFe/></NFe><Signature/>';
+    mocks.createClient.mockReturnValue(db);
+    mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
+      new Error('XML da NF-e não passou pelo schema oficial PL_010f_v1.04: inválido')
+    );
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(422);
+    expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledWith(state.draft.signed_xml);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.draft.status).toBe('ready');
+  });
+
+  it('não transmite XML inválido e informa que a reserva de número foi consumida', async () => {
+    const { db, state } = createDatabase();
+    mocks.createClient.mockReturnValue(db);
+    mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
+      new Error('XML da NF-e não passou pelo schema oficial PL_010f_v1.04: inválido')
+    );
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatchObject({ numberReserved: true, reservedNumber: 701 });
+    expect(res.body.error).toContain('nenhuma transmissão foi feita');
+    expect(state.draft.status).toBe('ready');
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
   it('timeout nunca retransmite automaticamente; libera somente após consulta cStat 217', async () => {
     const { db, state } = createDatabase();
     mocks.createClient.mockReturnValue(db);

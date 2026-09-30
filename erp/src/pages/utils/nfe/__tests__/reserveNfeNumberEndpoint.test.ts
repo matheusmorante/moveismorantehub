@@ -95,7 +95,7 @@ describe('reserva fiscal via API autenticada', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('reserva para seller em homologação com o mínimo configurado no servidor', async () => {
+  it('impede reserva direta mesmo para operador autorizado', async () => {
     const { db, rpc } = database('seller');
     mocks.createClient.mockReturnValue(db);
     const handler = (await import('../../../../../../api/nfe/reserve-number')).default;
@@ -108,13 +108,12 @@ describe('reserva fiscal via API autenticada', () => {
       } as any,
       result.res
     );
-    expect(result.statusCode).toBe(200);
-    expect(result.body).toEqual({ success: true, number: 701, series: '900' });
-    expect(rpc).toHaveBeenCalledWith('reserve_next_nfe_number', {
-      p_modelo: '55',
-      p_serie: '900',
-      p_ambiente: 2,
-      p_numero_minimo: 700,
+    expect(result.statusCode).toBe(409);
+    expect(result.body).toMatchObject({
+      success: false,
+      code: 'FISCAL_CORE_REQUIRED',
+      numberReserved: false,
     });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

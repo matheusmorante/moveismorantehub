@@ -1,0 +1,297 @@
+export type FiscalJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FiscalJsonValue[]
+  | { [key: string]: FiscalJsonValue };
+
+export type FiscalIssuerProfileKey =
+  | 'companyName'
+  | 'companyAddress'
+  | 'companyCnpj'
+  | 'companyIE'
+  | 'companyIM'
+  | 'companyCRT'
+  | 'companyLogradouro'
+  | 'companyNumero'
+  | 'companyBairro'
+  | 'companyCEP'
+  | 'companyCMun'
+  | 'companyXMun'
+  | 'companyUF'
+  | 'companyPhone'
+  | 'cscId';
+
+/** Commercial facts captured from PostgreSQL; fiscal classifications remain undetermined. */
+export type FiscalSnapshot = {
+  schemaVersion: 1;
+  capturedAt: string;
+  order: {
+    id: string;
+    type: string;
+    status: string;
+    version: number;
+    updatedAt: string;
+    data: Record<string, FiscalJsonValue>;
+  };
+  issuerProfile: Partial<Record<FiscalIssuerProfileKey, FiscalJsonValue>>;
+  emissionRequest: {
+    id: string;
+    requestedModel: '55' | '65';
+    environment: 1 | 2;
+    series: string;
+    number: number;
+  };
+};
+
+/** In-memory facts read by the server before a model/number is determined. */
+export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & {
+  emissionRequest: {
+    id: string;
+    environment: 1 | 2;
+  };
+};
+
+export type FiscalDecisionTrace = {
+  decisionId: string;
+  ruleSetVersion: string;
+  effectiveAt: string;
+  inputFacts: Readonly<Record<string, FiscalJsonValue>>;
+  result: Readonly<Record<string, FiscalJsonValue>>;
+  reason: string;
+  approver: string;
+};
+
+type DeterminedTaxValues = Readonly<Record<string, string | number | boolean>>;
+
+export type DeterminedTaxGroup =
+  | {
+      group: 'ICMS';
+      codeSystem: 'CST';
+      code: string;
+      values: DeterminedTaxValues;
+      decisionId: string;
+    }
+  | {
+      group: 'ICMS';
+      codeSystem: 'CSOSN';
+      code: string;
+      values: DeterminedTaxValues;
+      decisionId: string;
+    }
+  | {
+      group: 'IPI' | 'PIS' | 'COFINS';
+      codeSystem: 'CST';
+      code: string;
+      values: DeterminedTaxValues;
+      decisionId: string;
+    }
+  | {
+      group: 'FCP' | 'DIFAL' | 'IBSCBS';
+      codeSystem: 'group-specific';
+      code: string;
+      values: DeterminedTaxValues;
+      decisionId: string;
+    };
+
+export type DeterminedFiscalIssuer = {
+  cnpj: string;
+  ie?: string;
+  crt: string;
+  municipalityCode: string;
+};
+
+export type DeterminedFiscalRecipient = {
+  name: string;
+  cpfCnpj?: string;
+  ieIndicator: string;
+  ie?: string;
+  uf?: string;
+  municipalityCode?: string;
+};
+
+export type DeterminedFiscalOperation = {
+  natureOfOperation: string;
+  direction: 'inbound' | 'outbound';
+  purpose: string;
+  destination: string;
+  presence: string;
+};
+
+export type ReconciledFiscalTotals = {
+  products: number;
+  discount: number;
+  freight: number;
+  insurance: number;
+  otherExpenses: number;
+  icms: number;
+  ipi: number;
+  pis: number;
+  cofins: number;
+  invoice: number;
+  payment: number;
+  change: number;
+};
+
+export type DeterminedFiscalItem = {
+  itemNumber: number;
+  product: Readonly<Record<string, FiscalJsonValue>>;
+  classification: {
+    ncm: string;
+    cest?: string;
+    origin: string;
+    cfop: string;
+    unit: string;
+    benefitCode?: string;
+  };
+  taxes: ReadonlyArray<DeterminedTaxGroup>;
+  decisions: ReadonlyArray<FiscalDecisionTrace>;
+};
+
+export type DeterminedPayment = {
+  methodCode: string;
+  amount: number;
+  installments?: number;
+  decision: FiscalDecisionTrace;
+};
+
+/** Complete server-resolved content accepted by the XML serializer. */
+export type FiscalDocument = {
+  snapshotHash: string;
+  ruleSetVersion: string;
+  model: '55' | '65';
+  environment: 1 | 2;
+  issuer: DeterminedFiscalIssuer;
+  recipient: DeterminedFiscalRecipient;
+  operation: DeterminedFiscalOperation;
+  items: ReadonlyArray<DeterminedFiscalItem>;
+  payments: ReadonlyArray<DeterminedPayment>;
+  totals: ReconciledFiscalTotals;
+  decisions: ReadonlyArray<FiscalDecisionTrace>;
+};
+
+export type FiscalDeterminationBlocker = {
+  code: 'APPROVED_FISCAL_RULESET_REQUIRED';
+  scope: 'document';
+  message: string;
+};
+
+export type FiscalDocumentResolution =
+  | { status: 'ready'; document: FiscalDocument }
+  | { status: 'blocked'; blockers: ReadonlyArray<FiscalDeterminationBlocker> };
+
+export type FiscalEmissionCommand = {
+  orderId: string;
+  environment: 1 | 2;
+  emissionRequestId: string;
+  productionConfirmed?: boolean;
+};
+
+export type FiscalSnapshotReservation = {
+  snapshotId: string;
+  snapshotHash: string;
+  number: number;
+  issuedAt: string;
+  orderVersion: number;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const CLIENT_AUTHORITY_FIELDS = [
+  'xml',
+  'model',
+  'series',
+  'nfeNumber',
+  'accessKey',
+  'fiscalSnapshotId',
+  'fiscalSnapshotHash',
+] as const;
+
+export function parseFiscalEmissionCommand(
+  value: unknown
+): { command: FiscalEmissionCommand } | { error: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return { error: 'Dados da solicitação fiscal inválidos.' };
+
+  const body = value as Record<string, unknown>;
+  if (CLIENT_AUTHORITY_FIELDS.some((field) => field in body))
+    return { error: 'Modelo, série, número, chave e XML devem ser determinados no servidor.' };
+
+  const allowedFields = new Set([
+    'orderId',
+    'environment',
+    'emissionRequestId',
+    'productionConfirmed',
+  ]);
+  if (Object.keys(body).some((field) => !allowedFields.has(field)))
+    return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
+
+  const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
+  const environment = Number(body.environment);
+  const emissionRequestId =
+    typeof body.emissionRequestId === 'string' ? body.emissionRequestId : '';
+  if (
+    !orderId ||
+    ![1, 2].includes(environment) ||
+    !UUID_PATTERN.test(emissionRequestId) ||
+    (body.productionConfirmed !== undefined && typeof body.productionConfirmed !== 'boolean')
+  )
+    return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
+
+  return {
+    command: {
+      orderId,
+      environment: environment as 1 | 2,
+      emissionRequestId,
+      ...(body.productionConfirmed === undefined
+        ? {}
+        : { productionConfirmed: body.productionConfirmed }),
+    },
+  };
+}
+
+/** No tax rules are eligible until an approved, versioned determination matrix is configured. */
+export function resolveFiscalDocument(
+  _snapshot: FiscalSnapshotCandidate
+): FiscalDocumentResolution {
+  return {
+    status: 'blocked',
+    blockers: [
+      {
+        code: 'APPROVED_FISCAL_RULESET_REQUIRED',
+        scope: 'document',
+        message:
+          'A matriz de determinação fiscal aprovada ainda não está configurada. Nenhum modelo, CFOP ou tributo será presumido.',
+      },
+    ],
+  };
+}
+
+export function parseFiscalSnapshotReservation(value: unknown): FiscalSnapshotReservation | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.snapshotId !== 'string' ||
+    !UUID_PATTERN.test(candidate.snapshotId) ||
+    typeof candidate.snapshotHash !== 'string' ||
+    !SHA256_PATTERN.test(candidate.snapshotHash) ||
+    !Number.isInteger(candidate.number) ||
+    Number(candidate.number) < 1 ||
+    Number(candidate.number) > 999999999 ||
+    typeof candidate.issuedAt !== 'string' ||
+    Number.isNaN(Date.parse(candidate.issuedAt)) ||
+    !Number.isInteger(candidate.orderVersion) ||
+    Number(candidate.orderVersion) < 0
+  ) {
+    return null;
+  }
+
+  return {
+    snapshotId: candidate.snapshotId,
+    snapshotHash: candidate.snapshotHash,
+    number: Number(candidate.number),
+    issuedAt: candidate.issuedAt,
+    orderVersion: Number(candidate.orderVersion),
+  };
+}

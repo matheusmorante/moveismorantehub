@@ -59,13 +59,15 @@
 
 ## Acesso ao Supabase
 
-- Quando o acesso por CLI/token não estiver disponível, o usuário autorizou usar a sessão já autenticada do navegador para tarefas do Supabase solicitadas nesta conversa.
+- Se o plugin do Supabase ou o CLI/token não estiver disponível ou falhar, use o navegador integrado já autenticado em supabase.com. O usuário autorizou acessar o Dashboard da conta Movesmorante/Morante Hub e executar, no SQL Editor, o SQL necessário às tarefas de Supabase solicitadas; não é preciso pedir novamente autorização apenas por trocar de ferramenta.
+- No SQL Editor, confira o texto e o projeto selecionado antes de executar. Preserve migrations versionadas para alterações de schema e registre o resultado sem expor dados sensíveis. O navegador é um caminho de acesso, não uma exceção às regras de testes, isolamento e segurança do banco.
 - Antes de qualquer alteração remota, confirme que o projeto/ref corresponde ao configurado no app e limite a operação ao escopo autorizado.
 - Nunca exponha tokens, senhas ou outras credenciais; prefira ferramentas oficiais/API quando disponíveis e registre evidência sem dados sensíveis.
 
 
 ## Governança de Desenvolvimento e Testes (Supabase, pgTAP, k6, ZAP)
-- **Supabase CLI Local**: Use para ambiente de testes destrutivos com banco reproduzível (`supabase db reset`) somente na janela definida em `.agents/skills/testes-seguros-erp/SKILL.md`; nunca aplique escritas destrutivas em produção. Inicie o Docker Desktop manualmente antes de usar; não o execute junto aos testes Maestro no celular por Wi‑Fi devido ao limite de RAM.
+- **Ambiente de banco e homologação fiscal**: Não criar branch ou segundo projeto Supabase HML para este projeto. Quando Docker/Supabase Local estiver disponível, prefira-o para migrations, RPCs, RLS, constraints, rollback, atomicidade, idempotência e concorrência. Docker Desktop deve ser iniciado manualmente; não o execute junto aos testes Maestro no celular por Wi‑Fi devido ao limite de RAM. Se Docker estiver indisponível, o Supabase remoto operacional só pode receber testes controlados e não destrutivos, com dados sintéticos identificados e isolamento comprovado. Nunca use o remoto para reset, migration experimental, DROP/TRUNCATE, mudança arriscada de schema/RLS, fault injection, rollback destrutivo ou concorrência de teste. A homologação fiscal real pode usar o Supabase remoto atual com pedido/dados sintéticos, desde que o backend imponha `tpAmb=2`, derive somente endpoints SEFAZ de homologação e os registros não afetem estoque, financeiro ou indicadores operacionais. Consulte `testes-seguros-erp` e `fiscal-nfe-nfce-official-docs` para os gates completos.
+- **Supabase CLI Local**: Use para ambiente de testes destrutivos com banco reproduzível (`supabase db reset`) somente em Supabase Local isolado; nunca aplique escritas destrutivas no banco operacional. Inicie o Docker Desktop manualmente antes de usar.
 - **pgTAP**: Utilize para testes nativos de banco de dados (RPCs, RLS, Constraints, Triggers).
 - **Atomicidade e Banco Real**: Falhas no meio de transações devem ser provadas no banco, garantindo o rollback.
 - **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (ambos em ambiente local).

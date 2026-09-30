@@ -15,6 +15,48 @@ export interface NfeXmlBuilderParams {
   series: string;
   model: '55' | '65'; // 55 = NF-e, 65 = NFC-e
   environment: 1 | 2; // 1 = Produção, 2 = Homologação
+  issuedAt?: Date;
+}
+
+function getSaoPauloDateParts(instant: Date): Record<string, string> {
+  if (!(instant instanceof Date) || Number.isNaN(instant.getTime()))
+    throw new Error('Instante de emissão inválido.');
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
+
+  return Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+}
+
+export function getNfeYearMonth(instant: Date): string {
+  const parts = getSaoPauloDateParts(instant);
+  return `${parts.year.slice(-2)}${parts.month}`;
+}
+
+export function formatNfeDateTime(instant: Date): string {
+  const parts = getSaoPauloDateParts(instant);
+  const localTimeAsUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  const offsetMinutes = Math.round((localTimeAsUtc - instant.getTime()) / 60_000);
+  const sign = offsetMinutes < 0 ? '-' : '+';
+  const absoluteOffsetMinutes = Math.abs(offsetMinutes);
+  const offset = `${sign}${String(Math.floor(absoluteOffsetMinutes / 60)).padStart(2, '0')}:${String(absoluteOffsetMinutes % 60).padStart(2, '0')}`;
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
 }
 
 /**
@@ -31,10 +73,10 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     series,
     model,
     environment,
+    issuedAt,
   } = params;
   const isHomologacao = environment === 2;
-  const now = new Date();
-  const dhEmi = now.toISOString().replace(/\.\d{3}Z$/, '-03:00');
+  const dhEmi = formatNfeDateTime(issuedAt || new Date());
 
   // 1. Bloco de Identificação (<ide>)
   const ideXml = buildIdeXml({
@@ -46,6 +88,7 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     model,
     environment,
     dhEmi,
+    municipalityCode: settings.companyCMun,
   });
 
   // 2. Bloco do Emitente (<emit>)

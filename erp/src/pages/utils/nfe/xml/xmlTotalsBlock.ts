@@ -1,5 +1,6 @@
 import Order from '@/pages/types/order.type';
 import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import { escapeXml } from './xmlEmitterBlock';
 
 export function buildTotalsAndPaymentXml(
   order: Order,
@@ -9,6 +10,10 @@ export function buildTotalsAndPaymentXml(
   const vFrete = Number(order.shipping?.value || 0);
   const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
   const vNF = (vProdTotal - vDescTotal + vFrete + vOutro).toFixed(2);
+  const orderReference = order.orderIndex || order.id;
+  const additionalInfoXml = orderReference
+    ? `<infAdic><infCpl>Pedido #${escapeXml(String(orderReference))}</infCpl></infAdic>`
+    : '';
 
   // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada
   const modFrete = order.shipping?.deliveryMethod === 'pickup' ? '9' : '0';
@@ -57,7 +62,5 @@ export function buildTotalsAndPaymentXml(
         <vPag>${vNF}</vPag>
       </detPag>
     </pag>
-    <infAdic>
-      <infCpl>DOCUMENTO EMITIDO POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL. NAO GERA DIREITO A CREDITO FISCAL DE IPI/ICMS. Pedido #${order.orderIndex || order.id}</infCpl>
-    </infAdic>`;
+    ${additionalInfoXml}`;
 }

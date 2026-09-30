@@ -113,6 +113,7 @@ describe('prévia estrutural do XML fiscal revisado', () => {
         model: '55',
         environment: 1,
         dhEmi: issuedAt,
+        municipalityCode: '4105805',
         finalidade: 4,
         referencedAccessKey: sourceKey,
       })

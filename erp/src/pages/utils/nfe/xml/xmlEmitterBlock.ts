@@ -28,6 +28,8 @@ export interface IdeParams {
 }
 
 export function buildIdeXml(p: IdeParams): string {
+  if (!/^\d{7}$/.test(String(p.municipalityCode || '')))
+    throw new Error('Código IBGE do município do fato gerador não configurado ou inválido.');
   if (p.referencedAccessKey && (p.finalidade !== 3 || !/^\d{44}$/.test(p.referencedAccessKey))) {
     throw new Error(
       'Referência de cabeçalho permitida apenas para estorno com chave fiscal válida.'
@@ -44,7 +46,7 @@ export function buildIdeXml(p: IdeParams): string {
       <dhEmi>${p.dhEmi}</dhEmi>
       <tpNF>${p.operationType ?? 1}</tpNF>
       <idDest>${p.destinationIndicator ?? 1}</idDest>
-      <cMunFG>${p.municipalityCode || '4106907'}</cMunFG>
+      <cMunFG>${p.municipalityCode}</cMunFG>
       <tpImp>1</tpImp>
       <tpEmis>1</tpEmis>
       <cDV>${p.checkDigit}</cDV>
@@ -59,6 +61,9 @@ export function buildIdeXml(p: IdeParams): string {
 }
 
 export function buildEmitXml(settings: AppSettings): string {
+  const emitCMun = String((settings as any).companyCMun || '');
+  if (!/^\d{7}$/.test(emitCMun))
+    throw new Error('Código IBGE do município do emitente não configurado ou inválido.');
   const emitCnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '').padStart(14, '0');
   const emitName = settings.companyName || 'MOVEIS MORANTE LTDA';
   const emitIE = ((settings as any).companyIE || 'ISENTO').replace(/[^\w]/g, '');
@@ -66,7 +71,6 @@ export function buildEmitXml(settings: AppSettings): string {
   const emitCep = ((settings as any).companyCEP || '80000000').replace(/\D/g, '');
   const emitBairro = (settings as any).companyBairro || 'Centro';
   const emitMun = (settings as any).companyXMun || 'Curitiba';
-  const emitCMun = (settings as any).companyCMun || '4106907';
   const emitUF = (settings as any).companyUF || 'PR';
   const emitLogr =
     (settings as any).companyLogradouro || settings.companyAddress || 'Rua Principal';

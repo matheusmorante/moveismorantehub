@@ -10,13 +10,17 @@ import {
 } from './productFiscalOptions';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './fiscal/ProductNcmSelector';
+import type { PendingNcmSuggestion } from '../../hooks/useProductJevClassification';
 
 interface ProductFiscalTabProps {
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  readonly ncmSuggestion?: PendingNcmSuggestion | null;
+  readonly onAcceptNcmSuggestion?: () => void;
+  readonly onRejectNcmSuggestion?: () => void;
 }
 
-const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormData }) => {
+const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormData, ncmSuggestion, onAcceptNcmSuggestion, onRejectNcmSuggestion }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Fechar modal com tecla Escape
@@ -87,7 +91,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormDa
             </div>
           ) : (
             <>
-              <ProductNcmSelector formData={formData} setFormData={setFormData} />
+              <ProductNcmSelector formData={formData} setFormData={setFormData} suggestion={ncmSuggestion} onAcceptSuggestion={onAcceptNcmSuggestion} onRejectSuggestion={onRejectNcmSuggestion} />
 
               {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
               {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (

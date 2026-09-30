@@ -21,6 +21,14 @@ Aplicar quando a tarefa envolver:
 
 ---
 
+## Acesso ao Supabase pelo navegador integrado
+
+- Se o plugin do Supabase ou o CLI/token falhar ou não estiver disponível, use a sessão já autenticada do navegador integrado em supabase.com. O usuário autorizou acessar o Dashboard da conta Movesmorante/Morante Hub e executar SQL na aba **SQL Editor** para a tarefa solicitada, sem pedir nova autorização apenas por essa troca de ferramenta.
+- Antes de consultar ou alterar dados, confirme no Dashboard que o projeto/ref selecionado corresponde ao configurado no aplicativo. Revise a consulta antes de executar, limite projeções e volume de resultados, e mantenha alterações de schema também em migrations versionadas no repositório.
+- Não exponha credenciais, dados pessoais ou resultados sensíveis em logs e relatórios. As restrições de produção, testes isolados, escrita destrutiva, atomicidade e validação desta skill e de `testes-seguros-erp` continuam valendo no SQL Editor.
+
+---
+
 ## 1. Princípio Central: Eficiência com Preservação Total da Interface
 
 > [!IMPORTANT]
@@ -105,8 +113,9 @@ O PostgreSQL dispõe das extensões `pg_trgm` (trigramas) e `unaccent` para acel
 ## 6. Testes de Banco e Migrações
 
 - Ao alterar schema, RLS, funções, triggers ou RPCs, aplique a matriz canônica de `testes-seguros-erp` quando houver comportamento relevante no banco: PostgreSQL real isolado, estado final, constraints, permissões, atomicidade, rollback, concorrência e idempotência conforme aplicável.
-- O uso de Docker + Supabase Local obedece à janela operacional definida em `.agents/skills/testes-seguros-erp/SKILL.md`; verifique dia e horário em `America/Sao_Paulo` antes do primeiro comando. Esta skill não duplica a janela.
-- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. Não execute escritas, fault injection, rollback ou concorrência em produção.
+- Quando Docker/Supabase Local estiver disponível, prefira-o para testes de banco, inclusive os destrutivos e de falha. Se estiver indisponível, o remoto operacional só pode ser usado em verificações controladas, não destrutivas, com dados sintéticos e isolamento comprovado; nunca para reset, migration experimental, DROP/TRUNCATE, alteração arriscada de schema/RLS, fault injection, rollback destrutivo ou concorrência de teste.
+- Não criar branch ou projeto HML Supabase separado para este projeto. A exceção de uso do banco operacional é a homologação fiscal real em `tpAmb=2`, com pedido e dados sintéticos, backend restrito a endpoints SEFAZ de homologação e verificação de que registros não contaminam estoque, financeiro ou indicadores. O procedimento detalhado está em `testes-seguros-erp` e `fiscal-nfe-nfce-official-docs`.
+- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. A indisponibilidade do Docker não autoriza uma operação arriscada no remoto; marque essa evidência como bloqueada e avance nas validações independentes.
 - Teste migrations em banco novo e upgrade de banco existente representativo. Preserve compatibilidade e dados legados conforme `migration`; confira constraints, índices, funções, triggers e políticas afetadas.
 
 ---
