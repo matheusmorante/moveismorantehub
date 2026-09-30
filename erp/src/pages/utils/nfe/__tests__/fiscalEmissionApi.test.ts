@@ -265,6 +265,35 @@ describe('API de emissão fiscal server-side', () => {
     );
   });
 
+  it('não reativa nem transmite um retry cujo XML persistido falha no XSD', async () => {
+    const db = retryDatabase();
+    mocks.createClient.mockReturnValue(db);
+    mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
+      new Error('XML da NF-e não passou pelo schema oficial: falha sintética')
+    );
+    const handler = (await import('../../../../../../api/nfe/emit')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer operator-token' },
+        body: { retryDocumentId },
+      } as any,
+      result.res
+    );
+
+    expect(result.statusCode).toBe(422);
+    expect(result.body).toMatchObject({
+      success: false,
+      documentId: retryDocumentId,
+      orderId: retryOrderId,
+    });
+    expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledWith(db.retryXml);
+    expect(db.updates).toHaveLength(0);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
   it('não transmite quando outra chamada já reativou o documento para retry', async () => {
     const db = retryDatabase({ reactivationWon: false });
     mocks.createClient.mockReturnValue(db);
