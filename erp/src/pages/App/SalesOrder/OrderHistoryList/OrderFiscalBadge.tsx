@@ -1,5 +1,6 @@
 import React from 'react';
 import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { binaryOrderBadgeClass } from './orderBadgeStyles';
 
 const BADGE_PRESENTATION: Record<
   OrderFiscalBadgeStatus,
@@ -8,12 +9,12 @@ const BADGE_PRESENTATION: Record<
   not_issued: {
     label: 'NF',
     title: 'Nota fiscal não emitida',
-    className: 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
+    className: binaryOrderBadgeClass(false),
   },
   issued: {
     label: 'NF',
     title: 'Nota fiscal emitida',
-    className: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+    className: binaryOrderBadgeClass(true),
     icon: 'bi-check',
     iconBadgeClassName: 'bg-emerald-600 text-white',
   },

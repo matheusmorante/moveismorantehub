@@ -91,7 +91,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
     });
   });
 
-  describe('Produto Normal (Origem Diferente de Salvados)', () => {
+  describe('Produto Convencional (Origem Diferente de Salvados)', () => {
     it('permite alternar ativação do ERP e do Catálogo normalmente', () => {
       const handleToggleActive = vi.fn();
       const handleToggleCatalog = vi.fn();

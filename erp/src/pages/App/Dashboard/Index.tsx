@@ -34,7 +34,7 @@ const PERIODS: { label: string; value: Period }[] = [
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'logistics' | 'system'>('overview');
-  const [period, setPeriod] = useState<Period>('month');
+  const [period, setPeriod] = useState<Period>('last_30_days');
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);

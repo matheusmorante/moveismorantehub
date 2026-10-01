@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import {
   LabelType,
@@ -8,8 +7,22 @@ import {
   LabelConfig,
   DEFAULT_LAYOUT_MODELS,
 } from '../utils/LabelConstants';
-import { mapModelToDb, mapDbToModel } from '../utils/LabelUtils';
 import { subscribeToPriceLabelTemplateUpdates } from '../services/priceLabelTemplateSync';
+import {
+  deleteRemoteLabelLayout,
+  fetchRemoteLabelLayouts,
+  insertRemoteLabelLayout,
+} from '../services/labelLayoutService';
+import {
+  getCustomLabelLayouts,
+  getHiddenDefaultLayoutIds,
+  getLastSelectedRectModelId,
+  getLastSelectedRoundModelId,
+  saveCustomLabelLayouts,
+  saveHiddenDefaultLayoutIds,
+  saveLastSelectedRectModelId,
+  saveLastSelectedRoundModelId,
+} from '../services/labelStorageService';
 import { CategoryType } from './useLabelCategory';
 import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 
@@ -27,22 +40,18 @@ export const useLabelLayouts = ({
   const [currentModel, setCurrentModel] = useState<GridModel | null>(null);
   const [editingGridModel, setEditingGridModel] = useState<GridModel | null>(null);
   const [customLayouts, setCustomLayouts] = useState<GridModel[]>([]);
-  const [savedArtConfigs, setSavedArtConfigs] = useState<Record<string, any>>({});
-  const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('hidden_default_layout_ids') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  const [savedArtConfigs, setSavedArtConfigs] = useState<
+    Record<string, NonNullable<LabelConfig['artConfig']>>
+  >({});
+  const [hiddenDefaultIds, setHiddenDefaultIds] = useState<string[]>(getHiddenDefaultLayoutIds);
   const [artVersion, setArtVersion] = useState(0);
   const [modelToDelete, setModelToDelete] = useState<string | null>(null);
 
   const [lastSelectedRoundModelId, setLastSelectedRoundModelId] = useState<string>(
-    () => localStorage.getItem('lastSelectedRoundModelId') || 'round-small'
+    getLastSelectedRoundModelId
   );
   const [lastSelectedRectModelId, setLastSelectedRectModelId] = useState<string>(
-    () => localStorage.getItem('lastSelectedRectModelId') || 'labels-image-compact'
+    getLastSelectedRectModelId
   );
 
   const [defaultLayoutIds, setDefaultLayoutIds] = useState<Record<string, string>>(
@@ -99,39 +108,34 @@ export const useLabelLayouts = ({
     promoFontSize: 18,
     imageFit: 'contain',
   });
+  const configRef = useRef(config);
+  configRef.current = config;
 
   // Subscrição de atualizações de template de etiquetas de preço
   useEffect(
     () =>
       subscribeToPriceLabelTemplateUpdates(({ layoutId, artConfig }) => {
-        setSavedArtConfigs((prev: any) => ({
+        setSavedArtConfigs((prev) => ({
           ...prev,
           [layoutId]: artConfig,
           preco_2x5_restored: artConfig,
         }));
-        setConfig((prev: any) => ({ ...prev, artConfig }));
-        setArtVersion((prev: any) => prev + 1);
+        setConfig((prev) => ({ ...prev, artConfig }));
+        setArtVersion((prev) => prev + 1);
       }),
     []
   );
 
-  // Sincroniza layouts customizados com o Supabase e localStorage
+  // Sincroniza layouts customizados com o serviço remoto e o cache local.
   useEffect(() => {
     const fetchCustomLayouts = async () => {
-      const { data, error } = await supabase.from('label_layouts').select('*');
-      if (data && !error && data.length > 0) {
-        const mapped = data.map(mapDbToModel);
-        setCustomLayouts(mapped);
-        localStorage.setItem('custom_label_layouts', JSON.stringify(mapped));
+      const { data } = await fetchRemoteLabelLayouts();
+      if (data && data.length > 0) {
+        setCustomLayouts(data);
+        saveCustomLabelLayouts(data);
       } else {
-        const saved = localStorage.getItem('custom_label_layouts');
-        if (saved) {
-          try {
-            setCustomLayouts(JSON.parse(saved));
-          } catch (e) {
-            console.error(e);
-          }
-        }
+        const saved = getCustomLabelLayouts();
+        if (saved) setCustomLayouts(saved);
       }
     };
     fetchCustomLayouts();
@@ -141,11 +145,11 @@ export const useLabelLayouts = ({
   useEffect(() => {
     const artConfig = savedArtConfigs[config.layoutId || ''];
     if (artConfig && config.artConfig !== artConfig) {
-      setConfig((prev: any) => ({ ...prev, artConfig }));
+      setConfig((prev) => ({ ...prev, artConfig }));
     }
-  }, [config.layoutId, savedArtConfigs]);
+  }, [config.layoutId, config.artConfig, savedArtConfigs]);
 
-  const selectLayout = (model: GridModel) => {
+  const selectLayout = useCallback((model: GridModel) => {
     const autoPreset: LabelPreset =
       model.category === 'precos'
         ? 'price_only'
@@ -155,7 +159,7 @@ export const useLabelLayouts = ({
             ? 'store_logo'
             : 'qr_product';
 
-    setConfig((prefConfig: any) => ({
+    setConfig((prefConfig) => ({
       ...prefConfig,
       layoutId: model.id,
       preset: autoPreset,
@@ -273,9 +277,9 @@ export const useLabelLayouts = ({
       showStoreLogo: model.category !== 'precos',
       imageScale: model.imageScale || 1,
     }));
-  };
+  }, [savedArtConfigs]);
 
-  const applyPresetWithConfig = (preset: LabelPreset, baseConfig: LabelConfig) => {
+  const applyPresetWithConfig = useCallback((preset: LabelPreset, baseConfig: LabelConfig) => {
     const newConfig: LabelConfig = { ...baseConfig, preset };
     if (preset === 'qr_product' || preset === 'barcode_only') newConfig.category = 'identificacao';
     else if (preset === 'price_only' || preset === 'promotional_price')
@@ -330,9 +334,9 @@ export const useLabelLayouts = ({
         break;
     }
     setConfig(newConfig);
-  };
+  }, []);
 
-  const layoutModels = (() => {
+  const layoutModels = useMemo(() => {
     const defaults = DEFAULT_LAYOUT_MODELS.filter((m) => {
       const sameCategory = m.category === selectedCategory;
       const sameType = m.type === config.type;
@@ -359,10 +363,11 @@ export const useLabelLayouts = ({
     });
 
     return Array.from(finalMap.values());
-  })();
+  }, [selectedCategory, config.type, hiddenDefaultIds, customLayouts]);
 
   // Seleção de modelo inicial por categoria
   useEffect(() => {
+    const currentConfig = configRef.current;
     const cat = selectedCategory || catFromUrl;
     if (!cat) return;
 
@@ -387,7 +392,7 @@ export const useLabelLayouts = ({
       }
     }
 
-    const type = config.type || 'rect';
+    const type = currentConfig.type || 'rect';
     const defaultId = defaultLayoutIds[`${cat}_${type}`] || defaultLayoutIds[cat];
 
     if (defaultId) {
@@ -407,13 +412,21 @@ export const useLabelLayouts = ({
     };
     const preset = presetMap[cat];
     if (preset) {
-      applyPresetWithConfig(preset as LabelPreset, {
-        ...config,
+      applyPresetWithConfig(preset, {
+        ...currentConfig,
         showBarcode: cat !== 'precos',
         showStoreLogo: cat !== 'precos',
       });
     }
-  }, [catFromUrl, selectedCategory, defaultLayoutIds, savedArtConfigs]);
+  }, [
+    catFromUrl,
+    selectedCategory,
+    defaultLayoutIds,
+    savedArtConfigs,
+    customLayouts,
+    selectLayout,
+    applyPresetWithConfig,
+  ]);
 
   // Troca de modelo ao trocar categoria/tipo
   useEffect(() => {
@@ -433,33 +446,36 @@ export const useLabelLayouts = ({
     ) {
       selectLayout(targetModel);
     }
-  }, [selectedCategory, config.type, layoutModels.length]);
+  }, [
+    selectedCategory,
+    config.type,
+    config.layoutId,
+    config.category,
+    defaultLayoutIds,
+    layoutModels,
+    selectLayout,
+  ]);
 
   const handleDuplicateLayout = async (model: GridModel) => {
     const newModel = {
       ...model,
-      id: undefined as any,
+      id: undefined,
       name: `${model.name} (Cópia)`,
     };
 
-    const dbModel = mapModelToDb(newModel);
-    const { data, error } = await supabase
-      .from('label_layouts')
-      .insert([dbModel])
-      .select()
-      .single();
+    const { data, error } = await insertRemoteLabelLayout(newModel);
 
     if (data && !error) {
-      const saved = mapDbToModel(data);
+      const saved = data;
       const updated = [...customLayouts, saved];
       setCustomLayouts(updated);
-      localStorage.setItem('custom_label_layouts', JSON.stringify(updated));
+      saveCustomLabelLayouts(updated);
       toast.success('Layout duplicado e salvo no banco!');
     } else {
-      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` as any };
+      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` };
       const updated = [...customLayouts, localModel];
       setCustomLayouts(updated);
-      localStorage.setItem('custom_label_layouts', JSON.stringify(updated));
+      saveCustomLabelLayouts(updated);
       toast.success('Layout duplicado (Local)');
     }
   };
@@ -497,17 +513,17 @@ export const useLabelLayouts = ({
       if (!hiddenDefaultIds.includes(modelId)) {
         const updated = [...hiddenDefaultIds, modelId];
         setHiddenDefaultIds(updated);
-        localStorage.setItem('hidden_default_layout_ids', JSON.stringify(updated));
+        saveHiddenDefaultLayoutIds(updated);
       }
     } else {
       const updatedCustom = customLayouts.filter((m) => m.id !== modelId);
       setCustomLayouts(updatedCustom);
-      localStorage.setItem('custom_label_layouts', JSON.stringify(updatedCustom));
+      saveCustomLabelLayouts(updatedCustom);
 
       if (!isLocalOnly) {
         try {
           const dbId = /^\d+$/.test(modelId) ? Number(modelId) : modelId;
-          await supabase.from('label_layouts').delete().eq('id', dbId);
+          await deleteRemoteLabelLayout(dbId);
         } catch (e) {
           console.error('Erro na requisição de deleção:', e);
         }
@@ -537,23 +553,18 @@ export const useLabelLayouts = ({
   const handleCopyToCategory = async (model: GridModel, targetCat: CategoryType) => {
     const newModel = {
       ...model,
-      id: undefined as any,
+      id: undefined,
       category: targetCat,
       name: model.name,
     };
 
-    const dbModel = mapModelToDb(newModel);
-    const { data, error } = await supabase
-      .from('label_layouts')
-      .insert([dbModel])
-      .select()
-      .single();
+    const { data, error } = await insertRemoteLabelLayout(newModel);
 
     if (data && !error) {
-      const saved = mapDbToModel(data);
+      const saved = data;
       const updated = [...customLayouts, saved];
       setCustomLayouts(updated);
-      localStorage.setItem('custom_label_layouts', JSON.stringify(updated));
+      saveCustomLabelLayouts(updated);
       const catName =
         targetCat === 'identificacao'
           ? 'Identificação'
@@ -565,10 +576,10 @@ export const useLabelLayouts = ({
       toast.success(`Copiado com sucesso para ${catName}`);
     } else {
       console.error('Erro ao exportar layout:', error);
-      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` as any };
+      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` };
       const updated = [...customLayouts, localModel];
       setCustomLayouts(updated);
-      localStorage.setItem('custom_label_layouts', JSON.stringify(updated));
+      saveCustomLabelLayouts(updated);
       toast.success('Copiado para outra categoria (Local)');
     }
   };
@@ -615,11 +626,11 @@ export const useLabelLayouts = ({
   };
 
   useEffect(() => {
-    localStorage.setItem('lastSelectedRoundModelId', lastSelectedRoundModelId);
+    saveLastSelectedRoundModelId(lastSelectedRoundModelId);
   }, [lastSelectedRoundModelId]);
 
   useEffect(() => {
-    localStorage.setItem('lastSelectedRectModelId', lastSelectedRectModelId);
+    saveLastSelectedRectModelId(lastSelectedRectModelId);
   }, [lastSelectedRectModelId]);
 
   return {

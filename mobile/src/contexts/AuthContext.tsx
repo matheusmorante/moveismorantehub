@@ -4,6 +4,17 @@ import * as Linking from 'expo-linking';
 import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
+import {
+  checkCurrentUserHasPassword,
+  createCurrentUserPassword,
+} from '../services/authPasswordSetup';
+
+export type PasswordCredentialStatus =
+  | 'idle'
+  | 'checking'
+  | 'required'
+  | 'configured'
+  | 'error';
 
 interface AuthContextProps {
   userProfile: any;
@@ -17,6 +28,9 @@ interface AuthContextProps {
   canSeeProducts: boolean;
   canSeeFinance: boolean;
   canManageStock: boolean;
+  passwordCredentialStatus: PasswordCredentialStatus;
+  refreshPasswordCredentialStatus: () => Promise<boolean>;
+  createPasswordCredential: (password: string, confirmation: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -49,10 +63,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   });
 
+  const [passwordCredentialStatus, setPasswordCredentialStatus] =
+    useState<PasswordCredentialStatus>('idle');
+
+  const refreshPasswordCredentialStatus = async () => {
+    setPasswordCredentialStatus('checking');
+    try {
+      const hasPassword = await checkCurrentUserHasPassword(supabase);
+      setPasswordCredentialStatus(hasPassword ? 'configured' : 'required');
+      return hasPassword;
+    } catch (error) {
+      setPasswordCredentialStatus('error');
+      throw error;
+    }
+  };
+
+  const createPasswordCredential = async (password: string, confirmation: string) => {
+    await createCurrentUserPassword(supabase, password, confirmation);
+    const hasPassword = await refreshPasswordCredentialStatus();
+    if (!hasPassword) {
+      throw new Error('O Supabase ainda não confirmou a senha. Tente novamente.');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
       setUserProfile(null);
+      setPasswordCredentialStatus('idle');
     } catch (err) {
       console.warn('[Logout] Erro:', err);
     }
@@ -72,6 +110,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fullName: 'Matheus Morante',
           role: 'admin',
         });
+        setPasswordCredentialStatus('idle');
         setLoadingProfile(false);
         return;
       }
@@ -83,9 +122,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err) {
       console.warn('[AuthChange] Erro ao processar autenticação:', err);
       setUserProfile(null);
-    } finally {
-      setLoadingProfile(false);
     }
+
+    if (session?.user) {
+      try {
+        await refreshPasswordCredentialStatus();
+      } catch (err) {
+        console.warn('[AuthChange] Não foi possível confirmar a credencial de senha:', err);
+      }
+    } else {
+      setPasswordCredentialStatus('idle');
+    }
+    setLoadingProfile(false);
   };
 
   const handleDeepLinkUrl = async (url: string) => {
@@ -128,6 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[AuthChange] Event:', event);
+      setPasswordCredentialStatus(session?.user ? 'checking' : 'idle');
       setTimeout(() => {
         void syncAuthProfile(session);
       }, 0);
@@ -151,6 +200,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fullName: 'Matheus Morante',
           role: 'admin',
         });
+        setPasswordCredentialStatus('idle');
         setLoadingProfile(false);
         return;
       }
@@ -212,6 +262,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         canSeeProducts,
         canSeeFinance,
         canManageStock,
+        passwordCredentialStatus,
+        refreshPasswordCredentialStatus,
+        createPasswordCredential,
       }}
     >
       {children}

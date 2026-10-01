@@ -10,8 +10,67 @@ export interface MobileOrderListItem {
   customer_name: string;
   total_value: number;
   order_data: Record<string, unknown>;
+  fiscalBadgeStatus?: 'not_issued' | 'issued' | 'cancelled' | 'reversed';
   version?: number;
 }
+
+type FiscalBadgeStatus = NonNullable<MobileOrderListItem['fiscalBadgeStatus']>;
+
+interface FiscalDocumentStatusRow {
+  order_id: string | null;
+  status: string;
+  document_type?: string | null;
+}
+
+const resolveFiscalBadgeStatus = (documents: readonly FiscalDocumentStatusRow[]): FiscalBadgeStatus => {
+  const isAuthorized = (document: FiscalDocumentStatusRow) =>
+    document.status === 'autorizada' || document.status === 'homologada';
+  const isOutbound = (document: FiscalDocumentStatusRow) =>
+    (document.document_type || 'outbound') === 'outbound';
+
+  if (
+    documents.some(
+      (document) =>
+        (document.document_type === 'return' || document.document_type === 'estorno') &&
+        isAuthorized(document)
+    )
+  ) {
+    return 'reversed';
+  }
+  if (documents.some((document) => isOutbound(document) && isAuthorized(document))) return 'issued';
+  if (documents.some((document) => isOutbound(document) && document.status === 'cancelada')) {
+    return 'cancelled';
+  }
+  return 'not_issued';
+};
+
+export const fetchMobileOrderFiscalBadgeStatuses = async (
+  orderIds: readonly string[]
+): Promise<Record<string, FiscalBadgeStatus>> => {
+  const uniqueOrderIds = [...new Set(orderIds.filter(Boolean))];
+  if (uniqueOrderIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('nfe_documents')
+    .select('order_id,status,document_type')
+    .in('order_id', uniqueOrderIds);
+  if (error) throw error;
+
+  const documentsByOrderId = new Map<string, FiscalDocumentStatusRow[]>();
+  for (const row of (data || []) as FiscalDocumentStatusRow[]) {
+    if (!row.order_id) continue;
+    const documents = documentsByOrderId.get(row.order_id) || [];
+    documents.push(row);
+    documentsByOrderId.set(row.order_id, documents);
+  }
+
+  return Object.fromEntries(
+    uniqueOrderIds.map((orderId) => [
+      orderId,
+      resolveFiscalBadgeStatus(documentsByOrderId.get(orderId) || []),
+    ])
+  );
+};
 
 interface OrderListRow {
   id: string;

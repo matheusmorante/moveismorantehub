@@ -7,8 +7,9 @@ description: Diretrizes obrigatórias para organização estruturada de pastas, 
 
 ## Quando aplicar esta Skill
 Aplicar sempre que a tarefa envolver:
-- Reorganização de pastas com acúmulo excessivo de arquivos (pastas com mais de 8 a 10 arquivos soltos);
-- Criação de subpastas semânticas (`components/`, `modals/`, `services/`, `hooks/`, `utils/`, `types/`, `sections/`);
+- Reorganização quando a árvore de diretórios não expressar claramente os domínios, as responsabilidades ou a propriedade dos arquivos;
+- Separação de arquivos relacionados que estejam dispersos ou agrupados com responsabilidades distintas, quando uma estrutura mais coesa melhorar a localização e manutenção;
+- Criação, fusão ou remoção de subpastas semânticas (`components/`, `modals/`, `services/`, `hooks/`, `utils/`, `types/`, `sections/`) quando isso deixar mais claros os limites e as responsabilidades;
 - Movimentação de arquivos e componentes para novas estruturas de diretório;
 - Limpeza e padronização visual da árvore de pastas do ERP ou Mobile;
 - Criação de barrels (`index.ts`) para compatibilidade retroativa de importações.
@@ -19,7 +20,17 @@ Aplicar sempre que a tarefa envolver:
 
 ---
 
-## 1. Princípio Fundamental de Segurança em Movimentações
+## 1. Organização guiada por coesão, sem limites por quantidade
+
+- Não use quantidade de arquivos como gatilho autônomo para reorganizar uma pasta, nem imponha um limite de arquivos na raiz de um módulo.
+- Mantenha arquivos diretamente na pasta quando pertencerem claramente ao mesmo módulo e uma subpasta não melhorar a coesão, a descoberta ou a manutenção.
+- Crie subpastas quando representarem responsabilidades ou áreas funcionais reconhecíveis e ajudarem a encontrar, entender e alterar os arquivos em conjunto.
+- Evite tanto pastas que misturem responsabilidades sem relação quanto subpastas artificiais que apenas redistribuam arquivos sem melhorar limites, coesão ou navegação.
+- Decida a estrutura com base em responsabilidade única, coesão, dependências, propriedade e facilidade de descoberta. A quantidade de arquivos, isoladamente, não determina a qualidade da organização.
+
+---
+
+## 2. Princípio Fundamental de Segurança em Movimentações
 
 > [!IMPORTANT]
 > **"NENHUMA INFORMAÇÃO É PERDIDA. NENHUM IMPORT É QUEBRADO. NENHUM CAMINHO CRÍTICO É ALTERADO SEM TESTES."**
@@ -31,7 +42,7 @@ Ao organizar diretórios e mover arquivos de lugar:
 
 ---
 
-## 2. Padrão Canônico de Subpastas por Módulo
+## 3. Padrão Canônico de Subpastas por Módulo
 
 Ao organizar um diretório extenso (ex: telas em `src/pages/App/...` ou features em `mobile/src/features/...`):
 
@@ -44,11 +55,11 @@ Ao organizar um diretório extenso (ex: telas em `src/pages/App/...` ou features
 | `services/` | Lógica de cálculo, chamadas a APIs, integração com Supabase ou engines utilitárias | `inboundInvoiceService.ts`, `FabricLabelEngine.ts` |
 | `utils/` | Funções puras de formatação, regex, conversores e datas | `inboundDateUtils.ts`, `receiptPeriodUtils.ts` |
 | `types/` | Tipos TypeScript, interfaces e enums exclusivos do módulo | `inboundInvoice.types.ts` |
-| `Raiz do módulo` | Manter apenas o orquestrador principal (`Index.tsx`) e barrels de exportação quando necessário. | `Index.tsx` |
+| `Raiz do módulo` | Manter o ponto de entrada (`Index.tsx`) e barrels quando necessários. Arquivos específicos também podem ficar na raiz se isso preservar uma organização coesa e clara; mova-os quando uma subpasta semântica melhorar a descoberta ou explicitar uma responsabilidade. | `Index.tsx` |
 
 ---
 
-## 3. Checklist Operacional de Execução Segura
+## 4. Checklist Operacional de Execução Segura
 
 1. **Mapeamento Prévio de Referências**:
    - Rodar busca por texto (`grep_search`) pelo nome do arquivo a ser movido em todo o repositório (`erp/src` ou `mobile/src`) para descobrir quem o importa.
@@ -65,3 +76,8 @@ Ao organizar um diretório extenso (ex: telas em `src/pages/App/...` ou features
 4. **Verificação de Regressão**:
    - Rodar `npx vitest` e verificar status da compilação.
    - Confirmar ausência de erros 404 de Vite no navegador.
+
+## Referências e Fonte Canônica de Documentação
+
+- Critérios de responsabilidade única, SOLID e modularização: `.agents/skills/modularizacao_codigo/SKILL.md`.
+- Escopo de mudanças, validação e preservação do estado do repositório: `AGENTS.md` do projeto.

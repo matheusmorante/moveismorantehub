@@ -637,7 +637,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         paperWidth: paperSize === 'Custom' ? customWidth : undefined,
         paperHeight: paperSize === 'Custom' ? customHeight : undefined,
         icon: layoutType === 'round' ? 'bi-circle' : 'bi-grid-fill',
-        category: editingModel?.category || (currentCategory as any) || 'identificacao',
+        category: editingModel?.category || currentCategory || 'identificacao',
         type: layoutType,
         nameFontSize: nameFontSize,
         nameColor: nameColor,

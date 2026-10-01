@@ -52,7 +52,9 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
           .neq('item_type', 'combo')
           .or('is_combo.is.null,is_combo.eq.false')
           .or(`name.ilike.${term},code.ilike.${term}`)
-          .limit(5);
+          // Filtre fornecedor localmente, então busque uma janela maior antes
+          // de limitar a lista exibida para não esconder componentes válidos.
+          .limit(30);
 
         if (error) throw error;
         if (data) {
@@ -81,7 +83,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
                     variationStock: variation.stock,
                   }))
                 : [product];
-            })
+            }).slice(0, 5)
           );
         }
       } catch (e) {
@@ -107,18 +109,15 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
       return;
     }
 
-    const description = product.variationName
-      ? `${product.name} - ${product.variationName}`
-      : product.name;
+    // O ERP usa o nome da variação diretamente; ela já pode conter o nome pai.
+    const description = product.variationName || product.name;
     const newItem = {
       productId: product.id,
       variationId: product.variationId || null,
       quantity: 1,
       unitPrice: product.variationPrice ?? product.price ?? product.unit_price ?? 0,
       description,
-      productName: product.variationName
-        ? `${product.name} · ${product.variationName}`
-        : product.name,
+      productName: description,
       productCode: product.variationSku || product.code,
       stock: product.variationStock ?? product.stock ?? 0,
     };
@@ -201,8 +200,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.resultName, dark && styles.lightText]}>
-                    {r.name}
-                    {r.variationName ? ` · ${r.variationName}` : ''}
+                    {r.variationName || r.name}
                   </Text>
                   <Text style={[styles.resultCode, dark && styles.dimText]}>
                     {r.variationSku || r.code} · R${' '}

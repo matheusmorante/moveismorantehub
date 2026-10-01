@@ -89,6 +89,7 @@ export const mapDbVariations = (
         condition: data.condition || 'novo',
         attributes: attributesList,
         images: varImages,
+        comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
         syncUnitPrice: v.use_parent_price !== false,
         syncPromoPrice: v.use_parent_promo_price !== false,
         syncDescription: v.use_parent_description !== false,

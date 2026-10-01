@@ -11,6 +11,7 @@ import { MainNavigator } from './src/navigation/MainNavigator';
 import { LoginScreen } from './src/components/LoginScreen';
 import { PendingApprovalScreen } from './src/components/PendingApprovalScreen';
 import { MandatoryUpdateModal } from './src/components/modals/MandatoryUpdateModal';
+import { PasswordSetupModal } from './src/components/modals/PasswordSetupModal';
 
 import { useExpoAutoUpdate } from './src/hooks/useExpoAutoUpdate';
 import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
@@ -18,7 +19,14 @@ import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
 WebBrowser.maybeCompleteAuthSession();
 
 const AppContent = () => {
-  const { userProfile, loadingProfile, handleLogout } = useAuth();
+  const {
+    userProfile,
+    loadingProfile,
+    handleLogout,
+    passwordCredentialStatus,
+    refreshPasswordCredentialStatus,
+    createPasswordCredential,
+  } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const mandatoryUpdate = useMandatoryAppUpdate();
 
@@ -26,7 +34,7 @@ const AppContent = () => {
     <View testID="app-root" style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#0f172a' : '#f8fafc'} />
 
-      {loadingProfile ? (
+      {loadingProfile || (userProfile && passwordCredentialStatus === 'checking') ? (
         <View style={[styles.center, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -56,6 +64,17 @@ const AppContent = () => {
         error={mandatoryUpdate.downloadError}
         onDownload={() => void mandatoryUpdate.downloadUpdate()}
         onDismiss={mandatoryUpdate.dismissUpdate}
+      />
+      <PasswordSetupModal
+        visible={
+          !!userProfile &&
+          (passwordCredentialStatus === 'required' || passwordCredentialStatus === 'error')
+        }
+        status={passwordCredentialStatus}
+        email={userProfile?.email}
+        onRetry={refreshPasswordCredentialStatus}
+        onCreatePassword={createPasswordCredential}
+        onLogout={handleLogout}
       />
     </View>
   );

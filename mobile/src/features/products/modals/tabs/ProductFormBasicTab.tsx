@@ -147,7 +147,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
                     : styles.lightDiferenciarBtn,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Origem do estoque Normal"
+              accessibilityLabel="Origem do estoque Convencional"
             >
               <Text
                 style={[
@@ -155,7 +155,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
                   isNormal ? styles.originBtnTextActive : dark ? styles.lightText : styles.dimText,
                 ]}
               >
-                Normal
+                Convencional
               </Text>
             </TouchableOpacity>
 
@@ -365,7 +365,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           accessibilityLabel="Selecionar Oportunidade"
         >
           <Text style={[styles.selectBoxText, dark && styles.lightText]} numberOfLines={1}>
-            {selectedOpportunity ? selectedOpportunity.name : 'Nenhuma (Produto Normal)'}
+            {selectedOpportunity ? selectedOpportunity.name : 'Nenhuma (Produto Convencional)'}
           </Text>
           {!isSalvado && <ChevronDown size={16} color="#94a3b8" />}
         </TouchableOpacity>

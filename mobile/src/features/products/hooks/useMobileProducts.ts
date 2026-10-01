@@ -224,7 +224,7 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
       ) {
         Alert.alert(
           'Produto Desativado no ERP',
-          'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Normal).'
+          'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Convencional).'
         );
         return;
       }

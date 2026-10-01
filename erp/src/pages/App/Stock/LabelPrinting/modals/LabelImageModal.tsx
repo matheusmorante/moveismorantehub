@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
-
-export interface LabelImage {
-  readonly id: number;
-  readonly name: string;
-  readonly image: string;
-  readonly category: string;
-}
+import { createLabelImage, deleteLabelImage, fetchLabelImages } from '../services/labelImageService';
+import type { LabelImage } from '../types/LabelImage.types';
+export type { LabelImage } from '../types/LabelImage.types';
 
 export interface LabelImageModalProps {
   readonly isOpen: boolean;
@@ -28,17 +23,13 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
 
   const fetchImages = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('label_images')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (data && !error) {
-      setImages(data);
-    } else if (error) {
+    try {
+      setImages(await fetchLabelImages());
+    } catch (error) {
       console.error('Erro ao buscar imagens:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -56,17 +47,13 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
       const name = file.name.split('.')[0].toUpperCase();
 
       try {
-        const { data, error } = await supabase
-          .from('label_images')
-          .insert([{ name, image: base64, category: currentCategory || 'logos' }])
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          setImages((prev) => [data, ...prev]);
-          toast.success('Imagem adicionada com sucesso!');
-        }
+        const image = await createLabelImage({
+          name,
+          image: base64,
+          category: currentCategory || 'logos',
+        });
+        setImages((prev) => [image, ...prev]);
+        toast.success('Imagem adicionada com sucesso!');
       } catch (err: unknown) {
         console.error(err);
         toast.error('Erro ao salvar imagem no banco.');
@@ -82,9 +69,7 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
     if (!window.confirm('Excluir esta imagem permanentemente?')) return;
 
     try {
-      const { error } = await supabase.from('label_images').delete().eq('id', id);
-
-      if (error) throw error;
+      await deleteLabelImage(id);
       setImages((prev) => prev.filter((img) => img.id !== id));
       toast.success('Imagem removida com sucesso.');
     } catch (err: unknown) {

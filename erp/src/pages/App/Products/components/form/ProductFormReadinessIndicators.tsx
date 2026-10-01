@@ -130,7 +130,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
                             : 'text-slate-500 dark:text-slate-400 font-bold'
                         }
                       >
-                        Origem do Estoque Normal
+                        Origem do Estoque Convencional
                       </span>
                     </div>
                     <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>

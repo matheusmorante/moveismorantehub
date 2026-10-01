@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
-import { fetchMobileOrdersPage, MobileOrderListItem } from '../services/mobileOrderListService';
+import {
+  fetchMobileOrderFiscalBadgeStatuses,
+  fetchMobileOrdersPage,
+  MobileOrderListItem,
+} from '../services/mobileOrderListService';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -78,6 +82,19 @@ export function useMobileOrders() {
         if (ordersResult.status === 'fulfilled') {
           setOrders(ordersResult.value.items);
           setTotalItems(ordersResult.value.total);
+          void fetchMobileOrderFiscalBadgeStatuses(ordersResult.value.items.map((order) => order.id))
+            .then((statuses) => {
+              setOrders((current) =>
+                current.map((order) =>
+                  statuses[order.id]
+                    ? { ...order, fiscalBadgeStatus: statuses[order.id] }
+                    : order
+                )
+              );
+            })
+            .catch(() => {
+              console.error('[useMobileOrders] Não foi possível carregar o status fiscal dos pedidos.');
+            });
         } else {
           console.error('[useMobileOrders] Falha ao buscar pedidos remotos:', ordersResult.reason);
         }

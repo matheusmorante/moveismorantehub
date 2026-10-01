@@ -375,7 +375,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={formData.productKind === 'salvado'}
           >
-            <option value="">Nenhuma (Produto Normal)</option>
+            <option value="">Nenhuma (Produto Convencional)</option>
             {opportunities
               .filter((opp) => {
                 if (formData.productKind === 'normal' || !formData.productKind) {

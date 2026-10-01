@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { translateAuthError } from '../../pages/utils/authErrors';
+import { signInWithEmailPassword, signInWithGoogle } from '@/services/authPasswordSetup';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -39,10 +40,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signInWithEmailPassword(supabase, email, password);
 
       if (error) throw error;
 
@@ -163,11 +161,8 @@ const Login = () => {
                 return;
               }
               try {
-                const { error } = await supabase.auth.signInWithOAuth({
-                  provider: 'google',
-                  options: {
-                    redirectTo: getAuthRedirectUrl(),
-                  },
+                const { error } = await signInWithGoogle(supabase, {
+                  redirectTo: getAuthRedirectUrl(),
                 });
                 if (error) throw error;
               } catch (error: any) {

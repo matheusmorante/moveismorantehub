@@ -52,7 +52,7 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
                   dark && styles.lightText,
                 ]}
               >
-                Nenhuma (Produto Normal)
+                Nenhuma (Produto Convencional)
               </Text>
               {!selectedOpportunityId && <Check size={16} color="#2563eb" strokeWidth={2.5} />}
             </TouchableOpacity>

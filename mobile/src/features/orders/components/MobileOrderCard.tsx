@@ -148,6 +148,12 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   const cancelled = isCancelledOrder(order);
   const isStockChecked = Boolean(order.isStockChecked ?? data.isStockChecked);
   const isRegisteredInBling = Boolean(order.isRegisteredInBling ?? data.isRegisteredInBling);
+  const fiscalBadgeStatus = order.fiscalBadgeStatus as
+    | 'not_issued'
+    | 'issued'
+    | 'cancelled'
+    | 'reversed'
+    | undefined;
   const pendingScheduling = Boolean(
     shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling
   );
@@ -284,6 +290,33 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
           )}
 
           {/* 7. Selo de Agendamento Pendente */}
+          {fiscalBadgeStatus && (
+            <View
+              accessibilityLabel={`Nota fiscal ${
+                fiscalBadgeStatus === 'not_issued'
+                  ? 'não emitida'
+                  : fiscalBadgeStatus === 'issued'
+                    ? 'emitida'
+                    : fiscalBadgeStatus === 'cancelled'
+                      ? 'cancelada'
+                      : 'de devolução ou estorno'
+              }`}
+              style={[
+                styles.textBadge,
+                fiscalBadgeStatus === 'not_issued'
+                  ? styles.fiscalBadgeMuted
+                  : fiscalBadgeStatus === 'issued'
+                    ? styles.fiscalBadgeSuccess
+                    : fiscalBadgeStatus === 'cancelled'
+                      ? styles.fiscalBadgeCancelled
+                      : styles.fiscalBadgeReversed,
+              ]}
+            >
+              <Text style={styles.textBadgeLabel}>NF</Text>
+              {fiscalBadgeStatus === 'issued' && <CheckCircle2 size={10} color="#ffffff" />}
+            </View>
+          )}
+
           {pendingScheduling && (
             <View style={[styles.textBadge, styles.badgeOrange]}>
               <Clock size={10} color="#ffffff" />
@@ -515,6 +548,22 @@ const styles = StyleSheet.create({
   badgeMuted: {
     backgroundColor: '#64748b',
     borderColor: '#475569',
+  },
+  fiscalBadgeMuted: {
+    backgroundColor: '#94a3b8',
+    borderColor: '#64748b',
+  },
+  fiscalBadgeSuccess: {
+    backgroundColor: '#059669',
+    borderColor: '#047857',
+  },
+  fiscalBadgeCancelled: {
+    backgroundColor: '#f43f5e',
+    borderColor: '#e11d48',
+  },
+  fiscalBadgeReversed: {
+    backgroundColor: '#f97316',
+    borderColor: '#c2410c',
   },
   badgeEmerald: {
     backgroundColor: '#059669',

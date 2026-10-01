@@ -1,6 +1,7 @@
 import React from 'react';
+import type { CategoryType } from '../hooks/useLabelCategory';
 
-export type CategoryType = 'identificacao' | 'precos' | 'logos' | 'posts';
+export type { CategoryType } from '../hooks/useLabelCategory';
 
 interface Props {
   selectedCategory: CategoryType | null;

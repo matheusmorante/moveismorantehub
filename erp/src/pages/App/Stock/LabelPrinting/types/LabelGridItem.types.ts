@@ -41,6 +41,12 @@ export interface LogoItemConfig {
   instances?: string[];
 }
 
+export interface LabelLogoAsset {
+  readonly id: string;
+  readonly image: string;
+  readonly name: string;
+}
+
 export interface LabelGridItemInstance {
   type: 'logo' | 'product';
   originalIdx: number;

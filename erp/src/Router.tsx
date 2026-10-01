@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, BrowserRouter, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PasswordSetupPrompt } from './components/auth/PasswordSetupPrompt';
 import SalesOrder from './pages/App/SalesOrder';
 import Dashboard from './pages/App/Dashboard/Index';
 import AppLayout from './AppLayout';
@@ -385,6 +386,7 @@ function Router() {
             <Route path="/system-docs" element={<SystemDocs />} />
           </Route>
         </Routes>
+        <PasswordSetupPrompt />
       </BrowserRouter>
     </AuthProvider>
   );

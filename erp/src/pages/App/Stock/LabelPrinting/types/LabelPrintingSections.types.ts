@@ -1,13 +1,16 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { ChangeEventHandler, Dispatch, RefObject, SetStateAction } from 'react';
 import type Product from '../../../../types/product.type';
-import type { LabelItemConfig, LogoItemConfig } from './LabelGridItem.types';
+import type { LabelItemConfig, LabelLogoAsset, LogoItemConfig } from './LabelGridItem.types';
 import type { GridModel } from './LabelGridModelTypes';
-import { LabelConfig, CustomLabel } from '../utils/LabelConstants';
+import type { CustomLabel, LabelConfig } from '../utils/LabelConstants';
+import type { CategoryType } from '../hooks/useLabelCategory';
+import type { PriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
+
+type SavedArtConfig = NonNullable<LabelConfig['artConfig']>;
+type SavedArtConfigs = Record<string, SavedArtConfig>;
 
 export interface HeaderSectionProps {
-  selectedCategory: string;
-  printingMode: 'simple' | 'advanced';
-  setPrintingMode: (mode: 'simple' | 'advanced') => void;
+  selectedCategory: CategoryType | null;
   config: LabelConfig;
   setGridModalOpen: (open: boolean) => void;
   setIsModelManagerModalOpen: (open: boolean) => void;
@@ -16,23 +19,23 @@ export interface HeaderSectionProps {
 }
 
 export interface QueueSectionProps {
-  selectedCategory: string | null;
+  selectedCategory: CategoryType | null;
   printingMode: 'simple' | 'advanced';
   config: LabelConfig;
   products: Product[];
   selectedProductToAdd: Product | null;
   setSelectedProductToAdd: (product: Product | null) => void;
   productAddQty: number;
-  setProductAddQty: (qty: number) => void;
+  setProductAddQty: (quantity: number) => void;
   handleProductSelect: (product: Product, quantity: number, skipModal?: boolean) => void;
   labelItems: LabelItemConfig[];
   setLabelItems: Dispatch<SetStateAction<LabelItemConfig[]>>;
   logoItems: LogoItemConfig[];
   setLogoItems: Dispatch<SetStateAction<LogoItemConfig[]>>;
   isDownloading: boolean;
-  handleAddBlankLabel?: (qty: number) => void;
-  cellInputRef?: React.RefObject<HTMLInputElement>;
-  handleLogoUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleAddBlankLabel?: (quantity: number) => void;
+  cellInputRef?: RefObject<HTMLInputElement>;
+  handleLogoUpload?: ChangeEventHandler<HTMLInputElement>;
   setIsAssetManagerModalOpen?: (open: boolean) => void;
 }
 
@@ -40,24 +43,22 @@ export interface PreviewSectionProps {
   config: LabelConfig;
   printingMode: 'simple' | 'advanced';
   artVersion: number;
-  savedArtConfigs: Record<string, any>;
+  savedArtConfigs: SavedArtConfigs;
   selectedImage: string | null;
   cellImages: Record<number, string | null>;
-  handleCellClick: (idx: number) => void;
+  handleCellClick: (index: number) => void;
   labelItems: LabelItemConfig[];
   logoItems: LogoItemConfig[];
   currentPage: number;
-  setCurrentPage:
-    | Dispatch<SetStateAction<number>>
-    | ((page: number | ((prev: number) => number)) => void);
+  setCurrentPage: Dispatch<SetStateAction<number>>;
   handleDownloadImage: () => void;
   printLabels: () => void;
   isPrinting?: boolean;
   isDownloading: boolean;
-  selectedCategory: string | null;
-  previewContainerRef: React.RefObject<HTMLDivElement>;
-  previewScaleRef: React.RefObject<HTMLDivElement>;
-  gridRef: React.RefObject<HTMLDivElement>;
+  selectedCategory: CategoryType | null;
+  previewContainerRef: RefObject<HTMLDivElement>;
+  previewScaleRef: RefObject<HTMLDivElement>;
+  gridRef: RefObject<HTMLDivElement>;
   previewZoom: number;
   setPreviewZoom: Dispatch<SetStateAction<number>>;
   isPreviewFullscreen: boolean;
@@ -65,10 +66,10 @@ export interface PreviewSectionProps {
 
 export interface PrintPortalSectionProps {
   config: LabelConfig;
-  selectedCategory: string | null;
+  selectedCategory: CategoryType | null;
   logoItems: LogoItemConfig[];
   labelItems: LabelItemConfig[];
-  savedArtConfigs: Record<string, any>;
+  savedArtConfigs: SavedArtConfigs;
   printingMode: 'simple' | 'advanced';
   artVersion: number;
   selectedImage: string | null;
@@ -76,68 +77,58 @@ export interface PrintPortalSectionProps {
 }
 
 export interface ModalsSectionProps {
-  editingGridModel: any;
-  setEditingGridModel: (m: any) => void;
-  selectLayout: (model: any, artConfig?: any) => void;
+  editingGridModel: GridModel | null;
+  setEditingGridModel: Dispatch<SetStateAction<GridModel | null>>;
+  selectLayout: (model: GridModel) => void;
   isCopyModalOpen: boolean;
-  setIsCopyModalOpen: (b: boolean) => void;
-  modelToCopy: any;
-  handleCopyToCategory: (model: any, cat: any) => void;
-  modelToDelete: any;
-  setModelToDelete: (m: any) => void;
-  confirmDeleteLayout: () => void;
-  logoInputRef: any;
-  handleLogoUpload: (e: any) => void;
+  setIsCopyModalOpen: Dispatch<SetStateAction<boolean>>;
+  modelToCopy: GridModel | null;
+  handleCopyToCategory: (model: GridModel, category: CategoryType) => Promise<void>;
+  modelToDelete: string | null;
+  setModelToDelete: Dispatch<SetStateAction<string | null>>;
+  confirmDeleteLayout: () => Promise<void>;
+  logoInputRef: RefObject<HTMLInputElement>;
+  handleLogoUpload: ChangeEventHandler<HTMLInputElement>;
   handleConfirmNewLogo: () => void;
-  availableLogos: any[];
-  handleAddLogoToQueue: (logo: any) => void;
-  handleDeleteAvailableLogo: (logo: any) => void;
+  availableLogos: LabelLogoAsset[];
+  handleAddLogoToQueue: (logo: Pick<LabelLogoAsset, 'image' | 'name'>) => void;
+  handleDeleteAvailableLogo: (id: string) => void;
   isLabelModalOpen: boolean;
-  setIsLabelModalOpen: (b: boolean) => void;
+  setIsLabelModalOpen: Dispatch<SetStateAction<boolean>>;
+  isImageModalOpen: boolean;
+  setIsImageModalOpen: Dispatch<SetStateAction<boolean>>;
   handleDeleteLayout: (id: string) => void;
-  setSelectedImage: (img: string | null) => void;
-  publishPriceLabelTemplateUpdate: (payload?: any) => void;
-  selectedProductToAdd: any;
-  setCustomLayouts: (updater: any) => void;
+  setSelectedImage: Dispatch<SetStateAction<string | null>>;
+  publishPriceLabelTemplateUpdate: (update: PriceLabelTemplateUpdate) => void;
+  selectedProductToAdd: Product | null;
+  setCustomLayouts: Dispatch<SetStateAction<GridModel[]>>;
   selectedImage: string | null;
   gridModalOpen: boolean;
-  setGridModalOpen: (open: boolean) => void;
+  setGridModalOpen: Dispatch<SetStateAction<boolean>>;
   layoutModels: GridModel[];
   customLayouts: GridModel[];
   config: LabelConfig;
   setConfig: Dispatch<SetStateAction<LabelConfig>>;
-  applyPresetWithConfig: (preset: any, config: LabelConfig) => void;
   isModelManagerModalOpen: boolean;
-  setIsModelManagerModalOpen: (open: boolean) => void;
-  setCustomLabels: Dispatch<SetStateAction<CustomLabel[]>>;
-  currentModel: GridModel | undefined;
-  isImageModalOpen: boolean;
-  setIsImageModalOpen: (open: boolean) => void;
-  editingLabel: { product: Product; quantity: number } | null;
-  setEditingLabel: Dispatch<SetStateAction<{ product: Product; quantity: number } | null>>;
+  setIsModelManagerModalOpen: Dispatch<SetStateAction<boolean>>;
+  editingLabel: CustomLabel | null;
   labelFormName: string;
-  setLabelFormName: (val: string) => void;
-  labelFormImage: string | null;
-  setLabelFormImage: (val: string | null) => void;
+  setLabelFormName: Dispatch<SetStateAction<string>>;
+  labelFormImage: string;
+  setLabelFormImage: Dispatch<SetStateAction<string>>;
   handleSaveCustomLabel: () => void;
   isPriceLabelArtEditorOpen: boolean;
-  setIsPriceLabelArtEditorOpen: (open: boolean) => void;
-  setSavedArtConfigs: Dispatch<SetStateAction<Record<string, any>>>;
-  savedArtConfigs: Record<string, any>;
-  artVersion: number;
+  setIsPriceLabelArtEditorOpen: Dispatch<SetStateAction<boolean>>;
+  setSavedArtConfigs: Dispatch<SetStateAction<SavedArtConfigs>>;
+  savedArtConfigs: SavedArtConfigs;
   setArtVersion: Dispatch<SetStateAction<number>>;
   isAssetManagerModalOpen: boolean;
-  setIsAssetManagerModalOpen: (open: boolean) => void;
-  selectedCategory: 'identificacao' | 'precos' | 'logos' | 'posts' | null | any;
-  logoItems: LogoItemConfig[];
-  isPrinting?: boolean;
-  isDownloading?: boolean;
+  setIsAssetManagerModalOpen: Dispatch<SetStateAction<boolean>>;
+  selectedCategory: CategoryType | null;
   setLogoItems: Dispatch<SetStateAction<LogoItemConfig[]>>;
   isNewLogoModalOpen: boolean;
-  setIsNewLogoModalOpen: (open: boolean) => void;
+  setIsNewLogoModalOpen: Dispatch<SetStateAction<boolean>>;
   newLogoName: string;
-  setNewLogoName: (val: string) => void;
-  newLogoImage: string | null;
-  setNewLogoImage: (val: string | null) => void;
-  handleSaveNewLogo: () => void;
+  setNewLogoName: Dispatch<SetStateAction<string>>;
+  newLogoImage: string;
 }

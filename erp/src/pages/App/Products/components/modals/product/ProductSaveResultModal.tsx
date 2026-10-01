@@ -254,7 +254,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px]">Origem do Estoque Normal</span>
+                  <span className="text-[11px]">Origem do Estoque Convencional</span>
                 </li>
               </ul>
             </div>

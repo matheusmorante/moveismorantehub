@@ -54,4 +54,26 @@ describe('mapDbVariations', () => {
       { name: 'Quantidade de Portas', value: '6 Portas', showName: false },
     ]);
   });
+
+  it('carrega os componentes persistidos por variação', () => {
+    const comboItems = [
+      { productId: 'component-1', variationId: 'component-variation-1', quantity: 2 },
+    ];
+    const variations = mapDbVariations(
+      [
+        {
+          id: 'variation-04',
+          product_id: 'product-1',
+          sku: '003962-04',
+          name: 'Kit com componentes',
+          attributes: [],
+          combo_items: comboItems,
+        },
+      ],
+      { name: 'Kit', unit_price: 249, active: true },
+      '003962'
+    );
+
+    expect(variations[0].comboItems).toEqual(comboItems);
+  });
 });

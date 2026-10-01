@@ -46,7 +46,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
   useEffect(() => {
     supabase
       .from('people')
-      .select('id, full_name, nickname')
+      .select('id, full_name, nickname, stock_origins')
       .in('person_type', ['supplier', 'suppliers'])
       .eq('active', true)
       .eq('deleted', false)
@@ -55,6 +55,13 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         if (data) setSuppliers(data);
       });
   }, []);
+
+  const selectedStockOrigin =
+    formData.productKind === 'salvado' || formData.condition === 'salvado'
+      ? 'salvados'
+      : formData.productKind === 'usado' || formData.condition === 'usado'
+        ? 'usados'
+        : 'normal';
 
   const set = useCallback(
     (field: string, value: any) => {
@@ -73,7 +80,8 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     return suppliers.filter((sup) => {
       if (selectedIds.includes(sup.id)) return false;
       const name = `${sup.nickname || ''} ${sup.full_name || ''}`.toLocaleLowerCase('pt-BR');
-      return name.includes(q);
+      const stockOrigins = Array.isArray(sup.stock_origins) ? sup.stock_origins : ['normal'];
+      return stockOrigins.includes(selectedStockOrigin) && name.includes(q);
     });
   }, [
     suppliers,
@@ -81,6 +89,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     formData.mainSupplierId,
     formData.supplierId,
     formData.supplierIds,
+    selectedStockOrigin,
   ]);
 
   // Calcula desconto ao mudar preço promo
@@ -219,6 +228,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       selectedSupplierIds.length >= 3
     )
       return;
+    const stockOrigins = Array.isArray(supplier.stock_origins)
+      ? supplier.stock_origins
+      : ['normal'];
+    if (!stockOrigins.includes(selectedStockOrigin)) return;
     const nextIds = [...selectedSupplierIds, supplier.id];
     setFormData((prev) => ({
       ...prev,

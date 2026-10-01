@@ -1,6 +1,21 @@
-import type { GridModel } from '../types/LabelGridModelTypes';
+import type { GridModel, GridModelDraft } from '../types/LabelGridModelTypes';
 
-export const calculateLabelDimensions = (m: any) => {
+export const calculateLabelDimensions = (
+  m: Pick<
+    GridModel,
+    | 'paperSize'
+    | 'paperWidth'
+    | 'paperHeight'
+    | 'marginL'
+    | 'marginR'
+    | 'columns'
+    | 'gapH'
+    | 'marginT'
+    | 'marginB'
+    | 'rows'
+    | 'gapV'
+  >
+) => {
   const paperW =
     m.paperSize === 'A4'
       ? 210
@@ -79,7 +94,7 @@ export const processProductData = (data: any[]) => {
   return flattened;
 };
 
-export const mapModelToDb = (model: GridModel) => ({
+export const mapModelToDb = (model: GridModelDraft) => ({
   name: model.name,
   category: model.category,
   columns: Math.round(model.columns || 1),

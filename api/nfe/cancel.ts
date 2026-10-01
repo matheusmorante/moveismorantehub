@@ -12,6 +12,7 @@ import {
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
+import { orderShowsPhysicalCirculation } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -44,41 +45,6 @@ const escapeXml = (value: string) =>
 
 const valueIn = (xml: string, tag: string) =>
   xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([^<]*)</${tag}>`, 'i'))?.[1]?.trim() || null;
-
-const orderShowsPhysicalCirculation = (row: any, model: string) => {
-  const data = row?.order_data || {};
-  const shipping = data.shipping || {};
-  const deliveryStatus = String(
-    row?.delivery_status || shipping.deliveryStatus || ''
-  ).toLowerCase();
-  const physicalStatuses = [
-    'in_transit',
-    'in-transit',
-    'delivered',
-    'completed',
-    'finished',
-    'collected',
-    'em_transito',
-    'entregue',
-    'concluido',
-    'coletado',
-  ];
-  if (physicalStatuses.some((status) => deliveryStatus.includes(status))) return true;
-  if (
-    shipping.deliveryStartedAt ||
-    shipping.deliveryArrivedAt ||
-    shipping.deliveryFinishedAt ||
-    shipping.unattendedAt ||
-    shipping.pickupConfirmedAt ||
-    data.deliveryFinishedAt ||
-    data.pickupConfirmedAt
-  )
-    return true;
-  const deliveryMethod = String(
-    row?.delivery_method || shipping.deliveryMethod || ''
-  ).toLowerCase();
-  return model === '65' && deliveryMethod === 'pickup' && row?.status === 'fulfilled';
-};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -161,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: 'Não foi possível verificar a circulação da mercadoria.',
         });
-      physicalCirculationConfirmed = orderShowsPhysicalCirculation(order, String(doc.modelo));
+      physicalCirculationConfirmed = orderShowsPhysicalCirculation(order);
     }
 
     const { data: priorEvents, error: priorError } = await supabase

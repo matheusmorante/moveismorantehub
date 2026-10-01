@@ -15,24 +15,27 @@ const LabelPrinting: React.FC = () => {
       <div
         className={`flex flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-6 min-h-screen no-print transition-all`}
       >
-        <HeaderSection {...(state as any)} />
+        <HeaderSection {...state} />
 
         {!state.selectedCategory ? (
-          <LabelPrintingCategoryTabs {...(state as any)} />
+          <LabelPrintingCategoryTabs
+            selectedCategory={state.selectedCategory}
+            onSelectCategory={state.setSelectedCategory}
+          />
         ) : (
           <div className="flex flex-col gap-6 animate-fade-in lg:flex-row lg:items-start">
             {/* SEÇÃO DA FILA (PRODUTOS OU LOGOS) */}
-            <QueueSection {...(state as any)} />
+            <QueueSection {...state} />
 
             {/* PREVIEW: sidebar em desktop; abaixo da fila em telas menores. */}
-            <PreviewSection {...(state as any)} />
+            <PreviewSection {...state} />
           </div>
         )}
       </div>
 
-      <PrintPortalSection {...(state as any)} />
+      <PrintPortalSection {...state} />
 
-      <ModalsSection {...(state as any)} />
+      <ModalsSection {...state} />
     </>
   );
 };

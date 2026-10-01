@@ -1,11 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HeaderSectionProps } from '../types/LabelPrintingSections.types';
-import { calculateLabelDimensions } from '../utils/LabelUtils';
 
 export const HeaderSection: React.FC<HeaderSectionProps> = ({
   selectedCategory,
-  printingMode,
-  setPrintingMode,
   config,
   setGridModalOpen,
   setIsModelManagerModalOpen,
@@ -169,9 +166,8 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
 
                   {/* Ações extras */}
                   {(selectedCategory === 'precos' ||
-                    (selectedCategory &&
-                      selectedCategory !== 'posts' &&
-                      selectedCategory !== 'precos')) && (
+                    selectedCategory === 'identificacao' ||
+                    selectedCategory === 'logos') && (
                     <>
                       <hr className="border-slate-100 dark:border-slate-800 my-3" />
                       <div className="flex flex-col">
@@ -190,7 +186,7 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
                           </button>
                         )}
 
-                        {selectedCategory !== 'precos' && selectedCategory !== 'posts' && (
+                        {(selectedCategory === 'identificacao' || selectedCategory === 'logos') && (
                           <button
                             type="button"
                             onClick={() => {

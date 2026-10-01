@@ -126,6 +126,8 @@ export interface GridModel extends GridModelBase {
   };
 }
 
+export type GridModelDraft = Omit<GridModel, 'id'> & { id?: string | undefined };
+
 export interface LabelGridModelModalProps {
   isOpen: boolean;
   onClose: () => void;

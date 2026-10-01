@@ -201,6 +201,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
             stock: v.stock ? parseInt(String(v.stock), 10) : 0,
             image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
             attributes: attributesToSave,
+            combo_items: Array.isArray((v as any).comboItems) ? (v as any).comboItems : [],
             promo_price:
               v.syncPromoPrice !== false
                 ? product.promoPrice

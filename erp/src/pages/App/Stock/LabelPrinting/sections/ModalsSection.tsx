@@ -1,13 +1,20 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
-import { mapModelToDb, mapDbToModel, calculateLabelDimensions } from '../utils/LabelUtils';
+import { calculateLabelDimensions } from '../utils/LabelUtils';
+import type { LabelConfig } from '../utils/LabelConstants';
 import { toast } from 'react-toastify';
 import React from 'react';
 import { ModalsSectionProps } from '../types/LabelPrintingSections.types';
 import LabelGridModelModal from '../modals/LabelGridModelModal';
 import LabelImageModal from '../modals/LabelImageModal';
 import PriceLabelArtEditorModal from '../modals/PriceLabelArtEditorModal';
+import {
+  insertRemoteLabelLayout,
+  updateRemoteLabelLayout,
+  updateRemoteLabelLayoutArtwork,
+  upsertRemoteLabelArtConfig,
+} from '../services/labelLayoutService';
+import { saveCustomLabelLayouts } from '../services/labelStorageService';
 
 export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
   const {
@@ -87,7 +94,8 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
             ? customLayouts.find((c) => c.baseModelId === editingGridModel!.id)
             : null;
 
-          const targetId = existingOverride?.id || (isSystemDefault ? null : editingGridModel?.id);
+          const targetId =
+            existingOverride?.id ?? (isSystemDefault ? null : (editingGridModel?.id ?? null));
           const isUpdateAction = !!targetId;
 
           // 2. Verificar se j├í existe um modelo ID├èNTICO (mesmas dimens├Áes) que n├úo seja este mesmo que estou editando
@@ -124,47 +132,37 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
 
           // 3. Preparar e Salvar
           const isDbWriteable = isUpdateAction && !String(targetId).startsWith('custom_');
-          const modelToSave = {
+          const modelToSave: GridModel = {
             ...newModel,
-            category: selectedCategory as any,
-            baseModelId: (isSystemDefault
-              ? editingGridModel!.id
-              : editingGridModel?.baseModelId || undefined) as string | undefined,
+            category: selectedCategory ?? newModel.category,
+            baseModelId: isSystemDefault
+              ? editingGridModel?.id
+              : editingGridModel?.baseModelId,
           };
-          const dbModel = mapModelToDb(modelToSave);
 
           let finalModel: GridModel | null = null;
           let savedToDb = false;
-          let resultError: any = null;
+          let resultError: unknown | null = null;
 
           try {
-            if (isDbWriteable) {
-              const { data, error } = await supabase
-                .from('label_layouts')
-                .update(dbModel)
-                .eq('id', targetId)
-                .select()
-                .single();
+            if (isDbWriteable && targetId) {
+              const { data, error } = await updateRemoteLabelLayout(targetId, modelToSave);
               if (data && !error) {
-                finalModel = mapDbToModel(data);
+                finalModel = data;
                 savedToDb = true;
               } else {
                 resultError = error;
               }
             } else if (!isUpdateAction) {
-              const { data, error } = await supabase
-                .from('label_layouts')
-                .insert([dbModel])
-                .select()
-                .single();
+              const { data, error } = await insertRemoteLabelLayout(modelToSave);
               if (data && !error) {
-                finalModel = mapDbToModel(data);
+                finalModel = data;
                 savedToDb = true;
               } else {
                 resultError = error;
               }
             }
-          } catch (e) {
+          } catch (e: unknown) {
             console.error('Erro no Supabase:', e);
             resultError = e;
           }
@@ -172,26 +170,21 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
           // 4. Conting├¬ncia Local
           if (!finalModel) {
             const localId = targetId || `custom_${Date.now()}`;
-            finalModel = { ...modelToSave, id: localId as any } as GridModel;
+            finalModel = { ...modelToSave, id: localId };
           }
 
-          // 5. Atualizar Estado (Substitui├º├úo por Origem e ID)
-          setCustomLayouts((prev: any) => {
-            const targetBaseId = finalModel!.baseModelId;
-            const targetId = finalModel!.id;
-
-            const filtered = prev.filter((m: any) => {
-              const isOldId = String(m.id) === String(targetId);
-              const isOldOverride = targetBaseId && m.baseModelId === targetBaseId;
-
-              // Se for o mesmo ID ou for um override da mesma etiqueta base, removemos o antigo
+          // 5. Atualizar Estado (Substituição por Origem e ID)
+          const targetBaseId = finalModel.baseModelId;
+          const updatedLayouts = [
+            ...customLayouts.filter((model) => {
+              const isOldId = model.id === finalModel.id;
+              const isOldOverride = targetBaseId && model.baseModelId === targetBaseId;
               return !isOldId && !isOldOverride;
-            });
-
-            const newList = [...filtered, finalModel!];
-            localStorage.setItem('custom_label_layouts', JSON.stringify(newList));
-            return newList;
-          });
+            }),
+            finalModel,
+          ];
+          setCustomLayouts(updatedLayouts);
+          saveCustomLabelLayouts(updatedLayouts);
 
           if (
             finalModel &&
@@ -204,7 +197,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
           if (savedToDb) {
             toast.success('Modelo atualizado no banco!');
           } else {
-            const quota = resultError?.message?.includes('quota') || resultError?.status === 402;
+            const errorDetails =
+              typeof resultError === 'object' && resultError !== null
+                ? (resultError as { message?: unknown; status?: unknown })
+                : {};
+            const quota =
+              (typeof errorDetails.message === 'string' &&
+                errorDetails.message.toLowerCase().includes('quota')) ||
+              errorDetails.status === 402;
             toast.warning(
               <div className="flex flex-col gap-1">
                 <p className="font-bold text-[10px] uppercase tracking-widest text-slate-800">
@@ -843,7 +843,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
             savedArtConfigs['preco_2x5_restored'] ||
             config.artConfig,
         }}
-        onArtConfigLoaded={(loadedArtConfig: any) => {
+        onArtConfigLoaded={(loadedArtConfig) => {
           const layoutId = String(config.layoutId || 'preco_2x5_restored');
           setSavedArtConfigs((prev) => ({
             ...prev,
@@ -853,19 +853,15 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
           setConfig((prev) => ({ ...prev, artConfig: loadedArtConfig }));
           setArtVersion((prev) => prev + 1);
         }}
-        onSaveConfig={async (updated: any) => {
+        onSaveConfig={async (updated: Partial<LabelConfig>) => {
           const layoutId = String(config.layoutId || 'preco_2x5_restored');
           const groupPos = updated.dePricePorGroupPos;
           if (layoutId && updated.artConfig) {
-            const { error } = await supabase.from('label_art_configs').upsert(
-              {
-                layout_id: layoutId,
-                category: selectedCategory || 'precos',
-                art_config: updated.artConfig,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'layout_id' }
-            );
+            const { error } = await upsertRemoteLabelArtConfig({
+              layoutId,
+              category: selectedCategory || 'precos',
+              artConfig: updated.artConfig,
+            });
             if (error) throw error;
           }
           if (
@@ -873,32 +869,30 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
             (groupPos || updated.artConfig) &&
             /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(layoutId))
           ) {
-            const { error } = await supabase
-              .from('label_layouts')
-              .update({
-                ...(groupPos
-                  ? {
-                      de_price_por_group_pos_x: groupPos.x,
-                      de_price_por_group_pos_y: groupPos.y,
-                      de_price_por_group_rotation: updated.dePricePorGroupRotation ?? 0,
-                      de_price_por_group_gap: updated.dePricePorGroupGap ?? 10,
-                    }
-                  : {}),
-                ...(updated.artConfig ? { art_config: updated.artConfig } : {}),
-              })
-              .eq('id', layoutId);
+            const { error } = await updateRemoteLabelLayoutArtwork(layoutId, {
+              ...(groupPos
+                ? {
+                    de_price_por_group_pos_x: groupPos.x,
+                    de_price_por_group_pos_y: groupPos.y,
+                    de_price_por_group_rotation: updated.dePricePorGroupRotation ?? 0,
+                    de_price_por_group_gap: updated.dePricePorGroupGap ?? 10,
+                  }
+                : {}),
+              ...(updated.artConfig ? { art_config: updated.artConfig } : {}),
+            });
             if (error) throw error;
           }
 
           if (updated.artConfig) {
+            const artConfig = updated.artConfig;
             setSavedArtConfigs((prev) => ({
               ...prev,
-              [layoutId]: updated.artConfig,
-              preco_2x5_restored: updated.artConfig,
+              [layoutId]: artConfig,
+              preco_2x5_restored: artConfig,
             }));
             publishPriceLabelTemplateUpdate({
               layoutId,
-              artConfig: updated.artConfig,
+              artConfig,
             });
           }
           setConfig((prev) => ({
@@ -913,9 +907,12 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
             ? {
                 name: selectedProductToAdd.description,
                 price: String(
-                  selectedProductToAdd.unitPrice || (selectedProductToAdd as any).price || ''
+                  selectedProductToAdd.unitPrice || ''
                 ),
-                promoPrice: (selectedProductToAdd as any).promoPrice || '',
+                promoPrice:
+                  selectedProductToAdd.promoPrice === undefined
+                    ? ''
+                    : String(selectedProductToAdd.promoPrice),
                 sku: selectedProductToAdd.sku || selectedProductToAdd.code || '',
               }
             : undefined

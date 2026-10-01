@@ -1,6 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { User } from '@supabase/supabase-js';
+import {
+  checkCurrentUserHasPassword,
+  createCurrentUserPassword,
+} from '@/services/authPasswordSetup';
 
 export type UserRole =
   | 'administrator'
@@ -25,6 +29,13 @@ export interface Profile {
   state?: string;
 }
 
+export type PasswordCredentialStatus =
+  | 'idle'
+  | 'checking'
+  | 'required'
+  | 'configured'
+  | 'error';
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
@@ -34,6 +45,9 @@ interface AuthContextType {
   isAdministrator: boolean;
   isManager: boolean;
   isPending: boolean;
+  passwordCredentialStatus: PasswordCredentialStatus;
+  refreshPasswordCredentialStatus: () => Promise<boolean>;
+  createPasswordCredential: (password: string, confirmation: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -43,6 +57,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [passwordCredentialStatus, setPasswordCredentialStatus] =
+    useState<PasswordCredentialStatus>('idle');
+
+  const refreshPasswordCredentialStatus = useCallback(async () => {
+    setPasswordCredentialStatus('checking');
+    try {
+      const hasPassword = await checkCurrentUserHasPassword(supabase);
+      setPasswordCredentialStatus(hasPassword ? 'configured' : 'required');
+      return hasPassword;
+    } catch (error) {
+      setPasswordCredentialStatus('error');
+      throw error;
+    }
+  }, []);
+
+  const createPasswordCredential = useCallback(
+    async (password: string, confirmation: string) => {
+      await createCurrentUserPassword(supabase, password, confirmation);
+      const hasPassword = await refreshPasswordCredentialStatus();
+      if (!hasPassword) {
+        throw new Error('O Supabase ainda não confirmou a senha. Tente novamente.');
+      }
+    },
+    [refreshPasswordCredentialStatus]
+  );
 
   const isMasterEmailCheck = (emailStr: string) => {
     const email = (emailStr || '').toLowerCase().trim();
@@ -204,6 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newUser);
 
       if (newUser) {
+        setPasswordCredentialStatus('checking');
         // Cleanup URL hash
         if (window.location.hash.includes('access_token=')) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -211,11 +251,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         try {
           await fetchProfile(newUser);
+          try {
+            await refreshPasswordCredentialStatus();
+          } catch (error) {
+            console.error('[Auth] Não foi possível confirmar a credencial de senha:', error);
+          }
         } finally {
           if (active) setLoading(false);
           handlingSession = false;
         }
       } else {
+        setPasswordCredentialStatus('idle');
         const searchParams = new URLSearchParams(window.location.search);
         if (searchParams.get('auth_email') && searchParams.get('user_id')) {
           if (active) setLoading(false);
@@ -318,7 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(failsafe);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshPasswordCredentialStatus]);
 
   useEffect(() => {
     if (profile) {
@@ -341,6 +387,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setPasswordCredentialStatus('idle');
   };
 
   const value = useMemo(
@@ -363,9 +410,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         !loading &&
         !!user &&
         !(profile?.roles?.length || (profile?.role && profile.role !== 'pending')),
+      passwordCredentialStatus,
+      refreshPasswordCredentialStatus,
+      createPasswordCredential,
       logout,
     }),
-    [user, profile, loading]
+    [
+      user,
+      profile,
+      loading,
+      passwordCredentialStatus,
+      refreshPasswordCredentialStatus,
+      createPasswordCredential,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

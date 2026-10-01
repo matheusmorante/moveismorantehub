@@ -239,6 +239,14 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
+[auth.email.template.recovery]
+subject = "Código de recuperação do MoranteHub"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.reauthentication]
+subject = "Confirme sua identidade no MoranteHub"
+content_path = "./supabase/templates/reauthentication.html"
+
 # Use a production-ready SMTP server
 # [auth.email.smtp]
 # enabled = true

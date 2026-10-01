@@ -4,8 +4,14 @@ import { toast } from 'react-toastify';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import logoMorante from '../../../../../assets/logo-morante.svg';
 import { CustomLabel, LabelConfig } from '../utils/LabelConstants';
-import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
-import { CategoryType } from './useLabelCategory';
+import type { LabelItemConfig, LabelLogoAsset, LogoItemConfig } from '../types/LabelGridItem.types';
+import type { CategoryType } from './useLabelCategory';
+import {
+  getAvailableLabelLogos,
+  getCustomLabels,
+  saveAvailableLabelLogos,
+  saveCustomLabels,
+} from '../services/labelStorageService';
 
 interface UseLabelModalsAndAssetsProps {
   selectedCategory: CategoryType | null;
@@ -40,34 +46,18 @@ export const useLabelModalsAndAssets = ({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Custom Labels
-  const [customLabels, setCustomLabels] = useState<CustomLabel[]>(() => {
-    const saved = localStorage.getItem('label_custom_labels');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [customLabels, setCustomLabels] = useState<CustomLabel[]>(getCustomLabels);
   const [editingLabel, setEditingLabel] = useState<CustomLabel | null>(null);
   const [labelFormName, setLabelFormName] = useState('');
   const [labelFormImage, setLabelFormImage] = useState('');
 
   // Logos disponíveis
-  const [availableLogos, setAvailableLogos] = useState<
-    { id: string; image: string; name: string }[]
-  >(() => {
-    const saved = localStorage.getItem('label_available_logos');
-    const defaultLogos = [
+  const [availableLogos, setAvailableLogos] = useState<LabelLogoAsset[]>(() => {
+    const defaultLogos: LabelLogoAsset[] = [
       { id: 'logo_mdf_std', image: labelMdf, name: '100% MDF' },
       { id: 'logo_morante_std', image: logoMorante, name: 'MÓVEIS MORANTE' },
     ];
-    if (!saved) return defaultLogos;
-    try {
-      const parsed = JSON.parse(saved);
-      const combined = [...defaultLogos];
-      parsed.forEach((l: any) => {
-        if (!combined.some((c) => c.id === l.id)) combined.push(l);
-      });
-      return combined;
-    } catch {
-      return defaultLogos;
-    }
+    return getAvailableLabelLogos(defaultLogos);
   });
 
   useEffect(() => {
@@ -90,7 +80,7 @@ export const useLabelModalsAndAssets = ({
 
     const updated = [...availableLogos, newLogo];
     setAvailableLogos(updated);
-    localStorage.setItem('label_available_logos', JSON.stringify(updated));
+    saveAvailableLabelLogos(updated);
 
     setIsNewLogoModalOpen(false);
     setNewLogoName('');
@@ -102,11 +92,11 @@ export const useLabelModalsAndAssets = ({
     if (!window.confirm('Excluir este logotipo do seu banco de imagens?')) return;
     const updated = availableLogos.filter((l) => l.id !== id);
     setAvailableLogos(updated);
-    localStorage.setItem('label_available_logos', JSON.stringify(updated));
+    saveAvailableLabelLogos(updated);
     toast.info('Imagem removida do banco.');
   };
 
-  const handleAddLogoToQueue = (logo: { image: string; name: string }) => {
+  const handleAddLogoToQueue = (logo: Pick<LabelLogoAsset, 'image' | 'name'>) => {
     if (selectedCategory === 'logos') {
       const newItem: LogoItemConfig = {
         image: logo.image,
@@ -166,7 +156,7 @@ export const useLabelModalsAndAssets = ({
     }
 
     setCustomLabels(updated);
-    localStorage.setItem('label_custom_labels', JSON.stringify(updated));
+    saveCustomLabels(updated);
 
     setIsLabelModalOpen(false);
     setEditingLabel(null);
@@ -179,7 +169,7 @@ export const useLabelModalsAndAssets = ({
     if (!window.confirm('Excluir este rótulo permanentemente?')) return;
     const updated = customLabels.filter((l) => l.id !== id);
     setCustomLabels(updated);
-    localStorage.setItem('label_custom_labels', JSON.stringify(updated));
+    saveCustomLabels(updated);
     toast.info('Rótulo removido.');
   };
 
@@ -222,4 +212,4 @@ export const useLabelModalsAndAssets = ({
     handleSaveCustomLabel,
     handleDeleteCustomLabel,
   };
-};
+}

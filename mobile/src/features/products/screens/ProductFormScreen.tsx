@@ -39,6 +39,7 @@ import {
   parseLocalizedPrice,
 } from '../services/mobileProductHelpers';
 import { supabase } from '../../../services/supabaseClient';
+import { hasMissingVariationAttributes } from '../domain/productVariationAttributes';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -138,6 +139,12 @@ const INITIAL_FORM = {
   isDraft: false,
 };
 
+const createUuid = () =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
+  });
+
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
   visible: boolean;
@@ -165,6 +172,9 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [requirementsError, setRequirementsError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
+  const saveOperationIdRef = useRef<string | null>(null);
+  const clientProductIdRef = useRef<string | null>(null);
+  const clientProductCodeRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
 
   const categoryIds: string[] =
@@ -260,6 +270,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   // Wrapper estável para setFormData (aceita função ou objeto)
   const setFormData = useCallback((fn: any) => {
     dirtyRef.current = true;
+    saveOperationIdRef.current = null;
     setFormDataRaw((prev: any) => (typeof fn === 'function' ? fn(prev) : { ...prev, ...fn }));
   }, []);
 
@@ -277,6 +288,9 @@ export const ProductFormScreen: React.FC<Props> = ({
   // Preenche o formulário ao abrir (edição) ou limpa (criação)
   useEffect(() => {
     if (!visible) return;
+    saveOperationIdRef.current = null;
+    clientProductIdRef.current = product?.id ? null : createUuid();
+    clientProductCodeRef.current = null;
     dirtyRef.current = false;
     if (product) {
       const productCategories = Array.isArray(product.product_categories)
@@ -467,38 +481,42 @@ export const ProductFormScreen: React.FC<Props> = ({
       })();
       getNextSequentialProductCode()
         .then((nextCode) => {
-          setFormDataRaw((prev: any) => ({
-            ...prev,
-            code: nextCode,
-            ...(prev.itemType === 'composition'
-              ? {}
-              : {
-                  hasVariations: true,
-                  variations:
-                    Array.isArray(prev.variations) && prev.variations.length > 0
-                      ? prev.variations
-                      : [
-                          {
-                            id: `new_${nextCode}-01`,
-                            sku: `${nextCode}-01`,
-                            name: prev.name || '',
-                            price: '',
-                            costPrice: '',
-                            stock: 0,
-                            attributes: {},
-                            images: [],
-                            syncUnitPrice: true,
-                            syncPromoPrice: true,
-                            syncDescription: true,
-                            syncWidth: true,
-                            syncHeight: true,
-                            syncDepth: true,
-                            active: false,
-                            status: 'hidden',
-                          },
-                        ],
-                }),
-          }));
+          setFormDataRaw((prev: any) => {
+            const productCode = String(prev.code || nextCode);
+            clientProductCodeRef.current = productCode;
+            return {
+              ...prev,
+              code: productCode,
+              ...(prev.itemType === 'composition'
+                ? {}
+                : {
+                    hasVariations: true,
+                    variations:
+                      Array.isArray(prev.variations) && prev.variations.length > 0
+                        ? prev.variations
+                        : [
+                            {
+                              id: `new_${productCode}-01`,
+                              sku: `${productCode}-01`,
+                              name: prev.name || '',
+                              price: '',
+                              costPrice: '',
+                              stock: 0,
+                              attributes: {},
+                              images: [],
+                              syncUnitPrice: true,
+                              syncPromoPrice: true,
+                              syncDescription: true,
+                              syncWidth: true,
+                              syncHeight: true,
+                              syncDepth: true,
+                              active: false,
+                              status: 'hidden',
+                            },
+                          ],
+                  }),
+            };
+          });
         })
         .catch((err) => {
           console.warn('[ProductFormScreen] Erro ao obter próximo código:', err);
@@ -556,7 +574,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           return false;
         }
         const variationPrices = Array.isArray(formData.variations) ? formData.variations : [];
-        if (formData.itemType !== 'composition' && variationPrices.length === 0) {
+        if (variationPrices.length === 0) {
           Alert.alert(
             'Variação obrigatória',
             'Mantenha a variação principal do produto ou adicione uma nova na aba Variações.',
@@ -659,43 +677,35 @@ export const ProductFormScreen: React.FC<Props> = ({
           setActiveTab('technical');
           return;
         }
-        const requiredVariationNames = new Set([...requiredNames, 'Cor', 'Material da estrutura']);
-        for (const variation of Array.isArray(formData.variations) ? formData.variations : []) {
-          const variationAttributes = Array.isArray(variation.attributes)
-            ? Object.fromEntries(
-                variation.attributes
-                  .filter((attribute: any) => attribute?.name)
-                  .map((attribute: any) => [attribute.name, attribute.value])
-              )
-            : variation.attributes || {};
-          const effectiveVariationValues = {
-            ...technicalValues,
-            ...variationAttributes,
-            ...(variation.technicalValues || {}),
-          };
-          const missingVariationName = [...requiredVariationNames].find((name) => {
-            const value = String(effectiveVariationValues[name] ?? '').trim();
-            return value !== 'Não se aplica' && !value;
-          });
-          if (missingVariationName) {
-            Alert.alert(
-              'Campo Obrigatório',
-              `Preencha a característica “${missingVariationName}” da variação na aba Variações.`,
-              [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
-            );
-            setActiveTab('variacoes');
-            return;
-          }
+        const variations = Array.isArray(formData.variations) ? formData.variations : [];
+        if (hasMissingVariationAttributes(variations)) {
+          Alert.alert(
+            'Variações incompletas',
+            'Cada variação precisa ter pelo menos um atributo completo, como no ERP.',
+            [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
+          );
+          setActiveTab('variacoes');
+          return;
         }
       }
       setSaving(true);
       try {
+        const productCode =
+          String(formData.code || clientProductCodeRef.current || '').trim() ||
+          (product?.id ? '' : await getNextSequentialProductCode());
+        clientProductCodeRef.current = productCode;
+        if (productCode && !formData.code) {
+          setFormDataRaw((prev: any) => ({ ...prev, code: productCode }));
+        }
         const isSalvado = formData.productKind === 'salvado' || formData.condition === 'salvado';
         const isUsado = formData.productKind === 'usado' || formData.condition === 'usado';
         const forceInactive = saveAsDraft || isSalvado;
 
         await onSave({
           ...formData,
+          code: productCode,
+          operationId: saveOperationIdRef.current || (saveOperationIdRef.current = createUuid()),
+          clientProductId: product?.id || clientProductIdRef.current,
           productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
           condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
           isDraft: saveAsDraft,
