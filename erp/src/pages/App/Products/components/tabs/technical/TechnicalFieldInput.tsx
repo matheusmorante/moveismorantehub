@@ -199,30 +199,35 @@ function ChoiceSearch({
       </div>
       {term.length >= 2 && (
         <div className="absolute left-0 right-0 top-full z-40 mt-1 flex max-h-48 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-          {filtered.map((o) => (
-            <label key={o.id || o.value} className="text-xs">
-              <input
-                type={multiple ? 'checkbox' : 'radio'}
-                name={
-                  multiple
-                    ? undefined
-                    : `technical-${options.map((x) => x.id || x.value).join('-')}`
-                }
-                disabled={disabled}
-                checked={selected.includes(o.value)}
-                onChange={(e) =>
-                  onChange(
-                    multiple
-                      ? e.target.checked
+          {filtered.map((o) =>
+            multiple ? (
+              <label key={o.id || o.value} className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  disabled={disabled}
+                  checked={selected.includes(o.value)}
+                  onChange={(e) =>
+                    onChange(
+                      e.target.checked
                         ? [...selected, o.value]
                         : selected.filter((v) => v !== o.value)
-                      : o.value
-                  )
-                }
-              />{' '}
-              <span className="ml-1">{o.value}</span>
-            </label>
-          ))}
+                    )
+                  }
+                />
+                <span>{o.value}</span>
+              </label>
+            ) : (
+              <button
+                key={o.id || o.value}
+                type="button"
+                disabled={disabled}
+                onClick={() => onChange(o.value)}
+                className="w-full rounded px-1 py-0.5 text-left text-xs hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-800"
+              >
+                {o.value}
+              </button>
+            )
+          )}
           {filtered.length === 0 && (
             <span className="text-[10px] text-slate-400">Nenhuma opção encontrada.</span>
           )}

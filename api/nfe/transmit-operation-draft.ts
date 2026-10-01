@@ -10,7 +10,7 @@ import {
   decideOperationDraftRecovery,
   parseSefazNfeSituation,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
-import { validateNfeAgainstOfficialSchema } from './schemaValidator';
+import { validateUnsignedNfeStructure, validateNfeAgainstOfficialSchema } from './schemaValidator';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { isNfeProductionEnabled } from './productionGuard';
@@ -21,6 +21,7 @@ import {
 } from './responsibleTechnician';
 import { resolveNfeSequenceSettings } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
+import { embeddedNfeXml } from './xmlEnvelope';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -478,7 +479,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }),
       });
       const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician);
-      await validateNfeAgainstOfficialSchema(xml);
+      await validateUnsignedNfeStructure(xml);
       signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
       await validateNfeAgainstOfficialSchema(signedXml);
       const { data: claimed, error: claimError } = await db
@@ -528,7 +529,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${signedXml}</enviNFe>`;
+    const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
     let sefazXml: string;
     try {
       sefazXml = await sendSoapToSefaz({

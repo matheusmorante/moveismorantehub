@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   validateNfeAgainstOfficialSchema: vi.fn(),
+  validateUnsignedNfeStructure: vi.fn(),
   extractCertificateAndKey: vi.fn(),
   signNfeXml: vi.fn(),
   sendSoapToSefaz: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock('../../../../../../node_modules/@supabase/supabase-js/dist/index.mjs', (
 }));
 vi.mock('../../../../../../api/nfe/schemaValidator', () => ({
   validateNfeAgainstOfficialSchema: mocks.validateNfeAgainstOfficialSchema,
+  validateUnsignedNfeStructure: mocks.validateUnsignedNfeStructure,
 }));
 vi.mock('../../../../../../api/nfe/nfeSigner', () => ({
   extractCertificateAndKey: mocks.extractCertificateAndKey,
@@ -246,6 +248,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     process.env.NFE_CERTIFICATE_BASE64 = 'server-pfx';
     process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
     mocks.validateNfeAgainstOfficialSchema.mockResolvedValue(undefined);
+    mocks.validateUnsignedNfeStructure.mockResolvedValue(undefined);
     mocks.extractCertificateAndKey.mockReturnValue({
       certPem: 'mock-cert',
       privateKeyPem: 'mock-key',
@@ -269,6 +272,10 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
+    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<?xml version="1.0" encoding="UTF-8"?><NFe><infNFe></infNFe></NFe>');
+    mocks.validateNfeAgainstOfficialSchema.mockImplementation(async (xml: string) => {
+      if (!xml.includes('<Signature')) throw new Error('O XSD oficial exige assinatura digital.');
+    });
     mocks.createClient.mockReturnValue(db);
     mocks.sendSoapToSefaz.mockResolvedValue(authReply);
     const handler = await getHandler();
@@ -289,6 +296,15 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       expect.objectContaining({ status: 'authorized' }),
     ]);
     expect(res.body.status).toBe('authorized');
+    expect(mocks.validateUnsignedNfeStructure).toHaveBeenCalledTimes(1);
+    expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledTimes(1);
+    expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledWith(state.draft.signed_xml);
+    expect(mocks.validateUnsignedNfeStructure.mock.invocationCallOrder[0]).toBeLessThan(mocks.signNfeXml.mock.invocationCallOrder[0]);
+    expect(mocks.signNfeXml.mock.invocationCallOrder[0]).toBeLessThan(mocks.validateNfeAgainstOfficialSchema.mock.invocationCallOrder[0]);
+    expect(state.draft.signed_xml).toContain('<?xml');
+    const transmittedXml = mocks.sendSoapToSefaz.mock.calls[0][0].xmlPayload as string;
+    expect(transmittedXml).not.toContain('<?xml');
+    expect(transmittedXml).toContain(state.draft.signed_xml!.replace(/^<\?xml[^?]*\?>/, ''));
     expect(state.draft.access_key).toMatch(/^\d{44}$/);
     expect(state.rpcCalls.map((call) => call.name)).toEqual([
       'reserve_next_nfe_number',

@@ -4,7 +4,8 @@ const { mkdir, writeFile } = require('node:fs/promises');
 
 const root = resolve(__dirname, '../..');
 const outdir = resolve(root, 'erp/server/nfe');
-const routes = ['emit', 'consult', 'item-defaults'];
+const routes = ['emit', 'consult', 'item-defaults', 'cancel', 'return-capacity',
+  'operation-drafts', 'transmit-operation-draft', 'cce'];
 
 async function main() {
   // Bundle only our fiscal source graph. Explicit .cjs files create a stable
@@ -30,7 +31,7 @@ async function main() {
       'declare const handler: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;\n' +
       'export default handler;\n');
   }
-  console.log('Fiscal backend bundled: emit, consult, item-defaults.');
+  console.log(`Fiscal backend bundled: ${routes.join(', ')}.`);
 }
 
 main().catch((error) => { console.error(error.message); process.exitCode = 1; });

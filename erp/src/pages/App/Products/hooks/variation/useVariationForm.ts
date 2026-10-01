@@ -9,14 +9,15 @@ import {
   computeVariationName,
   getVariationAttributeValuesInNameOrder,
   hasDuplicateVariationAttributeCombination,
-  getIncompleteVariationAttributes,
-  hasVariationAttribute,
 } from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
-import { getMissingRequiredTechnicalFields } from '@/pages/utils/technicalValuesService';
+import {
+  getEffectiveVariationTechnicalValues,
+  getMissingRequiredCharacteristics,
+} from '@/pages/utils/technicalValuesService';
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId } from './variationForm.types';
 
@@ -315,13 +316,13 @@ export function useVariationForm({
     e.preventDefault();
     if (!formData) return;
 
-    const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : []).map(
-      (attr) => ({
+    const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : [])
+      .map((attr) => ({
         ...attr,
         name: toTitleCase(attr.name),
         value: toTitleCase(attr.value),
-      })
-    );
+      }))
+      .filter((attr) => attr.name.trim() && attr.value.trim());
     const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
     let variationName = (formData.name || '').trim();
     if (parentPrefix) {
@@ -345,36 +346,6 @@ export function useVariationForm({
       ),
       syncFiscal: true,
     };
-
-    // Validação estrita: obrigatório escolher pelo menos um atributo e definir seu valor
-    const attributesList = cleanAttributes;
-    if (attributesList.length === 0) {
-      toast.warn(
-        'É obrigatório escolher pelo menos um atributo e definir seu valor para a variação.'
-      );
-      setActiveTab('identificacao');
-      return;
-    }
-
-    const incompleteAttrs = getIncompleteVariationAttributes(formData);
-    if (incompleteAttrs.length > 0) {
-      const firstIncomplete = incompleteAttrs[0];
-      if (firstIncomplete.missingReason === 'missing_name') {
-        toast.warn('Selecione o atributo para todos os itens adicionados.');
-      } else {
-        toast.warn(
-          `O atributo "${firstIncomplete.name}" está sem valor. Todo atributo adicionado deve ter seu valor definido.`
-        );
-      }
-      setActiveTab('identificacao');
-      return;
-    }
-
-    if (!hasVariationAttribute(finalVariation)) {
-      toast.warn('Informe pelo menos um atributo com valor válido para a variação!');
-      setActiveTab('identificacao');
-      return;
-    }
 
     if (hasDuplicateVariationAttributeCombination(finalVariation, parentProduct.variations || [])) {
       toast.error('Já existe outra variação com a mesma combinação de atributos e valores.');
@@ -405,46 +376,15 @@ export function useVariationForm({
       return;
     }
 
-    const { data: requiredAttributes, error: requiredAttributesError } = await supabase
-      .from('attributes')
-      .select('name')
-      .eq('active', true)
-      .eq('is_globally_required', true);
-
-    if (requiredAttributesError) {
-      toast.error('Não foi possível validar as características obrigatórias. Tente novamente.');
-      setActiveTab('tecnico');
-      return;
-    }
-
-    const variationAttributeValues = Object.fromEntries(
-      cleanAttributes.map((attribute) => [attribute.name, attribute.value])
+    const effectiveTechnicalValues = getEffectiveVariationTechnicalValues(
+      parentProduct.technicalValues || {},
+      { ...finalVariation, attributes: cleanAttributes }
     );
-    const requiredFieldNames = Array.from(
-      new Set([
-        ...(requiredAttributes || []).map((field: { name: string }) => field.name),
-        'Cor',
-        'Material da estrutura',
-      ])
-    );
-    const effectiveTechnicalValues = {
-      ...(parentProduct.technicalValues || {}),
-      ...variationAttributeValues,
-      ...(formData.technicalValues || {}),
-    };
-    const applicableRequiredFieldNames = requiredFieldNames.filter(
-      (name) =>
-        String(effectiveTechnicalValues[name] ?? '')
-          .trim()
-          .toLocaleLowerCase('pt-BR') !== 'não se aplica'
-    );
-    const missingRequiredFields = getMissingRequiredTechnicalFields(
-      applicableRequiredFieldNames,
-      effectiveTechnicalValues
-    );
-    if (missingRequiredFields.length > 0) {
+    const missingRequiredCharacteristics =
+      getMissingRequiredCharacteristics(effectiveTechnicalValues);
+    if (missingRequiredCharacteristics.length > 0) {
       toast.error(
-        `Preencha as características obrigatórias da variação: ${missingRequiredFields.join(', ')}.`
+        `Preencha as características obrigatórias da variação: ${missingRequiredCharacteristics.join(', ')}.`
       );
       setActiveTab('tecnico');
       return;

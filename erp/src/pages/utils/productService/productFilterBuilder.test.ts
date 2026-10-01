@@ -32,4 +32,20 @@ describe('productFilterBuilder', () => {
 
     expect(mockQuery.or).not.toHaveBeenCalledWith(expect.stringContaining('supplier_id.eq.'));
   });
+
+  it('mantém produtos legados sem item_type ao excluir composições', async () => {
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(mockQuery, { excludeItemType: 'composition' });
+
+    expect(mockQuery.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(mockQuery.neq).not.toHaveBeenCalledWith('item_type', 'composition');
+  });
 });

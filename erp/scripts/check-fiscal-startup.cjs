@@ -23,14 +23,16 @@ async function check() {
     assert.equal(result.status, 0, 'Fiscal backend failed to start in native Node.');
     return;
   }
-  for (const route of ['emit', 'consult', 'item-defaults']) {
-    const source = await readFile(resolve(__dirname, `../api/nfe/${route}.ts`), 'utf8');
+  for (const route of ['emit', 'consult', 'item-defaults', 'cancel', 'return-capacity',
+    'operation-drafts', 'transmit-operation-draft', 'cce']) {
+    const dynamic = !['emit', 'consult', 'item-defaults'].includes(route);
+    const source = await readFile(resolve(__dirname, `../api/nfe/${dynamic ? 'operations' : route}.ts`), 'utf8');
     const emitted = ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
     }).outputText;
-    const bundleUrl = pathToFileURL(resolve(__dirname, `../server/nfe/${route}.cjs`)).href;
     assert.ok(emitted.includes(`../../server/nfe/${route}.cjs`));
-    const runnable = emitted.replace(`../../server/nfe/${route}.cjs`, bundleUrl);
+    const runnable = emitted.replace(/\.\.\/\.\.\/server\/nfe\/([\w-]+)\.cjs/g,
+      (_, name) => pathToFileURL(resolve(__dirname, `../server/nfe/${name}.cjs`)).href);
     const { default: handler } = await import('data:text/javascript;base64,' +
       Buffer.from(runnable).toString('base64'));
     assert.equal(typeof handler, 'function', `${route}: invalid handler export`);
@@ -41,7 +43,7 @@ async function check() {
       json(body) { assert.ok(body && typeof body === 'object'); return this; },
       end() { return this; },
     };
-    await handler({ method: 'INVALID', headers: {} }, response);
+    await handler({ method: 'INVALID', headers: {}, query: { operation: route } }, response);
     assert.equal(status, 405, `${route}: handler did not execute`);
     console.log(`${route}: native module loading and handler execution passed.`);
   }

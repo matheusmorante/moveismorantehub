@@ -1,7 +1,6 @@
 import React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
-import { hasVariationAttribute } from '../../../../utils/productVariationDefaults';
 import { VariationRow as DefaultVariationRow } from '../VariationRow';
 
 interface ProductVariationsTabProps {
@@ -68,9 +67,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
   variationsInUse,
 }) => {
   const list = variations || [];
-  const canAddVariation = list.length > 0 && hasVariationAttribute(list[0]);
-  const disabledMessage =
-    'Defina pelo menos um atributo e seu valor na Variação 1 para liberar novas variações.';
 
   // Resolve handlers — prioriza versão "on" (ProductFormModal) sobre legado
   const handleAdd = onAddVariation || addVariation;

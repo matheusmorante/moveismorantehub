@@ -90,6 +90,56 @@ export const groupTechnicalFields = (
 
 export type TechnicalValuesMap = Record<string, any>;
 
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Material da estrutura'] as const;
+
+const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
+
+export const isRequiredCharacteristicName = (name: string) =>
+  REQUIRED_CHARACTERISTIC_NAMES.some(
+    (requiredName) =>
+      normalizeCharacteristicName(requiredName) === normalizeCharacteristicName(name)
+  );
+
+export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {}): string[] => {
+  const valuesByName = new Map<string, unknown>();
+  Object.entries(values).forEach(([name, value]) => {
+    valuesByName.set(normalizeCharacteristicName(name), value);
+  });
+
+  return REQUIRED_CHARACTERISTIC_NAMES.filter((name) => {
+    const value = String(valuesByName.get(normalizeCharacteristicName(name)) ?? '')
+      .trim()
+      .toLocaleLowerCase('pt-BR');
+    return !value || ['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+  });
+};
+
+export const getEffectiveVariationTechnicalValues = (
+  parentValues: TechnicalValuesMap = {},
+  variation?: Pick<Variation, 'attributes' | 'technicalValues'> | null
+): TechnicalValuesMap => {
+  const legacyCharacteristicValues = (variation?.attributes || []).reduce<TechnicalValuesMap>(
+    (values, characteristic) => {
+      if (characteristic.name?.trim() && characteristic.value?.trim()) {
+        values[characteristic.name] = characteristic.value;
+      }
+      return values;
+    },
+    {}
+  );
+  const variationCharacteristicValues = Object.fromEntries(
+    Object.entries(variation?.technicalValues || {}).filter(
+      ([, value]) => value !== undefined && value !== null
+    )
+  );
+
+  return {
+    ...parentValues,
+    ...legacyCharacteristicValues,
+    ...variationCharacteristicValues,
+  };
+};
+
 export const getMissingRequiredTechnicalFields = (
   requiredFieldNames: readonly string[],
   values: TechnicalValuesMap = {}

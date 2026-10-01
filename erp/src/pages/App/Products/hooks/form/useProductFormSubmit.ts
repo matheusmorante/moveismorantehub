@@ -2,14 +2,11 @@ import { useCallback } from 'react';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { checkERPLegibility, checkEcomLegibility } from '../../utils/productLegibilityRules';
-import {
-  hasMissingRequiredAttributes,
-  hasVariationAttribute,
-  getIncompleteVariationAttributes,
-} from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
-import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
-import { getMissingRequiredTechnicalFields } from '@/pages/utils/technicalValuesService';
+import {
+  getEffectiveVariationTechnicalValues,
+  getMissingRequiredCharacteristics,
+} from '@/pages/utils/technicalValuesService';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 
 interface SubmitProps {
@@ -68,9 +65,15 @@ export const useProductFormSubmit = ({
         if (!formData.categoryIds || formData.categoryIds.length === 0) errors.categoryIds = true;
         if (!formData.mainSupplierId && !formData.supplierId) errors.mainSupplierId = true;
 
-        if (hasMissingRequiredAttributes(formData.variations || [])) {
-          errors.variationsAttributes = true;
-        }
+        const variationMissingCharacteristics = (formData.variations || [])
+          .map((variation) => ({
+            variation,
+            missing: getMissingRequiredCharacteristics(
+              getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
+            ),
+          }))
+          .find(({ missing }) => missing.length > 0);
+        if (variationMissingCharacteristics) errors.variationCharacteristics = true;
 
         // Validação de Preço de Venda (no produto pai ou em alguma variação)
         const hasParentPrice =
@@ -86,45 +89,13 @@ export const useProductFormSubmit = ({
             Number(v.unitPrice) > 0
         );
 
-        const { data: requiredTechnicalAttributes, error: requiredAttributesError } = await supabase
-          .from('attributes')
-          .select('name')
-          .eq('active', true)
-          .eq('is_globally_required', true);
-
-        if (requiredAttributesError) {
-          setActiveTab('technical');
-          setValidationErrors({ technicalValues: true });
-          toast.error('Não foi possível validar as características obrigatórias. Tente novamente.');
-          return false;
-        }
-
-        const emptyRequiredTechnicalFields = getMissingRequiredTechnicalFields(
-          (requiredTechnicalAttributes || []).map((field: { name: string }) => field.name),
-          formData.technicalValues || {}
-        );
-
-        if (emptyRequiredTechnicalFields.length > 0) {
-          errors.technicalValues = true;
-        }
-
         if (Object.keys(errors).length > 0) {
           setValidationErrors(errors);
           if (errors.name || errors.categoryIds || errors.productKind) {
             setActiveTab('geral');
-          } else if (errors.technicalValues) {
-            setActiveTab('technical');
-            const fieldName = emptyRequiredTechnicalFields[0];
-            toast.error(`Característica obrigatória: selecione uma opção para "${fieldName}".`);
-            setTimeout(() => {
-              document
-                .getElementById(`technical-field-${fieldName}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 150);
-            return false;
           } else if (errors.unitPrice || errors.mainSupplierId) {
             setActiveTab('estoque');
-          } else if (errors.variations || errors.variationsAttributes) {
+          } else if (errors.variations || errors.variationCharacteristics) {
             setActiveTab('variacoes');
           }
 
@@ -136,30 +107,11 @@ export const useProductFormSubmit = ({
             toast.error('Selecione a origem do estoque do produto.');
           } else if (errors.variations) {
             toast.error('Adicione pelo menos uma variação ao produto.');
-          } else if (errors.variationsAttributes) {
-            const vars = formData.variations || [];
-            const varWithIncomplete =
-              vars.find((v: any) => getIncompleteVariationAttributes(v).length > 0) ||
-              vars.find((v: any) => !hasVariationAttribute(v));
-            if (varWithIncomplete) {
-              variations.setEditingVariationId(varWithIncomplete.id);
-              const incomp = getIncompleteVariationAttributes(varWithIncomplete)[0];
-              if (incomp?.missingReason === 'missing_name') {
-                toast.warn('Selecione o tipo de atributo para a variação.');
-              } else if (incomp?.name) {
-                toast.warn(
-                  `O atributo "${incomp.name}" está sem valor definido. Para todo atributo adicionado, é obrigatório definir o valor.`
-                );
-              } else {
-                toast.warn(
-                  'É obrigatório escolher pelo menos um atributo e definir seu respectivo valor para a variação.'
-                );
-              }
-            } else {
-              toast.warn(
-                'É obrigatório escolher pelo menos um atributo e definir seu respectivo valor para cada variação.'
-              );
-            }
+          } else if (errors.variationCharacteristics && variationMissingCharacteristics) {
+            variations.setEditingVariationId(variationMissingCharacteristics.variation.id);
+            toast.error(
+              `Preencha as características obrigatórias da variação: ${variationMissingCharacteristics.missing.join(', ')}.`
+            );
           } else if (errors.mainSupplierId) {
             toast.error('Selecione um fornecedor.');
           } else {

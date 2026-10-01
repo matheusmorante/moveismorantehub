@@ -38,7 +38,8 @@ export const applyProductFiltersAndSort = async (
   }
 
   if (options?.excludeItemType) {
-    q = q.neq('item_type', options.excludeItemType);
+    // Registros legados sem item_type são produtos comuns; o operador neq os excluiria por NULL.
+    q = q.filter('item_type', 'isdistinct', options.excludeItemType);
   }
 
   // Filtro de rascunhos do ERP

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   authorizeFiscalOperator: vi.fn(),
   signNfeEventXml: vi.fn(),
+  extractCertificateAndKey: vi.fn(),
   sendSoapToSefaz: vi.fn(),
 }));
 
@@ -14,7 +15,7 @@ vi.mock('../../../../../../api/nfe/fiscalAuthorization', () => ({
   authorizeFiscalOperator: mocks.authorizeFiscalOperator,
 }));
 vi.mock('../../../../../../api/nfe/nfeSigner', () => ({
-  extractCertificateAndKey: vi.fn(),
+  extractCertificateAndKey: mocks.extractCertificateAndKey,
   signNfeEventXml: mocks.signNfeEventXml,
 }));
 vi.mock('../../../../../../api/nfe/sefazClient', () => ({
@@ -65,6 +66,10 @@ function database(orderStatus: 'fulfilled' | 'scheduled') {
       select: () => query,
       eq: () => query,
       order: () => query,
+      insert: vi.fn(() => query),
+      update: vi.fn(() => query),
+      in: () => query,
+      single: async () => ({ data: { id: 'event-id' }, error: null }),
       maybeSingle: async () => ({
         data:
           table === 'nfe_documents'
@@ -126,6 +131,36 @@ describe('API de cancelamento de NF-e', () => {
     expect(result.statusCode).toBe(503);
     expect(result.body?.error).toContain('Certificado digital');
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it('envia dhEvento sem fração de segundo, com fuso explícito, e persiste o protocolo do cancelamento', async () => {
+    const db = database('scheduled');
+    mocks.createClient.mockReturnValue(db);
+    process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
+    mocks.extractCertificateAndKey.mockReturnValue({
+      privateKeyPem: 'mock-key', certPem: 'mock-cert', certDerBase64: 'mock-der',
+    });
+    mocks.signNfeEventXml.mockImplementation((xml: string) => xml);
+    mocks.sendSoapToSefaz.mockResolvedValue(
+      '<retEnvEvento><retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><nProt>141260000000001</nProt><dhRegEvento>2026-10-01T15:00:00-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento>'
+    );
+    const handler = (await import('../../../../../../api/nfe/cancel')).default;
+    const result = response();
+    const before = Date.now();
+    await handler(request, result.res as any);
+    const after = Date.now();
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({ success: true, status: 'cancelada', cStat: '135', protocolNumber: '141260000000001', reconciliationRequired: false });
+    const xml = mocks.signNfeEventXml.mock.calls[0][0] as string;
+    const timestamp = xml.match(/<dhEvento>([^<]+)<\/dhEvento>/)?.[1];
+    expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/);
+    expect(Date.parse(timestamp!)).toBeGreaterThanOrEqual(before - 1000);
+    expect(Date.parse(timestamp!)).toBeLessThanOrEqual(after);
+    expect(mocks.sendSoapToSefaz.mock.calls[0][0]).toMatchObject({
+      url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4', xmlPayload: xml,
+    });
     expect(db.rpc).not.toHaveBeenCalled();
   });
 });

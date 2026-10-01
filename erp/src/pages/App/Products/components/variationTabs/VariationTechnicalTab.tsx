@@ -12,6 +12,7 @@ import {
   setVariationOverride,
   removeVariationOverride,
   groupTechnicalFields,
+  isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
 
@@ -63,13 +64,13 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       try {
         let { data: attrData, error: attrErr } = await supabase
           .from('attributes')
-          .select('id, name, active, data_type, unit, is_globally_required, is_custom')
+          .select('id, name, active, data_type, unit, is_custom')
           .eq('active', true)
           .order('name');
         if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
           const fallback = await supabase
             .from('attributes')
-            .select('id, name, active, data_type, unit, is_globally_required')
+            .select('id, name, active, data_type, unit')
             .eq('active', true)
             .order('name');
           attrData = fallback.data;
@@ -107,11 +108,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
             name: attr.name,
             dataType: attr.data_type || 'list',
             unit: attr.unit || undefined,
-            isRequired:
-              Boolean(attr.is_globally_required) ||
-              ['cor', 'material da estrutura'].includes(
-                String(attr.name).trim().toLocaleLowerCase('pt-BR')
-              ),
+            isRequired: isRequiredCharacteristicName(String(attr.name)),
             isCustom: Boolean(attr.is_custom),
             options: opts,
             categoryIds: linkedCategoryIds,
@@ -311,9 +308,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                       parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
                       !parentIsZero;
                     const isInheritedFromParent = !isOverridden && hasMeaningfulParentValue;
-                    const isAlwaysApplicable = ['cor', 'material da estrutura'].includes(
-                      field.name.trim().toLocaleLowerCase('pt-BR')
-                    );
+                    const isAlwaysApplicable = field.isRequired;
                     const normalizedEffectiveValue = String(effectiveVal ?? '')
                       .trim()
                       .toLocaleLowerCase('pt-BR');
@@ -341,7 +336,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             title={field.name}
                           >
                             {field.name}
-                            {isApplicable && (
+                            {field.isRequired && isApplicable && (
                               <span className="ml-1 text-red-500" aria-label="Obrigatório">
                                 *
                               </span>

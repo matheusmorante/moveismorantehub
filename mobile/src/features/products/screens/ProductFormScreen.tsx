@@ -39,7 +39,11 @@ import {
   parseLocalizedPrice,
 } from '../services/mobileProductHelpers';
 import { supabase } from '../../../services/supabaseClient';
-import { hasMissingVariationAttributes } from '../domain/productVariationAttributes';
+import {
+  getEffectiveVariationTechnicalValues,
+  getMissingRequiredCharacteristics,
+  REQUIRED_CHARACTERISTIC_NAMES,
+} from '../domain/productCharacteristics';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -167,9 +171,6 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
-  const [requiredTechnicalNames, setRequiredTechnicalNames] = useState<string[]>([]);
-  const [requirementsLoaded, setRequirementsLoaded] = useState(false);
-  const [requirementsError, setRequirementsError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
   const saveOperationIdRef = useRef<string | null>(null);
@@ -183,75 +184,15 @@ export const ProductFormScreen: React.FC<Props> = ({
       : formData.categoryId
         ? [formData.categoryId]
         : [];
-  const categoryIdsKey = [...new Set(categoryIds.map(String))].sort().join('|');
   const hasCategory = categoryIds.length > 0;
   const hasProductName = String(formData.name || '').trim().length >= 2;
   const hasMissingRequiredTechnical =
-    !requirementsLoaded ||
-    requirementsError ||
-    requiredTechnicalNames.some((name) => !String(formData.technicalValues?.[name] ?? '').trim());
-
-  useEffect(() => {
-    let cancelled = false;
-    setRequirementsLoaded(false);
-    setRequirementsError(false);
-    const loadRequiredTechnicalNames = async () => {
-      try {
-        const requiredNames = new Set<string>();
-        const globalQuery = await supabase
-          .from('attributes')
-          .select('name')
-          .eq('active', true)
-          .eq('is_globally_required', true);
-        if (globalQuery.error) throw globalQuery.error;
-        (globalQuery.data || []).forEach(
-          (attribute: any) => attribute.name && requiredNames.add(attribute.name)
-        );
-
-        const selectedCategoryIds = categoryIdsKey ? categoryIdsKey.split('|') : [];
-        if (selectedCategoryIds.length) {
-          const linksQuery = await supabase
-            .from('category_attributes')
-            .select('attribute_id')
-            .in('category_id', selectedCategoryIds)
-            .eq('is_required', true);
-          if (linksQuery.error) throw linksQuery.error;
-          const attributeIds = [
-            ...new Set(
-              (linksQuery.data || []).map((link: any) => link.attribute_id).filter(Boolean)
-            ),
-          ];
-          if (attributeIds.length) {
-            const categoryAttributesQuery = await supabase
-              .from('attributes')
-              .select('name')
-              .in('id', attributeIds)
-              .eq('active', true);
-            if (categoryAttributesQuery.error) throw categoryAttributesQuery.error;
-            (categoryAttributesQuery.data || []).forEach(
-              (attribute: any) => attribute.name && requiredNames.add(attribute.name)
-            );
-          }
-        }
-        if (!cancelled) setRequiredTechnicalNames([...requiredNames]);
-      } catch (error) {
-        console.warn(
-          '[ProductFormScreen] Não foi possível verificar características obrigatórias:',
-          error
-        );
-        if (!cancelled) {
-          setRequiredTechnicalNames([]);
-          setRequirementsError(true);
-        }
-      } finally {
-        if (!cancelled) setRequirementsLoaded(true);
-      }
-    };
-    void loadRequiredTechnicalNames();
-    return () => {
-      cancelled = true;
-    };
-  }, [categoryIdsKey]);
+    (Array.isArray(formData.variations) ? formData.variations : []).some(
+      (variation: any) =>
+        getMissingRequiredCharacteristics(
+          getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
+        ).length > 0
+    );
 
   const isTabDisabled = (tabId: TabId) => {
     if (tabId === 'technical') return !hasCategory;
@@ -610,78 +551,17 @@ export const ProductFormScreen: React.FC<Props> = ({
       if (!validate(isDraft)) return;
       const saveAsDraft = isDraft && !product?.id;
       if (!saveAsDraft) {
-        const { data: requiredAttributes, error: requiredAttributesError } = await supabase
-          .from('attributes')
-          .select('name')
-          .eq('active', true)
-          .eq('is_globally_required', true);
-        if (requiredAttributesError) {
-          Alert.alert(
-            'Não foi possível validar',
-            'Tente salvar novamente para verificar as características obrigatórias.'
-          );
-          setActiveTab('technical');
-          return;
-        }
         const technicalValues = formData.technicalValues || {};
-        const requiredNames = new Set(
-          (requiredAttributes || []).map((attribute: any) => attribute.name)
-        );
-        const categoryIds: string[] =
-          formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
-        if (categoryIds.length > 0) {
-          const { data: categoryLinks, error: categoryLinksError } = await supabase
-            .from('category_attributes')
-            .select('attribute_id')
-            .in('category_id', categoryIds)
-            .eq('is_required', true);
-          if (categoryLinksError) {
-            Alert.alert(
-              'Não foi possível validar',
-              'Tente novamente para verificar os campos obrigatórios da categoria.'
-            );
-            setActiveTab('technical');
-            return;
-          }
-          const categoryAttributeIds = [
-            ...new Set((categoryLinks || []).map((link: any) => link.attribute_id).filter(Boolean)),
-          ];
-          if (categoryAttributeIds.length) {
-            const { data: categoryAttributes, error: categoryAttributesError } = await supabase
-              .from('attributes')
-              .select('name')
-              .in('id', categoryAttributeIds)
-              .eq('active', true);
-            if (categoryAttributesError) {
-              Alert.alert(
-                'Não foi possível validar',
-                'Tente novamente para verificar os campos obrigatórios da categoria.'
-              );
-              setActiveTab('technical');
-              return;
-            }
-            (categoryAttributes || []).forEach((attribute: any) =>
-              requiredNames.add(attribute.name)
-            );
-          }
-        }
-        const missingName = [...requiredNames].find(
-          (name) => !String(technicalValues[name] ?? '').trim()
-        );
-        if (missingName) {
-          Alert.alert(
-            'Campo Obrigatório',
-            `Preencha a característica “${missingName}” na aba Características.`,
-            [{ text: 'OK', onPress: () => setActiveTab('technical') }]
-          );
-          setActiveTab('technical');
-          return;
-        }
         const variations = Array.isArray(formData.variations) ? formData.variations : [];
-        if (hasMissingVariationAttributes(variations)) {
+        const incompleteVariation = variations.find((variation: any) =>
+          getMissingRequiredCharacteristics(
+            getEffectiveVariationTechnicalValues(technicalValues, variation)
+          ).length
+        );
+        if (incompleteVariation) {
           Alert.alert(
             'Variações incompletas',
-            'Cada variação precisa ter pelo menos um atributo completo, como no ERP.',
+            `Cada variação precisa ter ${REQUIRED_CHARACTERISTIC_NAMES.join(' e ')}. Preencha na aba Características da variação ou no produto pai.`,
             [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
           );
           setActiveTab('variacoes');

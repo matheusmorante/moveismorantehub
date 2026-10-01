@@ -7,6 +7,7 @@ import {
   getApplicableTechnicalFields,
   getAvailableAdditionalFields,
   groupTechnicalFields,
+  isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 
@@ -84,13 +85,13 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
         // 1. Buscar todos os atributos (campos técnicos)
         let { data: attrData, error: attrErr } = await supabase
           .from('attributes')
-          .select('id, name, active, data_type, unit, is_globally_required, is_custom')
+          .select('id, name, active, data_type, unit, is_custom')
           .eq('active', true)
           .order('name');
         if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
           const fallback = await supabase
             .from('attributes')
-            .select('id, name, active, data_type, unit, is_globally_required')
+            .select('id, name, active, data_type, unit')
             .eq('active', true)
             .order('name');
           attrData = fallback.data;
@@ -138,7 +139,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                 : String(attr.name).toLocaleLowerCase('pt-BR') === 'peso'
                   ? 'kg'
                   : undefined),
-            isRequired: false,
+            isRequired: isRequiredCharacteristicName(attr.name),
             isCustom: Boolean(attr.is_custom),
             options: opts,
             categoryIds: linkedCategoryIds,
@@ -258,9 +259,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                       rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                     const isManual = manualFieldNames.includes(field.name);
                     const isNotApplicable = rawValue === 'Não se aplica';
-                    const isAlwaysApplicable = ['cor', 'material da estrutura'].includes(
-                      field.name.trim().toLocaleLowerCase('pt-BR')
-                    );
+                    const isAlwaysApplicable = field.isRequired;
                     const isApplicable = isAlwaysApplicable || !isNotApplicable;
                     const isFieldInvalid =
                       isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
@@ -298,16 +297,12 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                           </label>
                           <div className="flex items-center gap-1.5">
                             {/* Switch Toggle: Ligado = Se aplica (padrão) | Desligado = Não se aplica */}
-                            {!['cor', 'material da estrutura'].includes(
-                              field.name.trim().toLocaleLowerCase('pt-BR')
-                            ) && (
+                            {!field.isRequired && (
                               <button
                                 type="button"
                                 role="switch"
                                 aria-checked={isApplicable}
                                 onClick={() => {
-                                  if (field.name.trim().toLocaleLowerCase('pt-BR') === 'cor')
-                                    return;
                                   // Se estava aplicável, ao desligar vira 'Não se aplica'
                                   // Se estava desligado ('Não se aplica'), ao ligar volta a ser vazio/editável
                                   handleTechnicalValueChange(
@@ -320,12 +315,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                     ? 'bg-blue-600 dark:bg-blue-500'
                                     : 'bg-slate-300 dark:bg-slate-700'
                                 }`}
-                                disabled={field.name.trim().toLocaleLowerCase('pt-BR') === 'cor'}
-                                title={
-                                  field.name.trim().toLocaleLowerCase('pt-BR') === 'cor'
-                                    ? 'Cor é obrigatória'
-                                    : 'Se aplica?'
-                                }
+                                title="Se aplica?"
                               >
                                 <span
                                   aria-hidden="true"

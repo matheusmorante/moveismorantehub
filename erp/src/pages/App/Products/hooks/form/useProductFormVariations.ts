@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { generateVariationSku, checkProductHasMoves } from '@/pages/utils/productService';
-import { hasVariationAttribute } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
 
@@ -41,12 +40,6 @@ export function useProductFormVariations(
   };
 
   const addVariation = () => {
-    const firstVariation = formData.variations?.[0];
-    if (firstVariation && !hasVariationAttribute(firstVariation)) {
-      toast.info('Antes de criar outra variação, informe pelo menos um atributo na Variação 1.');
-      setEditingVariationId(firstVariation.id);
-      return;
-    }
     const baseName = toTitleCase(formData.name || formData.description || 'Nova Variação');
     const parentCode = formData.code || '000000';
     const newSku = generateVariationSku(parentCode, formData.variations || []);
@@ -117,12 +110,6 @@ export function useProductFormVariations(
   const generateBulkVariations = (
     options: { name: string; values: string[]; showName: boolean }[]
   ) => {
-    const firstVariation = formData.variations?.[0];
-    if (firstVariation && !hasVariationAttribute(firstVariation)) {
-      toast.info('Informe um atributo na Variação 1 antes de gerar outras variações.');
-      setEditingVariationId(firstVariation.id);
-      return;
-    }
     const attributes = options.filter((o) => o.name && o.values.length > 0);
     if (attributes.length === 0) return;
 

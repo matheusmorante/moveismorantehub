@@ -47,7 +47,8 @@ async function main() {
     configurationIssues: defaults.readiness?.configurationIssues }));
   if (mode === 'check') {
     assert.equal(defaults.httpStatus, 200);
-    for (const route of ['emit', 'consult']) {
+    for (const route of ['emit', 'consult', 'cancel', 'return-capacity',
+      'operation-drafts', 'transmit-operation-draft']) {
       const rejected = request(`/api/nfe/${route}`, {});
       assert.equal(rejected.httpStatus, 400, `${route}: invalid command must fail before emission`);
       console.log(JSON.stringify({ stage: 'endpoint', route, httpStatus: 400, initialized: true }));

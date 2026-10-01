@@ -67,6 +67,17 @@ const { PGlite } = require('@electric-sql/pglite');
   const returnEnvironmentMigration = fs.readFileSync(path.join(__dirname,
     '../migrations/20261001163000_nfe_return_environment_isolation.sql'), 'utf8');
   await db.exec(returnEnvironmentMigration);
+  await db.exec(fs.readFileSync(path.join(__dirname,
+    '../migrations/20261001183000_nfe_return_product_identity.sql'), 'utf8'));
+  // Exercise the canonical restoration against the exact missing-RPC state
+  // found remotely, including the restricted Data API grants.
+  await db.exec('DROP FUNCTION public.create_return_order_with_capacity(text,jsonb,jsonb,jsonb)');
+  await db.exec(fs.readFileSync(path.join(__dirname,
+    '../migrations/20261001190000_restore_atomic_return_capacity_rpc.sql'), 'utf8'));
+  const grants = await db.query(`SELECT
+    has_function_privilege('anon', 'public.create_return_order_with_capacity(text,jsonb,jsonb,jsonb)', 'EXECUTE') AS anon,
+    has_function_privilege('authenticated', 'public.create_return_order_with_capacity(text,jsonb,jsonb,jsonb)', 'EXECUTE') AS authenticated`);
+  assert.deepEqual(grants.rows[0], { anon: false, authenticated: true });
 
   const saleId = '11111111-1111-4111-8111-111111111111';
   const documentId = '22222222-2222-4222-8222-222222222222';
@@ -190,7 +201,7 @@ const { PGlite } = require('@electric-sql/pglite');
 
   const hmlSaleId = '12121212-1212-4212-8212-121212121212';
   const hmlDocumentId = '23232323-2323-4232-8232-232323232323';
-  const runId = 'TEST_AUT_20261001_HML_LINEAGE';
+  const runId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const hmlSaleData = { orderType: 'sale', is_test: true, test_environment: 'homologation', testRunId: runId };
   await db.query('INSERT INTO orders(id,status,order_type,items,order_data) VALUES ($1,\'fulfilled\',\'sale\',$2::jsonb,$3::jsonb)',
     [hmlSaleId, JSON.stringify([saleItem]), JSON.stringify(hmlSaleData)]);
@@ -198,7 +209,8 @@ const { PGlite } = require('@electric-sql/pglite');
     VALUES ($1,$2,900,'55',2,'homologada','outbound'),
            ('78787878-7878-4787-8787-787878787878',$2,901,'55',1,'autorizada','outbound')`, [hmlDocumentId, hmlSaleId]);
   await db.query(`INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml)
-    VALUES ($1,1,'SKU-1','Cadeira',5,25,125,'<prod/>','<imposto/>')`, [hmlDocumentId]);
+    VALUES ($1,1,$2,$3,5,25,125,'<prod/>','<imposto/>')`,
+    [hmlDocumentId, saleItem.productId, 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL']);
   await db.query(`INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml)
     VALUES ('78787878-7878-4787-8787-787878787878',1,'SKU-1','Cadeira',5,25,125,'<prod/>','<imposto/>')`);
   const hmlReturnId = '34343434-3434-4434-8434-343434343434';
@@ -214,6 +226,21 @@ const { PGlite } = require('@electric-sql/pglite');
     [id, JSON.stringify(payload), JSON.stringify(itemRows), '[]', JSON.stringify(fiscalRows)]);
   const hmlCreated = (await createHmlReturn(hmlReturnId)).rows[0].result;
   assert.equal(hmlCreated.idempotent_replay, false);
+  // Real HML serialization uses the product UUID as cProd and a mandated xProd;
+  // the commercial return keeps its SKU and actual product description.
+  for (const [id, invalidFields] of [
+    ['10101010-1010-4010-8010-101010101010', { productId: '99999999-9999-4999-8999-999999999999' }],
+    ['20202020-2020-4020-8020-202020202020', { variationId: '99999999-9999-4999-8999-999999999999' }],
+    ['30303030-3030-4030-8030-303030303030', { description: 'Outro produto' }],
+  ]) {
+    const invalidItems = [{ ...hmlPartialItems[0], quantity: 1, returnedQuantity: 1,
+      code: saleItem.productId, ...invalidFields }];
+    const invalidPayload = { ...hmlReturnPayload, order_data: { ...hmlReturnPayload.order_data, returnRequestId: id } };
+    await assert.rejects(createHmlReturn(id, invalidItems, [{ ...hmlAllocation[0], quantity: 1 }], invalidPayload),
+      /não corresponde à linha original/);
+    assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [id])).rows[0].count, 0);
+    assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations WHERE return_order_id=$1', [id])).rows[0].count, 0);
+  }
   const storedHmlMarkers = (await db.query('SELECT order_data FROM orders WHERE id=$1', [hmlReturnId])).rows[0].order_data;
   assert.deepEqual({ is_test: storedHmlMarkers.is_test, test_environment: storedHmlMarkers.test_environment,
     testRunId: storedHmlMarkers.testRunId }, { is_test: true, test_environment: 'homologation', testRunId: runId });

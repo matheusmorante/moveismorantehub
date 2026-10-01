@@ -13,6 +13,7 @@ import {
 import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { orderShowsPhysicalCirculation } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -276,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(409)
         .json({ success: false, error: 'CNPJ do emitente não encontrado no XML original.' });
     const environment = Number(doc.ambiente);
-    const timestamp = new Date().toISOString();
+    const timestamp = formatNfeDateTime(new Date());
     const eventXml = `<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>${Date.now().toString().slice(-15)}</idLote><evento versao="1.00"><infEvento Id="ID110111${doc.chave_acesso}01"><cOrgao>41</cOrgao><tpAmb>${environment}</tpAmb><CNPJ>${issuerCnpj}</CNPJ><chNFe>${doc.chave_acesso}</chNFe><dhEvento>${timestamp}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${escapeXml(String(doc.numero_protocolo))}</nProt><xJust>${escapeXml(reason)}</xJust></detEvento></infEvento></evento></envEvento>`;
     const signedXml = signNfeEventXml(
       eventXml,

@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../../../../services/supabaseClient';
-import { Link, Search, Trash2, Unlink } from 'lucide-react-native';
+import { Check, Link, Search, Square, Trash2, Unlink } from 'lucide-react-native';
+import { isRequiredCharacteristicName } from '../../domain/productCharacteristics';
 
 interface Props {
   formData: any;
@@ -129,6 +130,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     const values = { ...parentTechnicalValues, ...ownTechnicalValues };
     const visible = technicalFields.filter(
       (field) =>
+        isRequiredCharacteristicName(field.name) ||
         field.is_globally_required ||
         Object.prototype.hasOwnProperty.call(values, field.name) ||
         manualFieldNames.includes(field.name) ||
@@ -293,9 +295,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                 ? storedValue.join(', ')
                 : String(storedValue);
               const choices = field.options || [];
-              const required = Boolean(field.is_globally_required || field.requiredForCategory);
-              const normalizedName = field.name.trim().toLocaleLowerCase('pt-BR');
-              const alwaysApplicable = ['cor', 'material da estrutura'].includes(normalizedName);
+              const required =
+                isRequiredCharacteristicName(field.name) ||
+                Boolean(field.is_globally_required || field.requiredForCategory);
+              const alwaysApplicable = isRequiredCharacteristicName(field.name);
               const applicable = alwaysApplicable || currentValue !== 'Não se aplica';
               const isManual = manualFieldNames.includes(field.name);
 
@@ -444,7 +447,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                                       >
                                         {option.value}
                                       </Text>
-                                      {selected && <Text style={styles.selectedMark}>✓</Text>}
+                                      {activePickerField.data_type === 'multi_select' &&
+                                        (selected ? (
+                                          <Check size={17} color="#2563eb" />
+                                        ) : (
+                                          <Square size={17} color={dark ? '#94a3b8' : '#64748b'} />
+                                        ))}
                                     </TouchableOpacity>
                                   );
                                 })}

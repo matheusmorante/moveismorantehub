@@ -49,13 +49,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ success: false, error: 'Pedido original não informado.' });
 
   try {
+    const { data: source, error: sourceError } = await supabase
+      .from('orders')
+      .select('id,order_type,status,order_data')
+      .eq('id', orderId)
+      .maybeSingle();
+    if (sourceError) throw sourceError;
+    if (!source || source.order_type !== 'sale')
+      return res.status(409).json({ success: false, error: 'Venda original não encontrada.' });
+    const data = source.order_data || {};
+    const hasTestMetadata = Boolean(data.is_test || data.test_environment || data.testRunId);
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isHmlTest = data.is_test === true && data.test_environment === 'homologation' &&
+      typeof data.testRunId === 'string' && uuid.test(data.testRunId.trim()) &&
+      uuid.test(String(source.id));
+    if (hasTestMetadata && !isHmlTest)
+      return res.status(409).json({ success: false, error: 'Identificação do ambiente de teste incompleta.' });
+    const environment = isHmlTest ? 2 : 1;
+    if (req.body?.environment !== undefined && req.body.environment !== environment)
+      return res.status(409).json({ success: false, error: 'Ambiente fiscal difere da venda original.' });
     const { data: docsData, error: docsError } = await supabase
       .from('nfe_documents')
       .select('id,modelo,ambiente,status,document_type,xml_nfe,created_at')
       .eq('order_id', orderId)
       .eq('document_type', 'outbound')
-      .eq('status', 'autorizada')
-      .eq('ambiente', 1)
+      .eq('status', environment === 1 ? 'autorizada' : 'homologada')
+      .eq('ambiente', environment)
       .in('modelo', ['55', '65'])
       .order('created_at', { ascending: true });
     if (docsError) throw docsError;
@@ -63,7 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!docs.length)
       return res
         .status(200)
-        .json({ success: true, hasAuthorizedProductionInvoice: false, lines: [] });
+        .json({ success: true, environment, hasAuthorizedInvoice: false,
+          hasAuthorizedProductionInvoice: false, lines: [] });
 
     const documentIds = docs.map((doc) => doc.id);
     const lines = [];
@@ -100,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lines.push(
         ...parsedLines.map((line) => ({
           originalDocumentId: doc.id,
+          originalEnvironment: environment,
           originalModel: doc.modelo,
           originalItemNumber: line.invoiceItemNumber,
           productCode: line.productCode,
@@ -185,7 +206,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     return res
       .status(200)
-      .json({ success: true, hasAuthorizedProductionInvoice: true, lines: result });
+      .json({ success: true, environment, hasAuthorizedInvoice: true,
+        hasAuthorizedProductionInvoice: environment === 1, lines: result });
   } catch (error: any) {
     console.error(
       '[NF-e Return Capacity] Falha ao calcular saldo fiscal:',

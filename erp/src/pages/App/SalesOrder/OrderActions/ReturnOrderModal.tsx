@@ -47,7 +47,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
   const [fiscalCapacityLines, setFiscalCapacityLines] = useState<AvailableInvoiceLine[]>([]);
   const [fiscalCapacityLoaded, setFiscalCapacityLoaded] = useState(false);
   const [fiscalCapacityError, setFiscalCapacityError] = useState<string | null>(null);
-  const [hasAuthorizedProductionInvoice, setHasAuthorizedProductionInvoice] = useState(false);
+  const [hasAuthorizedInvoice, setHasAuthorizedInvoice] = useState(false);
   const [returnRequestId] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
@@ -87,9 +87,9 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         if (!response.ok || !result.success)
           throw new Error(result.error || 'Não foi possível conferir o saldo faturado.');
         if (!active) return;
-        loadedHasAuthorizedInvoice = Boolean(result.hasAuthorizedProductionInvoice);
+        loadedHasAuthorizedInvoice = Boolean(result.hasAuthorizedInvoice ?? result.hasAuthorizedProductionInvoice);
         loadedFiscalLines = result.lines || [];
-        setHasAuthorizedProductionInvoice(loadedHasAuthorizedInvoice);
+        setHasAuthorizedInvoice(loadedHasAuthorizedInvoice);
         setFiscalCapacityLines(loadedFiscalLines);
       } catch (error: any) {
         if (!active) return;
@@ -232,7 +232,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       0
     );
     let fiscalAllocations: Order['fiscalReturnAllocations'] = [];
-    if (hasAuthorizedProductionInvoice) {
+    if (hasAuthorizedInvoice) {
       try {
         fiscalAllocations = allocateReturnQuantityAcrossInvoices(
           items.map((item, returnItemIndex) => ({

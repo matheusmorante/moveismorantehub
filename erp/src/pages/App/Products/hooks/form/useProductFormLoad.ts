@@ -3,7 +3,6 @@ import Product from '@/pages/types/product.type';
 import { getFullProduct, getNextSequentialProductCode } from '@/pages/utils/productService';
 import {
   ensureDefaultVariation,
-  hasVariationAttribute,
 } from '@/pages/utils/productVariationDefaults';
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
 
@@ -66,7 +65,6 @@ export const useProductFormLoad = ({
     let isMounted = true;
 
     const loadFullData = async () => {
-      let resolvedFormData: Product | null;
       let targetVariationIdToOpen: string | null = null;
 
       if (product?.id) {
@@ -100,7 +98,6 @@ export const useProductFormLoad = ({
           hasVariations: true,
         });
 
-        resolvedFormData = nextFormData;
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);
         pricing.initializeDiscounts(nextFormData.unitPrice, nextFormData.promoPrice);
@@ -116,7 +113,6 @@ export const useProductFormLoad = ({
           ...product,
           hasVariations: true,
         });
-        resolvedFormData = nextFormData;
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);
         pricing.initializeDiscounts(product.unitPrice, product.promoPrice);
@@ -137,7 +133,6 @@ export const useProductFormLoad = ({
           ...initialData,
           hasVariations: true,
         });
-        resolvedFormData = nextFormData as Product;
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);
         pricing.setDiscountFixed('');
@@ -151,14 +146,7 @@ export const useProductFormLoad = ({
         if (targetVariationIdToOpen) {
           variations.setEditingVariationId(targetVariationIdToOpen);
         } else {
-          const firstVar = resolvedFormData?.variations?.[0];
-          if (firstVar && hasVariationAttribute(firstVar)) {
-            variations.addVariation();
-          } else if (firstVar) {
-            variations.setEditingVariationId(firstVar.id);
-          } else {
-            variations.addVariation();
-          }
+          variations.addVariation();
         }
       }
     };
