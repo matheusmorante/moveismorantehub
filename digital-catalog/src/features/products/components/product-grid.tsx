@@ -668,16 +668,17 @@ export function ProductGrid({ filters }: ProductGridProps) {
   };
 
   const configuredColumns = cardStyle.product_grid_columns;
-  const numericColumnLimit =
-    typeof configuredColumns === 'number'
-      ? Math.min(6, Math.max(2, Math.floor(configuredColumns)))
-      : null;
-  const columnsClass = numericColumnLimit
+  const columnsClass = typeof configuredColumns === 'number'
     ? ''
     : productGridStyleClasses.columns[configuredColumns];
-  const gridTemplateColumns = numericColumnLimit
-    ? `repeat(auto-fill, minmax(max(${productGridMinCardWidths.comfortable}, calc((100% - ${(numericColumnLimit - 1) * 2}rem) / ${numericColumnLimit})), 1fr))`
-    : `repeat(auto-fill, minmax(min(100%, ${productGridMinCardWidths[configuredColumns]}), 1fr))`;
+  const gridTemplateColumns = (() => {
+    if (typeof configuredColumns === 'number') {
+      const numericColumnLimit = Math.min(6, Math.max(2, Math.floor(configuredColumns)));
+      return `repeat(auto-fill, minmax(max(${productGridMinCardWidths.comfortable}, calc((100% - ${(numericColumnLimit - 1) * 2}rem) / ${numericColumnLimit})), 1fr))`;
+    }
+
+    return `repeat(auto-fill, minmax(min(100%, ${productGridMinCardWidths[configuredColumns]}), 1fr))`;
+  })();
   const gapClass =
     productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap['tight'];
 

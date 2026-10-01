@@ -34,6 +34,7 @@ interface ProductCardProps {
     promotion?: boolean;
     opportunity?: {
       name: string;
+      slug?: string;
       badge_color: string;
       border_color: string;
       border_style?: string;
