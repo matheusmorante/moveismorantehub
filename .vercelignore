@@ -2,6 +2,8 @@
 /*
 !erp
 !erp/**
+!digital-catalog
+!digital-catalog/**
 !api
 !api/**
 !shared-utils
@@ -20,7 +22,6 @@ mobile/*
 .github/
 .calm/
 .git/
-digital-catalog/
 desktop-print-agent/
 automation/
 docs/
