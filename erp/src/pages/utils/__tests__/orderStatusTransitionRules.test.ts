@@ -4,7 +4,10 @@ import {
   canCancelOrderDirectly,
   canUndoFulfillment,
 } from '../orderStatusTransitionRules';
-import { resolveCompletedOrderStatus } from '../orderSchedulingStatus';
+import {
+  resolveCompletedOrderStatus,
+  shouldAutoFulfillScheduledSaleOnEdit,
+} from '../orderSchedulingStatus';
 import Order from '../../types/order.type';
 
 describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedido', () => {
@@ -96,6 +99,17 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(status).toBe('fulfilled');
     });
 
+    it('retorna "fulfilled" quando a retirada imediata está explicitamente marcada', () => {
+      const status = resolveCompletedOrderStatus({
+        orderType: 'sale',
+        shipping: {
+          deliveryMethod: 'pickup',
+          scheduling: { immediatePickup: true, date: '2099-12-31' },
+        } as any,
+      });
+      expect(status).toBe('fulfilled');
+    });
+
     it('retorna "fulfilled" para retirada com data igual ou anterior a hoje', () => {
       const todayStr = new Date().toISOString().split('T')[0];
       const status = resolveCompletedOrderStatus({
@@ -117,6 +131,57 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
         } as any,
       });
       expect(status).toBe('scheduled');
+    });
+  });
+
+  describe('shouldAutoFulfillScheduledSaleOnEdit', () => {
+    it('atende ao salvar venda agendada para retirada imediata', () => {
+      expect(
+        shouldAutoFulfillScheduledSaleOnEdit(
+          { status: 'scheduled', orderType: 'sale' },
+          {
+            orderType: 'sale',
+            shipping: {
+              deliveryMethod: 'pickup',
+              scheduling: { immediatePickup: true, date: '2099-12-31' },
+            } as any,
+          }
+        )
+      ).toBe(true);
+    });
+
+    it('mantém agendado quando a retirada está pendente ou em data futura', () => {
+      const currentOrder = { status: 'scheduled', orderType: 'sale' };
+
+      expect(
+        shouldAutoFulfillScheduledSaleOnEdit(currentOrder, {
+          orderType: 'sale',
+          shipping: { deliveryMethod: 'pickup', scheduling: { pendingScheduling: true } } as any,
+        })
+      ).toBe(false);
+      expect(
+        shouldAutoFulfillScheduledSaleOnEdit(currentOrder, {
+          orderType: 'sale',
+          shipping: {
+            deliveryMethod: 'pickup',
+            scheduling: { date: '2099-12-31' },
+          } as any,
+        })
+      ).toBe(false);
+    });
+
+    it('não atende pedidos não agendados nem devoluções', () => {
+      const immediatePickup = {
+        orderType: 'sale',
+        shipping: { deliveryMethod: 'pickup', scheduling: {} } as any,
+      };
+
+      expect(
+        shouldAutoFulfillScheduledSaleOnEdit({ status: 'fulfilled', orderType: 'sale' }, immediatePickup)
+      ).toBe(false);
+      expect(
+        shouldAutoFulfillScheduledSaleOnEdit({ status: 'scheduled', orderType: 'return' }, immediatePickup)
+      ).toBe(false);
     });
   });
 

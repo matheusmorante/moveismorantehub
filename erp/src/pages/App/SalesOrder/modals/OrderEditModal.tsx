@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import SalesOrderFormSection from '../SalesOrderFormSection';
 import { useSalesOrderForm, parseStorageDateToLocal } from '../useSalesOrderForm';
 import Order from '@/pages/types/order.type';
-import { updateOrder, fetchOrderById } from '@/pages/utils/orderHistoryService';
+import {
+  updateOrder,
+  fetchOrderById,
+  shouldAutoFulfillScheduledSaleOnEdit,
+} from '@/pages/utils/orderHistoryService';
 import { toast } from 'react-toastify';
 import OrderStatusTimeline from '../OrderStatusTimeline';
 import OrderStepper from '../OrderStepper';
@@ -231,14 +235,15 @@ const OrderEditModal = ({
   }, [effectiveOrder, form.actions, initialStep]);
 
   const persistUpdate = useCallback(
-    async (updatedOrder: Order) => {
-      if (!effectiveOrder) return false;
+    async (updatedOrder: Order): Promise<string | false> => {
+      const orderId = effectiveOrder?.id;
+      if (!orderId) return false;
       try {
-        await updateOrder(effectiveOrder.id!, updatedOrder, effectiveOrder);
+        await updateOrder(orderId, updatedOrder, effectiveOrder);
         toast.success('Edição salva com sucesso!');
-        onSaveSuccess(effectiveOrder.id, updatedOrder);
+        onSaveSuccess(orderId, updatedOrder);
         onClose();
-        return effectiveOrder.id;
+        return orderId;
       } catch (error) {
         console.error('Erro ao atualizar pedido:', error);
         toast.error('Falha ao atualizar pedido.');
@@ -266,6 +271,9 @@ const OrderEditModal = ({
         isButtonsClicked:
           effectiveOrder.isButtonsClicked || form.state.currentOrder.isButtonsClicked,
       } as Order;
+      if (shouldAutoFulfillScheduledSaleOnEdit(effectiveOrder, updatedOrder)) {
+        updatedOrder.status = 'fulfilled';
+      }
       const validationErrors = form.actions.validateOrder(updatedOrder);
       if (Object.keys(validationErrors).length > 0) {
         form.actions.setErrors(validationErrors);

@@ -51,6 +51,9 @@ export const resolveCompletedOrderStatus = (order: {
     if (scheduling?.pendingScheduling) {
       return 'scheduled';
     }
+    if (scheduling?.immediatePickup) {
+      return 'fulfilled';
+    }
 
     const schedDateStr = scheduling?.date?.trim();
     if (schedDateStr) {
@@ -65,4 +68,16 @@ export const resolveCompletedOrderStatus = (order: {
   }
 
   return 'scheduled';
+};
+
+export const shouldAutoFulfillScheduledSaleOnEdit = (
+  currentOrder: { status?: string; orderType?: string },
+  updatedOrder: { shipping?: Shipping; orderType?: string }
+): boolean => {
+  const orderType = currentOrder.orderType || updatedOrder.orderType || 'sale';
+  return (
+    currentOrder.status === 'scheduled' &&
+    ['sale', 'showroom'].includes(orderType) &&
+    resolveCompletedOrderStatus({ ...updatedOrder, orderType }) === 'fulfilled'
+  );
 };

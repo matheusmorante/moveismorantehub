@@ -1,5 +1,9 @@
 import Order from '../types/order.type';
-import { formatOrderSchedulingText, resolveCompletedOrderStatus } from './orderSchedulingStatus';
+import {
+  formatOrderSchedulingText,
+  resolveCompletedOrderStatus,
+  shouldAutoFulfillScheduledSaleOnEdit,
+} from './orderSchedulingStatus';
 import { handleStockAndBusinessRules, manuallyReverseStock } from './orderStockOperations';
 import {
   getNoticeFrequency,
@@ -30,6 +34,7 @@ import { saveOrder, updateOrder } from './orderMutationService';
 export {
   formatOrderSchedulingText,
   resolveCompletedOrderStatus,
+  shouldAutoFulfillScheduledSaleOnEdit,
   handleStockAndBusinessRules,
   manuallyReverseStock,
   getNoticeFrequency,
