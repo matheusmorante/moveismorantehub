@@ -1,5 +1,6 @@
 import { Drill } from '@/components/shared/DrillIcon';
 import { getSettings } from '@/pages/utils/settingsService';
+import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
 
 const getOpportunityLabel = (item: any) => {
   const opportunity = item.opportunityName || item.opportunity?.name || item.opportunity;
@@ -40,6 +41,10 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
           {items?.map((item: any, idx: number) => {
             const opportunityLabel = getOpportunityLabel(item);
+            const isUnregisteredProduct =
+              !item.isAssistanceItem &&
+              item.itemType !== 'service' &&
+              (!item.productId?.trim() || item.isTemporaryProduct);
             const qty = Number(item.quantity) || 1;
             const unitPrice = Number(item.unitPrice) || 0;
             const rawDiscount = Number(item.unitDiscount) || 0;
@@ -61,9 +66,12 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                   </span>
                 </td>
                 <td className="px-4 sm:px-6 py-4 flex flex-col gap-1 items-start align-top">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {item.description}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {item.description}
+                    </span>
+                    {isUnregisteredProduct && <UnregisteredProductIndicator />}
+                  </div>
                   {item.variationLabel && (
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
                       {item.variationLabel}
