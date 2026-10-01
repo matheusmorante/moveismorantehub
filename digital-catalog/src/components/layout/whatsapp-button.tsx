@@ -1,17 +1,22 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { generateWhatsAppLink } from '@/services/whatsapp';
 import Image from 'next/image';
 
 export function WhatsAppButton() {
+  const pathname = usePathname();
+
   const handleClick = () => {
     const link = generateWhatsAppLink(
       'Olá! Gostaria de saber mais sobre os produtos da Móveis Morante.'
     );
     window.open(link, '_blank');
   };
+
+  if (pathname === '/' || pathname.startsWith('/categorias/')) return null;
 
   return (
     <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">

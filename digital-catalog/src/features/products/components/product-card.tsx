@@ -121,6 +121,12 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
   const isSalvados =
     product.opportunity?.slug === 'salvado' ||
     product.opportunity?.name?.toLowerCase()?.includes('salvado');
+  const opportunityBadgeBackground = product.opportunity
+    ? getOpportunityTitleColor({
+        name: product.opportunity.name,
+        badge_color: product.opportunity.badge_color,
+      })
+    : 'inherit';
 
   const borderClass = 'border-none shadow-xs hover:shadow-md';
 
@@ -149,9 +155,14 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
                 'absolute top-[2px] right-2 font-black px-2 py-0.5 rounded-lg shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
                 isSalvados
                   ? 'bg-orange-500 text-white border-orange-600/20'
-                  : `${product.opportunity.badge_color} text-white`,
+                  : 'text-white',
                 getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
               )}
+              style={
+                isSalvados || opportunityBadgeBackground === 'inherit'
+                  ? undefined
+                  : { backgroundColor: opportunityBadgeBackground }
+              }
             >
               {isSalvados && <Flame className="h-2.5 w-2.5 shrink-0 text-white fill-white" />}
               {product.opportunity.name}
