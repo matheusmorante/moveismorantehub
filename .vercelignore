@@ -27,6 +27,8 @@ automation/
 docs/
 scripts/
 supabase/
+!digital-catalog/src/lib/supabase
+!digital-catalog/src/lib/supabase/**
 tests/
 **/node_modules/
 **/dist/
