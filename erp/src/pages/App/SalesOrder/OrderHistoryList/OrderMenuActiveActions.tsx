@@ -36,6 +36,24 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
 }) => {
   return (
     <>
+      {isCancelled && ['sale', 'showroom'].includes(order.orderType || 'sale') && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAction('retryOrderFiscalCancellation', order);
+            onCloseMenu();
+          }}
+          className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-sky-700 transition-all hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/30"
+          title="Reprocessar automaticamente o efeito fiscal deste pedido"
+        >
+          <i className="bi bi-arrow-repeat text-lg" />
+          <span className="text-xs font-black uppercase tracking-widest">
+            Reprocessar tratamento fiscal
+          </span>
+        </button>
+      )}
+
       {canReconcileTemporaryProducts && (
         <button
           onClick={(e) => {

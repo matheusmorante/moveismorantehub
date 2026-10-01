@@ -60,7 +60,7 @@ function response() {
   };
 }
 
-function database(orderStatus: 'fulfilled' | 'scheduled') {
+function database(orderStatus: 'fulfilled' | 'scheduled' | 'cancelled') {
   const from = vi.fn((table: string) => {
     const query: any = {
       select: () => query,
@@ -120,7 +120,7 @@ describe('API de cancelamento de NF-e', () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
-  it('não bloqueia pelo critério de circulação enquanto o pedido segue agendado', async () => {
+  it('só libera o evento fiscal depois do cancelamento comercial', async () => {
     const db = database('scheduled');
     mocks.createClient.mockReturnValue(db);
     const handler = (await import('../../../../../../api/nfe/cancel')).default;
@@ -128,14 +128,14 @@ describe('API de cancelamento de NF-e', () => {
 
     await handler(request, result.res as any);
 
-    expect(result.statusCode).toBe(503);
-    expect(result.body?.error).toContain('Certificado digital');
+    expect(result.statusCode).toBe(409);
+    expect(result.body?.error).toContain('pedido cancelado');
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it('envia dhEvento sem fração de segundo, com fuso explícito, e persiste o protocolo do cancelamento', async () => {
-    const db = database('scheduled');
+    const db = database('cancelled');
     mocks.createClient.mockReturnValue(db);
     process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
     mocks.extractCertificateAndKey.mockReturnValue({

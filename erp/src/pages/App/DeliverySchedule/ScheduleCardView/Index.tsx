@@ -1,6 +1,7 @@
 import React from 'react';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 import {
   stringifyFullAddressWithObservation,
   formatCurrency,
@@ -49,13 +50,20 @@ const DeliveryOrderCard = ({
 
   const statuses = settings.orderStatuses?.map((s) => ({
     ...s,
+    label: ['scheduled', 'fulfilled'].includes(s.id)
+      ? getOrderStatusLabel({ ...order, status: s.id }, s.label)
+      : s.label,
     description:
       s.id === 'draft'
         ? 'Pedido em elaboração, sem agendamento definitivo.'
         : s.id === 'scheduled'
           ? 'Pedido confirmado e pronto para logística.'
           : s.id === 'fulfilled'
-            ? 'Entrega concluída ou serviço prestado com sucesso.'
+          ? order.orderType === 'assistance'
+            ? 'Serviço prestado com sucesso.'
+            : getOrderStatusLabel({ ...order, status: 'fulfilled' }, 'Atendido') === 'Retirado'
+              ? 'Mercadoria retirada pelo cliente.'
+              : 'Mercadoria entregue ao cliente.'
             : s.id === 'cancelled'
               ? 'Pedido cancelado ou com entrega abortada.'
               : '',
@@ -68,15 +76,20 @@ const DeliveryOrderCard = ({
     },
     {
       id: 'scheduled',
-      label: 'Agendado',
+      label: getOrderStatusLabel({ ...order, status: 'scheduled' }, 'Agendado'),
       color: 'amber',
       description: 'Pedido confirmado e pronto para logística.',
     },
     {
       id: 'fulfilled',
-      label: 'Atendido',
+      label: getOrderStatusLabel({ ...order, status: 'fulfilled' }, 'Atendido'),
       color: 'emerald',
-      description: 'Entrega concluída ou serviço prestado com sucesso.',
+      description:
+        order.orderType === 'assistance'
+          ? 'Serviço prestado com sucesso.'
+          : getOrderStatusLabel({ ...order, status: 'fulfilled' }, 'Atendido') === 'Retirado'
+            ? 'Mercadoria retirada pelo cliente.'
+            : 'Mercadoria entregue ao cliente.',
     },
     {
       id: 'cancelled',

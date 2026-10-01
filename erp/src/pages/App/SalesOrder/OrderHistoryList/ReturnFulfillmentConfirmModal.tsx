@@ -10,6 +10,8 @@ type Props = {
 
 const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) => {
   const [seconds, setSeconds] = React.useState(5);
+  const isCollection = order.returnMethod === 'store_collection' || (order.status === 'scheduled' && !order.returnMethod);
+  const completion = isCollection ? 'coletada' : 'recebida';
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -36,7 +38,7 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Fechar modal de confirmação de atendimento de devolução"
+          aria-label={`Fechar confirmação de devolução ${completion}`}
         className="fixed inset-0 bg-slate-950/60 transition-opacity"
         onClick={onCancel}
       />
@@ -51,11 +53,10 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
           id="return-fulfillment-title"
           className="text-lg font-black text-slate-900 dark:text-white"
         >
-          Confirmar devolução atendida?
+          Confirmar devolução {completion}?
         </h2>
         <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Ao atender este pedido de devolução, uma movimentação de entrada será gerada para os itens
-          com produto cadastrado. Depois disso, esta devolução não poderá ser cancelada ou desfeita.
+          Confirme somente após {isCollection ? 'a equipe trazer a mercadoria coletada' : 'a loja receber fisicamente a mercadoria do cliente'}. Uma movimentação de entrada será gerada para os itens com produto cadastrado. Depois disso, esta devolução não poderá ser cancelada ou desfeita.
         </p>
         {hasUnregistered ? (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
@@ -87,7 +88,7 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
             onClick={onConfirm}
             className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {seconds ? `Aguarde ${seconds}s` : 'Sim, gerar entrada'}
+            {seconds ? `Aguarde ${seconds}s` : `Confirmar ${completion}`}
           </button>
         </div>
       </section>

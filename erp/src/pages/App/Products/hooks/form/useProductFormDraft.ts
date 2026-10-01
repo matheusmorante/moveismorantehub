@@ -1,76 +1,107 @@
-import { useState, useRef, useCallback } from 'react';
-import { toast } from 'react-toastify';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Product from '../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { getEnteredProductName, isDraftSaveEligible } from './rules/productDraftRules';
 
 export { getEnteredProductName, isDraftSaveEligible };
 
+export type ProductDraftAutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 export function useProductFormDraft(
   formData: Partial<Product>,
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
-  _isOpen: boolean,
+  isOpen: boolean,
   _isProductCreation: boolean,
   _editingVariationId: string | null,
-  hasChanged: React.MutableRefObject<boolean>
+  hasChanged: React.MutableRefObject<boolean>,
+  initialFormDataRef: React.MutableRefObject<string>
 ) {
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<ProductDraftAutoSaveStatus>('idle');
   const isSavingDraftRef = useRef(false);
+  const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+  const queuedDataRef = useRef<Partial<Product> | null>(null);
+  const savedDraftIdRef = useRef<string | null>(null);
+  const wasOpenRef = useRef(isOpen);
 
-  const saveDraftManually = useCallback(
-    async (data: Partial<Product>): Promise<boolean> => {
-      const draftTitle = getEnteredProductName(data);
-      if (!draftTitle) {
-        toast.error('Informe o nome do produto para permitir salvar o rascunho.');
-        return false;
+  useEffect(() => {
+    savedDraftIdRef.current = formData.id ? String(formData.id) : null;
+    if (isOpen && !wasOpenRef.current) setAutoSaveStatus('idle');
+    if (!isOpen) {
+      queuedDataRef.current = null;
+      setAutoSaveStatus('idle');
+    }
+    wasOpenRef.current = isOpen;
+  }, [formData.id, isOpen]);
+
+  const autoSaveDraft = useCallback(
+    (data: Partial<Product>): Promise<boolean> => {
+      if (!getEnteredProductName(data)) {
+        setAutoSaveStatus('idle');
+        return Promise.resolve(false);
       }
 
-      if (isSavingDraftRef.current) return false;
+      queuedDataRef.current = data;
+      if (activeSavePromiseRef.current) return activeSavePromiseRef.current;
+
       isSavingDraftRef.current = true;
-      setIsSavingDraft(true);
+      setAutoSaveStatus('saving');
 
-      try {
-        const normalizedData = {
-          ...data,
-          name: draftTitle,
-          title: data.title || draftTitle,
-          isDraft: true,
-          active: false,
-          status: 'draft',
-        } as Product;
+      const savePromise = (async () => {
+        try {
+          while (queuedDataRef.current) {
+            const nextData = queuedDataRef.current;
+            queuedDataRef.current = null;
+            const draftTitle = getEnteredProductName(nextData);
+            if (!draftTitle) continue;
 
-        const savedId = await saveProduct(normalizedData);
+            const normalizedData = {
+              ...nextData,
+              id: nextData.id || savedDraftIdRef.current || undefined,
+              name: draftTitle,
+              title: nextData.title || draftTitle,
+              isDraft: true,
+              active: false,
+              status: 'draft',
+            } as Product;
 
-        setFormData((prev) => ({
-          ...prev,
-          id: savedId,
-          name: draftTitle,
-          isDraft: true,
-          active: false,
-          status: 'draft',
-        }));
+            const savedId = await saveProduct(normalizedData);
+            savedDraftIdRef.current = savedId;
+            const savedSnapshot = { ...normalizedData, id: savedId };
+            setFormData((prev) => ({
+              ...prev,
+              id: savedId,
+              ...(prev.name === nextData.name ? { name: draftTitle } : {}),
+              ...(prev.title === nextData.title ? { title: normalizedData.title } : {}),
+              isDraft: true,
+              active: false,
+              status: 'draft',
+            }));
+            initialFormDataRef.current = JSON.stringify(savedSnapshot);
+          }
 
-        hasChanged.current = false;
-        toast.success('Rascunho salvo com sucesso!');
-        return true;
-      } catch (error: unknown) {
-        console.error('[Draft] Falha ao salvar rascunho:', error);
-        const msg = error instanceof Error ? error.message : 'Erro desconhecido';
-        toast.error(`Erro ao salvar rascunho: ${msg}`);
-        return false;
-      } finally {
-        isSavingDraftRef.current = false;
-        setIsSavingDraft(false);
-      }
+          hasChanged.current = false;
+          setAutoSaveStatus('saved');
+          return true;
+        } catch (error: unknown) {
+          console.error('[Draft] Falha ao salvar rascunho automaticamente:', error);
+          queuedDataRef.current = null;
+          setAutoSaveStatus('error');
+          return false;
+        } finally {
+          isSavingDraftRef.current = false;
+        }
+      })();
+      const completedSavePromise = savePromise.finally(() => {
+        activeSavePromiseRef.current = null;
+      });
+      activeSavePromiseRef.current = completedSavePromise;
+      return completedSavePromise;
     },
-    [setFormData, hasChanged]
+    [setFormData, hasChanged, initialFormDataRef]
   );
 
   return {
-    isSavingDraft,
-    isSavingDraftRef,
-    saveDraftManually,
-    getEnteredProductName,
-    canSaveDraft: isDraftSaveEligible(formData),
+    autoSaveStatus,
+    autoSaveDraft,
   };
 }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatDateTime } from '@/pages/utils/formatters';
+import Order from '../../../types/order.type';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 
 interface StatusHistoryEntry {
   id: string;
@@ -12,9 +14,10 @@ interface StatusHistoryEntry {
 
 interface Props {
   orderId: string;
+  order?: Partial<Order>;
 }
 
-const OrderStatusTimeline = ({ orderId }: Props) => {
+const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
   const [history, setHistory] = useState<StatusHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +53,13 @@ const OrderStatusTimeline = ({ orderId }: Props) => {
       cancelled: { label: 'Cancelado', color: 'red', icon: 'bi-x-circle' },
       returned: { label: 'Devolvido', color: 'orange', icon: 'bi-arrow-return-left' },
     };
+    if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status.toLowerCase())) {
+      return {
+        label: getOrderStatusLabel({ ...order, status }, 'Atendido'),
+        color: 'emerald',
+        icon: 'bi-check-circle-fill',
+      };
+    }
     return configs[status] || { label: status, color: 'slate', icon: 'bi-app' };
   };
 

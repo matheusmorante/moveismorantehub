@@ -1,4 +1,5 @@
 import { OrderTypeColor } from '@/pages/utils/settingsService';
+import { getOrderStatusLabel } from './orderStatusPresentation';
 
 export interface OrderTypeColorClasses {
   badge: string; // fundo + texto + borda do badge/rótulo
@@ -279,16 +280,16 @@ export const getPrimaryHandlingInfo = (order: any, settings: any) => {
 /**
  * Traduz o status técnico do pedido para uma linguagem amigável em português.
  */
-export const translateStatus = (status: string | undefined): string => {
+export const translateStatus = (status: string | undefined, order?: any): string => {
   if (!status) return 'Pendente';
   const s = status.toLowerCase();
   switch (s) {
     case 'draft':
       return 'Rascunho';
     case 'scheduled':
-      return 'Agendado';
+      return order ? getOrderStatusLabel({ ...order, status }, 'Agendado') : 'Agendado';
     case 'fulfilled':
-      return 'Atendido';
+      return order ? getOrderStatusLabel({ ...order, status }, 'Atendido') : 'Atendido';
     case 'cancelled':
       return 'Cancelado';
     default:

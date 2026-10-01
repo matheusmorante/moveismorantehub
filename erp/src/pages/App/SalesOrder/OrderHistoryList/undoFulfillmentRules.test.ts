@@ -49,6 +49,7 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
 
       // 2. Opção "Desfazer atendido" está disponível
       expect(canUndoFulfillment(vendaAtendida)).toBe(true);
+      expect(validateOrderStatusTransition(vendaAtendida.status, 'cancelled').allowed).toBe(false);
 
       // 3. Transição de fulfilled para scheduled é permitida pelo validador
       const transition = validateOrderStatusTransition(vendaAtendida.status, 'scheduled');

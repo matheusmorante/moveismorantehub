@@ -43,6 +43,21 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     expect(xml).toContain('<vFrete>30.00</vFrete>');
     expect(facts).toEqual(original);
   });
+  it('não usa saldo físico como requisito para emissão fiscal normal', async () => {
+    const facts = makeFacts();
+    const product = (facts.order.data.items as Array<Record<string, any>>)[0];
+    product.stock = 0;
+    product.stockQuantity = 0;
+    product.availableStock = 0;
+
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.items).toHaveLength(1);
+    expect(product).toMatchObject({ stock: 0, stockQuantity: 0, availableStock: 0 });
+  });
   it.each(['cpf', 'payment', 'cfop', 'tax-exception', 'catalog-cfop', 'catalog-rate', 'csosn', 'production'])(
     'bloqueia %s sem substituir campos', async (caseName) => {
       const facts = makeFacts();

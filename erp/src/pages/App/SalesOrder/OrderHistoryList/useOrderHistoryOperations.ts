@@ -7,6 +7,8 @@ import {
   updateOrder,
 } from '../../../utils/orderHistoryService';
 import { toast } from 'react-toastify';
+import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
+import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
 
 interface OrderHistoryOperationsParams {
   orders: Order[];
@@ -145,15 +147,17 @@ export const createOrderHistoryOperations = ({
     try {
       await updateOrder(id, payload, currentOrder);
       if (isUndoFulfillment) {
-        toast.success('Pedido retornado para Agendado com sucesso.');
-      } else {
+        const labels = getFulfillmentLabels(currentOrder);
+        toast.success(
+          `${labels.correctionAction} concluída. Pedido retornado para ${labels.preFulfillmentStatus}.`
+        );
+      } else if (newStatus === 'fulfilled') {
+        toast.success(getFulfillmentLabels(currentOrder).successMessage);
+      } else if (!isCancelled) {
         toast.success('Status do pedido atualizado!');
       }
-      if (isCancelled || (currentOrder.status === 'fulfilled' && newStatus === 'scheduled')) {
-        await refresh();
-      }
     } catch (error) {
-      // Rollback on failure
+      // Rollback only when the commercial transaction failed to commit.
       setOrders((prev) =>
         prev.map((o) =>
           o.id === id
@@ -170,6 +174,57 @@ export const createOrderHistoryOperations = ({
       );
       console.error('Erro ao atualizar status:', error);
       toast.error('Erro ao atualizar status do pedido.');
+      return;
+    }
+
+    if (isCancelled) {
+      try {
+        const result = await processOrderCancellationFiscalEffects(
+          id,
+          String(currentOrder.orderIndex || currentOrder.orderNumber || id)
+        );
+        toast.success(
+          result.action === 'cancel'
+            ? 'Pedido cancelado e cancelamento fiscal enviado à SEFAZ.'
+            : result.action === 'estorno'
+              ? 'Pedido cancelado; estorno fiscal preparado para conferência.'
+              : 'Pedido cancelado sem documento fiscal autorizado.'
+        );
+      } catch (error) {
+        console.error('Pedido cancelado; efeito fiscal pendente de reconciliação:', error);
+        toast.error(
+          `Pedido cancelado e estoque revertido. Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`
+        );
+      }
+    }
+
+    try {
+      if (isCancelled || (currentOrder.status === 'fulfilled' && newStatus === 'scheduled')) {
+        await refresh();
+      }
+    } catch {
+      toast.warning('O pedido foi atualizado, mas a lista não pôde ser recarregada.');
+    }
+  };
+
+  const retryFiscalCancellation = async (order: Order) => {
+    if (!order.id || order.status !== 'cancelled') return;
+    try {
+      const result = await processOrderCancellationFiscalEffects(
+        order.id,
+        String(order.orderIndex || order.orderNumber || order.id)
+      );
+      toast.success(
+        result.action === 'cancel'
+          ? 'Cancelamento fiscal enviado à SEFAZ.'
+          : result.action === 'estorno'
+            ? 'Estorno fiscal preparado para conferência.'
+            : 'Não há documento fiscal autorizado pendente neste pedido.'
+      );
+    } catch (error) {
+      toast.error(
+        `Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`
+      );
     }
   };
 
@@ -237,6 +292,7 @@ export const createOrderHistoryOperations = ({
     handleBulkRestore,
     handleBulkPermanentDelete,
     commitStatusUpdate,
+    retryFiscalCancellation,
     handleBlingUpdate,
     handleStockCheckUpdate,
   };

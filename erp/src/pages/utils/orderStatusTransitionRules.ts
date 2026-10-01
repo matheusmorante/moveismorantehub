@@ -1,4 +1,5 @@
 import Order from '../types/order.type';
+import { hasGoodsCirculated, type OrderCirculationState } from './nfe/cancellationEligibility';
 
 /**
  * Valida se uma transição de status de pedido é permitida pelas regras de negócio.
@@ -12,7 +13,8 @@ import Order from '../types/order.type';
  */
 export const validateOrderStatusTransition = (
   currentStatus?: Order['status'],
-  newStatus?: Order['status']
+  newStatus?: Order['status'],
+  currentOrder?: OrderCirculationState
 ): { allowed: boolean; reason?: string } => {
   if (!newStatus || currentStatus === newStatus) {
     return { allowed: true };
@@ -35,6 +37,17 @@ export const validateOrderStatusTransition = (
     };
   }
 
+  if (
+    newStatus === 'cancelled' &&
+    hasGoodsCirculated({ ...currentOrder, status: currentStatus })
+  ) {
+    return {
+      allowed: false,
+      reason:
+        'Pedido entregue ou retirado teve circulação da mercadoria. Registre uma devolução para reverter a operação.',
+    };
+  }
+
   return { allowed: true };
 };
 
@@ -43,14 +56,14 @@ export const validateOrderStatusTransition = (
  * Vendas agendadas podem ser canceladas;
  * Vendas já atendidas ('fulfilled') devem passar pelo fluxo de devolução/estorno de estoque.
  */
-export const canCancelOrderDirectly = (order: {
+export const canCancelOrderDirectly = (order: OrderCirculationState & {
   status?: Order['status'];
   orderType?: string;
 }): boolean => {
   if (!order.status || order.status === 'cancelled' || order.status === 'draft') {
     return false;
   }
-  if (order.status === 'fulfilled') {
+  if (hasGoodsCirculated(order)) {
     return false;
   }
   return order.status === 'scheduled';

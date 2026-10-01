@@ -350,6 +350,14 @@ O agente só deve declarar "testado" (APROVADO) quando:
 3. Os estados relevantes foram cobertos (sucesso, erro, vazio, loading — conforme 3.1).
 4. Casos negativos aplicáveis ao fluxo foram incluídos (conforme 3.2).
 
+### Cancelamento comercial/fiscal de vendas
+- Cobrir NF-e 55 antes de 168h, no instante-limite e depois; cobrir NFC-e 65 antes de 30 min, no limite e depois. A data usada é a autorização fiscal em UTC/offset, nunca horário local presumido.
+- Cobrir pedido agendado e retirada pendente sem circulação; `fulfilled` em entrega e retirada, além de trânsito, bloqueiam cancelamento/estorno por operação não realizada.
+- Cobrir documento ausente/rejeitado, autorizado, já cancelado, tentativa repetida e timeout incerto. Repetição não duplica reversão de estoque, evento, rascunho de estorno ou devolução.
+- Provar no mesmo banco/fluxo que estoque e status comercial confirmam ou revertem atomicamente. SEFAZ é efeito externo após commit: persistir tentativa e demonstrar reconciliação sem repetir evento quando o primeiro resultado é incerto.
+- HML deve derivar `tpAmb=2` e endpoint de homologação no backend; não falsificar ambiente. Estorno exige conferência dos dados fiscais e do art. 298, §2º do RICMS/PR quando a apuração for posterior.
+- Cobrir retorno por coleta pendente sem estoque, confirmação como “Coletada” com uma entrada idempotente e retorno entregue pelo cliente na loja como “Recebida” com entrada na criação transacional. Confirmar que criação agendada não libera NF-e de devolução; fluxo fiscal só fica disponível após retorno físico.
+
 ---
 
 ## Referências e Fonte Canônica de Documentação

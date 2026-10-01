@@ -1,13 +1,12 @@
 import React from 'react';
+import type { ProductDraftAutoSaveStatus } from '../../hooks/form/useProductFormDraft';
 
 export interface ProductFormFooterProps {
   readonly isDraftProduct: boolean;
-  readonly canSaveDraft: boolean;
-  readonly isSavingDraft: boolean;
+  readonly autoSaveStatus: ProductDraftAutoSaveStatus;
   readonly loading: boolean;
   readonly isAiProcessing: boolean;
   readonly isLastStep: boolean;
-  readonly onSaveDraft: () => void;
   readonly onClose: () => void;
   readonly onNextStep: () => void;
   readonly onSubmit: () => void;
@@ -18,12 +17,10 @@ export interface ProductFormFooterProps {
  */
 export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
   isDraftProduct,
-  canSaveDraft,
-  isSavingDraft,
+  autoSaveStatus,
   loading,
   isAiProcessing,
   isLastStep,
-  onSaveDraft,
   onClose,
   onNextStep,
   onSubmit,
@@ -34,24 +31,42 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
     <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
       <div className="flex items-center gap-2 w-full md:w-auto">
         {isDraftProduct && (
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            disabled={!canSaveDraft || loading || isSavingDraft}
-            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer w-full md:w-auto justify-center"
-            title={
-              !canSaveDraft
-                ? 'Informe o nome do produto para permitir salvar o rascunho'
-                : 'Salvar rascunho para continuar o cadastro posteriormente'
-            }
+          <div
+            role="status"
+            aria-live="polite"
+            aria-busy={autoSaveStatus === 'saving'}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 transition-colors ${
+              autoSaveStatus === 'saving'
+                ? 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30'
+                : autoSaveStatus === 'saved'
+                  ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/30'
+                  : autoSaveStatus === 'error'
+                    ? 'border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30'
+                    : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
+            }`}
           >
-            {isSavingDraft ? (
-              <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <i className="bi bi-bookmark-fill text-slate-500 dark:text-slate-400" />
-            )}
-            <span>Salvar rascunho</span>
-          </button>
+            <i
+              aria-hidden="true"
+              className={`bi text-sm ${
+                autoSaveStatus === 'saving'
+                  ? 'bi-arrow-repeat animate-spin text-amber-600 dark:text-amber-400'
+                  : autoSaveStatus === 'saved'
+                    ? 'bi-check-circle-fill text-emerald-600 dark:text-emerald-400'
+                    : autoSaveStatus === 'error'
+                      ? 'bi-exclamation-circle-fill text-rose-600 dark:text-rose-400'
+                      : 'bi-cloud-check text-slate-500 dark:text-slate-400'
+              }`}
+            />
+            <span className="text-[10px] font-bold tracking-wide text-slate-600 dark:text-slate-300">
+              {autoSaveStatus === 'saving'
+                ? 'Salvando rascunho...'
+                : autoSaveStatus === 'saved'
+                  ? 'Rascunho salvo'
+                  : autoSaveStatus === 'error'
+                    ? 'Falha ao salvar rascunho'
+                    : 'Salvamento automático'}
+            </span>
+          </div>
         )}
       </div>
 

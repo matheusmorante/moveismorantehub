@@ -4,6 +4,7 @@ import { Payment, PaymentsSummary } from './payments.type';
 import Shipping from './Shipping.type';
 
 export type OrderType = 'sale' | 'assistance' | 'showroom' | 'budget' | 'return';
+export type ReturnMethod = 'store_delivery' | 'store_collection';
 
 export type AssistanceItem = {
   id: string; // ID for internal keying
@@ -17,6 +18,12 @@ export type Order = {
   id?: string;
   orderType?: OrderType;
   status?: string;
+  /** Estado físico estruturado da entrega/retirada, mapeado das colunas do pedido. */
+  deliveryStatus?: string | null;
+  deliveryArrivedAt?: string | null;
+  deliveryStartedAt?: string | null;
+  deliveryFinishedAt?: string | null;
+  pickupConfirmedAt?: string | null;
   items: Item[];
   itemsSummary: ItemsSummary;
   shipping: Shipping;
@@ -60,6 +67,8 @@ export type Order = {
   isButtonsClicked?: IsButtonsClicked;
   returnOrderId?: string;
   returnKind?: 'partial' | 'complete';
+  /** Forma física de retorno; persistida no order_data existente. */
+  returnMethod?: ReturnMethod;
   returnStockProcessed?: boolean;
   stockReversed?: boolean;
   returnStockReversed?: boolean;

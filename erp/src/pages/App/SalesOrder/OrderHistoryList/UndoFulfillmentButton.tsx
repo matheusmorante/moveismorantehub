@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Order from '../../../types/order.type';
 import UndoFulfillmentModal from './UndoFulfillmentModal';
 import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
+import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 
 type Props = {
   order: Order;
@@ -11,6 +12,7 @@ type Props = {
 
 const UndoFulfillmentButton = ({ order, onStatusUpdate, onCloseMenu }: Props) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const fulfillmentLabels = getFulfillmentLabels(order);
 
   if (!canUndoFulfillment(order) || !order.id) return null;
 
@@ -24,13 +26,17 @@ const UndoFulfillmentButton = ({ order, onStatusUpdate, onCloseMenu }: Props) =>
           setIsConfirmOpen(true);
         }}
         className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-amber-600 transition-all hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30 cursor-pointer"
-        title="Desfazer status de atendido"
+        title={fulfillmentLabels.correctionAction}
       >
         <i className="bi bi-arrow-counterclockwise text-lg shrink-0" />
-        <span className="text-xs font-black uppercase tracking-widest">Desfazer atendido</span>
+        <span className="text-xs font-black uppercase tracking-widest">
+          {fulfillmentLabels.correctionAction}
+        </span>
       </button>
       {isConfirmOpen && (
         <UndoFulfillmentModal
+          correctionLabel={fulfillmentLabels.correctionAction}
+          returnStatusLabel={fulfillmentLabels.preFulfillmentStatus}
           onCancel={() => {
             setIsConfirmOpen(false);
             onCloseMenu();

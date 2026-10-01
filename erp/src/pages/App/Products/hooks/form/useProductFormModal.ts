@@ -70,6 +70,9 @@ export function useProductFormModal({
     ...INITIAL_PRODUCT_FORM_DATA,
     ...initialData,
   });
+  const latestFormDataRef = useRef(formData);
+  latestFormDataRef.current = formData;
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasChanged = useRef(false);
   const initialFormDataRef = useRef<string>('');
@@ -92,15 +95,38 @@ export function useProductFormModal({
     isOpen,
     isProductCreation,
     variations.editingVariationId,
-    hasChanged
+    hasChanged,
+    initialFormDataRef
   );
-  const images = useProductFormImages(formData, setFormData, setLoading);
+  const autoSaveDraft = draft.autoSaveDraft;
+  const autoSaveStatus = draft.autoSaveStatus;
+  const scheduleDraftAutoSave = useCallback(() => {
+    if (!isDraftProduct) return;
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(() => {
+      draftSaveTimerRef.current = null;
+      autoSaveDraft(latestFormDataRef.current);
+    }, 500);
+  }, [autoSaveDraft, isDraftProduct]);
+  const images = useProductFormImages(
+    formData,
+    setFormData,
+    setLoading,
+    scheduleDraftAutoSave
+  );
 
   useProductFormSync({ formData, setFormData });
 
   useEffect(() => {
     if (!isOpen) setVariationsInUse(new Set());
   }, [isOpen]);
+
+  useEffect(
+    () => () => {
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    },
+    []
+  );
 
   const navigateToRequirementField = useCallback((fieldKey: string) => {
     scrollToRequirementField(fieldKey, setActiveTab, () => setSaveResult(null));
@@ -214,9 +240,28 @@ export function useProductFormModal({
     onClose,
   });
 
-  const handleCloseWithAutoSave = useCallback(() => {
+  const handleCloseWithAutoSave = useCallback(async () => {
     const canSaveDraft = isDraftSaveEligible(formData);
     const isBasicallyEmpty = isProductCreation && !canSaveDraft;
+
+    if (isDraftProduct && canSaveDraft) {
+      const hasScheduledSave = draftSaveTimerRef.current !== null;
+      if (draftSaveTimerRef.current) {
+        clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+      if (
+        hasChanged.current ||
+        hasScheduledSave ||
+        autoSaveStatus === 'saving' ||
+        autoSaveStatus === 'error'
+      ) {
+        const saved = await autoSaveDraft(latestFormDataRef.current);
+        if (!saved) return;
+      }
+      onClose();
+      return;
+    }
 
     if (hasChanged.current && !isBasicallyEmpty) {
       if (window.confirm('Você tem alterações não salvas. Deseja realmente sair e descartar?'))
@@ -224,7 +269,15 @@ export function useProductFormModal({
     } else {
       onClose();
     }
-  }, [hasChanged, onClose, isProductCreation, formData]);
+  }, [
+    hasChanged,
+    onClose,
+    isProductCreation,
+    isDraftProduct,
+    formData,
+    autoSaveDraft,
+    autoSaveStatus,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -374,6 +427,7 @@ export function useProductFormModal({
     jev,
     variations,
     draft,
+    scheduleDraftAutoSave,
     images,
     navigateToRequirementField,
     handleSubmit,

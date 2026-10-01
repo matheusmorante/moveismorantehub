@@ -200,7 +200,7 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
               <option value="scheduled">Agendado</option>
               <option value="in_transit">Em Trânsito</option>
               <option value="delivered">Entregue</option>
-              <option value="fulfilled">Atendido</option>
+              <option value="fulfilled">Concluídos</option>
               <option value="cancelled">Cancelado</option>
             </select>
           </div>

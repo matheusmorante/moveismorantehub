@@ -7,6 +7,7 @@ import usePaymentsData from './usePayments';
 import { useCustomerData } from './useCustomerData';
 import { calcPaymentsSummary, calcItemsSummary } from '@/pages/utils/calculations';
 import { toast } from 'react-toastify';
+import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { saveOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
 import { validateBase, validateOrder, ValidationErrors } from '@/pages/utils/validations';
 import Shipping from '@/pages/types/Shipping.type';
@@ -402,7 +403,7 @@ export const useSalesOrderForm = (
           latestState.current.status = resolvedStatus;
 
           if (resolvedStatus === 'fulfilled') {
-            toast.success('Pedido CADASTRADO e ATENDIDO com sucesso! ✨');
+            toast.success(`Pedido cadastrado. ${getFulfillmentLabels(orderData).successMessage} ✨`);
           } else {
             toast.success('Pedido CADASTRADO com sucesso!');
           }

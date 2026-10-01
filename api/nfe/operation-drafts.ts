@@ -3,8 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import {
   getAuthorizedAt,
-  getCancellationWindow,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
+import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import {
   originalItemCfop,
   suggestEstornoCfop,
@@ -24,49 +25,6 @@ function extractFiscalBlock(xml: string, name: string): string {
   return (
     xml.match(new RegExp(`<${prefix}${name}\\b[^>]*>[\\s\\S]*?<\\/${prefix}${name}>`, 'i'))?.[0] ||
     ''
-  );
-}
-
-function showsPhysicalCirculation(
-  order: {
-    delivery_status: string | null;
-    delivery_method: string | null;
-    order_data: Record<string, unknown> | null;
-  },
-  model: string
-): boolean {
-  const data = order.order_data || {};
-  const shipping = (data.shipping || {}) as Record<string, unknown>;
-  const status = String(order.delivery_status || shipping.deliveryStatus || '').toLowerCase();
-  if (
-    [
-      'in_transit',
-      'in-transit',
-      'delivered',
-      'completed',
-      'finished',
-      'collected',
-      'em_transito',
-      'entregue',
-      'concluido',
-      'coletado',
-    ].some((part) => status.includes(part))
-  )
-    return true;
-  if (
-    shipping.deliveryStartedAt ||
-    shipping.deliveryArrivedAt ||
-    shipping.deliveryFinishedAt ||
-    shipping.unattendedAt ||
-    shipping.pickupConfirmedAt ||
-    data.deliveryFinishedAt ||
-    data.pickupConfirmedAt
-  )
-    return true;
-  return (
-    model === '65' &&
-    String(order.delivery_method || shipping.deliveryMethod || '').toLowerCase() === 'pickup' &&
-    String(data.status || '').toLowerCase() === 'fulfilled'
   );
 }
 
@@ -279,7 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (
         !order ||
         !['cancelled', 'cancelado'].includes(order.status) ||
-        showsPhysicalCirculation(order, source.modelo)
+        hasGoodsCirculated(order)
       ) {
         return res.status(409).json({
           error:
@@ -287,11 +245,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
       const authorizedAt = getAuthorizedAt(source.xml_protocolo || '', '');
-      const window = getCancellationWindow(source.modelo, authorizedAt);
-      if (!window.valid || !window.expired) {
+      const policy = getFiscalCancellationPolicy({
+        model: source.modelo,
+        authorizedAt,
+        status: source.status,
+        environment: source.ambiente as 1 | 2,
+        goodsCirculated: false,
+        operationDidNotOccur: true,
+      });
+      if (policy.action !== 'estorno') {
         return res.status(409).json({
-          error:
-            'Prazo de cancelamento não comprovadamente expirado. Verifique o protocolo original.',
+          error: policy.reason || 'A política fiscal não autorizou a preparação do estorno.',
         });
       }
     } else if (!returnOrderId) {

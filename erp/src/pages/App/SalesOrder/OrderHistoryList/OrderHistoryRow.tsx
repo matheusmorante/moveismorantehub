@@ -2,6 +2,7 @@ import React from 'react';
 import Order, { AssistanceItem, VisibilitySettings } from '../../../types/order.type';
 import { Item } from '../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 import { formatCurrency, formatToBRDate, toTitleCase } from '../../../utils/formatters';
 import { formatOrderCode } from '../../../utils/orderCode';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../utils/orderTypeColorUtils';
@@ -105,6 +106,16 @@ const OrderHistoryRow = ({
       text: 'text-emerald-600',
       dot: 'bg-emerald-500',
     };
+  statusConfig.fulfilled.label = getOrderStatusLabel(
+    { ...order, status: 'fulfilled' },
+    statusConfig.fulfilled.label
+  );
+  if (statusConfig.scheduled) {
+    statusConfig.scheduled.label = getOrderStatusLabel(
+      { ...order, status: 'scheduled' },
+      statusConfig.scheduled.label
+    );
+  }
 
   const rowColors = settings.orderTypeColors ?? {
     delivery: 'green',
@@ -211,7 +222,7 @@ const OrderHistoryRow = ({
                 showTrash={showTrash}
                 showManualPrompt={settings.showManualFulfillmentPrompt}
                 onStatusUpdate={onStatusUpdate}
-                fulfilledLabel={statuses.find((s) => s.id === 'fulfilled')?.label || 'Atendido'}
+                fulfilledLabel={statusConfig.fulfilled.label}
               />
             </div>
           </td>

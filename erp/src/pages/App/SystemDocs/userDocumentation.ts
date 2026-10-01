@@ -8,14 +8,14 @@ export const userDocumentation: DocumentationSection[] = [
       'Guia para registrar vendas, acompanhar pedidos e tratar cancelamentos ou devoluções sem comprometer o estoque.',
     rules: [
       'Use Rascunho apenas enquanto preenche. Ao cadastrar um pedido válido, ele passa a Agendado.',
-      'Pedido Agendado ou Atendido pode ser editado. Se item ou quantidade mudar, confirme o resumo antes de salvar para ajustar somente a movimentação daquele item.',
+      'Pedido Agendado, Entregue ou Retirado pode ser editado. Se item ou quantidade mudar, confirme o resumo antes de salvar para ajustar somente a movimentação daquele item.',
       'Cancelamento é definitivo: estorna as saídas e exige a criação de outro pedido caso a venda precise ser refeita.',
-      'Devolução vinculada nasce de venda Atendida. Na tela Devoluções, use Nova devolução sem venda vinculada para registrar cliente e itens sem relacionar uma venda.',
+      'Devolução vinculada nasce de venda Entregue ou Retirada. Na tela Devoluções, use Nova devolução sem venda vinculada para registrar cliente e itens sem relacionar uma venda.',
     ],
     flow: [
       { title: 'Preencher', detail: 'Inclua cliente, itens, pagamento e agendamento.' },
       { title: 'Cadastrar', detail: 'Pedido passa a Agendado.' },
-      { title: 'Acompanhar', detail: 'Marque Atendido ao concluir a venda.' },
+      { title: 'Acompanhar', detail: 'Confirme entrega ou retirada ao entregar a mercadoria ao cliente.' },
       {
         title: 'Pós-venda',
         detail: 'Use devolução somente para itens realmente recebidos de volta.',
@@ -30,14 +30,14 @@ export const userDocumentation: DocumentationSection[] = [
     rules: [
       'Consulte a agenda pelo período e tipo de atividade antes de sair para a rota.',
       'Pedidos Agendados aparecem na agenda; Atendidos e Cancelados não aparecem mais.',
-      'Após concluir a entrega ou montagem, marque o pedido como Atendido. Se houver divergência, registre-a antes de concluir.',
+      'Após entregar a mercadoria, confirme a entrega; em uma retirada, confirme a retirada. Para montagem e assistência, conclua o serviço pelo fluxo próprio. Se houver divergência, registre-a antes de concluir.',
       'Na etapa Em atendimento, confira cada pagamento. Forma e valor podem ser ajustados, mas todos precisam estar como Pago para liberar a finalização.',
       'Não cancele pedido para corrigir um atendimento concluído: comunique o responsável para aplicar o fluxo correto de venda ou devolução.',
     ],
     flow: [
       { title: 'Consultar', detail: 'Filtre data e tipo na agenda.' },
       { title: 'Executar', detail: 'Realize entrega ou montagem conforme o pedido.' },
-      { title: 'Atualizar', detail: 'Marque Atendido após a execução.' },
+      { title: 'Atualizar', detail: 'Confirme entrega ou retirada após a execução; montagem segue o fluxo do serviço.' },
       { title: 'Divergência', detail: 'Encaminhe a ocorrência antes de alterar o status.' },
     ],
   },

@@ -61,7 +61,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="max-w-[1700px] mx-auto space-y-6 px-4 lg:px-8 py-4 sm:py-6 animate-reveal">
+    <div className="mx-auto max-w-[1700px] min-w-0 space-y-4 px-3 py-3 sm:space-y-6 sm:px-4 sm:py-6 lg:px-8 animate-reveal">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3">
@@ -121,8 +121,8 @@ export default function Dashboard() {
       {loading ? <KpiSkeleton /> : <KpiRow stats={stats} prevStats={prevStats} />}
 
       {/* ── Chart + Attention ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           {loading ? (
             <ChartSkeleton />
           ) : (
@@ -134,7 +134,7 @@ export default function Dashboard() {
             </ChartContainer>
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <AttentionPanel stockData={stockData} />
         </div>
       </div>
@@ -146,7 +146,7 @@ export default function Dashboard() {
       {loading ? <PanelSkeleton rows={2} /> : <DigitalCatalogPanel />}
 
       {/* ── Estoque + Produtos ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Alertas do sistema (estoque baixo e outros) */}
         <AlertsPanel maxItems={5} />
         {/* Produtos do período */}
@@ -157,8 +157,8 @@ export default function Dashboard() {
       {loading ? <PanelSkeleton rows={5} /> : <RecentOrders orders={recentOrders} />}
 
       {/* ── Mapa + Logística + Consumo de APIs ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-16">
-        <div className="lg:col-span-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 pb-16 sm:gap-6 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
           <GeoMapPanel orders={geoMapOrders} />
         </div>
         <div className="space-y-6">

@@ -478,7 +478,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           };
         }),
       });
-      const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician);
+      // Fragments copied from the original invoice retain indentation nodes.
+      // Remove editing whitespace before signing; never change stored signed XML.
+      const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician)
+        .replace(/>\s+</g, '><').trim();
       await validateUnsignedNfeStructure(xml);
       signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
       await validateNfeAgainstOfficialSchema(signedXml);

@@ -99,7 +99,7 @@ const parsePTBRDate = (dateStr: any): Date | null => {
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho',
   scheduled: 'Agendado',
-  fulfilled: 'Atendido',
+  fulfilled: 'Concluídos',
   cancelled: 'Cancelado',
 };
 

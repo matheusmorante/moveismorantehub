@@ -1,6 +1,19 @@
 export type OrderCirculationState = {
   status?: string | null;
   delivery_status?: string | null;
+  deliveryStatus?: string | null;
+  deliveryArrivedAt?: string | null;
+  deliveryStartedAt?: string | null;
+  deliveryFinishedAt?: string | null;
+  pickupConfirmedAt?: string | null;
+  shipping?: {
+    deliveryStatus?: string | null;
+    deliveryStartedAt?: string | null;
+    deliveryArrivedAt?: string | null;
+    deliveryFinishedAt?: string | null;
+    pickupConfirmedAt?: string | null;
+    unattendedAt?: string | null;
+  } | null;
   order_data?: {
     shipping?: {
       deliveryStatus?: string | null;
@@ -15,11 +28,11 @@ export type OrderCirculationState = {
   } | null;
 };
 
-export const orderShowsPhysicalCirculation = (row: OrderCirculationState | null | undefined) => {
+export const hasGoodsCirculated = (row: OrderCirculationState | null | undefined) => {
   const data = row?.order_data || {};
-  const shipping = data.shipping || {};
+  const shipping = data.shipping || row?.shipping || {};
   const deliveryStatus = String(
-    row?.delivery_status || shipping.deliveryStatus || ''
+    row?.delivery_status || row?.deliveryStatus || shipping.deliveryStatus || ''
   ).toLowerCase();
   const physicalStatuses = [
     'in_transit',
@@ -40,6 +53,10 @@ export const orderShowsPhysicalCirculation = (row: OrderCirculationState | null 
     shipping.deliveryFinishedAt ||
     shipping.unattendedAt ||
     shipping.pickupConfirmedAt ||
+    row?.deliveryStartedAt ||
+    row?.deliveryArrivedAt ||
+    row?.deliveryFinishedAt ||
+    row?.pickupConfirmedAt ||
     data.deliveryFinishedAt ||
     data.pickupConfirmedAt
   ) {
@@ -48,5 +65,10 @@ export const orderShowsPhysicalCirculation = (row: OrderCirculationState | null 
 
   // The ERP's fulfilled state means the sale was completed; missing delivery
   // metadata must not make an already fulfilled sale eligible for NF-e cancel.
-  return row?.status === 'fulfilled';
+  return ['fulfilled', 'atendido', 'completed'].includes(
+    String(row?.status || '').toLowerCase()
+  );
 };
+
+/** @deprecated Use the business term `hasGoodsCirculated`. */
+export const orderShowsPhysicalCirculation = hasGoodsCirculated;

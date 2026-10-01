@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Order from '../../../types/order.type';
 import { Item } from '../../../types/items.type';
 import Shipping from '../../../types/Shipping.type';
@@ -49,6 +49,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
   const [fiscalCapacityError, setFiscalCapacityError] = useState<string | null>(null);
   const [hasAuthorizedInvoice, setHasAuthorizedInvoice] = useState(false);
   const [returnRequestId] = useState(() => crypto.randomUUID());
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -179,6 +180,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
     setReturnUnitPrices((current) => ({ ...current, [id]: Math.max(0, unitPrice) }));
 
   const generateReturn = async () => {
+    if (submittingRef.current) return;
     if (!returnsLoaded || !fiscalCapacityLoaded)
       return toast.warning('Aguarde a conferência do saldo devolvível e fiscal.');
     if (fiscalCapacityError)
@@ -270,6 +272,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       orderNumber: undefined,
       orderType: 'return',
       status: collectAtAddress ? 'scheduled' : 'fulfilled',
+      returnMethod: collectAtAddress ? 'store_collection' : 'store_delivery',
       returnStockProcessed: false,
       date: new Date().toISOString(),
       items,
@@ -304,6 +307,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       },
     };
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const id = await saveOrder(returnOrder);
@@ -313,6 +317,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       console.error('Erro ao gerar devolução:', error);
       toast.error('Erro ao processar devolução.');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -359,6 +364,43 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         </header>
         <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-6">
           <ReturnFormTabs activeTab={activeTab} onChange={setActiveTab} />
+          {fiscalCapacityLoaded && (
+            <aside
+              role="status"
+              aria-live="polite"
+              className={`rounded-xl border p-4 text-sm leading-relaxed ${
+                fiscalCapacityError
+                  ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200'
+                  : hasAuthorizedInvoice
+                    ? 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200'
+                    : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200'
+              }`}
+            >
+              {fiscalCapacityError ? (
+                <>
+                  <strong>Não foi possível confirmar a NF-e original.</strong> A devolução permanece
+                  bloqueada até a consulta do saldo fiscal ser concluída; nenhuma nota de devolução
+                  será emitida nesta etapa.
+                </>
+              ) : hasAuthorizedInvoice ? (
+                <>
+                  <strong>Pedido comercial e NF-e são etapas separadas.</strong>{' '}
+                  {collectAtAddress === true
+                    ? 'Criar a solicitação não registra retorno físico nem entrada de estoque. Quando a equipe coletar os itens e confirmar a coleta, a entrada de estoque será registrada. Depois, prepare a NF-e de devolução vinculada à nota original, revise os itens e transmita pela área fiscal.'
+                    : collectAtAddress === false
+                      ? 'Esta opção confirma que o cliente já entregou os itens na loja. A entrada de estoque será registrada junto com a criação da devolução. Depois, prepare a NF-e de devolução vinculada à nota original, revise os itens e transmita pela área fiscal.'
+                      : 'A entrada de estoque só ocorrerá no momento físico correto: quando o cliente já tiver entregue os itens na loja ou quando a equipe confirmar a coleta. A NF-e de devolução será preparada depois, na área fiscal.'}{' '}
+                  O protocolo da SEFAZ confirma a autorização.
+                </>
+              ) : (
+                <>
+                  <strong>Não há NF-e de saída autorizada vinculada à venda.</strong> Este fluxo
+                  cria somente o pedido comercial de devolução. Sem uma nota original autorizada
+                  consultável, o sistema não emitirá uma NF-e de devolução.
+                </>
+              )}
+            </aside>
+          )}
           {activeTab === 'items' ? (
             <ReturnItemsSelection
               order={order}

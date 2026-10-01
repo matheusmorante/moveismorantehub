@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   buildProportionalReturnTaxesXml,
@@ -73,6 +73,7 @@ type DraftPayload = {
 
 interface NfeOperationDraftModalProps {
   sourceDocument: SourceDocument | null;
+  initialDraftId?: string | null;
   onClose: () => void;
   onAuthorized: () => void;
 }
@@ -111,6 +112,7 @@ function xmlBlockLabel(label: string, value: string, onChange: (value: string) =
 
 export default function NfeOperationDraftModal({
   sourceDocument,
+  initialDraftId,
   onClose,
   onAuthorized,
 }: NfeOperationDraftModalProps) {
@@ -162,9 +164,7 @@ export default function NfeOperationDraftModal({
     };
   }, [sourceDocument]);
 
-  if (!sourceDocument) return null;
-
-  const applyDraft = (data: DraftPayload) => {
+  const applyDraft = useCallback((data: DraftPayload) => {
     setPayload(data);
     setDraftId(data.draft.id);
     const nextLines = data.lines.map((line) => {
@@ -225,7 +225,7 @@ export default function NfeOperationDraftModal({
         (data.draft.operation_kind === 'estorno'
           ? 'Nota Fiscal de Estorno'
           : 'Devolução de mercadoria'),
-      reason: savedReview.reason || data.draft.reason || reason,
+      reason: savedReview.reason || data.draft.reason || '',
       recipient_xml: savedReview.recipient_xml || data.reviewTemplate.recipient_xml,
       totals_xml: savedReview.totals_xml || totalsXml,
       transport_xml: savedReview.transport_xml || data.reviewTemplate.transport_xml,
@@ -253,7 +253,30 @@ export default function NfeOperationDraftModal({
           : 'Rascunho carregado. Revise CFOP, tributos e totais antes de salvar.'
       );
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!sourceDocument || !initialDraftId) return;
+    let active = true;
+    setPreparing(true);
+    setError('');
+    void fiscalApi(`/api/nfe/operation-drafts?id=${encodeURIComponent(initialDraftId)}`, 'GET')
+      .then((loaded) => {
+        if (active) applyDraft(loaded as DraftPayload);
+      })
+      .catch((cause) => {
+        if (active)
+          setError(cause instanceof Error ? cause.message : 'Não foi possível carregar o estorno.');
+      })
+      .finally(() => {
+        if (active) setPreparing(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [sourceDocument, initialDraftId, applyDraft]);
+
+  if (!sourceDocument) return null;
 
   const prepareDraft = async () => {
     setPreparing(true);

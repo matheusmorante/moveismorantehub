@@ -3,7 +3,11 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { openDanfePrintWindow } from '@/pages/utils/nfe/danfeGenerator';
-import { canCancelFiscalDocument, canIssueCce } from '@/pages/utils/nfe/nfeService';
+import {
+  canCancelFiscalDocument,
+  canIssueCce,
+  processOrderCancellationFiscalEffects,
+} from '@/pages/utils/nfe/nfeService';
 import { validateNfeCce } from '@/pages/utils/nfe/nfeCce';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
@@ -53,6 +57,8 @@ export default function FiscalDocumentsPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [productionCancelConfirmed, setProductionCancelConfirmed] = useState(false);
   const [operationSourceDoc, setOperationSourceDoc] = useState<NfeDocumentRecord | null>(null);
+  const [automaticDraftId, setAutomaticDraftId] = useState<string | null>(null);
+  const [processingOrderFiscalId, setProcessingOrderFiscalId] = useState<string | null>(null);
 
   // Estados para CC-e (Carta de Correção Eletrônica - Exclusiva Mod. 55)
   const [showCceModal, setShowCceModal] = useState(false);
@@ -177,6 +183,30 @@ export default function FiscalDocumentsPage() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('XML baixado com sucesso!');
+  };
+
+  const handleOrderFiscalTreatment = async (doc: NfeDocumentRecord) => {
+    if (!doc.order_id || processingOrderFiscalId) return;
+    setProcessingOrderFiscalId(doc.order_id);
+    try {
+      const result = await processOrderCancellationFiscalEffects(
+        doc.order_id,
+        String(doc.numero_nfe)
+      );
+      if (result.action === 'cancel') {
+        toast.success('Cancelamento fiscal do pedido encaminhado à SEFAZ.');
+        await loadDocuments();
+      } else if (result.action === 'estorno' && result.draftId) {
+        setAutomaticDraftId(result.draftId);
+        setOperationSourceDoc(doc);
+      } else {
+        toast.info('Não há documento fiscal autorizado pendente neste pedido.');
+      }
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Não foi possível tratar a nota do pedido.');
+    } finally {
+      setProcessingOrderFiscalId(null);
+    }
   };
 
   const handleConfirmCancel = async () => {
@@ -625,7 +655,8 @@ export default function FiscalDocumentsPage() {
                           <i className="bi bi-filetype-xml" />
                         </button>
 
-                        {doc.modelo === '55' &&
+                        {!doc.order_id &&
+                          doc.modelo === '55' &&
                           doc.document_type === 'outbound' &&
                           ['autorizada', 'homologada'].includes(doc.status) && (
                             <button
@@ -635,6 +666,20 @@ export default function FiscalDocumentsPage() {
                               className="p-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white transition-all cursor-pointer"
                             >
                               <i className="bi bi-arrow-return-left" />
+                            </button>
+                          )}
+
+                        {doc.order_id &&
+                          doc.document_type === 'outbound' &&
+                          ['autorizada', 'homologada'].includes(doc.status) && (
+                            <button
+                              onClick={() => void handleOrderFiscalTreatment(doc)}
+                              disabled={processingOrderFiscalId === doc.order_id}
+                              title="Reprocessar tratamento fiscal decidido pelo pedido"
+                              aria-label={`Reprocessar tratamento fiscal do pedido da NF-e ${doc.numero_nfe}`}
+                              className="p-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              <i className={`bi ${processingOrderFiscalId === doc.order_id ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-repeat'}`} />
                             </button>
                           )}
 
@@ -662,7 +707,7 @@ export default function FiscalDocumentsPage() {
                           </button>
                         )}
 
-                        {canCancelFiscalDocument(doc).canCancel && (
+                        {!doc.order_id && canCancelFiscalDocument(doc).canCancel && (
                           <button
                             onClick={() => {
                               setSelectedDoc(doc);
@@ -902,9 +947,14 @@ export default function FiscalDocumentsPage() {
 
       <NfeOperationDraftModal
         sourceDocument={operationSourceDoc}
-        onClose={() => setOperationSourceDoc(null)}
+        initialDraftId={automaticDraftId}
+        onClose={() => {
+          setOperationSourceDoc(null);
+          setAutomaticDraftId(null);
+        }}
         onAuthorized={() => {
           setOperationSourceDoc(null);
+          setAutomaticDraftId(null);
           void loadDocuments();
         }}
       />

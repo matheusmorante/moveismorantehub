@@ -2,6 +2,7 @@ import React from 'react';
 import Order, { AssistanceItem } from '../../../types/order.type';
 import { Item } from '../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 import { formatCurrency, formatToBRDate, toTitleCase } from '../../../utils/formatters';
 import { formatOrderCode } from '../../../utils/orderCode';
 import { resolveOrderColor } from '../../../utils/orderTypeColorUtils';
@@ -91,6 +92,18 @@ const OrderHistoryCard = ({
       dot: `bg-${s.color}-${s.color === 'slate' ? '400' : '500'}`,
     };
   });
+  if (statusConfig.fulfilled) {
+    statusConfig.fulfilled.label = getOrderStatusLabel(
+      { ...order, status: 'fulfilled' },
+      statusConfig.fulfilled.label
+    );
+  }
+  if (statusConfig.scheduled) {
+    statusConfig.scheduled.label = getOrderStatusLabel(
+      { ...order, status: 'scheduled' },
+      statusConfig.scheduled.label
+    );
+  }
 
   const colors = settings.orderTypeColors ?? {
     delivery: 'green',
@@ -252,7 +265,7 @@ const OrderHistoryCard = ({
           showTrash={showTrash}
           showManualPrompt={settings.showManualFulfillmentPrompt}
           onStatusUpdate={onStatusUpdate}
-          fulfilledLabel="Atendido"
+          fulfilledLabel={statusConfig.fulfilled?.label || 'Atendido'}
         />
 
         <div

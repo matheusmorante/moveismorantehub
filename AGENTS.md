@@ -1,5 +1,17 @@
 # Orientação de contexto do projeto
 
+## Cancelamento comercial e tratamento fiscal
+
+- “Cancelar pedido/venda” é a ação comercial única antes da circulação. O pedido coordena a reversão comercial/estoque e o módulo fiscal decide o efeito fiscal.
+- A regra central `hasGoodsCirculated(order)` considera `fulfilled` como circulação tanto para entrega (Entregue) quanto para retirada (Retirado), além de evidências de saída/trânsito.
+- Com circulação, bloquear cancelamento por operação não realizada e não gerar estorno; quando a mercadoria retornar, usar devolução vinculada à venda e preservar a NF-e original.
+- Sem circulação e sem documento autorizado (ausente, rejeitado ou nunca autorizado), cancelar somente o pedido/estoque, sem ação fiscal.
+- Sem circulação e com documento autorizado, selecionar automaticamente cancelamento fiscal dentro do prazo ou estorno quando a regra aplicável permitir. O usuário não escolhe entre esses efeitos.
+- No Paraná, NF-e 55: 168 horas; NFC-e 65: 30 minutos conforme orientação atual da SEFA/PR. Centralizar prazos e testar o instante exato do limite.
+- NF-e de estorno segue o RICMS/PR art. 298, VII e NPF 038/2022. É aplicável à emissão indevida após perda do prazo; quando emitida em período de apuração posterior, revisar diferenças/acréscimos do art. 298, §2º antes de transmitir. Exigir revisão fiscal, referenciar a chave original e preservar XML, chave, protocolo e linhagem.
+- Depois da circulação, usar devolução vinculada e preservar a NF-e original. Criar a devolução não significa retorno físico. Devolução por coleta só se conclui quando a coleta for confirmada (“Coletada”); cliente já trouxe à loja conclui como “Recebida”. Entrada de estoque acompanha a confirmação física dentro da transação do pedido. A NF-e de devolução é preparada na área fiscal após esse retorno, não ao abrir o cadastro.
+- A atualização comercial/estoque é transacional. A chamada externa à SEFAZ ocorre após o commit; manter estado de tentativa/reconciliação idempotente e nunca desfazer o fato comercial por falha fiscal posterior.
+
 ## Uso de skills
 
 - Carregue somente a skill diretamente relacionada à tarefa atual.

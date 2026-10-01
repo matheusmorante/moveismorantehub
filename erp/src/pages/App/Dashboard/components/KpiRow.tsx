@@ -30,7 +30,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
 }) => (
   <div
     id={id}
-    className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 group active:scale-[0.98]"
+    className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 group active:scale-[0.98] hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-5"
   >
     <div className="flex justify-between items-start mb-3">
       <div
@@ -50,7 +50,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
     <p className="text-slate-400 dark:text-slate-500 font-black text-[9px] uppercase tracking-[0.2em] mb-1">
       {title}
     </p>
-    <h3 className="text-2xl xl:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">
+    <h3 className="break-words text-xl font-black leading-tight tracking-tight text-slate-800 dark:text-slate-100 sm:text-2xl xl:text-3xl">
       {value}
     </h3>
     {secondary && <p className="text-[10px] text-slate-400 mt-1 font-semibold">{secondary}</p>}
@@ -101,7 +101,7 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
   const tProfit = calcTrend(stats.totalProfit, prevStats.totalProfit);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 sm:grid-cols-3 xl:grid-cols-6">
       <KpiCard
         id="kpi-faturamento"
         title="Faturamento"

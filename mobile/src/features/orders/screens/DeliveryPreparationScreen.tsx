@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
 import { buildDeliveryChecklist } from '../utils/deliveryChecklist';
+import { getFulfillmentLabels } from '../domain/orderStatusPresentation';
 import { DeliveryHeader } from '../components/delivery/DeliveryHeader';
 import { DeliveryPreparationStep } from '../components/delivery/DeliveryPreparationStep';
 import { DeliveryRouteStep } from '../components/delivery/DeliveryRouteStep';
@@ -32,6 +33,13 @@ type Props = {
 };
 
 export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfile }: Props) {
+  const fulfillmentLabels = getFulfillmentLabels({
+    ...order,
+    shipping: {
+      ...order.shipping,
+      deliveryMethod: order.shipping?.deliveryMethod || 'delivery',
+    },
+  });
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -55,7 +63,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
           setDeliveryData({ ...(order.order_data || order) });
           Alert.alert(
             'Entrega Concluída Automaticamente',
-            'Mais de 12 horas se passaram desde o início desta entrega. O pedido foi marcado automaticamente como ATENDIDO.',
+            `Mais de 12 horas se passaram desde o início desta entrega. ${fulfillmentLabels.successMessage}`,
             [{ text: 'OK', onPress: () => onBack(true) }]
           );
         }
@@ -141,7 +149,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
   };
 
-  // 3. Finalizar Entrega (Atendido / Sucesso)
+  // 3. Confirmar entrega
   const handleFinishDelivery = async () => {
     if (saving) return;
     if (!paymentsConfirmed) {
@@ -187,7 +195,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     }
 
     setSaving(false);
-    Alert.alert('🎉 Entrega Finalizada!', 'O pedido foi marcado como ATENDIDO com sucesso.', [
+    Alert.alert('🎉 Entrega Finalizada!', fulfillmentLabels.successMessage, [
       { text: 'OK', onPress: () => onBack(true) },
     ]);
   };

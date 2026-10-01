@@ -6,6 +6,7 @@ import {
   buildOrderPersistencePayload,
 } from '../orderSnapshotResolution';
 import { validateOrderStatusTransition } from '../orderStatusTransitionRules';
+import type { OrderCirculationState } from '../nfe/cancellationEligibility';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
@@ -23,6 +24,7 @@ export const executeUpdateOrder = async (
   try {
     let merged: any;
     let previousOrderData: any = currentOrder || null;
+    let currentCirculationState: OrderCirculationState | undefined = currentOrder;
 
     const cleanUpdates: any = {};
     for (const [k, v] of Object.entries(orderToUpdate)) {
@@ -52,6 +54,7 @@ export const executeUpdateOrder = async (
       }
 
       previousOrderData = current.order_data || {};
+      currentCirculationState = current as OrderCirculationState;
       const { id: _id, ...rest } = { ...(current.order_data || {}), ...cleanUpdates } as any;
       merged = rest;
     }
@@ -73,11 +76,14 @@ export const executeUpdateOrder = async (
 
     // 2. Validação da transição de status
     const previousStatus = previousOrderData?.status;
-    const validation = validateOrderStatusTransition(previousStatus, orderToUpdate.status);
+    const validation = validateOrderStatusTransition(
+      previousStatus,
+      orderToUpdate.status,
+      currentCirculationState
+    );
     if (!validation.allowed && validation.reason) {
       throw new Error(validation.reason);
     }
-
     // 3. Garantir cliente no CRM
     const customerId = await ensureCustomerInCrm(
       merged.customerData,

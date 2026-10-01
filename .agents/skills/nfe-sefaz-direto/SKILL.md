@@ -151,6 +151,16 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
 ### 4. Validação Resiliente de Cancelamento Fiscal (`canCancelFiscalDocument`)
 - A elegibilidade de cancelamento é avaliada pela camada fiscal (`canCancelFiscalDocument(document)`), considerando se a mercadoria já circulou e os parâmetros por UF/modelo/ambiente, evitando regras fixas espalhadas no frontend.
 
+### Regra vigente de decisão automática ligada ao pedido
+- Para NF-e/NFC-e vinculada a uma venda, o pedido deve iniciar o fluxo; a tela de documentos não oferece cancelamento, estorno ou devolução independentes.
+- Use `hasGoodsCirculated(order)` centralmente. `fulfilled`, entrega ou retirada confirmada e mercadoria em trânsito contam como circulação. Circulação bloqueia cancelamento e estorno por operação não realizada; retorno físico usa devolução.
+- Sem circulação: sem documento autorizado, nenhum evento fiscal; com documento autorizado e prazo vigente, evento de cancelamento; com prazo vencido, escolher automaticamente estorno somente quando permitido e com operação não realizada comprovada.
+- Paraná: NF-e 55 = 168 horas; NFC-e 65 = 30 minutos segundo orientação atual publicada no FAQ da SEFA/PR. Validar a fronteira em horário absoluto, a partir do protocolo de autorização.
+- Estorno NF-e 55 no Paraná segue RICMS/PR art. 298, VII e NPF 038/2022. Preservar documento de origem e referência. Para apuração posterior, revisão fiscal deve tratar acréscimos do art. 298, §2º. Não transmitir sem revisão dos dados tributários.
+- O evento/transmissão ocorre após o commit comercial e exige registro durável, idempotência e reconciliação para falha ou timeout. Nunca mascarar a confirmação comercial como falha se o evento SEFAZ falhar depois.
+- Depois da circulação, usar devolução vinculada; não cancelar a NF-e original nem estornar como operação não realizada. Criar o cadastro de devolução não equivale a retorno físico e não transmite NF-e de devolução. O documento de devolução é preparado na área fiscal após a mercadoria ser recebida ou coletada.
+- A UI distingue “Coletada” (`order_data.returnMethod=store_collection`, após confirmação física) de “Recebida” (`store_delivery`, cliente já entregou na loja); os estados persistidos legados permanecem `scheduled` e `fulfilled`.
+
 ---
 
 ## 📋 CONFIGURAÇÕES DA EMPRESA EMITENTE

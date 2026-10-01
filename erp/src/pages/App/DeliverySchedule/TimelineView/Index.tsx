@@ -152,7 +152,7 @@ const TimelineNode = ({
                   : 'bg-slate-50 text-slate-500 border-slate-100'
             }`}
           >
-            {translateStatus(order.status)}
+            {translateStatus(order.status, order)}
           </div>
         </div>
 

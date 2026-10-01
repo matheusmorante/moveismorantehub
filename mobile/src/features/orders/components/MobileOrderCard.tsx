@@ -19,6 +19,7 @@ import {
   isCancelledOrder,
 } from '../../../utils/orderUtils';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
+import { getOrderStatusLabel } from '../domain/orderStatusPresentation';
 
 type Props = {
   order: any;
@@ -203,6 +204,11 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   }
 
   const statusConfig = getStatusConfig(order.status || data.status || 'Agendado');
+  const orderStatus = order.status || data.status || 'scheduled';
+  const statusLabel = getOrderStatusLabel(
+    { ...order, ...data, status: orderStatus },
+    orderStatus === 'fulfilled' ? 'Atendido' : orderStatus === 'scheduled' ? 'Agendado' : orderStatus
+  );
 
   return (
     <TouchableOpacity
@@ -330,6 +336,7 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
               styles.iconBadge,
               { backgroundColor: statusConfig.bg, borderColor: statusConfig.border },
             ]}
+            accessibilityLabel={`Status: ${statusLabel}`}
           >
             {statusConfig.icon === 'fulfilled' ? (
               <CheckCircle2 size={11} color="#ffffff" />

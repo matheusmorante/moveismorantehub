@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapOrderFromDatabase, OrderDatabaseRow } from '../orderMapper';
+import { hasGoodsCirculated } from '../nfe/cancellationEligibility';
 
 describe('orderMapper - Normalização e Fallback Seguro', () => {
   it('deve priorizar colunas físicas normalizadas como Master quando preenchidas', () => {
@@ -192,5 +193,24 @@ describe('orderMapper - Normalização e Fallback Seguro', () => {
     expect(result.payments).toHaveLength(1);
     expect(result.payments[0].method).toBe('Cartão Legado 3x');
     expect(result.payments[0].amount).toBe(600);
+  });
+});
+
+describe('mapeamento do estado físico de entrega do pedido', () => {
+  it('preserva status e horário estruturados para impedir cancelamento após circulação', () => {
+    const order = mapOrderFromDatabase({
+      id: 'test-order',
+      status: 'scheduled',
+      delivery_status: 'in_transit',
+      delivery_started_at: '2026-10-01T12:00:00Z',
+      order_data: { shipping: { deliveryMethod: 'delivery' } },
+    });
+
+    expect(order).toMatchObject({
+      status: 'scheduled',
+      deliveryStatus: 'in_transit',
+      deliveryStartedAt: '2026-10-01T12:00:00Z',
+    });
+    expect(hasGoodsCirculated(order)).toBe(true);
   });
 });

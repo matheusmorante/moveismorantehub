@@ -1,13 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface CancelSaleModalProps {
+  readonly order: import('../../../types/order.type').default;
+  readonly preview: {
+    action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+    hasAuthorizedInvoice: boolean;
+    model?: string;
+    reason?: string;
+  };
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }
 
-const CancelSaleModal = ({ onCancel, onConfirm }: CancelSaleModalProps) => {
+const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModalProps) => {
   const [secondsLeft, setSecondsLeft] = useState(3);
+  const [confirmed, setConfirmed] = useState(false);
+  const confirmedRef = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,11 +62,20 @@ const CancelSaleModal = ({ onCancel, onConfirm }: CancelSaleModalProps) => {
         >
           Cancelar esta venda?
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Ao confirmar, a saída de estoque vinculada será estornada. Os produtos deixarão de ter o
-          saldo reduzido por esta venda e as movimentações de estoque serão atualizadas para
-          registrar o cancelamento.
-        </p>
+        <div className="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          <strong>Consequências desta venda:</strong>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Pedido será cancelado.</li>
+            {order.stockProcessed
+              ? <li>Movimentações de saída vinculadas serão revertidas uma vez.</li>
+              : <li>Não há saída de estoque registrada para reverter.</li>}
+            {preview.action === 'cancel' && <li>A NF-e modelo {preview.model || ''} autorizada será cancelada junto à SEFAZ.</li>}
+            {preview.action === 'estorno' && <li>A NF-e original permanecerá no histórico e será preparado um documento fiscal de estorno para revisão.</li>}
+            {preview.action === 'manual_review' && <li>A NF-e original permanecerá preservada; o caso exige revisão fiscal antes de qualquer procedimento.</li>}
+            {preview.action === 'none' && <li>Não há NF-e autorizada vinculada; o cancelamento será somente comercial.</li>}
+          </ul>
+        </div>
+        {preview.reason && preview.action === 'manual_review' && <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{preview.reason}</p>}
         <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
           Esta ação é definitiva: uma venda cancelada não pode mais ser editada nem ter o status
           alterado. Caso precise corrigir ou refazer a operação, duplique o pedido e trabalhe na
@@ -73,10 +91,15 @@ const CancelSaleModal = ({ onCancel, onConfirm }: CancelSaleModalProps) => {
           </button>
           <button
             type="button"
-            disabled={secondsLeft > 0}
-            onClick={onConfirm}
+            disabled={secondsLeft > 0 || confirmed}
+            onClick={() => {
+              if (confirmedRef.current) return;
+              confirmedRef.current = true;
+              setConfirmed(true);
+              onConfirm();
+            }}
             className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition-all ${
-              secondsLeft > 0
+              secondsLeft > 0 || confirmed
                 ? 'cursor-not-allowed bg-red-400 opacity-60 dark:bg-red-900/60 dark:text-red-300'
                 : 'cursor-pointer bg-red-600 hover:bg-red-700 active:scale-95 shadow-md shadow-red-500/20'
             }`}

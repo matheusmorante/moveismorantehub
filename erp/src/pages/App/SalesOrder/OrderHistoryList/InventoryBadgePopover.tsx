@@ -82,7 +82,7 @@ const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDispl
       label: 'Entrada efetivada',
       badgeClass:
         'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
-      tooltip: 'A devolução foi atendida e a entrada de estoque foi registrada.',
+      tooltip: `A devolução foi ${order?.returnMethod === 'store_collection' ? 'coletada' : 'recebida'} e a entrada de estoque foi registrada.`,
     };
   }
 
@@ -90,7 +90,7 @@ const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDispl
     label: 'Entrada pendente',
     badgeClass:
       'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-    tooltip: 'A devolução foi gerada, mas a entrada só será registrada quando ela for atendida.',
+    tooltip: `A devolução foi gerada, mas a entrada só será registrada quando for ${order?.returnMethod === 'store_collection' ? 'coletada' : 'recebida'}.`,
   };
 };
 

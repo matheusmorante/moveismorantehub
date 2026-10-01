@@ -1,5 +1,6 @@
 import Order from '../types/order.type';
 import { updateOrder } from './orderHistoryService';
+import { getFulfillmentLabels } from './orderStatusPresentation';
 
 export interface FulfillmentCountdown {
   isPastDelivery: boolean;
@@ -84,12 +85,13 @@ export function getOrderFulfillmentCountdown(
   const daysRemaining = Math.max(0, maxDays - daysPassed);
   const isExpired = daysRemaining <= 0;
 
+  const fulfillmentAction = getFulfillmentLabels(order).confirmAction;
   const countdownLabel =
     daysRemaining > 1
-      ? `Atendido em ${daysRemaining} dias`
+      ? `${fulfillmentAction} em ${daysRemaining} dias`
       : daysRemaining === 1
-        ? `Atendido em 1 dia`
-        : `Atendido hoje`;
+        ? `${fulfillmentAction} em 1 dia`
+        : `${fulfillmentAction} hoje`;
 
   return {
     isPastDelivery: true,
@@ -137,12 +139,12 @@ export async function autoFulfillExpiredOrders(
 
     try {
       console.log(
-        `[AutoFulfill] Pedido #${order.id} atingiu o limite de 5 dias após entrega. Marcando como atendido...`
+        `[AutoFulfill] Pedido #${order.id} atingiu o limite de 5 dias após a data operacional. Marcando como ${getFulfillmentLabels(order).status.toLocaleLowerCase('pt-BR')}...`
       );
       await updateOrder(order.id, { status: 'fulfilled' }, order);
       onOrderFulfilled?.(order);
     } catch (err) {
-      console.error(`[AutoFulfill] Falha ao marcar pedido #${order.id} como atendido:`, err);
+      console.error(`[AutoFulfill] Falha ao concluir o pedido #${order.id}:`, err);
     } finally {
       inFlightAutoFulfillOrders.delete(order.id);
     }

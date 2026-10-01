@@ -5,6 +5,7 @@ import {
   hasDeliveryExceeded12Hours,
   autoFulfillOrderIfExceeded12Hours,
 } from '../../features/orders/utils/deliveryAutoFulfillment';
+import { getFulfillmentLabels } from '../../features/orders/domain/orderStatusPresentation';
 
 interface Props {
   order: any;
@@ -20,13 +21,6 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
     String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
   );
 
-  if (pickup) return null;
-
-  if (hasDeliveryExceeded12Hours(order)) {
-    autoFulfillOrderIfExceeded12Hours(order);
-    return null;
-  }
-
   const deliveryStatus = data.deliveryStatus;
   const isFulfilled =
     status === 'fulfilled' || status === 'atendido' || deliveryStatus === 'completed';
@@ -35,12 +29,6 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
     (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
   const isUnattended = deliveryStatus === 'unattended';
   const isPreparing = deliveryStatus === 'preparing';
-
-  // Se a entrega já foi concluída / atendida (isFulfilled) ou não está em nenhuma dessas etapas ativas, não renderiza footer
-  if (isFulfilled || (!isInService && !isInTransit && !isUnattended && !isPreparing)) {
-    return null;
-  }
-
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -56,6 +44,18 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       return () => loop.stop();
     }
   }, [isInTransit, isInService, shimmer]);
+
+  if (pickup && !isFulfilled) return null;
+
+  if (!pickup && hasDeliveryExceeded12Hours(order)) {
+    autoFulfillOrderIfExceeded12Hours(order);
+    return null;
+  }
+
+  // Renderiza o resultado final e as etapas ativas da entrega.
+  if (!isFulfilled && !isInService && !isInTransit && !isUnattended && !isPreparing) {
+    return null;
+  }
 
   const translateX = shimmer.interpolate({
     inputRange: [0, 1],
@@ -86,11 +86,13 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
         : 'Cliente ausente / Pendência',
     };
   } else if (isFulfilled) {
+    const fulfillmentStatus = getFulfillmentLabels(order).status;
+    const fulfillmentSuccessMessage = getFulfillmentLabels(order).successMessage;
     config = {
-      label: 'ENTREGA CONCLUÍDA',
+      label: fulfillmentStatus.toLocaleUpperCase('pt-BR'),
       icon: <CheckCircle2 size={14} color="#fff" />,
       bgColor: '#059669',
-      subtext: 'Pedido atendido com sucesso',
+      subtext: fulfillmentSuccessMessage,
     };
   } else if (isPreparing) {
     config = {

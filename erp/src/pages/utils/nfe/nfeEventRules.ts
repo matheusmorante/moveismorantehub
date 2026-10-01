@@ -31,7 +31,9 @@ export const getCancellationWindow = (model: string, authorizedAt: string, now =
     valid,
     deadline: valid ? new Date(deadline) : null,
     remainingMs: valid ? Math.max(deadline - now, 0) : 0,
-    expired: !valid || now >= deadline,
+    // The legal wording is “não superior a X horas”: the exact endpoint is
+    // still within the limit; expiry starts on the following instant.
+    expired: !valid || now > deadline,
   };
 };
 

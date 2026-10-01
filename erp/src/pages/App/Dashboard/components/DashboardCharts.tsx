@@ -19,10 +19,10 @@ export const ChartContainer = ({
   subtitle?: string;
   children: React.ReactNode;
 }) => (
-  <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-premium hover:shadow-premium-lg transition-all duration-500 animate-reveal group">
-    <div className="mb-10 flex justify-between items-start">
-      <div>
-        <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
+  <div className="group min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-premium transition-all duration-500 animate-reveal hover:shadow-premium-lg dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 xl:rounded-[3rem] xl:p-10">
+    <div className="mb-6 flex min-w-0 items-start justify-between gap-3 xl:mb-10">
+      <div className="min-w-0">
+        <h3 className="text-xl font-black leading-tight tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
           {title}
         </h3>
         {subtitle && (
@@ -31,7 +31,7 @@ export const ChartContainer = ({
           </p>
         )}
       </div>
-      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition-colors group-hover:text-blue-600 dark:bg-slate-800 sm:h-10 sm:w-10">
         <i className="bi bi-graph-up text-lg"></i>
       </div>
     </div>

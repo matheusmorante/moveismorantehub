@@ -1,5 +1,7 @@
 import type { MouseEvent } from 'react';
 import Order from '../../../types/order.type';
+import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
+import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 
 interface OrderStatusMenuActionsProps {
   order: Order;
@@ -19,6 +21,8 @@ const OrderStatusMenuActions = ({
   if (!order.id || !['scheduled', 'fulfilled'].includes(order.status || '')) return null;
 
   const isFulfilled = order.status === 'fulfilled';
+  const fulfillmentLabels = getFulfillmentLabels(order);
+  const canCancel = canCancelOrderDirectly(order);
   const handleClick = (event: MouseEvent) => {
     event.stopPropagation();
     (isFulfilled ? onUndoFulfillment : onMarkFulfilled)();
@@ -37,10 +41,10 @@ const OrderStatusMenuActions = ({
           className={`bi ${isFulfilled ? 'bi-arrow-counterclockwise' : 'bi-check-circle-fill'} text-lg`}
         />
         <span className="text-xs font-black uppercase tracking-widest">
-          {isFulfilled ? 'Desfazer atendido' : 'Marcar como atendido'}
+          {isFulfilled ? fulfillmentLabels.correctionAction : fulfillmentLabels.confirmAction}
         </span>
       </button>
-      {!isFulfilled && (
+      {canCancel && (
         <button
           type="button"
           onClick={(event) => {

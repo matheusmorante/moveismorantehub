@@ -23,6 +23,7 @@ interface ProductEcommerceTabProps {
   readonly handleFileChange: (
     e: React.ChangeEvent<HTMLInputElement> | React.DragEvent | { files: File[] }
   ) => void;
+  readonly onImagesSaved?: () => void;
   readonly removingPhoto?: string | null;
   readonly removePhoto: (url: string) => void;
   readonly handleGenerateAIDescription?: (type: 'whatsapp' | 'ecommerce') => void;
@@ -36,6 +37,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   formData,
   setFormData,
   handleFileChange,
+  onImagesSaved,
   removePhoto,
   isDraggingPhoto = 0,
 }) => {
@@ -85,6 +87,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
 
       const updatedImages = replaceProductImage(formData.images || [], index, newUrl);
       setFormData((prev) => ({ ...prev, images: updatedImages }));
+      onImagesSaved?.();
       toast.success('Foto substituída com sucesso!');
       return true;
     } catch (error: unknown) {

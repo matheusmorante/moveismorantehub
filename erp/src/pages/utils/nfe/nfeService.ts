@@ -4,7 +4,8 @@ import { validateOrderForNfe, type NfeValidationResult } from './nfeValidator';
 import { openDanfePrintWindow, type DanfeData } from './danfeGenerator';
 import { updateOrder } from '../orderHistoryService';
 import { supabase } from '../supabaseConfig';
-import { getAuthorizedAt, getCancellationWindow } from './nfeEventRules';
+import { getAuthorizedAt } from './nfeEventRules';
+import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy';
 import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { resolveNfeSequenceSettings } from './nfeSequenceSettings';
 import { canIssueCce } from './nfeCce';
@@ -512,24 +513,63 @@ export function canCancelFiscalDocument(doc: {
   ) {
     return { canCancel: false, reason: 'Apenas notas autorizadas podem ser canceladas' };
   }
-  if (doc.isMerchandiseDelivered) {
-    return {
-      canCancel: false,
-      reason: 'Mercadoria já entregue/circulou. Necessário emitir NF-e de Devolução de Entrada.',
-    };
-  }
-  const window = getCancellationWindow(
-    String(doc.modelo || ''),
-    getAuthorizedAt(doc.xml_protocolo, doc.created_at || '')
-  );
-  if (!window.valid || window.expired) {
-    return {
-      canCancel: false,
-      reason:
-        'Prazo normal de cancelamento expirado; avalie NF-e de estorno conforme a regra fiscal.',
-    };
+  const environment = doc.ambiente === 2 ? 2 : 1;
+  const policy = getFiscalCancellationPolicy({
+    model: String(doc.modelo || ''),
+    authorizedAt: getAuthorizedAt(doc.xml_protocolo, doc.created_at || ''),
+    status: String(doc.status || ''),
+    environment,
+    goodsCirculated: Boolean(doc.isMerchandiseDelivered),
+    operationDidNotOccur: true,
+  });
+  if (policy.action !== 'cancel') {
+    return { canCancel: false, reason: policy.reason || 'A NF-e não está elegível para cancelamento.' };
   }
   return { canCancel: true };
+}
+
+export async function processOrderCancellationFiscalEffects(
+  orderId: string,
+  orderCode: string
+): Promise<{ action: 'none' | 'cancel' | 'estorno'; draftId?: string }> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (sessionError || !token) throw new Error('Sessão inválida para processar o documento fiscal.');
+
+  const reason = `Pedido #${orderCode} cancelado; operação não realizada e mercadoria não circulou.`;
+  const policyResponse = await fetch('/api/nfe/order-cancellation-policy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ orderId }),
+  });
+  const policy = await policyResponse.json();
+  if (!policyResponse.ok) throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
+  if (policy.action === 'none') return { action: 'none' };
+
+  const endpoint = policy.action === 'cancel' ? '/api/nfe/cancel' : '/api/nfe/operation-drafts';
+  const body =
+    policy.action === 'cancel'
+      ? { documentId: policy.documentId, reason, productionConfirmed: true, viaOrderCancellation: true }
+      : {
+          kind: 'estorno',
+          originalDocumentId: policy.documentId,
+          environment: policy.environment,
+          reason,
+          operationDidNotOccur: true,
+          goodsDidNotCirculate: true,
+          viaOrderCancellation: true,
+        };
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (!response.ok || result.success === false)
+    throw new Error(result.error || 'Não foi possível aplicar o efeito fiscal do pedido.');
+  return policy.action === 'estorno'
+    ? { action: 'estorno', draftId: String(result.draftId || '') }
+    : { action: 'cancel' };
 }
 
 /**

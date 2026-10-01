@@ -1,9 +1,14 @@
 interface MarkFulfilledModalProps {
   onCancel: () => void;
   onConfirm: () => void;
+  actionLabel: string;
 }
 
-const MarkFulfilledModal = ({ onCancel, onConfirm }: MarkFulfilledModalProps) => {
+const MarkFulfilledModal = ({
+  onCancel,
+  onConfirm,
+  actionLabel,
+}: MarkFulfilledModalProps) => {
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div
@@ -21,7 +26,7 @@ const MarkFulfilledModal = ({ onCancel, onConfirm }: MarkFulfilledModalProps) =>
           id="mark-fulfilled-title"
           className="text-base font-black text-slate-800 dark:text-slate-100"
         >
-          Marcar pedido como atendido?
+          {actionLabel}?
         </h2>
         <div className="mt-6 flex justify-end gap-3">
           <button

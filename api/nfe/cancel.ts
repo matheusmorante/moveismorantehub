@@ -5,15 +5,15 @@ import { sendSoapToSefaz } from './sefazClient';
 import {
   decideCancellationRecovery,
   getAuthorizedAt,
-  getCancellationWindow,
   parseSefazCancellationEvent,
   parseSefazNfeSituation,
   validateCancellationReason,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
-import { orderShowsPhysicalCirculation } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
+import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -117,6 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'Documento sem vínculo com o pedido; não é possível comprovar se a mercadoria circulou.',
       });
     let physicalCirculationConfirmed = false;
+    let commercialOrderStatus: string | null = null;
     if (doc.order_id) {
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -128,7 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: 'Não foi possível verificar a circulação da mercadoria.',
         });
-      physicalCirculationConfirmed = orderShowsPhysicalCirculation(order);
+      commercialOrderStatus = String(order?.status || '').toLowerCase();
+      physicalCirculationConfirmed = hasGoodsCirculated(order);
     }
 
     const { data: priorEvents, error: priorError } = await supabase
@@ -244,15 +246,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'Há confirmação de circulação/entrega. A NF-e original deve permanecer válida; siga o fluxo fiscal de devolução.',
       });
     }
+    if (doc.order_id && !['cancelled', 'cancelado'].includes(commercialOrderStatus || ''))
+      return res.status(409).json({
+        success: false,
+        error: 'A ação fiscal de uma venda deve partir de um pedido cancelado.',
+      });
     const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), doc.created_at);
-    const cancellationWindow = getCancellationWindow(String(doc.modelo), authorizedAt);
-    if (!cancellationWindow.valid || cancellationWindow.expired) {
+    const cancellationPolicy = getFiscalCancellationPolicy({
+      model: String(doc.modelo),
+      authorizedAt,
+      status: String(doc.status),
+      environment: Number(doc.ambiente) as 1 | 2,
+      goodsCirculated: physicalCirculationConfirmed,
+      operationDidNotOccur: true,
+    });
+    if (cancellationPolicy.action !== 'cancel') {
       return res.status(409).json({
         success: false,
         error:
-          String(doc.modelo) === '65'
+          cancellationPolicy.reason ||
+          (String(doc.modelo) === '65'
             ? 'Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado.'
-            : 'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.',
+            : 'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.'),
       });
     }
 

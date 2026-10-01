@@ -13,7 +13,8 @@ export type FileInputSource =
 export function useProductFormImages(
   formData: Partial<Product>,
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>,
-  setLoading: (loading: boolean) => void
+  setLoading: (loading: boolean) => void,
+  onImagesSaved?: () => void
 ) {
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(0);
   const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export function useProductFormImages(
         ...prev,
         images: [...(prev.images || []), ...urls],
       }));
+      onImagesSaved?.();
       toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
     } catch (error: unknown) {
       toast.error('Erro no upload e otimização das imagens.');

@@ -4,9 +4,16 @@ import { createPortal } from 'react-dom';
 interface UndoFulfillmentModalProps {
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
+  readonly correctionLabel?: string;
+  readonly returnStatusLabel?: string;
 }
 
-const UndoFulfillmentModal = ({ onCancel, onConfirm }: UndoFulfillmentModalProps) => {
+const UndoFulfillmentModal = ({
+  onCancel,
+  onConfirm,
+  correctionLabel = 'Corrigir atendimento',
+  returnStatusLabel = 'Agendado',
+}: UndoFulfillmentModalProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -23,7 +30,7 @@ const UndoFulfillmentModal = ({ onCancel, onConfirm }: UndoFulfillmentModalProps
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Fechar modal de desfazer atendimento"
+          aria-label={`Fechar modal: ${correctionLabel.toLocaleLowerCase('pt-BR')}`}
         className="fixed inset-0 bg-slate-950/55 transition-opacity"
         onClick={onCancel}
       />
@@ -41,10 +48,10 @@ const UndoFulfillmentModal = ({ onCancel, onConfirm }: UndoFulfillmentModalProps
           id="undo-fulfillment-title"
           className="text-base font-black text-slate-800 dark:text-slate-100"
         >
-          Desfazer status de atendido?
+          {correctionLabel}?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          O pedido voltará para o status Agendado. As movimentações de estoque não serão alteradas.
+          O pedido voltará para {returnStatusLabel}. As movimentações de estoque não serão alteradas.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -59,7 +66,7 @@ const UndoFulfillmentModal = ({ onCancel, onConfirm }: UndoFulfillmentModalProps
             onClick={onConfirm}
             className="rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition-all cursor-pointer bg-amber-600 hover:bg-amber-700 active:scale-95 shadow-md shadow-amber-500/20"
           >
-            Confirmar
+            Confirmar correção
           </button>
         </div>
       </section>

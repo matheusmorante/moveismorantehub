@@ -15,6 +15,7 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 
 ## 1. Vendas, Saídas e Materialização do CMV
 
+- **Apresentação da Conclusão de Vendas**: O estado persistido `fulfilled` continua significando que o cliente recebeu a mercadoria e que houve circulação concluída para as regras comerciais e fiscais. Na interface, apresente a venda como **Entregue** quando `shipping.deliveryMethod` indicar entrega e como **Retirado** quando indicar retirada. Ações, confirmações, histórico, filtros, avisos e notificações devem usar o mesmo rótulo contextual; filtros agregados podem ser chamados **Concluídos**. Preserve `fulfilled` em banco, API, sincronização offline e regras de estoque/fiscal. Esta regra de apresentação não se aplica a devoluções, assistências ou outros fluxos cujo `fulfilled` tenha semântica própria.
 - **Vendas com Produto Cadastrado**: Pedido em estado `scheduled` ou `fulfilled` gera uma única saída de estoque por item cadastrado.
 - **Materialização Obrigatória do CMV**: No momento da saída, o CMV unitário (`cmvUnitCost`) e o CMV total (`cmvTotal`) são capturados do **CMPM vigente naquele exato instante** e materializados no item da venda.
 - **Imutabilidade de Vendas Passadas**: O CMV materializado em uma venda antiga **jamais** muda apenas porque novas compras alteraram o `costPrice` atual do produto no futuro.
@@ -123,4 +124,23 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 - **Usuário Logado**: A autoria (o responsável) é sempre preenchida automaticamente em *background* com o UUID do usuário que está logado e realizando a operação no aparelho (`userProfile.id`).
 
 > Para o detalhamento completo de 50 tópicos e fórmulas matemáticas da arquitetura, consulte a referência em [references/estoque-cmpm-cmv.md](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/.agents/skills/regras-de-negocio-erp/references/estoque-cmpm-cmv.md).
+
+## 12. Cancelamento de pedido, circulação e documento fiscal
+
+- Antes da circulação, a ação comercial única é **Cancelar pedido/venda**. O pedido coordena a reversão de estoque na transação comercial e solicita ao módulo fiscal o efeito escolhido pela política central.
+- Use `hasGoodsCirculated(order)` como regra semântica compartilhada. `fulfilled` significa circulação para entrega (Entregue) e retirada (Retirado); saída/início de transporte também é circulação.
+- Com circulação, bloquear cancelamento por operação não realizada e estorno fiscal. Se a mercadoria retornar, registrar devolução comercial vinculada e gerar o documento fiscal de entrada aplicável, preservando venda e NF-e originais.
+- Sem circulação e sem documento autorizado (ausente, rejeitado ou não autorizado), cancelar apenas o pedido e o efeito comercial/estoque correspondente.
+- Sem circulação e com documento autorizado, a política fiscal central decide automaticamente entre cancelamento SEFAZ e estorno permitido pela legislação. A pessoa usuária não escolhe “Cancelar NF-e” ou “Estornar NF-e”.
+- Paraná: NF-e modelo 55 tem prazo de 168 horas; NFC-e modelo 65, 30 minutos conforme FAQ vigente da SEFA/PR. Centralizar as janelas e testar antes, no limite e depois, usando o instante de autorização com fuso explícito.
+- O estorno da NF-e 55 deve seguir RICMS/PR art. 298, VII e NPF 038/2022: finalidade 3, chave original referenciada, CFOP/tipo de operação inversos, justificativa em `infAdFisco` e natureza da operação exigida. Revisar diferenças e acréscimos quando a regularização ocorrer em período posterior (art. 298, §2º) antes de transmitir.
+- Evento SEFAZ e transmissão de estorno são efeitos externos posteriores ao commit comercial. Persistir tentativas/protocolos e permitir reconciliação idempotente; falha fiscal não reverte nem apaga o cancelamento comercial já confirmado.
+
+## 13. Devolução e retorno físico
+- Criar o pedido de devolução registra a solicitação e as quantidades parciais. Só representa retorno físico quando o cliente já entrega na loja ou quando a coleta pela equipe é confirmada.
+- A forma existente fica registrada em `order_data.returnMethod`: `store_delivery` indica mercadoria já entregue pelo cliente na loja; `store_collection` indica coleta pela empresa pendente. Não criar coluna ou enum para essa informação sem necessidade comprovada.
+- `scheduled` + `store_collection` aparece como “Aguardando coleta”; a confirmação física conclui como “Coletada”. `fulfilled` + `store_delivery` aparece como “Recebida”, pois essa opção confirma que o cliente já trouxe a mercadoria.
+- A entrada de estoque acontece somente na criação transacional da devolução já recebida ou na confirmação transacional da coleta. Retry deve permanecer idempotente.
+- Criar ou concluir operacionalmente a devolução não transmite NF-e automaticamente. Após o retorno físico, preparar e transmitir o documento vinculado na área fiscal conforme a regra vigente.
+- Preservar a NF-e original após circulação e manter saldo parcial devolvível com vínculo fiscal/comercial por item.
 

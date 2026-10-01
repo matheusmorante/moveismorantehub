@@ -1,31 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { orderShowsPhysicalCirculation } from '../cancellationEligibility';
+import { hasGoodsCirculated } from '../cancellationEligibility';
 
-describe('orderShowsPhysicalCirculation', () => {
-  it('blocks NF-e cancellation for a fulfilled sale even when delivery metadata is missing', () => {
-    expect(orderShowsPhysicalCirculation({ status: 'fulfilled' })).toBe(true);
+describe('hasGoodsCirculated', () => {
+  it('reconhece entrega e retirada pelo estado interno fulfilled', () => {
+    expect(hasGoodsCirculated({ status: 'fulfilled' })).toBe(true);
+    expect(hasGoodsCirculated({ status: 'fulfilled', delivery_method: 'pickup' })).toBe(true);
   });
 
-  it('allows the pre-delivery scenario while a sale is still scheduled', () => {
-    expect(orderShowsPhysicalCirculation({ status: 'scheduled' })).toBe(false);
+  it('reconhece estados legados de conclusão como circulação', () => {
+    expect(hasGoodsCirculated({ status: 'Atendido' })).toBe(true);
+    expect(hasGoodsCirculated({ status: 'completed' })).toBe(true);
   });
 
-  it('blocks cancellation after a delivery status or event confirms circulation', () => {
-    expect(
-      orderShowsPhysicalCirculation(
-        { status: 'scheduled', delivery_status: 'in_transit' },
-      )
-    ).toBe(true);
-    expect(
-      orderShowsPhysicalCirculation(
-        { status: 'scheduled', order_data: { shipping: { deliveryFinishedAt: '2026-09-30' } } },
-      )
-    ).toBe(true);
+  it('mantém pedidos agendados e aguardando retirada sem circulação', () => {
+    expect(hasGoodsCirculated({ status: 'scheduled', delivery_status: 'scheduled' })).toBe(false);
+    expect(hasGoodsCirculated({ status: 'scheduled', delivery_status: 'awaiting_pickup' })).toBe(
+      false
+    );
   });
 
-  it('blocks cancellation when delivery status confirms circulation', () => {
+  it('reconhece circulação quando a mercadoria já está em trânsito', () => {
+    expect(hasGoodsCirculated({ status: 'scheduled', delivery_status: 'in_transit' })).toBe(true);
+  });
+
+  it('reconhece os campos camelCase do pedido retornado pela interface', () => {
+    expect(hasGoodsCirculated({ status: 'scheduled', deliveryStatus: 'collected' })).toBe(true);
     expect(
-      orderShowsPhysicalCirculation({ status: 'scheduled', delivery_status: 'entregue' })
+      hasGoodsCirculated({ status: 'scheduled', pickupConfirmedAt: '2026-10-01T12:00:00Z' })
     ).toBe(true);
   });
 });

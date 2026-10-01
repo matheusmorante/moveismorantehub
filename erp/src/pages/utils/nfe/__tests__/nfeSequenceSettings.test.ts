@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveNfeSequenceSettings, validateContributorNfeSeries } from '../nfeSequenceSettings';
+import { DEFAULT_NFE_NUMBER } from '../../../../../../shared-utils/fiscalNumbering';
 
 describe('outbound invoice sequence settings', () => {
   it('keeps homologation series and counters separate from production', () => {
@@ -31,9 +32,12 @@ describe('outbound invoice sequence settings', () => {
   });
 
   it('uses isolated safe defaults when homologation settings are absent', () => {
-    expect(resolveNfeSequenceSettings({}, '55', 2)).toEqual({ series: '1', minimumNumber: 700 });
+    expect(resolveNfeSequenceSettings({}, '55', 2)).toEqual({
+      series: '1',
+      minimumNumber: DEFAULT_NFE_NUMBER,
+    });
     expect(resolveNfeSequenceSettings({ nfeSerie: '2', nfeNextNumber: 9000 }, '55', 2))
-      .toEqual({ series: '1', minimumNumber: 700 });
+      .toEqual({ series: '1', minimumNumber: DEFAULT_NFE_NUMBER });
   });
 
   it.each(['0', '1', '889', '001', ' 2 '])('accepts contributor CNPJ series %s', (series) => {

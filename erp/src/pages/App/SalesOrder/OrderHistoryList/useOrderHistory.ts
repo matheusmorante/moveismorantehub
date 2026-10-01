@@ -14,6 +14,7 @@ import { filterOrder, sortOrders } from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
@@ -195,6 +196,17 @@ export const useOrderHistory = (filters?: any) => {
   };
 
   const handleAction = async (actionKey: string, order: Order) => {
+    if (actionKey === 'retryOrderFiscalCancellation') {
+      await operations.retryFiscalCancellation(order);
+      return;
+    }
+    if (newStatus === 'cancelled' && !canCancelOrderDirectly(currentOrder)) {
+      toast.warning(
+        'A mercadoria já saiu para entrega ou foi retirada. Registre uma devolução para reverter a operação.'
+      );
+      return;
+    }
+
     if (actionKey === 'undoReturn') {
       setPendingReturnCancellation(order);
       return;

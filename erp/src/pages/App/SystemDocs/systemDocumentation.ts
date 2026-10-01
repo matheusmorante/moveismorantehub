@@ -34,7 +34,7 @@ export const systemDocumentation: DocumentationSection[] = [
     rules: [
       'Rascunho é criado durante o preenchimento e não pode voltar a ser escolhido depois do cadastro.',
       'Ao cadastrar um pedido válido, ele passa para Agendado; isso habilita os gatilhos da agenda e de estoque configurados.',
-      'Agendado pode ser marcado como atendido mediante confirmação; atendido pode voltar a agendado sem alterar itens ou valores.',
+      'A venda Agendada pode ser concluída mediante confirmação. O status interno fulfilled significa que o cliente recebeu a mercadoria: a interface exibe Entregue para entrega e Retirado para retirada. A correção volta ao estado operacional anterior sem alterar itens ou valores.',
       'Pedido cancelado tem status definitivo; para refazer, usa-se Duplicar pedido.',
       'Pedido de devolução pode nascer de venda atendida, mantendo o vínculo, ou ser criado sem venda vinculada com cliente e itens próprios. Em ambos os casos nasce Agendado e não movimenta estoque ao ser gerado.',
       'Ao marcar a devolução como Atendida, uma confirmação de cinco segundos informa que a entrada será criada apenas para os itens e quantidades devolvidos.',
@@ -45,7 +45,7 @@ export const systemDocumentation: DocumentationSection[] = [
     flow: [
       { title: 'Rascunho', detail: 'Preenchimento sem saída de estoque.' },
       { title: 'Agendado', detail: 'Agenda e baixa configurada são acionadas.' },
-      { title: 'Atendido', detail: 'Venda concluída; devolução pode ser criada.' },
+      { title: 'Entregue/Retirado', detail: 'Cliente recebeu a mercadoria; devolução pode ser criada.' },
       {
         title: 'Devolução atendida',
         detail: 'Após confirmação de cinco segundos, cria entrada e fica definitiva.',
@@ -89,10 +89,10 @@ export const systemDocumentation: DocumentationSection[] = [
     rules: [
       'Rascunho: não gera saída nem altera saldo. Se já tiver data ou agendamento preenchido, aparece na agenda apenas para planejamento.',
       'Cadastro válido → Agendado: o pedido entra na agenda conforme data e filtros. Para itens reais, cria saídas quando Agendado estiver configurado como status de baixa (padrão do sistema).',
-      'Atendido: sai da agenda. Se a saída ainda não existir, o status pode disparar a baixa configurada; não duplica saída já processada.',
+      'Entregue/Retirado: a venda sai da agenda. Se a saída ainda não existir, o status interno fulfilled pode disparar a baixa configurada; não duplica saída já processada.',
       'Cancelado: sai da agenda, estorna todas as movimentações de venda vinculadas, recompõe o saldo e redefine stockProcessed. Não pode ser reaberto ou editado.',
       'O cancelamento também registra uma notificação para o aplicativo; a entrega por push depende de token ativo no dispositivo.',
-      'Na lista de pedidos, Agendado e Atendido podem ser editados. A comparação dos itens ocorre somente ao clicar em Salvar alterações — abrir ou mudar campos no formulário não movimenta estoque.',
+      'Na lista de pedidos, Agendado, Entregue e Retirado podem ser editados. A comparação dos itens ocorre somente ao clicar em Salvar alterações — abrir ou mudar campos no formulário não movimenta estoque.',
       'Quando produto ou quantidade de item real muda, Salvar alterações abre uma confirmação com o antes e o depois. Somente Confirmar e salvar executa o estorno e o novo lançamento.',
       'Ao salvar uma alteração em item real já baixado, o sistema estorna a saída do item anterior e cria nova saída para o item atualizado. Quantidade, produto, preço ou desconto alterados contam como mudança.',
       'Somente o item modificado é estornado e relançado; itens não alterados preservam seus movimentos. Item temporário não cria movimento e não bloqueia a baixa dos itens reais do mesmo pedido.',
@@ -112,7 +112,7 @@ export const systemDocumentation: DocumentationSection[] = [
     title: 'Movimentações e saldo',
     icon: 'bi-box-arrow-up-right',
     summary:
-      'A venda gera saídas ao atingir o status configurado de baixa. Nas alterações, Agendado ou Atendido acionam a tentativa de processamento.',
+      'A venda gera saídas ao atingir o status configurado de baixa. Nas alterações, Agendado, Entregue ou Retirado acionam a tentativa de processamento.',
     rules: [
       'Cada item real, com productId, gera sua própria baixa; item temporário não gera movimento e não bloqueia os demais.',
       'A saída usa o custo médio vigente (CMPM) materializado em costPrice; não usa FIFO nem média geral de todas as aquisições.',

@@ -471,7 +471,7 @@ const OrderEditModal = ({
             highlightTemporaryItems={highlightTemporaryItems}
           />
         ) : (
-          <OrderStatusTimeline orderId={effectiveOrder.id!} />
+          <OrderStatusTimeline orderId={effectiveOrder.id!} order={effectiveOrder} />
         )}
       </div>
       {pendingUpdate && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateNfeAccessKey, calculateMod11CheckDigit, formatAccessKey } from './nfeAccessKey';
+import { generateNfeAccessKey, formatAccessKey } from './nfeAccessKey';
 import { buildNfeXml } from './nfeXmlBuilder';
 import { validateOrderForNfe } from './nfeValidator';
 import Order from '@/pages/types/order.type';
@@ -127,7 +127,7 @@ describe('NF-e XML Builder (Homologação)', () => {
           description: 'Mesa de Jantar 6 Cadeiras',
           quantity: 1,
           unitPrice: 850,
-          fiscal: { ncm: '94036000' },
+          fiscal: { ncm: '94036000', cst: '103', origem: '0' },
         },
       ],
       itemsSummary: { totalQuantity: 1, itemsSubtotal: 850 },

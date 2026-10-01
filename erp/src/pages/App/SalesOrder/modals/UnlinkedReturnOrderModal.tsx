@@ -85,6 +85,7 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
     const summary = calcItemsSummary(populatedItems);
     const order: Order = {
       orderType: 'return',
+      returnMethod: collectAtAddress ? 'store_collection' : 'store_delivery',
       status: 'scheduled',
       customerData: customer,
       items: populatedItems,

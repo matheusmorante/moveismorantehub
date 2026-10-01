@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Product from '../../../types/product.type';
 
@@ -78,10 +78,38 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     handleCloseVariationModal,
     handleSaveVariation,
     handleConvertProduct,
+    scheduleDraftAutoSave,
     variationsInUse,
     handleNextStep,
     isLastStep,
   } = useProductFormModal(props);
+
+  const handleDraftFieldBlurCapture = useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.matches('input:not([type="file"]), textarea, select, [role="combobox"]')
+      ) {
+        scheduleDraftAutoSave();
+      }
+    },
+    [scheduleDraftAutoSave]
+  );
+  const handleDraftSelectChangeCapture = useCallback(
+    (event: React.FormEvent<HTMLDivElement>) => {
+      if (event.target instanceof HTMLSelectElement) scheduleDraftAutoSave();
+    },
+    [scheduleDraftAutoSave]
+  );
+  const handleDraftSearchOptionClickCapture = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.target instanceof Element && event.target.closest('[role="option"]')) {
+        scheduleDraftAutoSave();
+      }
+    },
+    [scheduleDraftAutoSave]
+  );
 
   // As características só existem no contexto de uma categoria.
   // Se a categoria for removida enquanto a aba estiver aberta, volta ao cadastro geral.
@@ -110,6 +138,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
 
       <div
         onPaste={images.handlePaste}
+        onBlurCapture={handleDraftFieldBlurCapture}
+        onChangeCapture={handleDraftSelectChangeCapture}
+        onClickCapture={handleDraftSearchOptionClickCapture}
         className="relative bg-white dark:bg-slate-900 w-full h-full m-0 p-0 rounded-none shadow-none flex flex-col overflow-hidden animate-in fade-in duration-200 border-0"
       >
         <ProductFormHeader
@@ -148,6 +179,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               isDraggingPhoto={images.isDraggingPhoto}
               setIsDraggingPhoto={images.setIsDraggingPhoto}
               handleFileChange={images.handleFileChange}
+              onImagesSaved={scheduleDraftAutoSave}
               removingPhoto={images.removingPhoto}
               removePhoto={images.removePhoto}
               handleGenerateAIDescription={ai.handleGenerateAIDescription}
@@ -227,12 +259,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
 
         <ProductFormFooter
           isDraftProduct={isDraftProduct}
-          canSaveDraft={draft.canSaveDraft}
-          isSavingDraft={draft.isSavingDraft}
+          autoSaveStatus={draft.autoSaveStatus}
           loading={loading}
           isAiProcessing={ai.isAiProcessing}
           isLastStep={isLastStep}
-          onSaveDraft={() => draft.saveDraftManually(formData)}
           onClose={handleCloseWithAutoSave}
           onNextStep={handleNextStep}
           onSubmit={() => handleSubmit()}

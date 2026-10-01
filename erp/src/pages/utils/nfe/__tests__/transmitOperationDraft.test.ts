@@ -272,7 +272,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
-    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<?xml version="1.0" encoding="UTF-8"?><NFe><infNFe></infNFe></NFe>');
+    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<?xml version="1.0" encoding="UTF-8"?>\n<NFe>\n  <infNFe><xProd>Produto Teste</xProd></infNFe>\n</NFe>');
     mocks.validateNfeAgainstOfficialSchema.mockImplementation(async (xml: string) => {
       if (!xml.includes('<Signature')) throw new Error('O XSD oficial exige assinatura digital.');
     });
@@ -304,6 +304,8 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(state.draft.signed_xml).toContain('<?xml');
     const transmittedXml = mocks.sendSoapToSefaz.mock.calls[0][0].xmlPayload as string;
     expect(transmittedXml).not.toContain('<?xml');
+    expect(transmittedXml).not.toMatch(/>\s+</);
+    expect(transmittedXml).toContain('<xProd>Produto Teste</xProd>');
     expect(transmittedXml).toContain(state.draft.signed_xml!.replace(/^<\?xml[^?]*\?>/, ''));
     expect(state.draft.access_key).toMatch(/^\d{44}$/);
     expect(state.rpcCalls.map((call) => call.name)).toEqual([

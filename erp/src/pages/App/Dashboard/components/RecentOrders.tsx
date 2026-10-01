@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Order from '../../../types/order.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { isDashboardSaleOrder } from '../dashboardRevenue';
+import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 
 interface RecentOrdersProps {
   orders: Order[];
@@ -74,7 +75,10 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
                 <span
                   className={`text-[9px] font-black px-2 py-0.5 rounded-full mt-0.5 inline-block ${STATUS_STYLES[order.status || 'draft'] || STATUS_STYLES.draft}`}
                 >
-                  {STATUS_LABELS[order.status || 'draft'] || order.status}
+                  {getOrderStatusLabel(
+                    order,
+                    STATUS_LABELS[order.status || 'draft'] || order.status || 'Rascunho'
+                  )}
                 </span>
               </div>
             </div>

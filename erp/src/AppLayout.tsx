@@ -171,7 +171,7 @@ export default function AppLayout() {
           >
             <div className="flex items-center gap-6 xl:gap-12 h-full">
               <button
-                className="block xl:hidden p-2.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
+                className="block min-[1600px]:hidden rounded-xl p-2.5 text-slate-500 shadow-premium-sm transition-all hover:bg-white hover:text-blue-600 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-blue-400"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 <i className="bi bi-list text-2xl"></i>

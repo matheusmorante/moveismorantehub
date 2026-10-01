@@ -78,6 +78,8 @@ const { PGlite } = require('@electric-sql/pglite');
     has_function_privilege('anon', 'public.create_return_order_with_capacity(text,jsonb,jsonb,jsonb)', 'EXECUTE') AS anon,
     has_function_privilege('authenticated', 'public.create_return_order_with_capacity(text,jsonb,jsonb,jsonb)', 'EXECUTE') AS authenticated`);
   assert.deepEqual(grants.rows[0], { anon: false, authenticated: true });
+  await db.exec(fs.readFileSync(path.join(__dirname,
+    '../migrations/20261001200000_persist_nfe_operation_totals.sql'), 'utf8'));
 
   const saleId = '11111111-1111-4111-8111-111111111111';
   const documentId = '22222222-2222-4222-8222-222222222222';
@@ -166,30 +168,38 @@ const { PGlite } = require('@electric-sql/pglite');
     'alocação física pode permanecer vinculada ao rascunho rejeitado e ao novo ativo');
   const fiscalDocumentId = 'abababab-abab-4bab-8bab-abababababab';
   const fiscalReturnKey = `${'2'.repeat(20)}55${'001'}${'000000800'}1${'12345678'}0`;
-  await db.query("UPDATE nfe_operation_drafts SET status='transmitting',access_key=$2,signed_xml='<NFe/>' WHERE id=$1", [draftId, fiscalReturnKey]);
+  await db.query("UPDATE nfe_operation_drafts SET status='transmitting',access_key=$2,signed_xml='<NFe><total><ICMSTot><vNF>25.00</vNF></ICMSTot></total></NFe>' WHERE id=$1", [draftId, fiscalReturnKey]);
   const authorizedItem = [{ draft_line_id: draftLine.id, item_number: 1, product_code: 'SKU-1',
     description: 'Cadeira', quantity: 1, unit_value: 25, gross_value: 25, discount_value: 0,
     product_xml: reviewedLine.product_xml, taxes_xml: reviewedLine.taxes_xml }];
-  const persistAuthorized = () => db.query(`SELECT persist_authorized_nfe_operation_draft(
-    $1::uuid,$2::uuid,800,'1',$3,'<NFe/>','<retEnviNFe/>','141260000999999',
+  const authorizedXml = '<NFe><total><ICMSTot><vNF>25.00</vNF></ICMSTot></total></NFe>';
+  const persistAuthorized = (xml = authorizedXml) => db.query(`SELECT persist_authorized_nfe_operation_draft(
+    $1::uuid,$2::uuid,800,'1',$3,$5,'<retEnviNFe/>','141260000999999',
     '2026-09-26T12:00:00-03:00'::timestamptz,'autorizada','Autorizado', $4::jsonb) AS id`,
-  [draftId, fiscalDocumentId, fiscalReturnKey, JSON.stringify(authorizedItem)]);
+  [draftId, fiscalDocumentId, fiscalReturnKey, JSON.stringify(authorizedItem), xml]);
   const invalidItem = [{ ...authorizedItem[0], product_xml: '<prod/>' }];
   await assert.rejects(db.query(`SELECT persist_authorized_nfe_operation_draft(
-    $1::uuid,$2::uuid,800,'1',$3,'<NFe/>','<retEnviNFe/>','141260000999999',
+    $1::uuid,$2::uuid,800,'1',$3,'<NFe><total><ICMSTot><vNF>25.00</vNF></ICMSTot></total></NFe>','<retEnviNFe/>','141260000999999',
     '2026-09-26T12:00:00-03:00'::timestamptz,'autorizada','Autorizado',$4::jsonb)`,
   [draftId, fiscalDocumentId, fiscalReturnKey, JSON.stringify(invalidItem)]), /Item transmitido/i);
   assert.equal((await db.query('SELECT count(*) AS count FROM nfe_documents WHERE id=$1', [fiscalDocumentId])).rows[0].count, 0);
   const mismatchedKey = `${fiscalReturnKey.slice(0, -1)}${fiscalReturnKey.endsWith('0') ? '1' : '0'}`;
   await assert.rejects(db.query(`SELECT persist_authorized_nfe_operation_draft(
-    $1::uuid,$2::uuid,800,'1',$3,'<NFe/>','<retEnviNFe/>','141260000999999',
+    $1::uuid,$2::uuid,800,'1',$3,'<NFe><total><ICMSTot><vNF>25.00</vNF></ICMSTot></total></NFe>','<retEnviNFe/>','141260000999999',
     '2026-09-26T12:00:00-03:00'::timestamptz,'autorizada','Autorizado',$4::jsonb)`,
   [draftId, fiscalDocumentId, mismatchedKey, JSON.stringify(authorizedItem)]), /diverge da chave\/XML/i);
   assert.equal((await db.query('SELECT count(*) AS count FROM nfe_documents WHERE id=$1', [fiscalDocumentId])).rows[0].count, 0,
     'falha ao conferir a tentativa precisa reverter a inserção fiscal inteira');
+  await db.query("UPDATE nfe_operation_drafts SET signed_xml='<NFe/>' WHERE id=$1", [draftId]);
+  await assert.rejects(persistAuthorized('<NFe/>'), /Total vNF.*ausente/i);
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_documents WHERE id=$1', [fiscalDocumentId])).rows[0].count, 0);
+  assert.equal((await db.query('SELECT fiscal_return_document_id FROM nfe_return_item_allocations WHERE return_order_id=$1', [returnId])).rows[0].fiscal_return_document_id, null);
+  assert.equal((await db.query('SELECT status FROM nfe_operation_drafts WHERE id=$1', [draftId])).rows[0].status, 'transmitting');
+  await db.query('UPDATE nfe_operation_drafts SET signed_xml=$2 WHERE id=$1', [draftId, authorizedXml]);
   await persistAuthorized();
   await persistAuthorized();
   assert.equal((await db.query('SELECT status FROM nfe_operation_drafts WHERE id=$1', [draftId])).rows[0].status, 'authorized');
+  assert.equal(Number((await db.query('SELECT valor_total FROM nfe_documents WHERE id=$1', [fiscalDocumentId])).rows[0].valor_total), 25);
   assert.equal((await db.query('SELECT count(*) AS count FROM nfe_document_items WHERE document_id=$1', [fiscalDocumentId])).rows[0].count, 1);
   assert.equal((await db.query('SELECT fiscal_return_document_id FROM nfe_return_item_allocations WHERE return_order_id=$1', [returnId])).rows[0].fiscal_return_document_id, fiscalDocumentId);
   await assert.rejects(db.query(`INSERT INTO nfe_operation_drafts(operation_kind,finalidade,original_document_id,
@@ -224,6 +234,37 @@ const { PGlite } = require('@electric-sql/pglite');
   const createHmlReturn = (id, itemRows = hmlPartialItems, fiscalRows = hmlAllocation, payload = hmlReturnPayload) => db.query(
     'SELECT create_return_order_with_fiscal_capacity($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb) AS result',
     [id, JSON.stringify(payload), JSON.stringify(itemRows), '[]', JSON.stringify(fiscalRows)]);
+
+  const injectedFailureReturnId = '90909090-9090-4090-8090-909090909090';
+  const injectedFailurePayload = { ...hmlReturnPayload,
+    order_data: { ...hmlReturnPayload.order_data, returnRequestId: injectedFailureReturnId } };
+  await db.exec(`CREATE FUNCTION reject_test_return_allocation() RETURNS trigger
+    LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected return allocation failure'; END $$;
+    CREATE TRIGGER reject_test_return_allocation BEFORE INSERT ON nfe_return_item_allocations
+    FOR EACH ROW EXECUTE FUNCTION reject_test_return_allocation();`);
+  await assert.rejects(createHmlReturn(injectedFailureReturnId, hmlPartialItems, hmlAllocation, injectedFailurePayload),
+    /injected return allocation failure/);
+  assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [injectedFailureReturnId])).rows[0].count, 0,
+    'falha na gravação da alocação precisa reverter a devolução comercial');
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations WHERE return_order_id=$1',
+    [injectedFailureReturnId])).rows[0].count, 0,
+    'falha na gravação da alocação não pode deixar vínculo fiscal parcial');
+  await db.exec('DROP TRIGGER reject_test_return_allocation ON nfe_return_item_allocations; DROP FUNCTION reject_test_return_allocation()');
+
+  const concurrentReturnId = '91919191-9191-4191-8191-919191919191';
+  const concurrentPayload = { ...hmlReturnPayload,
+    order_data: { ...hmlReturnPayload.order_data, returnRequestId: concurrentReturnId } };
+  const concurrentResults = await Promise.all([
+    createHmlReturn(concurrentReturnId, hmlPartialItems, hmlAllocation, concurrentPayload),
+    createHmlReturn(concurrentReturnId, hmlPartialItems, hmlAllocation, concurrentPayload),
+  ]);
+  const concurrentReplayFlags = concurrentResults.map((result) => result.rows[0].result.idempotent_replay).sort();
+  assert.deepEqual(concurrentReplayFlags, [false, true],
+    'duas chamadas concorrentes com a mesma chave comercial criam uma devolução e retornam um replay');
+  assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [concurrentReturnId])).rows[0].count, 1);
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations WHERE return_order_id=$1',
+    [concurrentReturnId])).rows[0].count, 1);
+
   const hmlCreated = (await createHmlReturn(hmlReturnId)).rows[0].result;
   assert.equal(hmlCreated.idempotent_replay, false);
   // Real HML serialization uses the product UUID as cProd and a mandated xProd;
@@ -283,6 +324,32 @@ const { PGlite } = require('@electric-sql/pglite');
   const hmlDraftLine = (await db.query('SELECT quantity,gross_value FROM nfe_operation_draft_lines WHERE draft_id=$1', [hmlDraftId])).rows[0];
   assert.equal(Number(hmlDraftLine.quantity), 2, 'devolução parcial mantém quantidade proporcional');
   assert.equal(Number(hmlDraftLine.gross_value), 50, 'total parcial é proporcional à quantidade devolvida');
+
+  await db.exec(`ALTER TABLE nfe_documents
+    ADD COLUMN fiscal_ruleset_version text, ADD COLUMN fiscal_snapshot_id uuid,
+    ADD COLUMN hml_attempt_token uuid, ADD COLUMN hml_attempt_expires_at timestamptz,
+    ADD COLUMN hml_response_history jsonb DEFAULT '[]'::jsonb`);
+  await db.exec(fs.readFileSync(path.join(__dirname,
+    '../migrations/20261001201000_persist_hml_invoice_totals.sql'), 'utf8'));
+  const totalDoc = 'f0f0f0f0-f0f0-40f0-80f0-f0f0f0f0f0f0';
+  const totalToken = 'f1f1f1f1-f1f1-41f1-81f1-f1f1f1f1f1f1';
+  await db.query(`INSERT INTO nfe_documents(id,numero_nfe,serie,ambiente,status,xml_nfe,
+    fiscal_ruleset_version,fiscal_snapshot_id,hml_attempt_token,hml_attempt_expires_at)
+    VALUES ($1,888,'1',2,'processando','<NFe/>','HML_NORMAL_SALE_V1',$1,$2,now()+interval '1 hour')`, [totalDoc,totalToken]);
+  const totalLine = [{item_number:1,product_code:'SKU-TOTAL',description:'TOTAL TESTE',billed_quantity:1,
+    unit_value:100,gross_value:100,discount_value:0,product_xml:'<prod/>',taxes_xml:'<imposto/>'}];
+  const persistTotal = () => db.query(`SELECT persist_hml_nfe_result($1,'homologada','100: autorizado',
+    '<retEnviNFe/>','141260000888888',$2::jsonb,$3)`, [totalDoc,JSON.stringify(totalLine),totalToken]);
+  await assert.rejects(persistTotal(), /AUTHORIZED_HML_TOTAL_MISSING/);
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_document_items WHERE document_id=$1',[totalDoc])).rows[0].count,0);
+  assert.equal((await db.query('SELECT status FROM nfe_documents WHERE id=$1',[totalDoc])).rows[0].status,'processando');
+  const totalXml='<NFe><total><ICMSTot><vNF>100.00</vNF></ICMSTot></total></NFe>';
+  await db.query('UPDATE nfe_documents SET xml_nfe=$2 WHERE id=$1',[totalDoc,totalXml]);
+  await persistTotal();await persistTotal();
+  const totalResult=(await db.query('SELECT valor_total,xml_nfe,numero_protocolo FROM nfe_documents WHERE id=$1',[totalDoc])).rows[0];
+  assert.equal(Number(totalResult.valor_total),100);assert.equal(totalResult.xml_nfe,totalXml);
+  assert.equal(totalResult.numero_protocolo,'141260000888888');
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_document_items WHERE document_id=$1',[totalDoc])).rows[0].count,1);
 
   console.log('Linhas fiscais: ambientes Produção/HML isolados, devolução parcial, limite faturado, vínculo, persistência atômica e replay idempotente OK');
   await db.close();

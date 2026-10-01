@@ -30,7 +30,7 @@ export function calculateMod11CheckDigit(base43: string): number {
   const remainder = sum % 11;
   const digit = 11 - remainder;
 
-  if (digit === 0 || digit === 1 || digit >= 10) {
+  if (remainder === 0 || remainder === 1) {
     return 0;
   }
   return digit;
