@@ -89,6 +89,12 @@ export const productGridStyleClasses = {
   },
 } as const;
 
+export const productGridMinCardWidths = {
+  compact: '9rem',
+  comfortable: '10rem',
+  large: '12rem',
+} as const;
+
 export function getOpportunityTitleColor(
   opportunity?: {
     name?: string;

@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
 import { useAdminMode } from '@/hooks/use-admin-mode';
 import {
   defaultStoreDesignSettings,
+  productGridMinCardWidths,
   productGridStyleClasses,
   StoreDesignSettings,
 } from '@/lib/product-card-style';
@@ -640,9 +641,16 @@ export function ProductGrid({ filters }: ProductGridProps) {
     }
   };
 
+  const configuredColumns = cardStyle.product_grid_columns;
   const columnsClass =
-    productGridStyleClasses.columns[cardStyle.product_grid_columns] ||
-    productGridStyleClasses.columns['compact'];
+    typeof configuredColumns === 'number'
+      ? productGridStyleClasses.columns[configuredColumns as 2 | 3 | 4 | 5 | 6] ||
+        productGridStyleClasses.columns.compact
+      : '';
+  const gridTemplateColumns =
+    typeof configuredColumns === 'number'
+      ? undefined
+      : `repeat(auto-fill, minmax(min(100%, ${productGridMinCardWidths[configuredColumns]}), 1fr))`;
   const gapClass =
     productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap['tight'];
 
@@ -654,6 +662,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
           columnsClass,
           gapClass
         )}
+        style={gridTemplateColumns ? { gridTemplateColumns } : undefined}
       >
         {paginatedProducts.map((product) => {
           const mainImg =

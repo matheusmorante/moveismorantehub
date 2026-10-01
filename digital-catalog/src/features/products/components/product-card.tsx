@@ -122,12 +122,12 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
   return (
     <Card
       className={cn(
-        'group overflow-hidden bg-white text-left transition-all duration-300 relative h-full flex flex-col',
+        'group min-w-0 overflow-hidden bg-white text-left transition-all duration-300 relative h-full flex flex-col',
         borderClass,
         productCardStyleClasses.border_radius[style.border_radius]
       )}
     >
-      <Link href={`/produto/${product.slug}`}>
+      <Link href={`/produto/${product.slug}`} className="block w-full min-w-0">
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-50/30 p-3 sm:p-4">
           <div className="relative w-full h-full">
             <Image
@@ -175,10 +175,10 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         />
       )}
 
-      <CardContent className="p-2 pb-1 flex-1 flex flex-col justify-between">
-        <Link href={`/produto/${product.slug}`}>
+      <CardContent className="min-w-0 p-2 pb-1 flex-1 flex flex-col justify-between">
+        <Link href={`/produto/${product.slug}`} className="block min-w-0">
           <h3
-            className="font-bold text-[14px] sm:text-[15px] line-clamp-2 overflow-hidden transition-colors min-h-[2.5rem] leading-tight"
+            className="min-h-[3rem] w-full break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] [overflow-wrap:anywhere]"
             style={{
               color: getOpportunityTitleColor(product.opportunity),
             }}
@@ -188,48 +188,48 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         </Link>
         <div className="mt-1 space-y-0.5">
           {product.promo_price && originalPrice ? (
-            <div className="flex items-center gap-2 h-4">
-              <span className="text-[10px] text-muted-foreground line-through">
+            <div className="flex min-h-4 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground line-through">
                 {formatCurrency(originalPrice)}
               </span>
-              <span className="text-[9px] font-bold text-[#00A650] border border-[#00A650] px-1 rounded">
+              <span className="shrink-0 whitespace-nowrap rounded border border-[#00A650] px-1 text-[9px] font-bold text-[#00A650]">
                 {Math.floor(((originalPrice - displayPrice) / originalPrice) * 100)}% OFF
               </span>
             </div>
           ) : null}
 
           <div className="flex flex-col">
-            <span className="text-xl sm:text-2xl font-bold text-[#00A650] leading-none">
+            <span className="whitespace-nowrap text-lg font-bold leading-none text-[#00A650] sm:text-xl lg:text-2xl">
               {formatCurrency(displayPrice)}
             </span>
           </div>
-          <p className="text-[10px] text-muted-foreground font-semibold leading-none pt-1">
+          <p className="break-words pt-1 text-[10px] font-semibold leading-snug text-muted-foreground">
             10x de{' '}
             <span className="font-bold text-blue-600">{formatCurrency(displayPrice / 10)}</span> sem
             juros no cartão
           </p>
         </div>
       </CardContent>
-      <CardFooter className="p-2 pt-0 flex flex-col gap-1 border-t-0 bg-transparent mt-auto">
+      <CardFooter className="min-w-0 p-2 pt-0 flex flex-col gap-1 border-t-0 bg-transparent mt-auto">
         <Button
           variant="outline"
           size="sm"
-          className="w-full gap-2 text-[10px] border-primary text-primary hover:bg-primary hover:text-white h-8"
+          className="h-auto min-h-8 w-full justify-center gap-1 whitespace-normal px-1 py-2 text-center text-[10px] leading-tight border-primary text-primary hover:bg-primary hover:text-white sm:gap-2"
           onClick={handleAddToCart}
         >
-          <ShoppingCart className="h-3.5 w-3.5" />
+          <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
           Adicionar
         </Button>
         <Button
           variant="default"
           size="lg"
           className={cn(
-            'w-full gap-2 text-xs bg-[#25D366] hover:bg-[#128C7E] text-white border-none font-bold h-10 shadow-md hover:shadow-lg transition-all',
+            'h-auto min-h-10 w-full justify-center gap-1 whitespace-normal px-1 py-2 text-center text-[10px] leading-tight bg-[#25D366] hover:bg-[#128C7E] text-white border-none font-bold shadow-md hover:shadow-lg transition-all sm:gap-2 sm:text-xs',
             productCardStyleClasses.button_style[style.button_style]
           )}
           onClick={handleWhatsApp}
         >
-          <WhatsAppIcon className="h-4 w-4" />
+          <WhatsAppIcon className="h-4 w-4 shrink-0" />
           Fazer Pedido
         </Button>
       </CardFooter>
