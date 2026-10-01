@@ -12,6 +12,8 @@ import { toast } from 'react-toastify';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import { filterOrder, sortOrders } from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
+import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
+import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
@@ -25,6 +27,9 @@ export const useOrderHistory = (filters?: any) => {
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
+  const [fiscalBadgeStatusByOrderId, setFiscalBadgeStatusByOrderId] = useState<
+    Partial<Record<string, OrderFiscalBadgeStatus>>
+  >({});
 
   const { width } = useWindowSize();
   const isMobile = width < CARD_VIEW_BREAKPOINT;
@@ -40,6 +45,7 @@ export const useOrderHistory = (filters?: any) => {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setFiscalBadgeStatusByOrderId({});
 
     fetchOrdersPage(currentPage, PAGE_SIZE, filters)
       .then(({ orders: pageOrders, total }) => {
@@ -48,6 +54,15 @@ export const useOrderHistory = (filters?: any) => {
         setTotalDatabaseItems(total);
         setLoading(false);
         autoFulfillExpiredOrders(pageOrders);
+        void fetchOrderFiscalBadgeStatuses(
+          pageOrders.map((order) => order.id).filter((id): id is string => Boolean(id))
+        )
+          .then((statuses) => {
+            if (active) setFiscalBadgeStatusByOrderId(statuses);
+          })
+          .catch(() => {
+            console.error('[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.');
+          });
       })
       .catch((err) => {
         if (!active) return;
@@ -246,6 +261,7 @@ export const useOrderHistory = (filters?: any) => {
 
   return {
     orders: filteredOrders,
+    fiscalBadgeStatusByOrderId,
     totalItems,
     currentPage,
     itemsPerPage: PAGE_SIZE,

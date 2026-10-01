@@ -11,9 +11,12 @@ import { OrderAssemblyBadges } from './OrderAssemblyBadges';
 import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
+import { OrderFiscalBadge } from './OrderFiscalBadge';
+import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryCardProps {
   readonly order: Order;
+  readonly fiscalBadgeStatus?: OrderFiscalBadgeStatus;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -44,6 +47,7 @@ interface OrderHistoryCardProps {
 
 const OrderHistoryCard = ({
   order,
+  fiscalBadgeStatus,
   onEdit,
   onDelete,
   onRestore,
@@ -177,25 +181,31 @@ const OrderHistoryCard = ({
           </span>
         </div>
 
-        <div
-          className={`flex items-center gap-1.5 flex-wrap justify-end ml-auto ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
-          onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
-        >
-          <OrderOperationalBadges
-            order={order}
-            showTrash={showTrash}
-            isPaidTraffic={isPaidTraffic}
-            statusConfig={statusConfig}
-            onStatusUpdate={onStatusUpdate}
-            onBlingUpdate={onBlingUpdate}
-            onStockCheckUpdate={onStockCheckUpdate}
-            layout="card"
+        <div className="ml-auto flex items-center gap-1.5">
+          <OrderFiscalBadge
+            status={fiscalBadgeStatus}
+            reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
-          <OrderAssemblyBadges
-            hasAssemblyDepot={hasAssemblyDepot}
-            hasAssemblyOutside={hasAssemblyOutside}
-            size="sm"
-          />
+          <div
+            className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
+            onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
+          >
+            <OrderOperationalBadges
+              order={order}
+              showTrash={showTrash}
+              isPaidTraffic={isPaidTraffic}
+              statusConfig={statusConfig}
+              onStatusUpdate={onStatusUpdate}
+              onBlingUpdate={onBlingUpdate}
+              onStockCheckUpdate={onStockCheckUpdate}
+              layout="card"
+            />
+            <OrderAssemblyBadges
+              hasAssemblyDepot={hasAssemblyDepot}
+              hasAssemblyOutside={hasAssemblyOutside}
+              size="sm"
+            />
+          </div>
         </div>
       </div>
 

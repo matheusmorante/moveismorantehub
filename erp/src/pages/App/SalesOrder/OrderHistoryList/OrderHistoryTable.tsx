@@ -8,9 +8,11 @@ import { useAutoScroll } from '../../../utils/useAutoScroll';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 
 import { OrderTableHeader, COLUMNS_DEF, ColumnDef, OrderHistoryFilters } from './OrderTableHeader';
+import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 export interface OrderHistoryTableProps {
   readonly orders: readonly Order[];
+  readonly fiscalBadgeStatusByOrderId?: Partial<Record<string, OrderFiscalBadgeStatus>>;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -49,6 +51,7 @@ export interface OrderHistoryTableProps {
 
 const OrderHistoryTable = ({
   orders,
+  fiscalBadgeStatusByOrderId,
   onEdit,
   onViewDetails,
   onDelete,
@@ -182,6 +185,7 @@ const OrderHistoryTable = ({
                 <OrderHistoryRow
                   key={order.id}
                   order={order}
+                  fiscalBadgeStatus={fiscalBadgeStatusByOrderId?.[order.id!]}
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
                   onDelete={onDelete}
@@ -219,6 +223,7 @@ const OrderHistoryTable = ({
               <OrderHistoryCard
                 key={order.id}
                 order={order}
+                fiscalBadgeStatus={fiscalBadgeStatusByOrderId?.[order.id!]}
                 onEdit={onEdit}
                 onViewDetails={onViewDetails}
                 onDelete={onDelete}

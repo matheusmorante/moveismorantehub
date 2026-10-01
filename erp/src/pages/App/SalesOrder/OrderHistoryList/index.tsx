@@ -65,6 +65,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
     const {
       orders,
+      fiscalBadgeStatusByOrderId,
       loading,
       handleDelete: onDelete,
       handleRestore,
@@ -218,6 +219,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         <div className="flex flex-col gap-4 flex-1">
           <OrderHistoryTable
             orders={orders}
+            fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
             onEdit={onEdit}
             onViewDetails={onViewDetails}
             onShowPostSaleActions={onShowPostSaleActions}

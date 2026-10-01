@@ -1,10 +1,10 @@
-import Order from '../../../types/order.type';
+import Order, { type AssistanceItem } from '../../../types/order.type';
+import type { Item } from '../../../types/items.type';
 import {
   restoreOrder,
   permanentDeleteDraftOrder,
   permanentDeleteOrder,
   updateOrder,
-  undoReturn,
 } from '../../../utils/orderHistoryService';
 import { toast } from 'react-toastify';
 
@@ -67,7 +67,7 @@ export const createOrderHistoryOperations = ({
       toast.success(`${selectedOrders.length} rascunho(s) excluído(s) permanentemente.`);
       setSelectedOrders([]);
       refresh();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao mover alguns pedidos para a lixeira.');
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export const createOrderHistoryOperations = ({
       toast.success(`${selectedOrders.length} pedido(s) restaurado(s) com sucesso!`);
       setSelectedOrders([]);
       refresh();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao restaurar alguns pedidos.');
     } finally {
       setLoading(false);
@@ -102,7 +102,7 @@ export const createOrderHistoryOperations = ({
         toast.success(`${selectedOrders.length} pedido(s) excluído(s) permanentemente.`);
         setSelectedOrders([]);
         refresh();
-      } catch (error) {
+      } catch {
         toast.error('Erro ao excluir alguns pedidos.');
       } finally {
         setLoading(false);
@@ -197,15 +197,15 @@ export const createOrderHistoryOperations = ({
   const handleStockCheckUpdate = async (
     id: string,
     value: boolean,
-    updatedItems?: any[],
-    updatedAssistanceItems?: any[]
+    updatedItems?: readonly Item[],
+    updatedAssistanceItems?: readonly AssistanceItem[]
   ) => {
     const currentOrder = orders.find((o) => o.id === id);
     if (!currentOrder) return;
 
     const updatePayload: any = { isStockChecked: value };
-    if (updatedItems) updatePayload.items = updatedItems;
-    if (updatedAssistanceItems) updatePayload.assistanceItems = updatedAssistanceItems;
+    if (updatedItems) updatePayload.items = [...updatedItems];
+    if (updatedAssistanceItems) updatePayload.assistanceItems = [...updatedAssistanceItems];
 
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updatePayload } : o)));
     try {

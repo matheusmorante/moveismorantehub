@@ -1,5 +1,6 @@
 import React from 'react';
-import Order, { VisibilitySettings } from '../../../types/order.type';
+import Order, { AssistanceItem, VisibilitySettings } from '../../../types/order.type';
+import { Item } from '../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, formatToBRDate, toTitleCase } from '../../../utils/formatters';
 import { formatOrderCode } from '../../../utils/orderCode';
@@ -9,9 +10,12 @@ import { OrderAssemblyBadges } from './OrderAssemblyBadges';
 import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
+import { OrderFiscalBadge } from './OrderFiscalBadge';
+import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryRowProps {
   order: Order;
+  fiscalBadgeStatus?: OrderFiscalBadgeStatus;
   onEdit: (
     order: Order,
     initialStep?: number,
@@ -32,8 +36,8 @@ interface OrderHistoryRowProps {
   onStockCheckUpdate?: (
     id: string,
     value: boolean,
-    updatedItems?: any[],
-    updatedAssistanceItems?: any[]
+    updatedItems?: readonly Item[],
+    updatedAssistanceItems?: readonly AssistanceItem[]
   ) => void;
   onViewDetails?: (order: Order) => void;
   isHighlighted?: boolean;
@@ -44,6 +48,7 @@ interface OrderHistoryRowProps {
 
 const OrderHistoryRow = ({
   order,
+  fiscalBadgeStatus,
   onEdit,
   onDelete,
   onRestore,
@@ -66,10 +71,6 @@ const OrderHistoryRow = ({
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';
   const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
-  const isEditLocked =
-    (order.status === 'fulfilled' || isCancelled) &&
-    ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
-
   const statuses = (
     settings.orderStatuses || [
       { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
@@ -143,9 +144,15 @@ const OrderHistoryRow = ({
         return (
           <td key={key} className={`${baseTdClass} whitespace-nowrap`}>
             <div className="flex flex-col gap-1 items-start">
-              <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                {formatOrderCode(order)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                  {formatOrderCode(order)}
+                </span>
+                <OrderFiscalBadge
+                  status={fiscalBadgeStatus}
+                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
+              </div>
               {order.linkedOrderId && (
                 <button
                   onClick={(e) => {
