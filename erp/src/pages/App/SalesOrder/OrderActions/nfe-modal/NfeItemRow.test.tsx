@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NfeItemRow } from './NfeItemRow';
 
 vi.mock('./NcmSelect', () => ({ NcmSelect: () => null }));
@@ -17,11 +17,11 @@ describe('NfeItemRow', () => {
     isUnregistered,
   }) as any;
 
-  it('mostra o alerta e explica no tooltip flutuante por que o NCM não foi carregado', () => {
+  it('mostra o alerta e explica no tooltip flutuante por que o NCM não foi carregado', async () => {
     const { container } = render(
       <NfeItemRow item={createItem(true)} onUpdateFiscal={vi.fn()} />
     );
-    const indicator = screen.getByRole('img', { name: 'Produto não cadastrado no ERP' });
+    const indicator = screen.getByRole('button', { name: 'Produto não cadastrado no ERP' });
 
     expect(container.querySelector('.bi-exclamation-triangle-fill')).toBeTruthy();
     expect(screen.queryByText('Não Cadastrado no ERP')).toBeNull();
@@ -33,7 +33,7 @@ describe('NfeItemRow', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
 
     fireEvent.mouseLeave(indicator);
-    expect(screen.queryByRole('tooltip')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 
     fireEvent.focus(indicator);
     expect(screen.getByRole('tooltip')).toBeTruthy();
@@ -42,7 +42,7 @@ describe('NfeItemRow', () => {
   it('não mostra o alerta para produto cadastrado', () => {
     render(<NfeItemRow item={createItem(false)} onUpdateFiscal={vi.fn()} />);
 
-    expect(screen.queryByRole('img', { name: 'Produto não cadastrado no ERP' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Produto não cadastrado no ERP' })).toBeNull();
     expect(screen.getByText('Cadastrado no ERP')).toBeTruthy();
   });
 });
