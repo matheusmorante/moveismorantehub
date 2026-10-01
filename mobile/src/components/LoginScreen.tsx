@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,7 +15,18 @@ import * as WebBrowser from 'expo-web-browser';
 import Svg, { Path } from 'react-native-svg';
 import { supabase } from '../services/supabaseClient';
 import { completeGoogleSignIn, getGoogleAuthRedirectUrl } from '../services/googleAuth';
-import { signInWithEmailPassword, signInWithGoogle } from '../services/authPasswordSetup';
+import {
+  signInWithEmailPassword,
+  signInWithGoogle,
+  validatePasswordSetup,
+} from '../services/authPasswordSetup';
+import {
+  getPasswordAuthErrorMessage,
+  requestPasswordRecoveryCode,
+  updateAuthenticatedPassword,
+  verifyPasswordRecoveryCode,
+} from '../services/authPasswordRecovery';
+import { useAuth } from '../contexts/AuthContext';
 import { styles } from './LoginScreen.styles';
 
 interface Props {
@@ -37,10 +49,122 @@ const authSessionTimeout = <T,>(promise: Promise<T>) =>
   ]);
 
 export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => {
+  const { beginPasswordRecovery, endPasswordRecovery, handleLogout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryStage, setRecoveryStage] = useState<'idle' | 'email' | 'code' | 'password'>('idle');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  const startRecovery = () => {
+    setErrorMsg('');
+    setRecoveryMessage(null);
+    setRecoveryStage('email');
+    beginPasswordRecovery();
+  };
+
+  const sendRecoveryCode = async () => {
+    const recoveryEmail = email.trim();
+    if (!recoveryEmail) {
+      setRecoveryMessage({ tone: 'error', text: 'Informe seu e-mail para continuar.' });
+      return;
+    }
+
+    setRecoveryBusy(true);
+    setRecoveryMessage(null);
+    try {
+      const { error } = await requestPasswordRecoveryCode(supabase, recoveryEmail);
+      if (error) {
+        setRecoveryMessage({
+          tone: 'error',
+          text: getPasswordAuthErrorMessage(error, 'recovery-send'),
+        });
+        return;
+      }
+      setRecoveryStage('code');
+      setRecoveryMessage({
+        tone: 'success',
+        text: 'Se a conta estiver cadastrada, enviaremos um código para esse e-mail.',
+      });
+    } catch {
+      setRecoveryMessage({
+        tone: 'error',
+        text: 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
+      });
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const verifyRecoveryCode = async () => {
+    setRecoveryBusy(true);
+    setRecoveryMessage(null);
+    try {
+      const { error } = await verifyPasswordRecoveryCode(supabase, email, recoveryCode);
+      if (error) {
+        setRecoveryMessage({
+          tone: 'error',
+          text: getPasswordAuthErrorMessage(error, 'recovery-verify'),
+        });
+        return;
+      }
+      setRecoveryCode('');
+      setRecoveryStage('password');
+    } catch {
+      setRecoveryMessage({ tone: 'error', text: 'Código inválido. Confira e tente novamente.' });
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const saveNewPassword = async () => {
+    const validationError = validatePasswordSetup(newPassword, confirmNewPassword);
+    if (validationError) {
+      setRecoveryMessage({ tone: 'error', text: validationError });
+      return;
+    }
+
+    setRecoveryBusy(true);
+    setRecoveryMessage(null);
+    try {
+      const { error } = await updateAuthenticatedPassword(supabase, newPassword);
+      if (error) {
+        setRecoveryMessage({
+          tone: 'error',
+          text: getPasswordAuthErrorMessage(error, 'password-update'),
+        });
+        return;
+      }
+      await handleLogout();
+      endPasswordRecovery();
+      Alert.alert('Senha atualizada', 'Agora você pode entrar com sua nova senha.');
+    } catch {
+      setRecoveryMessage({
+        tone: 'error',
+        text: 'Não foi possível atualizar a senha. Tente novamente.',
+      });
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const cancelRecovery = async () => {
+    if (recoveryStage === 'password') await handleLogout();
+    endPasswordRecovery();
+    setRecoveryStage('idle');
+    setRecoveryCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setRecoveryMessage(null);
+  };
 
   const handleEmailPasswordLogin = async () => {
     try {
@@ -97,6 +221,199 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
       setLoading(false);
     }
   };
+
+  if (recoveryStage !== 'idle') {
+    const recoveryTitle =
+      recoveryStage === 'email'
+        ? 'Recuperar senha'
+        : recoveryStage === 'code'
+          ? 'Digite o código'
+          : 'Crie sua nova senha';
+
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, isDarkMode && styles.containerDark]}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.logoCircle}>
+              <Lock size={32} color="#ffffff" strokeWidth={2} />
+            </View>
+            <Text style={[styles.title, isDarkMode && styles.textLight]}>{recoveryTitle}</Text>
+            <Text style={styles.subtitle}>
+              {recoveryStage === 'email'
+                ? 'Informe o e-mail da sua conta MoranteHub.'
+                : recoveryStage === 'code'
+                  ? 'Enviamos um código para o e-mail informado.'
+                  : 'Escolha uma senha com pelo menos 8 caracteres.'}
+            </Text>
+          </View>
+
+          {recoveryMessage ? (
+            <View
+              style={[
+                recoveryMessage.tone === 'error' ? styles.errorAlert : styles.recoverySuccessAlert,
+              ]}
+            >
+              {recoveryMessage.tone === 'error' ? (
+                <ShieldAlert size={16} color="#ef4444" style={{ marginRight: 8 }} />
+              ) : null}
+              <Text
+                style={
+                  recoveryMessage.tone === 'error' ? styles.errorText : styles.recoverySuccessText
+                }
+              >
+                {recoveryMessage.text}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.form}>
+            {recoveryStage === 'email' ? (
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>E-mail</Text>
+                <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
+                  <Mail size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                  <TextInput
+                    accessibilityLabel="E-mail para recuperação"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    onChangeText={setEmail}
+                    placeholder="seu@email.com"
+                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                    style={[styles.credentialInput, isDarkMode && styles.credentialInputDark]}
+                    value={email}
+                  />
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={recoveryBusy}
+                  onPress={() => void sendRecoveryCode()}
+                  style={styles.submitBtn}
+                >
+                  {recoveryBusy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Enviar código</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : recoveryStage === 'code' ? (
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>
+                  Código de recuperação
+                </Text>
+                <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
+                  <ShieldAlert size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                  <TextInput
+                    accessibilityLabel="Código de recuperação"
+                    autoCapitalize="none"
+                    autoComplete="one-time-code"
+                    keyboardType="number-pad"
+                    onChangeText={(value) => setRecoveryCode(value.replace(/\s/g, ''))}
+                    placeholder="Código recebido por e-mail"
+                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                    style={[styles.credentialInput, isDarkMode && styles.credentialInputDark]}
+                    value={recoveryCode}
+                  />
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={recoveryBusy || !recoveryCode.trim()}
+                  onPress={() => void verifyRecoveryCode()}
+                  style={[styles.submitBtn, (recoveryBusy || !recoveryCode.trim()) && styles.submitBtnDisabled]}
+                >
+                  {recoveryBusy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Validar código</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={recoveryBusy}
+                  onPress={() => void sendRecoveryCode()}
+                  style={styles.recoverySecondaryButton}
+                >
+                  <Text style={styles.recoverySecondaryText}>Reenviar código</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.credentialsForm}>
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>
+                    Nova senha
+                  </Text>
+                  <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
+                    <Lock size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                    <TextInput
+                      accessibilityLabel="Nova senha"
+                      autoComplete="new-password"
+                      onChangeText={setNewPassword}
+                      placeholder="Pelo menos 8 caracteres"
+                      placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                      secureTextEntry
+                      style={[styles.credentialInput, isDarkMode && styles.credentialInputDark]}
+                      value={newPassword}
+                    />
+                  </View>
+                </View>
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>
+                    Confirmar nova senha
+                  </Text>
+                  <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
+                    <Lock size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                    <TextInput
+                      accessibilityLabel="Confirmar nova senha"
+                      autoComplete="new-password"
+                      onChangeText={setConfirmNewPassword}
+                      onSubmitEditing={() => void saveNewPassword()}
+                      placeholder="Digite novamente"
+                      placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                      returnKeyType="done"
+                      secureTextEntry
+                      style={[styles.credentialInput, isDarkMode && styles.credentialInputDark]}
+                      value={confirmNewPassword}
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={recoveryBusy}
+                  onPress={() => void saveNewPassword()}
+                  style={[styles.submitBtn, recoveryBusy && styles.submitBtnDisabled]}
+                >
+                  {recoveryBusy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Salvar nova senha</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={recoveryBusy}
+              onPress={() => void cancelRecovery()}
+              style={styles.recoverySecondaryButton}
+            >
+              <Text style={[styles.recoverySecondaryText, isDarkMode && styles.fieldLabelDark]}>
+                Voltar ao login
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -169,6 +486,14 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
                     />
                   </View>
                 </View>
+
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={startRecovery}
+                  style={styles.forgotPasswordButton}
+                >
+                  <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   accessibilityRole="button"

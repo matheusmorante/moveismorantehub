@@ -11,12 +11,12 @@ const { PGlite } = require('@electric-sql/pglite');
     CREATE TABLE nfe_sequences(modelo varchar(2), serie varchar(4), ambiente integer,
       ultimo_numero integer, updated_at timestamptz DEFAULT now(), PRIMARY KEY(modelo,serie,ambiente));
     CREATE TABLE orders (
-      id uuid PRIMARY KEY, status text, order_type text, items jsonb, order_data jsonb,
+      id text PRIMARY KEY, status text, order_type text, items jsonb, order_data jsonb,
       stock_processed boolean, order_index integer, linked_order_id text, return_order_id text,
       total_amount numeric DEFAULT 0, updated_at timestamptz DEFAULT now()
     );
     CREATE TABLE nfe_documents (
-      id uuid PRIMARY KEY, order_id uuid REFERENCES orders(id), numero_nfe integer NOT NULL,
+      id uuid PRIMARY KEY, order_id text REFERENCES orders(id), numero_nfe integer NOT NULL,
       serie varchar(4) NOT NULL DEFAULT '1', chave_acesso varchar(44), modelo varchar(2) NOT NULL DEFAULT '55',
       ambiente integer NOT NULL DEFAULT 2, status varchar(30) NOT NULL DEFAULT 'pendente', motivo_status text,
       xml_nfe text, xml_protocolo text, numero_protocolo varchar(30), danfe_url text,
@@ -26,10 +26,10 @@ const { PGlite } = require('@electric-sql/pglite');
     CREATE FUNCTION create_order_with_inventory_transaction(p_order_id text,p_order_payload jsonb,p_items jsonb,p_payments jsonb,p_is_update boolean)
       RETURNS jsonb LANGUAGE plpgsql AS $$
       DECLARE v_existing orders%ROWTYPE; BEGIN
-        SELECT * INTO v_existing FROM orders WHERE id=p_order_id::uuid;
+        SELECT * INTO v_existing FROM orders WHERE id=p_order_id;
         IF FOUND THEN RETURN jsonb_build_object('id',v_existing.id,'idempotent_replay',true); END IF;
         INSERT INTO orders(id,status,order_type,items,order_data,order_index,linked_order_id,total_amount)
-        VALUES(p_order_id::uuid,p_order_payload->>'status',p_order_payload->>'order_type',p_items,p_order_payload->'order_data',
+        VALUES(p_order_id,p_order_payload->>'status',p_order_payload->>'order_type',p_items,p_order_payload->'order_data',
           NULLIF(p_order_payload->>'order_index','')::integer,p_order_payload->>'linked_order_id',COALESCE((p_order_payload->>'total_amount')::numeric,0));
         RETURN jsonb_build_object('id',p_order_id,'idempotent_replay',false);
       END $$;
@@ -64,6 +64,9 @@ const { PGlite } = require('@electric-sql/pglite');
   const safeDraftRetryMigration = fs.readFileSync(path.join(__dirname,
     '../migrations/20260926290000_support_safe_nfe_draft_retries_after_rejection.sql'), 'utf8');
   await db.exec(safeDraftRetryMigration);
+  const returnEnvironmentMigration = fs.readFileSync(path.join(__dirname,
+    '../migrations/20261001163000_nfe_return_environment_isolation.sql'), 'utf8');
+  await db.exec(returnEnvironmentMigration);
 
   const saleId = '11111111-1111-4111-8111-111111111111';
   const documentId = '22222222-2222-4222-8222-222222222222';
@@ -105,7 +108,7 @@ const { PGlite } = require('@electric-sql/pglite');
   assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations')).rows[0].count, 1);
   await db.query('UPDATE nfe_documents SET chave_acesso=$2 WHERE id=$1', [documentId, '1'.repeat(44)]);
   await db.query('UPDATE nfe_documents SET numero_protocolo=$2 WHERE id=$1', [documentId, '141260000123456']);
-  const prepare = () => db.query(`SELECT prepare_nfe_operation_draft('return'::text,$1::uuid,$2::uuid,1::smallint,NULL::text,NULL::uuid) AS id`,
+  const prepare = () => db.query(`SELECT prepare_nfe_operation_draft('return'::text,$1::uuid,$2::text,1::smallint,NULL::text,NULL::uuid) AS id`,
     [documentId, returnId]);
   await assert.rejects(prepare(), /atendida/);
   await db.query("UPDATE orders SET status='fulfilled' WHERE id=$1", [returnId]);
@@ -184,6 +187,76 @@ const { PGlite } = require('@electric-sql/pglite');
   await assert.rejects(db.query(`INSERT INTO nfe_operation_drafts(operation_kind,finalidade,original_document_id,
     original_access_key,environment) VALUES ('estorno',4,$1,$2,1)`,
   [documentId, '1'.repeat(44)]), /check|violates/i);
-  console.log('Linhas fiscais: autorização, limite faturado, vínculo, persistência atômica e replay idempotente OK');
+
+  const hmlSaleId = '12121212-1212-4212-8212-121212121212';
+  const hmlDocumentId = '23232323-2323-4232-8232-232323232323';
+  const runId = 'TEST_AUT_20261001_HML_LINEAGE';
+  const hmlSaleData = { orderType: 'sale', is_test: true, test_environment: 'homologation', testRunId: runId };
+  await db.query('INSERT INTO orders(id,status,order_type,items,order_data) VALUES ($1,\'fulfilled\',\'sale\',$2::jsonb,$3::jsonb)',
+    [hmlSaleId, JSON.stringify([saleItem]), JSON.stringify(hmlSaleData)]);
+  await db.query(`INSERT INTO nfe_documents(id,order_id,numero_nfe,modelo,ambiente,status,document_type)
+    VALUES ($1,$2,900,'55',2,'homologada','outbound'),
+           ('78787878-7878-4787-8787-787878787878',$2,901,'55',1,'autorizada','outbound')`, [hmlDocumentId, hmlSaleId]);
+  await db.query(`INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml)
+    VALUES ($1,1,'SKU-1','Cadeira',5,25,125,'<prod/>','<imposto/>')`, [hmlDocumentId]);
+  await db.query(`INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml)
+    VALUES ('78787878-7878-4787-8787-787878787878',1,'SKU-1','Cadeira',5,25,125,'<prod/>','<imposto/>')`);
+  const hmlReturnId = '34343434-3434-4434-8434-343434343434';
+  const hmlReturnPayload = { order_type: 'return', linked_order_id: hmlSaleId, order_index: 2, status: 'scheduled',
+    order_data: { orderType: 'return', linkedOrderId: hmlSaleId, returnRequestId: hmlReturnId,
+      is_test: true, test_environment: 'homologation', testRunId: runId } };
+  const hmlPartialItems = [{ originalOrderItemIndex: 0, productId: saleItem.productId, code: 'SKU-1',
+    description: 'Cadeira', quantity: 2, returnedQuantity: 2 }];
+  const hmlAllocation = [{ returnItemIndex: 0, originalOrderItemIndex: 0, originalDocumentId: hmlDocumentId,
+    originalItemNumber: 1, quantity: 2 }];
+  const createHmlReturn = (id, itemRows = hmlPartialItems, fiscalRows = hmlAllocation, payload = hmlReturnPayload) => db.query(
+    'SELECT create_return_order_with_fiscal_capacity($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb) AS result',
+    [id, JSON.stringify(payload), JSON.stringify(itemRows), '[]', JSON.stringify(fiscalRows)]);
+  const hmlCreated = (await createHmlReturn(hmlReturnId)).rows[0].result;
+  assert.equal(hmlCreated.idempotent_replay, false);
+  const storedHmlMarkers = (await db.query('SELECT order_data FROM orders WHERE id=$1', [hmlReturnId])).rows[0].order_data;
+  assert.deepEqual({ is_test: storedHmlMarkers.is_test, test_environment: storedHmlMarkers.test_environment,
+    testRunId: storedHmlMarkers.testRunId }, { is_test: true, test_environment: 'homologation', testRunId: runId });
+  assert.equal((await createHmlReturn(hmlReturnId)).rows[0].result.idempotent_replay, true,
+    'replay HML com mesma origem/alocação precisa retornar o pedido existente');
+  assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations WHERE return_order_id=$1', [hmlReturnId])).rows[0].count, 1);
+  const mismatchedReplayPayload = { ...hmlReturnPayload, order_data: { ...hmlReturnPayload.order_data, testRunId: `${runId}_OTHER` } };
+  await assert.rejects(createHmlReturn(hmlReturnId, hmlPartialItems, hmlAllocation, mismatchedReplayPayload), /isolamento do ambiente|testRunId/);
+
+  const excessReturnId = '45454545-4545-4454-8454-454545454545';
+  const excessiveItems = [{ ...hmlPartialItems[0], quantity: 4, returnedQuantity: 4 }];
+  const excessiveAllocation = [{ ...hmlAllocation[0], quantity: 4 }];
+  const excessPayload = { ...hmlReturnPayload, order_data: { ...hmlReturnPayload.order_data, returnRequestId: excessReturnId } };
+  await assert.rejects(createHmlReturn(excessReturnId, excessiveItems, excessiveAllocation, excessPayload), /Quantidade acima do saldo faturado/);
+  assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [excessReturnId])).rows[0].count, 0,
+    'excesso de saldo deve falhar antes de criar devolução comercial');
+
+  // HML markers may not allocate against a Production NF-e, even on the same sale.
+  const hmlWithProductionDoc = [{ ...hmlAllocation[0], originalDocumentId: '78787878-7878-4787-8787-787878787878' }];
+  const badCrossEnvId = '56565656-5656-4565-8565-565656565656';
+  const badCrossEnvPayload = { ...hmlReturnPayload, order_data: { ...hmlReturnPayload.order_data, returnRequestId: badCrossEnvId } };
+  await assert.rejects(createHmlReturn(badCrossEnvId, hmlPartialItems, hmlWithProductionDoc, badCrossEnvPayload), /Produção/);
+  assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [badCrossEnvId])).rows[0].count, 0);
+  const hmlForProductionSourcePayload = { ...payload, order_data: { ...payload.order_data, testRunId: runId,
+    is_test: true, test_environment: 'homologation' } };
+  const hmlForProductionId = '67676767-6767-4676-8676-676767676767';
+  await assert.rejects(createHmlReturn(hmlForProductionId, items, allocation, hmlForProductionSourcePayload), /Produção/);
+  assert.equal((await db.query('SELECT count(*) AS count FROM orders WHERE id=$1', [hmlForProductionId])).rows[0].count, 0);
+
+  await db.query('UPDATE orders SET status=\'fulfilled\' WHERE id=$1', [hmlReturnId]);
+  await db.query('UPDATE nfe_documents SET chave_acesso=$2,numero_protocolo=$3 WHERE id=$1',
+    [hmlDocumentId, '3'.repeat(44), '141260000123457']);
+  const prepareHml = (environment) => db.query(`SELECT prepare_nfe_operation_draft('return'::text,$1::uuid,$2::text,$3::smallint,NULL::text,NULL::uuid) AS id`,
+    [hmlDocumentId, hmlReturnId, environment]);
+  await assert.rejects(prepareHml(1), /não autorizado no ambiente selecionado/,
+    'uma NF-e HML não pode iniciar devolução com environment=1');
+  const hmlDraftId = (await prepareHml(2)).rows[0].id;
+  assert.equal((await prepareHml(2)).rows[0].id, hmlDraftId, 'rascunho de devolução HML deve ser idempotente');
+  assert.equal((await db.query('SELECT environment FROM nfe_operation_drafts WHERE id=$1', [hmlDraftId])).rows[0].environment, 2);
+  const hmlDraftLine = (await db.query('SELECT quantity,gross_value FROM nfe_operation_draft_lines WHERE draft_id=$1', [hmlDraftId])).rows[0];
+  assert.equal(Number(hmlDraftLine.quantity), 2, 'devolução parcial mantém quantidade proporcional');
+  assert.equal(Number(hmlDraftLine.gross_value), 50, 'total parcial é proporcional à quantidade devolvida');
+
+  console.log('Linhas fiscais: ambientes Produção/HML isolados, devolução parcial, limite faturado, vínculo, persistência atômica e replay idempotente OK');
   await db.close();
 })().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -24,7 +24,7 @@ const AppContent = () => {
     loadingProfile,
     handleLogout,
     passwordCredentialStatus,
-    refreshPasswordCredentialStatus,
+    passwordRecoveryInProgress,
     createPasswordCredential,
   } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -34,7 +34,9 @@ const AppContent = () => {
     <View testID="app-root" style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#0f172a' : '#f8fafc'} />
 
-      {loadingProfile || (userProfile && passwordCredentialStatus === 'checking') ? (
+      {passwordRecoveryInProgress ? (
+        <LoginScreen isDarkMode={isDarkMode} onLoginSuccess={() => {}} />
+      ) : loadingProfile || (userProfile && passwordCredentialStatus === 'checking') ? (
         <View style={[styles.center, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -68,11 +70,11 @@ const AppContent = () => {
       <PasswordSetupModal
         visible={
           !!userProfile &&
-          (passwordCredentialStatus === 'required' || passwordCredentialStatus === 'error')
+          !passwordRecoveryInProgress &&
+          passwordCredentialStatus === 'required'
         }
         status={passwordCredentialStatus}
         email={userProfile?.email}
-        onRetry={refreshPasswordCredentialStatus}
         onCreatePassword={createPasswordCredential}
         onLogout={handleLogout}
       />

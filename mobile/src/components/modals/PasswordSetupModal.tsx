@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { Lock } from 'lucide-react-native';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Lock, ShieldAlert } from 'lucide-react-native';
 import type { PasswordCredentialStatus } from '../../contexts/AuthContext';
 import { validatePasswordSetup } from '../../services/authPasswordSetup';
 
@@ -18,27 +18,17 @@ type Props = {
   visible: boolean;
   status: PasswordCredentialStatus;
   email?: string;
-  onRetry: () => Promise<boolean>;
   onCreatePassword: (password: string, confirmation: string) => Promise<void>;
   onLogout: () => Promise<void>;
 };
 
-export function PasswordSetupModal({
-  visible,
-  status,
-  email,
-  onRetry,
-  onCreatePassword,
-  onLogout,
-}: Props) {
+export function PasswordSetupModal({ visible, status, email, onCreatePassword, onLogout }: Props) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
 
-  if (!visible) return null;
-
-  const isCheckError = status === 'error';
+  if (!visible || status !== 'required') return null;
 
   const handleCreatePassword = async () => {
     const validationError = validatePasswordSetup(password, confirmation);
@@ -61,89 +51,67 @@ export function PasswordSetupModal({
   };
 
   return (
-    <Modal
-      animationType="fade"
-      onRequestClose={() => {}}
-      transparent
-      visible={visible}
-    >
+    <Modal animationType="fade" onRequestClose={() => {}} transparent visible>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.backdrop}
       >
         <View accessibilityViewIsModal style={styles.card}>
-          <View style={[styles.icon, isCheckError && styles.errorIcon]}>
-            {isCheckError ? (
-              <ShieldAlert size={25} color="#dc2626" />
-            ) : (
-              <Lock size={25} color="#2563eb" />
-            )}
+          <View style={styles.icon}>
+            <Lock size={25} color="#2563eb" />
           </View>
           <Text accessibilityRole="header" style={styles.title}>
-            {isCheckError ? 'Não foi possível verificar sua senha' : 'Crie sua senha de acesso'}
+            Crie sua senha de acesso
           </Text>
           <Text style={styles.description}>
-            {isCheckError
-              ? 'Não conseguimos confirmar sua credencial no Supabase. Tente novamente.'
-              : 'Cadastre uma senha para também poder entrar sem o Google.'}
+            Cadastre uma senha para também poder entrar sem o Google.
           </Text>
           {email ? <Text style={styles.email}>{email}</Text> : null}
 
-          {!isCheckError ? (
-            <View style={styles.fields}>
-              <TextInput
-                accessibilityLabel="Nova senha"
-                autoComplete="new-password"
-                onChangeText={setPassword}
-                placeholder="Nova senha"
-                placeholderTextColor="#94a3b8"
-                secureTextEntry
-                style={styles.input}
-                value={password}
-              />
-              <TextInput
-                accessibilityLabel="Confirmar senha"
-                autoComplete="new-password"
-                onChangeText={setConfirmation}
-                onSubmitEditing={() => void handleCreatePassword()}
-                placeholder="Confirmar senha"
-                placeholderTextColor="#94a3b8"
-                returnKeyType="done"
-                secureTextEntry
-                style={styles.input}
-                value={confirmation}
-              />
-              <Text style={styles.hint}>Use pelo menos 8 caracteres.</Text>
-            </View>
+          <View style={styles.fields}>
+            <TextInput
+              accessibilityLabel="Nova senha"
+              autoComplete="new-password"
+              onChangeText={setPassword}
+              placeholder="Nova senha"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+            />
+            <TextInput
+              accessibilityLabel="Confirmar senha"
+              autoComplete="new-password"
+              onChangeText={setConfirmation}
+              onSubmitEditing={() => void handleCreatePassword()}
+              placeholder="Confirmar senha"
+              placeholderTextColor="#94a3b8"
+              returnKeyType="done"
+              secureTextEntry
+              style={styles.input}
+              value={confirmation}
+            />
+            <Text style={styles.hint}>Use pelo menos 8 caracteres.</Text>
+          </View>
+
+          {message ? (
+            <Text accessibilityLiveRegion="polite" style={styles.error}>
+              {message}
+            </Text>
           ) : null}
 
-          {message ? <Text accessibilityLiveRegion="polite" style={styles.error}>{message}</Text> : null}
-
-          {isCheckError ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => {
-                setMessage('');
-                void onRetry().catch(() => undefined);
-              }}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryButtonText}>Tentar novamente</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              accessibilityRole="button"
-              disabled={isSubmitting}
-              onPress={() => void handleCreatePassword()}
-              style={[styles.primaryButton, isSubmitting && styles.disabledButton]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Criar senha</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={() => void handleCreatePassword()}
+            style={[styles.primaryButton, isSubmitting && styles.disabledButton]}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Criar senha</Text>
+            )}
+          </TouchableOpacity>
 
           <TouchableOpacity
             accessibilityRole="button"
@@ -187,7 +155,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     marginBottom: 18,
   },
-  errorIcon: { backgroundColor: '#fef2f2' },
   title: { color: '#0f172a', fontSize: 21, fontWeight: '900', letterSpacing: -0.3 },
   description: { color: '#475569', fontSize: 14, lineHeight: 21, marginTop: 8 },
   email: {

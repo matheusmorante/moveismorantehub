@@ -39,6 +39,11 @@ const INITIAL_FILTERS = {
   sortBy: 'newest',
 };
 
+const PRICE_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
+
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -236,39 +241,27 @@ function HomeContent() {
     filters.type !== 'all';
 
   const filterBadges = useMemo(() => {
-    const badges: Array<{ id: string; label: string; onRemove: () => void }> = [];
-    if (filters.search) {
-      badges.push({
-        id: 'search',
-        label: `Busca: "${filters.search}"`,
-        onRemove: () => handleFilterChange({ search: '' }),
-      });
-    }
+    const hasPriceRange = filters.minPrice > 0 || filters.maxPrice < 10000;
+    if (!hasPriceRange) return [];
 
-    if (filters.type !== 'all') {
-      let typeLabel = filters.type;
-      if (filters.type === 'salvados') {
-        typeLabel = 'Queima dos Salvados';
-      } else if (filters.type === 'promotion') {
-        typeLabel = 'Promoções';
-      } else {
-        const opp = opportunities.find((o) => o.id === filters.type);
-        if (opp) typeLabel = opp.name;
-      }
+    const priceRangeLabel =
+      filters.minPrice > 0 && filters.maxPrice < 10000
+        ? `Faixa de preço: ${PRICE_FORMATTER.format(filters.minPrice)} a ${PRICE_FORMATTER.format(filters.maxPrice)}`
+        : filters.minPrice > 0
+          ? `Faixa de preço: a partir de ${PRICE_FORMATTER.format(filters.minPrice)}`
+          : `Faixa de preço: até ${PRICE_FORMATTER.format(filters.maxPrice)}`;
 
-      badges.push({
-        id: 'type',
-        label: `Tipo: ${typeLabel}`,
-        onRemove: () => handleFilterChange({ type: 'all' }),
-      });
-    }
-
-    return badges;
-  }, [filters, categories, relationships, opportunities, handleFilterChange]);
+    return [
+      {
+        id: 'price-range',
+        label: priceRangeLabel,
+        onRemove: () => handleFilterChange({ minPrice: 0, maxPrice: 10000 }),
+      },
+    ];
+  }, [filters.minPrice, filters.maxPrice, handleFilterChange]);
 
   const activeFilterCount = filterBadges.length;
   const hasBaseNavigationFilter = filters.envs.length > 0 || filters.cats.length > 0;
-  const showHeroAndAdvantages = !filters.search && !hasBaseNavigationFilter;
   const baseFilterTitle = useMemo(() => {
     const selectedCategories = categories
       .filter((category) => filters.cats.includes(category.id))
@@ -279,6 +272,24 @@ function HomeContent() {
     const labels = [...selectedCategories, ...selectedEnvironments];
     return labels.length > 0 ? `Produtos em ${labels.join(', ')}` : 'Resultados da pesquisa';
   }, [categories, filters.cats, filters.envs]);
+  const selectedOpportunity = opportunities.find(
+    (opportunity) => String(opportunity.id) === String(filters.type)
+  );
+  const opportunityPageTitle =
+    selectedOpportunity?.name ||
+    (filters.type === 'salvados'
+      ? 'Queima dos Salvados'
+      : filters.type === 'liquidacao'
+        ? 'Mega Liquidação'
+        : 'Ofertas');
+  const hasOpportunityFilter = filters.type !== 'all';
+  const pageTitle = hasBaseNavigationFilter
+    ? baseFilterTitle
+    : hasOpportunityFilter
+      ? opportunityPageTitle
+      : 'Catálogo de Produtos';
+  const showHeroAndAdvantages =
+    !filters.search && !hasBaseNavigationFilter && !hasOpportunityFilter;
 
   return (
     <div className="flex flex-col gap-0">
@@ -296,11 +307,9 @@ function HomeContent() {
         <div className="space-y-6 pb-20">
           {/* Barra de filtros */}
           <div className="space-y-4 pb-6 mb-8 pt-4">
-            <h2 className="text-2xl md:text-3xl font-black text-primary">
-              {hasBaseNavigationFilter ? baseFilterTitle : 'Catálogo de Produtos'}
-            </h2>
+            <h2 className="text-2xl md:text-3xl font-black text-primary">{pageTitle}</h2>
 
-            {/* Busca + ambientes (ProductFilter sem o select de ordenação duplicado) */}
+            {/* Controles de pesquisa e filtros do catálogo */}
             <ProductFilter
               filters={filters}
               categories={categories}
@@ -333,7 +342,7 @@ function HomeContent() {
                   <div className="flex flex-row flex-nowrap items-center gap-2 py-0.5">
                     {filterBadges.length === 0 && (
                       <span className="text-xs text-muted-foreground italic whitespace-nowrap">
-                        Nenhum filtro ativo
+                        Nenhum filtro aplicado
                       </span>
                     )}
                     {filterBadges.map((badge) => (
@@ -393,9 +402,6 @@ function HomeContent() {
             <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
               <FilterContent
                 filters={filters}
-                categories={categories.filter((c) => c.type === 'category')}
-                environments={environments}
-                relationships={relationships}
                 onApply={handleFilterChange}
               />
             </aside>
@@ -438,9 +444,6 @@ function HomeContent() {
 
           <FilterContent
             filters={filters}
-            categories={categories.filter((c) => c.type === 'category')}
-            environments={environments}
-            relationships={relationships}
             onApply={handleFilterChange}
             onClose={() => setIsSidebarOpen(false)}
           />

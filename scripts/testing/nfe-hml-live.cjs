@@ -1,4 +1,5 @@
-// Existing real ERP order, NF-e 55 homologation only. Never creates commercial data.
+// Existing eligible ERP sale or explicitly tagged HML test order, NF-e 55 HML only.
+// This harness never creates commercial data.
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
@@ -16,7 +17,7 @@ function cli(args, input) {
   return child.stdout;
 }
 async function main() {
-  const [deployment, envPath, mode = 'check', existingOrderId, existingRequestId] = process.argv.slice(2);
+  const [deployment, envPath, mode = 'check', existingOrderId, existingRequestId, expectedTestRunId] = process.argv.slice(2);
   if (!/^https:\/\/morantehub-[a-z0-9-]+\.vercel\.app$/.test(deployment || ''))
     throw new Error('Use a verified MoranteHub deployment URL.');
   const env = dotenv.parse(fs.readFileSync(envPath));
@@ -67,15 +68,32 @@ async function main() {
     throw new Error('Provide the exact existing real order ID and original emission request for retries.');
   const { data: order, error: orderError } = await db.from('orders')
     .select('id,order_type,status,deleted,order_data').eq('id', orderId).single();
+  const hasTestMetadata = Boolean(order?.order_data?.testRunId || order?.order_data?.is_test ||
+    order?.order_data?.test_environment);
+  const isTaggedHmlTestOrder = Boolean(expectedTestRunId &&
+    order?.order_data?.testRunId === expectedTestRunId &&
+    order?.order_data?.is_test === true &&
+    order?.order_data?.test_environment === 'homologation' &&
+    /^[0-9a-f-]{36}$/i.test(order?.id || ''));
+  let savedSelections = {};
   if (orderError || order.deleted === true || order.order_type !== 'sale' ||
       ['draft', 'cancelled', 'cancelado'].includes(order.status) ||
-      order.order_data?.testRunId || order.order_data?.fiscalScenario === 'HML_TECHNICAL_V1')
-    throw new Error('An existing eligible real sale is required; synthetic orders are refused.');
+      (hasTestMetadata && !isTaggedHmlTestOrder) ||
+      order.order_data?.fiscalScenario === 'HML_TECHNICAL_V1')
+    throw new Error('An eligible sale or explicitly tagged HML test sale is required.');
+  if (mode === 'emit' && isTaggedHmlTestOrder) {
+    const selections = order.order_data?.hmlTestFiscalSelections;
+    if (!selections?.itemFiscalSelections)
+      throw new Error('The tagged HML test order must carry reviewed fiscal selections.');
+    savedSelections = {
+      itemFiscalSelections: selections.itemFiscalSelections,
+      itemCsosnOverrides: selections.itemCsosnOverrides || {},
+    };
+  }
   console.log(JSON.stringify({ stage: 'order', orderId, orderNumber: order.order_data?.orderNumber,
     emissionRequestId, environment: 2 }));
   const before = await captureOperationalState(orderId);
   let prior;
-  let savedSelections = {};
   if (mode !== 'emit') {
     const { data, error } = await db.from('nfe_documents')
       .select('id,xml_nfe,xml_protocolo,numero_protocolo,numero_nfe,serie,status,fiscal_snapshot_id,hml_response_history')

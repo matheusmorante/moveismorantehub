@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronRight, Menu, Flame } from 'lucide-react';
+import { ChevronRight, Menu, Flame, Tag } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -100,6 +100,38 @@ export function MobileMenu() {
               ))}
             </nav>
 
+            {/* Oportunidades do catálogo */}
+            <div className="pt-4 border-t border-gray-100">
+              <p className="px-3 text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">
+                Ofertas em destaque
+              </p>
+              <div className="space-y-2">
+                <Link
+                  href="/?type=salvados"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Flame className="h-4 w-4 fill-current text-orange-500" />
+                    <span>QUEIMA DOS SALVADOS</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-orange-400 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+
+                <Link
+                  href="/?type=liquidacao"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all text-sm font-black group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Tag className="h-4 w-4 text-amber-600" />
+                    <span>MEGA LIQUIDAÇÃO</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </div>
+
             {/* Ambientes / Categorias */}
             {environments.length > 0 && (
               <div className="pt-4 border-t border-gray-100">
@@ -107,19 +139,6 @@ export function MobileMenu() {
                   Navegar por Ambientes
                 </p>
                 <div className="space-y-2">
-                  {/* Atalho especial de Salvados */}
-                  <Link
-                    href="/?type=salvados"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group shadow-2xs"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Flame className="h-4 w-4 fill-current text-orange-500 animate-pulse" />
-                      <span>QUEIMA DOS SALVADOS</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-orange-400 group-hover:translate-x-0.5 transition-transform" />
-                  </Link>
-
                   {/* Ambientes Dinâmicos com Expansão de Dropdown */}
                   {environments.map((env) => {
                     const envCats = getCategoriesForEnv(env.id);

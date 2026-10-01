@@ -19,13 +19,14 @@ import { NativeStockScreen } from '../features/stock/overview/NativeStockScreen'
 
 import { NotificationsModal } from '../components/modals/NotificationsModal';
 import { ProfileModal } from '../components/modals/ProfileModal';
+import { PasswordChangeModal } from '../components/modals/PasswordChangeModal';
 import { OrderDetailsModal } from '../components/modals/OrderDetailsModal';
 import { OfflineSyncBar } from '../components/shared/OfflineSyncBar';
 import { WEB_URL } from '../services/supabaseClient';
 
 interface MainNavigatorProps {
   isDarkMode: boolean;
-  setIsDarkMode: (val: boolean) => void;
+  setIsDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsDarkMode }) => {
@@ -51,6 +52,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   });
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [appSelectedOrder, setAppSelectedOrder] = useState<any>(null);
 
@@ -206,6 +208,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       <ProfileModal
         visible={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+        onChangePassword={() => setShowPasswordChangeModal(true)}
         isDarkMode={isDarkMode}
         userProfile={userProfile}
         isAdmin={isAdmin}
@@ -213,6 +216,13 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         handleTabChange={handleTabChange}
         handleLogout={handleLogout}
         WEB_URL={WEB_URL}
+      />
+
+      <PasswordChangeModal
+        visible={showPasswordChangeModal}
+        isDarkMode={isDarkMode}
+        email={userProfile?.email}
+        onClose={() => setShowPasswordChangeModal(false)}
       />
 
       <OrderDetailsModal

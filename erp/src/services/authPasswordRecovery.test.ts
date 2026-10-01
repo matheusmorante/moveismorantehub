@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   getPasswordAuthErrorMessage,
+  isCurrentPasswordRequired,
   isPasswordReauthenticationRequired,
   requestPasswordChangeReauthentication,
   requestPasswordRecoveryCode,
@@ -8,6 +9,7 @@ import {
   verifyPasswordRecoveryCode,
   type PasswordRecoveryClient,
 } from './authPasswordRecovery';
+import { validatePasswordSetup } from './authPasswordSetup';
 
 const createClient = () => {
   const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
@@ -31,6 +33,12 @@ describe('authPasswordRecovery', () => {
     });
     expect(resetPasswordForEmail).toHaveBeenCalledWith('pessoa@example.invalid');
     expect(client.auth).not.toHaveProperty('signUp');
+    expect(
+      getPasswordAuthErrorMessage(
+        { code: 'email_not_authorized', message: 'Email address not authorized' },
+        'recovery-send'
+      )
+    ).not.toContain('pessoa@example.invalid');
   });
 
   it('valida o código com OTP oficial do tipo recovery', async () => {
@@ -58,6 +66,15 @@ describe('authPasswordRecovery', () => {
       'inválido'
     );
     expect(getPasswordAuthErrorMessage({ status: 429 }, 'recovery-send')).toContain('Aguarde');
+    expect(
+      getPasswordAuthErrorMessage(
+        { message: 'Token has expired or is invalid' },
+        'recovery-verify'
+      )
+    ).toContain('inválido');
+    expect(validatePasswordSetup('senha-segura-123', 'senha-diferente-123')).toContain(
+      'não coincidem'
+    );
   });
 
   it('altera a senha da sessão atual e usa nonce quando o Auth exigir reautenticação', async () => {
@@ -76,5 +93,15 @@ describe('authPasswordRecovery', () => {
     expect(getPasswordAuthErrorMessage({ code: 'weak_password' }, 'password-update')).toContain(
       'requisitos'
     );
+    expect(isCurrentPasswordRequired({ code: 'current_password_required' })).toBe(true);
+  });
+
+  it('envia a senha atual apenas quando a política do Supabase solicitar', async () => {
+    const { client, updateUser } = createClient();
+    await updateAuthenticatedPassword(client, 'senha-segura-123', undefined, 'senha-anterior-123');
+    expect(updateUser).toHaveBeenCalledWith({
+      password: 'senha-segura-123',
+      current_password: 'senha-anterior-123',
+    });
   });
 });

@@ -29,8 +29,11 @@ interface AuthContextProps {
   canSeeFinance: boolean;
   canManageStock: boolean;
   passwordCredentialStatus: PasswordCredentialStatus;
+  passwordRecoveryInProgress: boolean;
   refreshPasswordCredentialStatus: () => Promise<boolean>;
   createPasswordCredential: (password: string, confirmation: string) => Promise<void>;
+  beginPasswordRecovery: () => void;
+  endPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -65,6 +68,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [passwordCredentialStatus, setPasswordCredentialStatus] =
     useState<PasswordCredentialStatus>('idle');
+  const [passwordRecoveryInProgress, setPasswordRecoveryInProgress] = useState(false);
+
+  const beginPasswordRecovery = () => setPasswordRecoveryInProgress(true);
+  const endPasswordRecovery = () => setPasswordRecoveryInProgress(false);
 
   const refreshPasswordCredentialStatus = async () => {
     setPasswordCredentialStatus('checking');
@@ -91,6 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await supabase.auth.signOut();
       setUserProfile(null);
       setPasswordCredentialStatus('idle');
+      setPasswordRecoveryInProgress(false);
     } catch (err) {
       console.warn('[Logout] Erro:', err);
     }
@@ -263,8 +271,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         canSeeFinance,
         canManageStock,
         passwordCredentialStatus,
+        passwordRecoveryInProgress,
         refreshPasswordCredentialStatus,
         createPasswordCredential,
+        beginPasswordRecovery,
+        endPasswordRecovery,
       }}
     >
       {children}

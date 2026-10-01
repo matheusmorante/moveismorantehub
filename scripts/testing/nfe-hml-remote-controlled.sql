@@ -6,6 +6,8 @@ SET LOCAL statement_timeout = '30s';
 DO $test$
 DECLARE
   v_order text := 'TEST_AUT_' || gen_random_uuid()::text;
+  v_live_sale uuid := gen_random_uuid(); v_live_return uuid := gen_random_uuid();
+  v_live_run uuid := gen_random_uuid(); v_live_data jsonb; v_live_return_data jsonb;
   v_request uuid := gen_random_uuid(); v_token uuid := gen_random_uuid();
   v_other uuid := gen_random_uuid(); v_doc uuid; v_snapshot jsonb; v_repeat jsonb;
   v_key text; v_metrics text; v_queue bigint; v_count integer;
@@ -20,6 +22,30 @@ BEGIN
   IF NOT public.is_nfe_hml_technical_order(v_order,'draft',true,
       (SELECT order_data FROM orders WHERE id=v_order)) THEN RAISE EXCEPTION 'isolation predicate failed'; END IF;
   IF public.is_nfe_hml_technical_order('operational','draft',true,'{}') THEN RAISE EXCEPTION 'operational predicate failed'; END IF;
+
+  v_live_data := jsonb_build_object('orderType','sale','date',now()::text,
+    'testRunId',v_live_run::text,'is_test',true,'test_environment','homologation',
+    'paymentsSummary',jsonb_build_object('totalOrderValue',25),'items','[]'::jsonb,'payments','[]'::jsonb);
+  v_live_return_data := v_live_data || jsonb_build_object('orderType','return');
+  IF NOT public.is_nfe_hml_test_order(v_live_sale::text,'scheduled',false,v_live_data)
+      OR NOT public.is_nfe_hml_test_order(v_live_return::text,'fulfilled',false,v_live_return_data)
+      OR public.is_nfe_hml_test_order(v_live_sale::text,'scheduled',false,
+        v_live_data - 'testRunId')
+      OR public.is_nfe_hml_test_order(v_live_sale::text,'scheduled',false,
+        jsonb_set(v_live_data,'{test_environment}','"production"')) THEN
+    RAISE EXCEPTION 'Operational HML test marker classification failed';
+  END IF;
+  INSERT INTO public.orders(id,order_type,status,deleted,items,order_data,updated_at)
+    VALUES(v_live_sale::text,'sale','scheduled',false,'[]',v_live_data,now());
+  UPDATE public.orders SET status='fulfilled',order_data=jsonb_set(order_data,'{status}','"fulfilled"')
+    WHERE id=v_live_sale::text;
+  INSERT INTO public.orders(id,order_type,status,deleted,items,order_data,updated_at)
+    VALUES(v_live_return::text,'return','fulfilled',false,'[]',v_live_return_data,now());
+  IF v_queue <> (SELECT count(*) FROM net.http_request_queue)
+      OR v_metrics <> (SELECT md5(COALESCE(jsonb_agg(to_jsonb(m) ORDER BY metric_date)::text,''))
+          FROM public.dashboard_daily_metrics m) THEN
+    RAISE EXCEPTION 'Operational HML test orders changed metrics or enqueued operational refreshes';
+  END IF;
   IF v_queue <> (SELECT count(*) FROM net.http_request_queue) THEN RAISE EXCEPTION 'delivery queue changed'; END IF;
   IF v_metrics <> (SELECT md5(COALESCE(jsonb_agg(to_jsonb(m) ORDER BY metric_date)::text,'')) FROM public.dashboard_daily_metrics m) THEN RAISE EXCEPTION 'metrics changed'; END IF;
   -- A synthetic row outside the HML predicate still exercises the original path.
@@ -42,21 +68,22 @@ BEGIN
     OR EXISTS(SELECT 1 FROM inventory_moves WHERE order_id=v_order OR source_order_id=v_order)
     OR EXISTS(SELECT 1 FROM accounts_receivable WHERE order_id=v_order)
     OR EXISTS(SELECT 1 FROM financial_transactions WHERE reference_id=v_order) THEN RAISE EXCEPTION 'operational effect created'; END IF;
-  v_snapshot := public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'998',1,'{"1":"103"}');
-  v_repeat := public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'998',1,'{"1":"103"}');
+  v_snapshot := public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'1',1,'{"1":"103"}');
+  v_repeat := public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'1',1,'{"1":"103"}');
   IF v_repeat <> v_snapshot THEN RAISE EXCEPTION 'snapshot retry changed'; END IF;
   IF (SELECT snapshot_data #>> '{fiscalConfiguration,csosn}' FROM nfe_fiscal_snapshots WHERE emission_request_id=v_request) <> '103'
     OR (SELECT snapshot_data #>> '{emissionRequest,itemCsosnOverrides,1}' FROM nfe_fiscal_snapshots WHERE emission_request_id=v_request) <> '103'
     THEN RAISE EXCEPTION 'configuration/choice not captured'; END IF;
   BEGIN
-    PERFORM public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'998',1,'{"1":"102"}');
+    PERFORM public.prepare_nfe_fiscal_snapshot(v_order,v_request,'55',2,'1',1,'{"1":"102"}');
     RAISE EXCEPTION 'choice replacement accepted';
   EXCEPTION WHEN unique_violation THEN
     IF SQLERRM <> 'IDEMPOTENCY_KEY_REUSED' THEN RAISE; END IF;
   END;
-  v_key := '4126091234567800019555998' || lpad(v_snapshot->>'number',9,'0') || '1123456780';
-  v_doc := public.reserve_hml_nfe_outbound(v_order,v_request,v_key,'<NFe><infNFe Id="NFe'||v_key||'"/></NFe>',
-    (v_snapshot->>'number')::integer,'998','[{}]',v_token);
+  v_key := '4126091234567800019555' || lpad('1',3,'0') || lpad(v_snapshot->>'number',9,'0') || '1123456780';
+  v_doc := public.reserve_hml_nfe_outbound(v_order,v_request,v_key,
+    '<NFe><infNFe Id="NFe'||v_key||'"><tpAmb>2</tpAmb></infNFe></NFe>',
+    (v_snapshot->>'number')::integer,'1','[{"ruleSetVersion":"HML_TECHNICAL_V1"}]',v_token);
   IF public.claim_hml_nfe_attempt(v_doc,v_other) THEN RAISE EXCEPTION 'active lease stolen'; END IF;
   PERFORM public.release_hml_nfe_attempt(v_doc,v_other);
   IF (SELECT hml_attempt_token FROM nfe_documents WHERE id=v_doc) <> v_token THEN RAISE EXCEPTION 'wrong owner released'; END IF;

@@ -18,6 +18,7 @@ export type PasswordRecoveryClient = {
     updateUser: (attributes: {
       password: string;
       nonce?: string;
+      current_password?: string;
     }) => PromiseLike<{
       data: { user: { id: string } | null };
       error: PasswordAuthError | null;
@@ -47,6 +48,10 @@ export const isPasswordReauthenticationRequired = (error: PasswordAuthError) =>
   ['reauthentication_needed', 'reauthentication_required'].includes(errorCode(error)) ||
   /reauthentication.*(required|needed)|recently.*authenticated/i.test(error.message ?? '');
 
+export const isCurrentPasswordRequired = (error: PasswordAuthError) =>
+  ['current_password_required', 'current_password_needed'].includes(errorCode(error)) ||
+  /current password.*(required|needed)|provide.*current password/i.test(error.message ?? '');
+
 export const requestPasswordRecoveryCode = (client: PasswordRecoveryClient, email: string) =>
   client.auth.resetPasswordForEmail(email.trim());
 
@@ -67,8 +72,14 @@ export const requestPasswordChangeReauthentication = (client: PasswordRecoveryCl
 export const updateAuthenticatedPassword = (
   client: PasswordRecoveryClient,
   password: string,
-  nonce?: string
-) => client.auth.updateUser({ password, ...(nonce ? { nonce: nonce.trim() } : {}) });
+  nonce?: string,
+  currentPassword?: string
+) =>
+  client.auth.updateUser({
+    password,
+    ...(nonce ? { nonce: nonce.trim() } : {}),
+    ...(currentPassword ? { current_password: currentPassword } : {}),
+  });
 
 export const getPasswordAuthErrorMessage = (
   error: PasswordAuthError,
@@ -90,7 +101,7 @@ export const getPasswordAuthErrorMessage = (
   }
 
   if (context === 'recovery-verify') {
-    if (code === 'otp_expired' || message.includes('expired')) {
+    if (code === 'otp_expired' || (message.includes('expired') && !message.includes('invalid'))) {
       return 'O código expirou. Solicite um novo código.';
     }
     return 'Código inválido. Confira e tente novamente.';

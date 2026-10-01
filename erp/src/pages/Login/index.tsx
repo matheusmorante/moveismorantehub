@@ -19,20 +19,11 @@ const Login = () => {
       : `${window.location.origin}/${path}`;
   };
 
-  const handleForgotPassword = async () => {
+  const handleForgotPassword = () => {
     if (!email) {
       return toast.warning('Por favor, informe seu e-mail primeiro.');
     }
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: getAuthRedirectUrl('reset-password'),
-      });
-      if (error) throw error;
-      toast.success('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
-    } catch (error: any) {
-      toast.error(translateAuthError(error.message));
-    }
+    navigate('/reset-password', { state: { email: email.trim() } });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,7 +91,7 @@ const Login = () => {
                   onClick={handleForgotPassword}
                   className="text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 tracking-wider"
                 >
-                  Esqueceu?
+                  Esqueci minha senha
                 </button>
               </div>
               <div className="relative group">

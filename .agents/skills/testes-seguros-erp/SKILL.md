@@ -62,6 +62,12 @@ Use esta ordem de decisão, sem depender de dia ou horário:
 7. **Navegador integrado**: o SQL Editor pode ser usado quando plugin/CLI falhar, conforme `AGENTS.md` e `database-supabase`; trocar de ferramenta não altera os limites de segurança acima.
 8. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
 
+### Regra permanente para E2E fiscal em homologação
+
+`environment=1` é exclusivamente Produção; `environment=2` e `tpAmb=2` são Homologação. O E2E HML deve usar endpoint, credenciais e CSRT de homologação em toda a cadeia (backend, snapshot, documento, banco, XML, SEFAZ, resposta, consulta, evento, cancelamento e devolução); nunca trocar para Produção para contornar uma validação. A origem e a operação derivada devem manter o mesmo ambiente: 1→1 e 2→2. Supabase remoto é somente localização do banco e não transforma uma operação `environment=2` em Produção.
+
+Encontrar um bug próprio durante homologação não encerra nem bloqueia o E2E: capture evidência disponível, diagnostique, corrija, valide com teste focado, faça deploy quando necessário e retome o mesmo objetivo. Interrompa apenas o passo dependente de impedimento externo comprovado ou risco concreto a dados de terceiros; continue cenários seguros e independentes. Mantenha o registro `in_progress` até reunir protocolo real da SEFAZ HML para cada fluxo que exija autorização. Preservar `testRunId`, documentos/protocolos fiscais confirmados e reverter efeitos comerciais somente pelos fluxos transacionais normais.
+
 ---
 ## 3. Matriz Completa de Tipos de Testes
 

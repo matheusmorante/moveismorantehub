@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing } from 'lucide-react-native';
+import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing, KeyRound } from 'lucide-react-native';
 import * as Updates from 'expo-updates';
 import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
 import { testRemotePushNotification } from '../../services/notificationService';
@@ -11,6 +11,7 @@ import { styles } from './ProfileModalStyles';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  onChangePassword: () => void;
   isDarkMode: boolean;
   userProfile: any;
   isAdmin: boolean;
@@ -23,6 +24,7 @@ interface Props {
 export const ProfileModal: React.FC<Props> = ({
   visible,
   onClose,
+  onChangePassword,
   isDarkMode,
   userProfile,
   isAdmin,
@@ -131,6 +133,24 @@ export const ProfileModal: React.FC<Props> = ({
 
             {/* Menu de Ações */}
             <View style={styles.profileMenuItems}>
+              <TouchableOpacity
+                style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}
+                onPress={() => {
+                  onClose();
+                  onChangePassword();
+                }}
+              >
+                <View style={styles.profileMenuIconWrapper}>
+                  <KeyRound size={18} color="#2563eb" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.profileMenuLabel, isDarkMode && styles.textPrimaryDark]}>
+                    Alterar senha
+                  </Text>
+                  <Text style={styles.profileMenuSubtext}>Atualize sua senha do MoranteHub</Text>
+                </View>
+              </TouchableOpacity>
+
               {/* Botão Verificar Atualizações */}
               <TouchableOpacity
                 style={[styles.profileMenuItem, isDarkMode && styles.profileMenuItemDark]}

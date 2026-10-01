@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-import { Flame, ChevronDown } from 'lucide-react';
+import { Flame, Tag, ChevronDown } from 'lucide-react';
 import { useSubHeaderData } from './use-sub-header-data';
 import { slugifyCategory } from '@/lib/slug-utils';
 
@@ -21,7 +21,7 @@ export function SubHeader() {
     setMounted(true);
   }, []);
 
-  if (!mounted || environments.length === 0) return null;
+  if (!mounted) return null;
 
   const handleMouseEnter = (envId: string) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -58,14 +58,35 @@ export function SubHeader() {
             );
           })()}
 
+          {(() => {
+            const isMegaLiquidacaoActive = activeType === 'liquidacao';
+            const liquidacaoClass = [
+              'flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5',
+              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2',
+              isMegaLiquidacaoActive
+                ? 'border-amber-300 text-amber-200 bg-white/10'
+                : 'border-transparent text-amber-200 hover:text-amber-100 hover:border-amber-200/45 hover:bg-white/5',
+            ].join(' ');
+
+            return (
+              <Link href="/?type=liquidacao" className={liquidacaoClass}>
+                <Tag className="h-3.5 w-3.5" />
+                MEGA LIQUIDAÇÃO
+              </Link>
+            );
+          })()}
+
           {environments.map((env) => {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
-            const isSalvadosActive = activeType === 'salvados' || activeType === SALVADOS_OPP_ID;
+            const isOpportunityActive =
+              activeType === 'salvados' ||
+              activeType === SALVADOS_OPP_ID ||
+              activeType === 'liquidacao';
             const envSlug = env.slug || slugifyCategory(env) || env.id;
             const activeEnvsList = activeEnvId ? activeEnvId.split(',') : [];
             const isActive =
               (activeEnvsList.includes(env.id) || activeEnvsList.includes(envSlug)) &&
-              !isSalvadosActive;
+              !isOpportunityActive;
             const envCats = getCategoriesForEnv(env.id);
             const isOpen = activeDropdown === env.id;
 

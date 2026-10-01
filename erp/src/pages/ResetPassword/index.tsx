@@ -1,56 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseConfig';
+import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { supabase } from '../utils/supabaseConfig';
+import { validatePasswordSetup } from '@/services/authPasswordSetup';
+import {
+  getPasswordAuthErrorMessage,
+  requestPasswordRecoveryCode,
+  updateAuthenticatedPassword,
+  verifyPasswordRecoveryCode,
+} from '@/services/authPasswordRecovery';
+
+type RecoveryStage = 'email' | 'code' | 'password';
 
 const ResetPassword = () => {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
+  const routeEmail = (location.state as { email?: string } | null)?.email ?? '';
+  const [stage, setStage] = useState<RecoveryStage>('email');
+  const [email, setEmail] = useState(routeEmail);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    // Verifica se chegamos aqui via link de recuperação
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('O link de recuperação expirou ou é inválido.');
-        navigate('/login');
-      }
-    };
-    checkSession();
-  }, [navigate]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (password !== confirmPassword) {
-      return toast.error('As senhas não coincidem.');
-    }
-
-    if (password.length < 6) {
-      return toast.error('A senha deve ter pelo menos 6 caracteres.');
+  const sendRecoveryCode = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setMessage({ tone: 'error', text: 'Informe seu e-mail para continuar.' });
+      return;
     }
 
     setIsSubmitting(true);
-
+    setMessage(null);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      const { error } = await requestPasswordRecoveryCode(supabase, trimmedEmail);
+      if (error) {
+        setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-send') });
+        return;
+      }
+      setStage('code');
+      setMessage({
+        tone: 'success',
+        text: 'Se a conta estiver cadastrada, enviaremos um código para esse e-mail.',
       });
-
-      if (error) throw error;
-
-      toast.success('Senha atualizada com sucesso!');
-      navigate('/login');
-    } catch (error: any) {
-      toast.error('Erro ao atualizar senha: ' + error.message);
+    } catch {
+      setMessage({
+        tone: 'error',
+        text: 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };
+
+  const verifyRecoveryCode = async () => {
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      const { error } = await verifyPasswordRecoveryCode(supabase, email, code);
+      if (error) {
+        setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-verify') });
+        return;
+      }
+      setCode('');
+      setStage('password');
+    } catch {
+      setMessage({ tone: 'error', text: 'Código inválido. Confira e tente novamente.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const saveNewPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const validationError = validatePasswordSetup(password, confirmation);
+    if (validationError) {
+      setMessage({ tone: 'error', text: validationError });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      const { error } = await updateAuthenticatedPassword(supabase, password);
+      if (error) {
+        setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'password-update') });
+        return;
+      }
+
+      await supabase.auth.signOut();
+      toast.success('Senha atualizada com sucesso. Entre com sua nova senha.');
+      navigate('/login', { replace: true });
+    } catch {
+      setMessage({
+        tone: 'error',
+        text: 'Não foi possível atualizar a senha. Tente novamente.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const title =
+    stage === 'email' ? 'Esqueci minha senha' : stage === 'code' ? 'Digite o código' : 'Crie sua nova senha';
+  const description =
+    stage === 'email'
+      ? 'Informe o e-mail da sua conta MoranteHub.'
+      : stage === 'code'
+        ? 'Enviamos um código para o e-mail informado.'
+        : 'Escolha uma senha com pelo menos 8 caracteres.';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
@@ -58,87 +117,139 @@ const ResetPassword = () => {
       <div className="absolute bottom-[-10%] left-[-10%] w-[35%] h-[35%] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-md animate-slide-up z-10">
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-blue-500/5 p-8 sm:p-12 border border-slate-100 dark:border-slate-800 backdrop-blur-sm transition-all duration-500">
-          <div className="flex flex-col items-center mb-10 group">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl shadow-xl shadow-blue-300 dark:shadow-blue-900/30 flex items-center justify-center mb-6 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-              <span className="text-white font-black text-3xl italic leading-none">R</span>
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-blue-500/5 p-8 sm:p-12 border border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6">
+              <span className="text-white font-black text-3xl italic leading-none">M</span>
             </div>
-            <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none text-center">
-              Redefinir Senha
+            <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight text-center">
+              {title}
             </h1>
-            <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] mt-3">
-              Escolha sua nova senha segura
-            </p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mt-3">{description}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
-                Nova Senha
-              </label>
-              <div className="relative group">
-                <i className="bi bi-shield-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl pl-12 text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-inner"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
-                Confirmar Senha
-              </label>
-              <div className="relative group">
-                <i className="bi bi-check2-circle absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-4 rounded-2xl pl-12 text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-inner"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
-                >
-                  <i
-                    className={`bi ${showPassword ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-lg`}
-                  ></i>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70 disabled:pointer-events-none group"
+          {message && (
+            <div
+              role="status"
+              className={`mb-5 rounded-xl px-4 py-3 text-sm font-semibold ${
+                message.tone === 'error'
+                  ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+              }`}
             >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Salvar Nova Senha</span>
-                  <i className="bi bi-check-lg text-lg group-hover:scale-110 transition-transform" />
-                </>
-              )}
-            </button>
-          </form>
+              {message.text}
+            </div>
+          )}
+
+          {stage === 'email' && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendRecoveryCode();
+              }}
+              className="space-y-5"
+            >
+              <label className="block space-y-2">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="voce@empresa.com"
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl disabled:opacity-60"
+              >
+                {isSubmitting ? 'Enviando…' : 'Enviar código'}
+              </button>
+            </form>
+          )}
+
+          {stage === 'code' && (
+            <div className="space-y-4">
+              <label className="block space-y-2">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Código de recuperação</span>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\s/g, ''))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl text-slate-700 dark:text-slate-100 tracking-[0.35em] text-center font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Código recebido por e-mail"
+                  required
+                />
+              </label>
+              <button
+                type="button"
+                disabled={isSubmitting || !code.trim()}
+                onClick={() => void verifyRecoveryCode()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl disabled:opacity-60"
+              >
+                {isSubmitting ? 'Validando…' : 'Validar código'}
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void sendRecoveryCode()}
+                className="w-full py-3 text-sm font-bold text-blue-600 hover:text-blue-700 disabled:opacity-60"
+              >
+                Reenviar código
+              </button>
+            </div>
+          )}
+
+          {stage === 'password' && (
+            <form onSubmit={saveNewPassword} className="space-y-4">
+              <label className="block space-y-2">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Nova senha</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Confirmar nova senha</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl disabled:opacity-60"
+              >
+                {isSubmitting ? 'Salvando…' : 'Salvar nova senha'}
+              </button>
+            </form>
+          )}
+
+          <button
+            type="button"
+            onClick={() => navigate('/login', { replace: true })}
+            className="w-full mt-5 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            Voltar ao login
+          </button>
         </div>
       </div>
-
       <style
         dangerouslySetInnerHTML={{
-          __html: `
-                @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-                .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-            `,
+          __html: '@keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }',
         }}
       />
     </div>

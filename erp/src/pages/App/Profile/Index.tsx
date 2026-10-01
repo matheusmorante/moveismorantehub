@@ -2,6 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
+import { validatePasswordSetup } from '@/services/authPasswordSetup';
+import {
+  getPasswordAuthErrorMessage,
+  isCurrentPasswordRequired,
+  isPasswordReauthenticationRequired,
+  requestPasswordChangeReauthentication,
+  updateAuthenticatedPassword,
+} from '@/services/authPasswordRecovery';
 
 const Profile = () => {
   const { user, profile, logout } = useAuth();
@@ -16,6 +24,10 @@ const Profile = () => {
   const [email, setEmail] = useState(user?.email || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordReauthRequired, setPasswordReauthRequired] = useState(false);
+  const [passwordReauthCode, setPasswordReauthCode] = useState('');
+  const [currentPasswordRequired, setCurrentPasswordRequired] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when profile loads
@@ -84,20 +96,59 @@ const Profile = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword) return;
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas não coincidem.');
+    const validationError = validatePasswordSetup(newPassword, confirmPassword);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
+    if (passwordReauthRequired && !passwordReauthCode.trim()) {
+      toast.error('Informe o código enviado para confirmar sua identidade.');
+      return;
+    }
+    if (currentPasswordRequired && !currentPassword) {
+      toast.error('Informe sua senha atual para continuar.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      const { error } = await updateAuthenticatedPassword(
+        supabase,
+        newPassword,
+        passwordReauthRequired ? passwordReauthCode : undefined,
+        currentPasswordRequired ? currentPassword : undefined
+      );
+      if (error && !passwordReauthRequired && isPasswordReauthenticationRequired(error)) {
+        const { error: reauthError } = await requestPasswordChangeReauthentication(supabase);
+        if (reauthError) {
+          toast.error(getPasswordAuthErrorMessage(reauthError, 'reauth-send'));
+          return;
+        }
+        setPasswordReauthRequired(true);
+        setPasswordReauthCode('');
+        toast.info('Enviamos um código para confirmar sua identidade.');
+        return;
+      }
+      if (error && !currentPasswordRequired && isCurrentPasswordRequired(error)) {
+        setCurrentPasswordRequired(true);
+        toast.info('Informe sua senha atual para continuar.');
+        return;
+      }
+      if (error) {
+        toast.error(
+          getPasswordAuthErrorMessage(error, passwordReauthRequired ? 'recovery-verify' : 'password-update')
+        );
+        return;
+      }
       toast.success('Senha alterada com sucesso!');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao alterar senha.');
+      setPasswordReauthRequired(false);
+      setPasswordReauthCode('');
+      setCurrentPasswordRequired(false);
+      setCurrentPassword('');
+    } catch {
+      toast.error('Não foi possível atualizar a senha. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -385,6 +436,20 @@ const Profile = () => {
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentPasswordRequired && (
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">
+                      Senha atual
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(e: any) => setCurrentPassword(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">
                     Nova Senha
@@ -409,16 +474,53 @@ const Profile = () => {
                     placeholder="••••••••"
                   />
                 </div>
+                {passwordReauthRequired && (
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">
+                      Código de confirmação
+                    </label>
+                    <input
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={passwordReauthCode}
+                      onChange={(e: any) => setPasswordReauthCode(e.target.value.replace(/\s/g, ''))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      placeholder="Código enviado por e-mail"
+                    />
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const { error } = await requestPasswordChangeReauthentication(supabase);
+                          if (error) {
+                            toast.error(getPasswordAuthErrorMessage(error, 'reauth-send'));
+                          } else {
+                            toast.success('Enviamos um novo código de confirmação.');
+                          }
+                        } catch {
+                          toast.error('Não foi possível enviar o código agora. Tente novamente.');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                    >
+                      Reenviar código
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleChangePassword}
-                disabled={loading || !newPassword}
+                disabled={loading || !newPassword || !confirmPassword}
                 className="w-full mt-4 py-4 bg-slate-800 dark:bg-slate-700 hover:bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  'Atualizar Senha'
+                  passwordReauthRequired ? 'Confirmar e alterar senha' : 'Alterar senha'
                 )}
               </button>
             </div>
