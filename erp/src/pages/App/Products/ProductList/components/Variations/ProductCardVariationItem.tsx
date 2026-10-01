@@ -7,7 +7,7 @@ import { isSalvadoProduct } from '@/pages/utils/productKindRules';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
-import { getVariationDisplayName } from '../../utils/getVariationDisplayName';
+import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
 import type { CardVariationItem } from './ProductCardVariationList';
 import { VariationItemActions } from './VariationItemActions';
 

@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Product, { Variation } from '../../../types/product.type';
-import ManageAttributesModal from '../components/modals/ManageAttributesModal';
-import VariationPhotosTab from '../components/tabs/VariationPhotosTab';
-import { useVariationForm } from '../hooks/useVariationForm';
+import ManageAttributesModal from '../components/modals/attributes/ManageAttributesModal';
+import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
+import { useVariationForm } from '../hooks/variation/useVariationForm';
+import type { VariationTabId } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
@@ -19,8 +20,6 @@ interface VariationFormModalProps {
   readonly onSuccess?: () => void;
   readonly onSave?: (updatedVariation: Variation) => void;
 }
-
-type VariationTabId = 'identificacao' | 'fotos' | 'estoque' | 'tecnico' | 'descricao' | 'compostos';
 
 interface TabDefinition {
   readonly id: VariationTabId;

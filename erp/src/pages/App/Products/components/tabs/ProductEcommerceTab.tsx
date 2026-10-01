@@ -3,12 +3,12 @@ import type Product from '../../../../types/product.type';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { uploadFile } from '@/pages/utils/storageService';
 import { toast } from 'react-toastify';
-import { SquareImageCropper } from './SquareImageCropper';
+import { SquareImageCropper } from './images/SquareImageCropper';
 import {
   moveProductImage,
   replaceProductImage,
   setProductCoverImage,
-} from './productImageOrdering';
+} from './images/productImageOrdering';
 import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
 
 interface ProductEcommerceTabProps {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
-import type { PendingNcmSuggestion } from '../../../hooks/useProductJevClassification';
+import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevClassification';
 
 interface ProductNcmSelectorProps {
   formData: Partial<Product>;
@@ -134,6 +134,11 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         >
           Este NCM não está vigente na base local. Revise a classificação antes de usar em novas
           operações.
+        </p>
+      )}
+      {currentCatalogEntry?.active && !currentCatalogEntry.is_active && (
+        <p role="status" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] leading-relaxed text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          Este NCM está desativado para novas seleções da loja. O código já salvo foi preservado; escolha um NCM ativo se quiser substituí-lo.
         </p>
       )}
       {hasCheckedCatalogEntry && currentCatalogEntry === null && (

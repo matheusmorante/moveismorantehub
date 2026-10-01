@@ -6,14 +6,14 @@ import {
   ReconciliationSummary,
   PendencyType,
 } from './types/reconciliation.types';
+import { fetchProductsForReconciliation } from './services/reconciliationQueries';
 import {
-  fetchProductsForReconciliation,
   applySupplierBatch,
   applyCategoryBatch,
   applyNcmBatch,
   applyAttributeBatch,
   saveSingleProductReconciliation,
-} from './services/reconciliationQueries';
+} from './services/reconciliationMutations';
 import { ReconciliationSummaryHeader } from './components/ReconciliationSummaryHeader';
 import { ReconciliationFiltersBar } from './components/ReconciliationFiltersBar';
 import { ReconciliationProductCard } from './components/ReconciliationProductCard';

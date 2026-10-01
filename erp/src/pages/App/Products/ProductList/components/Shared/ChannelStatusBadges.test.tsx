@@ -3,7 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ChannelStatusBadges } from './ChannelStatusBadges';
-import { validateErpActivationRequirements } from '../../hooks/useProductsActivationValidation';
+import { validateErpActivationRequirements } from '../../hooks/activation/useProductsActivationValidation';
 import type Product from '@/pages/types/product.type';
 
 afterEach(cleanup);

@@ -17,11 +17,18 @@ export const validateCustomerData = (
     errors['customer_fullName'] = 'Nome completo é obrigatório.';
   }
 
+  const isFinalConsumer =
+    !customer.id && customer.fullName.trim().toLowerCase() === 'consumidor final';
+
   if (!customer.noPhone && !isPickup && (!customer.phone || !customer.phone.trim())) {
     errors['customer_phone'] = 'Telefone/Celular é obrigatório.';
   }
 
-  if (requiredFields.customer?.cpfCnpj && (!customer.cpfCnpj || !customer.cpfCnpj.trim())) {
+  if (
+    !isFinalConsumer &&
+    requiredFields.customer?.cpfCnpj &&
+    (!customer.cpfCnpj || !customer.cpfCnpj.trim())
+  ) {
     errors['customer_cpfCnpj'] = 'CPF/CNPJ é obrigatório.';
   }
 
@@ -53,7 +60,11 @@ export const validateShipping = (
   const noAddressRequired =
     shipping.noAddress || (shipping.useCustomerAddress !== false && customer?.noAddress);
 
-  if (!isBudget && (!Number.isFinite(shipping.distance) || (shipping.distance ?? 0) <= 0)) {
+  if (
+    !isBudget &&
+    !shipping.noAddress &&
+    (!Number.isFinite(shipping.distance) || (shipping.distance ?? 0) <= 0)
+  ) {
     errors['shipping_distance'] = 'Distância da entrega é obrigatória e deve ser maior que zero.';
   }
 

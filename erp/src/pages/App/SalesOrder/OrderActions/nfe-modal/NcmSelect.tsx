@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 
 interface NcmSelectProps {
@@ -17,6 +18,32 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   const [results, setResults] = useState<NcmSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isDropdownOpen || !inputRef.current) {
+      setDropdownPosition(null);
+      return;
+    }
+    const updatePosition = () => {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(Math.max(rect.width, 288), window.innerWidth - 16);
+      setDropdownPosition({
+        top: Math.min(rect.bottom + 6, window.innerHeight - 240),
+        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+        width,
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isDropdownOpen, searchQuery, results.length]);
 
   useEffect(() => {
     setSearchQuery(value || '');
@@ -60,6 +87,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
     <div className="relative w-full" ref={dropdownRef}>
       <div className="relative flex items-center">
         <input
+          ref={inputRef}
           aria-label="NCM"
           type="text"
           value={searchQuery}
@@ -93,8 +121,11 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
         </button>
       </div>
 
-      {isDropdownOpen && (searchQuery.length >= 2 || results.length > 0) && (
-        <div className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
+      {isDropdownOpen && dropdownPosition && (searchQuery.length >= 2 || results.length > 0) && createPortal(
+        <div
+          className="fixed z-[100000000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-0.5"
+          style={{ top: dropdownPosition.top, left: dropdownPosition.left, width: dropdownPosition.width }}
+        >
           {isLoading ? (
             <div className="p-3 text-center text-xs text-slate-400">
               <i className="bi bi-arrow-repeat animate-spin mr-2" /> Buscando...
@@ -136,7 +167,8 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
               Nenhum NCM encontrado para "{searchQuery}".
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

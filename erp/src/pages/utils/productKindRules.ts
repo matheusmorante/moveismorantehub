@@ -25,7 +25,7 @@ export const normalizeProductForSave = (
   return {
     ...formData,
     name: options.name || formData.name || 'Produto',
-    productKind: getProductKind(formData),
+    productKind: formData.productKind ? getProductKind(formData) : undefined,
     isDraft: options.isDraft,
     active: forceInactive ? false : options.isCompletingDraft ? true : formData.active !== false,
     status: options.catalogStatus,

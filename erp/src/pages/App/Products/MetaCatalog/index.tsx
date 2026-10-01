@@ -1,42 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
+import { buildMetaCatalogItems } from './services/metaCatalogPayload';
+import { calculateMetaCatalogStats } from './services/metaCatalogStats';
 
-const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
-
-💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
-
-🚨⚠️ Aceitamos Senff com juros.
-
-✅ À vista tem desconto no pix, débito ou dinheiro!
-
-
-✅ Sem taxa de frete para endereços próximos.
-
-
-✅ Montagem Incluída para a retirada ou entrega.
-
-
-✅ Atendimento Via WhatsApp
-
-https://wa.me/5541997493547
-
-
-🛒 VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:
-
-https://moveismorante.com.br
-
-___________________________________
-
-Móveis Morante
-
-▶ CNPJ: 44.512 248/0001-07
-
-🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
-
-🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
-
-____________________________________`;
 
 export default function MetaCatalog() {
   const { isAdmin } = useAuth();
@@ -78,61 +45,7 @@ export default function MetaCatalog() {
           .from('product_variations')
           .select('id, product_id, status, active');
 
-        const safeProds = products || [];
-        const safeVars = variations || [];
-
-        let simplePublished = 0;
-        let varsPublished = 0;
-        let notPub = 0;
-
-        // Mapear variações por produto pai
-        const varsByParent: Record<string, any[]> = {};
-        safeVars.forEach((v) => {
-          if (!varsByParent[v.product_id]) varsByParent[v.product_id] = [];
-          varsByParent[v.product_id].push(v);
-        });
-
-        safeProds.forEach((parent) => {
-          const isParentDeleted = parent.deleted || parent.deleted_at !== null;
-          const isParentActive = parent.active !== false;
-          const isParentVisible = parent.status !== 'hidden';
-
-          const parentVars = varsByParent[parent.id] || [];
-
-          if (isParentDeleted) {
-            return;
-          }
-
-          if (!isParentActive || !isParentVisible) {
-            if (parentVars.length > 0) {
-              notPub += parentVars.length;
-            } else {
-              notPub += 1;
-            }
-            return;
-          }
-
-          if (parentVars.length > 0) {
-            parentVars.forEach((v) => {
-              const isVarActive = v.active !== false;
-              const isVarVisible = v.status !== 'hidden';
-
-              if (isVarActive && isVarVisible) {
-                varsPublished += 1;
-              } else {
-                notPub += 1;
-              }
-            });
-          } else {
-            simplePublished += 1;
-          }
-        });
-
-        setStats({
-          publishedSimple: simplePublished,
-          publishedVariations: varsPublished,
-          notPublished: notPub,
-        });
+        setStats(calculateMetaCatalogStats(products || [], variations || []));
       } catch (err) {
         console.error('Erro ao calcular estatísticas do catálogo Meta:', err);
       } finally {
@@ -173,113 +86,9 @@ export default function MetaCatalog() {
       if (varErr) throw varErr;
 
       const { data: opps } = await supabase.from('opportunities').select('id, name, observations');
-      const oppMap: Record<string, any> = {};
-      if (opps) {
-        opps.forEach((o) => {
-          oppMap[o.id] = o;
-        });
-      }
 
       // 3. Montar a lista completa de itens para o Meta Catalog (Pai + Variações como itens individuais)
-      const allItems: any[] = [];
-
-      for (const parent of products || []) {
-        // Se o produto pai/regular estiver deletado ou inativo/oculto, ignora da sincronização de itens publicados
-        if (
-          parent.deleted ||
-          parent.deleted_at !== null ||
-          parent.status === 'hidden' ||
-          parent.active === false
-        ) {
-          continue;
-        }
-
-        const parentVars = (variations || []).filter(
-          (v) => v.product_id === parent.id && v.status !== 'hidden' && v.active !== false
-        );
-        const parentTitle =
-          parent.name ||
-          parent.title ||
-          (parent.description ? parent.description.split('\n')[0] : 'Produto Morante');
-
-        // Compor descrição de 3 partes: Texto Base Institucional + Aviso da Oportunidade + Descrição do Produto
-        const descParts: string[] = [];
-        descParts.push(globalPrefix);
-
-        // Parte 2: Observação da Oportunidade (se houver)
-        const opp = parent.opportunity_id ? oppMap[parent.opportunity_id] : null;
-        if (opp && opp.observations) {
-          descParts.push(`***Aviso Importante (${opp.name}): ${opp.observations}***`);
-        }
-
-        // Parte 3: Descrição Cadastrada do Produto
-        const baseProdDesc = parent.whatsapp_description || parent.description || parentTitle;
-        if (baseProdDesc) {
-          descParts.push(baseProdDesc);
-        }
-
-        const fullComposedDescription = descParts.join('\n\n');
-
-        if (parentVars.length > 0) {
-          // SE O PRODUTO POSSUI VARIAÇÕES: Adiciona APENAS as variações (o Pai é desconsiderado)
-          for (const v of parentVars) {
-            const varNameSuffix = v.name || v.color || v.size || 'Variação';
-            const varTitle = `${parentTitle} - ${varNameSuffix}`;
-
-            let varImages: string[] = [];
-            if (v.image_url) {
-              varImages = String(v.image_url)
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean);
-            }
-            if (
-              varImages.length === 0 &&
-              Array.isArray(parent.images) &&
-              parent.images.length > 0
-            ) {
-              varImages = parent.images;
-            }
-
-            allItems.push({
-              id: v.id,
-              code: v.sku || v.code || v.id,
-              name: varTitle,
-              description: fullComposedDescription,
-              sales_price:
-                v.sales_price ||
-                v.price ||
-                parent.sales_price ||
-                parent.unit_price ||
-                parent.price ||
-                0,
-              stock: v.stock !== undefined ? v.stock : parent.stock,
-              active: true,
-              status: 'published',
-              isPublished: true,
-              images: varImages,
-              brand: parent.brand || 'Móveis Morante',
-              group_name: parent.group_name,
-            });
-          }
-        } else {
-          // SE NÃO POSSUI VARIAÇÕES (PRODUTO SIMPLES): Adiciona o próprio produto se publicado
-          allItems.push({
-            id: parent.id,
-            code: parent.code || parent.sku || parent.id,
-            name: parentTitle,
-            description: fullComposedDescription,
-            sales_price: parent.sales_price || parent.unit_price || parent.price || 0,
-            stock: parent.stock,
-            active: true,
-            status: 'published',
-            isPublished: true,
-            images: Array.isArray(parent.images) ? parent.images : [],
-            brand: parent.brand || 'Móveis Morante',
-            group_name: parent.group_name,
-          });
-        }
-      }
+      const allItems = buildMetaCatalogItems(products || [], variations || [], opps || []);
 
       // 4. Executar sync em lote via Graph API com callback de progresso
       const res = await whatsappGraphService.syncBatchProductsToCatalog(

@@ -46,6 +46,7 @@ class NcmService {
     code: string;
     official_description: string;
     active: boolean;
+    is_active: boolean;
     start_date: string | null;
     end_date: string | null;
   } | null> {
@@ -53,7 +54,7 @@ class NcmService {
     if (normalizedCode.length !== 8) return null;
     const { data, error } = await supabase
       .from('ncms')
-      .select('code, official_description, active, start_date, end_date')
+      .select('code, official_description, active, is_active, start_date, end_date')
       .eq('code', normalizedCode)
       .maybeSingle();
     if (error) throw error;

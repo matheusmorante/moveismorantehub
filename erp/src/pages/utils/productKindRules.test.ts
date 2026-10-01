@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizeProductForSave } from './productKindRules';
 import { mapFromDB, mapToDB } from './productService/productMapper';
 import type Product from '@/pages/types/product.type';
-import { getInitialProductFormData } from '../App/Products/utils/productFormInitialData';
+import { getInitialProductFormData } from '../App/Products/utils/form/productFormInitialData';
 
 const composition: Partial<Product> = {
   ...getInitialProductFormData(),

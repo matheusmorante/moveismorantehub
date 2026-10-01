@@ -2,8 +2,8 @@ import React from 'react';
 import Product from '@/pages/types/product.type';
 import LabelPrintSelectionModal, {
   LabelPrintType,
-} from '../../components/modals/LabelPrintSelectionModal';
-import ProductSalesModal from '../../components/modals/ProductSalesModal';
+} from '../../components/modals/product/LabelPrintSelectionModal';
+import ProductSalesModal from '../../components/modals/product/ProductSalesModal';
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 
 export interface ProductRowModalsProps {

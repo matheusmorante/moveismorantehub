@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import type { FiscalInfo } from '@/pages/types/product.type';
 import { prepareHmlItemCsosns } from '@/pages/utils/nfe/csosnConfigurationService';
+import { DEFAULT_NFCE_NUMBER, DEFAULT_NFE_NUMBER, isFiscalNumber } from '../../../../../../../shared-utils/fiscalNumbering.js';
 
 // In-memory emission drafts survive modal unmounts; no product/order mutation or persistent PII.
 const fiscalDrafts = new Map<string, Record<number, Partial<NfeItemFiscal>>>();
@@ -29,12 +30,17 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
   const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(false);
+  const [fiscalPreparationError, setFiscalPreparationError] = useState<string | null>(null);
+  const [requestedNumber, setRequestedNumber] = useState('');
+  const submissionInProgress = useRef(false);
   const manualFiscalFields = useRef(fiscalDrafts);
 
   // Carregar e enriquecer os itens da venda com dados fiscais e detecção de cadastro
   useEffect(() => {
     if (!order || !order.items) {
       setNfeItems([]);
+      setIsLoadingFiscalData(false);
+      setFiscalPreparationError(null);
       return;
     }
 
@@ -43,19 +49,43 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
     let isMounted = true;
     setIsLoadingFiscalData(true);
+    setFiscalPreparationError(null);
+
+    const productItems = order.items.filter((item) => item.itemType !== 'service');
+    const fallbackItems: NfeItemWithFiscal[] = productItems.map((item) => {
+      const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
+      return {
+        ...item,
+        isUnregistered: !item.productId,
+        fiscal: {
+          ncm: savedFiscal?.ncm || '',
+          cest: savedFiscal?.cest || '',
+          cfop: savedFiscal?.cfop || defaultFiscal.cfop || '5102',
+          cst: savedFiscal?.cst || '',
+          origem: savedFiscal?.origem || defaultFiscal.origem || '0',
+        },
+      };
+    });
+    setNfeItems(fallbackItems);
 
     const enrichItems = async () => {
       try {
-        const enrichedList: NfeItemWithFiscal[] = [];
-        const preparedCsosns =
-          environment === 2 ? await prepareHmlItemCsosns(String(order.id)) : [];
+        let preparedCsosns: Awaited<ReturnType<typeof prepareHmlItemCsosns>> = [];
+        let preparationError: string | null = null;
+        if (environment === 2) {
+          try {
+            preparedCsosns = await prepareHmlItemCsosns(String(order.id));
+          } catch (error) {
+            preparationError =
+              error instanceof Error ? error.message : 'Configuração fiscal indisponível.';
+          }
+        }
 
-        const productItems = order.items.filter((item) => item.itemType !== 'service');
+        const enrichedList: NfeItemWithFiscal[] = [];
         for (const [index, item] of productItems.entries()) {
           const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
-          if (environment === 2 && !preparedCsosn)
-            throw new Error('CSOSN do item não foi preparado no servidor.');
-          const isUnregistered = !item.productId;
+          if (environment === 2 && !preparedCsosn && !preparationError)
+            preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
           let catalogFiscal: FiscalInfo | undefined;
 
@@ -80,15 +110,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           }
 
           enrichedList.push({
-            ...item,
-            isUnregistered,
+            ...fallbackItems[index],
             fiscal: {
-              ncm: savedFiscal?.ncm || catalogFiscal?.ncm || '',
-              cest: savedFiscal?.cest || catalogFiscal?.cest || '',
-              cfop: savedFiscal?.cfop || catalogFiscal?.cfop || defaultFiscal.cfop || '5102',
+              ncm: savedFiscal?.ncm || catalogFiscal?.ncm || fallbackItems[index].fiscal.ncm,
+              cest: savedFiscal?.cest || catalogFiscal?.cest || fallbackItems[index].fiscal.cest,
+              cfop: savedFiscal?.cfop || catalogFiscal?.cfop || fallbackItems[index].fiscal.cfop,
               cst: preparedCsosn?.csosn || savedFiscal?.cst || catalogFiscal?.cst || '',
               csosnSource: preparedCsosn?.source,
-              origem: savedFiscal?.origem || catalogFiscal?.origem || defaultFiscal.origem || '0',
+              origem: savedFiscal?.origem || catalogFiscal?.origem || fallbackItems[index].fiscal.origem,
             },
           });
           const manual = manualFiscalFields.current.get(draftKey(order, environment))?.[index];
@@ -100,15 +129,17 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
         if (isMounted) {
           setNfeItems(enrichedList);
+          setFiscalPreparationError(preparationError);
           setIsLoadingFiscalData(false);
+          if (preparationError) toast.error(preparationError);
         }
       } catch (error) {
         if (isMounted) {
-          setNfeItems([]);
+          setNfeItems(fallbackItems);
+          const message = error instanceof Error ? error.message : 'Falha ao preparar os dados fiscais dos itens.';
+          setFiscalPreparationError(message);
           setIsLoadingFiscalData(false);
-          toast.error(
-            error instanceof Error ? error.message : 'Falha ao preparar CSOSN dos itens.'
-          );
+          toast.error(message);
         }
       }
     };
@@ -159,7 +190,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     setNfeItems(resolved);
   };
 
-  const handleEmit = async (productionConfirmed = false, isRetry = false) => {
+  const handleEmit = async (productionConfirmed = false, isRetry = false, retryNumber?: number) => {
+    if (submissionInProgress.current) return;
     if (!canOperateFiscal) {
       toast.error('Seu perfil não pode operar documentos fiscais.');
       return;
@@ -169,10 +201,28 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       toast.error('Aguarde a preparação fiscal dos itens antes de emitir.');
       return;
     }
+    if (fiscalPreparationError) {
+      toast.error('A emissão está bloqueada até que a preparação fiscal seja concluída.');
+      return;
+    }
     if (nfeItems.some((item) => !item.fiscal.cst)) {
       toast.error('Selecione o CSOSN de todos os itens.');
       return;
     }
+    const numberText = requestedNumber.trim();
+    const manualNumber = retryNumber ?? (isRetry ? undefined :
+      numberText ? (/^\d{1,9}$/.test(numberText) ? Number(numberText) : Number.NaN) : undefined);
+    if (manualNumber !== undefined && !isFiscalNumber(manualNumber)) {
+      toast.error('Informe um número inteiro entre 1 e 999999999.');
+      return;
+    }
+    const modelMinimum = order.shipping?.deliveryMethod === 'pickup'
+      ? DEFAULT_NFCE_NUMBER : DEFAULT_NFE_NUMBER;
+    if (manualNumber !== undefined && manualNumber < modelMinimum) {
+      toast.error(`O número desta nota deve ser igual ou superior a ${modelMinimum}.`);
+      return;
+    }
+    submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
       // Constrói pedido com os itens atualizados e dados fiscais específicos
@@ -198,15 +248,19 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         orderWithFiscalItems,
         environment,
         productionConfirmed,
-        retryId
+          retryId,
+          manualNumber,
+          (order.items || []).filter((item) => item.itemType !== 'service').map((item) => String((item as any).fiscal?.ncm || ''))
       );
       if (!res.success) {
         toast.error(res.error || 'Erro ao validar dados para emissão.');
         setEmissionResult(res);
+        if (res.numberConflict) setRequestedNumber(String(res.numberConflict.previousNumber));
         return;
       }
 
       setEmissionResult(res);
+      if (res.nfeNumber) setRequestedNumber(String(res.nfeNumber));
       toast.success(
         res.environment === 2
           ? 'Documento autorizado pela SEFAZ em homologação (sem valor fiscal).'
@@ -217,6 +271,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       console.error(err);
       toast.error(err?.message || 'Erro inesperado ao emitir nota fiscal.');
     } finally {
+      submissionInProgress.current = false;
       setIsSubmitting(false);
     }
   };
@@ -297,9 +352,12 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     environment,
     setEnvironment,
     isSubmitting,
+    requestedNumber,
+    setRequestedNumber,
     emissionResult,
     nfeItems,
     isLoadingFiscalData,
+    fiscalPreparationError,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
     handleEmit,

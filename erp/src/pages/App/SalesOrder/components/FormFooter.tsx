@@ -1,13 +1,13 @@
 import React from 'react';
-import OrderActions from '../OrderActions/Index';
 import Order from '@/pages/types/order.type';
-import { actionsMap } from '../OrderActions/orderActionsConfig';
+import type { DraftAutoSaveStatus } from '../hooks/useOrderAutoSave';
 
 interface FormFooterProps {
   currentOrder: Order;
   totalOrderValue: number;
   isSaving: boolean;
-  isSavingDraft: boolean;
+  draftAutoSaveStatus: DraftAutoSaveStatus;
+  showDraftAutoSave: boolean;
   onCompleteOrder: (e?: React.MouseEvent) => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -20,7 +20,8 @@ const FormFooter = ({
   currentOrder,
   totalOrderValue,
   isSaving,
-  isSavingDraft,
+  draftAutoSaveStatus,
+  showDraftAutoSave,
   onCompleteOrder,
   onPrev,
   onNext,
@@ -48,15 +49,48 @@ const FormFooter = ({
               </span>
             </div>
 
-            {/* Status do Rascunho */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-800/40 rounded-xl border border-slate-100/50 dark:border-slate-800/50 transition-all">
+            {showDraftAutoSave && (
               <div
-                className={`w-1.5 h-1.5 rounded-full ${isSavingDraft ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}
-              />
-              <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none">
-                {isSavingDraft ? 'Sincronizando...' : 'Salvamento Automático'}
-              </span>
-            </div>
+                role="status"
+                aria-live="polite"
+                aria-busy={draftAutoSaveStatus === 'saving'}
+                className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2 transition-colors ${
+                  draftAutoSaveStatus === 'saving'
+                    ? 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30'
+                    : draftAutoSaveStatus === 'saved'
+                      ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/30'
+                      : draftAutoSaveStatus === 'error'
+                        ? 'border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30'
+                        : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
+                }`}
+              >
+                <i
+                  aria-hidden="true"
+                  className={`bi text-sm ${
+                    draftAutoSaveStatus === 'saving'
+                      ? 'bi-arrow-repeat animate-spin text-amber-600 dark:text-amber-400'
+                      : draftAutoSaveStatus === 'saved'
+                        ? 'bi-check-circle-fill text-emerald-600 dark:text-emerald-400'
+                        : draftAutoSaveStatus === 'error'
+                          ? 'bi-exclamation-circle-fill text-rose-600 dark:text-rose-400'
+                          : draftAutoSaveStatus === 'pending'
+                            ? 'bi-clock-history text-blue-600 dark:text-blue-400'
+                            : 'bi-cloud-check text-slate-500 dark:text-slate-400'
+                  }`}
+                />
+                <span className="text-[10px] font-bold tracking-wide text-slate-600 dark:text-slate-300">
+                  {draftAutoSaveStatus === 'saving'
+                    ? 'Salvando alteração...'
+                    : draftAutoSaveStatus === 'saved'
+                      ? 'Alteração processada e salva'
+                      : draftAutoSaveStatus === 'error'
+                        ? 'Falha ao salvar alteração'
+                        : draftAutoSaveStatus === 'pending'
+                          ? 'Alteração pendente'
+                          : 'Salvamento automático ativo'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Navigation Actions */}

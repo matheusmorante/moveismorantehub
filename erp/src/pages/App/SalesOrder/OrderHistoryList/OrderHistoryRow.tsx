@@ -120,6 +120,20 @@ const OrderHistoryRow = ({
     ? 'bg-red-50/80 dark:bg-red-950/40'
     : 'bg-white dark:bg-slate-900';
   const baseTdClass = `px-1 py-1 ${cellBgClass} ${isCancelled ? 'border-b border-red-200 dark:border-red-900/50' : 'border-b border-white dark:border-slate-800/50'} align-middle relative`;
+  const rowColumnKeys = orderedColumnKeys ?? [
+    'id',
+    'orderDate',
+    'deliveryDate',
+    'customer',
+    'totalValue',
+    'actions',
+  ];
+  const visibleColumnCount = Math.max(
+    1,
+    rowColumnKeys.filter(
+      (key) => visibilitySettings[key as keyof VisibilitySettings] !== false
+    ).length
+  );
 
   const renderCell = (key: string) => {
     if (visibilitySettings[key as keyof VisibilitySettings] === false) return null;
@@ -272,24 +286,14 @@ const OrderHistoryRow = ({
       }
       className={`relative transition-colors group ${isDraft || canViewDetails ? 'cursor-pointer' : 'cursor-default'} border-b border-white dark:border-slate-800/50 ${cellBgClass} ${isSelected ? cls.rowActive : ''} ${isHighlighted ? 'animate-highlight' : ''}`}
     >
-      {orderedColumnKeys ? (
-        orderedColumnKeys.map((key) => renderCell(key))
-      ) : (
-        <>
-          {renderCell('id')}
-          {renderCell('orderDate')}
-          {renderCell('deliveryDate')}
-          {renderCell('customer')}
-          {renderCell('totalValue')}
-          {renderCell('actions')}
-        </>
-      )}
+      {rowColumnKeys.map((key) => renderCell(key))}
       {isCancelled && (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-10 bg-slate-950/25 flex items-center justify-center"
-          >
+        <td
+          aria-hidden="true"
+          colSpan={visibleColumnCount}
+          className="pointer-events-none absolute inset-0 z-10 border-0 p-0"
+        >
+          <div className="absolute inset-0 bg-slate-950/25 flex items-center justify-center">
             <span className="inline-flex max-w-[82%] items-center gap-1.5 truncate whitespace-nowrap rounded-md border-2 border-white bg-red-600 font-black uppercase tracking-[0.2em] text-white opacity-100 shadow-2xl drop-shadow-md px-3.5 py-1.5 text-xs">
               <span className="truncate">
                 {order.orderType === 'return' && order.returnStockReversed
@@ -298,7 +302,7 @@ const OrderHistoryRow = ({
               </span>
             </span>
           </div>
-        </>
+        </td>
       )}
     </tr>
   );

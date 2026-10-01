@@ -31,6 +31,7 @@ const EMPTY_ADDRESS = {
   city: '',
   observation: '',
 };
+const FINAL_CONSUMER_NAME = 'Consumidor Final';
 
 const CustomerDataInputs = ({
   customerData,
@@ -45,7 +46,13 @@ const CustomerDataInputs = ({
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const hasError = Boolean(errors.customer_fullName || errors.customer_phone);
+  const previousCustomerRef = useRef<{
+    customerData: CustomerData;
+    searchTerm: string;
+  } | null>(null);
+  const isFinalConsumer =
+    !customerData.id && customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
+  const hasError = !isFinalConsumer && Boolean(errors.customer_fullName || errors.customer_phone);
 
   // Load recent on mount
   useEffect(() => {
@@ -115,14 +122,49 @@ const CustomerDataInputs = ({
     setIsOpen(false);
   };
 
+  const toggleFinalConsumer = () => {
+    if (isFinalConsumer) {
+      const previous = previousCustomerRef.current;
+      previousCustomerRef.current = null;
+      setCustomerData(
+        previous?.customerData || {
+          fullName: '',
+          phone: '',
+          noPhone: false,
+          noAddress: false,
+          fullAddress: EMPTY_ADDRESS,
+          additionalContacts: [],
+        }
+      );
+      setSearchTerm(previous?.searchTerm || '');
+      setIsOpen(false);
+      return;
+    }
+
+    previousCustomerRef.current = { customerData, searchTerm };
+    setCustomerData({
+      fullName: FINAL_CONSUMER_NAME,
+      phone: '',
+      noPhone: true,
+      noAddress: true,
+      fullAddress: { ...EMPTY_ADDRESS },
+      additionalContacts: [],
+    });
+    setSearchTerm(FINAL_CONSUMER_NAME);
+    setIsOpen(false);
+  };
+
   const selectCustomer = (customer: Person) => {
     const formattedName = toTitleCase(customer.fullName || customer.tradeName || '');
+    const legacyNoAddress = Boolean(
+      (customer.fullAddress as unknown as { noAddress?: boolean } | undefined)?.noAddress
+    );
     setCustomerData({
       id: customer.id,
       fullName: formattedName,
       phone: customer.phone || '',
       noPhone: customer.noPhone || false,
-      noAddress: customer.noAddress || Boolean(customer.fullAddress?.noAddress),
+      noAddress: customer.noAddress || legacyNoAddress,
       fullAddress: customer.fullAddress || EMPTY_ADDRESS,
       additionalContacts: customer.additionalContacts || [],
     });
@@ -144,7 +186,11 @@ const CustomerDataInputs = ({
         noAddress: customerData.noAddress,
         fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
         additionalContacts: customerData.additionalContacts || [],
-        marketingOrigin: customerData.marketingOrigin || marketingOrigin || '',
+        marketingOrigin: (
+          (customerData as CustomerData & { marketingOrigin?: string }).marketingOrigin ||
+          marketingOrigin ||
+          ''
+        ) as Person['marketingOrigin'],
         type: 'customers',
       };
       setEditingPerson(fallbackPerson as Person);
@@ -157,23 +203,46 @@ const CustomerDataInputs = ({
 
   return (
     <div ref={wrapperRef} className="relative w-full">
-      <div className="mb-2 ml-1 flex items-center justify-between gap-3">
+      <div className="mb-2 ml-1 flex flex-wrap items-center justify-between gap-3">
         <label
           className={`text-[10px] font-black uppercase tracking-widest ${hasError ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
         >
           Selecionar cliente <span className="text-red-500">*</span>
         </label>
-        <button
-          type="button"
-          onClick={() => {
-            setIsOpen(false);
-            setIsNewCustomerOpen(true);
-          }}
-          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-        >
-          <i className="bi bi-plus-lg" />
-          Novo cliente
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Consumidor final?
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isFinalConsumer}
+              aria-label="Consumidor final"
+              onClick={toggleFinalConsumer}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                isFinalConsumer
+                  ? 'border-emerald-500 bg-emerald-500'
+                  : 'border-slate-300 bg-slate-200 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${isFinalConsumer ? 'translate-x-6' : 'translate-x-1'}`}
+              />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setIsNewCustomerOpen(true);
+            }}
+            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            <i className="bi bi-plus-lg" />
+            Novo cliente
+          </button>
+        </div>
       </div>
       <div className="relative">
         {isCustomerSelected && (
@@ -183,6 +252,7 @@ const CustomerDataInputs = ({
         )}
         <input
           type="text"
+          disabled={isFinalConsumer}
           value={searchTerm}
           onKeyDown={(e) => {
             if ((e.key === 'Backspace' || e.key === 'Delete') && Boolean(customerData.id)) {
@@ -203,7 +273,9 @@ const CustomerDataInputs = ({
           onFocus={() => setIsOpen(canSearchCustomers(searchTerm))}
           placeholder="Busque pelo nome ou telefone..."
           className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
-            hasError
+            isFinalConsumer
+              ? 'cursor-not-allowed pl-9 border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+              : hasError
               ? 'pl-3 border-red-500 focus:border-red-600 text-red-700 dark:text-red-300'
               : isCustomerSelected
                 ? 'pl-9 border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400 font-medium text-slate-800 dark:text-slate-100'
@@ -211,7 +283,7 @@ const CustomerDataInputs = ({
           }`}
         />
         <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">
-          {Boolean(customerData.id || customerData.fullName) && (
+          {!isFinalConsumer && Boolean(customerData.id || customerData.fullName) && (
             <button
               type="button"
               onClick={handleEditCustomer}
@@ -221,7 +293,7 @@ const CustomerDataInputs = ({
               <i className="bi bi-pencil-fill text-xs" />
             </button>
           )}
-          {searchTerm && (
+          {!isFinalConsumer && searchTerm && (
             <button
               type="button"
               onClick={clearCustomer}
@@ -231,9 +303,11 @@ const CustomerDataInputs = ({
               <i className="bi bi-x-circle-fill" />
             </button>
           )}
-          <i
-            className={`bi bi-chevron-down text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
+          {!isFinalConsumer && (
+            <i
+              className={`bi bi-chevron-down text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          )}
         </div>
       </div>
 

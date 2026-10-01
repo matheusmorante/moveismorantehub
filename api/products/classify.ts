@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const codes = [...ranked.values()].sort((a, b) => b.rank - a.rank).slice(0, 15).map((row) => row.code);
         if (codes.length) {
-          const { data: catalog, error: catalogError } = await db.from('ncms').select('code,official_description,active,start_date,end_date').in('code', codes);
+          const { data: catalog, error: catalogError } = await db.from('ncms').select('code,official_description,active,is_active,start_date,end_date').in('code', codes);
           if (catalogError) throw new Error('ncm_catalog_unavailable');
           const today = dateInBrazil();
           const valid = (catalog || []).filter((row) => isCurrentNcm(row, today));
@@ -126,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const offered = ncmOptions.get(choice);
         span.setAttribute('ncm.choice_in_options', Boolean(offered));
         if (offered) {
-          const { data: latest } = await db.from('ncms').select('code,official_description,active,start_date,end_date').eq('code', offered.code).maybeSingle();
+          const { data: latest } = await db.from('ncms').select('code,official_description,active,is_active,start_date,end_date').eq('code', offered.code).maybeSingle();
           const current = new Map<string, NcmCandidate>();
           if (latest) current.set(latest.code, latest);
           ncm = validateNcmChoice(choice, ncmOptions, current, today);

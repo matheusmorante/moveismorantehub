@@ -29,7 +29,7 @@ export type FiscalDatabase = {
       products: FiscalTable<{ id: string; fiscal: Record<string, unknown> | null }>;
       people: FiscalTable<{ id: string; full_name: string; cpf_cnpj: string | null;
         address: string | null; rg_ie: string | null; person_type_pf_pj: string | null; deleted: boolean }>;
-      ncms: FiscalTable<{ code: string; active: boolean; start_date: string | null; end_date: string | null }>;
+      ncms: FiscalTable<{ code: string; active: boolean; is_active: boolean; start_date: string | null; end_date: string | null }>;
       profiles: FiscalTable<{ id: string; role: string | null; roles: string[] | null }>;
       nfe_documents: FiscalTable<
         {
@@ -215,6 +215,20 @@ export type FiscalDatabase = {
           p_ambiente: number;
           p_serie: string;
           p_numero_minimo: number;
+        };
+        Returns: Record<string, unknown>;
+      };
+      prepare_numbered_nfe_fiscal_snapshot: {
+        Args: {
+          p_emission_request_id: string;
+          p_item_csosn_overrides: Record<string, string>;
+          p_item_fiscal_selections: import('../../shared-utils/fiscalItemSelections').FiscalItemSelections;
+          p_modelo: string;
+          p_ambiente: number;
+          p_numero_minimo: number;
+          p_order_id: string;
+          p_serie: string;
+          p_requested_number: number;
         };
         Returns: Record<string, unknown>;
       };

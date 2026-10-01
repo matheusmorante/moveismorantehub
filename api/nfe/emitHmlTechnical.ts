@@ -22,6 +22,7 @@ import { embeddedNfeXml } from './xmlEnvelope';
 import { createHmlNormalSaleRuleSet, HML_NORMAL_SALE_RULESET_VERSION, loadHmlNormalSaleInputs } from './hmlNormalSaleRuleSet';
 import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { validateParanaIssuerIe } from './paranaIssuerIe';
+import { fiscalNumberConflict, isDifferentKeyNumberConflict } from '../../shared-utils/fiscalNumbering';
 
 export const isHmlRuleSet = (version: unknown) =>
   version === HML_TECHNICAL_RULESET_VERSION || version === HML_NORMAL_SALE_RULESET_VERSION;
@@ -229,8 +230,10 @@ async function transmitAndPersist(
   const parsed = parseSefazAuthorization(responseXml);
   const protocolMatches = hasProtocolKey(responseXml, accessKey);
   const authorized = parsed.authorized && protocolMatches;
+  const numberConflict = isDifferentKeyNumberConflict(parsed.cStat, parsed.xMotivo, accessKey)
+    ? fiscalNumberConflict(nfeNumber) : undefined;
   const status = authorized ? 'homologada' :
-    parsed.pending || parsed.cStat === '100' || !/^\d{3}$/.test(parsed.cStat)
+    parsed.pending || parsed.cStat === '100' || parsed.cStat === '204' || !/^\d{3}$/.test(parsed.cStat)
       ? 'pendente' : 'erro';
   const lines = authorized ? parseAuthorizedInvoiceLines(signedXml).map((line) => ({
     item_number: line.invoiceItemNumber, product_code: line.productCode,
@@ -249,7 +252,10 @@ async function transmitAndPersist(
     return failure(503, 'HML_RESULT_PERSIST_FAILED',
       'Resposta SEFAZ recebida, mas não persistida; reconciliação obrigatória.',
       { pending: true, ...metadata });
-  return { status: 200, body: { success: authorized, pending: status === 'pendente',
+  return { status: numberConflict ? 409 : 200, body: { success: authorized, pending: status === 'pendente',
+    ...(numberConflict ? { code: 'NFE_NUMBER_ALREADY_USED',
+      error: `A numeração ${nfeNumber} já está sendo usada. Escolha o número sugerido ou informe outro.`,
+      numberConflict } : {}),
     ...metadata, signedXml, sefazResponseXml: responseXml,
     cStat: parsed.cStat, xMotivo: parsed.xMotivo,
     protocolNumber: parsed.protocolNumber, protocolDate: parsed.protocolDate } };
@@ -287,6 +293,16 @@ export async function retryHmlTechnical(
       '209: A SEFAZ rejeitou a inscrição estadual do emitente. Confira o cadastro da Receita/PR ou a contabilidade; o XML e a resposta rejeitados serão preservados.',
       { documentId: doc.id, cStat: '209', pending: false, sefazContacted: false,
         orderId: doc.order_id, nfeNumber: doc.numero_nfe, series: doc.serie, model: '55', environment: 2 });
+  const previousRejection = parseSefazAuthorization(String(doc.xml_protocolo || ''));
+  if (doc.status === 'erro' && isDifferentKeyNumberConflict(
+    previousRejection.cStat, previousRejection.xMotivo, String(doc.chave_acesso || ''))) {
+    return failure(409, 'NFE_NUMBER_ALREADY_USED',
+      `A numeração ${doc.numero_nfe} já está sendo usada; revise o número sugerido antes de tentar novamente.`,
+      { documentId: doc.id, cStat: previousRejection.cStat, pending: false,
+        sefazContacted: false, orderId: doc.order_id, nfeNumber: doc.numero_nfe,
+        series: doc.serie, model: '55', environment: 2,
+        numberConflict: fiscalNumberConflict(doc.numero_nfe) });
+  }
   const pfx = process.env.NFE_CERTIFICATE_BASE64;
   if (!pfx) return failure(503, 'HML_CERTIFICATE_UNAVAILABLE', 'Certificado A1 não configurado.');
   let cert: ReturnType<typeof extractCertificateAndKey>;
@@ -347,6 +363,15 @@ export async function recoverHmlTechnical(
         previous.modelo !== '55' || !isHmlRuleSet(previous.fiscal_ruleset_version))
       return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
         'A chave de solicitação já pertence a outra tentativa fiscal.');
+    if (command.requestedNumber !== undefined) {
+      const { data: snapshot, error } = previous.fiscal_snapshot_id
+        ? await db.from('nfe_fiscal_snapshots').select('reserved_number')
+          .eq('id', previous.fiscal_snapshot_id).maybeSingle()
+        : { data: null, error: null };
+      if (error || !snapshot || snapshot.reserved_number !== command.requestedNumber)
+        return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
+          'O número fiscal desta tentativa já está congelado; use uma nova tentativa somente após rejeição confirmada.');
+    }
     if (command.itemCsosnOverrides || command.itemFiscalSelections) {
       if (!previous.fiscal_snapshot_id) return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
         'A tentativa anterior não tem snapshot verificável das escolhas de CSOSN.');
@@ -428,14 +453,31 @@ export async function emitHmlTechnical(
       !Number.isInteger(sequence.minimumNumber) || sequence.minimumNumber < 1 || sequence.minimumNumber > 999999999)
     return failure(422, 'HML_SEQUENCE_INVALID', 'Série ou número inicial HML inválido.',
       { numberReserved: false, sefazContacted: false });
-  const { data: reservationValue, error: reservationError } = await db.rpc('prepare_nfe_fiscal_snapshot', {
+  if (command.requestedNumber !== undefined && command.requestedNumber < sequence.minimumNumber)
+    return failure(422, 'HML_NUMBER_BELOW_SEQUENCE_START',
+      `A numeração manual precisa ser igual ou superior ao início configurado (${sequence.minimumNumber}).`,
+      { numberReserved: false, sefazContacted: false });
+  const snapshotRpcName = command.requestedNumber === undefined
+    ? 'prepare_nfe_fiscal_snapshot' : 'prepare_numbered_nfe_fiscal_snapshot';
+  const snapshotArgs = {
     p_order_id: command.orderId, p_emission_request_id: command.emissionRequestId,
     p_modelo: '55', p_ambiente: 2, p_serie: sequence.series,
     p_numero_minimo: sequence.minimumNumber,
     p_item_csosn_overrides: command.itemCsosnOverrides || {},
-    ...(command.itemFiscalSelections ? { p_item_fiscal_selections: command.itemFiscalSelections } : {}),
-  });
+    p_item_fiscal_selections: command.itemFiscalSelections || {},
+    ...(command.requestedNumber === undefined ? {} : { p_requested_number: command.requestedNumber }),
+  };
+  const { data: reservationValue, error: reservationError } = await db.rpc(snapshotRpcName, snapshotArgs);
   const reservation = parseFiscalSnapshotReservation(reservationValue);
+  if (reservationError?.message?.includes('NFE_NUMBER_ALREADY_USED') && command.requestedNumber) {
+    const conflict = fiscalNumberConflict(command.requestedNumber);
+    return failure(409, 'NFE_NUMBER_ALREADY_USED',
+      `A numeração ${command.requestedNumber} já está sendo usada.${conflict.nextNumber
+        ? ` Número sugerido: ${command.requestedNumber} → ${conflict.nextNumber}.`
+        : ' O limite de numeração foi atingido; informe outro número.'}`,
+      { nfeNumber: command.requestedNumber, numberConflict: conflict,
+        numberReserved: false, sefazContacted: false });
+  }
   if (reservationError || !reservation)
     return failure(503, 'HML_SNAPSHOT_RESERVATION_FAILED',
       'Não foi possível reservar snapshot e número fiscal HML de forma atômica.',

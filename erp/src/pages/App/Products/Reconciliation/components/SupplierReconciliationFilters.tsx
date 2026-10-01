@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ReconciliationFilters } from '../services/reconciliationQueries';
+import type { ReconciliationFilterState } from '../types/reconciliation.types';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import SupplierAutocomplete from '../../../../../components/SupplierAutocomplete';
 
 interface Props {
-  filters: ReconciliationFilters;
-  onChange: (filters: ReconciliationFilters) => void;
+  filters: ReconciliationFilterState;
+  onChange: (filters: ReconciliationFilterState) => void;
   totalFound: number;
 }
 

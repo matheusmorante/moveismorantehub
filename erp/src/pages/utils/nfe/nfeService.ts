@@ -9,6 +9,7 @@ import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { resolveNfeSequenceSettings } from './nfeSequenceSettings';
 import { canIssueCce } from './nfeCce';
 import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
+import { isFiscalNumber, parseFiscalNumberConflict } from '../../../../../shared-utils/fiscalNumbering';
 
 export { canIssueCce };
 
@@ -34,6 +35,7 @@ export interface NfeEmissionResult {
   retryDocumentId?: string;
   sefazMessage?: string;
   validation?: NfeValidationResult;
+  numberConflict?: import('../../../../../shared-utils/fiscalNumbering').FiscalNumberConflict;
 }
 
 /**
@@ -43,9 +45,13 @@ export async function emitNfeForOrder(
   order: Order,
   customEnvironment?: 1 | 2,
   productionConfirmed = false,
-  retryDocumentId?: string
+  retryDocumentId?: string,
+  requestedNumber?: number,
+  originalItemNcms: string[] = []
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
+  if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
+    return { success: false, environment, error: 'Informe um número de nota fiscal válido.' };
   if (!retryDocumentId && environment === 1 && !productionConfirmed) {
     return {
       success: false,
@@ -91,6 +97,8 @@ export async function emitNfeForOrder(
         pending: Boolean(retryResult.pending),
         cStat: retryResult.cStat,
         sefazMessage: retryResult.xMotivo,
+        numberConflict: retryResult.code === 'NFE_NUMBER_ALREADY_USED'
+          ? parseFiscalNumberConflict(retryResult.numberConflict) : undefined,
       };
 
       if (!response.ok || !retryResult.success)
@@ -183,9 +191,22 @@ export async function emitNfeForOrder(
           emissionRequestId,
           ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
           ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+          ...(requestedNumber === undefined ? {} : { requestedNumber }),
         }),
       });
       const result = await response.json().catch(() => ({}));
+      const numberConflict = result.code === 'NFE_NUMBER_ALREADY_USED'
+        ? parseFiscalNumberConflict(result.numberConflict) : undefined;
+      const freshIntentionRequired = Boolean(numberConflict) ||
+        (result.success === false && result.pending !== true &&
+          result.numberReserved === true && result.sefazContacted === false &&
+          typeof result.documentId !== 'string');
+      if (freshIntentionRequired) {
+        // A rejected signed key or a snapshot with no document can safely start a new intention.
+        fiscalEmissionRequestIds.delete(requestKey);
+        try { if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey); }
+        catch { /* storage indisponível */ }
+      }
       if (result.success === false && result.pending !== true && ['244', '209'].includes(result.cStat)) {
         // A confirmed series/IE rejection ends this intention. The next explicit click
         // uses a new request; the database links it and preserves the rejected XML.
@@ -207,6 +228,7 @@ export async function emitNfeForOrder(
         pending: Boolean(result.pending),
         cStat: typeof result.cStat === 'string' ? result.cStat : undefined,
         sefazMessage: typeof result.xMotivo === 'string' ? result.xMotivo : undefined,
+        numberConflict,
       };
       if (response.ok && result.success === true)
         return { success: true, ...metadata,
@@ -276,7 +298,7 @@ export async function emitNfeForOrder(
   );
   const { data: catalogNcms, error: catalogError } = await supabase
     .from('ncms')
-    .select('code, active, start_date, end_date')
+    .select('code, active, is_active, start_date, end_date')
     .in('code', requestedNcms);
   if (catalogError) {
     return {
@@ -296,6 +318,10 @@ export async function emitNfeForOrder(
     const entry = ncmByCode.get(code);
     return (
       !entry?.active ||
+      (!entry.is_active && order.items.filter((item) => item.itemType !== 'service').some((item, index) => {
+        const itemCode = String((item as any).fiscal?.ncm || '').replace(/\D/g, '');
+        return itemCode === code && String(originalItemNcms[index] || '').replace(/\D/g, '') !== code;
+      })) ||
       (entry.start_date && entry.start_date > today) ||
       (entry.end_date && entry.end_date < today)
     );
@@ -305,7 +331,7 @@ export async function emitNfeForOrder(
       success: false,
       model,
       environment,
-      error: `NCM(s) não vigente(s) ou ausente(s) da base local: ${invalidNcms.join(', ')}. Revise o cadastro do produto antes de emitir.`,
+      error: `NCM(s) não vigente(s), desativado(s) para novas seleções ou ausente(s) da base local: ${invalidNcms.join(', ')}. Revise o cadastro do produto antes de emitir.`,
       validation,
     };
   }

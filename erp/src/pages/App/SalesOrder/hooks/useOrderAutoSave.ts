@@ -2,9 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
 import Shipping from '@/pages/types/Shipping.type';
-import Payment from '@/pages/types/payments.type';
+import type { Payment } from '@/pages/types/payments.type';
 import CustomerData from '@/pages/types/customerData.type';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
+
+export type DraftAutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
 export function useOrderAutoSave(
   items: Item[],
@@ -16,15 +18,19 @@ export function useOrderAutoSave(
   marketingOrigin: string,
   orderDate: string,
   status: string,
-  currentOrderId: string | undefined,
   orderIndex: number | null,
   getOrderData: (newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled') => Order,
   setCurrentOrderId: (id: string | undefined) => void,
-  latestStateRef: React.MutableRefObject<any>
+  latestStateRef: React.MutableRefObject<any>,
+  isDraftAutoSaveEnabled: boolean
 ) {
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftAutoSaveStatus, setDraftAutoSaveStatus] =
+    useState<DraftAutoSaveStatus>('idle');
   const autoSaveTimerRef = useRef<any>(null);
   const isInitialMount = useRef(true);
+  const isSavingRef = useRef(false);
+  const saveRevisionRef = useRef(0);
+  const isSavingDraft = draftAutoSaveStatus === 'saving';
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -32,11 +38,17 @@ export function useOrderAutoSave(
       return;
     }
 
-    // Disable auto-save for already finalized orders (not draft)
-    if (status !== 'draft' && currentOrderId) return;
+    if (!isDraftAutoSaveEnabled || status !== 'draft') {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      setDraftAutoSaveStatus('idle');
+      return;
+    }
 
     // Não executa auto-save sem código válido gerado
-    if (!latestStateRef.current.orderIndex) return;
+    if (!latestStateRef.current.orderIndex) {
+      setDraftAutoSaveStatus('idle');
+      return;
+    }
 
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
@@ -71,43 +83,55 @@ export function useOrderAutoSave(
       return true;
     })();
 
-    if (isDefaultState) return;
+    if (isDefaultState) {
+      setDraftAutoSaveStatus('idle');
+      return;
+    }
 
-    const isSavingRef = { current: false };
+    saveRevisionRef.current += 1;
+    setDraftAutoSaveStatus('pending');
 
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (
-        latestStateRef.current.isSaving ||
-        latestStateRef.current.isSavingDraft ||
-        isSavingRef.current
-      )
-        return;
-
-      if (!latestStateRef.current.orderIndex) {
-        console.warn('[useOrderAutoSave] Auto-save bloqueado: pedido sem código.');
+    const saveDraft = async () => {
+      if (latestStateRef.current.status !== 'draft') {
+        setDraftAutoSaveStatus('idle');
         return;
       }
 
-      const currentStatus = latestStateRef.current.status;
-      const saveStatus =
-        currentStatus === 'draft' || !latestStateRef.current.currentOrderId
-          ? 'draft'
-          : currentStatus;
-      const draft = getOrderData(saveStatus as any);
+      if (latestStateRef.current.isSaving || isSavingRef.current) {
+        setDraftAutoSaveStatus('pending');
+        autoSaveTimerRef.current = setTimeout(saveDraft, 250);
+        return;
+      }
+
+      if (!latestStateRef.current.orderIndex) {
+        console.warn('[useOrderAutoSave] Auto-save bloqueado: pedido sem código.');
+        setDraftAutoSaveStatus('error');
+        return;
+      }
+
+      const draft = getOrderData('draft');
+      const saveRevision = saveRevisionRef.current;
       try {
         isSavingRef.current = true;
-        setIsSavingDraft(true);
+        setDraftAutoSaveStatus('saving');
         const savedId = await saveOrder(draft);
         if (!latestStateRef.current.currentOrderId && savedId) {
           setCurrentOrderId(savedId);
         }
+        setDraftAutoSaveStatus(
+          saveRevision === saveRevisionRef.current ? 'saved' : 'pending'
+        );
       } catch (error) {
         console.error('Erro no salvamento automático:', error);
+        setDraftAutoSaveStatus(
+          saveRevision === saveRevisionRef.current ? 'error' : 'pending'
+        );
       } finally {
         isSavingRef.current = false;
-        setTimeout(() => setIsSavingDraft(false), 1000);
       }
-    }, 3000);
+    };
+
+    autoSaveTimerRef.current = setTimeout(saveDraft, 3000);
 
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -123,15 +147,15 @@ export function useOrderAutoSave(
     orderDate,
     getOrderData,
     status,
-    currentOrderId,
     orderIndex,
     setCurrentOrderId,
     latestStateRef,
+    isDraftAutoSaveEnabled,
   ]);
 
   return {
     isSavingDraft,
-    setIsSavingDraft,
+    draftAutoSaveStatus,
     autoSaveTimerRef,
   };
 }

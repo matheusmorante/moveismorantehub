@@ -1,3 +1,5 @@
+import { DEFAULT_NFE_NUMBER, DEFAULT_NFCE_NUMBER } from '../../../../../shared-utils/fiscalNumbering.js';
+
 type FiscalSequenceSettings = {
   nfeSerie?: string;
   nfeNextNumber?: number;
@@ -20,8 +22,8 @@ export function resolveNfeSequenceSettings(
       series,
       minimumNumber: Number(
         model === '65'
-          ? (settings.nfceHomologationNextNumber ?? 700)
-          : (settings.nfeHomologationNextNumber ?? 700)
+          ? (settings.nfceHomologationNextNumber ?? DEFAULT_NFCE_NUMBER)
+          : (settings.nfeHomologationNextNumber ?? DEFAULT_NFE_NUMBER)
       ),
     };
   }
@@ -29,7 +31,7 @@ export function resolveNfeSequenceSettings(
   return {
     series,
     minimumNumber: Number(
-      model === '65' ? (settings.nfceNextNumber ?? 700) : (settings.nfeNextNumber ?? 700)
+      model === '65' ? (settings.nfceNextNumber ?? DEFAULT_NFCE_NUMBER) : (settings.nfeNextNumber ?? DEFAULT_NFE_NUMBER)
     ),
   };
 }

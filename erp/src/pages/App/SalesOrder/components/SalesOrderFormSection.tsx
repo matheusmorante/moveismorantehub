@@ -290,7 +290,8 @@ const SalesOrderFormSection = ({
         currentOrder={state.currentOrder}
         totalOrderValue={state.paymentsSummary.totalOrderValue}
         isSaving={state.isSaving}
-        isSavingDraft={state.isSavingDraft}
+        draftAutoSaveStatus={state.draftAutoSaveStatus}
+        showDraftAutoSave={state.isDraftAutoSaveEnabled && state.status === 'draft'}
         onCompleteOrder={
           state.status === 'draft' ? actions.handleCompleteOrder : actions.handleSaveOrder
         }

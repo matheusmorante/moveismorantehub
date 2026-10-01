@@ -13,7 +13,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
   return (
     <div className="border-b border-slate-100 dark:border-slate-800 pb-6 space-y-6">
       <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10">
-        <h3 className="text-sm font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2 mb-2">
+        <h3 className="text-sm font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2 mb-2">
           <i className="bi bi-building-fill-check"></i> Dados da Empresa Emitente (SEFAZ-PR)
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
@@ -168,9 +168,9 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
             </label>
             <input
               type="number"
-              value={settings.nfceNextNumber ?? 700}
-              onChange={(e) => onChange('nfceNextNumber', parseInt(e.target.value, 10) || 700)}
-              placeholder="700"
+              value={settings.nfceNextNumber ?? 600}
+              onChange={(e) => onChange('nfceNextNumber', parseInt(e.target.value, 10) || 600)}
+              placeholder="600"
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>
@@ -180,9 +180,9 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
             </label>
             <input
               type="number"
-              value={settings.nfeNextNumber ?? 700}
-              onChange={(e) => onChange('nfeNextNumber', parseInt(e.target.value, 10) || 700)}
-              placeholder="700"
+              value={settings.nfeNextNumber ?? 102}
+              onChange={(e) => onChange('nfeNextNumber', parseInt(e.target.value, 10) || 102)}
+              placeholder="102"
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>
@@ -212,11 +212,11 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
                 </label>
                 <input
                   type="number"
-                  value={settings.nfceHomologationNextNumber ?? 700}
+                  value={settings.nfceHomologationNextNumber ?? 600}
                   onChange={(e) =>
-                    onChange('nfceHomologationNextNumber', parseInt(e.target.value, 10) || 700)
+                    onChange('nfceHomologationNextNumber', parseInt(e.target.value, 10) || 600)
                   }
-                  placeholder="700"
+                  placeholder="600"
                   className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
                 />
               </div>
@@ -226,11 +226,11 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
                 </label>
                 <input
                   type="number"
-                  value={settings.nfeHomologationNextNumber ?? 700}
+                  value={settings.nfeHomologationNextNumber ?? 102}
                   onChange={(e) =>
-                    onChange('nfeHomologationNextNumber', parseInt(e.target.value, 10) || 700)
+                    onChange('nfeHomologationNextNumber', parseInt(e.target.value, 10) || 102)
                   }
-                  placeholder="700"
+                  placeholder="102"
                   className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm outline-none focus:border-blue-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
                 />
               </div>
@@ -253,7 +253,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
               className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm outline-none focus:border-emerald-500 dark:text-slate-200 w-full transition-all font-bold font-mono"
             />
           </div>
-          <p className="self-end text-sm text-slate-700 dark:text-slate-300">
+          <p className="self-end text-sm text-slate-600 dark:text-slate-300">
             Guarde o CSC secreto fora do navegador e configure-o somente no serviço fiscal que o
             utilizar.
           </p>
@@ -269,7 +269,7 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
           </h4>
         </div>
 
-        <p className="text-sm text-slate-700 dark:text-slate-300">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           O A1 e a senha são configurados exclusivamente no servidor fiscal.
         </p>
       </div>

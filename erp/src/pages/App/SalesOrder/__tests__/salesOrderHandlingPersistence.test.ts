@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSalesOrderForm } from '../useSalesOrderForm';
-import Order from '../../types/order.type';
+import Order from '@/pages/types/order.type';
 
 // Mock Supabase to avoid test config error
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -40,7 +40,7 @@ vi.mock('../../utils/supabaseConfig', () => ({
 }));
 
 // Mock dependencies that require Supabase or external APIs
-vi.mock('../../utils/orderCode', () => ({
+vi.mock('@/pages/utils/orderCode', () => ({
   getOrderIndex: vi.fn((order) => order?.orderIndex || 2000),
   getNextOrderIndex: vi.fn(async () => 2001),
 }));
@@ -95,6 +95,8 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
           description: 'Sofá 3 Lugares',
           unitPrice: 1500,
           quantity: 1,
+          unitDiscount: 0,
+          discountType: 'fixed',
           handlingType: 'Item não necessita de montagem',
         },
         {
@@ -103,15 +105,41 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
           description: 'Mesa de Centro',
           unitPrice: 400,
           quantity: 1,
+          unitDiscount: 0,
+          discountType: 'fixed',
           handlingType: 'De mostruário montado > Entregue montado',
         },
       ],
-      payments: [{ method: 'pix', amount: 1950, status: 'paid' }],
+      itemsSummary: {
+        totalQuantity: 2,
+        itemsSubtotal: 1900,
+        totalFixedDiscount: 0,
+        itemsTotalValue: 1900,
+        totalItemsCost: 0,
+      },
+      payments: [{ method: 'pix', amount: 1950, fee: 0, feeType: 'fixed', status: 'paid' }],
+      paymentsSummary: {
+        totalPaymentsFee: 0,
+        totalOrderValue: 1950,
+        totalAmountPaid: 1950,
+        amountRemaining: 0,
+      },
       customerData: {
         fullName: 'Cliente Teste',
         phone: '41999999999',
+        fullAddress: {
+          cep: '',
+          street: '',
+          number: '',
+          complement: '',
+          observation: '',
+          neighborhood: '',
+          city: '',
+        },
       },
       seller: 'Vendedor Teste',
+      observation: '',
+      date: '2026-09-15',
     };
 
     const { result } = renderHook(() => useSalesOrderForm());
@@ -119,6 +147,8 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
     act(() => {
       result.current.actions.loadOrderForEditing(mockOrder);
     });
+
+    expect(result.current.state.isDraftAutoSaveEnabled).toBe(false);
 
     // Verificar que os itens NÃO foram sobrescritos com "Na caixa > Montagem no local da entrega"
     expect(result.current.state.items[0].handlingType).toBe('Item não necessita de montagem');
@@ -165,15 +195,41 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
           description: 'Guarda Roupa Casal',
           unitPrice: 2000,
           quantity: 1,
+          unitDiscount: 0,
+          discountType: 'fixed',
           handlingType: 'Na caixa > Montagem no local da entrega',
         },
       ],
-      payments: [{ method: 'pix', amount: 2000, status: 'paid' }],
+      itemsSummary: {
+        totalQuantity: 1,
+        itemsSubtotal: 2000,
+        totalFixedDiscount: 0,
+        itemsTotalValue: 2000,
+        totalItemsCost: 0,
+      },
+      payments: [{ method: 'pix', amount: 2000, fee: 0, feeType: 'fixed', status: 'paid' }],
+      paymentsSummary: {
+        totalPaymentsFee: 0,
+        totalOrderValue: 2000,
+        totalAmountPaid: 2000,
+        amountRemaining: 0,
+      },
       customerData: {
         fullName: 'Cliente Teste 2',
         phone: '41999999999',
+        fullAddress: {
+          cep: '',
+          street: '',
+          number: '',
+          complement: '',
+          observation: '',
+          neighborhood: '',
+          city: '',
+        },
       },
       seller: 'Vendedor Teste',
+      observation: '',
+      date: '2026-09-15',
     };
 
     const { result } = renderHook(() => useSalesOrderForm());

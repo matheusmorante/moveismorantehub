@@ -3,12 +3,13 @@ export type NcmCandidate = {
   code: string;
   official_description: string;
   active: boolean;
+  is_active: boolean;
   start_date: string | null;
   end_date: string | null;
 };
 
 export function isCurrentNcm(candidate: NcmCandidate, today: string): boolean {
-  return /^\d{8}$/.test(candidate.code) && candidate.active &&
+  return /^\d{8}$/.test(candidate.code) && candidate.active && candidate.is_active &&
     (!candidate.start_date || candidate.start_date <= today) &&
     (!candidate.end_date || candidate.end_date >= today);
 }

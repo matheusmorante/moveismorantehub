@@ -4,23 +4,23 @@ import Product from '../../../types/product.type';
 
 // Modular UI Components
 import VariationFormModal from './VariationFormModal';
-import CategorySearchModal from '../components/modals/CategorySearchModal';
-import ProductConversionModal from '../components/modals/ProductConversionModal';
-import { ProductFormHeader } from '../components/ProductFormHeader';
-import { ProductFormFooter } from '../components/ProductFormFooter';
-import { ProductSaveResultModal } from '../components/modals/ProductSaveResultModal';
+import CategorySearchModal from '../components/modals/product/CategorySearchModal';
+import ProductConversionModal from '../components/modals/product/ProductConversionModal';
+import { ProductFormHeader } from '../components/form/ProductFormHeader';
+import { ProductFormFooter } from '../components/form/ProductFormFooter';
+import { ProductSaveResultModal } from '../components/modals/product/ProductSaveResultModal';
 
 // Modular Tab Components
 import ProductGeneralTab from '../components/tabs/ProductGeneralTab';
 import ProductVariationsTab from '../components/tabs/ProductVariationsTab';
 import ProductEcommerceTab from '../components/tabs/ProductEcommerceTab';
 import ProductInventoryTab from '../components/tabs/ProductInventoryTab';
-import ProductFiscalTab from '../components/tabs/ProductFiscalTab';
-import ProductTechnicalTab from '../components/tabs/ProductTechnicalTab';
+import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
+import ProductTechnicalTab from '../components/tabs/technical/ProductTechnicalTab';
 import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
 
 // Orchestrator Hook
-import { useProductFormModal } from '../hooks/useProductFormModal';
+import { useProductFormModal } from '../hooks/form/useProductFormModal';
 
 export interface ProductFormModalProps {
   readonly isOpen: boolean;

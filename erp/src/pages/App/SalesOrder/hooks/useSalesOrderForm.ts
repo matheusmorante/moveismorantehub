@@ -41,6 +41,7 @@ export const useSalesOrderForm = (
   const [orderDate, setOrderDate] = useState(() => getCurrentDatetimeLocal());
   const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string>('draft');
+  const [isDraftAutoSaveEnabled, setIsDraftAutoSaveEnabled] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [orderType, setOrderType] = useState<Order['orderType']>(initialOrderType);
@@ -73,6 +74,7 @@ export const useSalesOrderForm = (
       orderIndex,
       isGeneratingCode,
       status,
+      isDraftAutoSaveEnabled,
       items,
       itemsSummary,
       shipping,
@@ -141,7 +143,7 @@ export const useSalesOrderForm = (
     [orderIndex]
   );
 
-  const { isSavingDraft, autoSaveTimerRef } = useOrderAutoSave(
+  const { isSavingDraft, draftAutoSaveStatus, autoSaveTimerRef } = useOrderAutoSave(
     items,
     shipping,
     payments,
@@ -151,17 +153,18 @@ export const useSalesOrderForm = (
     marketingOrigin,
     orderDate,
     status,
-    currentOrderId,
     orderIndex,
     getOrderData,
     setCurrentOrderId,
-    latestState
+    latestState,
+    isDraftAutoSaveEnabled
   );
 
   const loadOrderForEditing = useCallback(
     (order: Order) => {
       const migratedOrder = migrateOrderHandlings(order);
       const existingIndex = getOrderIndex(order);
+      setIsDraftAutoSaveEnabled(!(order.id && existingIndex));
 
       if (order.id && existingIndex) {
         setOrderIndex(existingIndex);
@@ -271,7 +274,15 @@ export const useSalesOrderForm = (
         setOrderDate(parseStorageDateToLocal(order.date));
       }
     },
-    [setItems, setShipping, setPayments, setCustomerData, setOrderIndex, generateCodeForCopyOrNew]
+    [
+      setItems,
+      setShipping,
+      setPayments,
+      setCustomerData,
+      setOrderIndex,
+      setIsDraftAutoSaveEnabled,
+      generateCodeForCopyOrNew,
+    ]
   );
 
   // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados,
@@ -491,6 +502,8 @@ export const useSalesOrderForm = (
       status,
       isSaving,
       isSavingDraft,
+      draftAutoSaveStatus,
+      isDraftAutoSaveEnabled,
       isCalculatingDistance,
       itemsSummary,
       paymentsSummary,
@@ -515,6 +528,8 @@ export const useSalesOrderForm = (
       status,
       isSaving,
       isSavingDraft,
+      draftAutoSaveStatus,
+      isDraftAutoSaveEnabled,
       isCalculatingDistance,
       itemsSummary,
       paymentsSummary,

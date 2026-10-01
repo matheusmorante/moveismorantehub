@@ -11,7 +11,8 @@ export type ValidationErrors = Record<string, string>;
 export const validateItems = (
   items: Item[],
   isBudget: boolean = false,
-  isReturn: boolean = false
+  isReturn: boolean = false,
+  requireStockOrigin: boolean = false
 ): ValidationErrors => {
   const errors: ValidationErrors = {};
   if (!items || !Array.isArray(items)) return errors;
@@ -24,6 +25,16 @@ export const validateItems = (
     const isService = item.itemType === 'service';
     if (!hideHandling && !isService && (!item.handlingType || item.handlingType.trim() === '')) {
       errors[`item_${idx}_handlingType`] = 'O manuseio do item e obrigatorio.';
+    }
+    if (
+      requireStockOrigin &&
+      !isService &&
+      !item.isComboItem &&
+      item.condition !== 'novo' &&
+      item.condition !== 'salvado' &&
+      item.condition !== 'usado'
+    ) {
+      errors[`item_${idx}_stockOrigin`] = 'Selecione a origem do estoque.';
     }
   });
   return errors;
@@ -103,9 +114,11 @@ export const validateOrder = (order: Order): ValidationErrors => {
   );
 
   const isReturn = order.orderType === 'return';
+  const requireStockOrigin =
+    ['scheduled', 'fulfilled'].includes(order.status || '') && !isBudget && !isReturn;
 
   const errors: ValidationErrors = {
-    ...validateItems(items, isBudget, isReturn),
+    ...validateItems(items, isBudget, isReturn, requireStockOrigin),
     ...(!isBudget ? validateCustomerData(order.customerData, isPickup) : {}),
     ...validateSeller(order.seller),
   };

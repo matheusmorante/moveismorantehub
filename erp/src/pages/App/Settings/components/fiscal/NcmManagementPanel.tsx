@@ -3,11 +3,13 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
 
-type NcmFilter = 'all' | 'vigentes' | 'encerrados' | 'alterados' | 'com_produtos' | 'revisar';
+type NcmFilter = 'all' | 'vigentes' | 'encerrados' | 'alterados' | 'com_produtos' | 'revisar' | 'futuros';
+type StoreFilter = 'active' | 'inactive' | 'all';
 interface NcmRow {
   code: string;
   official_description: string;
   active: boolean;
+  is_active: boolean;
   start_date: string | null;
   end_date: string | null;
   legal_act: string | null;
@@ -35,6 +37,7 @@ interface NcmSummary {
     source_valid_count: number;
   };
 }
+interface StoreSummary { total_count: number; active_count: number; inactive_count: number }
 interface NcmPreview {
   sync_run_id: string;
   source_updated_at: string;
@@ -67,6 +70,7 @@ const filterOptions: Array<{ id: NcmFilter; label: string }> = [
   { id: 'alterados', label: 'Alterados' },
   { id: 'com_produtos', label: 'Com produtos' },
   { id: 'revisar', label: 'Precisam revisão' },
+  { id: 'futuros', label: 'Futuros' },
 ];
 
 function formatDate(value?: string | null) {
@@ -85,9 +89,11 @@ export function NcmManagementPanel() {
   const { profile } = useAuth();
   const canManage = profile?.role === 'administrator';
   const [summary, setSummary] = useState<NcmSummary | null>(null);
+  const [storeSummary, setStoreSummary] = useState<StoreSummary | null>(null);
   const [rows, setRows] = useState<NcmRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [filter, setFilter] = useState<NcmFilter>('revisar');
+  const [filter, setFilter] = useState<NcmFilter>('all');
+  const [storeFilter, setStoreFilter] = useState<StoreFilter>('active');
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -135,17 +141,21 @@ export function NcmManagementPanel() {
         { data: catalogData, error: catalogError },
       ] = await Promise.all([
         supabase.rpc('get_ncm_catalog_summary'),
-        supabase.rpc('list_ncm_catalog', {
+        supabase.rpc('list_ncm_catalog_for_admin', {
           p_search: search,
+          p_store_filter: storeFilter,
           p_filter: filter,
           p_limit: PAGE_SIZE,
           p_offset: page * PAGE_SIZE,
         }),
       ]);
+      const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc('get_ncm_store_activation_summary');
       if (summaryError) throw summaryError;
+      if (storeSummaryError) throw storeSummaryError;
       if (catalogError) throw catalogError;
       const catalog = catalogData as { items?: NcmRow[]; total?: number };
       setSummary(summaryData as NcmSummary);
+      setStoreSummary(storeSummaryData as StoreSummary);
       setRows(catalog.items || []);
       setTotal(catalog.total || 0);
     } catch (error: any) {
@@ -153,7 +163,18 @@ export function NcmManagementPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter, page, search]);
+  }, [filter, page, search, storeFilter]);
+
+  const toggleStoreActivation = async (row: NcmRow) => {
+    try {
+      setErrorMessage('');
+      const { error } = await supabase.rpc('set_ncm_store_activation', { p_code: row.code, p_is_active: !row.is_active });
+      if (error) throw error;
+      await loadCatalog();
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Não foi possível alterar o uso deste NCM na loja.');
+    }
+  };
 
   useEffect(() => {
     void loadCatalog();
@@ -414,6 +435,8 @@ export function NcmManagementPanel() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Metric label="NCMs ativos na loja" value={storeSummary?.active_count} />
+          <Metric label="NCMs desativados na loja" value={storeSummary?.inactive_count} warning />
           <Metric label="NCMs vigentes" value={summary?.active_count} />
           <Metric label="Mudanças em 30 dias" value={summary?.recent_changes_count} />
           <Metric
@@ -606,6 +629,16 @@ export function NcmManagementPanel() {
           </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Filtrar por ativação na loja">
+          <span className="text-xs font-bold text-slate-500">Uso na loja:</span>
+          {([{ id: 'active', label: 'Ativos' }, { id: 'inactive', label: 'Desativados' }, { id: 'all', label: 'Todos' }] as const).map((option) => (
+            <button type="button" key={option.id} onClick={() => { setPage(0); setStoreFilter(option.id); }}
+              className={`rounded-lg px-3 py-2 text-xs font-bold ${storeFilter === option.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+
         <div className="mt-4 space-y-2 md:hidden">
           {isLoading ? (
             <p className="rounded-xl border border-slate-200 p-5 text-center text-xs text-slate-400 dark:border-slate-800">
@@ -644,6 +677,13 @@ export function NcmManagementPanel() {
                       Detalhes
                     </button>
                   </div>
+                  <p className="mt-2 text-[10px] font-bold">Uso na loja: {row.is_active ? 'Ativo' : 'Desativado'}</p>
+                  {canManage && !row.is_unverified && (
+                    <button type="button" disabled={!row.is_active && (!row.active || getNcmStatus(row) !== 'Vigente')} onClick={() => void toggleStoreActivation(row)}
+                      className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-blue-700 disabled:opacity-50 dark:border-slate-700 dark:text-blue-300">
+                      {row.is_active ? 'Desativar na loja' : 'Ativar na loja'}
+                    </button>
+                  )}
                 </article>
               );
             })
@@ -655,7 +695,8 @@ export function NcmManagementPanel() {
               <tr>
                 <th className="px-4 py-3">NCM</th>
                 <th className="px-4 py-3">Descrição oficial</th>
-                <th className="px-4 py-3">Situação</th>
+                <th className="px-4 py-3">Situação oficial</th>
+                <th className="px-4 py-3">Uso na loja</th>
                 <th className="px-4 py-3 text-right">Produtos</th>
                 <th className="px-4 py-3 text-right">Detalhes</th>
               </tr>
@@ -663,14 +704,14 @@ export function NcmManagementPanel() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                     <i className="bi bi-arrow-repeat animate-spin mr-2" />
                     Carregando NCMs...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                     Nenhum código corresponde aos filtros.
                   </td>
                 </tr>
@@ -696,6 +737,10 @@ export function NcmManagementPanel() {
                       </td>
                       <td className="px-4 py-3">
                         <StatusPill status={status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.is_active ? 'Ativo' : 'Desativado'}</span>
+                        {canManage && !row.is_unverified && <button type="button" disabled={!row.is_active && status !== 'Vigente'} onClick={() => void toggleStoreActivation(row)} className="ml-2 text-[10px] font-bold text-blue-600 underline disabled:opacity-50">{row.is_active ? 'Desativar' : 'Ativar'}</button>}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">
                         {row.product_count}

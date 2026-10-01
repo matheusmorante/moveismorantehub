@@ -10,7 +10,7 @@ import VariationFormModal from './modals/VariationFormModal';
 import PriceHistoryModal from './modals/PriceHistoryModal';
 import StockLaunchModal from '../Stock/components/StockLaunchModal';
 import { supabase } from '../../utils/supabaseConfig';
-import { calculateVariationCatalogStats } from './ProductList/utils/registeredVariationCount';
+import { calculateVariationCatalogStats } from './ProductList/utils/catalog/registeredVariationCount';
 import { resolveProductVariation } from './utils/resolveProductVariation';
 const categoryTree = undefined;
 

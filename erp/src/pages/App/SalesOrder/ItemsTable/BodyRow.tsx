@@ -11,10 +11,11 @@ import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { ValidationErrors } from '../../../utils/validations';
 import { getSettings } from '@/pages/utils/settingsService';
 import ServiceAutocomplete from './ServiceAutocomplete';
+import TemporaryProductWarning from './TemporaryProductWarning';
 import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
 
 const STOCK_ORIGIN_PRODUCT_KINDS = {
-  '': ['normal', 'salvado'],
+  '': ['normal', 'salvado', 'usado'],
   novo: ['normal'],
   salvado: ['salvado'],
   usado: ['usado'],
@@ -59,6 +60,7 @@ const BodyRow = ({
   onToggleExpand,
 }: Props) => {
   const isService = item.itemType === 'service';
+  const shouldShowStockOrigin = !isService && !isBudget && !isReturn;
   const nonStockOrigin = getNonStockOrigin(item);
   const shouldHideHandling = Boolean(isService || hideHandling || isBudget || isReturn);
   const isLinkedProduct = Boolean(
@@ -73,7 +75,9 @@ const BodyRow = ({
   const error = errors[errorKey];
   const handlingErrorKey = `item_${idx}_handlingType`;
   const handlingError = !isService && errors[handlingErrorKey];
-  const itemHasError = Boolean(error || handlingError);
+  const stockOriginErrorKey = `item_${idx}_stockOrigin`;
+  const stockOriginError = !isService && errors[stockOriginErrorKey];
+  const itemHasError = Boolean(error || handlingError || stockOriginError);
   const handleStockOriginChange = (rawCondition: string) => {
     const condition = rawCondition as Item['condition'];
     if (condition === 'salvado' || condition === 'usado') {
@@ -437,6 +441,7 @@ const BodyRow = ({
               includeDeactivated
               placeholder="Buscar produto no catálogo..."
               isTemporary={isTemporaryProduct}
+              inputEndAdornment={isTemporaryProduct ? <TemporaryProductWarning /> : undefined}
               isSelected={isLinkedProduct}
               className={error ? 'border-red-500 rounded-2xl ring-2 ring-red-500' : ''}
             />
@@ -501,21 +506,26 @@ const BodyRow = ({
               </div>
             )}
 
-            {!isService && (
+            {shouldShowStockOrigin && (
               <div className="w-full sm:w-[130px] md:w-[150px] shrink-0">
-                <label className="text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 text-slate-400 dark:text-slate-500">
-                  Origem do estoque
+                <label
+                  className={`text-[10px] font-black uppercase tracking-wider mb-1 block ml-1 ${stockOriginError ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
+                >
+                  Origem do estoque <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full appearance-none border-b-2 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500"
+                  aria-label="Origem do estoque (obrigatória)"
+                  aria-required="true"
+                  aria-invalid={Boolean(stockOriginError)}
+                  className={`w-full appearance-none border-b-2 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors dark:text-slate-200 ${stockOriginError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
                   value={item.condition ?? ''}
                   onChange={(e) => handleStockOriginChange(e.target.value)}
                 >
                   <option value="" className="dark:bg-slate-900">
-                    Todos
+                    Selecione
                   </option>
                   <option value="novo" className="dark:bg-slate-900">
-                    Normal
+                    Convencional
                   </option>
                   <option value="salvado" className="dark:bg-slate-900">
                     Salvados
@@ -524,6 +534,11 @@ const BodyRow = ({
                     Usados
                   </option>
                 </select>
+                {stockOriginError && (
+                  <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+                    {stockOriginError}
+                  </span>
+                )}
               </div>
             )}
 
@@ -637,18 +652,6 @@ const BodyRow = ({
               className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
             />
             <div className="mt-1 flex items-center gap-2">
-              <select
-                className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
-                value={item.condition ?? ''}
-                onChange={(e) => handleStockOriginChange(e.target.value)}
-                title="Origem do estoque"
-                aria-label="Origem do estoque"
-              >
-                <option value="">Todos</option>
-                <option value="novo">Normal</option>
-                <option value="salvado">Salvados</option>
-                <option value="usado">Usados</option>
-              </select>
               <input
                 type="text"
                 value={tempObservation}
@@ -672,22 +675,32 @@ const BodyRow = ({
               includeDeactivated
               placeholder="Busque ou digite um produto..."
               isTemporary={isTemporaryProduct}
+              inputEndAdornment={isTemporaryProduct ? <TemporaryProductWarning /> : undefined}
               isSelected={isLinkedProduct}
               className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
             />
             <div className="mt-1 flex items-center gap-2">
-              <select
-                className="w-[90px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all"
-                value={item.condition ?? ''}
-                onChange={(e) => handleStockOriginChange(e.target.value)}
-                title="Origem do estoque"
-                aria-label="Origem do estoque"
-              >
-                <option value="">Todos</option>
-                <option value="novo">Normal</option>
-                <option value="salvado">Salvados</option>
-                <option value="usado">Usados</option>
-              </select>
+              {shouldShowStockOrigin && (
+                <>
+                  <select
+                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${stockOriginError ? 'border-red-500 focus:border-red-500' : 'border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500'}`}
+                    value={item.condition ?? ''}
+                    onChange={(e) => handleStockOriginChange(e.target.value)}
+                    title="Origem do estoque"
+                    aria-label="Origem do estoque (obrigatória)"
+                    aria-required="true"
+                    aria-invalid={Boolean(stockOriginError)}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="novo">Convencional</option>
+                    <option value="salvado">Salvados</option>
+                    <option value="usado">Usados</option>
+                  </select>
+                  <span className="text-[10px] font-black text-red-500" aria-hidden="true">
+                    *
+                  </span>
+                </>
+              )}
               <input
                 type="text"
                 value={tempObservation}
@@ -697,6 +710,11 @@ const BodyRow = ({
                 className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
+            {stockOriginError && (
+              <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+                {stockOriginError}
+              </span>
+            )}
             {isLinkedProduct && (
               <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 ml-1">
                 <i className="bi bi-check-circle-fill text-emerald-500 text-[10px]" />

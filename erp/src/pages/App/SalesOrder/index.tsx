@@ -35,6 +35,8 @@ const SalesOrder = () => {
   const isBudgetRoute = location.pathname === '/budgets';
   const isAssistanceRoute = location.pathname === '/assistance-orders';
   const isReturnRoute = location.pathname === '/returns';
+  const isSalesOrderRoute = location.pathname === '/sales-order';
+  const showOrderFilters = !isReturnRoute && !isSalesOrderRoute;
 
   const [filters, setFilters] = useState<Filters>({
     dateRange: { start: '', end: '' },
@@ -211,7 +213,13 @@ const SalesOrder = () => {
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 p-2 sm:p-4 lg:p-6">
+      <div
+        className={`flex-1 flex flex-col min-w-0 ${
+          isSalesOrderRoute
+            ? 'px-2 pt-2 pb-2 sm:px-4 sm:pt-3 sm:pb-4 lg:px-6 lg:pt-3 lg:pb-6'
+            : 'p-2 sm:p-4 lg:p-6'
+        }`}
+      >
         <div className="flex flex-col gap-3 mb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             {/* Title (escondido em telas pequenas para economizar espaço) */}
@@ -225,15 +233,17 @@ const SalesOrder = () => {
                       ? 'Devoluções'
                       : 'Pedidos de Venda'}
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
-                {isBudgetRoute
-                  ? 'Gestão de Propostas e Orçamentos'
-                  : isAssistanceRoute
-                    ? 'Atendimento Técnico e Manutenção'
-                    : isReturnRoute
-                      ? 'Controle de Devoluções e Estornos'
-                      : 'Gestão de Vendas e Fluxo de Pedidos'}
-              </p>
+              {!isSalesOrderRoute && (
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
+                  {isBudgetRoute
+                    ? 'Gestão de Propostas e Orçamentos'
+                    : isAssistanceRoute
+                      ? 'Atendimento Técnico e Manutenção'
+                      : isReturnRoute
+                        ? 'Controle de Devoluções e Estornos'
+                        : 'Gestão de Vendas e Fluxo de Pedidos'}
+                </p>
+              )}
             </div>
 
             {/* Top Control Bar on Mobile & Desktop */}
@@ -241,7 +251,7 @@ const SalesOrder = () => {
               {/* Action Buttons Group */}
               <div className="ml-auto flex items-center gap-2 shrink-0">
                 {/* Visualizacao Dropdown */}
-                {!isReturnRoute && (
+                {!isReturnRoute && !isSalesOrderRoute && (
                   <div className="relative hidden lg:block">
                     <button
                       onClick={() => setShowSettings(!showSettings)}
@@ -308,7 +318,7 @@ const SalesOrder = () => {
                 )}
 
                 {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
-                {!isReturnRoute && (
+                {showOrderFilters && (
                   <button
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                     className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${
@@ -370,7 +380,7 @@ const SalesOrder = () => {
         <div className="flex flex-col gap-3 flex-1">
           <div className="bg-transparent transition-colors flex-1 flex flex-col overflow-visible">
             <div className="flex flex-1 min-w-0 gap-4 items-start">
-              {!isReturnRoute && (
+              {showOrderFilters && (
                 <div
                   className={`transition-all duration-300 ease-in-out border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 fixed inset-0 lg:relative lg:inset-auto z-50 h-full rounded-2xl ${isSidebarOpen ? 'w-full lg:w-80 shadow-2xl lg:shadow-none' : 'w-0 opacity-0 overflow-hidden border-none'} min-[1701px]:!sticky min-[1701px]:!top-20 min-[1701px]:!inset-auto min-[1701px]:!z-auto min-[1701px]:!w-80 min-[1701px]:!opacity-100 min-[1701px]:!overflow-hidden min-[1701px]:!border min-[1701px]:!shadow-none min-[1701px]:!shrink-0`}
                 >
@@ -385,7 +395,7 @@ const SalesOrder = () => {
                   <OrderFilters filters={filters} setFilters={setFilters} />
                 </div>
               )}
-              {!isReturnRoute && isSidebarOpen && (
+              {showOrderFilters && isSidebarOpen && (
                 <div
                   className="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
                   onClick={() => setIsSidebarOpen(false)}

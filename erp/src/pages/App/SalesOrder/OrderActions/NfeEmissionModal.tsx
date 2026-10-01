@@ -25,7 +25,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     environment,
     setEnvironment,
     isSubmitting,
+    requestedNumber,
+    setRequestedNumber,
     isLoadingFiscalData,
+    fiscalPreparationError,
     emissionResult,
     nfeItems,
     handleUpdateItemFiscal,
@@ -35,6 +38,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handlePrintDanfe,
   } = useNfeEmission(order, onSuccess);
   const [productionConfirmed, setProductionConfirmed] = React.useState(false);
+  const [retryNumber, setRetryNumber] = React.useState('');
+  React.useEffect(() => {
+    setRetryNumber(emissionResult?.numberConflict?.nextNumber?.toString() ?? '');
+  }, [emissionResult?.numberConflict?.previousNumber, emissionResult?.numberConflict?.nextNumber]);
   React.useEffect(() => setProductionConfirmed(false), [environment]);
   React.useEffect(() => {
     if (isOpen) setEnvironment(DEFAULT_NFE_ENVIRONMENT);
@@ -155,6 +162,25 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           {/* Seleção de Ambiente */}
           <NfeEnvironmentSelector environment={environment} onSelect={setEnvironment} />
 
+          <label className="flex max-w-xs flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+            Número da nota (opcional)
+            <input
+              aria-label="Número manual da nota fiscal"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              min={isPickup ? 600 : 102}
+              value={requestedNumber}
+              onChange={(event) => setRequestedNumber(event.target.value)}
+              disabled={isSubmitting || Boolean(emissionResult?.pending) ||
+                Boolean(emissionResult?.error?.includes('217') && emissionResult.documentId)}
+              placeholder={isPickup ? '600 em diante' : '102 em diante'}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono dark:border-slate-700 dark:bg-slate-950"
+            />
+            <span className="font-normal text-slate-500">
+              Em branco, o próximo número será reservado automaticamente.
+            </span>
+          </label>
+
           {isLoadingFiscalData && (
             <div
               role="status"
@@ -162,6 +188,19 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
             >
               <i className="bi bi-arrow-repeat animate-spin" /> Carregando NCMs e dados fiscais dos
               produtos…
+            </div>
+          )}
+
+          {fiscalPreparationError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"
+            >
+              <p className="font-bold">
+                Os itens foram carregados, mas a preparação fiscal falhou. A emissão está bloqueada
+                até que a configuração seja carregada com sucesso.
+              </p>
+              <p className="mt-1">{fiscalPreparationError}</p>
             </div>
           )}
 
@@ -176,6 +215,41 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                   : 'Não foi possível autorizar a nota'}
               </p>
               <p className="mt-1">{emissionResult.error}</p>
+              {emissionResult.numberConflict && (
+                <div className="mt-3 rounded-xl border border-rose-300 bg-white/70 p-3 dark:border-rose-800 dark:bg-slate-950/50">
+                  <p className="font-bold">
+                    Número {emissionResult.numberConflict.previousNumber} já está sendo usado.
+                    {emissionResult.numberConflict.nextNumber
+                      ? ` Número sugerido: ${emissionResult.numberConflict.previousNumber} → ${emissionResult.numberConflict.nextNumber}.`
+                      : ' Digite outro número para continuar.'}
+                  </p>
+                  <label className="mt-2 flex max-w-xs flex-col gap-1 font-semibold">
+                    Novo número da nota
+                    <input
+                      aria-label="Novo número da nota fiscal"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={retryNumber}
+                      onChange={(event) => setRetryNumber(event.target.value)}
+                      disabled={isSubmitting || Boolean(emissionResult.pending)}
+                      placeholder="Informe outro número"
+                      className="rounded-lg border border-rose-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleEmit(productionConfirmed, false,
+                      /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined)}
+                    disabled={!canOperateFiscal || isSubmitting || isLoadingFiscalData || Boolean(emissionResult.pending) ||
+                      Boolean(fiscalPreparationError) ||
+                      (environment === 1 && !productionConfirmed) ||
+                      !/^\d{1,9}$/.test(retryNumber)}
+                    className="mt-3 rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Enviando…' : 'Tentar novamente'}
+                  </button>
+                </div>
+              )}
               {emissionResult.cStat && (
                 <p className="mt-1 font-mono">
                   SEFAZ cStat {emissionResult.cStat}
@@ -231,6 +305,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
           {!emissionResult?.success && !emissionResult?.pending ? (
             (() => {
+              if (emissionResult?.numberConflict) return null;
               const isRetryable217 =
                 emissionResult?.error?.includes('217') && emissionResult?.documentId;
               return (
@@ -242,11 +317,13 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                   )}
                   <button
                     type="button"
+                    data-testid="nfe-emit-button"
                     onClick={() => handleEmit(productionConfirmed, !!isRetryable217)}
                     disabled={
                       !canOperateFiscal ||
                       isSubmitting ||
                       isLoadingFiscalData ||
+                      Boolean(fiscalPreparationError) ||
                       (environment === 1 && !productionConfirmed)
                     }
                     className={`px-6 py-2.5 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 ${isRetryable217 ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'}`}

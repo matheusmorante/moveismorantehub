@@ -73,11 +73,21 @@ export async function loadHmlNormalSaleInputs(db: SupabaseClient<FiscalDatabase>
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
   const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
   if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
-  const ncms = await db.from('ncms').select('code,active,start_date,end_date').in('code', codes);
+  const ncms = await db.from('ncms').select('code,active,is_active,start_date,end_date').in('code', codes);
   const date = facts.capturedAt.slice(0,10);
-  if (ncms.error || codes.some((code) => !ncms.data?.some((ncm) => ncm.code === code && ncm.active &&
-      (!ncm.start_date || ncm.start_date <= date) && (!ncm.end_date || ncm.end_date >= date))))
-    throw new Error('NCM escolhido não está ativo no catálogo fiscal oficial.');
+  const products = obj(facts.fiscalInputs.products);
+  const invalidSelection = Object.entries(selections).some(([itemNumber, selection]) => {
+    const item = items.filter((candidate) => candidate.itemType !== 'service')[Number(itemNumber) - 1];
+    const savedItemFiscal = item?.fiscal && typeof item.fiscal === 'object' ? item.fiscal : {};
+    const savedProductFiscal = item?.productId && products[item.productId] && typeof products[item.productId] === 'object'
+      ? products[item.productId] as Record<string, unknown> : {};
+    const originalNcm = String(savedItemFiscal.ncm || savedProductFiscal.ncm || '').replace(/\D/g, '');
+    return !ncms.data?.some((ncm) => ncm.code === selection.ncm && ncm.active &&
+      (!ncm.start_date || ncm.start_date <= date) && (!ncm.end_date || ncm.end_date >= date) &&
+      (ncm.is_active || originalNcm === selection.ncm));
+  });
+  if (ncms.error || invalidSelection)
+    throw new Error('NCM escolhido está oficialmente inválido ou desativado para novas seleções da loja.');
 }
 
 /** Limited HML matrix: real internal resale, CRT1, supported zero own-ICMS groups. */

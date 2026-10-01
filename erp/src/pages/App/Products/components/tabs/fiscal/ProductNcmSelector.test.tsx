@@ -34,6 +34,7 @@ beforeEach(() => {
     code: '94036000',
     official_description: 'Outros móveis de madeira',
     active: true,
+    is_active: true,
     start_date: null,
     end_date: null,
   });

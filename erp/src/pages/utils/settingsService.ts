@@ -433,11 +433,11 @@ export const getDefaultSettings = (): AppSettings => ({
   companyUF: 'PR',
   nfeEnvironment: 2, // 2 = Homologação / Testes
   nfeSerie: '1',
-  nfeNextNumber: 700,
-  nfceNextNumber: 700,
+  nfeNextNumber: 102,
+  nfceNextNumber: 600,
   nfeHomologationSerie: '900',
-  nfeHomologationNextNumber: 700,
-  nfceHomologationNextNumber: 700,
+  nfeHomologationNextNumber: 102,
+  nfceHomologationNextNumber: 600,
   cscId: '',
   fiscalDefaults: {
     ncm: '94036000',

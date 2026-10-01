@@ -237,6 +237,7 @@ export type FiscalEmissionCommand = {
   environment: 1 | 2;
   emissionRequestId: string;
   productionConfirmed?: boolean;
+  requestedNumber?: number;
   itemCsosnOverrides?: Record<string, string>;
   itemFiscalSelections?: FiscalItemSelections;
 };
@@ -276,6 +277,7 @@ export function parseFiscalEmissionCommand(
     'environment',
     'emissionRequestId',
     'productionConfirmed',
+    'requestedNumber',
     'itemCsosnOverrides',
     'itemFiscalSelections',
   ]);
@@ -293,6 +295,11 @@ export function parseFiscalEmissionCommand(
     (body.productionConfirmed !== undefined && typeof body.productionConfirmed !== 'boolean')
   )
     return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
+
+  if (body.requestedNumber !== undefined &&
+      (typeof body.requestedNumber !== 'number' || !Number.isInteger(body.requestedNumber) ||
+       body.requestedNumber < 1 || body.requestedNumber > 999999999))
+    return { error: 'Informe um número de nota fiscal inteiro entre 1 e 999999999.' };
 
   let itemCsosnOverrides: Record<string, string>;
   try { itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides); }
@@ -312,6 +319,7 @@ export function parseFiscalEmissionCommand(
       orderId,
       environment: environment as 1 | 2,
       emissionRequestId,
+      ...(body.requestedNumber === undefined ? {} : { requestedNumber: body.requestedNumber as number }),
       ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
       ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
       ...(body.productionConfirmed === undefined

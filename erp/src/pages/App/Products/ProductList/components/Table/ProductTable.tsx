@@ -10,7 +10,7 @@ import {
   normalizeProductTableColumns,
   PRODUCT_TABLE_COLUMNS,
   type ProductTableColumn,
-} from '../../utils/productTableColumns';
+} from '../../utils/presentation/productTableColumns';
 import { ProductBulkActionsToolbar } from '../Shared/ProductBulkActionsToolbar';
 import { MoveVariationFamilyModal } from '../../modals/MoveVariationFamilyModal';
 import { MergeVariationModal } from '../../modals/MergeVariationModal';

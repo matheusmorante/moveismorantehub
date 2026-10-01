@@ -1,7 +1,7 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
 import ProductTable from './components/Table/ProductTable';
-import { useProducts } from './hooks/useProducts';
-import { useVariationExitFlags } from './hooks/useVariationExitFlags';
+import { useProducts } from './hooks/data/useProducts';
+import { useVariationExitFlags } from './hooks/data/useVariationExitFlags';
 import Product, { ProductVisibilitySettings } from '../../../types/product.type';
 import { toast } from 'react-toastify';
 

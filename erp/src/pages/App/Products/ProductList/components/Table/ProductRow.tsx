@@ -1,8 +1,8 @@
 import React from 'react';
 import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
-import { LabelPrintType } from '../../../../components/modals/LabelPrintSelectionModal';
-import { useProductMetadata } from '../../hooks/useProductMetadata';
-import { getVariationDisplayName } from '../../utils/getVariationDisplayName';
+import { LabelPrintType } from '../../../components/modals/product/LabelPrintSelectionModal';
+import { useProductMetadata } from '../../hooks/data/useProductMetadata';
+import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
 import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';
 import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';

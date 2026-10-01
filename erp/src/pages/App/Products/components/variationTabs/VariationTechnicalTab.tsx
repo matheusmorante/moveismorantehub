@@ -13,7 +13,7 @@ import {
   removeVariationOverride,
   groupTechnicalFields,
 } from '@/pages/utils/technicalValuesService';
-import { TechnicalFieldInput } from '../tabs/TechnicalFieldInput';
+import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
 
 interface VariationTechnicalTabProps {
   readonly formData: Variation;
