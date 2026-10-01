@@ -16,7 +16,7 @@ export function BrandLogo({ isAdminMode }: BrandLogoProps) {
 
   return (
     <Link href="/" className="flex items-center group h-full relative py-1 sm:py-2">
-      <div className="relative h-full w-44 sm:w-64 md:w-80 lg:w-96 max-h-16 sm:max-h-24 md:max-h-28 flex items-center justify-start transition-transform duration-300 group-hover:scale-105">
+      <div className="relative h-10 w-10 sm:h-full sm:w-64 md:w-80 lg:w-96 max-h-16 sm:max-h-24 md:max-h-28 flex items-center justify-start transition-transform duration-300 group-hover:scale-105">
         <Image
           src="/images/morante-mark-192.png"
           alt="Móveis Morante"

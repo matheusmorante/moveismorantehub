@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/client';
 let cachedStyleSettings: any = null;
 let fetchPromise: Promise<any> | null = null;
 const STYLE_COLUMNS =
-  'id, button_style, primary_color, secondary_color, accent_color, background_color, text_color, product_list_design_set';
+  'id, border_width, border_radius, shadow, opportunity_emphasis, button_style, primary_color, accent_color, background_color, hero_overlay, product_image_fit, product_grid_columns, product_grid_gap';
 
 export async function getCachedStoreStyleSettings() {
   if (cachedStyleSettings) {

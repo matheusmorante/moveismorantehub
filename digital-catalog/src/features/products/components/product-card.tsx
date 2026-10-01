@@ -53,6 +53,11 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
 
   const displayPrice = product.promo_price || product.price;
   const originalPrice = product.promo_price ? product.price : undefined;
+  const productNameCharacters = Array.from(product.name);
+  const displayName =
+    productNameCharacters.length > 30
+      ? `${productNameCharacters.slice(0, 27).join('').trimEnd()}...`
+      : product.name;
 
   const handleEditClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -179,11 +184,13 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
         <Link href={`/produto/${product.slug}`} className="block min-w-0">
           <h3
             className="min-h-[3rem] w-full break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] [overflow-wrap:anywhere]"
+            aria-label={product.name}
+            title={product.name}
             style={{
               color: getOpportunityTitleColor(product.opportunity),
             }}
           >
-            {product.name}
+            {displayName}
           </h3>
         </Link>
         <div className="mt-1 space-y-0.5">

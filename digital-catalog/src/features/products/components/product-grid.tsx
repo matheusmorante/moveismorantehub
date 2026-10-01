@@ -42,6 +42,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings);
   const { isAdminMode } = useAdminMode();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -74,6 +75,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
 
     async function fetchProducts() {
       setLoading(true);
+      setHasLoadError(false);
       try {
         if (debouncedSearch.trim() && !isCatalogSearchLongEnough(debouncedSearch)) {
           setRawDbProducts([]);
@@ -363,7 +365,10 @@ export function ProductGrid({ filters }: ProductGridProps) {
         if (results.length === 0) setAllProducts([]);
         setTotalProducts(searchProductIds ? searchResultCount || 0 : count || 0);
       } catch (error) {
-        if (isCurrent) console.error('Erro ao carregar produtos:', error);
+        if (isCurrent) {
+          console.error('Erro ao carregar produtos:', error);
+          setHasLoadError(true);
+        }
       } finally {
         if (isCurrent) setLoading(false);
       }
@@ -611,6 +616,27 @@ export function ProductGrid({ filters }: ProductGridProps) {
     );
   }
 
+  if (hasLoadError) {
+    return (
+      <div
+        role="alert"
+        className="text-center py-12 sm:py-20 border rounded-3xl bg-gray-50/50 border-dashed border-gray-200"
+      >
+        <p className="text-gray-700 font-bold text-lg">Não foi possível carregar os produtos</p>
+        <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
+          Tente novamente em instantes.
+        </p>
+        <button
+          type="button"
+          onClick={() => setRefreshTrigger((current) => current + 1)}
+          className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
   if (allProducts.length === 0) {
     return (
       <div className="text-center py-20 border rounded-3xl bg-gray-50/50 border-dashed border-gray-200 animate-in fade-in zoom-in duration-500">
@@ -642,15 +668,16 @@ export function ProductGrid({ filters }: ProductGridProps) {
   };
 
   const configuredColumns = cardStyle.product_grid_columns;
-  const columnsClass =
+  const numericColumnLimit =
     typeof configuredColumns === 'number'
-      ? productGridStyleClasses.columns[configuredColumns as 2 | 3 | 4 | 5 | 6] ||
-        productGridStyleClasses.columns.compact
-      : '';
-  const gridTemplateColumns =
-    typeof configuredColumns === 'number'
-      ? undefined
-      : `repeat(auto-fill, minmax(min(100%, ${productGridMinCardWidths[configuredColumns]}), 1fr))`;
+      ? Math.min(6, Math.max(2, Math.floor(configuredColumns)))
+      : null;
+  const columnsClass = numericColumnLimit
+    ? ''
+    : productGridStyleClasses.columns[configuredColumns];
+  const gridTemplateColumns = numericColumnLimit
+    ? `repeat(auto-fill, minmax(max(${productGridMinCardWidths.comfortable}, calc((100% - ${(numericColumnLimit - 1) * 2}rem) / ${numericColumnLimit})), 1fr))`
+    : `repeat(auto-fill, minmax(min(100%, ${productGridMinCardWidths[configuredColumns]}), 1fr))`;
   const gapClass =
     productGridStyleClasses.gap[cardStyle.product_grid_gap] || productGridStyleClasses.gap['tight'];
 

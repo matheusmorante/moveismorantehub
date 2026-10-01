@@ -19,7 +19,7 @@ function BackgroundEffects() {
 
 function DesktopImage() {
   return (
-    <div className="absolute bottom-0 right-0 md:right-[5%] h-[120%] w-[38%] md:w-[42%] flex items-end justify-center select-none pointer-events-none z-20">
+    <div className="absolute bottom-0 right-0 md:right-[5%] h-full w-[38%] xs:w-[28%] sm:h-[120%] sm:w-[38%] md:w-[42%] flex items-end justify-center select-none pointer-events-none z-20">
       <div className="absolute bottom-0 right-4 w-32 h-32 md:w-80 md:h-80 bg-yellow-400/25 rounded-full blur-[40px] md:blur-[80px]" />
       <div
         className="absolute top-[15%] right-[12%] text-yellow-300 text-sm md:text-3xl animate-spin"
@@ -36,14 +36,14 @@ function DesktopImage() {
       <div className="absolute top-[20%] left-[8%] text-yellow-400 text-sm md:text-2xl animate-pulse">
         ★
       </div>
-      <div className="h-full w-auto flex items-end justify-center overflow-visible">
+      <div className="h-full w-full flex items-end justify-center">
         <Image
           src="/images/mulheruau.png"
           alt="Promoção Salvados"
           width={600}
           height={720}
           priority
-          className="object-contain h-[100%] w-auto max-w-none object-bottom"
+          className="object-contain h-full w-auto max-w-full object-bottom"
         />
       </div>
     </div>
@@ -52,7 +52,7 @@ function DesktopImage() {
 
 function SalvadosContent({ onAction }: SalvadosBannerProps) {
   return (
-    <div className="w-[62%] xs:w-[78%] sm:w-[62%] md:w-[55%] flex-none space-y-2 md:space-y-3 text-left py-0.5 md:py-1 z-10">
+    <div className="w-[62%] xs:w-[72%] sm:w-[62%] md:w-[55%] flex-none space-y-2 md:space-y-3 text-left py-0.5 md:py-1 z-10">
       <div className="flex justify-start">
         <Badge className="bg-yellow-400 text-black font-black px-1.5 py-0.5 md:px-5 md:py-2 rounded-full animate-bounce text-[7px] xs:text-[12px] md:text-sm lg:text-base">
           <Flame className="h-2 w-2 md:h-5 md:w-5 mr-0.5 md:mr-2 fill-current" />

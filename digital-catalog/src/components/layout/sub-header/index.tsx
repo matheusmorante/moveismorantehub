@@ -37,7 +37,7 @@ export function SubHeader() {
   return (
     <div className="hidden lg:block w-full bg-primary border-b border-primary/80 shadow-md relative z-40">
       <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24">
-        <nav className="flex items-center overflow-visible min-w-0">
+        <nav className="flex flex-wrap items-center overflow-visible min-w-0">
           {/* Oportunidade de Salvados */}
           {(() => {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
