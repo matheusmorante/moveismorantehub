@@ -1,4 +1,4 @@
-export interface GridModel {
+interface GridModelBase {
   id: string;
   baseModelId?: string;
   name: string;
@@ -58,6 +58,72 @@ export interface GridModel {
   borderRadius?: number;
   customPadding?: number;
   isCustom?: boolean;
+}
+
+export interface GridModel extends GridModelBase {
+  priceFormat?: 'split' | 'standard';
+  priceSymbolPosX?: number;
+  priceSymbolPosY?: number;
+  priceSymbolFontSize?: number;
+  priceSymbolBold?: boolean;
+  priceSymbolColor?: string;
+  priceDecimalsPosX?: number;
+  priceDecimalsPosY?: number;
+  priceDecimalsFontSize?: number;
+  priceDecimalsBold?: boolean;
+  priceDecimalsColor?: string;
+  oldPriceFontSize?: number;
+  oldPriceBold?: boolean;
+  oldPriceAlign?: 'left' | 'center' | 'right';
+  oldPriceVAlign?: 'top' | 'middle' | 'bottom';
+  oldPricePosX?: number;
+  oldPricePosY?: number;
+  oldPriceWidth?: number;
+  oldPriceHeight?: number;
+  promoNamePosX?: number;
+  promoNamePosY?: number;
+  promoNameFontSize?: number;
+  promoNameAlign?: 'left' | 'center' | 'right';
+  promoNameVAlign?: 'top' | 'middle' | 'bottom';
+  promoNameColor?: string;
+  promoNameBold?: boolean;
+  promoNameWidth?: number;
+  promoNameHeight?: number;
+  promoNameBgColor?: string;
+  promoBarcodePosX?: number;
+  promoBarcodePosY?: number;
+  promoPriceSymbolPosX?: number;
+  promoPriceSymbolPosY?: number;
+  promoPriceSymbolFontSize?: number;
+  promoPriceSymbolBold?: boolean;
+  promoPriceSymbolColor?: string;
+  promoPriceDecimalsPosX?: number;
+  promoPriceDecimalsPosY?: number;
+  promoPriceDecimalsFontSize?: number;
+  promoPriceDecimalsBold?: boolean;
+  promoPriceDecimalsColor?: string;
+  promoPriceFontSize?: number;
+  promoPriceBold?: boolean;
+  promoPriceAlign?: 'left' | 'center' | 'right';
+  promoPriceVAlign?: 'top' | 'middle' | 'bottom';
+  nameWidth?: number;
+  nameHeight?: number;
+  priceWidth?: number;
+  priceHeight?: number;
+  promoWidth?: number;
+  promoHeight?: number;
+  bg_color?: string;
+  nameBgColor?: string;
+  priceBgColor?: string;
+  promoBgColor?: string;
+  extraFields?: any[];
+  extraFieldsPromo?: any[];
+  imageScale?: number;
+  previewImage?: string | null;
+  showPromoPrice?: boolean;
+  artConfig?: {
+    opportunities?: Record<string, any>;
+  };
 }
 
 export interface LabelGridModelModalProps {

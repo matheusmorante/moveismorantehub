@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { GridModel } from '../modals/LabelGridModelModal';
-import { LabelItemConfig } from '../components/LabelGrid';
+import type { GridModel } from '../types/LabelGridModelTypes';
+import type { LabelItemConfig } from '../types/LabelGridItem.types';
 import { publishPriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
 import { useLabelCategory } from './useLabelCategory';
 import { useLabelProducts } from './useLabelProducts';

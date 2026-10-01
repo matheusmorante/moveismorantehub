@@ -1,50 +1,14 @@
 import React, { useEffect } from 'react';
-import { LabelConfig } from '../utils/LabelConstants';
+import type { LabelConfig } from '../utils/LabelConstants';
 import LabelItem from './LabelItem';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
-
-export interface LabelItemConfig {
-  name: string;
-  price: string;
-  promoPrice?: string;
-  sku?: string;
-  barcode?: string;
-  code?: string;
-  quantity: number;
-  image?: string;
-  scale?: number;
-  rotation?: number;
-  imageFit?: 'contain' | 'cover' | 'fill';
-  extraFields?: any[];
-  isBlank?: boolean;
-  opportunityId?: string | null;
-  opportunity_id?: string | null;
-  showName?: boolean;
-  showPromoPrice?: boolean;
-  isLogoOnly?: boolean;
-  printingMode?: 'simple' | 'advanced';
-  productImages?: { image_url: string; is_main: boolean }[];
-  parentImages?: { image_url: string; is_main: boolean }[];
-  currentImageIndex?: number;
-  instances?: string[];
-  productId?: string;
-  variationId?: string;
-}
-
-export interface LogoItemConfig {
-  image: string;
-  quantity: number;
-  scale?: number;
-  rotation?: number;
-  name?: string;
-  imageFit?: 'contain' | 'cover' | 'fill';
-  price?: string;
-  promoPrice?: string;
-  sku?: string;
-  extraFields?: any[];
-  isBlank?: boolean;
-  instances?: string[];
-}
+import {
+  expandLabelItems,
+  getLabelGridPageItems,
+  getLabelPaperDimensions,
+} from '../utils/labelGridLayout';
+import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
+export type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 
 interface Props {
   config: LabelConfig;
@@ -56,17 +20,6 @@ interface Props {
   currentPage?: number;
   previewMode?: boolean;
 }
-
-const getMagnitudeForPrice = (priceStr: any): 'tens' | 'hundreds' | 'thousands' => {
-  if (!priceStr || typeof priceStr !== 'string') return 'hundreds';
-  const parts = priceStr.split(',');
-  if (!parts || parts.length === 0) return 'hundreds';
-  const integerPart = parts[0].replace(/[^\d]/g, '');
-  const length = integerPart.length;
-  if (length <= 2) return 'tens';
-  if (length === 3) return 'hundreds';
-  return 'thousands';
-};
 
 const LabelGrid: React.FC<Props> = ({
   config,
@@ -82,50 +35,9 @@ const LabelGrid: React.FC<Props> = ({
 
   const isLogos = config.category === 'logos';
   const sourceItems = isLogos ? logoItems || [] : labelItems || [];
-
-  // Flatten the items into a single array of items to render
-  let itemsToRender: any[] = [];
-
-  if (sourceItems.length > 0) {
-    sourceItems.forEach((item, itemIdx) => {
-      const qty = Number(item.quantity || 0);
-      for (let i = 0; i < qty; i++) {
-        itemsToRender.push({
-          type: isLogos ? 'logo' : 'product',
-          ...item,
-          originalIdx: itemIdx,
-          uuid:
-            'instances' in item &&
-            Array.isArray((item as any).instances) &&
-            (item as any).instances[i]
-              ? (item as any).instances[i]
-              : '000XXX',
-        });
-      }
-    });
-  }
-
-  // Garantir que a grade fique vazia se não houver itens selecionados
-  if (itemsToRender.length === 0) {
-    itemsToRender = [];
-  }
-
-  // Slice items for the current page
-  const startIdx = currentPage * totalCells;
-  const finalItems = itemsToRender.slice(startIdx, startIdx + totalCells);
-
-  // Sizing logic based on paper
-  const getPaperSize = () => {
-    if (config.paperSize === 'A3') return { w: '297mm', h: '420mm' };
-    if (config.paperSize === 'A5') return { w: '148mm', h: '210mm' };
-    if (config.paperSize === 'Letter') return { w: '216mm', h: '279mm' };
-    if (config.paperSize === 'Custom' && config.paperWidth && config.paperHeight) {
-      return { w: `${config.paperWidth}mm`, h: `${config.paperHeight}mm` };
-    }
-    return { w: '210mm', h: '297mm' }; // Default A4
-  };
-
-  const dimensions = getPaperSize();
+  const itemsToRender = expandLabelItems(sourceItems, isLogos ? 'logo' : 'product');
+  const finalItems = getLabelGridPageItems(itemsToRender, totalCells, currentPage);
+  const dimensions = getLabelPaperDimensions(config);
   const labelPhysicalSize = calculateLabelPhysicalSize(config);
 
   // Injeta os estilos de impressao dinamicamente no document.head para evitar conflito com display: none no #root
@@ -306,7 +218,7 @@ const LabelGrid: React.FC<Props> = ({
                           item.isBlank
                             ? null
                             : item.image ||
-                              (item.type === 'logo' ? item.image : cellImages[i] || image)
+                              (item.type === 'logo' ? item.image : cellImages[i] || image) || null
                         }
                         index={i}
                         scale={item.scale ?? config.imageScale}
@@ -320,7 +232,7 @@ const LabelGrid: React.FC<Props> = ({
                 : config.preset === 'custom' &&
                   !cellImages[i] &&
                   !image &&
-                  (!item || item.type === 'default') && (
+                  !item && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <i className="bi bi-plus-circle text-blue-500 text-xl" />
                     </div>

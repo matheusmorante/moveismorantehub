@@ -1,7 +1,7 @@
-import { Dispatch, SetStateAction } from 'react';
-import Product from '../../../../types/product.type';
-import { LabelItemConfig, LogoItemConfig } from '../components/LabelGrid';
-import { GridModel } from '../modals/LabelGridModelModal';
+import type { Dispatch, SetStateAction } from 'react';
+import type Product from '../../../../types/product.type';
+import type { LabelItemConfig, LogoItemConfig } from './LabelGridItem.types';
+import type { GridModel } from './LabelGridModelTypes';
 import { LabelConfig, CustomLabel } from '../utils/LabelConstants';
 
 export interface HeaderSectionProps {

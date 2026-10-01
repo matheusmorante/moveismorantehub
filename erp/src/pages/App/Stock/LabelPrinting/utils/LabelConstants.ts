@@ -1,4 +1,4 @@
-import type { GridModel } from '../modals/LabelGridModelModal';
+import type { GridModel } from '../types/LabelGridModelTypes';
 
 export interface CustomLabel {
   readonly id: string;
@@ -162,6 +162,8 @@ export interface LabelConfig {
   name?: string;
   artConfig?: {
     opportunities?: Record<string, any>;
+    globalSnapshot?: Record<string, any>;
+    oppColorsMap?: Record<string, any>;
   };
 }
 

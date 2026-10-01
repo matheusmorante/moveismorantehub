@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import logoMorante from '../../../../../assets/logo-morante.svg';
 import { CustomLabel, LabelConfig } from '../utils/LabelConstants';
-import { LabelItemConfig, LogoItemConfig } from '../components/LabelGrid';
+import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 import { CategoryType } from './useLabelCategory';
 
 interface UseLabelModalsAndAssetsProps {

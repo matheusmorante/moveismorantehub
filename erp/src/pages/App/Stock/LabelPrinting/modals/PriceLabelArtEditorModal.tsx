@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
 import { toast } from 'react-toastify';
-import { LabelConfig } from '../utils/LabelConstants';
 import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
-import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
 import { usePriceLabelState } from '../hooks/usePriceLabelState';
 import { PriceLabelLayersModal } from '../components/modals/PriceLabelLayersModal';
 import { PriceLabelOpportunityModal } from '../components/modals/PriceLabelOpportunityModal';
@@ -16,7 +14,6 @@ import {
 } from '../services/priceLabelPersistenceService';
 
 import {
-  Opportunity,
   PriceLabelArtEditorModalProps,
   PriceLabelLayerKey,
   FONT_OPTIONS,
@@ -31,6 +28,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
   initialProduct,
 }) => {
   const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
+  const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
   const rawArtworkSize = calculateLabelPhysicalSize(config);
   const artworkSizeMm =
     rawArtworkSize && rawArtworkSize.widthMm >= rawArtworkSize.heightMm
@@ -242,8 +240,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     applySnapshot,
     getSnapshot,
     getMagnitudeSnapshot,
-    magnitudeTemplates,
-    setMagnitudeTemplates,
     handleUndo,
     handleRedo,
     canUndo,
@@ -429,13 +425,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     const loadArtConfigFromSupabase = async () => {
       const layoutId = String(config?.layoutId || 'preco_2x5_restored');
-      const { data } = await supabase
-        .from('label_art_configs')
-        .select('art_config')
-        .eq('layout_id', layoutId)
-        .maybeSingle();
-
-      const dbArtConfig = data?.art_config || config?.artConfig;
+      const dbArtConfig = (await fetchPriceLabelArtConfig(layoutId)) || config?.artConfig;
       if (cancelled) return;
 
       if (dbArtConfig) {

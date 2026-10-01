@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
-import { LabelItemConfig, LogoItemConfig } from '../components/LabelGrid';
+import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 import { LabelConfig } from '../utils/LabelConstants';
 import { useLabelPrintMode } from './useLabelPrintMode';
 import {

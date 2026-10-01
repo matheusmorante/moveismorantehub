@@ -64,6 +64,7 @@ describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () =>
       {
         id: 'p-1',
         name: 'SOFÁ RETRÁTIL 3 LUGARES',
+        description: 'SOFÁ RETRÁTIL 3 LUGARES',
         code: 'SOF-001',
         unit_price: 1899.0,
         promo_price: 1499.0,
@@ -100,8 +101,11 @@ describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () =>
       {
         id: 'p-2',
         name: 'MESA DE JANTAR 6 CADEIRAS',
+        description: 'MESA DE JANTAR 6 CADEIRAS',
         code: 'MES-002',
         unit_price: 1200.0,
+        promo_price: 0,
+        images: [],
       },
     ];
 

@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { GridModel } from '../modals/LabelGridModelModal';
+import type { GridModel } from '../types/LabelGridModelTypes';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
 import { mapModelToDb, mapDbToModel, calculateLabelDimensions } from '../utils/LabelUtils';
 import { toast } from 'react-toastify';
@@ -17,15 +17,11 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
     customLayouts,
     config,
     setConfig,
-    applyPresetWithConfig,
     isModelManagerModalOpen,
     setIsModelManagerModalOpen,
-    setCustomLabels,
-    currentModel,
     isImageModalOpen,
     setIsImageModalOpen,
     editingLabel,
-    setEditingLabel,
     labelFormName,
     setLabelFormName,
     labelFormImage,
@@ -35,20 +31,16 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
     setIsPriceLabelArtEditorOpen,
     setSavedArtConfigs,
     savedArtConfigs,
-    artVersion,
     setArtVersion,
     isAssetManagerModalOpen,
     setIsAssetManagerModalOpen,
     selectedCategory,
-    logoItems,
     setLogoItems,
     isNewLogoModalOpen,
     setIsNewLogoModalOpen,
     newLogoName,
     setNewLogoName,
     newLogoImage,
-    setNewLogoImage,
-    handleSaveNewLogo,
     editingGridModel,
     setEditingGridModel,
     selectedImage,
@@ -85,7 +77,6 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         }}
         editingModel={editingGridModel}
         currentCategory={selectedCategory}
-        existingModels={[...DEFAULT_LAYOUT_MODELS, ...customLayouts]}
         previewImage={selectedImage}
         onSave={async (newModel) => {
           // 1. Determinar quem ├® o alvo da atualiza├º├úo (targetId)

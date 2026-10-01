@@ -1,87 +1,13 @@
 import { MeasurementInput } from '@/components/MeasurementInput';
 import React, { useState } from 'react';
-import { toast } from 'react-toastify';
 
 const BOOTSTRAP_ICONS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
 const GOOGLE_FONTS_URL =
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto:wght@400;700;900&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Libre+Barcode+128&display=swap';
 
-import type { GridModel as BaseGridModel } from '../types/LabelGridModelTypes';
-
-// Este modal mantém campos adicionais de composição usados pelos modelos legados.
-// O tipo-base continua centralizado em gridModel; aqui só declaramos a extensão
-// específica do editor para preservar os modelos já salvos.
-export interface GridModel extends BaseGridModel {
-  priceFormat?: 'split' | 'standard';
-  priceSymbolPosX?: number;
-  priceSymbolPosY?: number;
-  priceSymbolFontSize?: number;
-  priceSymbolBold?: boolean;
-  priceSymbolColor?: string;
-  priceDecimalsPosX?: number;
-  priceDecimalsPosY?: number;
-  priceDecimalsFontSize?: number;
-  priceDecimalsBold?: boolean;
-  priceDecimalsColor?: string;
-  oldPriceFontSize?: number;
-  oldPriceColor?: string;
-  oldPriceBold?: boolean;
-  oldPriceAlign?: 'left' | 'center' | 'right';
-  oldPriceVAlign?: 'top' | 'middle' | 'bottom';
-  oldPricePosX?: number;
-  oldPricePosY?: number;
-  oldPriceWidth?: number;
-  oldPriceHeight?: number;
-  promoNamePosX?: number;
-  promoNamePosY?: number;
-  promoNameFontSize?: number;
-  promoNameAlign?: 'left' | 'center' | 'right';
-  promoNameVAlign?: 'top' | 'middle' | 'bottom';
-  promoNameColor?: string;
-  promoNameBold?: boolean;
-  promoNameWidth?: number;
-  promoNameHeight?: number;
-  promoNameBgColor?: string;
-  promoBarcodePosX?: number;
-  promoBarcodePosY?: number;
-  // Split Price Promoção
-  promoPriceSymbolPosX?: number;
-  promoPriceSymbolPosY?: number;
-  promoPriceSymbolFontSize?: number;
-  promoPriceSymbolBold?: boolean;
-  promoPriceSymbolColor?: string;
-  promoPriceDecimalsPosX?: number;
-  promoPriceDecimalsPosY?: number;
-  promoPriceDecimalsFontSize?: number;
-  promoPriceDecimalsBold?: boolean;
-  promoPriceDecimalsColor?: string;
-  promoPriceFontSize?: number;
-  promoPriceBold?: boolean;
-  promoPriceColor?: string;
-  promoPriceAlign?: 'left' | 'center' | 'right';
-  promoPriceVAlign?: 'top' | 'middle' | 'bottom';
-  // Áreas de Segurança
-  nameWidth?: number;
-  nameHeight?: number;
-  priceWidth?: number;
-  priceHeight?: number;
-  promoWidth?: number;
-  promoHeight?: number;
-  bg_color?: string;
-  nameBgColor?: string;
-  priceBgColor?: string;
-  promoBgColor?: string;
-  extraFields?: any[];
-  extraFieldsPromo?: any[];
-  fontFamily?: string;
-  imageScale?: number;
-  previewImage?: string | null;
-  showPromoPrice?: boolean;
-  artConfig?: {
-    opportunities?: Record<string, any>;
-  };
-}
+import type { GridModel } from '../types/LabelGridModelTypes';
+export type { GridModel } from '../types/LabelGridModelTypes';
 
 interface LabelGridModelModalProps {
   isOpen: boolean;
@@ -90,7 +16,6 @@ interface LabelGridModelModalProps {
   editingModel?: GridModel | null;
   currentCategory?: 'identificacao' | 'precos' | 'logos' | 'posts' | null;
   currentType?: 'round' | 'rect';
-  existingModels?: GridModel[];
   previewImage?: string | null;
 }
 
@@ -109,7 +34,6 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
   editingModel,
   currentCategory,
   currentType,
-  existingModels,
   previewImage,
 }) => {
   const [name, setName] = useState('');
@@ -198,8 +122,6 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
   const [resizeStartValue, setResizeStartValue] = useState(0);
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
-  const [resizeStartY, setResizeStartY] = useState(0);
-  const [resizeStartHeight, setResizeStartHeight] = useState(0);
 
   // Estados de Preço Dividido
   const [priceFormat, setPriceFormat] = useState<'standard' | 'split'>('split'); // Default to split as requested
@@ -314,9 +236,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     side: 'left' | 'right' | 'font',
     val: number,
     currentX: number,
-    currentW: number,
-    currentY: number,
-    currentH: number
+    currentW: number
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -326,8 +246,6 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     setResizeStartValue(val);
     setResizeStartX(currentX);
     setResizeStartWidth(currentW);
-    setResizeStartY(currentY);
-    setResizeStartHeight(currentH);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -1401,11 +1319,6 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     const previewH = 1000;
     const previewW = previewH * aspect;
 
-    const getAlignment = (align?: string) =>
-      align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
-    const getVAlignment = (valign?: string) =>
-      valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
-
     return (
       <div className="flex flex-col items-center gap-6 w-full">
         {/* Botão de Upload de Exemplo */}
@@ -1919,9 +1832,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                                         'right',
                                         el.font,
                                         el.pos.x,
-                                        el.width,
-                                        el.pos.y,
-                                        el.height ?? 10
+                                        el.width
                                       )
                                     }
                                     className="absolute -right-2 top-0 bottom-0 w-4 cursor-ew-resize z-50 flex items-center justify-center"
@@ -1937,9 +1848,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                                         'left',
                                         el.font,
                                         el.pos.x,
-                                        el.width,
-                                        el.pos.y,
-                                        el.height ?? 10
+                                        el.width
                                       )
                                     }
                                     className="absolute -left-2 top-0 bottom-0 w-4 cursor-ew-resize z-50 flex items-center justify-center"
@@ -1957,9 +1866,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                                         'font',
                                         el.font,
                                         el.pos.x,
-                                        el.width,
-                                        el.pos.y,
-                                        el.height ?? 10
+                                        el.width
                                       )
                                     }
                                     className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[51] flex flex-col items-center justify-center"
@@ -1979,9 +1886,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                                         'font',
                                         el.font,
                                         el.pos.x,
-                                        el.width,
-                                        el.pos.y,
-                                        el.height ?? 10
+                                        el.width
                                       )
                                     }
                                     className="absolute -right-3 -bottom-3 w-6 h-6 bg-white border-[3px] border-blue-600 rounded-full cursor-nwse-resize shadow-xl z-[52] flex items-center justify-center hover:scale-125 transition-transform"

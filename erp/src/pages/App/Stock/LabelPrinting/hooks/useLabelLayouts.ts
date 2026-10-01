@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { GridModel } from '../modals/LabelGridModelModal';
+import type { GridModel } from '../types/LabelGridModelTypes';
 import {
   LabelType,
   LabelPreset,
