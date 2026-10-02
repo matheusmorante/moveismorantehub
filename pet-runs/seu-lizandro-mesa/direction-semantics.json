@@ -1,0 +1,117 @@
+{
+  "review_method": "Labeled direction QA sheet visually inspected at normal size and zoom.",
+  "directions": [
+    {
+      "observed": "eyes point above the glasses line",
+      "expected": "up",
+      "label": "000",
+      "verdict": "pass",
+      "evidence": "Eye gaze and tilted face point above horizontal."
+    },
+    {
+      "observed": "head and gaze slightly up and screen-right",
+      "expected": "up-right",
+      "label": "022.5",
+      "verdict": "warning",
+      "evidence": "Eye line points right and slightly up."
+    },
+    {
+      "observed": "head diagonally up-right",
+      "expected": "up-right",
+      "label": "045",
+      "verdict": "warning",
+      "evidence": "Nose and glasses angle to upper-right quadrant."
+    },
+    {
+      "observed": "profile develops toward screen-right with slight upward angle",
+      "expected": "up-right",
+      "label": "067.5",
+      "verdict": "warning",
+      "evidence": "Nose points screen-right; eyes are slightly elevated."
+    },
+    {
+      "observed": "clear screen-right profile",
+      "expected": "right",
+      "label": "090",
+      "verdict": "pass",
+      "evidence": "Nose and eye line point horizontally screen-right."
+    },
+    {
+      "observed": "screen-right profile angles downward",
+      "expected": "down-right",
+      "label": "112.5",
+      "verdict": "warning",
+      "evidence": "Nose remains to screen-right while gaze lowers."
+    },
+    {
+      "observed": "head diagonally down-right",
+      "expected": "down-right",
+      "label": "135",
+      "verdict": "warning",
+      "evidence": "Eye line slopes down toward screen-right."
+    },
+    {
+      "observed": "head nearing downward cardinal from screen-right",
+      "expected": "down-right",
+      "label": "157.5",
+      "verdict": "warning",
+      "evidence": "Nose remains just screen-right of center and gaze lowers."
+    },
+    {
+      "observed": "face and eyes aimed at keyboard",
+      "expected": "down",
+      "label": "180",
+      "verdict": "pass",
+      "evidence": "Nose and both eyes point down toward desk."
+    },
+    {
+      "observed": "head begins turning down-left",
+      "expected": "down-left",
+      "label": "202.5",
+      "verdict": "warning",
+      "evidence": "Nose moves screen-left while gaze stays below horizontal."
+    },
+    {
+      "observed": "nose and gaze diagonally screen-left and down",
+      "expected": "down-left",
+      "label": "225",
+      "verdict": "warning",
+      "evidence": "Glasses and nose angle to lower-left quadrant."
+    },
+    {
+      "observed": "near screen-left profile with slight downward angle",
+      "expected": "down-left",
+      "label": "247.5",
+      "verdict": "warning",
+      "evidence": "Nose points left with eyes slightly down."
+    },
+    {
+      "observed": "clear screen-left profile",
+      "expected": "left",
+      "label": "270",
+      "verdict": "pass",
+      "evidence": "Nose and eye line point horizontally screen-left."
+    },
+    {
+      "observed": "screen-left profile angles upward",
+      "expected": "up-left",
+      "label": "292.5",
+      "verdict": "warning",
+      "evidence": "Nose remains left while eyes lift above horizontal."
+    },
+    {
+      "observed": "head diagonally up-left",
+      "expected": "up-left",
+      "label": "315",
+      "verdict": "warning",
+      "evidence": "Nose and glasses angle to upper-left quadrant."
+    },
+    {
+      "observed": "head nearing upward cardinal from screen-left",
+      "expected": "up-left",
+      "label": "337.5",
+      "verdict": "warning",
+      "evidence": "Nose approaches center from screen-left with gaze up."
+    }
+  ]
+}

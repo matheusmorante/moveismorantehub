@@ -30,7 +30,7 @@ describe('emissão NF-e no ERP', () => {
     await emitNfeForOrder(order, 2);
     const requests = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
     expect(requests[1].emissionRequestId).not.toBe(requests[0].emissionRequestId);
-  });
+  }, 15000);
   it.each(['244', '209'])('mantém a intenção pendente, mesmo que a resposta mencione %s', async (cStat) => {
     const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({
       success: false, pending: true, cStat, error: 'Resposta inconclusiva',

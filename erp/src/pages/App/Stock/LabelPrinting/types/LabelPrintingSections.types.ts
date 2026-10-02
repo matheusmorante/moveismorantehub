@@ -1,10 +1,10 @@
 import type { ChangeEventHandler, Dispatch, RefObject, SetStateAction } from 'react';
 import type Product from '../../../../types/product.type';
-import type { LabelItemConfig, LabelLogoAsset, LogoItemConfig } from './LabelGridItem.types';
-import type { GridModel } from './LabelGridModelTypes';
-import type { CustomLabel, LabelConfig } from '../utils/LabelConstants';
 import type { CategoryType } from '../hooks/useLabelCategory';
 import type { PriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
+import type { CustomLabel, LabelConfig } from '../utils/LabelConstants';
+import type { LabelItemConfig, LabelLogoAsset, LogoItemConfig } from './LabelGridItem.types';
+import type { GridModel } from './LabelGridModelTypes';
 
 type SavedArtConfig = NonNullable<LabelConfig['artConfig']>;
 type SavedArtConfigs = Record<string, SavedArtConfig>;
@@ -97,7 +97,7 @@ export interface ModalsSectionProps {
   setIsLabelModalOpen: Dispatch<SetStateAction<boolean>>;
   isImageModalOpen: boolean;
   setIsImageModalOpen: Dispatch<SetStateAction<boolean>>;
-  handleDeleteLayout: (id: string) => void;
+  handleDeleteLayout: (id: string) => Promise<void> | void;
   setSelectedImage: Dispatch<SetStateAction<string | null>>;
   publishPriceLabelTemplateUpdate: (update: PriceLabelTemplateUpdate) => void;
   selectedProductToAdd: Product | null;

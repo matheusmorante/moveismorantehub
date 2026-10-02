@@ -30,6 +30,10 @@ Para replicação/sincronização ERP ↔ App Mobile, rode o teste unitário foc
 
 Se uma camada falhar, interrompa a escalada, investigue e corrija antes de prosseguir. Não repita validações aprovadas sem mudança relevante; filtre logs extensos e reporte apenas o resultado útil. A suíte completa é prioritariamente responsabilidade do CI no push/PR. Rode-a localmente apenas para mudança transversal, risco concreto de regressão ampla ou pedido explícito do usuário. Não crie watchers ou retries em background como padrão.
 
+## Prioridade de execução sobre auditoria
+
+Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir um fluxo já compreendido, confirme apenas as pré-condições materiais de segurança (sessão/permissão, ambiente, dados de teste, isolamento de efeitos e caminho de execução). Assim que estiverem comprovadas, pare a investigação ampla e execute: preparar cenário, percorrer o fluxo e validar o resultado. Investigue apenas erros concretos no caminho afetado; corrija e repita o cenário antes da regressão necessária. Não adie a execução para ler mais arquivos ou buscar alternativas sem uma dúvida material que possa causar perda de dados, atingir produção, gerar efeito financeiro, comprometer segurança ou invalidar o resultado. “Ainda estou auditando” não é bloqueio; bloqueios devem apontar uma dependência ou risco concreto. Priorize como progresso a fixture criada, o fluxo executado, a resposta externa, a persistência e a correção/regressão comprovadas.
+
 ---
 
 ## 1. Regra de Ouro da Blindagem de Dados

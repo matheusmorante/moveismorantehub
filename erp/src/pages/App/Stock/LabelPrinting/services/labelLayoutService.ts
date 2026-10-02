@@ -89,7 +89,49 @@ export async function updateRemoteLabelLayout(
   };
 }
 
-export async function deleteRemoteLabelLayout(id: string | number): Promise<{ error: unknown | null }> {
+export async function deleteRemoteLabelLayout(
+  id: string | number
+): Promise<{ error: unknown | null }> {
   const { error } = await supabase.from('label_layouts').delete().eq('id', id);
   return { error };
+}
+
+export interface PersistPriceLabelArtworkParams {
+  readonly layoutId: string;
+  readonly category?: string | null;
+  readonly updated: Partial<LabelConfig>;
+}
+
+export async function persistPriceLabelArtwork({
+  layoutId,
+  category,
+  updated,
+}: PersistPriceLabelArtworkParams): Promise<void> {
+  const groupPos = updated.dePricePorGroupPos;
+  if (layoutId && updated.artConfig) {
+    const { error } = await upsertRemoteLabelArtConfig({
+      layoutId,
+      category: category || 'precos',
+      artConfig: updated.artConfig,
+    });
+    if (error) throw error;
+  }
+  if (
+    layoutId &&
+    (groupPos || updated.artConfig) &&
+    /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(layoutId))
+  ) {
+    const { error } = await updateRemoteLabelLayoutArtwork(layoutId, {
+      ...(groupPos
+        ? {
+            de_price_por_group_pos_x: groupPos.x,
+            de_price_por_group_pos_y: groupPos.y,
+            de_price_por_group_rotation: updated.dePricePorGroupRotation ?? 0,
+            de_price_por_group_gap: updated.dePricePorGroupGap ?? 10,
+          }
+        : {}),
+      ...(updated.artConfig ? { art_config: updated.artConfig } : {}),
+    });
+    if (error) throw error;
+  }
 }

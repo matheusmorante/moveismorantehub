@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import type { GridModel } from '../types/LabelGridModelTypes';
-import {
-  LabelType,
-  LabelPreset,
-  LabelConfig,
-  DEFAULT_LAYOUT_MODELS,
-} from '../utils/LabelConstants';
-import { subscribeToPriceLabelTemplateUpdates } from '../services/priceLabelTemplateSync';
+import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,
   insertRemoteLabelLayout,
 } from '../services/labelLayoutService';
+import {
+  applyPresetToConfig,
+  createInitialLabelConfig,
+  mapModelToLabelConfig,
+} from '../services/labelModelMapper';
 import {
   getCustomLabelLayouts,
   getHiddenDefaultLayoutIds,
@@ -23,8 +21,15 @@ import {
   saveLastSelectedRectModelId,
   saveLastSelectedRoundModelId,
 } from '../services/labelStorageService';
-import { CategoryType } from './useLabelCategory';
-import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
+import { subscribeToPriceLabelTemplateUpdates } from '../services/priceLabelTemplateSync';
+import type { GridModel } from '../types/LabelGridModelTypes';
+import {
+  DEFAULT_LAYOUT_MODELS,
+  type LabelConfig,
+  type LabelPreset,
+  type LabelType,
+} from '../utils/LabelConstants';
+import type { CategoryType } from './useLabelCategory';
 
 interface UseLabelLayoutsProps {
   selectedCategory: CategoryType | null;
@@ -67,49 +72,14 @@ export const useLabelLayouts = ({
     return unsubscribe;
   }, []);
 
-  const [config, setConfig] = useState<LabelConfig>({
-    type: 'rect',
-    preset: isProductContext ? 'qr_product' : 'store_logo',
-    layout: isProductContext ? 'horizontal' : 'horizontal',
-    showName: isProductContext,
-    showPrice: false,
-    showBarcode: isProductContext,
-    showSKU: isProductContext,
-    showStoreName: !isProductContext,
-    showStoreLogo: !isProductContext,
-    showCustomText: false,
-    text: '',
-    price: '',
-    sku: '',
-    qrContent: '',
-    customText: 'Qualidade Garantida',
-    imageScale: 1,
-    marginT: 8,
-    marginB: 8,
-    marginL: 9,
-    marginR: 9,
-    gapH: 10,
-    gapV: 2,
-    columns: 2,
-    rows: 3,
-    layoutId: '2x3_std',
-    paperSize: 'A4',
-    showPromoPrice: false,
-    promoPrice: '',
-    oldPriceColor: '#94a3b8',
-    priceColor: '#1e293b',
-    promoPriceColor: '#2563eb',
-    nameColor: '#0f172a',
-    promoColor: '#16a34a',
-    nameFontSize: 10,
-    category: 'identificacao',
-    priceFontSize: 28,
-    promoPriceFontSize: 24,
-    promoFontSize: 18,
-    imageFit: 'contain',
-  });
+  const [config, setConfig] = useState<LabelConfig>(() =>
+    createInitialLabelConfig(isProductContext)
+  );
   const configRef = useRef(config);
   configRef.current = config;
+
+  const prevCategoryRef = useRef<CategoryType | null>(null);
+  const prevTypeRef = useRef<LabelType>(config.type || 'rect');
 
   // Subscrição de atualizações de template de etiquetas de preço
   useEffect(
@@ -149,191 +119,22 @@ export const useLabelLayouts = ({
     }
   }, [config.layoutId, config.artConfig, savedArtConfigs]);
 
-  const selectLayout = useCallback((model: GridModel) => {
-    const autoPreset: LabelPreset =
-      model.category === 'precos'
-        ? 'price_only'
-        : model.category === 'identificacao'
-          ? 'qr_product'
-          : model.category === 'logos'
-            ? 'store_logo'
-            : 'qr_product';
+  const selectLayout = useCallback(
+    (model: GridModel) => {
+      setCurrentModel(model);
+      if (model.type === 'round') {
+        setLastSelectedRoundModelId(model.id);
+      } else {
+        setLastSelectedRectModelId(model.id);
+      }
 
-    setConfig((prefConfig) => ({
-      ...prefConfig,
-      layoutId: model.id,
-      preset: autoPreset,
-      columns: model.columns,
-      rows: model.rows,
-      marginT: model.marginT,
-      marginB: model.marginB,
-      marginL: model.marginL,
-      marginR: model.marginR,
-      gapH: model.gapH,
-      gapV: model.gapV,
-      paperSize: model.paperSize,
-      paperWidth: model.paperWidth,
-      paperHeight: model.paperHeight,
-      type: model.type || 'rect',
-      category: model.category || prefConfig.category,
-
-      // Design e Tipografia (Normal)
-      nameFontSize: model.nameFontSize || prefConfig.nameFontSize,
-      nameColor: model.nameColor || '#1e293b',
-      nameBold: model.nameBold,
-      nameAlign: model.nameAlign,
-      nameVAlign: model.nameVAlign,
-      priceFontSize: model.priceFontSize || prefConfig.priceFontSize,
-      priceColor: model.priceColor || '#1e293b',
-      priceBold: model.priceBold,
-      priceAlign: model.priceAlign,
-      priceVAlign: model.priceVAlign,
-      fontFamily: model.fontFamily || 'Inter',
-
-      // Fontes por Faixa
-      priceFontSizeTens: model.priceFontSizeTens,
-      priceFontSizeHundreds: model.priceFontSizeHundreds,
-      priceFontSizeThousands: model.priceFontSizeThousands,
-      priceFontSizeTenThousands: model.priceFontSizeTenThousands,
-
-      // Posições e Dimensões (Normal)
-      namePosX: model.namePosX,
-      namePosY: model.namePosY,
-      nameWidth: model.nameWidth,
-      nameHeight: model.nameHeight,
-      pricePosX: model.pricePosX,
-      pricePosY: model.pricePosY,
-      priceWidth: model.priceWidth,
-      priceHeight: model.priceHeight,
-      barcodePosX: model.barcodePosX,
-      barcodePosY: model.barcodePosY,
-      dePricePorGroupPos: model.dePricePorGroupPos,
-      dePricePorGroupRotation: model.dePricePorGroupRotation,
-      dePricePorGroupGap: model.dePricePorGroupGap,
-      artConfig: savedArtConfigs[model.id] || model.artConfig || prefConfig.artConfig,
-
-      // Estilos Promocionais (Novo Preço)
-      promoPriceFontSize: model.promoPriceFontSize || 24,
-      promoPriceColor: model.promoPriceColor || '#2563eb',
-      promoPriceBold: model.promoPriceBold,
-      promoPriceAlign: model.promoPriceAlign,
-      promoPriceVAlign: model.promoPriceVAlign,
-      promoPosX: model.promoPosX,
-      promoPosY: model.promoPosY,
-      promoWidth: model.promoWidth,
-      promoHeight: model.promoHeight,
-
-      // Preço Antigo
-      oldPriceFontSize: model.oldPriceFontSize,
-      oldPriceColor: model.oldPriceColor || '#94a3b8',
-      oldPriceBold: model.oldPriceBold,
-      oldPriceAlign: model.oldPriceAlign,
-      oldPriceVAlign: model.oldPriceVAlign,
-      oldPricePosX: model.oldPricePosX,
-
-      // Promo Label (Texto PROMOÇÃO)
-      promoFontSize: model.promoFontSize,
-      promoColor: model.promoColor,
-      promoBold: model.promoBold,
-      promoAlign: model.promoAlign,
-      promoVAlign: model.promoVAlign,
-
-      // Preço Split (Normal)
-      priceFormat: model.priceFormat || 'standard',
-      priceSymbolFontSize: model.priceSymbolFontSize,
-      priceSymbolColor: model.priceSymbolColor,
-      priceSymbolBold: model.priceSymbolBold,
-      priceSymbolPosX: model.priceSymbolPosX,
-      priceSymbolPosY: model.priceSymbolPosY,
-      priceDecimalsFontSize: model.priceDecimalsFontSize,
-      priceDecimalsColor: model.priceDecimalsColor,
-      priceDecimalsBold: model.priceDecimalsBold,
-      priceDecimalsPosX: model.priceDecimalsPosX,
-      priceDecimalsPosY: model.priceDecimalsPosY,
-
-      // Preço Split (Promo)
-      promoPriceSymbolFontSize: model.promoPriceSymbolFontSize,
-      promoPriceSymbolColor: model.promoPriceSymbolColor,
-      promoPriceSymbolBold: model.promoPriceSymbolBold,
-      promoPriceSymbolPosX: model.promoPriceSymbolPosX,
-      promoPriceSymbolPosY: model.promoPriceSymbolPosY,
-      promoPriceDecimalsFontSize: model.promoPriceDecimalsFontSize,
-      promoPriceDecimalsColor: model.promoPriceDecimalsColor,
-      promoPriceDecimalsBold: model.promoPriceDecimalsBold,
-      promoPriceDecimalsPosX: model.promoPriceDecimalsPosX,
-      promoPriceDecimalsPosY: model.promoPriceDecimalsPosY,
-
-      // Cores de Fundo e Campos Extras
-      bg_color: model.bg_color || '#ffffff',
-      nameBgColor: model.nameBgColor || 'transparent',
-      priceBgColor: model.priceBgColor || 'transparent',
-      promoBgColor: model.promoBgColor || 'transparent',
-      extraFields: model.extraFields || [],
-      extraFieldsPromo: model.extraFieldsPromo || [],
-
-      showName: true,
-      showPrice: model.category === 'precos',
-      showBarcode: model.category !== 'precos',
-      showStoreLogo: model.category !== 'precos',
-      imageScale: model.imageScale || 1,
-    }));
-  }, [savedArtConfigs]);
+      setConfig((prefConfig) => mapModelToLabelConfig(model, prefConfig, savedArtConfigs));
+    },
+    [savedArtConfigs]
+  );
 
   const applyPresetWithConfig = useCallback((preset: LabelPreset, baseConfig: LabelConfig) => {
-    const newConfig: LabelConfig = { ...baseConfig, preset };
-    if (preset === 'qr_product' || preset === 'barcode_only') newConfig.category = 'identificacao';
-    else if (preset === 'price_only' || preset === 'promotional_price')
-      newConfig.category = 'precos';
-    else if (preset === 'store_logo') newConfig.category = 'logos';
-    else if (preset === 'social_square') newConfig.category = 'posts';
-
-    switch (preset) {
-      case 'store_logo':
-        newConfig.type = 'rect';
-        newConfig.layout = 'horizontal';
-        newConfig.showName = false;
-        newConfig.showPrice = false;
-        newConfig.showBarcode = false;
-        newConfig.showStoreLogo = true;
-        newConfig.showStoreName = false;
-        newConfig.showSKU = false;
-        newConfig.showCustomText = false;
-        break;
-      case 'qr_product':
-        newConfig.type = 'rect';
-        newConfig.layout = 'horizontal';
-        newConfig.showName = true;
-        newConfig.showPrice = false;
-        newConfig.showBarcode = true;
-        newConfig.showSKU = true;
-        newConfig.showStoreLogo = false;
-        newConfig.showStoreName = false;
-        newConfig.showCustomText = false;
-        break;
-      case 'price_only':
-        newConfig.type = 'rect';
-        newConfig.layout = 'horizontal';
-        newConfig.showName = true;
-        newConfig.showPrice = true;
-        newConfig.showBarcode = false;
-        newConfig.showSKU = false;
-        newConfig.showStoreLogo = false;
-        newConfig.showStoreName = false;
-        newConfig.showCustomText = false;
-        break;
-      case 'social_square':
-        newConfig.type = 'rect';
-        newConfig.layout = 'horizontal';
-        newConfig.showName = true;
-        newConfig.showPrice = true;
-        newConfig.showBarcode = false;
-        newConfig.showSKU = false;
-        newConfig.showStoreLogo = true;
-        newConfig.showStoreName = true;
-        newConfig.showCustomText = false;
-        break;
-    }
-    setConfig(newConfig);
+    setConfig(applyPresetToConfig(preset, baseConfig));
   }, []);
 
   const layoutModels = useMemo(() => {
@@ -365,96 +166,57 @@ export const useLabelLayouts = ({
     return Array.from(finalMap.values());
   }, [selectedCategory, config.type, hiddenDefaultIds, customLayouts]);
 
-  // Seleção de modelo inicial por categoria
+  // Troca de modelo inicial ou ao trocar categoria/tipo
   useEffect(() => {
-    const currentConfig = configRef.current;
     const cat = selectedCategory || catFromUrl;
-    if (!cat) return;
+    if (!cat || layoutModels.length === 0) return;
 
-    if (cat === 'precos') {
-      const defaultId = defaultLayoutIds['precos_rect'] || defaultLayoutIds['precos'];
-      const models = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
-      const targetId = defaultId || 'preco_2x5_restored';
-      const found =
-        models.find((m) => m.id === targetId) || models.find((m) => m.id === 'preco_2x5_restored');
-      if (found) {
-        selectLayout(found);
-        return;
-      }
-    }
-
-    if (cat === 'identificacao') {
-      const models = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
-      const found = models.find((m) => m.id === 'ident_2x5' || m.baseModelId === 'ident_2x5');
-      if (found) {
-        selectLayout(found);
-        return;
-      }
-    }
-
+    const currentConfig = configRef.current;
     const type = currentConfig.type || 'rect';
-    const defaultId = defaultLayoutIds[`${cat}_${type}`] || defaultLayoutIds[cat];
+    const categoryChanged = prevCategoryRef.current !== cat;
+    const typeChanged = prevTypeRef.current !== type;
 
-    if (defaultId) {
-      const models = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
-      const found = models.find((m) => m.id === defaultId);
-      if (found) {
-        selectLayout(found);
-        return;
+    prevCategoryRef.current = cat;
+    prevTypeRef.current = type;
+
+    // Se categoria ou tipo mudou, ou se não há modelo ativo compatível
+    const isCurrentModelValid = layoutModels.some((m) => m.id === currentConfig.layoutId);
+
+    if (categoryChanged || typeChanged || !isCurrentModelValid) {
+      let targetModel: GridModel | undefined;
+
+      if (cat === 'precos') {
+        const defaultId = defaultLayoutIds['precos_rect'] || defaultLayoutIds['precos'];
+        const targetId = defaultId || 'preco_2x5_restored';
+        targetModel = layoutModels.find((m) => m.id === targetId);
+      } else if (cat === 'identificacao') {
+        const defaultId =
+          defaultLayoutIds['identificacao_rect'] || defaultLayoutIds['identificacao'];
+        targetModel =
+          (defaultId ? layoutModels.find((m) => m.id === defaultId) : undefined) ||
+          layoutModels.find((m) => m.id === 'ident_2x5' || m.baseModelId === 'ident_2x5');
+      } else {
+        const defaultKey = `${cat}_${type}`;
+        const savedId = defaultLayoutIds[defaultKey] || defaultLayoutIds[cat];
+        if (savedId) {
+          targetModel = layoutModels.find((m) => m.id === savedId);
+        }
+      }
+
+      if (!targetModel) {
+        targetModel = layoutModels[0];
+      }
+
+      if (
+        targetModel &&
+        (currentConfig.layoutId !== targetModel.id ||
+          currentConfig.category !== cat ||
+          currentConfig.type !== type)
+      ) {
+        selectLayout(targetModel);
       }
     }
-
-    const presetMap: Record<string, LabelPreset> = {
-      precos: 'price_only',
-      identificacao: 'qr_product',
-      logos: 'store_logo',
-      posts: 'social_square',
-    };
-    const preset = presetMap[cat];
-    if (preset) {
-      applyPresetWithConfig(preset, {
-        ...currentConfig,
-        showBarcode: cat !== 'precos',
-        showStoreLogo: cat !== 'precos',
-      });
-    }
-  }, [
-    catFromUrl,
-    selectedCategory,
-    defaultLayoutIds,
-    savedArtConfigs,
-    customLayouts,
-    selectLayout,
-    applyPresetWithConfig,
-  ]);
-
-  // Troca de modelo ao trocar categoria/tipo
-  useEffect(() => {
-    if (!selectedCategory || layoutModels.length === 0) return;
-
-    const type = config.type || 'rect';
-    const key = `${selectedCategory}_${type}`;
-    const savedId = defaultLayoutIds[key] || defaultLayoutIds[selectedCategory];
-
-    const targetModel = layoutModels.find((m) => m.id === savedId) || layoutModels[0];
-
-    if (
-      targetModel &&
-      (config.layoutId !== targetModel.id ||
-        config.category !== selectedCategory ||
-        config.type !== type)
-    ) {
-      selectLayout(targetModel);
-    }
-  }, [
-    selectedCategory,
-    config.type,
-    config.layoutId,
-    config.category,
-    defaultLayoutIds,
-    layoutModels,
-    selectLayout,
-  ]);
+  }, [catFromUrl, selectedCategory, config.type, defaultLayoutIds, layoutModels, selectLayout]);
 
   const handleDuplicateLayout = async (model: GridModel) => {
     const newModel = {

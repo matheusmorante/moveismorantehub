@@ -70,7 +70,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 24,
+      "versionCode": 25,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {

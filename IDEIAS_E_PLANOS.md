@@ -1528,3 +1528,23 @@ Este arquivo centraliza planos, ideias e tarefas pendentes do projeto Morante Hu
     - Vitest ERP: 14 suítes e 94 testes unitários de regras e parsing de NF-e aprovados.
 
 
+
+
+---
+
+## 🏷️ Módulo de Etiquetas (`LabelPrinting`): Auditoria Estrutural e Modularização Concluída (Outubro/2026)
+
+- **Objetivo**: Reduzir acoplamento, separar responsabilidades de persistência e orquestração de modais, desacoplar constantes e modelos padrão, e cobrir comportamentos de fallback/contingência com testes unitários.
+- **Resultados Arquiteturais**:
+  1. `ModalsSection.tsx`: De 924 linhas reduzido para ~274 linhas, tornando-se exclusivamente um orquestrador limpo de modais (sem queries diretas de banco, sem manipulações complexas de estado).
+  2. `labelGridModelPersistence.ts`: Criado serviço desacoplado de persistência com contingência local para modelos de grade, com suporte a detecção de idênticos (`findIdenticalGridModel`) e substituição no cache local.
+  3. `labelLayoutService.ts`: Centralizada a lógica de persistência de arte (`persistPriceLabelArtwork`).
+  4. `defaultLayoutModels.ts`: Modelos padrão separados de `LabelConstants.ts`, eliminando dependências circulares.
+  5. `labelModelMapper.ts`: Funções puras de mapeamento e presets de modelos.
+  6. Ausência total de dependências invertidas: serviços e utils não importam React nem componentes de UI (DAG estrito).
+- **Cobertura e Testes**:
+  - 13 arquivos de teste na suíte de `LabelPrinting`: 85 testes aprovados (100% de sucesso, exit code 0).
+  - Cenários cobertos: seleção de modelos, aplicação de presets, duplicação com contingência local, exclusões remotas/locais, fallback após falha de rede/quota, sincronização de arte e integridade geométrica.
+- **Validação Estática**:
+  - `npx tsc --noEmit`: 0 erros no módulo `LabelPrinting`.
+  - `@biomejs/biome check`: 0 erros nos arquivos do módulo.

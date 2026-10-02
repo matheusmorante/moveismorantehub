@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "input": "C:\\Users\\Rosilene\\Desktop\\morantehub\\pet-runs\\seu-lizandro-mesa\\frames-fix\\review\\00.png",
+  "output": "C:\\Users\\Rosilene\\Desktop\\morantehub\\pet-runs\\seu-lizandro-mesa\\frames-fix\\review\\scratch-clean.png",
+  "chroma_key": "#FF00FF",
+  "algorithm": "edge-local-chroma-spill-suppression",
+  "strength": 1,
+  "edge_radius": 5,
+  "spill_tolerance": 0.15,
+  "minimum_saturation": 0.1,
+  "changed_pixels": 3069,
+  "decontaminated_pixels": 2864,
+  "spill_suppressed_pixels": 3069,
+  "rejected_pixels": 0,
+  "changed_by_cell": {
+    "r0c0": 3069
+  },
+  "alpha_preserved": true
+}

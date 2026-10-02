@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseConfig';
 
 type CurrentAndroidRelease = { version: string; build_number: number };
-const FALLBACK_RELEASE: CurrentAndroidRelease = { version: '1.6.1', build_number: 24 };
+const FALLBACK_RELEASE: CurrentAndroidRelease = { version: '1.6.1', build_number: 25 };
 
 export default function MobileAppLanding() {
   const navigate = useNavigate();

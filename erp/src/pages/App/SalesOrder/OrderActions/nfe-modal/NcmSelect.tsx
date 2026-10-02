@@ -18,6 +18,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   const [results, setResults] = useState<NcmSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
 
@@ -51,7 +52,10 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedControl = dropdownRef.current?.contains(target);
+      const clickedResults = resultsRef.current?.contains(target);
+      if (!clickedControl && !clickedResults) {
         setIsDropdownOpen(false);
       }
     };
@@ -123,6 +127,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
 
       {isDropdownOpen && dropdownPosition && (searchQuery.length >= 2 || results.length > 0) && createPortal(
         <div
+          ref={resultsRef}
           className="fixed z-[100000000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-0.5"
           style={{ top: dropdownPosition.top, left: dropdownPosition.left, width: dropdownPosition.width }}
         >

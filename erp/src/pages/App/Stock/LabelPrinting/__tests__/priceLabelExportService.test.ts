@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
 import html2canvas from 'html2canvas';
@@ -67,8 +67,10 @@ describe('priceLabelExportService', () => {
       const mockBlob = new Blob(['fake-img'], { type: 'image/png' });
       const mockWrite = vi.fn().mockResolvedValue(undefined);
 
-      Object.assign(navigator, {
-        clipboard: { write: mockWrite },
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { write: mockWrite },
+        configurable: true,
+        writable: true,
       });
       (window as any).ClipboardItem = class MockClipboardItem {};
 

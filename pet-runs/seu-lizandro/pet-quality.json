@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "atlas": "C:\\Users\\Rosilene\\AppData\\Local\\Temp\\pet-run-seu-lizandro\\final\\spritesheet-despilled.png",
+  "encoded_bytes": 3075010,
+  "sha256": "c935415d32fc353c6f59e47e16c1cb1c0d453da277bf47b246c8e326ae15c1dd",
+  "jump": {
+    "idle_baseline": 202,
+    "jump_baselines": [
+      202,
+      201,
+      176,
+      199,
+      202
+    ],
+    "airborne_lift_pixels": 26,
+    "landing_delta_pixels": 0
+  },
+  "look_registration": {
+    "neutral_center_x": 96.0,
+    "look_centers_x": [
+      94.0,
+      94.5,
+      94.0,
+      94.0,
+      94.0,
+      94.5,
+      94.0,
+      93.5,
+      94.0,
+      95.0,
+      94.0,
+      94.5,
+      95.5,
+      95.5,
+      95.0,
+      93.5
+    ],
+    "look_widths": [
+      132,
+      131,
+      130,
+      130,
+      130,
+      131,
+      130,
+      129,
+      130,
+      130,
+      128,
+      129,
+      129,
+      129,
+      128,
+      127
+    ],
+    "maximum_center_drift_pixels": 2.5,
+    "maximum_width_ratio": 1.0393700787401574
+  },
+  "errors": [],
+  "warnings": [
+    "157.5->180 diff is a local outlier (2675 pixels vs neighbor average 1184)",
+    "337.5->000 diff is a local outlier (3634 pixels vs neighbor average 1232)"
+  ]
+}
