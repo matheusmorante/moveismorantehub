@@ -1,9 +1,9 @@
 export type {
+  CreateStockUnavailabilityInput,
   StockUnavailability,
   StockUnavailabilityFilters,
-  UnavailabilityStatusFilter,
   UnavailabilityProductKindFilter,
-  CreateStockUnavailabilityInput,
+  UnavailabilityStatusFilter,
 } from '../../../services/stock/stockUnavailabilitiesService';
 
 export const REASONS = [

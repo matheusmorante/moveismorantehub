@@ -45,7 +45,7 @@ async function run() {
       CREATE TABLE public.settings (id text PRIMARY KEY, data jsonb NOT NULL DEFAULT '{}'::jsonb);
       CREATE TABLE public.products (id uuid PRIMARY KEY, stock numeric);
       CREATE TABLE public.product_variations (id uuid PRIMARY KEY, product_id uuid NOT NULL, stock numeric);
-      CREATE TABLE public.suppliers (id uuid PRIMARY KEY, fantasy_name text);
+      CREATE TABLE public.people (id text PRIMARY KEY, full_name text, nickname text, social_name text);
       CREATE TABLE public.inventory_moves (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), product_id uuid, variation_id uuid,
         type text, quantity numeric, date timestamptz, label text, observation text,
@@ -91,7 +91,7 @@ async function run() {
     await db.query('INSERT INTO public.product_variations(id,product_id,stock) VALUES ($1,$2,10), ($3,$4,10)', [variationId, productId, otherVariationId, otherProductId]);
     await db.exec(`
       GRANT SELECT ON public.profiles, public.settings, public.products, public.product_variations,
-        public.suppliers, public.stock_unavailabilities, public.inventory_moves TO authenticated;
+        public.people, public.stock_unavailabilities, public.inventory_moves TO authenticated;
       GRANT INSERT, SELECT, DELETE ON storage.objects TO authenticated;
     `);
 

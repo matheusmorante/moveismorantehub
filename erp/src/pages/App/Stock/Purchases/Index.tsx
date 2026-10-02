@@ -2,11 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Purchase from '../../../types/purchase.type';
 import Person from '../../../types/person.type';
-import { subscribeToPurchases, updatePurchase } from '../../../utils/purchaseService';
+import {
+  cancelPurchase,
+  subscribeToPurchases,
+  updatePurchase,
+} from '../../../utils/purchaseService';
 import { fetchPersons } from '../../../utils/personService';
 import { toast } from 'react-toastify';
 import PurchaseFormModal from './modals/PurchaseFormModal';
 import PurchaseDetailsModal from './modals/PurchaseDetailsModal';
+import PurchaseReceiptCheckModal from './modals/PurchaseReceiptCheckModal';
 import PurchaseSupplierFilter from './components/PurchaseSupplierFilter';
 import PurchaseTable from './components/PurchaseTable';
 
@@ -22,6 +27,7 @@ export const PurchasesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
 
   useEffect(() => {
@@ -48,14 +54,18 @@ export const PurchasesPage: React.FC = () => {
     () =>
       selectedSupplierId
         ? purchases.filter((purchase) => purchase.supplierId === selectedSupplierId)
-        : [],
+        : purchases,
     [purchases, selectedSupplierId]
   );
 
   const handleStatusChange = async (purchase: Purchase, status: Purchase['status']) => {
     if (!purchase.id || status === purchase.status) return;
     try {
-      await updatePurchase(purchase.id, { status });
+      if (status === 'cancelled') {
+        await cancelPurchase(purchase);
+      } else {
+        await updatePurchase(purchase.id, { status });
+      }
       const statusName =
         status === 'fulfilled' ? 'Atendido' : status === 'cancelled' ? 'Cancelado' : 'Em ordem';
       toast.success(`Status alterado para ${statusName}.`);
@@ -117,7 +127,7 @@ export const PurchasesPage: React.FC = () => {
             <div className="p-20 text-center text-xl font-black text-slate-400">
               {selectedSupplierId
                 ? 'Nenhum pedido para este fornecedor'
-                : 'Selecione um fornecedor para ver os pedidos'}
+                : 'Nenhum pedido de compra cadastrado'}
             </div>
           )}
         </section>
@@ -134,6 +144,20 @@ export const PurchasesPage: React.FC = () => {
           setSelectedPurchase(purchase);
           setIsDetailsModalOpen(false);
           setIsModalOpen(true);
+        }}
+        onCheckReceipt={(purchase) => {
+          setSelectedPurchase(purchase);
+          setIsDetailsModalOpen(false);
+          setIsCheckModalOpen(true);
+        }}
+      />
+
+      <PurchaseReceiptCheckModal
+        isOpen={isCheckModalOpen}
+        purchase={selectedPurchase}
+        onClose={() => {
+          setIsCheckModalOpen(false);
+          setSelectedPurchase(null);
         }}
       />
 

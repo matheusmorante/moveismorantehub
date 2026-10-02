@@ -81,7 +81,7 @@ export const ConfirmUnreverseModal: React.FC<ConfirmUnreverseModalProps> = ({
           </div>
           <ul className="list-disc list-inside space-y-1 text-[11px] opacity-90 pl-1">
             <li>
-              As quantidades dos {receipt.items.length} item(ns) serão creditadas de volta no saldo
+              As quantidades dos {(receipt.items || []).length} item(ns) serão creditadas de volta no saldo
               do estoque.
             </li>
             <li>

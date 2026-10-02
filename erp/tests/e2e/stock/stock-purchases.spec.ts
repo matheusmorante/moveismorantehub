@@ -82,4 +82,44 @@ test.describe('Módulo de Estoque - Pedidos de Compra', () => {
         await page.waitForTimeout(400);
         await expect(modalTitle).not.toBeVisible();
     });
+
+    test('3. Tentativa de confirmação sem fornecedor e sem itens exibe validação de obrigatoriedade', async ({ page }) => {
+        await page.goto(`/estoque/pedidos-compra?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // Abrir modal de Nova Compra
+        const newPurchaseBtn = page.locator('button:has-text("Nova Compra")');
+        await newPurchaseBtn.click();
+
+        const modalTitle = page.locator('h2:has-text("Novo Pedido de Compra")');
+        await expect(modalTitle).toBeVisible({ timeout: 8000 });
+
+        // Clicar em "Confirmar Pedido"
+        const confirmBtn = page.locator('button:has-text("Confirmar Pedido")');
+        await expect(confirmBtn).toBeVisible();
+        await confirmBtn.click();
+
+        // Validar mensagem de erro para fornecedor obrigatório
+        const errorSupplier = page.locator('text=Selecione um fornecedor.');
+        await expect(errorSupplier).toBeVisible();
+
+        // Fechar modal pressionando tecla Escape
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(300);
+        await expect(modalTitle).not.toBeVisible();
+    });
+
+    test('4. Estrutura do cabeçalho da tabela de pedidos de compra', async ({ page }) => {
+        await page.goto(`/estoque/pedidos-compra?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle').catch(() => {});
+
+        // Validar colunas esperadas na tabela
+        const table = page.locator('table');
+        await expect(table).toBeVisible();
+        await expect(table.locator('th:has-text("Cód.")')).toBeVisible();
+        await expect(table.locator('th:has-text("Data")')).toBeVisible();
+        await expect(table.locator('th:has-text("Fornecedor")')).toBeVisible();
+        await expect(table.locator('th:has-text("Status")')).toBeVisible();
+        await expect(table.locator('th:has-text("Total")')).toBeVisible();
+    });
 });

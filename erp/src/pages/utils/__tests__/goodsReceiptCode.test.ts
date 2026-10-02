@@ -5,7 +5,7 @@ import {
   getNextGoodsReceiptIndex,
 } from '../goodsReceiptCode';
 
-vi.mock('./supabaseConfig', () => ({
+vi.mock('../supabaseConfig', () => ({
   supabase: {
     rpc: vi.fn().mockResolvedValue({ data: null, error: new Error('RPC não disponível') }),
     from: vi.fn(() => ({

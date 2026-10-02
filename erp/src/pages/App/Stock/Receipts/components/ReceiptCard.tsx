@@ -61,7 +61,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
           </span>
           <ReceiptMovementBadge receipt={receipt} />
           <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            {receipt.items.length} item(ns)
+            {(receipt.items || []).length} item(ns)
           </span>
         </div>
 

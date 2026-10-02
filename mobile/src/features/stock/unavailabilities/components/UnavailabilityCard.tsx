@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { RotateCcw, MapPin, AlertTriangle, Building2 } from 'lucide-react-native';
+import { AlertTriangle, Building2, MapPin, RotateCcw } from 'lucide-react-native';
+import type React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { StockUnavailability } from '../types';
 
 interface Props {
@@ -17,7 +17,12 @@ export const UnavailabilityCard: React.FC<Props> = ({
   onUndo,
 }) => {
   const isActive = item.status === 'active';
-  const productName = item.product_variations?.name || item.products?.name || 'Produto sem nome';
+  const productName = item.products?.name
+    ? item.product_variations?.name
+      ? `${item.products.name} - ${item.product_variations.name}`
+      : item.products.name
+    : item.product_variations?.name || 'Produto sem nome';
+  const variationSku = item.product_variations?.sku;
   const productKind =
     item.products?.product_kind === 'salvado'
       ? 'Salvados'
@@ -59,6 +64,12 @@ export const UnavailabilityCard: React.FC<Props> = ({
           {productName}
         </Text>
 
+        {variationSku ? (
+          <Text style={[styles.skuText, isDarkMode && styles.textMutedDark]}>
+            SKU: {variationSku}
+          </Text>
+        ) : null}
+
         <View style={styles.metaRow}>
           <View style={styles.reasonBadge}>
             <AlertTriangle size={13} color="#d97706" />
@@ -92,6 +103,12 @@ export const UnavailabilityCard: React.FC<Props> = ({
           <Text style={[styles.observationText, isDarkMode && styles.textMutedDark]}>
             Obs: {item.observation}
           </Text>
+        )}
+
+        {item.photos && item.photos.length > 0 && (
+          <View style={styles.photosBadge}>
+            <Text style={styles.photosBadgeText}>📷 {item.photos.length} foto(s)</Text>
+          </View>
         )}
       </View>
 
@@ -256,6 +273,25 @@ const styles = StyleSheet.create({
   undoBtnText: {
     fontSize: 12,
     color: '#64748b',
+    fontWeight: '600',
+  },
+  skuText: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: -2,
+    marginBottom: 4,
+  },
+  photosBadge: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  photosBadgeText: {
+    fontSize: 11,
+    color: '#2563eb',
     fontWeight: '600',
   },
 });

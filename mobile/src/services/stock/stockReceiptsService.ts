@@ -21,6 +21,7 @@ export const fetchReceipts = async (page: number) => {
 
   return (data || []).map((r) => ({
     ...r,
+    receiptIndex: r.receipt_index ? Number(r.receipt_index) : undefined,
     supplierName: r.supplier_name || 'Fornecedor',
     totalValue: r.total_value || 0,
     items: Array.isArray(r.goods_receipt_items) ? r.goods_receipt_items : [],

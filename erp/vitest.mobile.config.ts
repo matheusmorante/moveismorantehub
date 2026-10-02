@@ -8,6 +8,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, '../mobile/src'),
     },
   },
+  esbuild: {
+    loader: 'tsx',
+    include: /src\/.*\.[tj]sx?$/,
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],

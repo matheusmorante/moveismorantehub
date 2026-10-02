@@ -1,4 +1,4 @@
-import { Product, Variation } from '@/pages/types/product.type';
+import type { Product, Variation } from '@/pages/types/product.type';
 
 export interface UnavailabilitySupplier {
   id: string;

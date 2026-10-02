@@ -11,6 +11,7 @@ import {
   calculateAdditionalCosts,
   getLegacyCompatibleCosts,
 } from '@/pages/utils/inboundNfe/additionalCosts';
+import { fetchPersons } from '@/pages/utils/personService';
 import type { InboundReceiptItem } from '../InboundNfeItemsSection';
 
 export type InboundInvoiceAdaptedState = {
@@ -47,15 +48,24 @@ export async function adaptInboundInvoiceToReceiptState(
       .replace(/[\u0300-\u036f]/g, '')
       .trim();
 
+  let availableSuppliers = suppliers;
+  if ((!availableSuppliers || availableSuppliers.length === 0) && !invoice.supplierId) {
+    try {
+      availableSuppliers = await fetchPersons('suppliers');
+    } catch {
+      availableSuppliers = [];
+    }
+  }
+
   // Identificar fornecedor pelo CNPJ ou nome
-  let matchedSupplier = suppliers.find((p) =>
+  let matchedSupplier = availableSuppliers.find((p) =>
     p.cpfCnpj && invoice.emitterCnpj
       ? cleanCnpj(p.cpfCnpj) === cleanCnpj(invoice.emitterCnpj)
       : false
   );
   if (!matchedSupplier && invoice.emitterName) {
     const emitterTerm = normalize(invoice.emitterName);
-    matchedSupplier = suppliers.find((p) => {
+    matchedSupplier = availableSuppliers.find((p) => {
       const name = normalize(p.fullName || '');
       const trade = normalize(p.tradeName || '');
       return (

@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { fetchSupplierProductsForContext } from './inboundSupplierProductContext';
 const db = vi.hoisted(() => ({ from: vi.fn(), or: vi.fn(), range: vi.fn() }));
-vi.mock('../supabaseConfig', () => ({ supabase: { from: db.from } }));
+vi.mock('../../supabaseConfig', () => ({ supabase: { from: db.from } }));
 beforeEach(() => {
   const query = {
     select: vi.fn(),

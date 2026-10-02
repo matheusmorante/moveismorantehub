@@ -70,7 +70,7 @@ export const saveGoodsReceiptDraft = async (
   return draftReceipt;
 };
 
-export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void> => {
+export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<GoodsReceipt> => {
   const localList = getStoredReceipts();
   const existingIndex = localList.findIndex((item) => item.id === receipt.id);
   const existing = existingIndex !== -1 ? localList[existingIndex] : null;
@@ -114,6 +114,7 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<void>
   }
   saveStoredReceipts(localList);
   notifyListeners(localList);
+  return finalizedReceipt;
 };
 
 export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
@@ -132,8 +133,7 @@ export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<Goo
     isDraft: data.isDraft ?? false,
     ...data,
   };
-  await finalizeGoodsReceipt(fullReceipt);
-  return fullReceipt;
+  return await finalizeGoodsReceipt(fullReceipt);
 };
 
 export const deleteGoodsReceipt = async (id: string): Promise<void> => {

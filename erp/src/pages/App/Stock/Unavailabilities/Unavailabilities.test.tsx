@@ -1,18 +1,18 @@
 // @vitest-environment happy-dom
-import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import type { Product, Variation } from '@/pages/types/product.type';
-import UnavailabilitiesPage from './index';
-import UnavailabilityFormModal from './UnavailabilityFormModal';
+import { canPerform } from '@/pages/utils/permissionService';
 import {
   createStockUnavailability,
   fetchStockUnavailabilities,
   undoStockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
-import { toast } from 'react-toastify';
+import UnavailabilitiesPage from './index';
+import UnavailabilityFormModal from './UnavailabilityFormModal';
 
 vi.mock('@/pages/utils/supabaseConfig', () => {
   const createQueryBuilder = () => {
@@ -20,6 +20,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       in: vi.fn(() => builder),
+      or: vi.fn(() => builder),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),
       single: vi
         .fn()
@@ -43,6 +44,7 @@ vi.mock('@/pages/utils/stockUnavailabilityService', () => ({
   createStockUnavailability: vi.fn(),
   fetchStockUnavailabilities: vi.fn(),
   undoStockUnavailability: vi.fn(),
+  getUnavailabilityPhotoUrls: vi.fn((photos?: string[]) => Promise.resolve(photos || [])),
 }));
 
 vi.mock('@/context/AuthContext', () => ({
@@ -108,10 +110,13 @@ const activeRecord = {
   suppliers: null,
 };
 
-const renderPage = () =>
+const renderPage = (initialEntries = ['/estoque/indisponibilidades']) =>
   render(
-    <MemoryRouter>
-      <UnavailabilitiesPage />
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/estoque/indisponibilidades" element={<UnavailabilitiesPage />} />
+        <Route path="/estoque/indisponibilidades/:id" element={<UnavailabilitiesPage />} />
+      </Routes>
     </MemoryRouter>
   );
 
@@ -147,6 +152,42 @@ describe('UnavailabilityFormModal', () => {
     expect(createStockUnavailability).not.toHaveBeenCalled();
   });
 
+  it('rejects submission if quantity is zero or negative', async () => {
+    render(<UnavailabilityFormModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar variação' }));
+    fireEvent.change(screen.getByLabelText('Quantidade *'), { target: { value: '0' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
+    expect(toast.error).toHaveBeenCalledWith('Informe uma quantidade válida maior que zero.');
+    expect(createStockUnavailability).not.toHaveBeenCalled();
+  });
+
+  it('rejects submission if quantity exceeds variation current stock', async () => {
+    render(<UnavailabilityFormModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar variação' }));
+    fireEvent.change(screen.getByLabelText('Tratativa *'), { target: { value: 'Descarte/perda' } });
+    fireEvent.change(screen.getByLabelText('Quantidade *'), { target: { value: '15' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
+    expect(toast.error).toHaveBeenCalledWith(
+      'Quantidade informada (15) é maior que o estoque atual (10).'
+    );
+    expect(createStockUnavailability).not.toHaveBeenCalled();
+  });
+
+  it('supports decimal quantities', async () => {
+    const onSuccess = vi.fn();
+    render(<UnavailabilityFormModal isOpen onClose={vi.fn()} onSuccess={onSuccess} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar variação' }));
+    fireEvent.change(screen.getByLabelText('Tratativa *'), { target: { value: 'Descarte/perda' } });
+    fireEvent.change(screen.getByLabelText('Quantidade *'), { target: { value: '2.5' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
+
+    await waitFor(() =>
+      expect(createStockUnavailability).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 2.5 })
+      )
+    );
+  });
+
   it('reports RPC errors and reports success after creating an unavailability', async () => {
     const onSuccess = vi.fn();
     render(<UnavailabilityFormModal isOpen onClose={vi.fn()} onSuccess={onSuccess} />);
@@ -164,11 +205,19 @@ describe('UnavailabilityFormModal', () => {
     );
     expect(onSuccess).toHaveBeenCalledOnce();
   });
+
+  it('resets form and triggers onClose when cancel button is clicked', () => {
+    const onClose = vi.fn();
+    render(<UnavailabilityFormModal isOpen onClose={onClose} onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
 
 describe('UnavailabilitiesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(canPerform).mockReturnValue(true);
     vi.mocked(fetchStockUnavailabilities).mockResolvedValue({
       data: [activeRecord],
       totalCount: 65,
@@ -179,7 +228,7 @@ describe('UnavailabilitiesPage', () => {
 
   it('renders the list and applies status and product-kind filters', async () => {
     renderPage();
-    expect(await screen.findByText('Variação azul')).toBeInTheDocument();
+    expect(await screen.findByText(/Variação azul/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Nova indisponibilidade' }));
     expect(screen.getByRole('button', { name: 'Registrar' })).toBeInTheDocument();
 
@@ -203,7 +252,7 @@ describe('UnavailabilitiesPage', () => {
 
   it('loads the next server page and can undo an active record', async () => {
     renderPage();
-    await screen.findByText('Variação azul');
+    await screen.findByText(/Variação azul/);
     fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
     await waitFor(() =>
       expect(fetchStockUnavailabilities).toHaveBeenLastCalledWith(
@@ -216,6 +265,53 @@ describe('UnavailabilitiesPage', () => {
     expect(toast.success).toHaveBeenCalledWith('Indisponibilidade desfeita.');
   });
 
+  it('shows error toast when undoStockUnavailability fails', async () => {
+    vi.mocked(undoStockUnavailability).mockRejectedValueOnce(
+      new Error('Erro ao reverter movimentação')
+    );
+    renderPage();
+    await screen.findByText(/Variação azul/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Erro ao reverter movimentação'));
+  });
+
+  it('opens and closes print label modal from table action', async () => {
+    renderPage();
+    await screen.findByText(/Variação azul/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Imprimir' }));
+    expect(await screen.findByText('INDISPONÍVEL / AVARIADO')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    await waitFor(() =>
+      expect(screen.queryByText('INDISPONÍVEL / AVARIADO')).not.toBeInTheDocument()
+    );
+  });
+
+  it('handles direct URL with id param and automatically opens LabelPrint', async () => {
+    renderPage(['/estoque/indisponibilidades/unavailability-1']);
+    expect(await screen.findByText('INDISPONÍVEL / AVARIADO')).toBeInTheDocument();
+  });
+
+  it('shows error toast when direct URL id param is not found in data', async () => {
+    renderPage(['/estoque/indisponibilidades/non-existent-id']);
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Indisponibilidade não encontrada.')
+    );
+  });
+
+  it('hides create and undo buttons when user lacks manualStockMovement permission', async () => {
+    vi.mocked(canPerform).mockReturnValue(false);
+    renderPage();
+    await screen.findByText(/Variação azul/);
+
+    expect(
+      screen.queryByRole('button', { name: 'Nova indisponibilidade' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+  });
+
   it('renders a friendly empty state when there are no unavailabilities registered', async () => {
     vi.mocked(fetchStockUnavailabilities).mockResolvedValueOnce({
       data: [],
@@ -224,9 +320,59 @@ describe('UnavailabilitiesPage', () => {
     renderPage();
     expect(await screen.findByText('Nenhuma indisponibilidade registrada')).toBeInTheDocument();
     expect(screen.getByText(/O estoque está 100% liberado/i)).toBeInTheDocument();
-    // Garante que não renderiza o texto frio que parecia erro
     expect(screen.queryByText('Nenhuma indisponibilidade encontrada.')).not.toBeInTheDocument();
-    // Garante que a paginação não fica exibindo 0-0 de 0
     expect(screen.queryByLabelText('Paginação de indisponibilidades')).not.toBeInTheDocument();
+  });
+
+  it('shows clear filters button when filters yield empty list and resets filters on click', async () => {
+    vi.mocked(fetchStockUnavailabilities).mockResolvedValue({
+      data: [],
+      totalCount: 0,
+    });
+    renderPage();
+
+    // Simula filtro ativo
+    fireEvent.change(await screen.findByLabelText('Filtrar por status'), {
+      target: { value: 'cancelled' },
+    });
+
+    expect(
+      await screen.findByText('Nenhum registro encontrado para os filtros selecionados.')
+    ).toBeInTheDocument();
+
+    const clearButton = screen.getByRole('button', { name: /Limpar filtros/i });
+    fireEvent.click(clearButton);
+
+    await waitFor(() =>
+      expect(fetchStockUnavailabilities).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: 'all', productKind: 'all', page: 1 })
+      )
+    );
+  });
+
+  it('displays observation and opens photo preview modal when photos exist', async () => {
+    const recordWithPhotos: StockUnavailability = {
+      ...activeRecord,
+      id: 'unavail-with-photos',
+      photos: ['https://example.com/test-photo.jpg'],
+      observation: 'Canto quebrado',
+    };
+    vi.mocked(fetchStockUnavailabilities).mockResolvedValueOnce({
+      data: [recordWithPhotos],
+      totalCount: 1,
+    });
+    renderPage();
+
+    expect(await screen.findByText('Obs: Canto quebrado')).toBeInTheDocument();
+    const photosBtn = await screen.findByRole('button', { name: /1 foto\(s\)/i });
+    expect(photosBtn).toBeInTheDocument();
+
+    fireEvent.click(photosBtn);
+    expect(await screen.findByText('Fotos da Indisponibilidade')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Fotos da Indisponibilidade')).not.toBeInTheDocument();
+    });
   });
 });

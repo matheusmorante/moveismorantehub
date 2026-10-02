@@ -48,7 +48,7 @@ export const ReceiptsTableRow: React.FC<ReceiptsTableRowProps> = ({
           #{formatGoodsReceiptCode(receipt)}
         </p>
         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
-          {receipt.items.length} itens recebidos
+          {(receipt.items || []).length} itens recebidos
         </p>
       </td>
 

@@ -20,7 +20,7 @@ export const ReceiptItemsTable: React.FC<Props> = ({ items }) => {
   return (
     <div className="space-y-3">
       <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-        Itens Recebidos ({items.length})
+        Itens Recebidos ({(items || []).length})
       </h3>
       <div className="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800">
         <table className="w-full text-left text-xs">
@@ -56,7 +56,7 @@ export const ReceiptItemsTable: React.FC<Props> = ({ items }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {items.map((rawItem, index) => {
+            {(items || []).map((rawItem, index) => {
               const item = rawItem as ExtendedPurchaseItem;
               const unitDiscount = item.discountUnit || 0;
               const unitFreight =

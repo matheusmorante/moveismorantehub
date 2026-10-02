@@ -1,28 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
 import { Plus } from 'lucide-react-native';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {
   fetchStockUnavailabilities,
   undoStockUnavailability,
 } from '../../../../services/stock/stockUnavailabilitiesService';
+import { UnavailabilityCard } from '../components/UnavailabilityCard';
+import { UnavailabilityEmptyState } from '../components/UnavailabilityEmptyState';
+import { UnavailabilityFilters } from '../components/UnavailabilityFilters';
+import { UnavailabilityFormModal } from '../modals/UnavailabilityFormModal';
 import type {
   StockUnavailability,
-  UnavailabilityStatusFilter,
   UnavailabilityProductKindFilter,
+  UnavailabilityStatusFilter,
 } from '../types';
-import { UnavailabilityCard } from '../components/UnavailabilityCard';
-import { UnavailabilityFilters } from '../components/UnavailabilityFilters';
-import { UnavailabilityEmptyState } from '../components/UnavailabilityEmptyState';
-import { UnavailabilityFormModal } from '../modals/UnavailabilityFormModal';
 
 interface Props {
   isDarkMode: boolean;
@@ -127,7 +128,7 @@ export const UnavailabilitiesScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {renderHeader && renderHeader()}
+      {renderHeader?.()}
 
       {/* Action bar superior com botão de cadastro */}
       <View style={[styles.actionBar, isDarkMode && styles.actionBarDark]}>

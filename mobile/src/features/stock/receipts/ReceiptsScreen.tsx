@@ -32,7 +32,7 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         renderItem={({ item }) => {
           if (item.type === 'MODULE_HEADER') return renderHeader();
           const r = item.data;
-          const hasNF = Boolean(r.fiscal_key && r.fiscal_key.replace(/\\D/g, '').length === 44);
+          const hasNF = Boolean(r.fiscal_key && r.fiscal_key.replace(/\D/g, '').length === 44);
           const formattedDate = new Date(r.received_at || r.created_at).toLocaleDateString('pt-BR');
           const total = new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -53,7 +53,7 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
                 >
                   <View>
                     <Text style={[styles.title, isDarkMode && styles.textDark]}>
-                      Rec #{r.id.split('-')[0].toUpperCase()}
+                      Rec #{r.receipt_index || r.receiptIndex ? String(r.receipt_index || r.receiptIndex).padStart(6, '0') : (r.id ? r.id.split('-')[0].toUpperCase() : '—')}
                     </Text>
                     <Text
                       style={{ color: '#059669', fontSize: 12, fontWeight: '700', marginTop: 2 }}

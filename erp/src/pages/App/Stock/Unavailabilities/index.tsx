@@ -1,19 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, FilterX, Plus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { CheckCircle2, FilterX, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
-import UnavailabilityFormModal from './modals/UnavailabilityFormModal';
-import LabelPrint from './LabelPrint';
 import {
   fetchStockUnavailabilities,
   STOCK_UNAVAILABILITIES_PAGE_SIZE,
-  StockUnavailability,
-  UnavailabilityProductKindFilter,
-  UnavailabilityStatusFilter,
+  type StockUnavailability,
+  type UnavailabilityProductKindFilter,
+  type UnavailabilityStatusFilter,
   undoStockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
+import LabelPrint from './LabelPrint';
+import PhotoPreviewModal from './modals/PhotoPreviewModal';
+import UnavailabilityFormModal from './modals/UnavailabilityFormModal';
 
 export default function UnavailabilitiesPage() {
   const { id } = useParams();
@@ -29,6 +30,7 @@ export default function UnavailabilitiesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [labelItem, setLabelItem] = useState<StockUnavailability | null>(null);
+  const [selectedPhotosItem, setSelectedPhotosItem] = useState<StockUnavailability | null>(null);
 
   const fetchPage = useCallback(async () => {
     setIsLoading(true);
@@ -78,6 +80,7 @@ export default function UnavailabilitiesPage() {
         <h1 className="text-2xl font-bold">Indisponibilidades</h1>
         {canManageStock && (
           <button
+            type="button"
             onClick={() => setIsModalOpen(true)}
             className="bg-red-600 text-white px-4 py-2 rounded"
           >
@@ -135,6 +138,7 @@ export default function UnavailabilitiesPage() {
           </p>
           {canManageStock && (
             <button
+              type="button"
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-sm"
             >
@@ -191,7 +195,15 @@ export default function UnavailabilitiesPage() {
                   <tr key={item.id} className="border-b">
                     <td className="px-4 py-2">{new Date(item.created_at).toLocaleDateString()}</td>
                     <td className="px-4 py-2">
-                      {item.product_variations?.name || item.products?.name}
+                      <div className="font-semibold text-slate-800 dark:text-slate-100">
+                        {item.products?.name || 'Produto'}
+                      </div>
+                      {item.product_variations?.name && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {item.product_variations.name}
+                          {item.product_variations.sku ? ` (${item.product_variations.sku})` : ''}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       {item.products?.product_kind === 'salvado'
@@ -202,7 +214,26 @@ export default function UnavailabilitiesPage() {
                     </td>
                     <td className="px-4 py-2">{item.suppliers?.fantasy_name || '-'}</td>
                     <td className="px-4 py-2">
-                      {item.reason} / {item.treatment}
+                      <div className="text-slate-800 dark:text-slate-100 font-medium">
+                        {item.reason} / {item.treatment}
+                      </div>
+                      {item.observation && (
+                        <div
+                          className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-xs"
+                          title={item.observation}
+                        >
+                          Obs: {item.observation}
+                        </div>
+                      )}
+                      {item.photos && item.photos.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPhotosItem(item)}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold mt-0.5"
+                        >
+                          📷 {item.photos.length} foto(s)
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-2">{item.physical_location}</td>
                     <td className="px-4 py-2 text-red-600 font-bold">-{item.quantity}</td>
@@ -220,6 +251,7 @@ export default function UnavailabilitiesPage() {
                     <td className="px-4 py-2 text-center flex gap-2 justify-center">
                       {canManageStock && item.status === 'active' && (
                         <button
+                          type="button"
                           onClick={() => void handleUndo(item.id)}
                           className="text-gray-500 hover:text-red-600 text-xs font-medium"
                         >
@@ -227,6 +259,7 @@ export default function UnavailabilitiesPage() {
                         </button>
                       )}
                       <button
+                        type="button"
                         onClick={() => setLabelItem(item)}
                         className="text-blue-500 hover:text-blue-700 text-xs font-medium"
                       >
@@ -292,6 +325,9 @@ export default function UnavailabilitiesPage() {
             if (id) navigate('/estoque/indisponibilidades', { replace: true });
           }}
         />
+      )}
+      {selectedPhotosItem && (
+        <PhotoPreviewModal item={selectedPhotosItem} onClose={() => setSelectedPhotosItem(null)} />
       )}
     </div>
   );

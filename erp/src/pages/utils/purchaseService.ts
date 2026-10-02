@@ -38,7 +38,12 @@ const isValidUuid = (val?: string) =>
 const syncPurchaseItems = async (purchaseId: string, items: any[]) => {
   if (!isValidUuid(purchaseId)) return;
   try {
-    await supabase.from('purchase_items').delete().eq('purchase_id', purchaseId);
+    const { error: deleteError } = await supabase
+      .from('purchase_items')
+      .delete()
+      .eq('purchase_id', purchaseId);
+    if (deleteError) throw deleteError;
+
     if (items && items.length > 0) {
       const rows = items.map((item, index) => ({
         purchase_id: purchaseId,
@@ -54,10 +59,12 @@ const syncPurchaseItems = async (purchaseId: string, items: any[]) => {
         ),
         item_snapshot: item,
       }));
-      await supabase.from('purchase_items').insert(rows);
+      const { error: insertError } = await supabase.from('purchase_items').insert(rows);
+      if (insertError) throw insertError;
     }
   } catch (err) {
     console.error('[Purchase] Falha ao sincronizar purchase_items:', err);
+    throw err;
   }
 };
 
@@ -172,11 +179,12 @@ export const subscribeToPurchases = (callback: (purchases: Purchase[]) => void) 
 
 export const savePurchase = async (purchase: Purchase): Promise<string | undefined> => {
   try {
-    const nextNumber = currentPurchases.length + 1;
     const dbPayload: any = {
       ...mapToDB(purchase),
-      purchase_number: nextNumber,
     };
+    if (purchase.purchaseNumber) {
+      dbPayload.purchase_number = purchase.purchaseNumber;
+    }
     delete dbPayload.items;
 
     const { data, error } = await supabase.from(TABLE_NAME).insert([dbPayload]).select();
@@ -188,7 +196,11 @@ export const savePurchase = async (purchase: Purchase): Promise<string | undefin
       if (purchase.items && purchase.items.length > 0) {
         await syncPurchaseItems(purchaseId, purchase.items);
       }
-      const mapped = mapFromDB({ ...savedRecord, purchase_items: purchase.items }, nextNumber);
+      const officialNumber =
+        savedRecord.purchase_number !== undefined && savedRecord.purchase_number !== null
+          ? Number(savedRecord.purchase_number)
+          : currentPurchases.length + 1;
+      const mapped = mapFromDB({ ...savedRecord, purchase_items: purchase.items }, officialNumber);
       currentPurchases = [mapped, ...currentPurchases];
       notifyListeners();
       return purchaseId;
@@ -232,6 +244,15 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
     if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
     if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
     if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
+    if (updates.ipiPercent !== undefined) dbUpdates.ipi_value = updates.ipiPercent || 0;
+    if (updates.freightPercent !== undefined)
+      dbUpdates.freight_percent = updates.freightPercent || 0;
+
+    if (updates.status === 'cancelled' && existing.stockProcessed) {
+      await reverseInventoryMoves(id);
+      dbUpdates.stockProcessed = false;
+      merged.stockProcessed = false;
+    }
 
     const { error } = await supabase.from(TABLE_NAME).update(dbUpdates).eq('id', id);
 
@@ -277,11 +298,17 @@ const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
             variationId: pi.variation_id || pi.item_snapshot?.variationId || undefined,
             description: pi.description || pi.item_snapshot?.description || '',
             quantity: Number(pi.quantity || 1),
-            baseCost: Number(pi.base_cost || 0),
-            unitCost: Number(pi.unit_cost || 0),
-            totalCost: Number(pi.total_cost || 0),
+            receivedQuantity:
+              pi.item_snapshot?.receivedQuantity !== undefined
+                ? Number(pi.item_snapshot.receivedQuantity)
+                : undefined,
+            baseCost: Number(pi.base_cost ?? pi.item_snapshot?.baseCost ?? 0),
+            unitCost: Number(pi.unit_cost ?? pi.item_snapshot?.unitCost ?? 0),
+            totalCost: Number(pi.total_cost ?? pi.item_snapshot?.totalCost ?? 0),
           }))
-      : data.items || [];
+      : Array.isArray(data.items)
+        ? data.items
+        : [];
 
   return {
     id: String(data.id),
@@ -296,7 +323,7 @@ const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
     items,
     totalValue: Number(data.total_value),
     observation: data.observation,
-    status: data.status === 'opened' ? 'ordered' : data.status,
+    status: data.status === 'opened' || !data.status ? 'ordered' : data.status,
     invoiceNumber: data.invoice_number,
     invoiceDate: data.invoice_date,
     invoiceStatus: data.invoice_status,

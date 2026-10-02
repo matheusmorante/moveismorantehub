@@ -9,6 +9,7 @@ export interface PurchaseDetailsModalProps {
   readonly purchase: Purchase | null;
   readonly onClose: () => void;
   readonly onEdit?: (purchase: Purchase) => void;
+  readonly onCheckReceipt?: (purchase: Purchase) => void;
 }
 
 /**
@@ -19,6 +20,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
   purchase,
   onClose,
   onEdit,
+  onCheckReceipt,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -211,6 +213,17 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
               >
                 <i className="bi bi-pencil-square text-sm" aria-hidden="true" />
                 <span className="hidden md:inline">Editar</span>
+              </button>
+            )}
+            {onCheckReceipt && purchase.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={() => onCheckReceipt(purchase)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl font-black uppercase tracking-wider text-xs transition-all active:scale-95 shadow-sm"
+                title="Conferência de Entrega (3-Way Match)"
+              >
+                <i className="bi bi-qr-code-scan text-sm" aria-hidden="true" />
+                <span className="hidden md:inline">Conferir</span>
               </button>
             )}
             <button
@@ -435,6 +448,16 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
           </button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {onCheckReceipt && purchase.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={() => onCheckReceipt(purchase)}
+                className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 dark:shadow-none flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+              >
+                <i className="bi bi-qr-code-scan" aria-hidden="true" />
+                <span>Conferir Pedido</span>
+              </button>
+            )}
             {onEdit && (
               <button
                 type="button"

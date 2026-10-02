@@ -1,5 +1,5 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
 import type { Product, Variation } from '@/pages/types/product.type';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 30;
 
@@ -61,9 +61,9 @@ const UNAVAILABILITY_COLUMNS = [
   'observation',
   'photos',
   'created_at',
-  'products!inner(id,name,sku,product_kind)',
+  'products!inner(id,name,product_kind)',
   'product_variations(name,sku)',
-  'suppliers(fantasy_name)',
+  'people:supplier_id(id,full_name,nickname,social_name)',
 ].join(',');
 
 export async function fetchStockUnavailabilities(filters: StockUnavailabilityFilters) {
@@ -83,8 +83,27 @@ export async function fetchStockUnavailabilities(filters: StockUnavailabilityFil
   );
   if (error) throw error;
 
+  const mappedData: StockUnavailability[] = ((data || []) as any[]).map((row) => ({
+    ...row,
+    products: {
+      ...row.products,
+      sku: row.products?.sku || row.product_variations?.sku || '',
+    },
+    suppliers:
+      row.suppliers ||
+      (row.people
+        ? {
+            fantasy_name:
+              row.people.nickname?.trim() ||
+              row.people.full_name?.trim() ||
+              row.people.social_name?.trim() ||
+              '-',
+          }
+        : null),
+  }));
+
   return {
-    data: (data || []) as StockUnavailability[],
+    data: mappedData,
     totalCount: count || 0,
   };
 }
@@ -154,4 +173,38 @@ export async function undoStockUnavailability(id: string) {
   });
   if (error) throw error;
   return data;
+}
+
+export async function getUnavailabilityPhotoUrls(photos?: string[] | null): Promise<string[]> {
+  if (!photos || photos.length === 0) return [];
+
+  const storagePaths: string[] = [];
+  const directUrls: string[] = [];
+
+  for (const photo of photos) {
+    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
+      directUrls.push(photo);
+    } else {
+      storagePaths.push(photo);
+    }
+  }
+
+  if (storagePaths.length === 0) {
+    return directUrls;
+  }
+
+  const { data, error } = await supabase.storage
+    .from('unavailabilities')
+    .createSignedUrls(storagePaths, 3600);
+
+  if (error) {
+    console.error('Erro ao gerar URLs assinadas para fotos de indisponibilidade:', error);
+    return directUrls;
+  }
+
+  const signedUrls = (data || [])
+    .map((item) => item.signedUrl)
+    .filter((url): url is string => Boolean(url));
+
+  return [...directUrls, ...signedUrls];
 }

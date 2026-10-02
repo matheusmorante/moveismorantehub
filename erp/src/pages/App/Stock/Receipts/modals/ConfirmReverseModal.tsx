@@ -81,7 +81,7 @@ export const ConfirmReverseModal: React.FC<ConfirmReverseModalProps> = ({
           </div>
           <ul className="list-disc list-inside space-y-1 text-[11px] opacity-90 pl-1">
             <li>
-              As quantidades dos {receipt.items.length} item(ns) serão debitadas do saldo no
+              As quantidades dos {(receipt.items || []).length} item(ns) serão debitadas do saldo no
               estoque.
             </li>
             <li>

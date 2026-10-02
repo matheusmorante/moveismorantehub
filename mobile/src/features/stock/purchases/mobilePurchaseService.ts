@@ -203,8 +203,32 @@ export const saveMobilePurchase = async (purchase: Omit<MobilePurchase, 'id'>) =
   });
 };
 
+const toDbPurchaseUpdates = (updates: Partial<MobilePurchase>) => {
+  const dbUpdates: Record<string, any> = {};
+  if (updates.supplierId !== undefined) dbUpdates.supplier_id = updates.supplierId || null;
+  if (updates.supplierName !== undefined) dbUpdates.supplier_name = updates.supplierName || null;
+  if (updates.date !== undefined)
+    dbUpdates.date = updates.date ? new Date(updates.date).toISOString() : new Date().toISOString();
+  if (updates.totalValue !== undefined) dbUpdates.total_value = Number(updates.totalValue || 0);
+  if (updates.observation !== undefined) dbUpdates.observation = updates.observation || '';
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber || null;
+  if (updates.invoiceDate !== undefined)
+    dbUpdates.invoice_date = updates.invoiceDate ? new Date(updates.invoiceDate).toISOString() : null;
+  if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
+  if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
+  if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
+  if (updates.ipiPercent !== undefined) dbUpdates.ipi_value = Number(updates.ipiPercent || 0);
+  if (updates.freightPercent !== undefined)
+    dbUpdates.freight_percent = Number(updates.freightPercent || 0);
+  if (updates.stockProcessed !== undefined)
+    dbUpdates.stockProcessed = Boolean(updates.stockProcessed);
+
+  return dbUpdates;
+};
+
 export const updateMobilePurchase = async (id: string, updates: Partial<MobilePurchase>) => {
-  const { error } = await supabase.from('purchases').update(toDbPurchase(updates)).eq('id', id);
+  const { error } = await supabase.from('purchases').update(toDbPurchaseUpdates(updates)).eq('id', id);
   if (error) throw error;
   if (updates.items) await syncPurchaseItems(id, updates.items);
   return fetchMobilePurchase(id);

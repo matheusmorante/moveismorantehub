@@ -142,6 +142,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     setItems(items.filter((_, i) => i !== idx));
   };
 
+  const handleUpdateItem = (idx: number, updatedItem: PurchaseItem) => {
+    setItems((currentItems) =>
+      currentItems.map((item, i) => (i === idx ? updatedItem : item))
+    );
+  };
+
   const compressImage = async (file: File): Promise<File> => {
     if (!file.type.startsWith('image/')) return file;
     if (file.size <= 2 * 1024 * 1024) return file;
@@ -588,12 +594,14 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             items={[...items]}
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
+            onUpdateItem={handleUpdateItem}
             ipiPercent={ipiPercent}
             freightPercent={freightPercent}
             formatCurrency={formatCurrency}
             supplierId={selectedSupplierId}
             onSupplierAutoSelect={(supId) => setSelectedSupplierId(supId)}
             hasError={validationErrors.items}
+            isReceiptMode={false}
           />
         </div>
 

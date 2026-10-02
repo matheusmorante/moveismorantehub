@@ -1,8 +1,8 @@
-import Order from '@/pages/types/order.type';
-import { AppSettings } from '../../settingsService';
-import { escapeXml } from './xmlEmitterBlock';
-import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import type Order from '@/pages/types/order.type';
 import { zeroOwnIcmsGroup } from '../../../../../../shared-utils/fiscalIcmsGroups';
+import type { AppSettings } from '../../settingsService';
+import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import { escapeXml } from './xmlEmitterBlock';
 
 export interface BuildItemsResult {
   itemsXml: string;
@@ -38,10 +38,14 @@ export function buildItemsXml(
       if (settings.companyCRT !== '1') throw new Error('CSOSN exige emitente CRT 1 neste gerador.');
       const icmsGroup = zeroOwnIcmsGroup(csosn);
       const origem = fiscal.origem || '0';
-      const cProd = item.code || item.productId || String(sourceIndex + 1);
+      const cProd = String(item.code || item.productId || String(sourceIndex + 1)).slice(0, 60);
+      const desc = escapeXml(item.description);
       const xProd = isHomologacao
-        ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${escapeXml(item.description)})`
-        : escapeXml(item.description);
+        ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${desc})`.slice(
+            0,
+            120
+          )
+        : desc.slice(0, 120);
 
       return `
     <det nItem="${itemIndex}">

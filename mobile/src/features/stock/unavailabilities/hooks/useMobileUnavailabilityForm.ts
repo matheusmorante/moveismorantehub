@@ -1,9 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { supabase } from '../../../../services/supabaseClient';
-import { searchProducts } from '../../../../services/stockService';
 import { createStockUnavailability } from '../../../../services/stock/stockUnavailabilitiesService';
-import { REASONS, TREATMENTS, ProductVariationSuggestion, SupplierOption } from '../types';
+import { searchProducts } from '../../../../services/stockService';
+import { supabase } from '../../../../services/supabaseClient';
+import {
+  type ProductVariationSuggestion,
+  REASONS,
+  type SupplierOption,
+  TREATMENTS,
+} from '../types';
 
 interface SupplierPersonRow {
   id: string;
@@ -164,7 +169,7 @@ export function useMobileUnavailabilityForm({
     }
 
     const qty = parseFloat(quantity.replace(',', '.'));
-    if (isNaN(qty) || qty <= 0) {
+    if (Number.isNaN(qty) || qty <= 0) {
       Alert.alert('Atenção', 'Informe uma quantidade válida maior que zero.');
       return;
     }
@@ -183,6 +188,9 @@ export function useMobileUnavailabilityForm({
       return;
     }
 
+    const targetSupplierId =
+      treatment === 'Devolução ao fornecedor' ? selectedSupplierId || null : null;
+
     setIsLoading(true);
     try {
       await createStockUnavailability({
@@ -193,7 +201,7 @@ export function useMobileUnavailabilityForm({
         treatment,
         physicalLocation,
         observation: observation.trim() || undefined,
-        supplierId: selectedSupplierId || null,
+        supplierId: targetSupplierId,
       });
 
       Alert.alert('Sucesso', 'Indisponibilidade registrada com sucesso!');

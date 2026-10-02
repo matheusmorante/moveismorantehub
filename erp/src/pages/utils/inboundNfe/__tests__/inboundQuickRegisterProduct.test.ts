@@ -78,6 +78,7 @@ vi.mock('../../supabaseConfig', () => {
         }
         return Promise.resolve({ error: null });
       },
+      update: () => chain,
       delete: () => chain,
     };
     return chain;

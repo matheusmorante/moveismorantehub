@@ -1,19 +1,19 @@
-import React from 'react';
+import { Check, Search, X } from 'lucide-react-native';
+import type React from 'react';
 import {
-  View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from 'react-native';
-import { X, Check, Search } from 'lucide-react-native';
-import { REASONS, TREATMENTS } from '../types';
 import { useMobileUnavailabilityForm } from '../hooks/useMobileUnavailabilityForm';
+import { REASONS, TREATMENTS } from '../types';
 
 interface Props {
   isOpen: boolean;

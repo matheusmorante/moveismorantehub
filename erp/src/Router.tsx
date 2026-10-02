@@ -318,6 +318,14 @@ function Router() {
             <Route path="/estoque/indisponibilidades/:id" element={<UnavailabilitiesPage />} />
             <Route path="/estoque/ncm" element={<NcmCatalogPage />} />
             <Route path="/estoque/pedidos-compra" element={<PurchasesPage />} />
+            <Route
+              path="/stock/purchases"
+              element={<Navigate to="/estoque/pedidos-compra" replace />}
+            />
+            <Route
+              path="/purchases"
+              element={<Navigate to="/estoque/pedidos-compra" replace />}
+            />
             <Route path="/estoque/notas-fiscais-entrada" element={<InboundInvoicesPage />} />
             <Route path="/estoque/recebimentos" element={<ReceiptsPage />} />
             <Route path="/estoque/bling" element={<BlingStock />} />

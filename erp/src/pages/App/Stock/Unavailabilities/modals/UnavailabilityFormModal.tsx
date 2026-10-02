@@ -1,11 +1,10 @@
-import React from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import { useUnavailabilityForm } from '../hooks/useUnavailabilityForm';
 import {
   UNAVAILABILITY_REASONS,
   UNAVAILABILITY_TREATMENTS,
-  UnavailabilityFormModalProps,
+  type UnavailabilityFormModalProps,
 } from '../types/unavailabilityForm.types';
-import { useUnavailabilityForm } from '../hooks/useUnavailabilityForm';
 
 export default function UnavailabilityFormModal({
   isOpen,
@@ -23,8 +22,10 @@ export default function UnavailabilityFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-      <div
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+      <button
+        type="button"
+        aria-label="Fechar modal"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity cursor-default"
         onClick={handleClose}
       />
 
@@ -46,12 +47,12 @@ export default function UnavailabilityFormModal({
         <form onSubmit={actions.handleSubmit} className="p-6 space-y-5">
           {/* Seleção do Produto e Variação */}
           <div>
-            <label className="block text-sm font-semibold mb-1">
+            <span className="block text-sm font-semibold mb-1">
               Produto{' '}
               <span className="text-red-600" aria-hidden="true">
                 *
               </span>
-            </label>
+            </span>
             <ProductAutocomplete
               variationsOnly
               isSelected={!!state.selectedVariation}
@@ -175,8 +176,11 @@ export default function UnavailabilityFormModal({
 
           {/* Fotos */}
           <div>
-            <label className="block text-sm font-semibold mb-1">Fotos</label>
+            <label htmlFor="unavailability-photos" className="block text-sm font-semibold mb-1">
+              Fotos
+            </label>
             <input
+              id="unavailability-photos"
               type="file"
               multiple
               accept="image/*"

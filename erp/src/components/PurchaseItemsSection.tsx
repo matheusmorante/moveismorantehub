@@ -136,9 +136,15 @@ export const PurchaseItemsSection = ({
   const handleQtyChange = (idx: number, newQty: number) => {
     const item = items[idx];
     const validQty = Math.max(1, newQty);
+    const baseCost = item.baseCost ?? item.unitCost ?? 0;
+    const tempIpi = baseCost * (ipiPercent / 100);
+    const tempFreight = baseCost * (freightPercent / 100);
+    const unitCost = Number((baseCost + tempIpi + tempFreight).toFixed(2));
     const updated: PurchaseItem = {
       ...item,
       quantity: validQty,
+      unitCost,
+      totalCost: Number((validQty * unitCost).toFixed(2)),
     };
 
     if (onUpdateItem) {
@@ -149,9 +155,14 @@ export const PurchaseItemsSection = ({
   const handleCostChange = (idx: number, newCost: number) => {
     const item = items[idx];
     const validCost = Math.max(0, newCost);
+    const tempIpi = validCost * (ipiPercent / 100);
+    const tempFreight = validCost * (freightPercent / 100);
+    const unitCost = Number((validCost + tempIpi + tempFreight).toFixed(2));
     const updated: PurchaseItem = {
       ...item,
       baseCost: validCost,
+      unitCost,
+      totalCost: Number((item.quantity * unitCost).toFixed(2)),
     };
 
     if (onUpdateItem) {
@@ -212,7 +223,9 @@ export const PurchaseItemsSection = ({
           </div>
           {hasError && (
             <p className="text-xs font-bold text-red-500">
-              Adicione pelo menos um item ao recebimento.
+              {isReceiptMode
+                ? 'Adicione pelo menos um item ao recebimento.'
+                : 'Adicione pelo menos um item ao pedido de compra.'}
             </p>
           )}
 
@@ -313,7 +326,7 @@ export const PurchaseItemsSection = ({
                 Produto
               </th>
               <th className="px-3 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center w-28">
-                Qtd. recebida
+                {isReceiptMode ? 'Qtd. recebida' : 'Qtd. pedida'}
               </th>
               <th className="px-4 py-3.5 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">
                 Custo unitário
@@ -495,7 +508,7 @@ export const PurchaseItemsSection = ({
                   colSpan={8}
                   className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-emerald-400"
                 >
-                  Valor Total do Recebimento
+                  {isReceiptMode ? 'Valor Total do Recebimento' : 'Valor Total do Pedido'}
                 </td>
                 <td className="px-5 py-4 text-right text-xl font-black text-emerald-400">
                   {formatCurrency(totalValue)}
@@ -577,7 +590,7 @@ export const PurchaseItemsSection = ({
               {/* Campo de Quantidade em Destaque: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
               <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-1.5">
                 <span className="text-slate-400 uppercase tracking-widest text-[9px] font-black block">
-                  Qtd. recebida
+                  {isReceiptMode ? 'Qtd. recebida' : 'Qtd. pedida'}
                 </span>
                 <div className="flex items-center gap-2">
                   <button

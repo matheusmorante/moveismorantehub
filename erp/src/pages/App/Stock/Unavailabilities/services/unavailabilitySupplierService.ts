@@ -1,5 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { UnavailabilitySupplier } from '../types/unavailabilityForm.types';
+import type { UnavailabilitySupplier } from '../types/unavailabilityForm.types';
 
 interface ProductSuppliersRow {
   supplier_id?: string | null;

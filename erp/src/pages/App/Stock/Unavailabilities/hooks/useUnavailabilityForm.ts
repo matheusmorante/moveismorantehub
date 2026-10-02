@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Product, Variation } from '@/pages/types/product.type';
+import type { Product, Variation } from '@/pages/types/product.type';
 import { createStockUnavailability } from '@/pages/utils/stockUnavailabilityService';
+import { fetchSuppliersForProduct } from '../services/unavailabilitySupplierService';
 import {
   DEFAULT_PHYSICAL_LOCATION,
   UNAVAILABILITY_REASONS,
   UNAVAILABILITY_TREATMENTS,
-  UnavailabilitySupplier,
+  type UnavailabilitySupplier,
 } from '../types/unavailabilityForm.types';
-import { fetchSuppliersForProduct } from '../services/unavailabilitySupplierService';
 
 interface UseUnavailabilityFormProps {
   isOpen: boolean;
@@ -79,8 +79,8 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
       return;
     }
 
-    const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) {
+    const qty = parseFloat(quantity.replace(',', '.'));
+    if (Number.isNaN(qty) || qty <= 0) {
       toast.error('Informe uma quantidade válida maior que zero.');
       return;
     }

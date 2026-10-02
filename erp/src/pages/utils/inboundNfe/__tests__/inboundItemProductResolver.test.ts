@@ -43,6 +43,7 @@ describe('inboundItemProductResolver', () => {
     expect(details).toEqual({
       linkedProductCode: 'ARM-PRETO',
       productErpName: 'Armário Multiuso Preto',
+      sellingPrice: 0,
     });
   });
 
