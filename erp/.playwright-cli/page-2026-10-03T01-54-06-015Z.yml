@@ -1,0 +1,284 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - main [ref=f3e3]:
+    - generic [ref=f3e6]:
+      - generic [ref=f3e7]:
+        - generic [ref=f3e8]:
+          - button "Open sidebar" [ref=f3e10] [cursor=pointer]
+          - button "All projects" [ref=f3e17] [cursor=pointer]
+        - navigation "Breadcrumb" [ref=f3e22]:
+          - generic [ref=f3e23]: Overview
+        - generic [ref=f3e26]:
+          - button "Create New" [ref=f3e28] [cursor=pointer]
+          - button "Vercel Agent is available on Pro" [ref=f3e35] [cursor=pointer]
+      - generic [ref=f3e51]:
+        - generic [ref=f3e53]:
+          - generic [ref=f3e54]:
+            - searchbox "Search" [ref=f3e55]
+            - generic [ref=f3e61]:
+              - generic [ref=f3e62]: Press slash to focus search
+              - generic [ref=f3e64]: /
+          - button "Filter and Sort Projects" [ref=f3e65] [cursor=pointer]
+        - generic [ref=f3e70]:
+          - generic [ref=f3e73]:
+            - generic [ref=f3e74]:
+              - link "Usage" [ref=f3e76] [cursor=pointer]:
+                - /url: /matheusmorantes-projects/~/usage
+              - generic [ref=f3e77]:
+                - generic [ref=f3e78]:
+                  - link "Last 30 days" [ref=f3e80] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/~/usage
+                  - button "Upgrade" [ref=f3e81] [cursor=pointer]
+                - list [ref=f3e83]:
+                  - listitem [ref=f3e84]:
+                    - link "28.023657809999992 Deployment Storage 2,8 GB / 10 GB" [ref=f3e85] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/deployments-storage
+                      - progressbar [ref=f3e86]
+                      - generic [ref=f3e90]: Deployment Storage
+                      - generic [ref=f3e97]: 2,8 GB / 10 GB
+                  - listitem [ref=f3e98]:
+                    - link "27.6046 CDN Requests 276K / 1M 10M" [ref=f3e99] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/networking-edge-requests
+                      - progressbar [ref=f3e100]
+                      - generic [ref=f3e104]: CDN Requests
+                      - generic [ref=f3e111]:
+                        - text: 276K /
+                        - generic [ref=f3e112]: 1M
+                      - generic: 10M
+                  - listitem [ref=f3e113]:
+                    - link "24.717013888888886 Fluid Active CPU 59m 19s / 4h 16h" [ref=f3e114] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/vercel-functions-fluid-cpu-duration
+                      - progressbar [ref=f3e115]
+                      - generic [ref=f3e119]: Fluid Active CPU
+                      - generic [ref=f3e126]:
+                        - text: 59m 19s /
+                        - generic [ref=f3e127]: 4h
+                      - generic: 16h
+                  - listitem [ref=f3e128]:
+                    - link "7.9174 Function Invocations 79K / 1M" [ref=f3e129] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/vercel-functions-invocations
+                      - progressbar [ref=f3e130]
+                      - generic [ref=f3e134]: Function Invocations
+                      - generic [ref=f3e141]: 79K / 1M
+                  - listitem [ref=f3e142]:
+                    - link "6.688402300000002 Functions Storage 668,84 MB / 10 GB" [ref=f3e143] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/deployments-functions
+                      - progressbar [ref=f3e144]
+                      - generic [ref=f3e148]: Functions Storage
+                      - generic [ref=f3e155]: 668,84 MB / 10 GB
+                  - listitem [ref=f3e156]:
+                    - link "6.239665036000001 Fast Data Transfer 6,24 GB / 100 GB 1 TB" [ref=f3e157] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/networking-fast-data-transfer
+                      - progressbar [ref=f3e158]
+                      - generic [ref=f3e162]: Fast Data Transfer
+                      - generic [ref=f3e169]:
+                        - text: 6,24 GB /
+                        - generic [ref=f3e170]: 100 GB
+                      - generic: 1 TB
+                  - listitem [ref=f3e171]:
+                    - link "3.1587379400000004 Fast Origin Transfer 315,87 MB / 10 GB 100 GB" [ref=f3e172] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/networking-fast-origin-transfer
+                      - progressbar [ref=f3e173]
+                      - generic [ref=f3e177]: Fast Origin Transfer
+                      - generic [ref=f3e184]:
+                        - text: 315,87 MB /
+                        - generic [ref=f3e185]: 10 GB
+                      - generic: 100 GB
+                  - listitem [ref=f3e186]:
+                    - link "3.0065344790123456 Fluid Provisioned Memory 10.8 GB-Hrs / 360 GB-Hrs 1,440 GB-Hrs" [ref=f3e187] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/vercel-functions-fluid-duration
+                      - progressbar [ref=f3e188]
+                      - generic [ref=f3e192]: Fluid Provisioned Memory
+                      - generic [ref=f3e199]:
+                        - text: 10.8 GB-Hrs /
+                        - generic [ref=f3e200]: 360 GB-Hrs
+                      - generic: 1,440 GB-Hrs
+                  - listitem [ref=f3e201]:
+                    - link "2.4677777777777776 CDN Request CPU Duration 1m 29s / 1h" [ref=f3e202] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/networking-edge-request-cpu-duration
+                      - progressbar [ref=f3e203]
+                      - generic [ref=f3e207]: CDN Request CPU Duration
+                      - generic [ref=f3e214]: 1m 29s / 1h
+                  - listitem [ref=f3e215]:
+                    - link "0.6426000000000001 ISR Reads 6.4K / 1M 10M" [ref=f3e216] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/~/usage/isr-reads
+                      - progressbar [ref=f3e217]
+                      - generic [ref=f3e221]: ISR Reads
+                      - generic [ref=f3e228]:
+                        - text: 6.4K /
+                        - generic [ref=f3e229]: 1M
+                      - generic: 10M
+              - button "Show More Usage" [ref=f3e230] [cursor=pointer]
+            - generic [ref=f3e234]:
+              - link "Alerts" [ref=f3e236] [cursor=pointer]:
+                - /url: /matheusmorantes-projects/~/observability/alerts
+              - generic [ref=f3e241]:
+                - generic [ref=f3e242]:
+                  - generic [ref=f3e243]: Get alerted for anomalies
+                  - generic [ref=f3e244]: Automatically monitor your projects for anomalies and get notified.
+                - button "Upgrade to Pro" [ref=f3e245] [cursor=pointer]
+            - generic [ref=f3e248]:
+              - generic [ref=f3e249]: Recent Previews
+              - list [ref=f3e251]:
+                - generic [ref=f3e252]: Preview deployments that you have recently visited or created will appear here.
+          - generic [ref=f3e261]:
+            - generic [ref=f3e262]: Projects
+            - list [ref=f3e264]:
+              - listitem [ref=f3e265]:
+                - link [ref=f3e266] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/calculadora-2-0
+                - generic [ref=f3e267]:
+                  - button "Project Menu" [ref=f3e268] [cursor=pointer]
+                  - generic [ref=f3e273]:
+                    - generic [ref=f3e274]:
+                      - link "calculadora-2-0" [ref=f3e275] [cursor=pointer]:
+                        - /url: /matheusmorantes-projects/calculadora-2-0
+                      - img "Favorited" [ref=f3e278]
+                    - link "calculadora-2-0-zeta.vercel.app" [ref=f3e280] [cursor=pointer]:
+                      - /url: https://calculadora-2-0-zeta.vercel.app
+                  - link [ref=f3e281] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/calculadora-2-0/speed-insights
+                    - progressbar [ref=f3e283]
+                - generic [ref=f3e291]:
+                  - link "Add files via upload" [ref=f3e292] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/calculadora-2-0/A6bQZKtitawxYbc6GzHFM98d5WSA
+                  - generic [ref=f3e297]:
+                    - img "github" [ref=f3e298]
+                    - link "matheusmorante/Calculadora-2.0" [ref=f3e300] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2FCalculadora-2.0
+                    - text: ·
+                    - generic [ref=f3e302]: 4/21/25
+              - listitem [ref=f3e305]:
+                - link [ref=f3e306] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/catalogo-digital
+                - generic [ref=f3e307]:
+                  - button "Project Menu" [ref=f3e308] [cursor=pointer]
+                  - generic [ref=f3e313]:
+                    - link "catalogo-digital" [ref=f3e315] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/catalogo-digital
+                    - link "www.moveismorante.com.br" [ref=f3e318] [cursor=pointer]:
+                      - /url: https://www.moveismorante.com.br
+                  - link [ref=f3e319] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/catalogo-digital#production-checklist
+                    - progressbar [ref=f3e321]
+                - generic [ref=f3e329]:
+                  - link "m" [ref=f3e330] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/catalogo-digital/FyUFmXp1qZLsSgNpwKXH12fC4bM3
+                  - generic [ref=f3e335]:
+                    - img "github" [ref=f3e336]
+                    - link "matheusmorante/moveismorantehub" [ref=f3e338] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fmoveismorantehub
+                    - text: ·
+                    - generic [ref=f3e340]: 5h ago
+              - listitem [ref=f3e343]:
+                - link [ref=f3e344] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/morantehub
+                - generic [ref=f3e345]:
+                  - button "Project Menu" [ref=f3e346] [cursor=pointer]
+                  - generic [ref=f3e351]:
+                    - link "morantehub" [ref=f3e353] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/morantehub
+                    - link "morantehub.vercel.app" [ref=f3e356] [cursor=pointer]:
+                      - /url: https://morantehub.vercel.app
+                  - link [ref=f3e357] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/morantehub#production-checklist
+                    - progressbar [ref=f3e359]
+                - generic [ref=f3e367]:
+                  - link "m" [ref=f3e368] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/morantehub/GgGAc81j6imsG4mz4ifqLoKPEUM1
+                  - generic [ref=f3e373]:
+                    - img "github" [ref=f3e374]
+                    - link "matheusmorante/moveismorantehub" [ref=f3e376] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fmoveismorantehub
+                    - text: ·
+                    - generic [ref=f3e378]: 5h ago
+              - listitem [ref=f3e381]:
+                - link [ref=f3e382] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/sitemoveismorantefrontend
+                - generic [ref=f3e383]:
+                  - button "Project Menu" [ref=f3e384] [cursor=pointer]
+                  - generic [ref=f3e389]:
+                    - link "sitemoveismorantefrontend" [ref=f3e391] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/sitemoveismorantefrontend
+                    - link "sitemoveismorantefrontend.vercel.app" [ref=f3e394] [cursor=pointer]:
+                      - /url: https://sitemoveismorantefrontend.vercel.app
+                  - link [ref=f3e395] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/sitemoveismorantefrontend/speed-insights
+                    - progressbar [ref=f3e397]
+                - generic [ref=f3e405]:
+                  - link "'seola'" [ref=f3e406] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/sitemoveismorantefrontend/4m962WmzdB9ETXXkyDQWFhhPgEWL
+                  - generic [ref=f3e411]:
+                    - img "github" [ref=f3e412]
+                    - link "matheusmorante/sitemoveismorantefrontend" [ref=f3e414] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fsitemoveismorantefrontend
+                    - text: ·
+                    - generic [ref=f3e416]: 12/12/25
+              - listitem [ref=f3e419]:
+                - link [ref=f3e420] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/to-do-list
+                - generic [ref=f3e421]:
+                  - button "Project Menu" [ref=f3e422] [cursor=pointer]
+                  - generic [ref=f3e427]:
+                    - link "to-do-list" [ref=f3e429] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/to-do-list
+                    - link "todolistmatheusmorante.vercel.app" [ref=f3e432] [cursor=pointer]:
+                      - /url: https://todolistmatheusmorante.vercel.app
+                  - link [ref=f3e433] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/to-do-list/speed-insights
+                    - progressbar [ref=f3e435]
+                - generic [ref=f3e443]:
+                  - link "43" [ref=f3e444] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/to-do-list/G8K5SzDVZkPPTBa6L6d2G8ztsCLi
+                  - generic [ref=f3e449]:
+                    - img "github" [ref=f3e450]
+                    - link "matheusmorante/to-do-list" [ref=f3e452] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fto-do-list
+                    - text: ·
+                    - generic [ref=f3e454]: 9/30/25
+              - listitem [ref=f3e457]:
+                - link [ref=f3e458] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/calculadora
+                - generic [ref=f3e459]:
+                  - button "Project Menu" [ref=f3e460] [cursor=pointer]
+                  - generic [ref=f3e465]:
+                    - link "calculadora" [ref=f3e467] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/calculadora
+                    - link "calculadora-plum-five.vercel.app" [ref=f3e470] [cursor=pointer]:
+                      - /url: https://calculadora-plum-five.vercel.app
+                  - link [ref=f3e471] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/calculadora/speed-insights
+                    - progressbar [ref=f3e473]
+                - generic [ref=f3e481]:
+                  - link "Add files via upload" [ref=f3e482] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/calculadora/4zCYxidpZXRKs6enaPPVizT5jGiu
+                  - generic [ref=f3e487]:
+                    - img "github" [ref=f3e488]
+                    - link "matheusmorante/calculadora" [ref=f3e490] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fcalculadora
+                    - text: ·
+                    - generic [ref=f3e492]: 4/21/25
+              - listitem [ref=f3e495]:
+                - link [ref=f3e496] [cursor=pointer]:
+                  - /url: /matheusmorantes-projects/formulario-de-venda
+                - generic [ref=f3e497]:
+                  - button "Project Menu" [ref=f3e498] [cursor=pointer]
+                  - generic [ref=f3e503]:
+                    - link "formulario-de-venda" [ref=f3e505] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects/formulario-de-venda
+                    - link "formulario-de-venda-lime.vercel.app" [ref=f3e508] [cursor=pointer]:
+                      - /url: https://formulario-de-venda-lime.vercel.app
+                  - link [ref=f3e509] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/formulario-de-venda/speed-insights
+                    - progressbar [ref=f3e511]
+                - generic [ref=f3e519]:
+                  - link "Add files via upload" [ref=f3e520] [cursor=pointer]:
+                    - /url: /matheusmorantes-projects/formulario-de-venda/BLH1Bq5tHvvFLsQc9Lr8BmBWwH3D
+                  - generic [ref=f3e525]:
+                    - img "github" [ref=f3e526]
+                    - link "matheusmorante/formulario-de-venda" [ref=f3e528] [cursor=pointer]:
+                      - /url: /matheusmorantes-projects?repo=https%3A%2F%2Fgithub.com%2Fmatheusmorante%2Fformulario-de-venda
+                    - text: ·
+                    - generic [ref=f3e530]: 4/19/25
+  - alert [ref=f3e535]

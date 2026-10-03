@@ -1,0 +1,220 @@
+- generic [ref=f16e2]:
+  - generic [ref=f16e3]:
+    - region "Notifications Alt+T"
+    - banner [ref=f16e5]:
+      - generic [ref=f16e6]:
+        - button "" [ref=f16e7] [cursor=pointer]
+        - link [ref=f16e9] [cursor=pointer]:
+          - /url: /
+          - img "ERP Móveis Morante" [ref=f16e11]
+        - text:                 
+      - generic [ref=f16e12]:
+        - button "" [ref=f16e14] [cursor=pointer]
+        - button "" [ref=f16e16] [cursor=pointer]
+        - button "M Matheus Morante Administrador " [ref=f16e19] [cursor=pointer]:
+          - generic [ref=f16e20]: M
+          - generic [ref=f16e21]:
+            - generic [ref=f16e22]: Matheus Morante
+            - generic [ref=f16e23]: Administrador
+          - generic [ref=f16e24]: 
+    - main [ref=f16e25]:
+      - generic [ref=f16e26]:
+        - generic [ref=f16e27]:
+          - button " Nova Venda" [ref=f16e32] [cursor=pointer]:
+            - generic [ref=f16e33]: 
+            - generic [ref=f16e34]: Nova Venda
+          - generic [ref=f16e39]:
+            - generic [ref=f16e41]:
+              - generic: 
+              - textbox "Buscar pedido pelo nome do cliente..." [ref=f16e42]: Paulo Cesar Martins
+              - button "" [ref=f16e812] [cursor=pointer]
+            - generic [ref=f16e43]:
+              - button "#002638 Nota fiscal não emitida   Bling    Saída de estoque ainda não registrada Paulo Cesar Martins Pedido  21/08/2026 Entrega  22/08/2026  09:00 às 12:00 Total R$ 449,00 " [active] [ref=f16e816] [cursor=pointer]:
+                - generic [ref=f16e817]:
+                  - generic [ref=f16e818]: "#002638"
+                  - generic [ref=f16e820]:
+                    - generic "Nota fiscal não emitida" [ref=f16e821]: NF
+                    - generic [ref=f16e823]:
+                      - button " " [ref=f16e825]:
+                        - generic [ref=f16e826]: 
+                        - generic: 
+                      - button "Bling " [ref=f16e828]:
+                        - generic [ref=f16e829]: Bling
+                        - generic: 
+                      - button "" [ref=f16e831]
+                      - generic "Entrega" [ref=f16e833]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f16e836]
+                - generic [ref=f16e841]:
+                  - heading "Paulo Cesar Martins" [level=3] [ref=f16e842]
+                  - generic [ref=f16e843]:
+                    - generic [ref=f16e844]:
+                      - generic [ref=f16e845]: Pedido
+                      - generic [ref=f16e846]:
+                        - generic [ref=f16e847]: 
+                        - generic [ref=f16e848]: 21/08/2026
+                    - generic [ref=f16e849]:
+                      - generic [ref=f16e850]: Entrega
+                      - generic [ref=f16e851]:
+                        - generic [ref=f16e852]: 
+                        - generic [ref=f16e853]: 22/08/2026
+                    - generic [ref=f16e855]:
+                      - generic [ref=f16e856]: 
+                      - generic [ref=f16e857]: 09:00 às 12:00
+                - generic [ref=f16e858]:
+                  - generic [ref=f16e859]:
+                    - generic [ref=f16e860]: Total
+                    - generic [ref=f16e861]: R$ 449,00
+                  - button "" [ref=f16e864]
+              - generic [ref=f16e866]:
+                - generic [ref=f16e867]:
+                  - generic [ref=f16e868]:
+                    - text: Exibindo
+                    - generic [ref=f16e869]: 1-1
+                    - text: de 1 pedidos
+                  - generic [ref=f16e870]: •
+                  - generic [ref=f16e871]: (15 por página)
+                - generic [ref=f16e872]:
+                  - button "" [disabled]
+                  - button "1" [ref=f16e874]
+                  - button "" [disabled]
+        - generic [ref=f16e876]:
+          - generic [ref=f16e877]:
+            - generic [ref=f16e878]:
+              - generic [ref=f16e879]: 
+              - generic [ref=f16e881]:
+                - heading "Detalhes do Pedido" [level=2] [ref=f16e882]
+                - generic [ref=f16e883]:
+                  - generic [ref=f16e884]:
+                    - text: "Código:"
+                    - strong [ref=f16e885]: "002638"
+                  - generic [ref=f16e886]: •
+                  - generic [ref=f16e887]:
+                    - text: "Data do Pedido:"
+                    - strong [ref=f16e888]: 21/08/2026
+            - generic [ref=f16e889]:
+              - generic [ref=f16e890]:
+                - generic [ref=f16e891]: 
+                - generic [ref=f16e892]: "Vendedor:"
+                - generic [ref=f16e893]: Liliane Cristine Morante
+              - button "" [ref=f16e894] [cursor=pointer]
+          - generic [ref=f16e897]:
+            - generic [ref=f16e898]:
+              - generic [ref=f16e899]:
+                - heading " Cliente" [level=3] [ref=f16e900]:
+                  - generic [ref=f16e901]: 
+                  - text: Cliente
+                - generic [ref=f16e902]:
+                  - generic [ref=f16e903]:
+                    - paragraph [ref=f16e904]: Paulo Cesar Martins
+                    - paragraph [ref=f16e905]:
+                      - generic [ref=f16e906]: 
+                      - text: (41) 99203-9965
+                  - button "" [ref=f16e907] [cursor=pointer]
+              - generic [ref=f16e909]:
+                - generic [ref=f16e911]:
+                  - heading " Endereço de Entrega" [level=3] [ref=f16e912]:
+                    - generic [ref=f16e913]: 
+                    - text: Endereço de Entrega
+                  - paragraph [ref=f16e914]: Rua Ângelo Milani, 245 , Igreja, Rincão, Colombo
+                  - generic [ref=f16e915]:
+                    - generic [ref=f16e916]:
+                      - paragraph [ref=f16e917]: Distância
+                      - paragraph [ref=f16e918]: 3.8 km
+                    - generic [ref=f16e919]:
+                      - paragraph [ref=f16e920]: Tempo Est.
+                      - paragraph [ref=f16e921]: 8 min
+                  - link " Ver no Google Maps" [ref=f16e922] [cursor=pointer]:
+                    - /url: https://www.google.com/maps/dir/?api=1&destination=-25.3649285,-49.1500861
+                    - generic [ref=f16e923]: 
+                    - text: Ver no Google Maps
+                - generic [ref=f16e924]:
+                  - heading " Agendamento da Entrega" [level=3] [ref=f16e925]:
+                    - generic [ref=f16e926]: 
+                    - text: Agendamento da Entrega
+                  - generic [ref=f16e927]:
+                    - generic [ref=f16e928]:
+                      - generic [ref=f16e929]: Data
+                      - generic [ref=f16e930]: 22/08/2026
+                    - generic [ref=f16e931]:
+                      - generic [ref=f16e932]: Horário
+                      - generic [ref=f16e933]: 09:00 → 12:00
+            - generic [ref=f16e934]:
+              - heading " Lista de Itens" [level=3] [ref=f16e935]:
+                - generic [ref=f16e936]: 
+                - text: Lista de Itens
+              - table [ref=f16e938]:
+                - rowgroup [ref=f16e939]:
+                  - row [ref=f16e940]:
+                    - columnheader "Qtd" [ref=f16e941]
+                    - columnheader "Produto" [ref=f16e942]
+                    - columnheader "Valor Unitário" [ref=f16e943]
+                    - columnheader "Total do Item" [ref=f16e944]
+                - rowgroup [ref=f16e945]:
+                  - row [ref=f16e946]:
+                    - cell "1x" [ref=f16e947]
+                    - cell "COMODA LILLE BRANCA Produto não cadastrado no ERP  De mostruário montado > Entregue montado" [ref=f16e949]:
+                      - generic [ref=f16e950]:
+                        - generic [ref=f16e951]: COMODA LILLE BRANCA
+                        - button "Produto não cadastrado no ERP" [ref=f16e952] [cursor=pointer]:
+                          - generic [aria-hidden] [ref=f16e953]: 
+                      - generic [ref=f16e956]:
+                        - generic [ref=f16e957]: 
+                        - text: De mostruário montado > Entregue montado
+                    - cell "R$ 449,00" [ref=f16e958]
+                    - cell "R$ 449,00" [ref=f16e959]
+            - generic [ref=f16e962]:
+              - generic [ref=f16e963]:
+                - generic [ref=f16e964]:
+                  - generic [ref=f16e965]: Subtotal Itens
+                  - text: R$ 449,00
+                - generic [ref=f16e966]:
+                  - generic [ref=f16e967]: Frete
+                  - text: R$ 0,00
+              - generic [ref=f16e968]:
+                - generic [ref=f16e969]: Total Geral
+                - generic [ref=f16e970]: R$ 449,00
+            - generic [ref=f16e971]:
+              - heading " Pagamentos" [level=3] [ref=f16e972]:
+                - generic [ref=f16e973]: 
+                - text: Pagamentos
+              - generic [ref=f16e975]:
+                - generic [ref=f16e976]:
+                  - paragraph [ref=f16e977]: Pix
+                  - paragraph [ref=f16e978]: Pendente
+                - generic [ref=f16e979]: R$ 449,00
+              - generic [ref=f16e980]:
+                - generic [ref=f16e981]:
+                  - text: "Pago:"
+                  - strong [ref=f16e982]: R$ 449,00
+                - generic [ref=f16e983]:
+                  - text: "Em aberto:"
+                  - strong [ref=f16e984]: R$ 0,00
+            - generic [ref=f16e985]:
+              - heading " Observações Importantes" [level=3] [ref=f16e986]:
+                - generic [ref=f16e987]: 
+                - text: Observações Importantes
+              - generic [ref=f16e988]:
+                - generic [ref=f16e989]:
+                  - generic [ref=f16e990]: 
+                  - text: SABADO DE MANHÃ
+                - generic [ref=f16e991]:
+                  - generic [ref=f16e992]: 
+                  - text: DONA ROSE E NOÉ ENTREGAM
+                - generic [ref=f16e993]:
+                  - generic [ref=f16e994]: 
+                  - text: LIGAR ANTES
+                - generic [ref=f16e995]:
+                  - generic [ref=f16e996]: 
+                  - text: LEVAR DO MOSTRUARIO
+                - generic [ref=f16e997]:
+                  - generic [ref=f16e998]: 
+                  - text: RECEBER PAGAMENTO N LOCAL
+          - paragraph [ref=f16e1000]: ERP Móveis Morante • Logística v2.0
+    - generic [ref=f16e806]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f16e807] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=f16e809]
+  - region "Notifications Alt+T"

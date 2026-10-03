@@ -1,4 +1,5 @@
 import React from 'react';
+import { Undo2 } from 'lucide-react';
 import Order from '../../../types/order.type';
 import { buttons } from '../OrderActions/orderActionsConfig';
 import PostSaleActionMenuButton, { isPostSaleAction } from './PostSaleActionMenuButton';
@@ -158,7 +159,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
               }
             >
               <div className="flex items-center gap-3 text-left">
-                <i className={`bi ${btn.icon} text-lg`} />
+                {btn.icon === 'undo-2' ? <Undo2 className="h-4 w-4" /> : <i className={`bi ${btn.icon} text-lg`} />}
                 <span className="text-xs font-black uppercase tracking-widest">
                   {typeof btn.label === 'function' ? btn.label(order) : btn.label}
                 </span>

@@ -57,7 +57,7 @@ export const UnregisteredProductIndicator: React.FC = () => {
       <button
         ref={triggerRef}
         type="button"
-        aria-label="Produto não cadastrado no ERP"
+        aria-label="Produto convencional não cadastrado no RP"
         aria-describedby={isOpen ? tooltipId : undefined}
         onMouseEnter={openTooltip}
         onMouseLeave={closeTooltip}
@@ -80,11 +80,8 @@ export const UnregisteredProductIndicator: React.FC = () => {
                 position.above ? '-translate-y-full' : ''
               }`}
             >
-              <p className="font-bold text-amber-700 dark:text-amber-300">
-                Produto não cadastrado no ERP
-              </p>
-              <p className="mt-1 leading-relaxed">
-                Por isso, o NCM não foi carregado automaticamente do cadastro do produto.
+              <p className="font-bold leading-relaxed text-amber-700 dark:text-amber-300">
+                Produto convencional não cadastrado no RP.
               </p>
             </div>,
             document.body

@@ -1,0 +1,149 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - link "Skip to content" [ref=e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - link "Supabase Back to organization home" [ref=e12] [cursor=pointer]:
+            - /url: /dashboard/org/zbuarczhhocaascycmne
+            - img "Supabase" [ref=e13]
+            - generic [ref=e14]: Back to organization home
+          - generic [ref=e20]:
+            - link "MoranteHub" [ref=e21] [cursor=pointer]:
+              - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - button "Show organization projects" [ref=e26] [cursor=pointer]
+          - button "Connect" [ref=e36] [cursor=pointer]
+        - generic [ref=e41]:
+          - button "Feedback" [ref=e42] [cursor=pointer]
+          - generic [ref=e44]:
+            - button [ref=e45] [cursor=pointer]:
+              - paragraph [ref=e50]: Search...
+              - generic [ref=e52]: Ctrl K
+            - button "Help" [ref=e53] [cursor=pointer]
+            - button "Advisor Center" [ref=e60] [cursor=pointer]
+            - button "SQL Editor" [ref=e66] [cursor=pointer]
+            - button "AI Assistant" [ref=e71] [cursor=pointer]
+          - button [ref=e79] [cursor=pointer]:
+            - img "matheusmorante" [ref=e81]
+    - generic [ref=e82]:
+      - generic [ref=e86]:
+        - navigation [ref=e88]:
+          - list [ref=e90]:
+            - listitem [ref=e91]:
+              - link "Project Overview" [ref=e92] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=e95]:
+              - link "Table Editor" [ref=e96] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/editor
+            - listitem [ref=e99]:
+              - link "SQL Editor" [ref=e100] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql
+          - list [ref=e104]:
+            - listitem [ref=e105]:
+              - link "Database" [ref=e106] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/database/schemas
+            - listitem [ref=e111]:
+              - link "Authentication" [ref=e112] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/auth/users
+            - listitem [ref=e115]:
+              - link "Storage" [ref=e116] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/storage/files
+            - listitem [ref=e119]:
+              - link "Edge Functions" [ref=e120] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=e126]:
+              - link "Realtime" [ref=e127] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/realtime/inspector
+          - list [ref=e131]:
+            - listitem [ref=e132]:
+              - link "Advisors" [ref=e133] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+            - listitem [ref=e137]:
+              - link "Observability" [ref=e138] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability
+            - listitem [ref=e147]:
+              - link "Logs" [ref=e148] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=e150]:
+              - link "Integrations" [ref=e151] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+          - list [ref=e156]:
+            - listitem [ref=e157]:
+              - link "Project Settings" [ref=e158] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=e164] [cursor=pointer]
+      - main [ref=e171]:
+        - generic [ref=e173]:
+          - generic [ref=e177]:
+            - heading "SQL Editor" [level=4] [ref=e179]
+            - generic [ref=e181]:
+              - generic [ref=e182]:
+                - generic [ref=e183]:
+                  - generic [ref=e185]:
+                    - generic [ref=e186]: Search queries
+                    - textbox "Search queries..." [ref=e187]
+                    - button [ref=e188]
+                  - button "Create a new query" [ref=e195] [cursor=pointer]
+                - button "Shared" [ref=e200]
+                - button "Favorites" [ref=e206]
+                - button "PRIVATE" [expanded] [ref=e212]
+                - button "Logs" [ref=e235]
+                - generic [ref=e240]:
+                  - button "Reference" [expanded] [ref=e241]
+                  - generic [ref=e245]:
+                    - link "templates" [ref=e246] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/templates
+                    - link "examples" [ref=e249] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/examples
+              - link "View running queries" [ref=e254] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability/connections
+          - separator [ref=e256]
+          - main [ref=e267]:
+            - generic [ref=e268]:
+              - generic [ref=e269]:
+                - generic [ref=e270]:
+                  - button "Collapse sidebar" [ref=e271]
+                  - tablist [ref=e276]:
+                    - generic [ref=e277]:
+                      - generic [ref=e279]:
+                        - generic [ref=e280]:
+                          - tab "Validate Transaction and User Context" [ref=e281] [cursor=pointer]
+                          - button "Close tab" [ref=e293] [cursor=pointer]
+                        - separator [ref=e297]
+                      - generic [ref=e298]:
+                        - tab "New" [selected] [ref=e299] [cursor=pointer]
+                        - button "Close new tab" [ref=e305] [cursor=pointer]
+                - status [ref=e310]
+              - generic [ref=e312]:
+                - generic [ref=e313]:
+                  - button "More actions" [ref=e314] [cursor=pointer]
+                  - generic [ref=e320]:
+                    - 'button "Query source: Database" [ref=e321] [cursor=pointer]':
+                      - generic [ref=e327]: Database
+                    - generic [ref=e331]:
+                      - button "Save" [disabled]:
+                        - generic [aria-hidden]:
+                          - generic: Ctrl S
+                      - button "Run" [ref=e332] [cursor=pointer]:
+                        - generic [ref=e335]: Ctrl ↵
+                - generic [ref=e336]:
+                  - code [ref=e344]:
+                    - generic [ref=e345]:
+                      - generic [ref=e348]: "1"
+                      - textbox "Editor content" [active] [ref=e361]
+                      - generic: Hit CTRL+SHIFT+K to generate query or just start typing
+                  - separator [ref=e362]
+                  - generic [ref=e373]:
+                    - tablist [ref=e374]:
+                      - generic [ref=e375]:
+                        - tab "Results" [selected] [ref=e376] [cursor=pointer]
+                        - tab "Chart" [ref=e378] [cursor=pointer]
+                    - paragraph [ref=e381]:
+                      - text: Click
+                      - code [ref=e382]: Run
+                      - text: to execute your query
+  - alert [ref=e383]: Validate Transaction and User Context | SQL Editor | Supabase
+  - generic [ref=e384]:
+    - alert
+    - alert

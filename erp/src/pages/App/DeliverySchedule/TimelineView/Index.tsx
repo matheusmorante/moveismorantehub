@@ -1,4 +1,5 @@
 import React from 'react';
+import { Undo2 } from 'lucide-react';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
 import { formatCurrency, stringifyFullAddressWithObservation } from '../../../utils/formatters';
@@ -128,9 +129,11 @@ const TimelineNode = ({
                       : 'Entrega'
               }
             >
-              <i
-                className={`bi ${isAssistance ? 'bi-tools' : isPickupTask ? 'bi-shop' : (order.orderType === 'return' ? 'bi-arrow-return-left' : 'bi-truck')} text-[13px] text-white`}
-              />
+              {order.orderType === 'return' ? (
+                <Undo2 className="h-[13px] w-[13px] text-white" />
+              ) : (
+                <i className={`bi ${isAssistance ? 'bi-tools' : isPickupTask ? 'bi-shop' : 'bi-truck'} text-[13px] text-white`} />
+              )}
             </div>
             <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
               <i className="bi bi-clock-fill text-xs opacity-50" />

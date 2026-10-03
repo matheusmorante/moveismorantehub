@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Undo2 } from 'lucide-react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
@@ -665,7 +666,7 @@ export default function FiscalDocumentsPage() {
                               aria-label={`Preparar estorno ou devolução da NF-e ${doc.numero_nfe}`}
                               className="p-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white transition-all cursor-pointer"
                             >
-                              <i className="bi bi-arrow-return-left" />
+                              <Undo2 className="h-4 w-4" />
                             </button>
                           )}
 

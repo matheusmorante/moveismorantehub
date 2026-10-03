@@ -222,14 +222,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isDev) console.log('[Auth] Initializing in DEVELOPMENT mode');
     else console.log('[Auth] Initializing in PRODUCTION mode');
 
-    // Hard failsafe: if onAuthStateChange never fires, unblock after 5s
-    const failsafe = setTimeout(() => {
-      if (active) {
-        console.warn('[Auth] 5s failsafe - onAuthStateChange never fired, setting loading=false');
-        setLoading(false);
-      }
-    }, 5000);
-
     const handleSession = async (session: any, source: string) => {
       if (!active) return;
       // Evitar chamadas duplicadas paralelas (getSession + onAuthStateChange)
@@ -306,7 +298,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           roles: [finalRole],
           full_name: isMasterEmail ? 'Matheus Morante' : authEmail.split('@')[0],
         });
-        clearTimeout(failsafe);
         setLoading(false);
         return;
       }
@@ -340,28 +331,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[Auth] Initial session found');
         await handleSession(session, 'getSession');
       } else if (active && !session) {
-        clearTimeout(failsafe);
         setLoading(false);
       }
     };
 
-    initSession();
+    void initSession().catch((error) => {
+      console.error('[Auth] Não foi possível restaurar a sessão:', error);
+      if (active) setLoading(false);
+    });
 
     // 2. Ouvir mudanças de estado (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       console.log('[Auth] State Change:', event);
-      clearTimeout(failsafe);
       // INITIAL_SESSION é a fonte de verdade da sessão restaurada. O bloqueio
       // `handlingSession` já impede processamento duplicado com getSession().
-      handleSession(session, event);
+      // O callback roda com o lock do Auth. Consultas Supabase precisam aguardar
+      // sua liberação, inclusive ao restaurar/renovar a sessão persistida.
+      setTimeout(() => { void handleSession(session, event); }, 0);
     });
 
     return () => {
       active = false;
-      clearTimeout(failsafe);
       subscription.unsubscribe();
     };
   }, [refreshPasswordCredentialStatus]);

@@ -1,0 +1,116 @@
+- generic [ref=f55e2]:
+  - generic [ref=f55e3]:
+    - region "Notifications Alt+T"
+    - banner [ref=f55e5]:
+      - generic [ref=f55e6]:
+        - button "" [ref=f55e7] [cursor=pointer]
+        - link [ref=f55e9] [cursor=pointer]:
+          - /url: /
+          - img "ERP Móveis Morante" [ref=f55e11]
+        - text:                 
+      - generic [ref=f55e12]:
+        - button "" [ref=f55e14] [cursor=pointer]
+        - button "" [ref=f55e16] [cursor=pointer]
+        - generic [ref=f55e18]:
+          - button "M Matheus Morante Administrador " [ref=f55e19] [cursor=pointer]:
+            - generic [ref=f55e20]: M
+            - generic [ref=f55e21]:
+              - generic [ref=f55e22]: Matheus Morante
+              - generic [ref=f55e23]: Administrador
+            - generic [ref=f55e24]: 
+          - generic [ref=f55e240]:
+            - generic [ref=f55e241]:
+              - paragraph [ref=f55e242]: Matheus Morante
+              - paragraph [ref=f55e243]: matheusmorante002@gmail.com
+              - generic [ref=f55e244]: Administrador
+            - generic [ref=f55e245]:
+              - link " Meu Perfil" [ref=f55e246] [cursor=pointer]:
+                - /url: /profile
+                - generic [ref=f55e247]: 
+                - text: Meu Perfil
+              - link " Documentação do Sistema" [ref=f55e248] [cursor=pointer]:
+                - /url: /system-docs
+                - generic [ref=f55e249]: 
+                - text: Documentação do Sistema
+              - link " Configurações do ERP" [ref=f55e250] [cursor=pointer]:
+                - /url: /settings
+                - generic [ref=f55e251]: 
+                - text: Configurações do ERP
+              - link " Gerenciar Cargos de Usuários" [ref=f55e252] [cursor=pointer]:
+                - /url: /acessos-e-usuarios
+                - generic [ref=f55e253]: 
+                - text: Gerenciar Cargos de Usuários
+              - link " Financeiro e Rede" [ref=f55e254] [cursor=pointer]:
+                - /url: /finance/dashboard
+                - generic [ref=f55e255]: 
+                - text: Financeiro e Rede
+              - link " Baixar App Android" [ref=f55e256] [cursor=pointer]:
+                - /url: https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing
+                - generic [ref=f55e257]: 
+                - generic [ref=f55e258]: Baixar App Android
+            - button " Encerrar Sessão" [ref=f55e260] [cursor=pointer]:
+              - generic [ref=f55e261]: 
+              - text: Encerrar Sessão
+    - main [ref=f55e25]:
+      - generic [ref=f55e27]:
+        - button " Nova Venda" [ref=f55e32] [cursor=pointer]:
+          - generic [ref=f55e33]: 
+          - generic [ref=f55e34]: Nova Venda
+        - generic [ref=f55e39]:
+          - generic [ref=f55e41]:
+            - generic: 
+            - textbox "Buscar pedido pelo nome do cliente..." [ref=f55e42]: Paulo Cesar Martins
+            - button "" [ref=f55e43] [cursor=pointer]
+          - generic [ref=f55e45]:
+            - button "#002638 Nota fiscal não emitida  Bling   Saída de estoque ainda não registrada Paulo Cesar Martins Pedido  21/08/2026 Entrega  22/08/2026  09:00 às 12:00 Total R$ 449,00 " [ref=f55e48] [cursor=pointer]:
+              - generic [ref=f55e49]:
+                - generic [ref=f55e50]: "#002638"
+                - generic [ref=f55e52]:
+                  - generic "Nota fiscal não emitida" [ref=f55e53]: NF
+                  - generic [ref=f55e55]:
+                    - button "" [ref=f55e57]
+                    - button "Bling" [ref=f55e60]
+                    - button "" [ref=f55e63]
+                    - generic "Entrega" [ref=f55e65]: 
+                    - button "Saída de estoque ainda não registrada" [ref=f55e68]
+              - generic [ref=f55e73]:
+                - heading "Paulo Cesar Martins" [level=3] [ref=f55e74]
+                - generic [ref=f55e75]:
+                  - generic [ref=f55e76]:
+                    - generic [ref=f55e77]: Pedido
+                    - generic [ref=f55e78]:
+                      - generic [ref=f55e79]: 
+                      - generic [ref=f55e80]: 21/08/2026
+                  - generic [ref=f55e81]:
+                    - generic [ref=f55e82]: Entrega
+                    - generic [ref=f55e83]:
+                      - generic [ref=f55e84]: 
+                      - generic [ref=f55e85]: 22/08/2026
+                  - generic [ref=f55e87]:
+                    - generic [ref=f55e88]: 
+                    - generic [ref=f55e89]: 09:00 às 12:00
+              - generic [ref=f55e90]:
+                - generic [ref=f55e91]:
+                  - generic [ref=f55e92]: Total
+                  - generic [ref=f55e93]: R$ 449,00
+                - button "" [ref=f55e96]
+            - generic [ref=f55e98]:
+              - generic [ref=f55e99]:
+                - generic [ref=f55e100]:
+                  - text: Exibindo
+                  - generic [ref=f55e101]: 1-1
+                  - text: de 1 pedidos
+                - generic [ref=f55e102]: •
+                - generic [ref=f55e103]: (15 por página)
+              - generic [ref=f55e104]:
+                - button "" [disabled]
+                - button "1" [ref=f55e106]
+                - button "" [disabled]
+    - generic [ref=f55e108]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f55e109] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=f55e111]
+  - region "Notifications Alt+T"

@@ -1,8 +1,6 @@
 # Roadmap de Testes Cíclico do Morante Hub (ERP & Mobile)
 
-> Este documento é o **cursor persistente de estado** do roteiro de testes contínuo do Morante Hub.  
-> O roteiro é **estritamente cíclico**: ao concluir o Módulo 9, o ciclo recomeça no Módulo 1 (Ciclo N → Ciclo N+1).  
-> Sempre que solicitado *"continue os testes"*, a execução retoma exatamente a partir da próxima etapa pendente indicada no cursor abaixo.
+> Este documento é o **cursor persistente de estado** do roteiro de testes do Morante Hub. Ele permite retomar uma etapa quando o usuário solicitar continuação; não inicia execuções automáticas nem ciclos infinitos. Ao concluir o Módulo 9, encerre o ciclo. Um novo ciclo começa somente mediante pedido explícito do usuário.
 
 ---
 
@@ -12,11 +10,11 @@
 |---|---|
 | **Ciclo Atual** | **Ciclo 1** |
 | **Módulo Atual** | **[MÓDULO 3] Logística, Entregas e Montagens (ERP & Mobile)** |
-| **Próxima Etapa / Goal** | **Etapa 3.3 - Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega** |
+| **Próxima Etapa / Goal** | **Etapa 3.5 - Mobile Offline-First (eventos atômicos, ciclo de 4 estados e autoridade do backend)** |
 | **Status do Goal** | ⏳ `PRONTO_PARA_EXECUTAR` |
 | **Ambiente Ativo** | Unitários em memória; integração PostgreSQL pendente de ambiente local/staging isolado confirmado |
 | **Último testRunId** | `TESTE_HUB_20260917_101000_M2_ALL_APPROVED` |
-| **Data da Última Atualização** | 2026-09-17 10:35:00 |
+| **Data da Última Atualização** | 2026-10-03 — cursor reconciliado com a grade; Etapa 3.5 não executada nesta auditoria |
 
 ---
 
@@ -50,7 +48,6 @@
     ↓
 [MÓDULO 9] Relatórios Gerenciais, DRE & Métricas Comerciais
     ↓
-[REINÍCIO DO CICLO] ↺ Retorna ao [MÓDULO 1] (Ciclo N+1)
 ```
 
 ---

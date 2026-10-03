@@ -1,0 +1,93 @@
+- generic [active] [ref=f18e1]:
+  - generic [ref=f18e4]:
+    - link "Skip to content" [ref=f18e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f18e9]:
+      - generic [ref=f18e10]:
+        - link "Supabase Back to organization home" [ref=f18e12] [cursor=pointer]:
+          - /url: /dashboard/organizations
+          - img "Supabase" [ref=f18e13]
+          - generic [ref=f18e14]: Back to organization home
+        - generic [ref=f18e15]:
+          - button "Feedback" [ref=f18e16] [cursor=pointer]
+          - generic [ref=f18e18]:
+            - button [ref=f18e19] [cursor=pointer]:
+              - paragraph [ref=f18e24]: Search...
+              - generic [ref=f18e26]: Ctrl K
+            - button "Help" [ref=f18e27] [cursor=pointer]
+            - button "Advisor Center" [ref=f18e34] [cursor=pointer]
+          - button [ref=f18e39] [cursor=pointer]
+    - generic [ref=f18e44]:
+      - generic [ref=f18e48]:
+        - generic [ref=f18e49]:
+          - navigation
+        - button "Sidebar control" [ref=f18e52] [cursor=pointer]
+      - main [ref=f18e59]:
+        - generic [ref=f18e61]:
+          - generic [ref=f18e65]:
+            - heading "Settings" [level=4] [ref=f18e67]
+            - menu "Sidebar" [disabled] [ref=f18e70]:
+              - list [ref=f18e71]:
+                - generic [ref=f18e74]:
+                  - generic [ref=f18e75]: Configuration
+                  - generic [ref=f18e79]:
+                    - link [disabled] [ref=f18e80] [cursor=pointer]:
+                      - /url: /dashboard/project/undefined/settings/general
+                      - menuitem "General" [disabled] [ref=f18e81]
+                    - generic:
+                      - menuitem "Infrastructure" [disabled]
+                    - generic:
+                      - menuitem "Integrations" [disabled]
+                    - generic:
+                      - menuitem "API Keys" [disabled]
+                    - generic:
+                      - menuitem "JWT Keys" [disabled]
+                    - generic:
+                      - menuitem "Log Drains" [disabled]
+                    - link [disabled] [ref=f18e86] [cursor=pointer]:
+                      - /url: /dashboard/project/undefined/settings/addons
+                      - menuitem "Add-ons" [disabled] [ref=f18e87]
+                - generic [ref=f18e95]:
+                  - generic [ref=f18e96]: Integrations
+                  - generic [ref=f18e100]:
+                    - generic:
+                      - menuitem "Data API" [disabled]:
+                        - generic:
+                          - generic:
+                            - generic "Data API"
+                    - generic:
+                      - menuitem "Vault Beta" [disabled]:
+                        - generic:
+                          - generic:
+                            - generic "Vault": Beta
+                - generic [ref=f18e104]:
+                  - generic [ref=f18e105]: Billing
+                  - generic [ref=f18e109]:
+                    - link [disabled] [ref=f18e110] [cursor=pointer]:
+                      - /url: /dashboard/org/undefined/billing
+                      - menuitem "Subscription" [disabled] [ref=f18e111]:
+                        - generic "Subscription" [ref=f18e114]
+                    - link [disabled] [ref=f18e120] [cursor=pointer]:
+                      - /url: /dashboard/org/undefined/usage?projectRef=undefined
+                      - menuitem "Usage" [disabled] [ref=f18e121]:
+                        - generic "Usage" [ref=f18e124]
+          - separator [disabled] [ref=f18e130]
+          - main [ref=f18e141]:
+            - generic [ref=f18e142]:
+              - generic [ref=f18e143]:
+                - generic [ref=f18e145]:
+                  - generic [ref=f18e148]:
+                    - heading "API Keys" [level=1] [ref=f18e149]
+                    - paragraph [ref=f18e150]: Configure API keys to securely control access to your project
+                  - link "Docs" [ref=f18e153] [cursor=pointer]:
+                    - /url: https://supabase.com/docs/guides/api/api-keys
+                - navigation [ref=f18e159]:
+                  - menu [ref=f18e160]:
+                    - listitem [ref=f18e161]:
+                      - link "Publishable and secret API keys" [ref=f18e162] [cursor=pointer]:
+                        - /url: /dashboard/project/undefined/settings/api-keys
+                    - listitem [ref=f18e163]:
+                      - link "Legacy anon, service_role API keys" [ref=f18e164] [cursor=pointer]:
+                        - /url: /dashboard/project/undefined/settings/api-keys/legacy
+              - paragraph [ref=f18e172]: Retrieving API keys
+  - alert [ref=f18e173]

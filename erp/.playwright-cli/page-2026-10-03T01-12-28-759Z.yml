@@ -1,0 +1,200 @@
+- generic [ref=f12e1]:
+  - generic [ref=f12e4]:
+    - link "Skip to content" [ref=f12e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f12e9]:
+      - generic [ref=f12e10]:
+        - generic [ref=f12e11]:
+          - link "Supabase Back to organization home" [ref=f12e12] [cursor=pointer]:
+            - /url: /dashboard/org/zbuarczhhocaascycmne
+            - img "Supabase" [ref=f12e13]
+            - generic [ref=f12e14]: Back to organization home
+          - generic [ref=f12e15]:
+            - generic [ref=f12e19]:
+              - link "moveismorante Pro" [ref=f12e20] [cursor=pointer]:
+                - /url: /dashboard/org/zbuarczhhocaascycmne
+                - generic [ref=f12e31]: moveismorante
+                - generic [ref=f12e32]: Pro
+              - button "Show organizations" [ref=f12e33] [cursor=pointer]
+            - generic [ref=f12e38]:
+              - generic [ref=f12e42]:
+                - link "MoranteHub" [ref=f12e43] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                - button "Show organization projects" [ref=f12e48] [cursor=pointer]
+              - generic [ref=f12e56]:
+                - link "main Production" [ref=f12e57] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                  - generic "main" [ref=f12e58]
+                  - generic [ref=f12e59]: Production
+                - button "Show project branches" [ref=f12e60] [cursor=pointer]
+          - button "Connect" [ref=f12e66] [cursor=pointer]
+        - generic [ref=f12e71]:
+          - button "Feedback" [ref=f12e72] [cursor=pointer]
+          - generic [ref=f12e74]:
+            - button [ref=f12e75] [cursor=pointer]:
+              - paragraph [ref=f12e80]: Search...
+              - generic [ref=f12e82]: Ctrl K
+            - button "Help" [ref=f12e83] [cursor=pointer]
+            - button "Advisor Center" [ref=f12e90] [cursor=pointer]
+            - button "SQL Editor" [ref=f12e96] [cursor=pointer]
+            - button "AI Assistant" [ref=f12e101] [cursor=pointer]
+          - button [ref=f12e109] [cursor=pointer]:
+            - img "matheusmorante" [ref=f12e111]
+    - generic [ref=f12e112]:
+      - generic [ref=f12e116]:
+        - navigation [ref=f12e118]:
+          - list [ref=f12e120]:
+            - listitem [ref=f12e121]:
+              - link "Project Overview" [ref=f12e122] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=f12e125]:
+              - link "Table Editor" [ref=f12e126] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/editor
+            - listitem [ref=f12e129]:
+              - link "SQL Editor" [ref=f12e130] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql
+          - list [ref=f12e134]:
+            - listitem [ref=f12e135]:
+              - link "Database" [ref=f12e136] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/database/schemas
+            - listitem [ref=f12e141]:
+              - link "Authentication" [ref=f12e142] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/auth/users
+            - listitem [ref=f12e145]:
+              - link "Storage" [ref=f12e146] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/storage/files
+            - listitem [ref=f12e149]:
+              - link "Edge Functions" [ref=f12e150] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=f12e156]:
+              - link "Realtime" [ref=f12e157] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/realtime/inspector
+          - list [ref=f12e161]:
+            - listitem [ref=f12e162]:
+              - link "Advisors" [ref=f12e163] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+            - listitem [ref=f12e167]:
+              - link "Observability" [ref=f12e168] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability
+            - listitem [ref=f12e177]:
+              - link "Logs" [ref=f12e178] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=f12e180]:
+              - link "Integrations" [ref=f12e181] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+          - list [ref=f12e186]:
+            - listitem [ref=f12e187]:
+              - link "Project Settings" [ref=f12e188] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=f12e194] [cursor=pointer]
+      - main [ref=f12e201]:
+        - generic [ref=f12e203]:
+          - generic [ref=f12e207]:
+            - heading "SQL Editor" [level=4] [ref=f12e209]
+            - generic [ref=f12e211]:
+              - generic [ref=f12e212]:
+                - generic [ref=f12e213]:
+                  - generic [ref=f12e215]:
+                    - generic [ref=f12e216]: Search queries
+                    - textbox "Search queries..." [ref=f12e217]
+                    - button [ref=f12e218]
+                  - button "Create a new query" [ref=f12e225] [cursor=pointer]
+                - button "Shared" [ref=f12e230]
+                - button "Favorites" [ref=f12e236]
+                - generic [ref=f12e241]:
+                  - button "PRIVATE (9)" [expanded] [ref=f12e242]
+                  - tree "private-snippets" [ref=f12e247]:
+                    - generic "Retrieve Specific Migration Versions" [ref=f12e458] [cursor=pointer]
+                    - generic "Create Showroom Assemblies Table" [ref=f12e248] [cursor=pointer]
+                    - generic "Atualizar nomes das variações com atributos" [ref=f12e257] [cursor=pointer]
+                    - generic "Untitled query" [ref=f12e266] [cursor=pointer]
+                    - generic "Add use_parent_name Flag to Product Variations" [ref=f12e275] [cursor=pointer]
+                    - generic "Add depth use length flag" [ref=f12e284] [cursor=pointer]
+                    - generic "Product-Category Join Table with RLS" [ref=f12e293] [cursor=pointer]
+                    - generic "Opportunity Types & Product Association" [ref=f12e302] [cursor=pointer]
+                    - generic "Policies RLS para categorias, produtos e imagens" [ref=f12e311] [cursor=pointer]
+                    - generic "E-commerce Schema with RLS Policies" [ref=f12e320] [cursor=pointer]
+                - button "Logs" [ref=f12e331]
+                - generic [ref=f12e336]:
+                  - button "Reference" [expanded] [ref=f12e337]
+                  - generic [ref=f12e341]:
+                    - link "templates" [ref=f12e342] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/templates
+                    - link "examples" [ref=f12e345] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/examples
+              - link "View running queries" [ref=f12e350] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability/connections
+          - separator [ref=f12e352]
+          - main [ref=f12e363]:
+            - generic [ref=f12e364]:
+              - generic [ref=f12e365]:
+                - generic [ref=f12e366]:
+                  - button "Collapse sidebar" [ref=f12e367]
+                  - tablist [ref=f12e372]:
+                    - generic [ref=f12e373]:
+                      - generic [ref=f12e468]:
+                        - generic [ref=f12e469]:
+                          - tab "Retrieve Specific Migration Versions" [selected] [ref=f12e470] [cursor=pointer]
+                          - button "Close tab" [ref=f12e483] [cursor=pointer]
+                        - separator [ref=f12e487]
+                      - button [ref=f12e488]
+                - status [ref=f12e386]
+              - generic [ref=f12e388]:
+                - generic [ref=f12e389]:
+                  - generic [ref=f12e490]: Unsaved edits
+                  - button "More actions" [ref=f12e390] [cursor=pointer]
+                  - generic [ref=f12e396]:
+                    - 'button "Query source: Database" [ref=f12e397] [cursor=pointer]':
+                      - generic [ref=f12e403]: Database
+                    - generic [ref=f12e407]:
+                      - button "Save" [ref=f12e491] [cursor=pointer]:
+                        - generic [ref=f12e494]: Ctrl S
+                      - button "Run" [ref=f12e408] [cursor=pointer]:
+                        - generic [ref=f12e993]: Ctrl ↵
+                - generic [ref=f12e412]:
+                  - code [ref=f12e420]:
+                    - generic [ref=f12e421]:
+                      - generic [ref=f12e994]: "1"
+                      - generic [aria-hidden] [ref=f12e431]:
+                        - generic [ref=f12e1040]: select jsonb_build_object('columns',(select jsonb_agg(jsonb_build_object('name',
+                        - generic [ref=f12e1042]: column_name,'type',data_type,'nullable',is_nullable,'default',column_default)
+                        - generic [ref=f12e1044]: order by ordinal_position) from information_schema.columns where
+                        - generic [ref=f12e1046]: table_schema='supabase_migrations' and table_name='schema_migrations'),
+                        - generic [ref=f12e1048]: "'max_version',(select max(version) from supabase_migrations.schema_migrations),"
+                        - generic [ref=f12e1050]: "'target_190634_present',exists(select 1 from supabase_migrations."
+                        - generic [ref=f12e1052]: schema_migrations where version='20261002190634'),'manual_number_base_present',
+                        - generic [ref=f12e1054]: to_regprocedure('public.prepare_numbered_nfe_fiscal_snapshot(text,uuid,character
+                        - generic [ref=f12e1056]: varying,integer,character varying,integer,jsonb,jsonb,integer)') is not null,
+                        - generic [ref=f12e1058]: "'snapshot_table_exists',to_regclass('public.nfe_fiscal_snapshots') is not null)"
+                        - generic [ref=f12e1060]: as report;vilege('service_role','public.nfe_fiscal_snapshots','SELECT'),
+                        - generic [ref=f12e1062]: "'service_role_update',has_table_privilege('service_role','public."
+                        - generic [ref=f12e1064]: nfe_fiscal_snapshots','UPDATE')) from pg_class c where c.oid=to_regclass('public.
+                        - generic [ref=f12e1066]: nfe_fiscal_snapshots')),'digest_function',to_regprocedure('extensions.digest
+                        - generic [ref=f12e1068]: (bytea,text)') is not null) as report
+                      - textbox "Editor content" [active] [ref=f12e434]: as report;vilege('service_role','public.nfe_fiscal_snapshots','SELECT'),'service_role_update',has_table_privilege('service_role','public.nfe_fiscal_snapshots','UPDATE')) from pg_class c where c.oid=to_regclass('public.nfe_fiscal_snapshots')),'digest_function',to_regprocedure('extensions.digest(bytea,text)') is not null) as report
+                  - separator [ref=f12e435]
+                  - generic [ref=f12e446]:
+                    - tablist [ref=f12e447]:
+                      - generic [ref=f12e448]:
+                        - tab "Results" [selected] [ref=f12e449] [cursor=pointer]
+                        - tab "Chart" [ref=f12e451] [cursor=pointer]
+                      - generic [ref=f12e510]:
+                        - button "0 rows" [ref=f12e1070]:
+                          - paragraph [ref=f12e1071]:
+                            - generic [ref=f12e1072]: 0 rows
+                        - button "Export" [disabled]
+                    - generic [ref=f12e1073]:
+                      - generic [ref=f12e1074]:
+                        - generic [ref=f12e1075]: "Failed to run sql query: ERROR: 42601: syntax error at or near \"vilege\""
+                        - generic [ref=f12e1076]: "LINE 1: select jsonb_build_object('columns',(select jsonb_agg(jsonb_build_object('name',column_name,'type',data_type,'nullable',is_nullable,'default',column_default) order by ordinal_position) from information_schema.columns where table_schema='supabase_migrations' and table_name='schema_migrations'),'max_version',(select max(version) from supabase_migrations.schema_migrations),'target_190634_present',exists(select 1 from supabase_migrations.schema_migrations where version='20261002190634'),'manual_number_base_present',to_regprocedure('public.prepare_numbered_nfe_fiscal_snapshot(text,uuid,character varying,integer,character varying,integer,jsonb,jsonb,integer)') is not null,'snapshot_table_exists',to_regclass('public.nfe_fiscal_snapshots') is not null) as report;vilege('service_role','public.nfe_fiscal_snapshots','SELECT'),'service_role_update',has_table_privilege('service_role','public.nfe_fiscal_snapshots','UPDATE')) from pg_class c where c.oid=to_regclass('public.nfe_fiscal_snapshots')),'digest_function',to_regprocedure('extensions.digest(bytea,text)') is not null) as report"
+                        - generic [ref=f12e1077]: ^
+                      - generic [ref=f12e1078]:
+                        - button [ref=f12e1079]:
+                          - button [ref=f12e1080] [cursor=pointer]
+                        - generic [ref=f12e1085]:
+                          - button "Debug with Assistant" [ref=f12e1086] [cursor=pointer]
+                          - button "More actions" [ref=f12e1094] [cursor=pointer]
+  - alert [ref=f12e456]: SQL Editor | MoranteHub | moveismorante | Supabase
+  - generic [ref=f12e457]:
+    - alert
+    - alert

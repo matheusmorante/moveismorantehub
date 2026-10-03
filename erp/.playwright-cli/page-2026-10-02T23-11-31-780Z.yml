@@ -1,0 +1,613 @@
+- generic [ref=f13e2]:
+  - generic [ref=f13e3]:
+    - region "Notifications Alt+T"
+    - banner [ref=f13e5]:
+      - generic [ref=f13e6]:
+        - button "" [ref=f13e7] [cursor=pointer]
+        - link [ref=f13e9] [cursor=pointer]:
+          - /url: /
+          - img "ERP Móveis Morante" [ref=f13e11]
+        - text:                 
+      - generic [ref=f13e12]:
+        - button "" [ref=f13e14] [cursor=pointer]
+        - button "" [ref=f13e16] [cursor=pointer]
+        - button "M Matheus Morante Administrador " [ref=f13e19] [cursor=pointer]:
+          - generic [ref=f13e20]: M
+          - generic [ref=f13e21]:
+            - generic [ref=f13e22]: Matheus Morante
+            - generic [ref=f13e23]: Administrador
+          - generic [ref=f13e24]: 
+    - main [ref=f13e25]:
+      - generic [ref=f13e464]:
+        - button " Nova Venda" [ref=f13e469] [cursor=pointer]:
+          - generic [ref=f13e470]: 
+          - generic [ref=f13e471]: Nova Venda
+        - generic [ref=f13e476]:
+          - generic [ref=f13e478]:
+            - generic: 
+            - textbox "Buscar pedido pelo nome do cliente..." [ref=f13e479]
+          - generic [ref=f13e480]:
+            - generic [ref=f13e482]:
+              - button "#003944 Nota fiscal não emitida  Bling   Saída de estoque ainda não registrada Waldice Rosa Silva Xoteslem Pedido  02/10/2026 Entrega  03/10/2026  09:00 às 12:00 Total R$ 359,00  " [ref=f13e483] [cursor=pointer]:
+                - generic [ref=f13e484]:
+                  - generic [ref=f13e485]: "#003944"
+                  - generic [ref=f13e487]:
+                    - generic "Nota fiscal não emitida" [ref=f13e488]: NF
+                    - generic [ref=f13e490]:
+                      - button "" [ref=f13e492]
+                      - button "Bling" [ref=f13e495]
+                      - button "" [ref=f13e498]
+                      - generic "Entrega" [ref=f13e500]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f13e503]
+                - generic [ref=f13e508]:
+                  - heading "Waldice Rosa Silva Xoteslem" [level=3] [ref=f13e509]
+                  - generic [ref=f13e510]:
+                    - generic [ref=f13e511]:
+                      - generic [ref=f13e512]: Pedido
+                      - generic [ref=f13e513]:
+                        - generic [ref=f13e514]: 
+                        - generic [ref=f13e515]: 02/10/2026
+                    - generic [ref=f13e516]:
+                      - generic [ref=f13e517]: Entrega
+                      - generic [ref=f13e518]:
+                        - generic [ref=f13e519]: 
+                        - generic [ref=f13e520]: 03/10/2026
+                    - generic [ref=f13e522]:
+                      - generic [ref=f13e523]: 
+                      - generic [ref=f13e524]: 09:00 às 12:00
+                - generic [ref=f13e525]:
+                  - generic [ref=f13e526]:
+                    - generic [ref=f13e527]: Total
+                    - generic [ref=f13e528]: R$ 359,00
+                  - generic [ref=f13e529]:
+                    - button "" [ref=f13e530]
+                    - button "" [ref=f13e533]
+              - button "#003925 Nota fiscal não emitida   Bling   Saída parcial de estoque (apenas alguns itens geraram saída) Jacinta Brek Pedido  02/10/2026 Entrega  02/10/2026  13:00 às 18:00 Total R$ 473,00  " [ref=f13e535] [cursor=pointer]:
+                - generic [ref=f13e536]:
+                  - generic [ref=f13e537]: "#003925"
+                  - generic [ref=f13e539]:
+                    - generic "Nota fiscal não emitida" [ref=f13e540]: NF
+                    - generic [ref=f13e541]:
+                      - generic [ref=f13e542]:
+                        - button " " [ref=f13e544]:
+                          - generic [ref=f13e545]: 
+                          - generic: 
+                        - button "Bling" [ref=f13e547]
+                        - button "" [ref=f13e550]
+                        - generic "Entrega" [ref=f13e552]: 
+                        - button "Saída parcial de estoque (apenas alguns itens geraram saída)" [ref=f13e555]
+                      - generic "Montagem no Depósito (antes da entrega/retirada)" [ref=f13e561]
+                - generic [ref=f13e569]:
+                  - heading "Jacinta Brek" [level=3] [ref=f13e570]
+                  - generic [ref=f13e571]:
+                    - generic [ref=f13e572]:
+                      - generic [ref=f13e573]: Pedido
+                      - generic [ref=f13e574]:
+                        - generic [ref=f13e575]: 
+                        - generic [ref=f13e576]: 02/10/2026
+                    - generic [ref=f13e577]:
+                      - generic [ref=f13e578]: Entrega
+                      - generic [ref=f13e579]:
+                        - generic [ref=f13e580]: 
+                        - generic [ref=f13e581]: 02/10/2026
+                    - generic [ref=f13e583]:
+                      - generic [ref=f13e584]: 
+                      - generic [ref=f13e585]: 13:00 às 18:00
+                - generic [ref=f13e586]:
+                  - generic [ref=f13e587]:
+                    - generic [ref=f13e588]: Total
+                    - generic [ref=f13e589]: R$ 473,00
+                  - generic [ref=f13e590]:
+                    - button "" [ref=f13e591]
+                    - button "" [ref=f13e594]
+              - button "#003926 Nota fiscal não emitida   Bling    Saída de estoque ainda não registrada Jociele Cristina Franco Pedido  02/10/2026 Entrega  02/10/2026  13:00 às 18:00 Total R$ 200,00  " [ref=f13e596] [cursor=pointer]:
+                - generic [ref=f13e597]:
+                  - generic [ref=f13e598]: "#003926"
+                  - generic [ref=f13e600]:
+                    - generic "Nota fiscal não emitida" [ref=f13e601]: NF
+                    - generic [ref=f13e603]:
+                      - button " " [ref=f13e605]:
+                        - generic [ref=f13e606]: 
+                        - generic: 
+                      - button "Bling" [ref=f13e608]
+                      - generic "Gerado por Tráfego Pago" [ref=f13e610]: 
+                      - button "" [ref=f13e613]
+                      - generic "Entrega" [ref=f13e615]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f13e618]
+                - generic [ref=f13e623]:
+                  - heading "Jociele Cristina Franco" [level=3] [ref=f13e624]
+                  - generic [ref=f13e625]:
+                    - generic [ref=f13e626]:
+                      - generic [ref=f13e627]: Pedido
+                      - generic [ref=f13e628]:
+                        - generic [ref=f13e629]: 
+                        - generic [ref=f13e630]: 02/10/2026
+                    - generic [ref=f13e631]:
+                      - generic [ref=f13e632]: Entrega
+                      - generic [ref=f13e633]:
+                        - generic [ref=f13e634]: 
+                        - generic [ref=f13e635]: 02/10/2026
+                    - generic [ref=f13e637]:
+                      - generic [ref=f13e638]: 
+                      - generic [ref=f13e639]: 13:00 às 18:00
+                - generic [ref=f13e640]:
+                  - generic [ref=f13e641]:
+                    - generic [ref=f13e642]: Total
+                    - generic [ref=f13e643]: R$ 200,00
+                  - generic [ref=f13e644]:
+                    - button "" [ref=f13e645]
+                    - button "" [ref=f13e648]
+              - button "#990001 Nota fiscal emitida  Bling   Saída de estoque ainda não registrada Test_aut_cc21e342-9d76-4b0f-A8ef-27de9031cea7 Cliente Hml Pedido  02 14:59:08.401512+00/10/2026 Total R$ 1,00  " [ref=f13e650] [cursor=pointer]:
+                - generic [ref=f13e651]:
+                  - generic [ref=f13e652]: "#990001"
+                  - generic [ref=f13e654]:
+                    - generic "Nota fiscal emitida" [ref=f13e655]:
+                      - text: NF
+                      - generic [ref=f13e657]: 
+                    - generic [ref=f13e659]:
+                      - button "" [ref=f13e661]
+                      - button "Bling" [ref=f13e664]
+                      - button "" [ref=f13e667]
+                      - generic "Entrega" [ref=f13e669]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f13e672]
+                - generic [ref=f13e677]:
+                  - heading "Test_aut_cc21e342-9d76-4b0f-A8ef-27de9031cea7 Cliente Hml" [level=3] [ref=f13e678]
+                  - generic [ref=f13e680]:
+                    - generic [ref=f13e681]: Pedido
+                    - generic [ref=f13e682]:
+                      - generic [ref=f13e683]: 
+                      - generic [ref=f13e684]: 02 14:59:08.401512+00/10/2026
+                - generic [ref=f13e685]:
+                  - generic [ref=f13e686]:
+                    - generic [ref=f13e687]: Total
+                    - generic [ref=f13e688]: R$ 1,00
+                  - generic [ref=f13e689]:
+                    - button "" [ref=f13e690]
+                    - button "" [ref=f13e693]
+              - button "#003824 Nota fiscal de devolução ou estorno   Bling   Saída devolvida integralmente  Devolução Total Cliente Teste Hml 1116c88c6d06 Pedido  01/10/2026 Entrega  01/10/2026 Total R$ 558,00 " [ref=f13e695] [cursor=pointer]:
+                - generic [ref=f13e696]:
+                  - generic [ref=f13e697]: "#003824"
+                  - generic [ref=f13e699]:
+                    - generic "Nota fiscal de devolução ou estorno" [ref=f13e700]:
+                      - text: NF
+                      - generic [ref=f13e702]: 
+                    - generic [ref=f13e704]:
+                      - button " " [ref=f13e706]:
+                        - generic [ref=f13e707]: 
+                        - generic: 
+                      - button "Bling" [ref=f13e709]
+                      - button "" [ref=f13e712]
+                      - generic "Entrega" [ref=f13e714]: 
+                      - button "Saída devolvida integralmente" [ref=f13e717]
+                      - generic "Este pedido possui uma devolução completa vinculada" [ref=f13e722]:
+                        - generic [ref=f13e723]: 
+                        - generic [ref=f13e724]: Devolução Total
+                - generic [ref=f13e725]:
+                  - heading "Cliente Teste Hml 1116c88c6d06" [level=3] [ref=f13e726]
+                  - generic [ref=f13e727]:
+                    - generic [ref=f13e728]:
+                      - generic [ref=f13e729]: Pedido
+                      - generic [ref=f13e730]:
+                        - generic [ref=f13e731]: 
+                        - generic [ref=f13e732]: 01/10/2026
+                    - generic [ref=f13e733]:
+                      - generic [ref=f13e734]: Entrega
+                      - generic [ref=f13e735]:
+                        - generic [ref=f13e736]: 
+                        - generic [ref=f13e737]: 01/10/2026
+                - generic [ref=f13e738]:
+                  - generic [ref=f13e739]:
+                    - generic [ref=f13e740]: Total
+                    - generic [ref=f13e741]: R$ 558,00
+                  - button "" [ref=f13e744]
+              - 'button "Cancelado #003823 Nota fiscal cancelada     Saída de estoque ainda não registrada Cliente Teste Hml 1116c88c6d06 Pedido  01/10/2026 Entrega  01/10/2026 Total R$ 279,00 " [ref=f13e746] [cursor=pointer]':
+                - generic: Cancelado
+                - generic [ref=f13e747]:
+                  - generic [ref=f13e748]: "#003823"
+                  - generic [ref=f13e750]:
+                    - generic "Nota fiscal cancelada" [ref=f13e751]:
+                      - text: NF
+                      - generic [ref=f13e753]: 
+                    - generic:
+                      - generic:
+                        - generic:
+                          - button " ":
+                            - generic: 
+                            - generic: 
+                        - generic:
+                          - button ""
+                        - generic "Entrega": 
+                        - generic:
+                          - button "Saída de estoque ainda não registrada"
+                - generic [ref=f13e754]:
+                  - heading "Cliente Teste Hml 1116c88c6d06" [level=3] [ref=f13e755]
+                  - generic [ref=f13e756]:
+                    - generic [ref=f13e757]:
+                      - generic [ref=f13e758]: Pedido
+                      - generic [ref=f13e759]:
+                        - generic [ref=f13e760]: 
+                        - generic [ref=f13e761]: 01/10/2026
+                    - generic [ref=f13e762]:
+                      - generic [ref=f13e763]: Entrega
+                      - generic [ref=f13e764]:
+                        - generic [ref=f13e765]: 
+                        - generic [ref=f13e766]: 01/10/2026
+                - generic [ref=f13e767]:
+                  - generic [ref=f13e768]:
+                    - generic [ref=f13e769]: Total
+                    - generic [ref=f13e770]: R$ 279,00
+                  - button "" [ref=f13e773]
+              - button "#003754 Nota fiscal não emitida  Bling   Saída de estoque ainda não registrada Consumidor Final  Retirado Confirmar retirada em 3 dias Pedido  30/09/2026 Retirada  30/09/2026  16:57 Total R$ 49,00  " [ref=f13e775] [cursor=pointer]:
+                - generic [ref=f13e776]:
+                  - generic [ref=f13e777]: "#003754"
+                  - generic [ref=f13e779]:
+                    - generic "Nota fiscal não emitida" [ref=f13e780]: NF
+                    - generic [ref=f13e782]:
+                      - button "" [ref=f13e784]
+                      - button "Bling" [ref=f13e787]
+                      - button "" [ref=f13e790]
+                      - generic "Retirada" [ref=f13e792]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f13e795]
+                - generic [ref=f13e800]:
+                  - heading "Consumidor Final" [level=3] [ref=f13e801]
+                  - button " Retirado Confirmar retirada em 3 dias" [ref=f13e802]:
+                    - generic [ref=f13e803]:
+                      - generic [ref=f13e804]: 
+                      - generic [ref=f13e805]: Retirado
+                    - generic [ref=f13e806]: Confirmar retirada em 3 dias
+                  - generic [ref=f13e807]:
+                    - generic [ref=f13e808]:
+                      - generic [ref=f13e809]: Pedido
+                      - generic [ref=f13e810]:
+                        - generic [ref=f13e811]: 
+                        - generic [ref=f13e812]: 30/09/2026
+                    - generic [ref=f13e813]:
+                      - generic [ref=f13e814]: Retirada
+                      - generic [ref=f13e815]:
+                        - generic [ref=f13e816]: 
+                        - generic [ref=f13e817]: 30/09/2026
+                    - generic [ref=f13e819]:
+                      - generic [ref=f13e820]: 
+                      - generic [ref=f13e821]: 16:57
+                - generic [ref=f13e822]:
+                  - generic [ref=f13e823]:
+                    - generic [ref=f13e824]: Total
+                    - generic [ref=f13e825]: R$ 49,00
+                  - generic [ref=f13e826]:
+                    - button "" [ref=f13e827]
+                    - button "" [ref=f13e830]
+              - button "#003868 Nota fiscal não emitida  Bling   Saída de estoque ainda não registrada Lucas Trindade dos Santos Pedido  30/09/2026 Entrega  02/10/2026  15:00 às 17:30 Total R$ 927,00  " [ref=f13e832] [cursor=pointer]:
+                - generic [ref=f13e833]:
+                  - generic [ref=f13e834]: "#003868"
+                  - generic [ref=f13e836]:
+                    - generic "Nota fiscal não emitida" [ref=f13e837]: NF
+                    - generic [ref=f13e838]:
+                      - generic [ref=f13e839]:
+                        - button "" [ref=f13e841]
+                        - button "Bling" [ref=f13e844]
+                        - button "" [ref=f13e847]
+                        - generic "Entrega" [ref=f13e849]: 
+                        - button "Saída de estoque ainda não registrada" [ref=f13e852]
+                      - generic "Montagem no Depósito (antes da entrega/retirada)" [ref=f13e858]
+                - generic [ref=f13e866]:
+                  - heading "Lucas Trindade dos Santos" [level=3] [ref=f13e867]
+                  - generic [ref=f13e868]:
+                    - generic [ref=f13e869]:
+                      - generic [ref=f13e870]: Pedido
+                      - generic [ref=f13e871]:
+                        - generic [ref=f13e872]: 
+                        - generic [ref=f13e873]: 30/09/2026
+                    - generic [ref=f13e874]:
+                      - generic [ref=f13e875]: Entrega
+                      - generic [ref=f13e876]:
+                        - generic [ref=f13e877]: 
+                        - generic [ref=f13e878]: 02/10/2026
+                    - generic [ref=f13e880]:
+                      - generic [ref=f13e881]: 
+                      - generic [ref=f13e882]: 15:00 às 17:30
+                - generic [ref=f13e883]:
+                  - generic [ref=f13e884]:
+                    - generic [ref=f13e885]: Total
+                    - generic [ref=f13e886]: R$ 927,00
+                  - generic [ref=f13e887]:
+                    - button "" [ref=f13e888]
+                    - button "" [ref=f13e891]
+              - button "#003706 Nota fiscal não emitida  Bling   Saída parcial de estoque (apenas alguns itens geraram saída) Consumidor Final  AGENDAMENTO PENDENTE Pedido  30/09/2026 Entrega  PENDENTE Total R$ 4.416,00  " [ref=f13e893] [cursor=pointer]:
+                - generic [ref=f13e894]:
+                  - generic [ref=f13e895]: "#003706"
+                  - generic [ref=f13e897]:
+                    - generic "Nota fiscal não emitida" [ref=f13e898]: NF
+                    - generic [ref=f13e899]:
+                      - generic [ref=f13e900]:
+                        - button "" [ref=f13e902]
+                        - button "Bling" [ref=f13e905]
+                        - button "" [ref=f13e908]
+                        - generic "Entrega" [ref=f13e910]: 
+                        - button "Saída parcial de estoque (apenas alguns itens geraram saída)" [ref=f13e913]
+                      - generic "Montagem no Depósito (antes da entrega/retirada)" [ref=f13e919]
+                - generic [ref=f13e927]:
+                  - heading "Consumidor Final" [level=3] [ref=f13e928]
+                  - generic [ref=f13e929]:
+                    - generic [ref=f13e930]: 
+                    - generic [ref=f13e931]: AGENDAMENTO PENDENTE
+                  - generic [ref=f13e932]:
+                    - generic [ref=f13e933]:
+                      - generic [ref=f13e934]: Pedido
+                      - generic [ref=f13e935]:
+                        - generic [ref=f13e936]: 
+                        - generic [ref=f13e937]: 30/09/2026
+                    - generic [ref=f13e938]:
+                      - generic [ref=f13e939]: Entrega
+                      - generic [ref=f13e940]:
+                        - generic [ref=f13e941]: 
+                        - generic [ref=f13e942]: PENDENTE
+                - generic [ref=f13e943]:
+                  - generic [ref=f13e944]:
+                    - generic [ref=f13e945]: Total
+                    - generic [ref=f13e946]: R$ 4.416,00
+                  - generic [ref=f13e947]:
+                    - button "" [ref=f13e948]
+                    - button "" [ref=f13e951]
+              - button "#003873 Nota fiscal não emitida  Bling   Saída de estoque ainda não registrada Clenir Machado do Nascimentode Freitas  Entregue Confirmar entrega em 3 dias Pedido  30/09/2026 Entrega  30/09/2026  13:00 às 18:00 Total R$ 668,00  " [ref=f13e953] [cursor=pointer]:
+                - generic [ref=f13e954]:
+                  - generic [ref=f13e955]: "#003873"
+                  - generic [ref=f13e957]:
+                    - generic "Nota fiscal não emitida" [ref=f13e958]: NF
+                    - generic [ref=f13e959]:
+                      - generic [ref=f13e960]:
+                        - button "" [ref=f13e962]
+                        - button "Bling" [ref=f13e965]
+                        - button "" [ref=f13e968]
+                        - generic "Entrega" [ref=f13e970]: 
+                        - button "Saída de estoque ainda não registrada" [ref=f13e973]
+                      - generic "Montagem no Depósito (antes da entrega/retirada)" [ref=f13e979]
+                - generic [ref=f13e987]:
+                  - heading "Clenir Machado do Nascimentode Freitas" [level=3] [ref=f13e988]
+                  - button " Entregue Confirmar entrega em 3 dias" [ref=f13e989]:
+                    - generic [ref=f13e990]:
+                      - generic [ref=f13e991]: 
+                      - generic [ref=f13e992]: Entregue
+                    - generic [ref=f13e993]: Confirmar entrega em 3 dias
+                  - generic [ref=f13e994]:
+                    - generic [ref=f13e995]:
+                      - generic [ref=f13e996]: Pedido
+                      - generic [ref=f13e997]:
+                        - generic [ref=f13e998]: 
+                        - generic [ref=f13e999]: 30/09/2026
+                    - generic [ref=f13e1000]:
+                      - generic [ref=f13e1001]: Entrega
+                      - generic [ref=f13e1002]:
+                        - generic [ref=f13e1003]: 
+                        - generic [ref=f13e1004]: 30/09/2026
+                    - generic [ref=f13e1006]:
+                      - generic [ref=f13e1007]: 
+                      - generic [ref=f13e1008]: 13:00 às 18:00
+                - generic [ref=f13e1009]:
+                  - generic [ref=f13e1010]:
+                    - generic [ref=f13e1011]: Total
+                    - generic [ref=f13e1012]: R$ 668,00
+                  - generic [ref=f13e1013]:
+                    - button "" [ref=f13e1014]
+                    - button "" [ref=f13e1017]
+              - button "#003870 Nota fiscal não emitida   Bling   Saída parcial de estoque (apenas alguns itens geraram saída) Clenir Machado do Nascimentode Freitas  Entregue Confirmar entrega em 2 dias Pedido  28/09/2026 Entrega  29/09/2026  09:00 às 12:00 Total R$ 1.045,00  " [ref=f13e1019] [cursor=pointer]:
+                - generic [ref=f13e1020]:
+                  - generic [ref=f13e1021]: "#003870"
+                  - generic [ref=f13e1023]:
+                    - generic "Nota fiscal não emitida" [ref=f13e1024]: NF
+                    - generic [ref=f13e1026]:
+                      - button " " [ref=f13e1028]:
+                        - generic [ref=f13e1029]: 
+                        - generic: 
+                      - button "Bling" [ref=f13e1031]
+                      - button "" [ref=f13e1034]
+                      - generic "Entrega" [ref=f13e1036]: 
+                      - button "Saída parcial de estoque (apenas alguns itens geraram saída)" [ref=f13e1039]
+                - generic [ref=f13e1044]:
+                  - heading "Clenir Machado do Nascimentode Freitas" [level=3] [ref=f13e1045]
+                  - button " Entregue Confirmar entrega em 2 dias" [ref=f13e1046]:
+                    - generic [ref=f13e1047]:
+                      - generic [ref=f13e1048]: 
+                      - generic [ref=f13e1049]: Entregue
+                    - generic [ref=f13e1050]: Confirmar entrega em 2 dias
+                  - generic [ref=f13e1051]:
+                    - generic [ref=f13e1052]:
+                      - generic [ref=f13e1053]: Pedido
+                      - generic [ref=f13e1054]:
+                        - generic [ref=f13e1055]: 
+                        - generic [ref=f13e1056]: 28/09/2026
+                    - generic [ref=f13e1057]:
+                      - generic [ref=f13e1058]: Entrega
+                      - generic [ref=f13e1059]:
+                        - generic [ref=f13e1060]: 
+                        - generic [ref=f13e1061]: 29/09/2026
+                    - generic [ref=f13e1063]:
+                      - generic [ref=f13e1064]: 
+                      - generic [ref=f13e1065]: 09:00 às 12:00
+                - generic [ref=f13e1066]:
+                  - generic [ref=f13e1067]:
+                    - generic [ref=f13e1068]: Total
+                    - generic [ref=f13e1069]: R$ 1.045,00
+                  - generic [ref=f13e1070]:
+                    - button "" [ref=f13e1071]
+                    - button "" [ref=f13e1074]
+              - button "#003631 Nota fiscal não emitida   Bling   Saída parcial de estoque (apenas alguns itens geraram saída) Eroilda Santos Gonçalves  Entregue Confirmar entrega em 2 dias Pedido  28/09/2026 Entrega  29/09/2026  09:00 às 12:00 Total R$ 4.299,00  " [ref=f13e1076] [cursor=pointer]:
+                - generic [ref=f13e1077]:
+                  - generic [ref=f13e1078]: "#003631"
+                  - generic [ref=f13e1080]:
+                    - generic "Nota fiscal não emitida" [ref=f13e1081]: NF
+                    - generic [ref=f13e1083]:
+                      - button " " [ref=f13e1085]:
+                        - generic [ref=f13e1086]: 
+                        - generic: 
+                      - button "Bling" [ref=f13e1088]
+                      - button "" [ref=f13e1091]
+                      - generic "Entrega" [ref=f13e1093]: 
+                      - button "Saída parcial de estoque (apenas alguns itens geraram saída)" [ref=f13e1096]
+                - generic [ref=f13e1101]:
+                  - heading "Eroilda Santos Gonçalves" [level=3] [ref=f13e1102]
+                  - button " Entregue Confirmar entrega em 2 dias" [ref=f13e1103]:
+                    - generic [ref=f13e1104]:
+                      - generic [ref=f13e1105]: 
+                      - generic [ref=f13e1106]: Entregue
+                    - generic [ref=f13e1107]: Confirmar entrega em 2 dias
+                  - generic [ref=f13e1108]:
+                    - generic [ref=f13e1109]:
+                      - generic [ref=f13e1110]: Pedido
+                      - generic [ref=f13e1111]:
+                        - generic [ref=f13e1112]: 
+                        - generic [ref=f13e1113]: 28/09/2026
+                    - generic [ref=f13e1114]:
+                      - generic [ref=f13e1115]: Entrega
+                      - generic [ref=f13e1116]:
+                        - generic [ref=f13e1117]: 
+                        - generic [ref=f13e1118]: 29/09/2026
+                    - generic [ref=f13e1120]:
+                      - generic [ref=f13e1121]: 
+                      - generic [ref=f13e1122]: 09:00 às 12:00
+                - generic [ref=f13e1123]:
+                  - generic [ref=f13e1124]:
+                    - generic [ref=f13e1125]: Total
+                    - generic [ref=f13e1126]: R$ 4.299,00
+                  - generic [ref=f13e1127]:
+                    - button "" [ref=f13e1128]
+                    - button "" [ref=f13e1131]
+              - 'button "Cancelado #003311 Nota fiscal não emitida     Saída de estoque estornada Matheus Morante dos Santos Pedido  26/09/2026 Entrega  30/09/2026  23:23 às 23:23 Total R$ 10.453,00 " [ref=f13e1133] [cursor=pointer]':
+                - generic: Cancelado
+                - generic [ref=f13e1134]:
+                  - generic [ref=f13e1135]: "#003311"
+                  - generic [ref=f13e1137]:
+                    - generic "Nota fiscal não emitida" [ref=f13e1138]: NF
+                    - generic:
+                      - generic:
+                        - generic:
+                          - button ""
+                        - generic "Gerado por Tráfego Pago": 
+                        - generic:
+                          - button ""
+                        - generic "Entrega": 
+                        - generic:
+                          - button "Saída de estoque estornada"
+                - generic [ref=f13e1139]:
+                  - heading "Matheus Morante dos Santos" [level=3] [ref=f13e1140]
+                  - generic [ref=f13e1141]:
+                    - generic [ref=f13e1142]:
+                      - generic [ref=f13e1143]: Pedido
+                      - generic [ref=f13e1144]:
+                        - generic [ref=f13e1145]: 
+                        - generic [ref=f13e1146]: 26/09/2026
+                    - generic [ref=f13e1147]:
+                      - generic [ref=f13e1148]: Entrega
+                      - generic [ref=f13e1149]:
+                        - generic [ref=f13e1150]: 
+                        - generic [ref=f13e1151]: 30/09/2026
+                    - generic [ref=f13e1153]:
+                      - generic [ref=f13e1154]: 
+                      - generic [ref=f13e1155]: 23:23 às 23:23
+                - generic [ref=f13e1156]:
+                  - generic [ref=f13e1157]:
+                    - generic [ref=f13e1158]: Total
+                    - generic [ref=f13e1159]: R$ 10.453,00
+                  - button "" [ref=f13e1162]
+              - 'button "Cancelado #003245 Nota fiscal não emitida    Saída de estoque estornada Matheus Duvoisin Pedido  26/09/2026 Entrega  17/10/2026  02:37 às 03:37 Total R$ 2.614,44 " [ref=f13e1164] [cursor=pointer]':
+                - generic: Cancelado
+                - generic [ref=f13e1165]:
+                  - generic [ref=f13e1166]: "#003245"
+                  - generic [ref=f13e1168]:
+                    - generic "Nota fiscal não emitida" [ref=f13e1169]: NF
+                    - generic:
+                      - generic:
+                        - generic:
+                          - button ""
+                        - generic:
+                          - button ""
+                        - generic "Entrega": 
+                        - generic:
+                          - button "Saída de estoque estornada"
+                      - generic:
+                        - generic "Montagem Fora (na casa do cliente)"
+                - generic [ref=f13e1170]:
+                  - heading "Matheus Duvoisin" [level=3] [ref=f13e1171]
+                  - generic [ref=f13e1172]:
+                    - generic [ref=f13e1173]:
+                      - generic [ref=f13e1174]: Pedido
+                      - generic [ref=f13e1175]:
+                        - generic [ref=f13e1176]: 
+                        - generic [ref=f13e1177]: 26/09/2026
+                    - generic [ref=f13e1178]:
+                      - generic [ref=f13e1179]: Entrega
+                      - generic [ref=f13e1180]:
+                        - generic [ref=f13e1181]: 
+                        - generic [ref=f13e1182]: 17/10/2026
+                    - generic [ref=f13e1184]:
+                      - generic [ref=f13e1185]: 
+                      - generic [ref=f13e1186]: 02:37 às 03:37
+                - generic [ref=f13e1187]:
+                  - generic [ref=f13e1188]:
+                    - generic [ref=f13e1189]: Total
+                    - generic [ref=f13e1190]: R$ 2.614,44
+                  - button "" [ref=f13e1193]
+              - 'button "Cancelado #003247 Nota fiscal não emitida     Saída de estoque estornada Matheus Morante dos Santos Pedido  26/09/2026 Entrega  08/10/2026  04:43 às 04:34 Total R$ 4.349,00 " [ref=f13e1195] [cursor=pointer]':
+                - generic: Cancelado
+                - generic [ref=f13e1196]:
+                  - generic [ref=f13e1197]: "#003247"
+                  - generic [ref=f13e1199]:
+                    - generic "Nota fiscal não emitida" [ref=f13e1200]: NF
+                    - generic:
+                      - generic:
+                        - generic:
+                          - button ""
+                        - generic "Gerado por Tráfego Pago": 
+                        - generic:
+                          - button ""
+                        - generic "Entrega": 
+                        - generic:
+                          - button "Saída de estoque estornada"
+                      - generic:
+                        - generic "Montagem no Depósito (antes da entrega/retirada)"
+                - generic [ref=f13e1201]:
+                  - heading "Matheus Morante dos Santos" [level=3] [ref=f13e1202]
+                  - generic [ref=f13e1203]:
+                    - generic [ref=f13e1204]:
+                      - generic [ref=f13e1205]: Pedido
+                      - generic [ref=f13e1206]:
+                        - generic [ref=f13e1207]: 
+                        - generic [ref=f13e1208]: 26/09/2026
+                    - generic [ref=f13e1209]:
+                      - generic [ref=f13e1210]: Entrega
+                      - generic [ref=f13e1211]:
+                        - generic [ref=f13e1212]: 
+                        - generic [ref=f13e1213]: 08/10/2026
+                    - generic [ref=f13e1215]:
+                      - generic [ref=f13e1216]: 
+                      - generic [ref=f13e1217]: 04:43 às 04:34
+                - generic [ref=f13e1218]:
+                  - generic [ref=f13e1219]:
+                    - generic [ref=f13e1220]: Total
+                    - generic [ref=f13e1221]: R$ 4.349,00
+                  - button "" [ref=f13e1224]
+            - generic [ref=f13e1226]:
+              - generic [ref=f13e1227]:
+                - generic [ref=f13e1228]:
+                  - text: Exibindo
+                  - generic [ref=f13e1229]: 1-15
+                  - text: de 848 pedidos
+                - generic [ref=f13e1230]: •
+                - generic [ref=f13e1231]: (15 por página)
+              - generic [ref=f13e1232]:
+                - button "" [disabled]
+                - generic [ref=f13e1233]:
+                  - button "1" [ref=f13e1234]
+                  - button "2" [ref=f13e1235] [cursor=pointer]
+                  - button "3" [ref=f13e1236] [cursor=pointer]
+                  - button "4" [ref=f13e1237] [cursor=pointer]
+                  - generic [ref=f13e1238]: ...
+                  - button "57" [ref=f13e1239] [cursor=pointer]
+                - button "" [ref=f13e1240] [cursor=pointer]
+    - generic [ref=f13e457]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f13e458] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=f13e460]
+  - region "Notifications Alt+T"

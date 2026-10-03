@@ -1,0 +1,877 @@
+- generic:
+  - link [aria-hidden]:
+    - /url: "#geist-skip-nav"
+    - text: Skip to content
+  - generic [aria-hidden]:
+    - main:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - button
+                - generic:
+                  - generic:
+                    - link:
+                      - /url: /matheusmorantes-projects/morantehub
+                      - generic: morantehub
+                    - button
+                    - generic:
+                      - link:
+                        - /url: /matheusmorantes-projects/~/settings/environment-variables
+              - navigation:
+                - generic: Environment Variables
+              - generic:
+                - generic:
+                  - button:
+                    - generic: Create New
+                - generic:
+                  - button
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - heading [level=2]: Environment Variables
+                                  - paragraph:
+                                    - text: Store API keys, tokens, and config securely.
+                                    - link:
+                                      - /url: /docs/environment-variables
+                                      - text: Learn more about environment variables
+                                    - text: ·
+                                    - link:
+                                      - /url: /matheusmorantes-projects/~/settings/security#disjunctive-production-secret-policy
+                                      - text: Separate Production Secret Values
+                                - generic:
+                                  - generic:
+                                    - button:
+                                      - generic: Link Shared Variable
+                                  - button:
+                                    - generic: Add Environment Variable
+                            - tablist:
+                              - tab [selected]: Project
+                              - tab: Shared
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - searchbox
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - combobox
+                              - generic:
+                                - combobox:
+                                  - generic:
+                                    - generic:
+                                      - searchbox: All Environments
+                                      - button
+                              - generic:
+                                - combobox:
+                                  - generic:
+                                    - searchbox
+                                    - button
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - combobox
+                                - generic:
+                                  - generic:
+                                    - combobox
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_CSRT_HOMOLOGACAO
+                                                            - generic [aria-hidden]: NFE_CSRT…OLOGACAO
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: 2d ago
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_ID_CSRT_HOMOLOGACAO
+                                                            - generic [aria-hidden]: NFE_ID_C…OLOGACAO
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: 2d ago
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: NFE_CSRT_PRODUCAO
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: 2d ago
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_ID_CSRT_PRODUCAO
+                                                            - generic [aria-hidden]: NFE_ID_C…PRODUCAO
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: 2d ago
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: SUPABASE_SERVICE_ROLE_KEY
+                                                            - generic [aria-hidden]: SUPABASE…ROLE_KEY
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: 2d ago
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: TYPESAFE_API_KEY
+                                          - generic: All Environments
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: Sep 29
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_CERTIFICATE_BASE64
+                                                            - generic [aria-hidden]: NFE_CERT…E_BASE64
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: Sep 29
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_CERTIFICATE_PASSWORD
+                                                            - generic [aria-hidden]: NFE_CERT…PASSWORD
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: Sep 29
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_CONTACT
+                                                            - generic [aria-hidden]: NFE_RESP…_CONTACT
+                                          - generic: Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_CONTACT
+                                                            - generic [aria-hidden]: NFE_RESP…_CONTACT
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Updated
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_CNPJ
+                                                            - generic [aria-hidden]: NFE_RESP…ECH_CNPJ
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_CNPJ
+                                                            - generic [aria-hidden]: NFE_RESP…ECH_CNPJ
+                                          - generic: Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_EMAIL
+                                                            - generic [aria-hidden]: NFE_RESP…CH_EMAIL
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_EMAIL
+                                                            - generic [aria-hidden]: NFE_RESP…CH_EMAIL
+                                          - generic: Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_PHONE
+                                                            - generic [aria-hidden]: NFE_RESP…CH_PHONE
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: NFE_RESPONSIBLE_TECH_PHONE
+                                                            - generic [aria-hidden]: NFE_RESP…CH_PHONE
+                                          - generic: Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 22
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: VITE_AUDIT_USER
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: VITE_AUDIT_PASS
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: VITE_GOOGLE_MAPS_API_KEY
+                                                            - generic [aria-hidden]: VITE_GOO…_API_KEY
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: MORANTEHUB_MCP_ACCESS_TOKEN
+                                                            - generic [aria-hidden]: M…N
+                                                  - generic: Needs Attention
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: MCP_CHATGPT_TOKEN
+                                                            - generic [aria-hidden]: M…N
+                                                  - generic: Needs Attention
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: MCP_ANTIGRAVITY_TOKEN
+                                                            - generic [aria-hidden]: M…N
+                                                  - generic: Needs Attention
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: MCP_PORT
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: MCP_RATE_LIMIT_PER_MINUTE
+                                                            - generic [aria-hidden]: MCP_RATE…R_MINUTE
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: MCP_ALLOWED_CLIENTS
+                                                            - generic [aria-hidden]: MCP_ALLO…_CLIENTS
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Sep 6
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic:
+                                                          - generic:
+                                                            - generic: CLOUDFLARE_ACCOUNT_ID
+                                                            - generic [aria-hidden]: CLOUDFLA…COUNT_ID
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Aug 29
+                                            - generic:
+                                              - generic:
+                                                - button
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - button:
+                                                        - generic: R2_ACCESS_KEY_ID
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - button
+                                                  - generic: •••••••••••••••
+                                          - generic: Production and Preview
+                                          - generic:
+                                            - generic:
+                                              - generic:
+                                                - generic:
+                                                  - generic:
+                                                    - generic:
+                                                      - generic: Added
+                                                      - generic: Aug 29
+                                            - generic:
+                                              - generic:
+                                                - button
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - checkbox [checked]
+                                    - generic:
+                                      - text: Enable access to
+                                      - link:
+                                        - /url: /docs/environment-variables/system-environment-variables
+                                        - text: System Environment Variables
+  - alert: morantehub - Overview – Vercel
+  - dialog [ref=f8e1475]:
+    - generic [ref=f8e1476]:
+      - heading "Add Environment Variable" [level=2] [ref=f8e1477]
+      - button "Close" [ref=f8e1478] [cursor=pointer]
+    - generic [ref=f8e1484]:
+      - generic [ref=f8e1485]:
+        - radiogroup [ref=f8e1487]:
+          - generic [ref=f8e1488]: Type
+          - list [ref=f8e1490]:
+            - listitem [ref=f8e1491] [cursor=pointer]:
+              - generic [ref=f8e1493]:
+                - generic [ref=f8e1494]:
+                  - generic [ref=f8e1495]: Secret
+                  - generic [ref=f8e1496]: You can’t reveal this value after saving. Use for passwords, API keys, and tokens.
+                - radio "Secret You can’t reveal this value after saving. Use for passwords, API keys, and tokens." [checked] [ref=f8e1498]
+            - listitem [ref=f8e1500] [cursor=pointer]:
+              - generic [ref=f8e1502]:
+                - generic [ref=f8e1503]:
+                  - generic [ref=f8e1504]: Config
+                  - generic [ref=f8e1505]: Readable after saving for members with access. Use for non-sensitive values.
+                - radio "Config Readable after saving for members with access. Use for non-sensitive values." [ref=f8e1507]
+        - generic [ref=f8e1509]:
+          - generic [ref=f8e1510]:
+            - generic [ref=f8e1513]:
+              - generic [ref=f8e1516]:
+                - generic [ref=f8e1517]: Key
+                - textbox "environment variable key" [ref=f8e1519]:
+                  - /placeholder: CLIENT_KEY…
+                  - text: SUPABASE_SECRET_KEY
+              - generic [ref=f8e1520]:
+                - generic [ref=f8e1521]: Value
+                - generic [ref=f8e1523]:
+                  - textbox "secret value" [active] [ref=f8e1524]:
+                    - /placeholder: Enter a value
+                  - button "Show value" [ref=f8e1525] [cursor=pointer]
+              - generic [ref=f8e1531]:
+                - generic [ref=f8e1532]: Note (Optional)
+                - textbox "shared environment variable comment" [ref=f8e1534]:
+                  - /placeholder: Where to rotate, or who to contact
+            - button "Add new variable" [ref=f8e1535] [cursor=pointer]
+          - generic [ref=f8e1541]:
+            - generic [ref=f8e1542]: Environments
+            - button "Production" [ref=f8e1548] [cursor=pointer]
+      - generic [ref=f8e1552]:
+        - generic [ref=f8e1554]:
+          - button "Import .env" [ref=f8e1556] [cursor=pointer]
+          - paragraph [ref=f8e1561]: or paste .env contents in Key input
+        - button "Save" [ref=f8e1564] [cursor=pointer]

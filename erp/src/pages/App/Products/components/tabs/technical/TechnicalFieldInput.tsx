@@ -30,22 +30,39 @@ export const TechnicalFieldInput: React.FC<Props> = ({
         className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600"
       />
     );
-  if (type === 'integer' || type === 'number')
+  if (type === 'integer' || type === 'number') {
+    const isInchField = /polegada/i.test(field.name);
     return (
       <input
         type="number"
         step="1"
+        max={isInchField ? 999 : undefined}
         placeholder={
-          /porta|gaveta/i.test(field.name)
-            ? 'Insira a quantidade de portas'
-            : 'Insira um número inteiro'
+          isInchField
+            ? 'Ex: 65 (máximo 3 dígitos)'
+            : /porta|gaveta|espelho|prateleira|cabideiro|nicho|usb|lugar|entrada/i.test(
+                field.name
+              )
+              ? `Insira a ${field.name.toLowerCase()}`
+              : 'Insira um número inteiro'
         }
         value={value ?? ''}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === '') {
+            onChange('');
+            return;
+          }
+          if (isInchField && val.length > 3) {
+            return;
+          }
+          onChange(Number(val));
+        }}
         className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600"
       />
     );
+  }
   if (type === 'decimal' || type === 'measure')
     return <DecimalInput value={value} disabled={disabled} onChange={onChange} />;
   if (type === 'radio')

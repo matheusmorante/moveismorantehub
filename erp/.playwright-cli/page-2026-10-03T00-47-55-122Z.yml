@@ -1,0 +1,102 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e4]:
+    - link "Skip to content" [ref=f1e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f1e9]:
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]:
+          - link "Supabase Back to organization home" [ref=f1e12] [cursor=pointer]:
+            - /url: /dashboard/organizations
+            - img "Supabase" [ref=f1e13]
+            - generic [ref=f1e14]: Back to organization home
+          - button "Connect" [disabled] [ref=f1e22]
+        - generic [ref=f1e27]:
+          - button "Feedback" [ref=f1e28] [cursor=pointer]
+          - generic [ref=f1e30]:
+            - button [ref=f1e31] [cursor=pointer]:
+              - paragraph [ref=f1e36]: Search...
+              - generic [ref=f1e38]: Ctrl K
+            - button "Help" [ref=f1e39] [cursor=pointer]
+            - button "Advisor Center" [ref=f1e46] [cursor=pointer]
+            - button "SQL Editor" [ref=f1e51] [cursor=pointer]
+            - button "AI Assistant" [ref=f1e56] [cursor=pointer]
+          - button [ref=f1e64] [cursor=pointer]
+    - generic [ref=f1e69]:
+      - generic [ref=f1e73]:
+        - navigation [ref=f1e75]:
+          - list [ref=f1e77]:
+            - listitem [ref=f1e78]:
+              - link "Project Overview" [ref=f1e79] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=f1e82]:
+              - button "Table Editor" [disabled]
+            - listitem [ref=f1e83]:
+              - button "SQL Editor" [disabled]
+          - list [ref=f1e85]:
+            - listitem [ref=f1e86]:
+              - button "Database" [disabled]
+            - listitem [ref=f1e87]:
+              - button "Authentication" [disabled]
+            - listitem [ref=f1e88]:
+              - button "Storage" [disabled]
+            - listitem [ref=f1e89]:
+              - link "Edge Functions" [ref=f1e90] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=f1e96]:
+              - button "Realtime" [disabled]
+          - list [ref=f1e98]:
+            - listitem [ref=f1e99]:
+              - button "Advisors" [disabled]
+            - listitem [ref=f1e100]:
+              - button "Observability" [disabled]
+            - listitem [ref=f1e101]:
+              - link "Logs" [ref=f1e102] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=f1e104]:
+              - button "Integrations" [disabled]
+          - list [ref=f1e106]:
+            - listitem [ref=f1e107]:
+              - link "Project Settings" [ref=f1e108] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=f1e114] [cursor=pointer]
+      - main [ref=f1e121]:
+        - generic [ref=f1e123]:
+          - separator [disabled] [ref=f1e127]
+          - main [ref=f1e138]:
+            - generic [ref=f1e139]:
+              - generic [ref=f1e140]:
+                - heading "Security Advisor" [level=3] [ref=f1e142]
+                - link "Docs" [ref=f1e144] [cursor=pointer]:
+                  - /url: https://supabase.com/docs/guides/observability/advisors
+              - tablist [ref=f1e151]:
+                - tab "Errors" [selected] [ref=f1e152] [cursor=pointer]
+                - tab "Warnings" [ref=f1e163] [cursor=pointer]
+                - tab "Info" [ref=f1e173] [cursor=pointer]
+              - generic [ref=f1e183]:
+                - generic [ref=f1e184]:
+                  - button "Filter" [disabled]
+                - generic [ref=f1e185]:
+                  - button "Refresh" [disabled]
+                  - button "Export" [disabled]
+              - grid [ref=f1e191]:
+                - row [ref=f1e192]:
+                  - columnheader [ref=f1e193] [cursor=pointer]:
+                    - paragraph [ref=f1e196]: Issue type
+                  - columnheader [ref=f1e198] [cursor=pointer]:
+                    - paragraph [ref=f1e201]: Entity/item
+                  - columnheader [ref=f1e203] [cursor=pointer]:
+                    - paragraph [ref=f1e206]: Description
+              - generic [ref=f1e213]:
+                - button [ref=f1e214] [cursor=pointer]
+                - generic [ref=f1e219]:
+                  - paragraph [ref=f1e220]: Reset suggestions
+                  - paragraph [ref=f1e221]: Consider resetting the analysis after making any changes
+                  - button "Rerun linter" [disabled]
+                - generic [ref=f1e222]:
+                  - paragraph [ref=f1e223]: How are these suggestions generated?
+                  - paragraph [ref=f1e225]:
+                    - text: These suggestions use
+                    - link "splinter (Supabase Postgres LINTER)" [ref=f1e226] [cursor=pointer]:
+                      - /url: https://github.com/supabase/splinter
+                    - text: .
+  - alert [ref=f1e227]: Advisors | Supabase

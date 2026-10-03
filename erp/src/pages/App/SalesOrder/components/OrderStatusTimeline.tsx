@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Undo2 } from 'lucide-react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatDateTime } from '@/pages/utils/formatters';
 import Order from '../../../types/order.type';
@@ -51,7 +52,7 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
       shipped: { label: 'Enviado', color: 'indigo', icon: 'bi-truck' },
       delivered: { label: 'Entregue', color: 'emerald', icon: 'bi-house-check' },
       cancelled: { label: 'Cancelado', color: 'red', icon: 'bi-x-circle' },
-      returned: { label: 'Devolvido', color: 'orange', icon: 'bi-arrow-return-left' },
+      returned: { label: 'Devolvido', color: 'orange', icon: 'undo-2' },
     };
     if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status.toLowerCase())) {
       return {
@@ -107,7 +108,11 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
                                 }
                             `}
               >
-                <i className={`bi ${config.icon} text-white text-xl`} />
+                {config.icon === 'undo-2' ? (
+                  <Undo2 className="h-5 w-5 text-white" />
+                ) : (
+                  <i className={`bi ${config.icon} text-xl text-white`} />
+                )}
               </div>
 
               <div className="flex flex-col">

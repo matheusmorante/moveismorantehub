@@ -1,0 +1,32 @@
+- generic [ref=f58e2]:
+  - generic [ref=f58e4]:
+    - generic [ref=f58e5]:
+      - generic [ref=f58e6]:
+        - generic [ref=f58e7]: E
+        - heading "ERP Móveis Morante" [level=1] [ref=f58e9]
+        - paragraph [ref=f58e10]: Gestão de Móveis e Serviços
+      - generic [ref=f58e11]:
+        - generic [ref=f58e12]:
+          - text: E-mail
+          - generic [ref=f58e13]:
+            - generic [ref=f58e14]: 
+            - textbox "exemplo@email.com" [ref=f58e15]
+        - generic [ref=f58e16]:
+          - generic [ref=f58e17]:
+            - generic [ref=f58e18]: Senha
+            - button "Esqueci minha senha" [ref=f58e19] [cursor=pointer]
+          - generic [ref=f58e20]:
+            - generic [ref=f58e21]: 
+            - textbox "••••••••" [ref=f58e22]
+            - button "" [ref=f58e23] [cursor=pointer]
+        - button "Entrar no Sistema " [ref=f58e25] [cursor=pointer]:
+          - generic [ref=f58e26]: Entrar no Sistema
+          - generic [ref=f58e27]: 
+      - generic [ref=f58e28]: Ou continuar com
+      - button "Entrar com Google" [ref=f58e33] [cursor=pointer]
+      - paragraph [ref=f58e41]:
+        - text: Não tem uma conta?
+        - link "Criar conta grátis" [ref=f58e42] [cursor=pointer]:
+          - /url: /signup
+    - paragraph [ref=f58e43]: Sistema de Alta Performance • v2.1
+  - region "Notifications Alt+T"

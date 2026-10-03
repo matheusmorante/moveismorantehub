@@ -1,3 +1,5 @@
+import type { Variation } from '../types/product.type';
+
 export interface TechnicalFieldDefinition {
   id: string;
   name: string; // Ex: "Cor", "Quantidade de portas"
@@ -14,6 +16,7 @@ export interface TechnicalFieldDefinition {
     | 'measure'
     | 'number';
   unit?: string; // Ex: "cm", "kg", "lugares"
+  subtitle?: string; // Ex: texto de ajuda / detalhamento da característica
   active?: boolean;
   isRequired?: boolean;
   isCustom?: boolean;
@@ -34,21 +37,58 @@ export interface CharacteristicGroup<T extends { name: string }> {
   fields: T[];
 }
 
+export const CHARACTERISTIC_SUBTITLES: Record<string, string> = {
+  'Material da estrutura':
+    'Corpo do móvel (ex.: laterais, divisórias internas, base inferior, tampo superior e prateleiras estruturais)',
+  'Material das portas': 'Portas frontais ou de correr',
+  'Material das gavetas': 'Frentes e corpo das gavetas',
+  'Material das prateleiras': 'Prateleiras internas e removíveis',
+  'Material do fundo': 'Painel traseiro de sustentação e fechamento',
+};
+
+export const getCharacteristicSubtitle = (name: string): string | undefined => {
+  if (!name) return undefined;
+  const normalized = name.trim().toLowerCase();
+  for (const [key, subtitle] of Object.entries(CHARACTERISTIC_SUBTITLES)) {
+    if (key.trim().toLowerCase() === normalized) {
+      return subtitle;
+    }
+  }
+  return undefined;
+};
+
 const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
-  { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
-  { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
+  {
+    title: 'Dimensões e peso',
+    matches:
+      /(?:\b(altura|largura|profundidade|comprimento|peso|polegadas?|ch[aã]o|fechado|aberto|tamanhos?|padr[aã]o))(?!\w)/i,
+  },
+  {
+    title: 'Tecido e revestimento',
+    matches:
+      /(?:\b(tecido|revestimento|espuma|densidade|estofad\w*|assento|encosto|almofadas?))(?!\w)/i,
+  },
   {
     title: 'Estrutura',
-    matches: /\b(estrutura|material da estrutura|tipo de portas|quantidade de portas)\b/i,
+    matches:
+      /(?:\b(estrutura|material da estrutura|tipo de portas?|quantidade de portas?|prateleiras?|fundos?|espessura|cabideiros?|calceiros?|maleiros?|divis[aã]o ele e ela|nichos?|material da cadeira|tipo de sof[aá]|sof[aá]s?|molas?|lugares|grades?|estrado|formatos?|cantos? arredondados?|quantidade de cubas|posi[cç][aã]o da cuba|bocas?))(?!\w)/i,
   },
   {
     title: 'Funcionalidades',
-    matches: /\b(espelho|porta|gaveta|deslizamento|mecanismo|retr[aá]til|extens[íi]vel)\b/i,
+    matches:
+      /(?:\b(espelhos?|portas?|(?<!material\s+das?\s+)gavetas?|deslizamento|corredi[cç]as?|mecanismo|retr[aá]til|extens[íi]vel|passa fios?|led|reclin[aá]vel|pillow top|usb|dupla face|firmeza|3 em 1|mini cama|acompanha\w*|slow motion|fechamento suave))(?!\w)/i,
   },
-  { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
+  {
+    title: 'Acessórios',
+    matches: /(?:\b(p[eé]s?|puxadores?|rod[ií]zios?|sapatas?|regul[aá]v\w*))(?!\w)/i,
+  },
   {
     title: 'Materiais e acabamento',
-    matches: /\b(material|acabamento|cor|madeira|metal|vidro)\b/i,
+    matches: /(?:\b(material|acabamento|cor|madeira|metal|vidro|superf[íi]cie))(?!\w)/i,
+  },
+  {
+    title: 'Identificação e modelo',
+    matches: /(?:\b(marcas?|modelos?|linhas?))(?!\w)/i,
   },
 ];
 

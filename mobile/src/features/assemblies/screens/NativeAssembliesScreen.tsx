@@ -198,14 +198,14 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       : []),
     ...upcomingSections,
   ].map((section) => {
-    const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
+    const isCollapsed = collapsedSections[section.key] ?? false;
     return { ...section, count: section.data.length, data: isCollapsed ? [] : section.data };
   });
 
   const toggleSection = (key: string) => {
     setCollapsedSections((previous) => ({
       ...previous,
-      [key]: !(previous[key] ?? key !== 'today'),
+      [key]: !(previous[key] ?? false),
     }));
   };
 
@@ -246,7 +246,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />
           }
           renderSectionHeader={({ section }) => {
-            const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
+            const isCollapsed = collapsedSections[section.key] ?? false;
             return (
               <TouchableOpacity
                 activeOpacity={0.8}

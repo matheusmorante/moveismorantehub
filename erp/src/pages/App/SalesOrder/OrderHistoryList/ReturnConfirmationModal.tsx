@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Undo2 } from 'lucide-react';
 
 interface ReturnConfirmationModalProps {
   readonly onCancel: () => void;
@@ -42,7 +43,7 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-          <i className="bi bi-arrow-return-left text-xl" />
+          <Undo2 className="h-5 w-5" />
         </div>
         <h2
           id="return-confirmation-title"

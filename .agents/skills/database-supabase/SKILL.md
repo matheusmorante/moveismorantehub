@@ -24,7 +24,7 @@ Aplicar quando a tarefa envolver:
 ## Acesso ao Supabase pelo navegador integrado
 
 - Se o plugin do Supabase ou o CLI/token falhar ou não estiver disponível, use a sessão já autenticada do navegador integrado em supabase.com. O usuário autorizou acessar o Dashboard da conta Movesmorante/Morante Hub e executar SQL na aba **SQL Editor** para a tarefa solicitada, sem pedir nova autorização apenas por essa troca de ferramenta.
-- Antes de consultar ou alterar dados, confirme no Dashboard que o projeto/ref selecionado corresponde ao configurado no aplicativo. Revise a consulta antes de executar, limite projeções e volume de resultados, e mantenha alterações de schema também em migrations versionadas no repositório.
+- Antes da primeira consulta/escrita de uma execução, confirme que o projeto/ref selecionado corresponde ao configurado no aplicativo. Reutilize essa confirmação enquanto a sessão, projeto e configuração não mudarem; revalide somente com nova evidência de divergência ou troca de alvo. Revise cada consulta antes de executar, limite projeções e volume de resultados, e mantenha alterações de schema também em migrations versionadas no repositório.
 - Não exponha credenciais, dados pessoais ou resultados sensíveis em logs e relatórios. As restrições de produção, testes isolados, escrita destrutiva, atomicidade e validação desta skill e de `testes-seguros-erp` continuam valendo no SQL Editor.
 
 ---
@@ -112,11 +112,11 @@ O PostgreSQL dispõe das extensões `pg_trgm` (trigramas) e `unaccent` para acel
 
 ## 6. Testes de Banco e Migrações
 
+- Para estado de gates, repetição de preflight e retomada após bloqueio, siga `Gates e continuidade da execução` em `testes-seguros-erp`; esta skill define apenas evidências específicas do banco. Uma migration, RPC, RLS, permissão ou conjunto de Advisors já aprovado não deve ser revalidado sem mudança relevante posterior.
 - Ao alterar schema, RLS, funções, triggers ou RPCs, aplique a matriz canônica de `testes-seguros-erp` quando houver comportamento relevante no banco: PostgreSQL real isolado, estado final, constraints, permissões, atomicidade, rollback, concorrência e idempotência conforme aplicável.
-- Quando Docker/Supabase Local estiver disponível, prefira-o para testes de banco, inclusive os destrutivos e de falha. Se estiver indisponível, o remoto operacional só pode ser usado em verificações controladas, não destrutivas, com dados sintéticos e isolamento comprovado; nunca para reset, migration experimental, DROP/TRUNCATE, alteração arriscada de schema/RLS, fault injection, rollback destrutivo ou concorrência de teste.
-- Não criar branch ou projeto HML Supabase separado para este projeto. A exceção de uso do banco operacional é a homologação fiscal real em `tpAmb=2`, com pedido e dados sintéticos, backend restrito a endpoints SEFAZ de homologação e verificação de que registros não contaminam estoque, financeiro ou indicadores. O procedimento detalhado está em `testes-seguros-erp` e `fiscal-nfe-nfce-official-docs`.
-- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. A indisponibilidade do Docker não autoriza uma operação arriscada no remoto; marque essa evidência como bloqueada e avance nas validações independentes.
-- Teste migrations em banco novo e upgrade de banco existente representativo. Preserve compatibilidade e dados legados conforme `migration`; confira constraints, índices, funções, triggers e políticas afetadas.
+- Use a matriz canônica de ambiente e isolamento de `testes-seguros-erp`; ela define quando Supabase Local é necessário, quais operações são proibidas no remoto e a exceção fiscal HML `tpAmb=2`. Não duplique essa matriz nesta skill.
+- Mocks, inspeção SQL ou resposta de API isolada não provam integração/atomicidade. Se uma prova perigosa exigir ambiente local indisponível, bloqueie somente essa prova e continue validações independentes permitidas.
+- Para uma migration alterada, teste em banco novo e em upgrade representativo conforme o risco e preserve compatibilidade/dados legados conforme `migration`; confira somente os objetos afetados. Não repita essas provas depois de aprovadas enquanto migration, baseline e ambiente continuarem iguais.
 
 ---
 
@@ -129,3 +129,9 @@ Antes de concluir qualquer alteração de banco:
 - [ ] O mobile offline (SQLite) não depende de extensões do PostgreSQL?
 - [ ] As novas colunas possuem defaults seguros que não quebram registros legados?
 - [ ] A migration foi testada e é idempotente (`IF NOT EXISTS`)?
+
+## Referências e Fonte Canônica de Documentação
+
+- Continuidade de gates e matriz de testes: `.agents/skills/testes-seguros-erp/SKILL.md`.
+- Transições de schema e compatibilidade: `.agents/skills/migration/SKILL.md`.
+- Normas de emissão fiscal e HML: `.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md`.

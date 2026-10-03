@@ -1,0 +1,192 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e4]:
+    - link "Skip to content" [ref=f1e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f1e9]:
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]:
+          - link "Supabase Back to organization home" [ref=f1e12] [cursor=pointer]:
+            - /url: /dashboard/org/zbuarczhhocaascycmne
+            - img "Supabase" [ref=f1e13]
+            - generic [ref=f1e14]: Back to organization home
+          - generic [ref=f1e15]:
+            - generic [ref=f1e231]:
+              - link "moveismorante Pro" [ref=f1e232] [cursor=pointer]:
+                - /url: /dashboard/org/zbuarczhhocaascycmne
+                - generic [ref=f1e243]: moveismorante
+                - generic [ref=f1e244]: Pro
+              - button "Show organizations" [ref=f1e245] [cursor=pointer]
+            - generic [ref=f1e16]:
+              - generic [ref=f1e250]:
+                - link "MoranteHub" [ref=f1e251] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                - button "Show organization projects" [ref=f1e256] [cursor=pointer]
+              - generic [ref=f1e264]:
+                - link "main Production" [ref=f1e265] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                  - generic "main" [ref=f1e266]
+                  - generic [ref=f1e267]: Production
+                - button "Show project branches" [ref=f1e268] [cursor=pointer]
+          - button "Connect" [ref=f1e273] [cursor=pointer]
+        - generic [ref=f1e27]:
+          - button "Feedback" [ref=f1e28] [cursor=pointer]
+          - generic [ref=f1e30]:
+            - button [ref=f1e31] [cursor=pointer]:
+              - paragraph [ref=f1e36]: Search...
+              - generic [ref=f1e38]: Ctrl K
+            - button "Help" [ref=f1e39] [cursor=pointer]
+            - button "Advisor Center" [ref=f1e46] [cursor=pointer]
+            - button "SQL Editor" [ref=f1e51] [cursor=pointer]
+            - button "AI Assistant" [ref=f1e56] [cursor=pointer]
+          - button [ref=f1e279] [cursor=pointer]:
+            - img "matheusmorante" [ref=f1e280]
+    - generic [ref=f1e69]:
+      - generic [ref=f1e73]:
+        - navigation [ref=f1e75]:
+          - list [ref=f1e77]:
+            - listitem [ref=f1e78]:
+              - link "Project Overview" [ref=f1e79] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=f1e82]:
+              - link "Table Editor" [ref=f1e281] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/editor
+            - listitem [ref=f1e83]:
+              - link "SQL Editor" [ref=f1e284] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql
+          - list [ref=f1e85]:
+            - listitem [ref=f1e86]:
+              - link "Database" [ref=f1e287] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/database/schemas
+            - listitem [ref=f1e87]:
+              - link "Authentication" [ref=f1e292] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/auth/users
+            - listitem [ref=f1e88]:
+              - link "Storage" [ref=f1e295] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/storage/files
+            - listitem [ref=f1e89]:
+              - link "Edge Functions" [ref=f1e90] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=f1e96]:
+              - link "Realtime" [ref=f1e298] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/realtime/inspector
+          - list [ref=f1e98]:
+            - listitem [ref=f1e99]:
+              - link "Advisors" [ref=f1e301] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+            - listitem [ref=f1e100]:
+              - link "Observability" [ref=f1e305] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability
+            - listitem [ref=f1e101]:
+              - link "Logs" [ref=f1e102] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=f1e104]:
+              - link "Integrations" [ref=f1e314] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+          - list [ref=f1e106]:
+            - listitem [ref=f1e107]:
+              - link "Project Settings" [ref=f1e108] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=f1e114] [cursor=pointer]
+      - main [ref=f1e121]:
+        - generic [ref=f1e123]:
+          - generic [ref=f1e318]:
+            - heading "Advisors" [level=4] [ref=f1e320]
+            - generic [ref=f1e322]:
+              - generic [ref=f1e323]:
+                - generic [ref=f1e324]: New
+                - generic [ref=f1e326]:
+                  - heading "Moving to the toolbar" [level=3] [ref=f1e327]
+                  - paragraph [ref=f1e328]: Advisors are now available in the top toolbar for quicker access across the dashboard.
+                - button "Try it now" [disabled] [ref=f1e330] [cursor=pointer]
+              - menu "Sidebar" [disabled] [ref=f1e333]:
+                - list [ref=f1e334]:
+                  - generic [ref=f1e337]:
+                    - generic [ref=f1e338]: Advisors
+                    - generic [ref=f1e342]:
+                      - link [disabled] [ref=f1e343] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/health
+                        - menuitem "Health Advisor" [disabled] [ref=f1e344]
+                      - link [disabled] [ref=f1e349] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+                        - menuitem "Security Advisor" [disabled] [ref=f1e350]
+                      - link [disabled] [ref=f1e355] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/performance
+                        - menuitem "Performance Advisor" [disabled] [ref=f1e356]
+                      - link [disabled] [ref=f1e361] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability/query-performance
+                        - menuitem "Query Performance" [disabled] [ref=f1e362]:
+                          - generic "Query Performance" [ref=f1e365]
+          - separator [disabled] [ref=f1e127]
+          - main [ref=f1e138]:
+            - generic [ref=f1e371]:
+              - generic [ref=f1e372]:
+                - heading "Security Advisor" [level=3] [ref=f1e374]
+                - link "Docs" [ref=f1e376] [cursor=pointer]:
+                  - /url: https://supabase.com/docs/guides/observability/advisors
+              - tablist [ref=f1e383]:
+                - tab "Errors 5 errors" [selected] [ref=f1e384] [cursor=pointer]:
+                  - generic [ref=f1e386]: Errors
+                  - generic [ref=f1e579]: 5 errors
+                - tab "Warnings 163 warnings" [ref=f1e394] [cursor=pointer]:
+                  - generic [ref=f1e395]: Warnings
+                  - generic [ref=f1e580]: 163 warnings
+                - tab "Info 15 suggestions" [ref=f1e403] [cursor=pointer]:
+                  - generic [ref=f1e404]: Info
+                  - generic [ref=f1e581]: 15 suggestions
+              - generic [ref=f1e412]:
+                - button "Filter" [ref=f1e414] [cursor=pointer]
+                - generic [ref=f1e420]:
+                  - button "Refresh" [ref=f1e421] [cursor=pointer]
+                  - button "Export" [ref=f1e429] [cursor=pointer]
+              - grid [ref=f1e439]:
+                - row [ref=f1e440]:
+                  - columnheader [ref=f1e441] [cursor=pointer]:
+                    - paragraph [ref=f1e444]: Issue type
+                  - columnheader [ref=f1e446] [cursor=pointer]:
+                    - paragraph [ref=f1e449]: Entity/item
+                  - columnheader [ref=f1e451] [cursor=pointer]:
+                    - paragraph [ref=f1e454]: Description
+                - row [ref=f1e456] [cursor=pointer]:
+                  - gridcell [ref=f1e457]:
+                    - heading "Policy Exists RLS Disabled" [level=3] [ref=f1e464]
+                  - gridcell "public.accounts_receivable" [ref=f1e465]
+                  - gridcell [ref=f1e472]:
+                    - paragraph [ref=f1e476]: Detects cases where row level security (RLS) policies have been created, but RLS has not been enabled for the underlying table.
+                - row [ref=f1e477] [cursor=pointer]:
+                  - gridcell [ref=f1e478]:
+                    - heading "Security Definer View" [level=3] [ref=f1e486]
+                  - gridcell "public.inventory_move_identity_audit" [ref=f1e487]
+                  - gridcell [ref=f1e495]:
+                    - paragraph [ref=f1e499]: Detects views defined with the SECURITY DEFINER property. These views enforce Postgres permissions and row level security policies (RLS) of the view creator, rather than that of the querying user
+                - row [ref=f1e500] [cursor=pointer]:
+                  - gridcell [ref=f1e501]:
+                    - heading "RLS Disabled in Public" [level=3] [ref=f1e508]
+                  - gridcell "public.accounts_receivable" [ref=f1e509]
+                  - gridcell [ref=f1e516]:
+                    - paragraph [ref=f1e520]: Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST
+                - row [ref=f1e521] [cursor=pointer]:
+                  - gridcell [ref=f1e522]:
+                    - heading "RLS Disabled in Public" [level=3] [ref=f1e529]
+                  - gridcell "public.product_materials" [ref=f1e530]
+                  - gridcell [ref=f1e537]:
+                    - paragraph [ref=f1e541]: Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST
+                - row [ref=f1e542] [cursor=pointer]:
+                  - gridcell [ref=f1e543]:
+                    - heading "RLS Disabled in Public" [level=3] [ref=f1e550]
+                  - gridcell "public.order_fallback_telemetry" [ref=f1e551]
+                  - gridcell [ref=f1e558]:
+                    - paragraph [ref=f1e562]: Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST
+              - generic [ref=f1e563]:
+                - button [ref=f1e564] [cursor=pointer]
+                - generic [ref=f1e569]:
+                  - paragraph [ref=f1e570]: Reset suggestions
+                  - paragraph [ref=f1e571]: Consider resetting the analysis after making any changes
+                  - button "Rerun linter" [ref=f1e572] [cursor=pointer]
+                - generic [ref=f1e574]:
+                  - paragraph [ref=f1e575]: How are these suggestions generated?
+                  - paragraph [ref=f1e577]:
+                    - text: These suggestions use
+                    - link "splinter (Supabase Postgres LINTER)" [ref=f1e578] [cursor=pointer]:
+                      - /url: https://github.com/supabase/splinter
+                    - text: .
+  - alert [ref=f1e227]: Advisors | Supabase

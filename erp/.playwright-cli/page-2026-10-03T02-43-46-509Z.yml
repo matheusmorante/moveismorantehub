@@ -1,0 +1,96 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - link "Skip to content" [ref=e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - link "Supabase Back to organization home" [ref=e12] [cursor=pointer]:
+            - /url: /dashboard/organizations
+            - img "Supabase" [ref=e13]
+            - generic [ref=e14]: Back to organization home
+          - button "Connect" [disabled] [ref=e22]
+        - generic [ref=e27]:
+          - button "Feedback" [ref=e28] [cursor=pointer]
+          - generic [ref=e30]:
+            - button [ref=e31] [cursor=pointer]:
+              - paragraph [ref=e36]: Search...
+              - generic [ref=e38]: Ctrl K
+            - button "Help" [ref=e39] [cursor=pointer]
+            - button "Advisor Center" [ref=e46] [cursor=pointer]
+            - button "SQL Editor" [ref=e51] [cursor=pointer]
+            - button "AI Assistant" [ref=e56] [cursor=pointer]
+          - button [ref=e64] [cursor=pointer]
+    - generic [ref=e69]:
+      - generic [ref=e73]:
+        - navigation [ref=e75]:
+          - list [ref=e77]:
+            - listitem [ref=e78]:
+              - link "Project Overview" [ref=e79] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=e82]:
+              - button "Table Editor" [disabled]
+            - listitem [ref=e83]:
+              - button "SQL Editor" [disabled]
+          - list [ref=e85]:
+            - listitem [ref=e86]:
+              - button "Database" [disabled]
+            - listitem [ref=e87]:
+              - button "Authentication" [disabled]
+            - listitem [ref=e88]:
+              - button "Storage" [disabled]
+            - listitem [ref=e89]:
+              - link "Edge Functions" [ref=e90] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=e96]:
+              - button "Realtime" [disabled]
+          - list [ref=e98]:
+            - listitem [ref=e99]:
+              - button "Advisors" [disabled]
+            - listitem [ref=e100]:
+              - button "Observability" [disabled]
+            - listitem [ref=e101]:
+              - link "Logs" [ref=e102] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=e104]:
+              - button "Integrations" [disabled]
+          - list [ref=e106]:
+            - listitem [ref=e107]:
+              - link "Project Settings" [ref=e108] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=e114] [cursor=pointer]
+      - main [ref=e121]:
+        - generic [ref=e123]:
+          - generic [ref=e127]:
+            - heading "Integrations" [level=4] [ref=e129]
+            - generic [ref=e130]:
+              - menu "Sidebar" [disabled] [ref=e132]:
+                - list [ref=e133]:
+                  - generic [ref=e134]: Explore
+              - menu "Sidebar" [disabled] [ref=e141]:
+                - list [ref=e142]:
+                  - generic [ref=e143]: Installed
+          - separator [disabled] [ref=e149]
+          - main [ref=e160]:
+            - generic [ref=e161]:
+              - navigation "breadcrumb" [ref=e163]:
+                - list [ref=e164]:
+                  - listitem [ref=e165]:
+                    - link "Integrations" [ref=e166] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+                  - listitem [aria-hidden] [ref=e167]
+                  - listitem [ref=e170]:
+                    - link "Data API" [disabled] [ref=e171]
+              - heading [level=1] [ref=e175]
+              - navigation [ref=e181]:
+                - menu [ref=e182]:
+                  - listitem [ref=e183]:
+                    - link "Overview" [ref=e184] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations/data_api/overview
+                  - listitem [ref=e185]:
+                    - link "Settings" [ref=e186] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations/data_api/settings
+                  - listitem [ref=e187]:
+                    - link "Docs" [ref=e188] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations/data_api/docs
+  - alert [ref=e197]: Integrations | Supabase

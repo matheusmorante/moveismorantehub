@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { Undo2 } from 'lucide-react';
 import logoMorante from '../../assets/brand-mark.svg';
 import { MenuKey } from '../../AppLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -170,7 +171,7 @@ const menuItems: any[] = [
       },
       {
         to: '/returns',
-        icon: 'bi-arrow-return-left',
+        icon: 'undo-2',
         iconColor: 'text-rose-500',
         label: 'Devoluções',
       },
@@ -355,9 +356,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center ${isActive ? item.bg : 'bg-slate-100 dark:bg-slate-800'}`}
                     >
-                      <i
-                        className={`bi ${item.icon} text-lg ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`}
-                      ></i>
+                      {item.icon === 'undo-2' ? (
+                        <Undo2 className={`h-5 w-5 ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`} />
+                      ) : (
+                        <i className={`bi ${item.icon} text-lg ${isActive ? item.color : 'text-slate-400 dark:text-slate-500'}`} />
+                      )}
                     </div>
                     <span>{item.label}</span>
                     {item.beta && (

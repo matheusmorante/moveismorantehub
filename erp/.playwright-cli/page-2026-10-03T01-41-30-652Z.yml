@@ -1,0 +1,190 @@
+- generic [ref=f24e1]:
+  - generic [ref=f24e4]:
+    - link "Skip to content" [ref=f24e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f24e9]:
+      - generic [ref=f24e10]:
+        - generic [ref=f24e11]:
+          - link "Supabase Back to organization home" [ref=f24e12] [cursor=pointer]:
+            - /url: /dashboard/org/zbuarczhhocaascycmne
+            - img "Supabase" [ref=f24e13]
+            - generic [ref=f24e14]: Back to organization home
+          - generic [ref=f24e15]:
+            - generic [ref=f24e19]:
+              - link "moveismorante Pro" [ref=f24e20] [cursor=pointer]:
+                - /url: /dashboard/org/zbuarczhhocaascycmne
+                - generic [ref=f24e31]: moveismorante
+                - generic [ref=f24e32]: Pro
+              - button "Show organizations" [ref=f24e33] [cursor=pointer]
+            - generic [ref=f24e38]:
+              - generic [ref=f24e42]:
+                - link "MoranteHub" [ref=f24e43] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                - button "Show organization projects" [ref=f24e48] [cursor=pointer]
+              - generic [ref=f24e56]:
+                - link "main Production" [ref=f24e57] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                  - generic "main" [ref=f24e58]
+                  - generic [ref=f24e59]: Production
+                - button "Show project branches" [ref=f24e60] [cursor=pointer]
+          - button "Connect" [ref=f24e66] [cursor=pointer]
+        - generic [ref=f24e71]:
+          - button "Feedback" [ref=f24e72] [cursor=pointer]
+          - generic [ref=f24e74]:
+            - button [ref=f24e75] [cursor=pointer]:
+              - paragraph [ref=f24e80]: Search...
+              - generic [ref=f24e82]: Ctrl K
+            - button "Help" [ref=f24e83] [cursor=pointer]
+            - button "Advisor Center" [ref=f24e90] [cursor=pointer]
+            - button "SQL Editor" [ref=f24e96] [cursor=pointer]
+            - button "AI Assistant" [ref=f24e101] [cursor=pointer]
+          - button [ref=f24e109] [cursor=pointer]:
+            - img "matheusmorante" [ref=f24e111]
+    - generic [ref=f24e112]:
+      - generic [ref=f24e116]:
+        - navigation [ref=f24e118]:
+          - list [ref=f24e120]:
+            - listitem [ref=f24e121]:
+              - link "Project Overview" [ref=f24e122] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=f24e125]:
+              - link "Table Editor" [ref=f24e126] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/editor
+            - listitem [ref=f24e129]:
+              - link "SQL Editor" [ref=f24e130] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql
+          - list [ref=f24e134]:
+            - listitem [ref=f24e135]:
+              - link "Database" [ref=f24e136] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/database/schemas
+            - listitem [ref=f24e141]:
+              - link "Authentication" [ref=f24e142] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/auth/users
+            - listitem [ref=f24e145]:
+              - link "Storage" [ref=f24e146] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/storage/files
+            - listitem [ref=f24e149]:
+              - link "Edge Functions" [ref=f24e150] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=f24e156]:
+              - link "Realtime" [ref=f24e157] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/realtime/inspector
+          - list [ref=f24e161]:
+            - listitem [ref=f24e162]:
+              - link "Advisors" [ref=f24e163] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+            - listitem [ref=f24e167]:
+              - link "Observability" [ref=f24e168] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability
+            - listitem [ref=f24e177]:
+              - link "Logs" [ref=f24e178] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=f24e180]:
+              - link "Integrations" [ref=f24e181] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+          - list [ref=f24e186]:
+            - listitem [ref=f24e187]:
+              - link "Project Settings" [ref=f24e188] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=f24e194] [cursor=pointer]
+      - main [ref=f24e201]:
+        - generic [ref=f24e203]:
+          - generic [ref=f24e207]:
+            - heading "SQL Editor" [level=4] [ref=f24e209]
+            - generic [ref=f24e211]:
+              - generic [ref=f24e212]:
+                - generic [ref=f24e213]:
+                  - generic [ref=f24e215]:
+                    - generic [ref=f24e216]: Search queries
+                    - textbox "Search queries..." [ref=f24e217]
+                    - button [ref=f24e218]
+                  - button "Create a new query" [ref=f24e225] [cursor=pointer]
+                - button "Shared" [ref=f24e230]
+                - button "Favorites" [ref=f24e236]
+                - generic [ref=f24e241]:
+                  - button "PRIVATE (9)" [expanded] [ref=f24e242]
+                  - tree "private-snippets" [ref=f24e247]:
+                    - generic "Validate Transaction and User Context" [ref=f24e458] [cursor=pointer]
+                    - generic "Create Showroom Assemblies Table" [ref=f24e248] [cursor=pointer]
+                    - generic "Atualizar nomes das variações com atributos" [ref=f24e257] [cursor=pointer]
+                    - generic "Untitled query" [ref=f24e266] [cursor=pointer]
+                    - generic "Add use_parent_name Flag to Product Variations" [ref=f24e275] [cursor=pointer]
+                    - generic "Add depth use length flag" [ref=f24e284] [cursor=pointer]
+                    - generic "Product-Category Join Table with RLS" [ref=f24e293] [cursor=pointer]
+                    - generic "Opportunity Types & Product Association" [ref=f24e302] [cursor=pointer]
+                    - generic "Policies RLS para categorias, produtos e imagens" [ref=f24e311] [cursor=pointer]
+                    - generic "E-commerce Schema with RLS Policies" [ref=f24e320] [cursor=pointer]
+                - button "Logs" [ref=f24e331]
+                - generic [ref=f24e336]:
+                  - button "Reference" [expanded] [ref=f24e337]
+                  - generic [ref=f24e341]:
+                    - link "templates" [ref=f24e342] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/templates
+                    - link "examples" [ref=f24e345] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql/examples
+              - link "View running queries" [ref=f24e350] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability/connections
+          - separator [ref=f24e352]
+          - main [ref=f24e363]:
+            - generic [ref=f24e364]:
+              - generic [ref=f24e365]:
+                - generic [ref=f24e366]:
+                  - button "Collapse sidebar" [ref=f24e367]
+                  - tablist [ref=f24e372]:
+                    - generic [ref=f24e373]:
+                      - generic [ref=f24e468]:
+                        - generic [ref=f24e469]:
+                          - tab "Validate Transaction and User Context" [selected] [ref=f24e470] [cursor=pointer]
+                          - button "Close tab" [ref=f24e483] [cursor=pointer]
+                        - separator [ref=f24e487]
+                      - button [ref=f24e488]
+                - status [ref=f24e386]
+              - generic [ref=f24e388]:
+                - generic [ref=f24e389]:
+                  - generic [ref=f24e490]: Unsaved edits
+                  - button "More actions" [ref=f24e390] [cursor=pointer]
+                  - generic [ref=f24e396]:
+                    - 'button "Query source: Database" [ref=f24e397] [cursor=pointer]':
+                      - generic [ref=f24e403]: Database
+                    - generic [ref=f24e407]:
+                      - button "Save" [ref=f24e491] [cursor=pointer]:
+                        - generic [ref=f24e494]: Ctrl S
+                      - button "Run" [ref=f24e408] [cursor=pointer]:
+                        - generic [ref=f24e614]: Ctrl ↵
+                - generic [ref=f24e412]:
+                  - code [ref=f24e420]:
+                    - generic [ref=f24e421]:
+                      - generic [ref=f24e496]: "1"
+                      - generic [aria-hidden] [ref=f24e431]:
+                        - generic [ref=f24e635]: select (select count(*) from public.nfe_fiscal_snapshots where order_id =
+                        - generic [ref=f24e637]: "'23e0e9ee-5b62-4222-8aa5-6be4db5178c1') as snapshot_count, (select count(*) from"
+                        - generic [ref=f24e639]: public.nfe_fiscal_snapshots where order_id =
+                        - generic [ref=f24e641]: "'23e0e9ee-5b62-4222-8aa5-6be4db5178c1' and environment = 2) as"
+                        - generic [ref=f24e643]: hml_snapshot_count, (select count(*) from public.nfe_documents where order_id =
+                        - generic [ref=f24e645]: "'23e0e9ee-5b62-4222-8aa5-6be4db5178c1' and ambiente = 2) as hml_document_count;"
+                      - textbox "Editor content" [active] [ref=f24e434]: select (select count(*) from public.nfe_fiscal_snapshots where order_id = '23e0e9ee-5b62-4222-8aa5-6be4db5178c1') as snapshot_count, (select count(*) from public.nfe_fiscal_snapshots where order_id = '23e0e9ee-5b62-4222-8aa5-6be4db5178c1' and environment = 2) as hml_snapshot_count, (select count(*) from public.nfe_documents where order_id = '23e0e9ee-5b62-4222-8aa5-6be4db5178c1' and ambiente = 2) as hml_document_count;
+                  - separator [ref=f24e435]
+                  - generic [ref=f24e446]:
+                    - tablist [ref=f24e447]:
+                      - generic [ref=f24e448]:
+                        - tab "Results" [selected] [ref=f24e449] [cursor=pointer]
+                        - tab "Chart" [ref=f24e451] [cursor=pointer]
+                      - generic [ref=f24e509]:
+                        - button "1 row(Limited to only 100 rows)" [ref=f24e647]:
+                          - paragraph [ref=f24e648]:
+                            - generic [ref=f24e649]: 1 row
+                            - text: (Limited to only 100 rows)
+                        - button "Export" [ref=f24e513] [cursor=pointer]
+                    - grid [ref=f24e650]:
+                      - row [ref=f24e651]:
+                        - columnheader "snapshot_count" [ref=f24e652]
+                        - columnheader "hml_snapshot_count" [ref=f24e655]
+                        - columnheader "hml_document_count" [ref=f24e658]
+                      - row [ref=f24e661]:
+                        - gridcell "0" [ref=f24e662]
+                        - gridcell "0" [ref=f24e664]
+                        - gridcell "0" [ref=f24e666]
+  - alert [ref=f24e456]: SQL Editor | MoranteHub | moveismorante | Supabase
+  - generic [ref=f24e457]:
+    - alert
+    - alert

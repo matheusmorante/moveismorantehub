@@ -33,6 +33,11 @@ const supabaseKey = isTestEnvironment
   : import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl!, supabaseKey!, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
   global: {
     fetch: supabaseMonitor.customFetch,
   },

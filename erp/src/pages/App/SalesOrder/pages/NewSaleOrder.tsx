@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { Undo2 } from 'lucide-react';
 import { useSalesOrderForm } from '../useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 import SalesOrderFormSection from '../SalesOrderFormSection';
@@ -265,9 +266,11 @@ const NewSaleOrder = ({
             <div
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-md transition-all sm:h-10 sm:w-10 sm:rounded-xl ${isBudget ? 'bg-indigo-600 shadow-indigo-500/20' : isReturn ? 'bg-amber-600 shadow-amber-500/20' : isPickup ? 'bg-purple-600 shadow-purple-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}
             >
-              <i
-                className={`bi ${isBudget ? 'bi-calculator-fill' : isReturn ? 'bi-arrow-return-left' : isPickup ? 'bi-shop' : 'bi-truck'} text-white text-xs sm:text-base`}
-              />
+              {isReturn ? (
+                <Undo2 className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+              ) : (
+                <i className={`bi ${isBudget ? 'bi-calculator-fill' : isPickup ? 'bi-shop' : 'bi-truck'} text-xs text-white sm:text-base`} />
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-1 sm:gap-2">

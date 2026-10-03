@@ -1,0 +1,491 @@
+- generic [active] [ref=f13e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - main [ref=f13e3]:
+    - generic [ref=f13e6]:
+      - generic [ref=f13e7]:
+        - generic [ref=f13e8]:
+          - button "Open sidebar" [ref=f13e10] [cursor=pointer]
+          - generic [ref=f13e16]:
+            - link "morantehub" [ref=f13e17] [cursor=pointer]:
+              - /url: /matheusmorantes-projects/morantehub
+            - button [ref=f13e21] [cursor=pointer]
+            - link "Back to team view" [ref=f13e27] [cursor=pointer]:
+              - /url: /matheusmorantes-projects/~/settings/environment-variables
+        - navigation "Breadcrumb" [ref=f13e31]:
+          - generic [ref=f13e32]: Environment Variables
+      - generic [ref=f13e42]:
+        - generic [ref=f13e44]:
+          - generic [ref=f13e45]:
+            - heading "Environment Variables" [level=2] [ref=f13e46]
+            - paragraph [ref=f13e47]:
+              - text: Store API keys, tokens, and config securely.
+              - link "Learn more about environment variables" [ref=f13e48] [cursor=pointer]:
+                - /url: /docs/environment-variables
+              - text: ·
+              - link "Separate Production Secret Values" [ref=f13e51] [cursor=pointer]:
+                - /url: /matheusmorantes-projects/~/settings/security#disjunctive-production-secret-policy
+          - generic [ref=f13e52]:
+            - button "Link Shared Variable" [ref=f13e54] [cursor=pointer]
+            - button "Add Environment Variable" [ref=f13e56] [cursor=pointer]
+        - tablist [ref=f13e58]:
+          - tab "Project" [selected] [ref=f13e59] [cursor=pointer]
+          - tab "Shared" [ref=f13e60] [cursor=pointer]
+        - generic [ref=f13e61]:
+          - searchbox "Search" [ref=f13e64]
+          - combobox "Filter variables by type" [ref=f13e71] [cursor=pointer]:
+            - option "All Types" [selected]
+            - option "Secret"
+            - option "Config"
+          - combobox [ref=f13e73]:
+            - generic [ref=f13e75]:
+              - searchbox [ref=f13e76]: All Environments
+              - button "Open menu" [ref=f13e77] [cursor=pointer]
+          - combobox [ref=f13e81]:
+            - generic [ref=f13e82]:
+              - searchbox "All Editors" [ref=f13e83]
+              - button "Open menu" [ref=f13e84] [cursor=pointer]
+          - generic [ref=f13e87]:
+            - combobox "Filter variables by status" [ref=f13e90] [cursor=pointer]:
+              - option "All Variables" [selected]
+              - option "Needs Attention"
+            - combobox [ref=f13e93] [cursor=pointer]:
+              - option "Sort by" [disabled]
+              - option "Last Updated" [selected]
+              - option "Name"
+              - option "Type"
+        - generic [ref=f13e94]:
+          - generic [ref=f13e98]:
+            - generic [ref=f13e100]:
+              - generic [ref=f13e101]:
+                - img "Secret environment variable" [ref=f13e104]
+                - button "NFE_CSRT_HOMOLOGACAO" [ref=f13e113] [cursor=pointer]:
+                  - generic "NFE_CSRT_HOMOLOGACAO" [ref=f13e114]:
+                    - generic "NFE_CSRT_HOMOLOGACAO" [ref=f13e115]:
+                      - generic [aria-hidden] [ref=f13e117]: NFE_CSRT…OLOGACAO
+              - generic [ref=f13e119]: Production and Preview
+              - generic [ref=f13e125]:
+                - generic [ref=f13e128]:
+                  - generic [ref=f13e130] [cursor=pointer]:
+                    - generic [ref=f13e131]: Updated
+                    - generic [ref=f13e132]: 2d ago
+                  - generic [ref=f13e133] [cursor=pointer]
+                - button "Menu" [ref=f13e138] [cursor=pointer]
+            - generic [ref=f13e146]:
+              - generic [ref=f13e147]:
+                - img "Secret environment variable" [ref=f13e150]
+                - button "NFE_ID_CSRT_HOMOLOGACAO" [ref=f13e159] [cursor=pointer]:
+                  - generic "NFE_ID_CSRT_HOMOLOGACAO" [ref=f13e160]:
+                    - generic "NFE_ID_CSRT_HOMOLOGACAO" [ref=f13e161]:
+                      - generic [aria-hidden] [ref=f13e163]: NFE_ID_C…OLOGACAO
+              - generic [ref=f13e165]: Production and Preview
+              - generic [ref=f13e171]:
+                - generic [ref=f13e174]:
+                  - generic [ref=f13e176] [cursor=pointer]:
+                    - generic [ref=f13e177]: Updated
+                    - generic [ref=f13e178]: 2d ago
+                  - generic [ref=f13e179] [cursor=pointer]
+                - button "Menu" [ref=f13e184] [cursor=pointer]
+            - generic [ref=f13e192]:
+              - generic [ref=f13e193]:
+                - img "Secret environment variable" [ref=f13e196]
+                - button "NFE_CSRT_PRODUCAO" [ref=f13e205] [cursor=pointer]
+              - generic [ref=f13e210]: Production
+              - generic [ref=f13e216]:
+                - generic [ref=f13e219]:
+                  - generic [ref=f13e221] [cursor=pointer]:
+                    - generic [ref=f13e222]: Updated
+                    - generic [ref=f13e223]: 2d ago
+                  - generic [ref=f13e224] [cursor=pointer]
+                - button "Menu" [ref=f13e229] [cursor=pointer]
+            - generic [ref=f13e237]:
+              - generic [ref=f13e238]:
+                - img "Secret environment variable" [ref=f13e241]
+                - button "NFE_ID_CSRT_PRODUCAO" [ref=f13e250] [cursor=pointer]:
+                  - generic "NFE_ID_CSRT_PRODUCAO" [ref=f13e251]:
+                    - generic "NFE_ID_CSRT_PRODUCAO" [ref=f13e252]:
+                      - generic [aria-hidden] [ref=f13e254]: NFE_ID_C…PRODUCAO
+              - generic [ref=f13e256]: Production
+              - generic [ref=f13e262]:
+                - generic [ref=f13e265]:
+                  - generic [ref=f13e267] [cursor=pointer]:
+                    - generic [ref=f13e268]: Updated
+                    - generic [ref=f13e269]: 2d ago
+                  - generic [ref=f13e270] [cursor=pointer]
+                - button "Menu" [ref=f13e275] [cursor=pointer]
+            - generic [ref=f13e283]:
+              - generic [ref=f13e284]:
+                - img "Secret environment variable" [ref=f13e287]
+                - button "SUPABASE_SERVICE_ROLE_KEY" [ref=f13e296] [cursor=pointer]:
+                  - generic "SUPABASE_SERVICE_ROLE_KEY" [ref=f13e297]:
+                    - generic "SUPABASE_SERVICE_ROLE_KEY" [ref=f13e298]:
+                      - generic [aria-hidden] [ref=f13e300]: SUPABASE…ROLE_KEY
+              - generic [ref=f13e302]: Production
+              - generic [ref=f13e308]:
+                - generic [ref=f13e311]:
+                  - generic [ref=f13e313] [cursor=pointer]:
+                    - generic [ref=f13e314]: Updated
+                    - generic [ref=f13e315]: 2d ago
+                  - generic [ref=f13e316] [cursor=pointer]
+                - button "Menu" [ref=f13e321] [cursor=pointer]
+            - generic [ref=f13e329]:
+              - generic [ref=f13e330]:
+                - img "Secret environment variable" [ref=f13e333]
+                - button "TYPESAFE_API_KEY" [ref=f13e342] [cursor=pointer]
+              - generic [ref=f13e347]: All Environments
+              - generic [ref=f13e353]:
+                - generic [ref=f13e356]:
+                  - generic [ref=f13e358] [cursor=pointer]:
+                    - generic [ref=f13e359]: Updated
+                    - generic [ref=f13e360]: Sep 29
+                  - generic [ref=f13e361] [cursor=pointer]
+                - button "Menu" [ref=f13e366] [cursor=pointer]
+            - generic [ref=f13e374]:
+              - generic [ref=f13e375]:
+                - img "Secret environment variable" [ref=f13e378]
+                - button "NFE_CERTIFICATE_BASE64" [ref=f13e387] [cursor=pointer]:
+                  - generic "NFE_CERTIFICATE_BASE64" [ref=f13e388]:
+                    - generic "NFE_CERTIFICATE_BASE64" [ref=f13e389]:
+                      - generic [aria-hidden] [ref=f13e391]: NFE_CERT…E_BASE64
+              - generic [ref=f13e393]: Production and Preview
+              - generic [ref=f13e399]:
+                - generic [ref=f13e402]:
+                  - generic [ref=f13e404] [cursor=pointer]:
+                    - generic [ref=f13e405]: Updated
+                    - generic [ref=f13e406]: Sep 29
+                  - generic [ref=f13e407] [cursor=pointer]
+                - button "Menu" [ref=f13e412] [cursor=pointer]
+            - generic [ref=f13e420]:
+              - generic [ref=f13e421]:
+                - img "Secret environment variable" [ref=f13e424]
+                - button "NFE_CERTIFICATE_PASSWORD" [ref=f13e433] [cursor=pointer]:
+                  - generic "NFE_CERTIFICATE_PASSWORD" [ref=f13e434]:
+                    - generic "NFE_CERTIFICATE_PASSWORD" [ref=f13e435]:
+                      - generic [aria-hidden] [ref=f13e437]: NFE_CERT…PASSWORD
+              - generic [ref=f13e439]: Production and Preview
+              - generic [ref=f13e445]:
+                - generic [ref=f13e448]:
+                  - generic [ref=f13e450] [cursor=pointer]:
+                    - generic [ref=f13e451]: Updated
+                    - generic [ref=f13e452]: Sep 29
+                  - generic [ref=f13e453] [cursor=pointer]
+                - button "Menu" [ref=f13e458] [cursor=pointer]
+            - generic [ref=f13e466]:
+              - generic [ref=f13e467]:
+                - img "Secret environment variable" [ref=f13e470]
+                - button "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e479] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e480]:
+                    - generic "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e481]:
+                      - generic [aria-hidden] [ref=f13e483]: NFE_RESP…_CONTACT
+              - generic [ref=f13e485]: Preview
+              - generic [ref=f13e491]:
+                - generic [ref=f13e494]:
+                  - generic [ref=f13e496] [cursor=pointer]:
+                    - generic [ref=f13e497]: Updated
+                    - generic [ref=f13e498]: Sep 22
+                  - generic [ref=f13e499] [cursor=pointer]
+                - button "Menu" [ref=f13e504] [cursor=pointer]
+            - generic [ref=f13e512]:
+              - generic [ref=f13e513]:
+                - img "Secret environment variable" [ref=f13e516]
+                - button "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e525] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e526]:
+                    - generic "NFE_RESPONSIBLE_TECH_CONTACT" [ref=f13e527]:
+                      - generic [aria-hidden] [ref=f13e529]: NFE_RESP…_CONTACT
+              - generic [ref=f13e531]: Production
+              - generic [ref=f13e537]:
+                - generic [ref=f13e540]:
+                  - generic [ref=f13e542] [cursor=pointer]:
+                    - generic [ref=f13e543]: Updated
+                    - generic [ref=f13e544]: Sep 22
+                  - generic [ref=f13e545] [cursor=pointer]
+                - button "Menu" [ref=f13e550] [cursor=pointer]
+            - generic [ref=f13e558]:
+              - generic [ref=f13e559]:
+                - img "Secret environment variable" [ref=f13e562]
+                - button "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e571] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e572]:
+                    - generic "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e573]:
+                      - generic [aria-hidden] [ref=f13e575]: NFE_RESP…ECH_CNPJ
+              - generic [ref=f13e577]: Production
+              - generic [ref=f13e583]:
+                - generic [ref=f13e586]:
+                  - generic [ref=f13e588] [cursor=pointer]:
+                    - generic [ref=f13e589]: Added
+                    - generic [ref=f13e590]: Sep 22
+                  - generic [ref=f13e591] [cursor=pointer]
+                - button "Menu" [ref=f13e596] [cursor=pointer]
+            - generic [ref=f13e604]:
+              - generic [ref=f13e605]:
+                - img "Secret environment variable" [ref=f13e608]
+                - button "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e617] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e618]:
+                    - generic "NFE_RESPONSIBLE_TECH_CNPJ" [ref=f13e619]:
+                      - generic [aria-hidden] [ref=f13e621]: NFE_RESP…ECH_CNPJ
+              - generic [ref=f13e623]: Preview
+              - generic [ref=f13e629]:
+                - generic [ref=f13e632]:
+                  - generic [ref=f13e634] [cursor=pointer]:
+                    - generic [ref=f13e635]: Added
+                    - generic [ref=f13e636]: Sep 22
+                  - generic [ref=f13e637] [cursor=pointer]
+                - button "Menu" [ref=f13e642] [cursor=pointer]
+            - generic [ref=f13e650]:
+              - generic [ref=f13e651]:
+                - img "Secret environment variable" [ref=f13e654]
+                - button "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e663] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e664]:
+                    - generic "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e665]:
+                      - generic [aria-hidden] [ref=f13e667]: NFE_RESP…CH_EMAIL
+              - generic [ref=f13e669]: Production
+              - generic [ref=f13e675]:
+                - generic [ref=f13e678]:
+                  - generic [ref=f13e680] [cursor=pointer]:
+                    - generic [ref=f13e681]: Added
+                    - generic [ref=f13e682]: Sep 22
+                  - generic [ref=f13e683] [cursor=pointer]
+                - button "Menu" [ref=f13e688] [cursor=pointer]
+            - generic [ref=f13e696]:
+              - generic [ref=f13e697]:
+                - img "Secret environment variable" [ref=f13e700]
+                - button "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e709] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e710]:
+                    - generic "NFE_RESPONSIBLE_TECH_EMAIL" [ref=f13e711]:
+                      - generic [aria-hidden] [ref=f13e713]: NFE_RESP…CH_EMAIL
+              - generic [ref=f13e715]: Preview
+              - generic [ref=f13e721]:
+                - generic [ref=f13e724]:
+                  - generic [ref=f13e726] [cursor=pointer]:
+                    - generic [ref=f13e727]: Added
+                    - generic [ref=f13e728]: Sep 22
+                  - generic [ref=f13e729] [cursor=pointer]
+                - button "Menu" [ref=f13e734] [cursor=pointer]
+            - generic [ref=f13e742]:
+              - generic [ref=f13e743]:
+                - img "Secret environment variable" [ref=f13e746]
+                - button "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e755] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e756]:
+                    - generic "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e757]:
+                      - generic [aria-hidden] [ref=f13e759]: NFE_RESP…CH_PHONE
+              - generic [ref=f13e761]: Production
+              - generic [ref=f13e767]:
+                - generic [ref=f13e770]:
+                  - generic [ref=f13e772] [cursor=pointer]:
+                    - generic [ref=f13e773]: Added
+                    - generic [ref=f13e774]: Sep 22
+                  - generic [ref=f13e775] [cursor=pointer]
+                - button "Menu" [ref=f13e780] [cursor=pointer]
+            - generic [ref=f13e788]:
+              - generic [ref=f13e789]:
+                - img "Secret environment variable" [ref=f13e792]
+                - button "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e801] [cursor=pointer]:
+                  - generic "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e802]:
+                    - generic "NFE_RESPONSIBLE_TECH_PHONE" [ref=f13e803]:
+                      - generic [aria-hidden] [ref=f13e805]: NFE_RESP…CH_PHONE
+              - generic [ref=f13e807]: Preview
+              - generic [ref=f13e813]:
+                - generic [ref=f13e816]:
+                  - generic [ref=f13e818] [cursor=pointer]:
+                    - generic [ref=f13e819]: Added
+                    - generic [ref=f13e820]: Sep 22
+                  - generic [ref=f13e821] [cursor=pointer]
+                - button "Menu" [ref=f13e826] [cursor=pointer]
+            - generic [ref=f13e834]:
+              - generic [ref=f13e835]:
+                - img "Config environment variable" [ref=f13e838]
+                - button "VITE_AUDIT_USER" [ref=f13e847] [cursor=pointer]
+              - generic [ref=f13e854]:
+                - button "Reveal Value" [ref=f13e855] [cursor=pointer]
+                - generic [ref=f13e859]: •••••••••••••••
+              - generic [ref=f13e860]: Production
+              - generic [ref=f13e866]:
+                - generic [ref=f13e869]:
+                  - generic [ref=f13e871] [cursor=pointer]:
+                    - generic [ref=f13e872]: Added
+                    - generic [ref=f13e873]: Sep 6
+                  - generic [ref=f13e874] [cursor=pointer]
+                - button "Menu" [ref=f13e879] [cursor=pointer]
+            - generic [ref=f13e887]:
+              - generic [ref=f13e888]:
+                - img "Config environment variable" [ref=f13e891]
+                - button "VITE_AUDIT_PASS" [ref=f13e900] [cursor=pointer]
+              - generic [ref=f13e907]:
+                - button "Reveal Value" [ref=f13e908] [cursor=pointer]
+                - generic [ref=f13e912]: •••••••••••••••
+              - generic [ref=f13e913]: Production
+              - generic [ref=f13e919]:
+                - generic [ref=f13e922]:
+                  - generic [ref=f13e924] [cursor=pointer]:
+                    - generic [ref=f13e925]: Added
+                    - generic [ref=f13e926]: Sep 6
+                  - generic [ref=f13e927] [cursor=pointer]
+                - button "Menu" [ref=f13e932] [cursor=pointer]
+            - generic [ref=f13e940]:
+              - generic [ref=f13e941]:
+                - img "Config environment variable" [ref=f13e944]
+                - button "VITE_GOOGLE_MAPS_API_KEY" [ref=f13e953] [cursor=pointer]:
+                  - generic "VITE_GOOGLE_MAPS_API_KEY" [ref=f13e954]:
+                    - generic "VITE_GOOGLE_MAPS_API_KEY" [ref=f13e955]:
+                      - generic [aria-hidden] [ref=f13e957]: VITE_GOO…_API_KEY
+              - generic [ref=f13e961]:
+                - button "Reveal Value" [ref=f13e962] [cursor=pointer]
+                - generic [ref=f13e966]: •••••••••••••••
+              - generic [ref=f13e967]: Production
+              - generic [ref=f13e973]:
+                - generic [ref=f13e976]:
+                  - generic [ref=f13e978] [cursor=pointer]:
+                    - generic [ref=f13e979]: Added
+                    - generic [ref=f13e980]: Sep 6
+                  - generic [ref=f13e981] [cursor=pointer]
+                - button "Menu" [ref=f13e986] [cursor=pointer]
+            - generic [ref=f13e994]:
+              - generic [ref=f13e995]:
+                - img "Config environment variable" [ref=f13e998]
+                - generic [ref=f13e1004]:
+                  - button "MORANTEHUB_MCP_ACCESS_TOKEN" [ref=f13e1007] [cursor=pointer]:
+                    - generic "MORANTEHUB_MCP_ACCESS_TOKEN" [ref=f13e1008]:
+                      - generic "MORANTEHUB_MCP_ACCESS_TOKEN" [ref=f13e1009]:
+                        - generic [aria-hidden] [ref=f13e1011]: M…N
+                  - generic "MORANTEHUB_MCP_ACCESS_TOKEN looks like a secret; consider rotating and saving as Secret" [ref=f13e1015]: Needs Attention
+              - generic [ref=f13e1020]:
+                - button "Reveal Value" [ref=f13e1021] [cursor=pointer]
+                - generic [ref=f13e1025]: •••••••••••••••
+              - generic [ref=f13e1026]: Production
+              - generic [ref=f13e1032]:
+                - generic [ref=f13e1035]:
+                  - generic [ref=f13e1037] [cursor=pointer]:
+                    - generic [ref=f13e1038]: Added
+                    - generic [ref=f13e1039]: Sep 6
+                  - generic [ref=f13e1040] [cursor=pointer]
+                - button "Menu" [ref=f13e1045] [cursor=pointer]
+            - generic [ref=f13e1053]:
+              - generic [ref=f13e1054]:
+                - img "Config environment variable" [ref=f13e1057]
+                - generic [ref=f13e1063]:
+                  - button "MCP_CHATGPT_TOKEN" [ref=f13e1066] [cursor=pointer]:
+                    - generic "MCP_CHATGPT_TOKEN" [ref=f13e1067]:
+                      - generic "MCP_CHATGPT_TOKEN" [ref=f13e1068]:
+                        - generic [aria-hidden] [ref=f13e1070]: M…N
+                  - generic "MCP_CHATGPT_TOKEN looks like a secret; consider rotating and saving as Secret" [ref=f13e1074]: Needs Attention
+              - generic [ref=f13e1079]:
+                - button "Reveal Value" [ref=f13e1080] [cursor=pointer]
+                - generic [ref=f13e1084]: •••••••••••••••
+              - generic [ref=f13e1085]: Production
+              - generic [ref=f13e1091]:
+                - generic [ref=f13e1094]:
+                  - generic [ref=f13e1096] [cursor=pointer]:
+                    - generic [ref=f13e1097]: Added
+                    - generic [ref=f13e1098]: Sep 6
+                  - generic [ref=f13e1099] [cursor=pointer]
+                - button "Menu" [ref=f13e1104] [cursor=pointer]
+            - generic [ref=f13e1112]:
+              - generic [ref=f13e1113]:
+                - img "Config environment variable" [ref=f13e1116]
+                - generic [ref=f13e1122]:
+                  - button "MCP_ANTIGRAVITY_TOKEN" [ref=f13e1125] [cursor=pointer]:
+                    - generic "MCP_ANTIGRAVITY_TOKEN" [ref=f13e1126]:
+                      - generic "MCP_ANTIGRAVITY_TOKEN" [ref=f13e1127]:
+                        - generic [aria-hidden] [ref=f13e1129]: M…N
+                  - generic "MCP_ANTIGRAVITY_TOKEN looks like a secret; consider rotating and saving as Secret" [ref=f13e1133]: Needs Attention
+              - generic [ref=f13e1138]:
+                - button "Reveal Value" [ref=f13e1139] [cursor=pointer]
+                - generic [ref=f13e1143]: •••••••••••••••
+              - generic [ref=f13e1144]: Production
+              - generic [ref=f13e1150]:
+                - generic [ref=f13e1153]:
+                  - generic [ref=f13e1155] [cursor=pointer]:
+                    - generic [ref=f13e1156]: Added
+                    - generic [ref=f13e1157]: Sep 6
+                  - generic [ref=f13e1158] [cursor=pointer]
+                - button "Menu" [ref=f13e1163] [cursor=pointer]
+            - generic [ref=f13e1171]:
+              - generic [ref=f13e1172]:
+                - img "Config environment variable" [ref=f13e1175]
+                - button "MCP_PORT" [ref=f13e1184] [cursor=pointer]
+              - generic [ref=f13e1191]:
+                - button "Reveal Value" [ref=f13e1192] [cursor=pointer]
+                - generic [ref=f13e1196]: •••••••••••••••
+              - generic [ref=f13e1197]: Production
+              - generic [ref=f13e1203]:
+                - generic [ref=f13e1206]:
+                  - generic [ref=f13e1208] [cursor=pointer]:
+                    - generic [ref=f13e1209]: Added
+                    - generic [ref=f13e1210]: Sep 6
+                  - generic [ref=f13e1211] [cursor=pointer]
+                - button "Menu" [ref=f13e1216] [cursor=pointer]
+            - generic [ref=f13e1224]:
+              - generic [ref=f13e1225]:
+                - img "Config environment variable" [ref=f13e1228]
+                - button "MCP_RATE_LIMIT_PER_MINUTE" [ref=f13e1237] [cursor=pointer]:
+                  - generic "MCP_RATE_LIMIT_PER_MINUTE" [ref=f13e1238]:
+                    - generic "MCP_RATE_LIMIT_PER_MINUTE" [ref=f13e1239]:
+                      - generic [aria-hidden] [ref=f13e1241]: MCP_RATE…R_MINUTE
+              - generic [ref=f13e1245]:
+                - button "Reveal Value" [ref=f13e1246] [cursor=pointer]
+                - generic [ref=f13e1250]: •••••••••••••••
+              - generic [ref=f13e1251]: Production
+              - generic [ref=f13e1257]:
+                - generic [ref=f13e1260]:
+                  - generic [ref=f13e1262] [cursor=pointer]:
+                    - generic [ref=f13e1263]: Added
+                    - generic [ref=f13e1264]: Sep 6
+                  - generic [ref=f13e1265] [cursor=pointer]
+                - button "Menu" [ref=f13e1270] [cursor=pointer]
+            - generic [ref=f13e1278]:
+              - generic [ref=f13e1279]:
+                - img "Config environment variable" [ref=f13e1282]
+                - button "MCP_ALLOWED_CLIENTS" [ref=f13e1291] [cursor=pointer]:
+                  - generic "MCP_ALLOWED_CLIENTS" [ref=f13e1292]:
+                    - generic "MCP_ALLOWED_CLIENTS" [ref=f13e1293]:
+                      - generic [aria-hidden] [ref=f13e1295]: MCP_ALLO…_CLIENTS
+              - generic [ref=f13e1299]:
+                - button "Reveal Value" [ref=f13e1300] [cursor=pointer]
+                - generic [ref=f13e1304]: •••••••••••••••
+              - generic [ref=f13e1305]: Production
+              - generic [ref=f13e1311]:
+                - generic [ref=f13e1314]:
+                  - generic [ref=f13e1316] [cursor=pointer]:
+                    - generic [ref=f13e1317]: Added
+                    - generic [ref=f13e1318]: Sep 6
+                  - generic [ref=f13e1319] [cursor=pointer]
+                - button "Menu" [ref=f13e1324] [cursor=pointer]
+            - generic [ref=f13e1332]:
+              - generic [ref=f13e1333]:
+                - img "Config environment variable" [ref=f13e1336]
+                - button "CLOUDFLARE_ACCOUNT_ID" [ref=f13e1345] [cursor=pointer]:
+                  - generic "CLOUDFLARE_ACCOUNT_ID" [ref=f13e1346]:
+                    - generic "CLOUDFLARE_ACCOUNT_ID" [ref=f13e1347]:
+                      - generic [aria-hidden] [ref=f13e1349]: CLOUDFLA…COUNT_ID
+              - generic [ref=f13e1353]:
+                - button "Reveal Value" [ref=f13e1354] [cursor=pointer]
+                - generic [ref=f13e1358]: •••••••••••••••
+              - generic [ref=f13e1359]: Production and Preview
+              - generic [ref=f13e1365]:
+                - generic [ref=f13e1368]:
+                  - generic [ref=f13e1370] [cursor=pointer]:
+                    - generic [ref=f13e1371]: Added
+                    - generic [ref=f13e1372]: Aug 29
+                  - generic [ref=f13e1373] [cursor=pointer]
+                - button "Menu" [ref=f13e1378] [cursor=pointer]
+            - generic [ref=f13e1386]:
+              - generic [ref=f13e1387]:
+                - img "Config environment variable" [ref=f13e1390]
+                - button "R2_ACCESS_KEY_ID" [ref=f13e1399] [cursor=pointer]
+              - generic [ref=f13e1406]:
+                - button "Reveal Value" [ref=f13e1407] [cursor=pointer]
+                - generic [ref=f13e1411]: •••••••••••••••
+              - generic [ref=f13e1412]: Production and Preview
+              - generic [ref=f13e1418]:
+                - generic [ref=f13e1421]:
+                  - generic [ref=f13e1423] [cursor=pointer]:
+                    - generic [ref=f13e1424]: Added
+                    - generic [ref=f13e1425]: Aug 29
+                  - generic [ref=f13e1426] [cursor=pointer]
+                - button "Menu" [ref=f13e1431] [cursor=pointer]
+          - generic [ref=f13e1440]:
+            - checkbox "Enable access to System Environment Variables" [checked] [ref=f13e1443]
+            - generic [ref=f13e1447]:
+              - text: Enable access to
+              - link "System Environment Variables" [ref=f13e1448] [cursor=pointer]:
+                - /url: /docs/environment-variables/system-environment-variables
+  - alert [ref=f13e1451]

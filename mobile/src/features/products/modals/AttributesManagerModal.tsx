@@ -14,18 +14,14 @@ import {
 import {
   X,
   Plus,
-  Trash2,
   Sliders,
   ChevronDown,
   ChevronRight,
   Tag,
-  Edit2,
-  Check,
 } from 'lucide-react-native';
 import {
   fetchMobileAttributes,
   saveMobileAttribute,
-  deleteMobileAttribute,
   addMobileAttributeValue,
   deleteMobileAttributeValue,
   MobileAttribute,
@@ -53,8 +49,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [newAttrName, setNewAttrName] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -62,7 +56,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     try {
       const data = await fetchMobileAttributes();
       setAttributes(data);
-    } catch (_) {
+    } catch {
       setLoadError('Não foi possível carregar as características. Tente novamente.');
     } finally {
       setLoading(false);
@@ -90,24 +84,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     load();
   };
 
-  const handleDeleteAttr = (id: string, name: string) => {
-    Alert.alert(
-      'Excluir Atributo',
-      `Deseja excluir o atributo "${name}" e todos os seus valores?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteMobileAttribute(id);
-            load();
-          },
-        },
-      ]
-    );
-  };
-
   const handleAddValue = async (attrId: string) => {
     const attr = attributes.find((a) => a.id === attrId);
     const existingOptions = (attr?.options || []).map((o) => ({ id: o.id, value: o.value }));
@@ -123,23 +99,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   const handleDeleteValue = async (valId: string) => {
     await deleteMobileAttributeValue(valId);
-    load();
-  };
-
-  const handleSaveEdit = async (id: string) => {
-    const validation = validateAttribute(editName, attributes, id);
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Nome inválido.');
-      return;
-    }
-    const current = attributes.find((attribute) => attribute.id === id);
-    await saveMobileAttribute(validation.formattedName!, id, {
-      dataType: current?.dataType,
-      unit: current?.unit,
-      isGloballyRequired: current?.isGloballyRequired,
-    });
-    setEditingId(null);
-    setEditName('');
     load();
   };
 
@@ -252,55 +211,13 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                             ) : (
                               <ChevronRight size={16} color="#94a3b8" />
                             )}
-                            {editingId === attr.id ? (
-                              <TextInput
-                                value={editName}
-                                onChangeText={setEditName}
-                                autoFocus
-                                style={[
-                                  styles.editInput,
-                                  dark && styles.darkInput,
-                                  dark && styles.light,
-                                ]}
-                              />
-                            ) : (
-                              <Text style={[styles.attrName, dark && styles.light]}>
-                                {attr.name}
-                              </Text>
-                            )}
+                            <Text style={[styles.attrName, dark && styles.light]}>
+                              {attr.name}
+                            </Text>
                             <Text style={styles.valCount}>
                               ({attr.options.length} opções · {attr.dataType || 'text_short'}
                               {attr.isGloballyRequired ? ' · obrigatória' : ''})
                             </Text>
-                          </View>
-                          <View style={styles.attrActions}>
-                            {editingId === attr.id ? (
-                              <TouchableOpacity
-                                onPress={() => void handleSaveEdit(attr.id)}
-                                style={styles.trashBtn}
-                              >
-                                <Check size={15} color="#059669" />
-                              </TouchableOpacity>
-                            ) : (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setEditingId(attr.id);
-                                  setEditName(attr.name);
-                                  setNewDataType(attr.dataType || 'text_short');
-                                  setNewUnit(attr.unit || '');
-                                  setNewRequired(Boolean(attr.isGloballyRequired));
-                                }}
-                                style={styles.trashBtn}
-                              >
-                                <Edit2 size={15} color="#2563eb" />
-                              </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                              onPress={() => handleDeleteAttr(attr.id, attr.name)}
-                              style={styles.trashBtn}
-                            >
-                              <Trash2 size={15} color="#ef4444" />
-                            </TouchableOpacity>
                           </View>
                         </TouchableOpacity>
 
@@ -418,17 +335,6 @@ const styles = StyleSheet.create({
   attrTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   attrName: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
   valCount: { fontSize: 11, color: '#64748b', fontWeight: '600' },
-  trashBtn: { padding: 4 },
-  attrActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editInput: {
-    minWidth: 120,
-    height: 32,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    fontSize: 13,
-  },
   valuesArea: {
     paddingHorizontal: 12,
     paddingBottom: 12,

@@ -1,0 +1,105 @@
+- generic [ref=f16e1]:
+  - generic [ref=f16e2]:
+    - generic [ref=f16e3]:
+      - region "Notifications Alt+T"
+      - banner [ref=f16e5]:
+        - generic [ref=f16e6]:
+          - button "" [ref=f16e7] [cursor=pointer]
+          - link [ref=f16e9] [cursor=pointer]:
+            - /url: /
+            - img "ERP Móveis Morante" [ref=f16e11]
+          - text:                 
+        - generic [ref=f16e12]:
+          - button "" [ref=f16e14] [cursor=pointer]
+          - button "" [ref=f16e16] [cursor=pointer]
+          - button "M Matheus Morante Administrador " [ref=f16e19] [cursor=pointer]:
+            - generic [ref=f16e20]: M
+            - generic [ref=f16e21]:
+              - generic [ref=f16e22]: Matheus Morante
+              - generic [ref=f16e23]: Administrador
+            - generic [ref=f16e24]: 
+      - main [ref=f16e25]:
+        - generic [ref=f16e27]:
+          - button " Nova Venda" [ref=f16e32] [cursor=pointer]:
+            - generic [ref=f16e33]: 
+            - generic [ref=f16e34]: Nova Venda
+          - generic [ref=f16e39]:
+            - generic [ref=f16e41]:
+              - generic: 
+              - textbox "Buscar pedido pelo nome do cliente..." [ref=f16e42]: Paulo Cesar Martins
+              - button "" [ref=f16e812] [cursor=pointer]
+            - generic [ref=f16e43]:
+              - button "#002638 Nota fiscal não emitida   Bling    Saída de estoque ainda não registrada Paulo Cesar Martins Pedido  21/08/2026 Entrega  22/08/2026  09:00 às 12:00 Total R$ 449,00 " [ref=f16e816] [cursor=pointer]:
+                - generic [ref=f16e817]:
+                  - generic [ref=f16e818]: "#002638"
+                  - generic [ref=f16e820]:
+                    - generic "Nota fiscal não emitida" [ref=f16e821]: NF
+                    - generic [ref=f16e823]:
+                      - button " " [ref=f16e825]:
+                        - generic [ref=f16e826]: 
+                        - generic: 
+                      - button "Bling " [ref=f16e828]:
+                        - generic [ref=f16e829]: Bling
+                        - generic: 
+                      - button "" [ref=f16e831]
+                      - generic "Entrega" [ref=f16e833]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f16e836]
+                - generic [ref=f16e841]:
+                  - heading "Paulo Cesar Martins" [level=3] [ref=f16e842]
+                  - generic [ref=f16e843]:
+                    - generic [ref=f16e844]:
+                      - generic [ref=f16e845]: Pedido
+                      - generic [ref=f16e846]:
+                        - generic [ref=f16e847]: 
+                        - generic [ref=f16e848]: 21/08/2026
+                    - generic [ref=f16e849]:
+                      - generic [ref=f16e850]: Entrega
+                      - generic [ref=f16e851]:
+                        - generic [ref=f16e852]: 
+                        - generic [ref=f16e853]: 22/08/2026
+                    - generic [ref=f16e855]:
+                      - generic [ref=f16e856]: 
+                      - generic [ref=f16e857]: 09:00 às 12:00
+                - generic [ref=f16e858]:
+                  - generic [ref=f16e859]:
+                    - generic [ref=f16e860]: Total
+                    - generic [ref=f16e861]: R$ 449,00
+                  - button "" [active] [ref=f16e864]
+              - generic [ref=f16e866]:
+                - generic [ref=f16e867]:
+                  - generic [ref=f16e868]:
+                    - text: Exibindo
+                    - generic [ref=f16e869]: 1-1
+                    - text: de 1 pedidos
+                  - generic [ref=f16e870]: •
+                  - generic [ref=f16e871]: (15 por página)
+                - generic [ref=f16e872]:
+                  - button "" [disabled]
+                  - button "1" [ref=f16e874]
+                  - button "" [disabled]
+      - generic [ref=f16e806]:
+        - generic:
+          - generic:
+            - generic: Seu Lizandro
+            - generic: Agente IA do ERP
+        - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f16e807] [cursor=pointer]:
+          - img "Seu Lizandro - Agente IA" [ref=f16e809]
+    - region "Notifications Alt+T"
+  - generic [ref=f16e1002]:
+    - button " Conciliação Comercial" [ref=f16e1003] [cursor=pointer]:
+      - generic [ref=f16e1004]: 
+      - generic [ref=f16e1005]: Conciliação Comercial
+    - button " Ações pós-venda" [ref=f16e1006] [cursor=pointer]:
+      - generic [ref=f16e1007]: 
+      - generic [ref=f16e1008]: Ações pós-venda
+    - button " Gerar Pedido de Devolução" [ref=f16e1009] [cursor=pointer]:
+      - generic [ref=f16e1010]:
+        - generic [ref=f16e1011]: 
+        - generic [ref=f16e1012]: Gerar Pedido de Devolução
+    - button " Duplicar Pedido" [ref=f16e1013] [cursor=pointer]:
+      - generic [ref=f16e1014]:
+        - generic [ref=f16e1015]: 
+        - generic [ref=f16e1016]: Duplicar Pedido
+    - button " Corrigir entrega" [ref=f16e1018] [cursor=pointer]:
+      - generic [ref=f16e1019]: 
+      - generic [ref=f16e1020]: Corrigir entrega

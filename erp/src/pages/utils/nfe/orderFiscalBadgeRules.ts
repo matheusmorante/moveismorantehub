@@ -1,4 +1,4 @@
-export type OrderFiscalBadgeStatus = 'not_issued' | 'issued' | 'cancelled' | 'reversed';
+export type OrderFiscalBadgeStatus = 'not_issued' | 'issued' | 'cancelled' | 'return' | 'estorno';
 
 export interface FiscalDocumentStatusRow {
   order_id: string | null;
@@ -15,15 +15,11 @@ const isOutbound = (document: FiscalDocumentStatusRow): boolean =>
 export const resolveOrderFiscalBadgeStatus = (
   documents: readonly FiscalDocumentStatusRow[]
 ): OrderFiscalBadgeStatus => {
-  if (
-    documents.some(
-      (document) =>
-        (document.document_type === 'return' || document.document_type === 'estorno') &&
-        isAuthorized(document)
-    )
-  ) {
-    return 'reversed';
-  }
+  if (documents.some((document) => document.document_type === 'return' && isAuthorized(document)))
+    return 'return';
+
+  if (documents.some((document) => document.document_type === 'estorno' && isAuthorized(document)))
+    return 'estorno';
 
   if (documents.some((document) => isOutbound(document) && isAuthorized(document))) {
     return 'issued';

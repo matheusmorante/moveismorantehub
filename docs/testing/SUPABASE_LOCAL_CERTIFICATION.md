@@ -28,7 +28,9 @@ Avalie todos os componentes usados pelo escopo declarado, registrando `Não apli
 
 ## Barreira contra ambiente remoto
 
-Antes de cada suíte com escrita ou que alegue integração, um preflight deve falhar fechado até confirmar e registrar:
+Esta certificação comprova o laboratório local; não é um preflight obrigatório para todo E2E ou teste fiscal. Para uma execução de teste, confirme destino e isolamento uma vez por `testRunId`/contexto e reutilize o resultado enquanto configuração, projeto, endpoints, processo cliente e ambiente não mudarem. Refaça apenas a parte invalidada por mudança ou evidência nova.
+
+Para cada nova execução com escrita local ou que alegue integração, o preflight deve falhar fechado até confirmar e registrar:
 
 1. API em `http://127.0.0.1:54321` e PostgreSQL no host `127.0.0.1` e porta local declarada no `config.toml` (normalmente `54322`; usar o valor configurado, sem assumir);
 2. `project_id` e projeto local esperados;

@@ -1,23 +1,20 @@
 import { useMemo, useState } from 'react';
 import VariationType, { VariationOption } from '../../types/variation.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
+import { getCharacteristicSubtitle } from '../../utils/technicalValuesService';
 
 const VALUE_PREVIEW_LIMIT = 15;
 
 interface AttributeCardProps {
   readonly attribute: VariationType;
   readonly onAddValues: (attribute: VariationType, input: string) => Promise<boolean>;
-  readonly onDeleteAttribute: (attributeId: string, event: React.MouseEvent) => void;
   readonly onDeleteValue: (attribute: VariationType, option: VariationOption) => Promise<void>;
-  readonly onEdit: (attribute: VariationType) => void;
 }
 
 export function AttributeCard({
   attribute,
   onAddValues,
-  onDeleteAttribute,
   onDeleteValue,
-  onEdit,
 }: AttributeCardProps) {
   const canAddOptions = ['radio', 'multi_select'].includes(attribute.dataType || '');
   const [isExpanded, setIsExpanded] = useState(false);
@@ -85,6 +82,11 @@ export function AttributeCard({
             <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
               {getSubtitle()}
             </span>
+            {getCharacteristicSubtitle(attribute.name) && (
+              <span className="block text-xs text-slate-500 dark:text-slate-400 font-normal mt-1 leading-relaxed">
+                {getCharacteristicSubtitle(attribute.name)}
+              </span>
+            )}
           </span>
         </div>
 
@@ -111,17 +113,6 @@ export function AttributeCard({
                 <i className="bi bi-eye mr-2" aria-hidden="true" />
                 Detalhes
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit(attribute);
-                }}
-                className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                <i className="bi bi-pencil mr-2" aria-hidden="true" />
-                Editar atributo
-              </button>
               {canAddOptions && (
                 <button
                   type="button"
@@ -136,17 +127,6 @@ export function AttributeCard({
                   Adicionar opções
                 </button>
               )}
-              <button
-                type="button"
-                onClick={(event) => {
-                  setMenuOpen(false);
-                  onDeleteAttribute(attribute.id!, event);
-                }}
-                className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 cursor-pointer"
-              >
-                <i className="bi bi-trash mr-2" aria-hidden="true" />
-                Excluir atributo
-              </button>
             </div>
           )}
         </div>

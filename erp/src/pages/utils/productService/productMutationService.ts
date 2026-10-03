@@ -261,6 +261,46 @@ export const updateProduct = async (
   await syncProductToSupabase(updatedProduct);
 };
 
+export const updateProductFiscalNcm = async (id: string, ncm: string): Promise<void> => {
+  if (!/^\d{8}$/.test(ncm)) throw new Error('Informe um NCM com 8 dígitos.');
+
+  const { data: current, error: readError } = await supabase
+    .from(TABLE_NAME)
+    .select('fiscal')
+    .eq('id', id)
+    .single();
+  if (readError) throw readError;
+
+  const currentFiscal = (current.fiscal || {}) as Record<string, unknown>;
+  const nextFiscal = { ...currentFiscal, ncm };
+  let updateQuery = supabase.from(TABLE_NAME)
+    .update({ fiscal: nextFiscal, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  updateQuery = current.fiscal == null
+    ? updateQuery.is('fiscal', null)
+    : updateQuery.eq('fiscal', current.fiscal);
+  const { data: updated, error: updateError } = await updateQuery
+    .select('id,fiscal,updated_at')
+    .maybeSingle();
+  if (updateError) throw updateError;
+  if (!updated) throw new Error('O cadastro fiscal mudou durante a confirmação. Confira e tente novamente.');
+
+  const products = getLocalProducts();
+  const productIndex = products.findIndex((product) => String(product.id) === String(id));
+  if (productIndex >= 0) {
+    products[productIndex] = {
+      ...products[productIndex],
+      fiscal: updated.fiscal as Product['fiscal'],
+      updatedAt: updated.updated_at,
+    };
+    saveLocalProducts(products);
+    notifySubscribers();
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('product-updated', { detail: { productId: id } }));
+  }
+};
+
 export const bulkMoveToTrash = async (
   ids: string[]
 ): Promise<{

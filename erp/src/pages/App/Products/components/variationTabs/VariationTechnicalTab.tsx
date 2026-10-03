@@ -4,6 +4,7 @@ import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import {
+  getCharacteristicSubtitle,
   TechnicalFieldDefinition,
   getApplicableTechnicalFields,
   getAvailableAdditionalFields,
@@ -106,8 +107,19 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
           return {
             id: attr.id,
             name: attr.name,
+            subtitle: getCharacteristicSubtitle(attr.name),
             dataType: attr.data_type || 'list',
-            unit: attr.unit || undefined,
+            unit:
+              attr.unit ||
+              (['altura', 'largura', 'profundidade', 'comprimento do espelho', 'largura do espelho', 'altura do espelho'].includes(
+                String(attr.name).toLocaleLowerCase('pt-BR')
+              )
+                ? 'cm'
+                : String(attr.name).toLocaleLowerCase('pt-BR').includes('peso')
+                  ? 'kg'
+                  : String(attr.name).toLocaleLowerCase('pt-BR').includes('polegada')
+                    ? '"'
+                    : undefined),
             isRequired: isRequiredCharacteristicName(String(attr.name)),
             isCustom: Boolean(attr.is_custom),
             options: opts,
@@ -416,6 +428,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                           </div>
                         </div>
 
+                        {field.subtitle && (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium normal-case leading-tight -mt-0.5">
+                            {field.subtitle}
+                          </span>
+                        )}
                         <TechnicalFieldInput
                           field={field}
                           value={

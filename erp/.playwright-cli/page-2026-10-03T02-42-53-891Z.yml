@@ -1,0 +1,219 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - link "Skip to content" [ref=e6] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - link "Supabase Back to organization home" [ref=e12] [cursor=pointer]:
+            - /url: /dashboard/org/zbuarczhhocaascycmne
+            - img "Supabase" [ref=e13]
+            - generic [ref=e14]: Back to organization home
+          - generic [ref=e15]:
+            - generic [ref=e19]:
+              - link "moveismorante Pro" [ref=e20] [cursor=pointer]:
+                - /url: /dashboard/org/zbuarczhhocaascycmne
+                - generic [ref=e31]: moveismorante
+                - generic [ref=e32]: Pro
+              - button "Show organizations" [ref=e33] [cursor=pointer]
+            - generic [ref=e38]:
+              - generic [ref=e42]:
+                - link "MoranteHub" [ref=e43] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                - button "Show organization projects" [ref=e48] [cursor=pointer]
+              - generic [ref=e56]:
+                - link "main Production" [ref=e57] [cursor=pointer]:
+                  - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+                  - generic "main" [ref=e58]
+                  - generic [ref=e59]: Production
+                - button "Show project branches" [ref=e60] [cursor=pointer]
+          - button "Connect" [ref=e66] [cursor=pointer]
+        - generic [ref=e71]:
+          - button "Feedback" [ref=e72] [cursor=pointer]
+          - generic [ref=e74]:
+            - button [ref=e75] [cursor=pointer]:
+              - paragraph [ref=e80]: Search...
+              - generic [ref=e82]: Ctrl K
+            - button "Help" [ref=e83] [cursor=pointer]
+            - button "Advisor Center" [ref=e90] [cursor=pointer]
+            - button "SQL Editor" [ref=e96] [cursor=pointer]
+            - button "AI Assistant" [ref=e101] [cursor=pointer]
+          - button [ref=e109] [cursor=pointer]:
+            - img "matheusmorante" [ref=e111]
+    - generic [ref=e112]:
+      - generic [ref=e116]:
+        - navigation [ref=e118]:
+          - list [ref=e120]:
+            - listitem [ref=e121]:
+              - link "Project Overview" [ref=e122] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws
+            - listitem [ref=e125]:
+              - link "Table Editor" [ref=e126] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/editor
+            - listitem [ref=e129]:
+              - link "SQL Editor" [ref=e130] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/sql
+          - list [ref=e134]:
+            - listitem [ref=e135]:
+              - link "Database" [ref=e136] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/database/schemas
+            - listitem [ref=e141]:
+              - link "Authentication" [ref=e142] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/auth/users
+            - listitem [ref=e145]:
+              - link "Storage" [ref=e146] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/storage/files
+            - listitem [ref=e149]:
+              - link "Edge Functions" [ref=e150] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/functions
+            - listitem [ref=e156]:
+              - link "Realtime" [ref=e157] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/realtime/inspector
+          - list [ref=e161]:
+            - listitem [ref=e162]:
+              - link "Advisors" [ref=e163] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/advisors/security
+            - listitem [ref=e167]:
+              - link "Observability" [ref=e168] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/observability
+            - listitem [ref=e177]:
+              - link "Logs" [ref=e178] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/logs
+            - listitem [ref=e180]:
+              - link "Integrations" [ref=e181] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations
+          - list [ref=e186]:
+            - listitem [ref=e187]:
+              - link "Project Settings" [ref=e188] [cursor=pointer]:
+                - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+        - button "Sidebar control" [ref=e194] [cursor=pointer]
+      - main [ref=e201]:
+        - generic [ref=e203]:
+          - generic [ref=e207]:
+            - heading "Settings" [level=4] [ref=e209]
+            - menu "Sidebar" [disabled] [ref=e212]:
+              - list [ref=e213]:
+                - generic [ref=e216]:
+                  - generic [ref=e217]: Configuration
+                  - generic [ref=e221]:
+                    - link [disabled] [ref=e222] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/general
+                      - menuitem "General" [disabled] [ref=e223]
+                    - link [disabled] [ref=e228] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/infrastructure
+                      - menuitem "Infrastructure" [disabled] [ref=e229]
+                    - link [disabled] [ref=e234] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/integrations
+                      - menuitem "Integrations" [disabled] [ref=e235]
+                    - link [disabled] [ref=e240] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/api-keys
+                      - menuitem "API Keys" [disabled] [ref=e241]
+                    - link [disabled] [ref=e246] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/jwt
+                      - menuitem "JWT Keys" [disabled] [ref=e247]
+                    - link [disabled] [ref=e252] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/log-drains
+                      - menuitem "Log Drains" [disabled] [ref=e253]
+                    - link [disabled] [ref=e258] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/addons
+                      - menuitem "Add-ons" [disabled] [ref=e259]
+                - generic [ref=e267]:
+                  - generic [ref=e268]: Integrations
+                  - generic [ref=e272]:
+                    - link [disabled] [ref=e273] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations/data_api/overview
+                      - menuitem "Data API" [disabled] [ref=e274]:
+                        - generic "Data API" [ref=e277]
+                    - link [disabled] [ref=e283] [cursor=pointer]:
+                      - /url: /dashboard/project/hkoxhourxwlddgsfdgws/integrations/vault/overview
+                      - menuitem "Vault Beta" [disabled] [ref=e284]:
+                        - generic "Vault" [ref=e287]: Beta
+                - generic [ref=e297]:
+                  - generic [ref=e298]: Billing
+                  - generic [ref=e302]:
+                    - link [disabled] [ref=e303] [cursor=pointer]:
+                      - /url: /dashboard/org/zbuarczhhocaascycmne/billing
+                      - menuitem "Subscription" [disabled] [ref=e304]:
+                        - generic "Subscription" [ref=e307]
+                    - link [disabled] [ref=e313] [cursor=pointer]:
+                      - /url: /dashboard/org/zbuarczhhocaascycmne/usage?projectRef=hkoxhourxwlddgsfdgws
+                      - menuitem "Usage" [disabled] [ref=e314]:
+                        - generic "Usage" [ref=e317]
+          - separator [disabled] [ref=e323]
+          - main [ref=e334]:
+            - generic [ref=e335]:
+              - generic [ref=e336]:
+                - generic [ref=e338]:
+                  - generic [ref=e341]:
+                    - heading "API Keys" [level=1] [ref=e342]
+                    - paragraph [ref=e343]: Configure API keys to securely control access to your project
+                  - link "Docs" [ref=e346] [cursor=pointer]:
+                    - /url: https://supabase.com/docs/guides/api/api-keys
+                - navigation [ref=e352]:
+                  - menu [ref=e353]:
+                    - listitem [ref=e354]:
+                      - link "Publishable and secret API keys" [ref=e355] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/api-keys
+                    - listitem [ref=e356]:
+                      - link "Legacy anon, service_role API keys" [ref=e357] [cursor=pointer]:
+                        - /url: /dashboard/project/hkoxhourxwlddgsfdgws/settings/api-keys/legacy
+              - generic [ref=e358]:
+                - generic [ref=e359]:
+                  - generic [ref=e360]:
+                    - paragraph [ref=e361]: Create API keys
+                    - paragraph [ref=e362]: Use keys to authenticate requests to your app
+                    - button "Create new API keys" [ref=e364] [cursor=pointer]
+                  - generic [ref=e366]:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - table:
+                              - rowgroup:
+                                - row "Name API Key":
+                                  - columnheader "Name"
+                                  - columnheader "API Key"
+                                  - columnheader
+                              - rowgroup:
+                                - row "web sb_publishable_ltaNA7nnVozoSCOcZIjg Copy API key":
+                                  - cell "web"
+                                  - cell "sb_publishable_ltaNA7nnVozoSCOcZIjg Copy API key":
+                                    - generic:
+                                      - generic:
+                                        - generic "sb_publishable_ltaNA7nnVozoSCOcZIjg"
+                                      - button "Copy API key" [ref=e367] [cursor=pointer]
+                                  - cell
+                                - row "mobile sb_publishable_YpotEpinEWsC2dI7FIKI Copy API key":
+                                  - cell "mobile"
+                                  - cell "sb_publishable_YpotEpinEWsC2dI7FIKI Copy API key":
+                                    - generic:
+                                      - generic:
+                                        - generic "sb_publishable_YpotEpinEWsC2dI7FIKI"
+                                      - button "Copy API key" [ref=e372] [cursor=pointer]
+                                  - cell
+                                - row "backend_api sb_secret_8I4Se •••••••••••••••• Reveal API key Copy API key":
+                                  - cell "backend_api"
+                                  - cell "sb_secret_8I4Se •••••••••••••••• Reveal API key Copy API key":
+                                    - generic:
+                                      - generic:
+                                        - generic: sb_secret_8I4Se
+                                        - generic: ••••••••••••••••
+                                      - button "Reveal API key" [ref=e377] [cursor=pointer]
+                                      - button "Copy API key" [ref=e382] [cursor=pointer]
+                                  - cell
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "Publishable key" [level=3]
+                        - paragraph: This key is safe to use in a browser if you have enabled Row Level Security (RLS) for your tables and configured policies.
+                      - generic:
+                        - button "New publishable key"
+                  - generic:
+                    - generic:
+                      - generic:
+                        - heading "Secret keys" [level=3]
+                        - paragraph: These API keys allow privileged access to your project's APIs. Use in servers, functions, workers or other backend components of your application.
+                      - generic:
+                        - button "New secret key"
+  - alert [ref=e387]: API Keys | Settings | Supabase

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
-import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
+import { supabase, MASTER_DEFAULT_PROFILE, startMobileAuthRefresh } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
 import {
@@ -167,6 +167,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    const stopAuthRefresh = startMobileAuthRefresh();
     // On web, use the browser URL directly.
     const initialUrlPromise =
       Platform.OS === 'web' && typeof window !== 'undefined'
@@ -190,10 +191,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }, 0);
     });
 
-    const authTimeout = setTimeout(() => {
-      setLoadingProfile(false);
-    }, 3500);
-
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');
@@ -201,7 +198,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         authEmail &&
         (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
       ) {
-        clearTimeout(authTimeout);
         setUserProfile({
           ...MASTER_DEFAULT_PROFILE,
           email: authEmail,
@@ -210,18 +206,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
         setPasswordCredentialStatus('idle');
         setLoadingProfile(false);
-        return;
+        return () => {
+          subscription.unsubscribe();
+          deepLinkSubscription.remove();
+          stopAuthRefresh();
+        };
       }
     }
 
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
-        clearTimeout(authTimeout);
         return syncAuthProfile(session);
       })
       .catch((err) => {
-        clearTimeout(authTimeout);
         setLoadingProfile(false);
         console.warn('[Auth] Não foi possível carregar a sessão inicial:', err);
       });
@@ -229,6 +227,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => {
       subscription.unsubscribe();
       deepLinkSubscription.remove();
+      stopAuthRefresh();
     };
   }, []);
 

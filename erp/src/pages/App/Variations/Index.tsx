@@ -6,14 +6,11 @@ import { normalizeSearchTerm } from '../../utils/textUtils';
 import { groupTechnicalFields } from '../../utils/technicalValuesService';
 import { AttributeCard } from './AttributeCard';
 import { parseAttributeValueBatch } from './attributeValueBatch';
-import VariationFormModal from './VariationFormModal';
 import { useVariations } from './useVariations';
 
 const Variations = () => {
-  const { variations, loading, handleDelete, refresh } = useVariations();
+  const { variations, loading, refresh } = useVariations();
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const filteredVariations = useMemo(() => {
@@ -30,11 +27,6 @@ const Variations = () => {
     () => groupTechnicalFields(filteredVariations),
     [filteredVariations]
   );
-
-  const openForm = (attribute: VariationType | null) => {
-    setEditingAttribute(attribute);
-    setFormOpen(true);
-  };
 
   const handleDeleteValue = async (attribute: VariationType, option: VariationOption) => {
     if (
@@ -234,9 +226,7 @@ const Variations = () => {
                       key={attribute.id}
                       attribute={attribute}
                       onAddValues={handleAddValues}
-                      onDeleteAttribute={handleDelete}
                       onDeleteValue={handleDeleteValue}
-                      onEdit={openForm}
                     />
                   ))}
                 </div>
@@ -246,13 +236,6 @@ const Variations = () => {
         </div>
       </main>
 
-      <VariationFormModal
-        isOpen={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSuccess={refresh}
-        variation={editingAttribute}
-        allVariations={variations}
-      />
     </div>
   );
 };

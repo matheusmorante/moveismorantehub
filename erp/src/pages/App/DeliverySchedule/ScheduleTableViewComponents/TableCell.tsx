@@ -1,4 +1,5 @@
 import React from 'react';
+import { Undo2 } from 'lucide-react';
 import Order from '../../../types/order.type';
 import {
   stringifyFullAddressWithObservation,
@@ -230,9 +231,11 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                         : 'Entrega'
                 }
               >
-                <i
-                  className={`bi ${isAssistance ? 'bi-tools' : isPickup ? 'bi-shop' : (order.orderType === 'return' ? 'bi-arrow-return-left' : 'bi-truck')} text-[11px] text-white`}
-                />
+                {order.orderType === 'return' ? (
+                  <Undo2 className="h-[11px] w-[11px] text-white" />
+                ) : (
+                  <i className={`bi ${isAssistance ? 'bi-tools' : isPickup ? 'bi-shop' : 'bi-truck'} text-[11px] text-white`} />
+                )}
               </div>
             )}
 

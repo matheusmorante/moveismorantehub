@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Undo2 } from 'lucide-react';
 import OrderHistoryList from './OrderHistoryList';
 import OrderEditModal from './OrderEditModal';
 import NewSaleOrder from './NewSaleOrder';
@@ -359,7 +360,7 @@ const SalesOrder = () => {
                     onClick={() => setOrderModalType('return')}
                     className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
                   >
-                    <i className="bi bi-arrow-return-left text-sm" />
+                    <Undo2 className="h-4 w-4" />
                     <span>Nova devolução sem venda vinculada</span>
                   </button>
                 )}

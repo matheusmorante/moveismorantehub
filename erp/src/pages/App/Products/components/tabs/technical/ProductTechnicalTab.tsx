@@ -8,6 +8,7 @@ import {
   getAvailableAdditionalFields,
   groupTechnicalFields,
   isRequiredCharacteristicName,
+  getCharacteristicSubtitle,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 
@@ -129,16 +130,19 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           return {
             id: attr.id,
             name: attr.name,
+            subtitle: getCharacteristicSubtitle(attr.name),
             dataType: attr.data_type || 'list',
             unit:
               attr.unit ||
-              (['altura', 'largura', 'profundidade'].includes(
+              (['altura', 'largura', 'profundidade', 'comprimento do espelho', 'largura do espelho', 'altura do espelho'].includes(
                 String(attr.name).toLocaleLowerCase('pt-BR')
               )
                 ? 'cm'
-                : String(attr.name).toLocaleLowerCase('pt-BR') === 'peso'
+                : String(attr.name).toLocaleLowerCase('pt-BR').includes('peso')
                   ? 'kg'
-                  : undefined),
+                  : String(attr.name).toLocaleLowerCase('pt-BR').includes('polegada')
+                    ? '"'
+                    : undefined),
             isRequired: isRequiredCharacteristicName(attr.name),
             isCustom: Boolean(attr.is_custom),
             options: opts,
@@ -340,6 +344,11 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                           </div>
                         </div>
 
+                        {field.subtitle && (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium normal-case leading-tight -mt-0.5">
+                            {field.subtitle}
+                          </span>
+                        )}
                         <TechnicalFieldInput
                           field={field}
                           value={rawValue !== undefined && rawValue !== null ? rawValue : ''}

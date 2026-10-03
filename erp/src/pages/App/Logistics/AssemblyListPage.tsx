@@ -203,7 +203,7 @@ const AssemblyListPage = () => {
     const toggleSection = (key: string) => {
       setCollapsedSections((previous) => ({
         ...previous,
-        [key]: !(previous[key] ?? key !== todayKey),
+        [key]: !(previous[key] ?? false),
       }));
     };
 
@@ -230,7 +230,7 @@ const AssemblyListPage = () => {
         ) : (
           <div className="space-y-4">
             {sections.map((section) => {
-              const isCollapsed = collapsedSections[section.key] ?? section.key !== todayKey;
+              const isCollapsed = collapsedSections[section.key] ?? false;
               return (
                 <section key={section.key} className="space-y-2">
                   <button

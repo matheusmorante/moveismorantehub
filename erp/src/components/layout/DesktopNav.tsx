@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Undo2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasFiscalOperationRole } from '../../pages/utils/nfe/fiscalAuthorization';
 
@@ -51,9 +52,11 @@ const DropdownItem = ({
     <div className="flex items-center justify-between w-full group">
       <div className="flex items-center gap-3">
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
-          <i
-            className={`${icon} text-[15px] text-blue-500 dark:text-blue-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`}
-          ></i>
+          {icon === 'undo-2' ? (
+            <Undo2 className="h-[15px] w-[15px] text-blue-500 transition-colors group-hover:text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300" />
+          ) : (
+            <i className={`${icon} text-[15px] text-blue-500 dark:text-blue-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`} />
+          )}
         </div>
         <div className="flex flex-col text-left">
           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-2">
@@ -330,7 +333,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
             />
             <DropdownItem
               to="/returns"
-              icon="bi-arrow-return-left"
+              icon="undo-2"
               title="Devoluções"
               description="Trocas e devoluções"
               onClick={() => setActiveMenu(null)}

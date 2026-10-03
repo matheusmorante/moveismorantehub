@@ -1,0 +1,174 @@
+- generic [ref=f17e2]:
+  - generic [ref=f17e3]:
+    - region "Notifications Alt+T":
+      - alert [ref=f17e941] [cursor=pointer]:
+        - text: Sessão inválida.
+        - button "close" [ref=f17e945]
+        - progressbar "notification timer" [ref=f17e950]
+    - banner [ref=f17e5]:
+      - generic [ref=f17e6]:
+        - button "" [ref=f17e7] [cursor=pointer]
+        - link [ref=f17e9] [cursor=pointer]:
+          - /url: /
+          - img "ERP Móveis Morante" [ref=f17e11]
+        - text:                 
+      - generic [ref=f17e12]:
+        - button "" [ref=f17e14] [cursor=pointer]
+        - button "" [ref=f17e16] [cursor=pointer]
+        - button "M Matheus Morante Administrador " [ref=f17e19] [cursor=pointer]:
+          - generic [ref=f17e20]: M
+          - generic [ref=f17e21]:
+            - generic [ref=f17e22]: Matheus Morante
+            - generic [ref=f17e23]: Administrador
+          - generic [ref=f17e24]: 
+    - main [ref=f17e25]:
+      - generic [ref=f17e26]:
+        - generic [ref=f17e27]:
+          - button " Nova Venda" [ref=f17e32] [cursor=pointer]:
+            - generic [ref=f17e33]: 
+            - generic [ref=f17e34]: Nova Venda
+          - generic [ref=f17e39]:
+            - generic [ref=f17e41]:
+              - generic: 
+              - textbox "Buscar pedido pelo nome do cliente..." [ref=f17e42]: Paulo Cesar Martins
+              - button "" [ref=f17e812] [cursor=pointer]
+            - generic [ref=f17e43]:
+              - button "#002638 Nota fiscal não emitida   Bling    Saída de estoque ainda não registrada Paulo Cesar Martins Pedido  21/08/2026 Entrega  22/08/2026  09:00 às 12:00 Total R$ 449,00 " [ref=f17e819] [cursor=pointer]:
+                - generic [ref=f17e820]:
+                  - generic [ref=f17e821]: "#002638"
+                  - generic [ref=f17e823]:
+                    - generic "Nota fiscal não emitida" [ref=f17e824]: NF
+                    - generic [ref=f17e826]:
+                      - button " " [ref=f17e828]:
+                        - generic [ref=f17e829]: 
+                        - generic: 
+                      - button "Bling " [ref=f17e831]:
+                        - generic [ref=f17e832]: Bling
+                        - generic: 
+                      - button "" [ref=f17e834]
+                      - generic "Entrega" [ref=f17e836]: 
+                      - button "Saída de estoque ainda não registrada" [ref=f17e839]
+                - generic [ref=f17e844]:
+                  - heading "Paulo Cesar Martins" [level=3] [ref=f17e845]
+                  - generic [ref=f17e846]:
+                    - generic [ref=f17e847]:
+                      - generic [ref=f17e848]: Pedido
+                      - generic [ref=f17e849]:
+                        - generic [ref=f17e850]: 
+                        - generic [ref=f17e851]: 21/08/2026
+                    - generic [ref=f17e852]:
+                      - generic [ref=f17e853]: Entrega
+                      - generic [ref=f17e854]:
+                        - generic [ref=f17e855]: 
+                        - generic [ref=f17e856]: 22/08/2026
+                    - generic [ref=f17e858]:
+                      - generic [ref=f17e859]: 
+                      - generic [ref=f17e860]: 09:00 às 12:00
+                - generic [ref=f17e861]:
+                  - generic [ref=f17e862]:
+                    - generic [ref=f17e863]: Total
+                    - generic [ref=f17e864]: R$ 449,00
+                  - button "" [ref=f17e867]
+              - generic [ref=f17e869]:
+                - generic [ref=f17e870]:
+                  - generic [ref=f17e871]:
+                    - text: Exibindo
+                    - generic [ref=f17e872]: 1-1
+                    - text: de 1 pedidos
+                  - generic [ref=f17e873]: •
+                  - generic [ref=f17e874]: (15 por página)
+                - generic [ref=f17e875]:
+                  - button "" [disabled]
+                  - button "1" [ref=f17e877]
+                  - button "" [disabled]
+        - dialog "Emitir nota fiscal de saída" [ref=f17e951]:
+          - generic [ref=f17e953]:
+            - generic [ref=f17e954]:
+              - generic [ref=f17e955]:
+                - generic [ref=f17e956]: 
+                - generic [ref=f17e958]:
+                  - heading "Emitir nota fiscal de saída" [level=3] [ref=f17e959]
+                  - paragraph [ref=f17e960]: "Pedido #2638 • NF-e · modelo 55 · entrega"
+              - button "Fechar emissão fiscal" [ref=f17e961] [cursor=pointer]:
+                - generic [ref=f17e962]: 
+            - generic [ref=f17e963]:
+              - status [ref=f17e964]:
+                - generic [ref=f17e965]: 
+                - generic [ref=f17e966]:
+                  - paragraph [ref=f17e967]: Homologação · teste sem valor fiscal
+                  - paragraph [ref=f17e968]: A SEFAZ receberá este documento no ambiente de testes. Ele não comprova uma venda fiscal em produção.
+              - generic [ref=f17e969]:
+                - generic [ref=f17e970]:
+                  - text: Cliente
+                  - paragraph [ref=f17e971]: Paulo Cesar Martins
+                - generic [ref=f17e972]:
+                  - text: CPF/CNPJ
+                  - paragraph [ref=f17e973]: Não informado
+                - generic [ref=f17e974]:
+                  - text: Qtd Itens
+                  - paragraph [ref=f17e975]: 1 produto(s)
+                - generic [ref=f17e976]:
+                  - text: Total
+                  - paragraph [ref=f17e977]: R$ 449,00
+              - generic [ref=f17e978]:
+                - heading "Dados adicionais do destinatário" [level=4] [ref=f17e979]
+                - paragraph [ref=f17e980]: Os dados vêm do snapshot deste pedido e não serão alterados pela emissão.
+                - paragraph [ref=f17e981]: "Endereço: Rua Ângelo Milani, 245"
+              - generic [ref=f17e982]:
+                - generic [ref=f17e984]:
+                  - generic [ref=f17e985]: 
+                  - generic [ref=f17e987]:
+                    - heading "Itens da Venda para a Nota Fiscal" [level=4] [ref=f17e988]
+                    - paragraph [ref=f17e989]: 1 produto(s) • 1 não cadastrado(s) no ERP
+                - generic [ref=f17e992]:
+                  - generic [ref=f17e994]:
+                    - generic [ref=f17e995]:
+                      - paragraph [ref=f17e996]: COMODA LILLE BRANCA
+                      - button "Produto não cadastrado no ERP" [ref=f17e997] [cursor=pointer]:
+                        - generic [aria-hidden] [ref=f17e998]: 
+                    - paragraph [ref=f17e999]:
+                      - text: "Qtd:"
+                      - generic [ref=f17e1000]: 1 UN
+                      - text: "• Preço Un: R$ 449,00 • Total: R$ 449,00"
+                  - generic [ref=f17e1001]:
+                    - generic [ref=f17e1002]:
+                      - generic [ref=f17e1003]: "NCM:"
+                      - generic [ref=f17e1004]: Informe 8 dígitos
+                      - generic [ref=f17e1006]:
+                        - textbox "NCM" [ref=f17e1007]:
+                          - /placeholder: Selecione ou digite o NCM...
+                        - button "" [ref=f17e1008] [cursor=pointer]
+                    - button "" [ref=f17e1010] [cursor=pointer]
+              - group "Ambiente de emissão" [ref=f17e1013]:
+                - generic [ref=f17e1015]:
+                  - generic [ref=f17e1016] [cursor=pointer]:
+                    - generic [ref=f17e1017]:
+                      - generic [ref=f17e1018]: Homologação
+                      - generic [ref=f17e1019]: Teste sem valor fiscal
+                    - radio "Homologação" [checked] [ref=f17e1020]
+                  - generic [ref=f17e1021] [cursor=pointer]:
+                    - generic [ref=f17e1022]:
+                      - generic [ref=f17e1023]: Produção
+                      - generic [ref=f17e1024]: Documento fiscal válido
+                    - radio "Produção" [ref=f17e1025]
+              - generic [ref=f17e1026]:
+                - text: Número da nota (opcional)
+                - textbox "Número manual da nota fiscal" [ref=f17e1027]:
+                  - /placeholder: 102 em diante
+                - generic [ref=f17e1028]: Em branco, o próximo número será reservado automaticamente.
+              - alert [ref=f17e1029]:
+                - paragraph [ref=f17e1030]: Os itens foram carregados, mas a preparação fiscal falhou. A emissão está bloqueada até que a configuração seja carregada com sucesso.
+                - paragraph [ref=f17e1031]: Sessão inválida.
+            - generic [ref=f17e1032]:
+              - button "Fechar" [ref=f17e1033] [cursor=pointer]
+              - button " Emitir NF-e em Homologação" [disabled] [ref=f17e1034]:
+                - generic [ref=f17e1035]: 
+                - generic [ref=f17e1036]: Emitir NF-e em Homologação
+    - generic [ref=f17e806]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f17e807] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=f17e809]
+  - region "Notifications Alt+T"

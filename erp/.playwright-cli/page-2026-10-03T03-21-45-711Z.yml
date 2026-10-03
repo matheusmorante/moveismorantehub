@@ -1,0 +1,96 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content":
+    - /url: "#geist-skip-nav"
+  - main [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Open sidebar" [ref=e10] [cursor=pointer]
+          - generic [ref=e16]:
+            - link "morantehub" [ref=e17] [cursor=pointer]:
+              - /url: /matheusmorantes-projects/morantehub
+            - button [ref=e21] [cursor=pointer]
+            - link "Back to team view" [ref=e27] [cursor=pointer]:
+              - /url: /matheusmorantes-projects/~/settings
+        - navigation "Breadcrumb" [ref=e31]:
+          - generic [ref=e32]:
+            - link "Project Settings" [ref=e34] [cursor=pointer]:
+              - /url: /matheusmorantes-projects/morantehub/settings
+            - generic [ref=e39]: Git
+        - generic [ref=e41]:
+          - button "Create New" [ref=e43] [cursor=pointer]
+          - button "Vercel Agent is available on Pro" [ref=e50] [cursor=pointer]
+      - generic [ref=e71]:
+        - generic [ref=e74]:
+          - heading [level=4] [ref=e75]:
+            - link "Connected Git Repository" [ref=e77] [cursor=pointer]:
+              - /url: "#connected-git-repository"
+          - paragraph [ref=e82]: Seamlessly create Deployments for any commits pushed to your Git repository.
+          - generic [ref=e94]:
+            - group [ref=e95]:
+              - generic [ref=e96]:
+                - generic [ref=e97]:
+                  - generic [ref=e98]: Toggle Pull Request Comments
+                  - generic [ref=e99]: Pull Request Comments
+                - generic "Toggle Pull Request Comments" [ref=e107]:
+                  - checkbox "Toggle Pull Request Comments" [checked] [disabled] [ref=e108]
+            - group [ref=e111]:
+              - generic [ref=e112]:
+                - generic [ref=e113]:
+                  - generic [ref=e114]: Toggle Commit Comments
+                  - generic [ref=e115]: Commit Comments
+                - generic "Toggle Commit Comments" [ref=e123]:
+                  - checkbox "Toggle Commit Comments" [disabled] [ref=e124]
+            - group [ref=e127]:
+              - generic [ref=e128]:
+                - generic [ref=e129]:
+                  - generic [ref=e130]:
+                    - text: Toggle
+                    - generic [ref=e131]: deployment_status Events
+                  - generic [ref=e132]: deployment_status Events
+                - generic "Toggle [object Object]" [ref=e141]:
+                  - checkbox "Toggle [object Object]" [checked] [disabled] [ref=e142]
+            - group [ref=e145]:
+              - generic [ref=e146]:
+                - generic [ref=e147]:
+                  - generic [ref=e148]:
+                    - text: Toggle
+                    - generic [ref=e149]: repository_dispatch Events
+                  - generic [ref=e150]: repository_dispatch Events
+                - generic "Toggle [object Object]" [ref=e159]:
+                  - checkbox "Toggle [object Object]" [checked] [disabled] [ref=e160]
+        - generic [ref=e168]:
+          - generic [ref=e169]:
+            - heading [level=4] [ref=e170]:
+              - link "Git Large File Storage (LFS)" [ref=e172] [cursor=pointer]:
+                - /url: "#git-large-file-storage-(lfs)"
+            - paragraph [ref=e177]: Git LFS replaces large files such as audio samples, videos, datasets, and graphics with text pointers inside Git, while storing the file contents on a remote server like GitHub.com or GitHub Enterprise.
+            - generic [ref=e180]:
+              - generic [ref=e181]: Disabled
+              - checkbox "Disabled" [ref=e182]
+          - generic [ref=e186]:
+            - paragraph [ref=e188]:
+              - text: Learn more about
+              - link "Git LFS" [ref=e189] [cursor=pointer]:
+                - /url: /docs/project-configuration/git-settings#git-large-file-storage-lfs
+            - button "Save" [disabled] [ref=e195]
+        - generic [ref=e198]:
+          - generic [ref=e199]:
+            - heading [level=4] [ref=e200]:
+              - link "Deploy Hooks" [ref=e202] [cursor=pointer]:
+                - /url: "#deploy-hooks"
+            - paragraph [ref=e207]: Deploy hooks are unique URLs that allow you to trigger a deployment of a given branch.
+            - paragraph [ref=e208]: This project does not have any deploy hooks.
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - generic [ref=e214]: Name
+                - textbox "My Example Hook" [ref=e217]
+              - generic [ref=e218]:
+                - generic [ref=e219]: Branch
+                - textbox "main" [ref=e222]
+              - button "Create Hook" [ref=e223] [cursor=pointer]
+          - paragraph [ref=e227]:
+            - text: Learn more about
+            - link "Deploy Hooks" [ref=e228] [cursor=pointer]:
+              - /url: /docs/deploy-hooks
+  - alert [ref=e232]

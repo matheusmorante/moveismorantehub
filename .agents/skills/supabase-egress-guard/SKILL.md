@@ -5,17 +5,25 @@ description: Guardião obrigatório de Egress e limites do Free Tier do Supabase
 
 # Skill: Supabase Egress & Free Tier Guard (`supabase-egress-guard`)
 
+## Quando aplicar esta Skill
+
+Use ao criar ou alterar consultas volumosas, polling, Realtime, sincronização ou transferências automáticas de Storage.
+
+## Quando NÃO aplicar
+
+Não use para consultas pontuais de baixo volume nem como gate de autorização para alterações Supabase comuns. Para acesso, ambiente e persistência, use `database-supabase` e `testes-seguros-erp`.
+
 ## OBJETIVO
 Proteger os limites do **Plano Grátis (Free Tier) do Supabase** (5GB Egress/mês, 100k Realtime concurrent, 2GB database) contra códigos não otimizados, loops infinitos, "efeito metralhadora" de WebSockets e requisições pesadas no ERP e Mobile.
 
 > [!IMPORTANT]
-> **REGRA FUNDAMENTAL**: SEMPRE que o agente (você) for implementar, alterar ou sugerir qualquer código que envolva chamadas ao Supabase (`.select()`, `setInterval`, `.subscribe()`, `postgres_changes`, `Edge Functions`), você DEVE OBRIGATORIAMENTE interromper a ação e perguntar ao usuário se ele aceita a implementação sob a ótica de consumo de Egress.
+> **REGRA FUNDAMENTAL**: avalie o volume, frequência, paginação, projeção e cache das chamadas ao Supabase. Um uso comum ou controlado não exige interromper o trabalho nem pedir autorização. Se restar risco concreto e material de cobrança/limite que não possa ser mitigado no escopo autorizado, apresente a estimativa e peça decisão antes de introduzir esse custo.
 
 ---
 
 ## 1. Gatilho Obrigatório de Consulta (Quando Ativar)
 
-Consulte esta skill ANTES de escrever o código se a tarefa envolver:
+Consulte esta skill ao implementar ou alterar:
 - Criação de novos canais `Realtime` (`supabase.channel().subscribe()`).
 - Inserção de `setInterval` ou `setTimeout` que faça chamadas de API ou banco de dados.
 - Consultas amplas como `.select('*')` em tabelas centrais (`orders`, `products`, `team_locations`).
@@ -24,14 +32,9 @@ Consulte esta skill ANTES de escrever o código se a tarefa envolver:
 
 ---
 
-## 2. Protocolo de Autorização (Alerta ao Usuário)
+## 2. Tratamento de Risco Material de Egress
 
-Quando você identificar um potencial risco de Egress ou excesso de requisições:
-1. **Pare imediatamente.**
-2. Gere o alerta para o usuário usando formatação destacada (`> [!WARNING]`).
-3. Explique qual é o impacto estimado (ex: "Isso pode gerar 5.000 requisições por hora se o app ficar aberto").
-4. **Pergunte explicitamente:** "Você autoriza essa implementação ou prefere que eu crie uma alternativa mais econômica (ex: paginação, debounce, aumentar o intervalo)?"
-5. **NÃO PROSSIGA** com a gravação de arquivos que contenham o risco de Egress até que o usuário responda "sim, eu aceito".
+Quando houver risco concreto de Egress, primeiro estime-o com os dados disponíveis e aplique paginação, projeção, filtros, debounce ou cache proporcionais. Reaproveite evidência atual de volume/limites. Peça decisão somente se a solução ainda implicar custo material recorrente ou exceder a autorização da tarefa; não bloqueie o trabalho por risco hipotético já mitigado.
 
 ---
 
@@ -55,3 +58,8 @@ Se você for escrever código Supabase, aplique preventivamente as seguintes tra
 - **Proibido `.select('*')` sem `.limit()` ou `.range()`** em tabelas que podem crescer, como Pedidos e Produtos.
 - Use paginação obrigatoriamente.
 - Se precisar de uma soma ou contagem global, prefira usar `count: 'exact'` e buscar `.limit(1)` em vez de baixar todas as linhas para contar `.length` no JavaScript.
+
+## Referências e Fonte Canônica de Documentação
+
+- Acesso, schema e ambiente Supabase: `.agents/skills/database-supabase/SKILL.md`.
+- Gates e continuidade de testes: `.agents/skills/testes-seguros-erp/SKILL.md`.
