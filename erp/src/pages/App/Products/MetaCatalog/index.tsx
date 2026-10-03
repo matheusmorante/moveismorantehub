@@ -4,7 +4,6 @@ import { useAuth } from '@/context/AuthContext';
 import { buildMetaCatalogItems } from './services/metaCatalogPayload';
 import { calculateMetaCatalogStats } from './services/metaCatalogStats';
 
-
 export default function MetaCatalog() {
   const { isAdmin } = useAuth();
   const csvUrl = 'https://moveismorante.com.br/api/facebook-catalog.csv';

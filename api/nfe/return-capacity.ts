@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
@@ -7,7 +8,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 
 type FiscalDocRow = { id: string; modelo: string; xml_nfe: string | null };
 type FiscalSnapshotRow = { item_number: number; billed_quantity: number | string };
@@ -60,14 +61,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = source.order_data || {};
     const hasTestMetadata = Boolean(data.is_test || data.test_environment || data.testRunId);
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isHmlTest = data.is_test === true && data.test_environment === 'homologation' &&
-      typeof data.testRunId === 'string' && uuid.test(data.testRunId.trim()) &&
+    const isHmlTest =
+      data.is_test === true &&
+      data.test_environment === 'homologation' &&
+      typeof data.testRunId === 'string' &&
+      uuid.test(data.testRunId.trim()) &&
       uuid.test(String(source.id));
     if (hasTestMetadata && !isHmlTest)
-      return res.status(409).json({ success: false, error: 'Identificação do ambiente de teste incompleta.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'Identificação do ambiente de teste incompleta.' });
     const environment = isHmlTest ? 2 : 1;
     if (req.body?.environment !== undefined && req.body.environment !== environment)
-      return res.status(409).json({ success: false, error: 'Ambiente fiscal difere da venda original.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'Ambiente fiscal difere da venda original.' });
     const { data: docsData, error: docsError } = await supabase
       .from('nfe_documents')
       .select('id,modelo,ambiente,status,document_type,xml_nfe,created_at')
@@ -80,10 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (docsError) throw docsError;
     const docs = (docsData || []) as FiscalDocRow[];
     if (!docs.length)
-      return res
-        .status(200)
-        .json({ success: true, environment, hasAuthorizedInvoice: false,
-          hasAuthorizedProductionInvoice: false, lines: [] });
+      return res.status(200).json({
+        success: true,
+        environment,
+        hasAuthorizedInvoice: false,
+        hasAuthorizedProductionInvoice: false,
+        lines: [],
+      });
 
     const documentIds = docs.map((doc) => doc.id);
     const lines = [];
@@ -204,10 +215,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         availableQuantity: Math.max(line.billedQuantity - reservedQuantity, 0),
       };
     });
-    return res
-      .status(200)
-      .json({ success: true, environment, hasAuthorizedInvoice: true,
-        hasAuthorizedProductionInvoice: environment === 1, lines: result });
+    return res.status(200).json({
+      success: true,
+      environment,
+      hasAuthorizedInvoice: true,
+      hasAuthorizedProductionInvoice: environment === 1,
+      lines: result,
+    });
   } catch (error: any) {
     console.error(
       '[NF-e Return Capacity] Falha ao calcular saldo fiscal:',

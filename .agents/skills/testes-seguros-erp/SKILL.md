@@ -1,9 +1,11 @@
 ---
 name: testes-seguros-erp
-description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações; priorize Docker/Supabase Local e use o Supabase remoto operacional como fallback autorizado para testes controlados, isolados e não destrutivos quando Docker estiver indisponível.
+description: Planeje e execute testes seguros do ERP e App Mobile em alterações de regras de negócio, banco, estoque, vendas, recebimentos, devoluções, custos, relatórios ou integrações; use o Supabase remoto configurado como padrão para testes de integração com PostgreSQL, com escopo controlado e fixtures sintéticas.
 ---
 
 # Testes Seguros do ERP & App Mobile
+
+Para sincronização das variáveis do ambiente local, falhas no `predev`, secrets ou escolha entre Development e Preview, siga a fonte única [vercel-development](../vercel-development/SKILL.md). Esta skill continua definindo os limites de segurança dos testes.
 
 Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
 
@@ -24,7 +26,7 @@ Ao alterar código, a própria alteração autoriza a validação mínima necess
 Para mudança apenas de texto ou CSS, faça somente as verificações mínimas aplicáveis; use validação visual apenas quando ela comprovar algo que as verificações automáticas não cobrem.
 
 Escale para integração ou E2E apenas depois de as verificações focadas anteriores passarem e quando a natureza da mudança justificar. Integração é indicada para alterações em Supabase/PostgreSQL, RPC, Edge Functions, API, autenticação, permissões, persistência, sincronização ou contratos entre serviços. Playwright é a automação padrão de interface/E2E: use-o no ERP React/Web e no Expo Web quando suportado. Viewport mobile continua sendo navegador, não valida comportamento nativo completo.
-Os testes E2E nativos do app Android usam **Maestro somente em celular físico conectado por Depuração sem fio (Wi‑Fi)**. Não iniciar nem usar Emulador/AVD, e não selecionar aparelho conectado por USB. Faça o pareamento/conexão sem fio do Android antes de executar; quando houver mais de um dispositivo, informe `ANDROID_SERIAL`. O executor deve recusar serial de emulador e serial sem formato de conexão Wi‑Fi. Para reduzir memória, use o Supabase remoto nos testes mobile e não execute Docker/Supabase local junto com Maestro. Para testes no ERP, o Docker é permitido, mas o Docker Desktop deve ser iniciado manualmente.
+Os testes E2E nativos do app Android usam **Maestro somente em celular físico conectado por Depuração sem fio (Wi‑Fi)**. Não iniciar nem usar Emulador/AVD, e não selecionar aparelho conectado por USB. Faça o pareamento/conexão sem fio do Android antes de executar; quando houver mais de um dispositivo, informe `ANDROID_SERIAL`. O executor deve recusar serial de emulador e serial sem formato de conexão Wi‑Fi. Para todos os testes de integração PostgreSQL/Supabase, use o projeto remoto configurado e siga a política canônica em `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`.
 
 Para replicação/sincronização ERP ↔ App Mobile, rode o teste unitário focado da fila, transformação ou serviço alterado. Se o contrato ou a persistência entre os dois lados mudar, acrescente integração isolada que verifique idempotência, estados de sync e autoridade do backend, sem usar dados reais. E2E só é necessário quando a mudança alcançar um fluxo de usuário que unitário e integração não cubram.
 
@@ -32,7 +34,7 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 
 ## Prioridade de execução sobre auditoria
 
-Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir um fluxo já compreendido, confirme apenas as pré-condições materiais de segurança (sessão/permissão, ambiente, dados de teste, isolamento de efeitos e caminho de execução). Assim que estiverem comprovadas, pare a investigação ampla e execute: preparar cenário, percorrer o fluxo e validar o resultado. Investigue apenas erros concretos no caminho afetado; corrija e repita o cenário antes da regressão necessária. Não adie a execução para ler mais arquivos ou buscar alternativas sem uma dúvida material que possa causar perda de dados, atingir produção, gerar efeito financeiro, comprometer segurança ou invalidar o resultado. “Ainda estou auditando” não é bloqueio; bloqueios devem apontar uma dependência ou risco concreto. Priorize como progresso a fixture criada, o fluxo executado, a resposta externa, a persistência e a correção/regressão comprovadas.
+Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir um fluxo já compreendido, confirme apenas as pré-condições materiais de segurança (sessão/permissão, ambiente, dados de teste, isolamento de efeitos e caminho de execução). Se já houver runner/API, use essa automação como caminho principal; não navegue manualmente no ERP para procurar massa, consultar estado ou baixar evidências que o runner/API/banco possam verificar. Reserve a UI para testes de interação visual ou etapas sem cobertura automatizada. Assim que as pré-condições forem comprovadas, execute; investigue apenas erros concretos, corrija e repita o cenário antes da regressão necessária. Não adie a execução para ler mais arquivos ou buscar alternativas sem dúvida material de segurança ou validade. “Ainda estou auditando” não é bloqueio; bloqueios devem apontar dependência ou risco concreto. Priorize fixture criada, fluxo percorrido, resposta externa e persistência validadas.
 
 ---
 
@@ -40,37 +42,30 @@ Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir
 
 > [!CAUTION]
 > **NUNCA ALTERAR OU EXCLUIR REGISTROS OPERACIONAIS EXISTENTES.**
-> Quando Docker/Supabase Local estiver indisponível, o Supabase remoto operacional está autorizado como fallback para testes controlados, não destrutivos e isolados com registros sintéticos identificados por `TEST_AUT_<uuid>`. Nunca altere registros reais nem use pedidos/clientes reais como massa de teste. Um produto real do catálogo pode ser referenciado quando o usuário autorizar, sem modificar cadastro, custo ou estoque. A homologação fiscal remota permanece restrita a `tpAmb=2`; documentos, tentativas e protocolos fiscais devem ser preservados como trilha.
+> O Supabase remoto configurado é o ambiente padrão para testes controlados e isolados com registros sintéticos identificados por `TEST_AUT_<uuid>`. Nunca altere registros operacionais nem use pedidos/clientes reais como massa de teste. Fixtures podem gerar efeitos comerciais/financeiros próprios se todos os itens forem de teste, estiverem identificados pelo mesmo `testRunId` e houver exclusão verificável dos dashboards/indicadores. Valide filtros efetivos, não apenas nome/observação. Limpe pelo fluxo normal e reverta efeitos quando suportado, mantendo históricos confirmados e registros fiscais que devam permanecer rastreáveis. Um produto real pode ser referenciado quando autorizado, sem modificar cadastro, custo ou estoque. Consulte `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md` antes de integração ou escrita remota.
 
 1. **Geração de `testRunId`**: Cada bateria gera um identificador único no formato canônico `TEST_AUT_<uuid>`. Para identificar a suíte de origem (unitário, integração, E2E), use metadata adicional (campo, observação, tag), sem alterar o prefixo.
 2. **Identificação inequívoca**: O identificador deve aparecer no nome, SKU, código ou observação do registro. Use também metadata de origem somente quando o campo já existir ou fizer sentido arquiteturalmente; não altere o schema apenas para testes.
 3. **Registro de propriedade**: O harness deve guardar em memória os IDs criados pela execução e o tipo de cada registro. Todo helper de update/delete deve executar `assertOwnedByCurrentTest(record)` e falhar fechado se o ID não estiver registrado, se o `testRunId` não corresponder ou se houver qualquer dúvida.
-4. **Arrange / Act / Assert / Cleanup**: Crie dependências com dados sintéticos, execute o fluxo real e valide UI/persistência/relações. Remova apenas IDs temporários criados pela execução, após validar propriedade e se a regra de negócio permitir. Não apague snapshots, tentativas, protocolos ou outros fatos fiscais de homologação que devam permanecer rastreáveis; registre sua retenção e isolamento.
+4. **Arrange / Act / Assert / Cleanup**: Crie dependências com dados sintéticos, execute o fluxo real e valide UI/persistência/relações. Remova apenas IDs temporários criados pela execução, após validar propriedade e se a regra de negócio permitir. Não apague snapshots, tentativas, protocolos ou outros fatos fiscais que devam permanecer rastreáveis; registre sua retenção e isolamento.
 5. **Ordem de limpeza**: Exclua filhos e relacionamentos antes dos pais, respeitando as foreign keys. Nunca use `DELETE` amplo, `LIKE 'E2E%'`, `truncate`, cascade não confirmado, reset de tabela ou cleanup global.
-6. **Ambiente de integração**: Testes técnicos que escrevem no PostgreSQL, provocam falhas, exercitam concorrência ou validam rollback só podem usar ambiente isolado local/Docker. O uso remoto permitido na seção 2 não prova nem substitui esses testes.
+6. **Ambiente de integração**: Testes que escrevem no PostgreSQL, validam falhas transacionais, concorrência controlada ou rollback devem usar o Supabase remoto configurado com dados sintéticos próprios e escopo restrito, conforme a política remota canônica. Não use Docker/Supabase Local. Não execute falha induzida ou concorrência ampla sobre estado compartilhado/operacional; se um cenário não puder ser isolado com segurança no projeto remoto, relate a limitação específica e prossiga com as validações independentes.
 7. **Relatório obrigatório**: Registre `testRunId`, registros sintéticos criados por tipo, IDs e quantidades removidos ou retidos, falhas de cleanup, aprovados/reprovados e a confirmação de que nenhum registro operacional real foi alterado.
 8. **Isolamento entre testes paralelos**: Se testes E2E rodam em paralelo, cada teste deve derivar seu próprio identificador do `testRunId` da bateria (ex: `TEST_AUT_<uuid>_NomeDoTeste`) para evitar interferência entre testes que manipulam os mesmos tipos de registro.
 
 ---
 
-## 2. Ambientes de Teste e Homologação Fiscal
+## 2. Ambientes de Teste
 
 Use esta ordem de decisão, sem depender de dia ou horário:
 
 1. **Teste focado**: prefira Vitest/Jest com mocks, fixtures e estado em memória para lógica isolada.
-2. **Docker/Supabase Local disponível**: prefira-o para migrations, RPCs, RLS, constraints, triggers, rollback, atomicidade, idempotência, concorrência com sessões reais e qualquer teste destrutivo ou potencialmente perigoso. Inicie o Docker Desktop manualmente. Não execute Docker junto aos testes Maestro no celular por Wi‑Fi.
-3. **Docker indisponível — fallback remoto autorizado**: use o Supabase remoto atual para testes controlados, reversíveis e não destrutivos com registros sintéticos claramente identificados por `testRunId=TEST_AUT_<uuid>`, IDs de propriedade registrados e isolamento comprovado antes da primeira escrita. Verifique snapshots antes/depois de pedidos, estoque, financeiro, reservas e indicadores; qualquer efeito fora dos registros de teste interrompe o fluxo e exige reconciliação. Preserve registros operacionais existentes. Não use o remoto para migrations/DDL/RLS, reset, DROP/TRUNCATE, fault injection, rollback destrutivo ou concorrência/carga.
-4. **Homologação fiscal real**: não exige projeto/branch Supabase HML separado. Pode usar o Supabase remoto atual com o Fiscal Core e as estruturas reais, por meio de pedido de teste, destinatário, itens e pagamentos sintéticos claramente identificados. Um produto real do catálogo pode ser referenciado se o usuário autorizar, sem editar seus dados, custo ou estoque. Não crie tabelas comerciais duplicadas como `test_orders` ou `test_products`; use o domínio normal e acrescente isolamento lógico somente onde o domínio fiscal exigir. Antes da emissão, confirme que registros `tpAmb=2` não alteram estoque, financeiro ou indicadores operacionais. O backend deve impor `tpAmb=2`, derivar server-side exclusivamente endpoints oficiais de homologação e impedir fallback para produção; secrets permanecem no servidor. Não transmita dados pessoais reais do destinatário sem autorização específica para o destino HML.
-5. **Teste exige operação perigosa sem Docker**: marque apenas esse caso como `BLOQUEADO — requer Docker/ambiente isolado`; continue os testes remotos controlados permitidos e as validações independentes. Não substitua evidência PostgreSQL real por mocks nem declare rollback, atomicidade, RLS ou concorrência comprovados sem exercitá-los na camada adequada.
-6. **Fluxo de usuário ou validação visual necessária**: depois dos testes focados passarem, use Playwright ou o navegador local já aberto somente para o fluxo afetado. Para o preview mobile, use endereço `localhost` (nunca LAN); em autenticação local, use a porta 80 ou 81, não a 82.
-7. **Navegador integrado**: o SQL Editor pode ser usado quando plugin/CLI falhar, conforme `AGENTS.md` e `database-supabase`; trocar de ferramenta não altera os limites de segurança acima.
-8. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
-
-### Regra permanente para E2E fiscal em homologação
-
-`environment=1` é exclusivamente Produção; `environment=2` e `tpAmb=2` são Homologação. O E2E HML deve usar endpoint, credenciais e CSRT de homologação em toda a cadeia (backend, snapshot, documento, banco, XML, SEFAZ, resposta, consulta, evento, cancelamento e devolução); nunca trocar para Produção para contornar uma validação. A origem e a operação derivada devem manter o mesmo ambiente: 1→1 e 2→2. Supabase remoto é somente localização do banco e não transforma uma operação `environment=2` em Produção.
-
-Encontrar um bug próprio durante homologação não encerra nem bloqueia o E2E: capture evidência disponível, diagnostique, corrija, valide com teste focado, faça deploy quando necessário e retome o mesmo objetivo. Interrompa apenas o passo dependente de impedimento externo comprovado ou risco concreto a dados de terceiros; continue cenários seguros e independentes. Mantenha o registro `in_progress` até reunir protocolo real da SEFAZ HML para cada fluxo que exija autorização. Preservar `testRunId`, documentos/protocolos fiscais confirmados e reverter efeitos comerciais somente pelos fluxos transacionais normais.
+2. **Integração PostgreSQL/Supabase**: use exclusivamente o projeto Supabase remoto configurado. Para migrations, RPCs, RLS, constraints, triggers, rollback e idempotência, confirme projeto/ref e escopo; crie fixtures sintéticas próprias e execute apenas operações controladas. Não usar, instalar ou iniciar Docker/Supabase Local.
+3. **Isolamento no remoto**: antes da primeira escrita, use `testRunId=TEST_AUT_<uuid>`, registre os IDs de propriedade e comprove que o fluxo só alcança essa massa. Verifique snapshots de pedidos, estoque, financeiro, reservas e indicadores; pare e reconcilie se tocar registro operacional ou incluir massa de teste em dashboard. Limpe fixtures pelo fluxo normal sem apagar históricos confirmados. Não use reset, DROP/TRUNCATE, fault injection não isolada ou carga ampla.
+4. **Cenário remoto não isolável**: marque somente a evidência específica como não executada e explique o risco ou limitação concreta. Não classifique a ausência de Docker como bloqueio. Continue os testes remotos controlados e as validações independentes; não substitua evidência PostgreSQL por mocks nem declare rollback, atomicidade, RLS ou concorrência comprovados sem exercitá-los com dados sintéticos adequados.
+5. **Fluxo de usuário ou validação visual necessária**: depois dos testes focados passarem, use Playwright ou o navegador local já aberto somente para o fluxo afetado. Para o preview mobile, use endereço `localhost` (nunca LAN); em autenticação local, use a porta 80 ou 81, não a 82.
+6. **Navegador integrado**: o SQL Editor pode ser usado quando plugin/CLI falhar, conforme `AGENTS.md` e `database-supabase`; trocar de ferramenta não altera os limites de segurança acima.
+7. **Escalonamento**: não rode Playwright, navegador ou integração por padrão. Faça isso somente se a mudança afetar comportamento, persistência, navegação ou apresentação que os testes focados não provem.
 
 ---
 ## 3. Matriz Completa de Tipos de Testes
@@ -81,9 +76,9 @@ A suíte do Morante Hub engloba **todos os tipos possíveis de teste** para asse
 |---|---|---|
 | **Testes Unitários** | Funções puras, cálculos de CMPM, CMV, frete, descontos, transições de status, máscaras de moeda, formatação de endereço, slots de horário. | Vitest (`npm --prefix erp run test:unit`), Jest. Execução em memória sem dependências externas. |
 | **Mutation testing** | Força condições, limites e transições em regras críticas para revelar testes que passam sem detectar regressões. | StrykerJS com o runner Vitest; começar por escopos explícitos de regras de negócio. Sobreviventes exigem revisão antes de virar teste; não estabelecer gate de score sem baseline. |
-| **Análise estática centralizada** | Bugs, code smells e segurança básica em JS/TS/CSS; importa cobertura LCOV gerada pelo Vitest. | SonarQube Community Build local. Credenciais apenas por `SONAR_TOKEN`/ambiente; análise local opcional, não requisito de CI. |
+| **Análise estática centralizada** | Bugs, code smells e segurança básica em JS/TS/CSS; importa cobertura LCOV gerada pelo Vitest. | Serviço SonarQube já configurado no CI ou serviço gerenciado; não preparar instância local com Docker. Credenciais apenas por variável de ambiente. |
 | **Testes de Componentes** | Componentes React e formulários. | Vitest + React Testing Library; cobrir estados e interações aplicáveis. Não substitui integração de banco. |
-| **Testes de Integração** | Services, persistência, Supabase/PostgreSQL, RPCs, Edge Functions e contratos entre serviços. | Vitest contra PostgreSQL/Supabase isolado quando o comportamento do banco for relevante; validar retorno e estado persistido. Mocks servem apenas para unidade/contrato isolado, nunca como prova de integração. |
+| **Testes de Integração** | Services, persistência, Supabase/PostgreSQL, RPCs, Edge Functions e contratos entre serviços. | Vitest contra o Supabase remoto configurado com fixtures sintéticas de propriedade comprovada quando o comportamento do banco for relevante; validar retorno e estado persistido. Mocks servem apenas para unidade/contrato isolado, nunca como prova de integração. |
 | **E2E Web (ERP e Expo Web)** | Navegação, telas, responsividade, formulários e modais disponíveis no navegador. | Playwright; Chrome DevTools complementa diagnóstico. Viewport mobile continua sendo navegador. |
 | **E2E Android Nativo (React Native)** | Telas reais, navegação, inputs, seletores, modais e fluxo no runtime Android. | **Maestro** (CLI / Flows YAML) somente em celular físico por Depuração sem fio (Wi‑Fi). Emulador/AVD e alvo USB são recusados; ADB fica limitado ao pareamento/conexão e operações necessárias ao Maestro. |
 | **Testes de Tipagem & Contratos** | Conformidade TypeScript, integridade de propriedades herdadas, schemas tributários, eventos mobile. | `node mobile/node_modules/typescript/bin/tsc --noEmit`, `npm --prefix erp run typecheck`. |
@@ -96,7 +91,7 @@ Nos E2E Playwright com backend real, siga a regra de propriedade da seção 1: c
 
 - ERP usa `npm --prefix erp run test:mutation:critical` para a fatia inicial de regras críticas e `npm --prefix erp run test:coverage:critical` para gerar LCOV focado. O relatório HTML/JSON do Stryker fica em `erp/reports/mutation/` e a cobertura em `erp/coverage/`; são artefatos locais ignorados pelo Git.
 - A configuração Stryker deve nomear os arquivos mutados, usar Vitest `perTest`, concurrency conservadora e TypeScript checker quando aplicável. Não mutar testes, mocks, fixtures, arquivos gerados ou configuração. Classificar `Killed`, `Survived`, `No coverage`, `Timeout` e `CompileError` conforme o relatório. Investigar sobreviventes relevantes; não declarar falha automática por score arbitrário. Registrar score e limitações como baseline.
-- SonarQube Community Build é local/opcional: `docker compose -f compose.sonarqube.yml up -d`, depois configurar `SONAR_HOST_URL` e `SONAR_TOKEN` no ambiente e executar `npm run quality:sonar`. Não gravar token no repositório, linha de comando versionada ou arquivo de configuração. Não tornar CI dependente de daemon, token local ou serviço pago.
+- SonarQube: executar somente pelo serviço já configurado no CI ou serviço gerenciado; não configurar ambiente local com Docker. Não gravar token no repositório, linha de comando versionada ou arquivo de configuração.
 - `sonar-project.properties` deve excluir dependências, builds, relatórios, código gerado e testes da análise de produção; importar `erp/coverage/lcov.info` quando gerado. Cobertura ausente ou parcial deve ser declarada como tal, não inferida.
 
 ### 3.1 Estados Obrigatórios de UI
@@ -133,7 +128,7 @@ Para cada módulo, além do happy path:
 - **Vitest**: Funções puras, cálculos e lógicas isoladas (Fluxo cotidiano).
 - **RTL (React Testing Library)**: Interações de interface e componentes isolados (Fluxo cotidiano).
 - **Playwright**: E2E em navegador, fluxos completos de UI integrados.
-- **pgTAP e Atomicidade**: Validações exclusivas de banco, falhas e rollbacks induzidos com validação de estado final.
+- **pgTAP e Atomicidade**: validações PostgreSQL no Supabase remoto usando fixtures sintéticas e operações controladas; não executar fault injection ampla nem cenários que alcancem registros compartilhados.
 - **Ferramentas Pesadas (Nuance de Roteamento)**:
   - **k6**: Executar *exclusivamente* quando houver um objetivo explícito de carga ou performance.
   - **OWASP ZAP**: Executar *exclusivamente* para auditoria de segurança ou em fluxo explicitamente definido. Não usar na rotina diária.
@@ -142,7 +137,7 @@ Para cada módulo, além do happy path:
   - *Baixo*: Unitários (Vitest).
   - *Médio*: Componentes e fluxos isolados (RTL).
   - *Alto*: Integração pontual, Playwright E2E.
-  - *Crítico*: Banco PostgreSQL isolado (preferencialmente Supabase Docker) para atomicidade, rollback e concorrência; remoto operacional apenas para testes não destrutivos permitidos na seção 2 ou homologação fiscal real.
+  - *Crítico*: testes PostgreSQL/Supabase no projeto remoto configurado, com massa sintética isolada e efeitos limitados; concorrência/carga ampla não é permitida no projeto compartilhado.
 
 ## 4. Ordem Oficial dos Módulos Vitais e Críticos
 
@@ -186,10 +181,10 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
    - `Módulo Atual` (ex: Módulo 3 - Logística)
    - `Próxima Etapa / Goal` (ex: Etapa 3.2 - Teste da Tela de Etapas da Entrega)
 2. **Seleção de Ambiente**:
-   Prefira testes focados com mocks/fixtures em memória para lógica isolada. Se Docker/Supabase Local estiver disponível, use-o para integração de banco e operações perigosas. Se estiver indisponível, use o Supabase remoto atual como fallback para testes controlados e isolados da seção 2; marque como bloqueados somente migrations/DDL, RLS experimental, reset, fault injection, rollback destrutivo e concorrência/carga. A homologação SEFAZ usa o Supabase remoto atual exclusivamente com `tpAmb=2`; não criar HML separado.
+   Prefira testes focados com mocks/fixtures em memória para lógica isolada. Use o Supabase remoto configurado para integração de banco com fixtures sintéticas e escopo controlado conforme a seção 2. Não use Docker/Supabase Local; se algum cenário não puder ser isolado com segurança no remoto, registre a limitação específica sem marcar ausência de Docker como bloqueio.
 3. **Execução da Etapa Atual**:
    - Execute os testes correspondentes (unitários, integração, tipo ou interface).
-   - Se envolver persistência, gere `testRunId`, crie uma árvore exclusiva com dados sintéticos, registre cada ID e valide propriedade antes de alterar/excluir. Faça teardown somente dos dados temporários cuja remoção seja segura; preserve e registre snapshots, tentativas e protocolos fiscais de homologação quando forem fatos que precisem permanecer rastreáveis.
+   - Se envolver persistência, gere `testRunId`, crie uma árvore exclusiva com dados sintéticos, registre cada ID e valide propriedade antes de alterar/excluir. Faça teardown somente dos dados temporários cuja remoção seja segura; preserve e registre fatos fiscais que precisem permanecer rastreáveis.
 4. **Registro de Resultados**:
    - Atualize `docs/ROTEIRO_TESTES_CICLICOS.md` com:
      - Status: `PASSOU`, `FALHOU` ou `AVISO`.
@@ -269,7 +264,7 @@ Esta seção é a fonte canônica para testes de banco. Operação crítica incl
 
 - **Unitário**: Vitest para funções, cálculos, validações, regras, transformações e estados isolados. Mocks são adequados neste nível.
 - **Componente**: Vitest + React Testing Library para loading, vazio, sucesso, erro, validação, campos desabilitados, permissões, offline, interações e submissão, conforme aplicável.
-- **Integração**: quando houver comportamento relevante de Supabase/PostgreSQL, testar contra PostgreSQL real em ambiente isolado. Verificar estado final diretamente nas tabelas e relações, não só o retorno do service/RPC.
+- **Integração**: quando houver comportamento relevante de Supabase/PostgreSQL, testar contra o Supabase remoto configurado, com fixtures sintéticas e escopo isolado por IDs. Verificar estado final diretamente nas tabelas e relações, não só o retorno do service/RPC.
 - **RPC/Edge Function**: executar pela interface real (RPC/HTTP) e validar resposta, permissões e efeitos persistidos. Mock do Supabase, teste frontend ou inspeção de código não substituem esse nível.
 - **E2E**: Playwright cobre o fluxo integrado pela perspectiva do usuário. Não substitui integração de banco, RPC, atomicidade, rollback ou concorrência.
 
@@ -283,27 +278,27 @@ Antes de validar, registre as invariantes da operação (por exemplo, saldo não
 | Entrada inválida / registro inexistente | Erro explícito e nenhum efeito parcial; cobrir UUID/formato, quantidade zero/negativa, saldo insuficiente e relação inválida quando aplicável. |
 | Constraints | Tentar violar diretamente no banco NOT NULL, UNIQUE, CHECK, FK, índices únicos compostos ou regras equivalentes relevantes; comprovar rejeição no PostgreSQL. |
 | Permissão / RLS | Usuários/roles distintos; conferir leitura/escrita permitida e negada e autorização de RPC. Frontend nunca é barreira de segurança. |
-| Atomicidade / rollback | Para uma ação lógica com múltiplas gravações, induzir falha após uma etapa ter sido tentada e consultar o banco: nenhuma escrita da transação deve permanecer e o estado anterior deve estar intacto. Conferir todas as tabelas relacionadas. `BEGIN/COMMIT`, retorno de erro, mocks ou inspeção de código não provam atomicidade. |
-| Concorrência | Quando houver disputa por saldo, status, sequência, reserva ou registro compartilhado, executar pelo menos duas requisições simultâneas e provar as invariantes (ex.: uma única baixa da última unidade, sem saldo negativo ou duplicidade). |
+| Atomicidade / rollback | Para uma ação lógica com múltiplas gravações, use um cenário transacional com registros sintéticos próprios; verifique que entradas inválidas ou rejeitadas não deixam efeitos parciais e consulte todas as tabelas relacionadas. Não injete falhas em registros ou infraestrutura compartilhados. `BEGIN/COMMIT`, retorno de erro, mocks ou inspeção de código não provam atomicidade. |
+| Concorrência | Quando houver disputa por saldo, status, sequência, reserva ou registro compartilhado, executar duas requisições simultâneas somente quando ambas atuarem em registros sintéticos próprios e o teste tiver escopo baixo; provar as invariantes sem disputa por dados operacionais. |
 | Idempotência | Quando houver retry, duplo clique, timeout, webhook ou sync repetível, repetir com a mesma chave de evento/idempotência e provar ausência de efeitos duplicados. |
 | Integração / E2E | Verificar service/frontend e fluxo E2E principal quando aplicáveis e não cobertos pelos níveis anteriores. |
 
-Operação com múltiplas gravações que precisa ser uma ação lógica deve usar fronteira transacional no backend (função/RPC PostgreSQL quando apropriado). Testes de rollback/fault injection são obrigatórios para fluxos que prometem atomicidade e só podem ocorrer em ambiente isolado, nunca em produção.
+Operação com múltiplas gravações que precisa ser uma ação lógica deve usar fronteira transacional no backend (função/RPC PostgreSQL quando apropriado). Comprove rollback por cenários transacionais controlados sobre fixtures próprias. Não execute fault injection ou rollback destrutivo no estado operacional compartilhado; se não houver forma segura de provar um cenário, relate a evidência pendente específica.
 
 ### 7.3 RPCs e Edge Functions
 
 - Toda RPC crítica tem testes próprios de sucesso, parâmetros inválidos, registro inexistente, permissões e constraints aplicáveis.
 - Validar retorno **e** estado final das tabelas afetadas. Em operações compostas, conferir quantidades, vínculos, movimentos, saldos e metadados que definem as invariantes.
 - Edge Functions são chamadas pelo endpoint de teste; validar status/body e efeitos persistidos.
-- Atomicidade, concorrência e idempotência devem ser exercitadas na camada PostgreSQL isolada, não somente pela camada HTTP.
+- Atomicidade, concorrência controlada e idempotência devem ser exercitadas no PostgreSQL remoto sobre fixtures sintéticas, não somente pela camada HTTP.
 
 ### 7.4 Migrações, offline e sincronização
 
-- Migrações de regras críticas: testar banco novo aplicando migrations e upgrade representativo em Supabase Local/Docker; conferir dados legados, defaults/backfills, constraints, índices, funções, triggers, RPCs, leitores/escritores antigos e rollback quando suportado. Nunca usar o banco remoto operacional para testar ou experimentar migrations.
+- Migrações de regras críticas: revisar integralmente a migration versionada, confirmar project ref, executar `npm run advisors` e aplicar ao Supabase remoto configurado somente após validação de escopo e compatibilidade. Validar a migration aplicada com fixtures sintéticas e operações normais no remoto; não experimentar DDL, reset, DROP/TRUNCATE ou fault injection. Este fluxo não comprova instalação em banco vazio/clonado, que deve ser relatada como limitação da política remota.
 - Offline/sync: separar evidência de persistência local (SQLite/IndexedDB), fila/transição de estados, transporte/retry/conflito e processamento PostgreSQL. Validar duplicidade, sync parcial e autoridade do backend. Teste local não comprova servidor; teste do servidor não comprova SQLite/IndexedDB.
 - Após a operação, reconsultar estado persistido e validar invariantes. Relatar limitações de ambiente; não declarar integração, atomicidade ou rollback como aprovados sem exercitá-los.
 - Em toda auditoria de módulo crítico, o relatório final deve listar explicitamente os testes executados (comando/escopo e resultado) e os testes não executados, cada um com seu motivo e a evidência pendente. Não resumir Vitest com mocks como “testado” sem qualificar que integração/PostgreSQL real, atomicidade, concorrência ou RLS não foram cobertos.
-- Todo relatório de auditoria/testes deve separar testes executados, não executados, motivo da não execução, evidência obtida e evidência pendente. Para cada teste, preencher a matriz: `Teste | Exige Docker/Supabase Local | Docker disponível | Executado | Ambiente | Resultado | Motivo se pendente`. Nunca escrever apenas “testado” ou “aprovado” sem identificar a camada validada. Se Docker estiver indisponível para teste perigoso, usar `BLOQUEADO — requer Docker/ambiente isolado` e nomear a evidência faltante (por exemplo, concorrência real, rollback PostgreSQL, RLS/JWT, migration limpa ou upgrade representativo).
+- Todo relatório de auditoria/testes deve separar testes executados, não executados, motivo, evidência obtida e evidência pendente. Para cada teste, preencher a matriz: `Teste | Executado | Projeto/ref (sem credenciais) | Massa sintética/testRunId | Resultado | Limitação/evidência pendente`. Identifique a camada validada; não resuma mocks como prova de integração real. Se um cenário não for seguro de executar no projeto remoto compartilhado, nomeie o risco concreto e a evidência faltante.
 
 ---
 
@@ -359,12 +354,12 @@ O agente só deve declarar "testado" (APROVADO) quando:
 - Cobrir pedido agendado e retirada pendente sem circulação; `fulfilled` em entrega e retirada, além de trânsito, bloqueiam cancelamento/estorno por operação não realizada.
 - Cobrir documento ausente/rejeitado, autorizado, já cancelado, tentativa repetida e timeout incerto. Repetição não duplica reversão de estoque, evento, rascunho de estorno ou devolução.
 - Provar no mesmo banco/fluxo que estoque e status comercial confirmam ou revertem atomicamente. SEFAZ é efeito externo após commit: persistir tentativa e demonstrar reconciliação sem repetir evento quando o primeiro resultado é incerto.
-- HML deve derivar `tpAmb=2` e endpoint de homologação no backend; não falsificar ambiente. Estorno exige conferência dos dados fiscais e do art. 298, §2º do RICMS/PR quando a apuração for posterior.
+- Estorno exige conferência dos dados fiscais e do art. 298, §2º do RICMS/PR quando a apuração for posterior.
 - Cobrir retorno por coleta pendente sem estoque, confirmação como “Coletada” com uma entrada idempotente e retorno entregue pelo cliente na loja como “Recebida” com entrada na criação transacional. Confirmar que criação agendada não libera NF-e de devolução; fluxo fiscal só fica disponível após retorno físico.
 
 ---
 
 ## Referências e Fonte Canônica de Documentação
 
-- [Auditoria do Ambiente Supabase Local de Testes](../../../docs/testing/SUPABASE_LOCAL_CERTIFICATION.md) — certificação de reprodutibilidade, fidelidade, segurança e evidência do laboratório; consultar antes de usar o ambiente como prova de integração crítica.
+- [Política de Testes Supabase Remoto](../../../docs/testing/SUPABASE_REMOTE_TEST_POLICY.md) — padrão canônico para integração PostgreSQL/Supabase, fixtures e migrations revisadas.
 - [Playwright — projetos e emulação de dispositivos](https://playwright.dev/docs/emulation)

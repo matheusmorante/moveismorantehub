@@ -23,17 +23,29 @@ export function getFiscalCancellationPolicy(
   input: FiscalCancellationPolicyInput
 ): FiscalCancellationPolicy {
   if (input.goodsCirculated) {
-    return { action: 'return', reason: 'A mercadoria já circulou; use o fluxo de devolução.', deadline: null };
+    return {
+      action: 'return',
+      reason: 'A mercadoria já circulou; use o fluxo de devolução.',
+      deadline: null,
+    };
   }
 
   const authorizedStatus = input.environment === 1 ? 'autorizada' : 'homologada';
   if (input.status !== authorizedStatus) {
-    return { action: 'none', reason: 'Não existe documento autorizado para tratar fiscalmente.', deadline: null };
+    return {
+      action: 'none',
+      reason: 'Não existe documento autorizado para tratar fiscalmente.',
+      deadline: null,
+    };
   }
 
   const window = getCancellationWindow(input.model, input.authorizedAt, input.now);
   if (!window.valid) {
-    return { action: 'manual_review', reason: 'A autorização original não tem uma data válida.', deadline: null };
+    return {
+      action: 'manual_review',
+      reason: 'A autorização original não tem uma data válida.',
+      deadline: null,
+    };
   }
   if (!window.expired) return { action: 'cancel', deadline: window.deadline };
 

@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { AppSettings } from '../../erp/src/pages/utils/settingsService';
@@ -24,7 +25,7 @@ import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { embeddedNfeXml } from './xmlEnvelope';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 const authorizationUrls = {
   1: 'https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
   2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
@@ -481,7 +482,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Fragments copied from the original invoice retain indentation nodes.
       // Remove editing whitespace before signing; never change stored signed XML.
       const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician)
-        .replace(/>\s+</g, '><').trim();
+        .replace(/>\s+</g, '><')
+        .trim();
       await validateUnsignedNfeStructure(xml);
       signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
       await validateNfeAgainstOfficialSchema(signedXml);
@@ -598,9 +600,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(schemaFailure ? 422 : 500).json({
       success: false,
       ...(reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : {}),
-      error: schemaFailure && reservedNfeNumber
-        ? `${message} O número ${reservedNfeNumber} já foi consumido pela sequência; nenhuma transmissão foi feita. Uma nova tentativa reservará outro número.`
-        : message,
+      error:
+        schemaFailure && reservedNfeNumber
+          ? `${message} O número ${reservedNfeNumber} já foi consumido pela sequência; nenhuma transmissão foi feita. Uma nova tentativa reservará outro número.`
+          : message,
     });
   }
 }

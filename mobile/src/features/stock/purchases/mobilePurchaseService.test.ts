@@ -10,10 +10,7 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-import {
-  mapPurchaseFromDb,
-  purchaseStatusLabel,
-} from './mobilePurchaseService';
+import { mapPurchaseFromDb, purchaseStatusLabel } from './mobilePurchaseService';
 
 describe('Suíte Unitária: mobilePurchaseService (Pedidos de Compra Mobile)', () => {
   beforeEach(() => {

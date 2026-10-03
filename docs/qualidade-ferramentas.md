@@ -13,30 +13,9 @@ npm run quality:mutation:critical
 
 Vitest grava LCOV em `erp/coverage/lcov.info`. Stryker grava HTML e JSON em `erp/reports/mutation/`. Esses diretórios são locais e ignorados pelo Git. O score inicial é baseline informativo, sem limite que interrompa CI. Ao analisar mutantes sobreviventes, diferencie sobreviventes relevantes, sem cobertura, timeout e erros de compilação; só acrescente testes para comportamento exigido.
 
-## SonarQube Community Build local
+## SonarQube
 
-O serviço tem Compose e volumes próprios; ele usa a porta `9001` do host e não altera o stack Supabase. O Docker Desktop já está configurado para armazenar os volumes em H:. A telemetria e a consulta automática de atualizações do SonarQube ficam desativadas; acesso à rede é necessário apenas para obter a imagem e dependências durante a instalação.
-
-```powershell
-docker compose -f compose.sonarqube.yml up -d
-```
-
-Depois que a interface em `http://localhost:9001` estiver pronta, gere um token de análise local pela interface e armazene `SONAR_TOKEN` e `SONAR_HOST_URL=http://localhost:9001` nas variáveis de ambiente do usuário/sessão do sistema. Nunca passe token como argumento, nem o grave no Git. `.env.example` contém somente nomes e valores de exemplo; não é carregado automaticamente.
-
-```powershell
-npm run quality:sonar
-```
-
-O script encerra antes da análise se não houver token/host, e recusa qualquer host fora de `localhost:9001`. A configuração exclui dependências, builds, relatórios, testes e arquivos gerados, e importa `erp/coverage/lcov.info` quando presente. Sem gerar cobertura, a análise continua possível, mas não deve ser descrita como cobertura medida.
-
-Para parar mantendo os dados locais:
-
-```powershell
-docker compose -f compose.sonarqube.yml stop
-```
-
-Não use `down -v` para parar: isso removeria os volumes persistentes do SonarQube.
-
+A instalação local de SonarQube via Compose foi retirada do fluxo ativo. Não inicie nem mantenha serviços locais para essa análise. Use os relatórios de Vitest/Stryker e a análise já configurada no CI, quando disponível. `npm run quality:sonar` depende do endpoint/credencial previsto na configuração atual do projeto e não deve ser usado como requisito de validação local.
 ## Escopo e limites atuais
 
 O scanner local analisa ERP, API, catálogo digital, bibliotecas compartilhadas e o agente desktop de impressão. Os `tsconfig` usados são explícitos para não incluir workspaces alheios ao escopo; o workspace Mobile permanece fora por usar uma configuração TypeScript própria e versões fora da matriz de suporte publicada pelo analisador. O scanner também não substitui Vitest, testes de integração/PostgreSQL, concorrência, RLS ou Playwright.

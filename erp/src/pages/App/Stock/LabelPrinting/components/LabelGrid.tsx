@@ -218,7 +218,8 @@ const LabelGrid: React.FC<Props> = ({
                           item.isBlank
                             ? null
                             : item.image ||
-                              (item.type === 'logo' ? item.image : cellImages[i] || image) || null
+                              (item.type === 'logo' ? item.image : cellImages[i] || image) ||
+                              null
                         }
                         index={i}
                         scale={item.scale ?? config.imageScale}

@@ -5,6 +5,8 @@ description: Guardião obrigatório de Egress e limites do Free Tier do Supabase
 
 # Skill: Supabase Egress & Free Tier Guard (`supabase-egress-guard`)
 
+Para sincronização local de credenciais Supabase e separação Development/Preview/Production, siga a fonte única [vercel-development](../vercel-development/SKILL.md).
+
 ## OBJETIVO
 Proteger os limites do **Plano Grátis (Free Tier) do Supabase** (5GB Egress/mês, 100k Realtime concurrent, 2GB database) contra códigos não otimizados, loops infinitos, "efeito metralhadora" de WebSockets e requisições pesadas no ERP e Mobile.
 

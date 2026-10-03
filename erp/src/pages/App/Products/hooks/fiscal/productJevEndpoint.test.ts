@@ -8,28 +8,63 @@ const database = vi.hoisted(() => ({
 vi.mock('../../../../../../../api/products/serverDb', () => ({
   createProductDbClient: (_url: string, _key: string, token?: string) => {
     if (token) database.userClientCreated = true;
-    return ({
-    auth: { getUser: database.auth },
-    from: (table: string) => {
-      const filters: Record<string, unknown> = {};
-      const query = {
-        select: () => query,
-        eq: (field: string, value: unknown) => { filters[field] = value; return query; },
-        in: () => Promise.resolve({ data: [{ code: '94036000', official_description: 'Móveis de madeira', active: database.validNcm, start_date: null, end_date: null }], error: null }),
-        order: () => query,
-        limit: () => Promise.resolve({ data: table === 'categories'
-          ? [{ id: 'cat-1', name: 'Guarda-roupas', active: true, type: 'category' }]
-          : [{ child_id: 'cat-1' }], error: null }),
-        maybeSingle: () => Promise.resolve({ data: table === 'categories'
-          ? { id: 'cat-1', name: 'Guarda-roupas', active: true, type: 'category' }
-          : { code: filters.code, official_description: 'Móveis de madeira', active: database.validNcm, start_date: null, end_date: null }, error: null }),
-      };
-      return query;
-    },
-    rpc: () => Promise.resolve({ data: [{ code: '94036000', rank: 1 }], error: null }),
-  }); },
+    return {
+      auth: { getUser: database.auth },
+      from: (table: string) => {
+        const filters: Record<string, unknown> = {};
+        const query = {
+          select: () => query,
+          eq: (field: string, value: unknown) => {
+            filters[field] = value;
+            return query;
+          },
+          in: () =>
+            Promise.resolve({
+              data: [
+                {
+                  code: '94036000',
+                  official_description: 'Móveis de madeira',
+                  active: database.validNcm,
+                  start_date: null,
+                  end_date: null,
+                },
+              ],
+              error: null,
+            }),
+          order: () => query,
+          limit: () =>
+            Promise.resolve({
+              data:
+                table === 'categories'
+                  ? [{ id: 'cat-1', name: 'Guarda-roupas', active: true, type: 'category' }]
+                  : [{ child_id: 'cat-1' }],
+              error: null,
+            }),
+          maybeSingle: () =>
+            Promise.resolve({
+              data:
+                table === 'categories'
+                  ? { id: 'cat-1', name: 'Guarda-roupas', active: true, type: 'category' }
+                  : {
+                      code: filters.code,
+                      official_description: 'Móveis de madeira',
+                      active: database.validNcm,
+                      start_date: null,
+                      end_date: null,
+                    },
+              error: null,
+            }),
+        };
+        return query;
+      },
+      rpc: () => Promise.resolve({ data: [{ code: '94036000', rank: 1 }], error: null }),
+    };
+  },
 }));
-vi.mock('../../../../../../../src/telemetry/tracer', () => ({ withSpan: (_name: string, fn: (span: { setAttribute: () => void }) => unknown) => fn({ setAttribute: () => undefined }) }));
+vi.mock('../../../../../../../src/telemetry/tracer', () => ({
+  withSpan: (_name: string, fn: (span: { setAttribute: () => void }) => unknown) =>
+    fn({ setAttribute: () => undefined }),
+}));
 
 let handler: (req: unknown, res: unknown) => Promise<unknown>;
 beforeAll(async () => {
@@ -42,7 +77,13 @@ beforeEach(() => {
   database.validNcm = true;
   database.userClientCreated = false;
   database.auth.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ answers: { category: { choice: 'c0' }, ncm: { choice: 'n0' } } }) }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ answers: { category: { choice: 'c0' }, ncm: { choice: 'n0' } } }),
+    })
+  );
 });
 
 async function call(body: Record<string, unknown>, authorization = 'Bearer user-test-token') {
@@ -50,8 +91,14 @@ async function call(body: Record<string, unknown>, authorization = 'Bearer user-
   let payload: any;
   const res = {
     setHeader: () => undefined,
-    status: (code: number) => { status = code; return res; },
-    json: (data: unknown) => { payload = data; return res; },
+    status: (code: number) => {
+      status = code;
+      return res;
+    },
+    json: (data: unknown) => {
+      payload = data;
+      return res;
+    },
     end: () => res,
   };
   await handler({ method: 'POST', headers: { authorization }, body }, res);
@@ -72,20 +119,32 @@ describe('API Jev para produtos', () => {
   });
 
   it('rejeita escolha fora das opções e não aceita NCM injetado pelo cliente', async () => {
-    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ answers: { category: { choice: 'c999' }, ncm: { choice: '99999999' } } }) } as Response);
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        answers: { category: { choice: 'c999' }, ncm: { choice: '99999999' } },
+      }),
+    } as Response);
     const result = await call({ name: 'Guarda Roupa Sidney', ncmCandidate: '99999999' });
     expect(result.status).toBe(200);
     expect(result.payload).toEqual({ category: null, ncm: null });
   });
 
   it('descarta candidato que perdeu a vigência antes da resposta', async () => {
-    vi.mocked(fetch).mockImplementation(async () => { database.validNcm = false; return { ok: true, json: async () => ({ answers: { ncm: { choice: 'n0' } } }) } as Response; });
+    vi.mocked(fetch).mockImplementation(async () => {
+      database.validNcm = false;
+      return { ok: true, json: async () => ({ answers: { ncm: { choice: 'n0' } } }) } as Response;
+    });
     const result = await call({ name: 'Guarda Roupa Sidney', categoryId: 'cat-1' });
     expect(result.payload.ncm).toBeNull();
   });
 
   it('não consulta Jev quando categoria e NCM já estão preenchidos', async () => {
-    const result = await call({ name: 'Guarda Roupa Sidney', categoryId: 'cat-1', ncm: '94036000' });
+    const result = await call({
+      name: 'Guarda Roupa Sidney',
+      categoryId: 'cat-1',
+      ncm: '94036000',
+    });
     expect(result.status).toBe(200);
     expect(fetch).not.toHaveBeenCalled();
   });

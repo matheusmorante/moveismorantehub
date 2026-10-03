@@ -14,7 +14,7 @@
 | **Módulo Atual** | **[MÓDULO 3] Logística, Entregas e Montagens (ERP & Mobile)** |
 | **Próxima Etapa / Goal** | **Etapa 3.3 - Marcador do Depósito Móveis Morante diferenciado (`🏬`) sem ações de entrega** |
 | **Status do Goal** | ⏳ `PRONTO_PARA_EXECUTAR` |
-| **Ambiente Ativo** | Unitários em memória; integração PostgreSQL pendente de ambiente local/staging isolado confirmado |
+| **Ambiente Ativo** | Unitários em memória; integração PostgreSQL no Supabase remoto configurado com fixtures `TEST_AUT_<uuid>` |
 | **Último testRunId** | `TESTE_HUB_20260917_101000_M2_ALL_APPROVED` |
 | **Data da Última Atualização** | 2026-09-17 10:35:00 |
 
@@ -24,8 +24,8 @@
 
 1. **PROIBIDO TOCAR DADOS REAIS**: Qualquer dado inserido, editado ou removido deve conter o identificador `[TESTE_AUT]` ou `testRunId`.
 2. **TEARDOWN GARANTIDO**: Todo teste que criar registros no banco de dados deve executar limpeza completa em bloco `finally`.
-3. **INTEGRAÇÃO COM BANCO ISOLADO**: Comportamentos relevantes de Supabase/PostgreSQL exigem PostgreSQL real em ambiente de teste local ou staging confirmado. Mocks cobrem apenas unidades/contratos isolados e não provam integração, atomicidade, rollback, RLS ou concorrência. Sem ambiente isolado, não escrever no banco; registrar a integração como pendente/aviso. Nunca executar fault injection, rollback ou concorrência em produção. Seguir a matriz canônica em `.agents/skills/testes-seguros-erp/SKILL.md`.
-4. **JANELA DE DOCKER + SUPABASE LOCAL**: Antes do primeiro comando dependente do stack, confira dia e horário em `America/Sao_Paulo` e siga a janela canônica em `.agents/skills/testes-seguros-erp/SKILL.md`. Stack já iniciado não autoriza teste fora da janela. Fora dela, marque os testes locais dependentes como `PENDENTE — aguardando janela permitida para Docker + Supabase Local`; não substitua evidência real por mocks nem use produção.
+3. **Integração PostgreSQL**: use o projeto Supabase remoto configurado com `testRunId=TEST_AUT_<uuid>`, IDs próprios registrados e teardown pelo fluxo normal. Valide persistência, atomicidade, rollback, RLS e idempotência somente com operações controladas sobre essa massa. Não faça fault injection, carga ou concorrência ampla nem altere registros operacionais. Mocks não provam integração. Siga `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`.
+4. **Integração Supabase remota**: antes de qualquer leitura ou escrita, confirme o project ref e siga `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Use fixtures sintéticas isoladas `TEST_AUT_<uuid>`; não use Docker/Supabase Local, nem altere registros operacionais.
 
 ---
 
@@ -103,7 +103,7 @@
 - [ ] **Etapa 4.3**: Geração e validação de nós XML contra schemas oficiais do SEFAZ-PR.  
   *Tipo:* Unitário (`vitest run src/pages/utils/nfe/`)
 - [ ] **Etapa 4.4**: Emissão de DANFE, cancelamento e contingência.  
-  *Tipo:* Integração SEFAZ (Ambiente Homologação com dados `[TESTE_AUT]`)
+  *Tipo:* Integração SEFAZ (procedimento e ambiente a redefinir)
 
 ### [MÓDULO 5] Financeiro, Recebimentos e Contas a Receber — Criticidade: ALTA
 - [ ] **Etapa 5.1**: Lançamentos financeiros automáticos na finalização de pedidos.  
@@ -419,7 +419,7 @@ Esta seção não cria novos cenários. Ela liga os IDs existentes a testes auto
 | Vitest — histórico de produto sem fallback | P-28, V-09, V-23–V-25 | `src/pages/utils/orderSearchQueries.test.ts` | PASSOU: 2 testes; histórico consulta `order_items` e não consulta `orders.order_data` |
 | Playwright — variações e cadastro | P-03–P-04, P-07, P-11, P-22–P-23, P-46–P-47, V-01–V-12, V-40–V-41 | `tests/e2e/products/products-variations-e2e.spec.ts`, `products-draft-flow.spec.ts`, `products-variation-validation.spec.ts` | NÃO EXECUTADO: ambiente E2E aponta para Supabase de produção; `.env.local-test` ausente |
 | Playwright — composição e explosão no pedido | C-01–C-07, C-14–C-15, C-41–C-43 | `tests/e2e/products/compositions.spec.ts` | NÃO EXECUTADO pelo mesmo bloqueio de ambiente; o arquivo existente ainda usa esperas artificiais e precisa ser endurecido antes da aprovação |
-| Integração/Supabase — UUID, rollback, estoque e merge/movimentação | P-11, P-28, P-35, V-09, V-13–V-14, V-24–V-27, C-18, C-21, C-36, C-42 | RPCs, migrations e contratos de persistência | PENDENTE: requer banco local/staging isolado, `testRunId` e teardown confirmado |
+| Integração/Supabase — UUID, rollback, estoque e merge/movimentação | P-11, P-28, P-35, V-09, V-13–V-14, V-24–V-27, C-18, C-21, C-36, C-42 | RPCs, migrations e contratos de persistência | PENDENTE: requer execução controlada no Supabase remoto, `testRunId` sintético e teardown confirmado |
 | Manual/integrações externas | P-44–P-45, P-48, V-34, V-42, C-44 | IA, fiscal da variação, conversão e ações sem prop/botão conectado | AVISO/BLOQUEADO; não aprovar por leitura estática |
 
 **Bateria unitária executada na rodada anterior:** 53 testes passaram nos oito arquivos focados. **Correção de fonte única executada nesta rodada:** 10/10 testes passaram em 3 arquivos focados (`productDependencyCheck`, `orderSearchQueries` e `compositionService`). Os 134 cenários ainda não estão aprovados funcionalmente; a aprovação depende da execução dos grupos de integração e E2E em ambiente seguro.

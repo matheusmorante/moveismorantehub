@@ -1,5 +1,7 @@
 # Correção de série e IE na NF-e 55 de homologação
 
+> **Registro histórico:** preserva a correção e a execução documentadas em 2026-09-30. As regras e o procedimento para novos testes fiscais em homologação foram removidos em 2026-10-03 para redefinição; este relatório não é um roteiro vigente.
+
 Verificado em 30/09/2026: pedido 3474, NF-e 701/série 1, `cStat=100`, documento `b1e4be97-4391-43b9-8d03-bd7e43e3276c`. Chave, protocolo, XML, itens e histórico conferem com a persistência; a interface apresenta status homologada. Produção fiscal permanece bloqueada.
 
 ## Regra e decisão

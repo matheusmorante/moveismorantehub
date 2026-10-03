@@ -1,5 +1,7 @@
 # Emissão de NF-e e NFC-e Direta (SEFAZ-PR) — Móveis Morante Hub
 
+> **Referência histórica:** este documento contém decisões antigas de implementação e não define o ambiente local atual nem testes fiscais HML. As regras de teste foram removidas em 2026-10-03 para redefinição; configuração local segue `.agents/skills/vercel-development/SKILL.md`.
+
 > **Status:** Em implementação / Módulo Fiscal Direto  
 > **Objetivo:** Emissão, cancelamento, inutilização e consulta de documentos fiscais eletrônicos diretamente nos WebServices da SEFAZ-PR, eliminando custos com gateways ou APIs intermediárias pagas (Focus NFe, Bling, etc.).
 
@@ -36,13 +38,11 @@ Persistência no Supabase (`order_data.nfe`, `invoices`) + Envio ao Cliente
 
 Seguindo a regra de isolamento de ambientes do Morante Hub:
 
-| Configuração | Homologação (`NODE_ENV=development`) | Produção (`NODE_ENV=production`) |
+| Configuração | Homologação (`tpAmb=2`) | Produção (`tpAmb=1`) |
 |---|---|---|
 | **Ambiente (`tpAmb`)** | `2` (Homologação) | `1` (Produção) |
 | **WebService Autorização** | `https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4` | `https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4` |
 | **WebService Retorno** | `https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRetAutorizacao4` | `https://nfe.sefa.pr.gov.br/nfe/NFeRetAutorizacao4` |
-| **Destinatário de Testes** | CNPJ / CPF e Nome com "SEM VALOR FISCAL" | Dados reais do cliente |
-| **Série da Nota** | Série 900+ (testes) | Série 1 (produção) |
 
 ---
 

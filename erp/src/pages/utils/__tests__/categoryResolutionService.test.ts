@@ -38,25 +38,33 @@ describe('categoryResolutionService', () => {
     ['CJ SALA JANTAR MADETAL MOSCOU 136CM 4CAD GRECIA', 'kitchen-sets'],
   ])('classifica "%s" como %s', (title, expectedId) => {
     expect(matchCategoryByRules(title, categories)?.id).toBe(expectedId);
-    expect(rankCategoryCandidates(title, categories).slice(0, 3).map(({ category }) => category.id))
-      .toContain(expectedId);
+    expect(
+      rankCategoryCandidates(title, categories)
+        .slice(0, 3)
+        .map(({ category }) => category.id)
+    ).toContain(expectedId);
   });
 
   it.each(['Gabinete banheiro', 'Gabinete para banheiro', 'Armário banheiro'])(
     'não seleciona balcão de cozinha para "%s" e mantém opções de banheiro como candidatas',
     (title) => {
       expect(matchCategoryByRules(title, categories)).toBeNull();
-      expect(rankCategoryCandidates(title, categories).slice(0, 3).map(({ category }) => category.id))
-        .toContain('bathroom-sets');
-      expect(rankCategoryCandidates(title, categories).map(({ category }) => category.id))
-        .not.toContain('kitchen-sink-cabinets');
+      expect(
+        rankCategoryCandidates(title, categories)
+          .slice(0, 3)
+          .map(({ category }) => category.id)
+      ).toContain('bathroom-sets');
+      expect(
+        rankCategoryCandidates(title, categories).map(({ category }) => category.id)
+      ).not.toContain('kitchen-sink-cabinets');
     }
   );
 
   it('não seleciona automaticamente "Caixa de pia" sem evidência histórica suficiente', () => {
     expect(matchCategoryByRules('Caixa de pia 120', categories)).toBeNull();
-    expect(rankCategoryCandidates('Caixa de pia 120', categories).map(({ category }) => category.id))
-      .toContain('kitchen-sink-cabinets');
+    expect(
+      rankCategoryCandidates('Caixa de pia 120', categories).map(({ category }) => category.id)
+    ).toContain('kitchen-sink-cabinets');
   });
 
   it('deixa nomes genéricos e candidatos próximos sem seleção automática', () => {
@@ -72,18 +80,22 @@ describe('categoryResolutionService', () => {
   it('não força uma categoria para aparador com rótulos históricos divergentes', () => {
     const withBuffets = [...categories, { id: 'buffets', name: 'Aparadores Buffets' }];
     expect(matchCategoryByRules('Aparador para Café Cairo Pés Palito', withBuffets)).toBeNull();
-    expect(rankCategoryCandidates('Aparador para Café Cairo Pés Palito', withBuffets)[0]?.category.id)
-      .toBe('buffets');
+    expect(
+      rankCategoryCandidates('Aparador para Café Cairo Pés Palito', withBuffets)[0]?.category.id
+    ).toBe('buffets');
   });
 
   it('preserva uma categoria escolhida manualmente', () => {
-    expect(keepManualCategorySelection(['bathroom-sets'], 'kitchen-sink-cabinets'))
-      .toEqual(['bathroom-sets']);
+    expect(keepManualCategorySelection(['bathroom-sets'], 'kitchen-sink-cabinets')).toEqual([
+      'bathroom-sets',
+    ]);
     expect(keepManualCategorySelection([], 'wardrobes')).toEqual(['wardrobes']);
   });
 
   it('resolve automaticamente só por aliases locais e não chama IA', async () => {
     await expect(resolveAutoCategory('Roupeiro casal', categories)).resolves.toEqual(categories[0]);
-    await expect(resolveAutoCategory('Produto sem categoria conhecida', categories)).resolves.toBeNull();
+    await expect(
+      resolveAutoCategory('Produto sem categoria conhecida', categories)
+    ).resolves.toBeNull();
   });
 });

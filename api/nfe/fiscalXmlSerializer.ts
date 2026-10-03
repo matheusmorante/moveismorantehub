@@ -1,4 +1,9 @@
-import type { DeterminedTaxGroup, FiscalAddress, FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
+import type {
+  DeterminedTaxGroup,
+  FiscalAddress,
+  FiscalDocument,
+  FiscalSnapshotCandidate,
+} from './fiscalSnapshot';
 import { validateFiscalDocument, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fiscalIcmsGroups';
 
@@ -9,15 +14,28 @@ export type FiscalXmlIdentity = {
   issuedAt: string;
 };
 
-const escapeXml = (value: string | number) => String(value).replace(/[&<>"']/g, (char) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
-})[char] || char);
+const escapeXml = (value: string | number) =>
+  String(value).replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&apos;',
+      })[char] || char
+  );
 const tag = (name: string, value: string | number) => `<${name}>${escapeXml(value)}</${name}>`;
 const money = (value: number) => value.toFixed(2);
 const decimal = (value: number, scale: number) => value.toFixed(scale);
 function percent(value: number): string {
-  if (!Number.isFinite(value) || value < 0 || value > 100 ||
-      Math.abs(value * 10000 - Math.round(value * 10000)) > 0.000001)
+  if (
+    !Number.isFinite(value) ||
+    value < 0 ||
+    value > 100 ||
+    Math.abs(value * 10000 - Math.round(value * 10000)) > 0.000001
+  )
     throw new Error('Alíquota fiscal inválida.');
   return value.toFixed(4);
 }
@@ -41,10 +59,12 @@ function addressXml(address: FiscalAddress, name: 'enderEmit' | 'enderDest'): st
   for (const [field, value] of Object.entries(address)) {
     if (!value?.trim()) throw new Error(`Endereço fiscal sem ${field}.`);
   }
-  return `<${name}>${tag('xLgr', address.street)}${tag('nro', address.number)}` +
+  return (
+    `<${name}>${tag('xLgr', address.street)}${tag('nro', address.number)}` +
     `${tag('xBairro', address.district)}${tag('cMun', address.municipalityCode)}` +
     `${tag('xMun', address.municipality)}${tag('UF', address.uf)}` +
-    `${tag('CEP', address.postalCode)}${tag('cPais', '1058')}${tag('xPais', 'BRASIL')}</${name}>`;
+    `${tag('CEP', address.postalCode)}${tag('cPais', '1058')}${tag('xPais', 'BRASIL')}</${name}>`
+  );
 }
 
 function taxAmount(tax: DeterminedTaxGroup, field: string): number {
@@ -71,7 +91,8 @@ function taxXml(taxes: ReadonlyArray<DeterminedTaxGroup>, origin: string): strin
     const amount = taxAmount(icms, 'vICMS');
     if (Math.abs(Math.round(base * rate) - Math.round(amount * 100)) > 1)
       throw new Error('ICMS do item não reconcilia com base e alíquota.');
-    icmsGroup = `<ICMS00>${tag('orig', origin)}${tag('CST', icms.code)}` +
+    icmsGroup =
+      `<ICMS00>${tag('orig', origin)}${tag('CST', icms.code)}` +
       `${tag('modBC', requireCode(String(icms.values.modBC), /^[0-3]$/, 'Modalidade da base ICMS'))}` +
       `${tag('vBC', money(base))}${tag('pICMS', percent(rate))}` +
       `${tag('vICMS', money(amount))}</ICMS00>`;
@@ -93,11 +114,15 @@ function taxXml(taxes: ReadonlyArray<DeterminedTaxGroup>, origin: string): strin
     if (Math.abs(Math.round(base * rate) - Math.round(amount * 100)) > 1)
       throw new Error(`${group} do item não reconcilia com base e alíquota.`);
     const variant = ['01', '02'].includes(tax.code) ? `${group}Aliq` : `${group}Outr`;
-    return `<${group}><${variant}>${tag('CST', tax.code)}${tag('vBC', money(base))}` +
-      `${tag(rateName, percent(rate))}${tag(valueName, money(amount))}</${variant}></${group}>`;
+    return (
+      `<${group}><${variant}>${tag('CST', tax.code)}${tag('vBC', money(base))}` +
+      `${tag(rateName, percent(rate))}${tag(valueName, money(amount))}</${variant}></${group}>`
+    );
   };
-  return `<imposto><ICMS>${icmsGroup}</ICMS>${contribution(pis, 'PIS')}` +
-    `${contribution(cofins, 'COFINS')}</imposto>`;
+  return (
+    `<imposto><ICMS>${icmsGroup}</ICMS>${contribution(pis, 'PIS')}` +
+    `${contribution(cofins, 'COFINS')}</imposto>`
+  );
 }
 
 /** Pure NF-e 55, normal domestic sale serialization. No numbering, writes, signing or transmission. */
@@ -108,41 +133,64 @@ export function serializeFiscalDocument(
   identity: FiscalXmlIdentity
 ): string {
   validateFiscalDocument(snapshot, document, ruleSet);
-  if (document.model !== '55') throw new Error('Serializer NFC-e 65 e QR Code ainda não disponíveis.');
+  if (document.model !== '55')
+    throw new Error('Serializer NFC-e 65 e QR Code ainda não disponíveis.');
   const key = requireCode(identity.accessKey, /^\d{44}$/, 'Chave de acesso');
   requireCode(document.issuer.cnpj, /^\d{14}$/, 'CNPJ do emitente');
-  if (document.issuer.address.uf !== 'PR' || key.slice(0, 2) !== '41' ||
-      document.issuer.municipalityCode !== document.issuer.address.municipalityCode ||
-      key.slice(6, 20) !== document.issuer.cnpj.replace(/\D/g, '') ||
-      key.slice(20, 22) !== document.model ||
-      Number(key.slice(22, 25)) !== identity.series ||
-      Number(key.slice(25, 34)) !== identity.number || key[34] !== '1' ||
-      Number(key[43]) !== accessKeyDigit(key.slice(0, 43)) ||
-      !Number.isInteger(identity.number) || identity.number < 1 ||
-      !Number.isInteger(identity.series) || identity.series < 1 || identity.series > 999)
+  if (
+    document.issuer.address.uf !== 'PR' ||
+    key.slice(0, 2) !== '41' ||
+    document.issuer.municipalityCode !== document.issuer.address.municipalityCode ||
+    key.slice(6, 20) !== document.issuer.cnpj.replace(/\D/g, '') ||
+    key.slice(20, 22) !== document.model ||
+    Number(key.slice(22, 25)) !== identity.series ||
+    Number(key.slice(25, 34)) !== identity.number ||
+    key[34] !== '1' ||
+    Number(key[43]) !== accessKeyDigit(key.slice(0, 43)) ||
+    !Number.isInteger(identity.number) ||
+    identity.number < 1 ||
+    !Number.isInteger(identity.series) ||
+    identity.series < 1 ||
+    identity.series > 999
+  )
     throw new Error('Chave, emitente, modelo, série ou número fiscal não conferem.');
   const issuedAt = new Date(identity.issuedAt);
-  if (Number.isNaN(issuedAt.getTime()) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(identity.issuedAt) ||
-      key.slice(2, 6) !== identity.issuedAt.slice(2, 4) + identity.issuedAt.slice(5, 7))
+  if (
+    Number.isNaN(issuedAt.getTime()) ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(identity.issuedAt) ||
+    key.slice(2, 6) !== identity.issuedAt.slice(2, 4) + identity.issuedAt.slice(5, 7)
+  )
     throw new Error('Instante fiscal ou AAMM da chave inválidos.');
   const zoneOffset = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo', timeZoneName: 'longOffset',
-  }).formatToParts(issuedAt).find((part) => part.type === 'timeZoneName')?.value.replace('GMT', '');
+    timeZone: 'America/Sao_Paulo',
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(issuedAt)
+    .find((part) => part.type === 'timeZoneName')
+    ?.value.replace('GMT', '');
   if (zoneOffset !== identity.issuedAt.slice(-6))
     throw new Error('Offset de emissão não corresponde ao fuso de São Paulo.');
   const operation = document.operation;
-  if (operation.direction !== 'outbound' || operation.destination !== '1' ||
-      operation.purpose !== '1' ||
-      !/^[0-9]$/.test(operation.presence) || !/^[012349]$/.test(operation.freightMode))
+  if (
+    operation.direction !== 'outbound' ||
+    operation.destination !== '1' ||
+    operation.purpose !== '1' ||
+    !/^[0-9]$/.test(operation.presence) ||
+    !/^[012349]$/.test(operation.freightMode)
+  )
     throw new Error('Operação fiscal não suportada pelo serializer.');
   if (document.recipient.address.uf !== 'PR')
     throw new Error('NF-e interestadual ou exterior exige serializer fiscal próprio.');
   const recipientDoc = document.recipient.cpfCnpj.replace(/\D/g, '');
-  if (![11, 14].includes(recipientDoc.length)) throw new Error('Documento do destinatário inválido.');
-  if (!['1', '2', '9'].includes(document.recipient.ieIndicator) ||
-      (document.recipient.ieIndicator === '1' && !document.recipient.ie))
+  if (![11, 14].includes(recipientDoc.length))
+    throw new Error('Documento do destinatário inválido.');
+  if (
+    !['1', '2', '9'].includes(document.recipient.ieIndicator) ||
+    (document.recipient.ieIndicator === '1' && !document.recipient.ie)
+  )
     throw new Error('Condição de contribuinte do destinatário incompleta.');
-  const ide = `<ide>${tag('cUF', '41')}${tag('cNF', key.slice(35, 43))}` +
+  const ide =
+    `<ide>${tag('cUF', '41')}${tag('cNF', key.slice(35, 43))}` +
     `${tag('natOp', operation.natureOfOperation)}${tag('mod', document.model)}` +
     `${tag('serie', identity.series)}${tag('nNF', identity.number)}` +
     `${tag('dhEmi', identity.issuedAt)}${tag('tpNF', '1')}` +
@@ -151,39 +199,45 @@ export function serializeFiscalDocument(
     `${tag('tpAmb', document.environment)}${tag('finNFe', operation.purpose)}` +
     `${tag('indFinal', operation.finalConsumer)}${tag('indPres', operation.presence)}` +
     `${tag('procEmi', '0')}${tag('verProc', 'MoranteHub_1.0')}</ide>`;
-  const issuer = `<emit>${tag('CNPJ', document.issuer.cnpj)}` +
+  const issuer =
+    `<emit>${tag('CNPJ', document.issuer.cnpj)}` +
     `${tag('xNome', document.issuer.name)}${addressXml(document.issuer.address, 'enderEmit')}` +
     `${tag('IE', document.issuer.ie)}${tag('CRT', document.issuer.crt)}</emit>`;
-  const recipient = `<dest>${tag(recipientDoc.length === 11 ? 'CPF' : 'CNPJ', recipientDoc)}` +
+  const recipient =
+    `<dest>${tag(recipientDoc.length === 11 ? 'CPF' : 'CNPJ', recipientDoc)}` +
     `${tag('xNome', document.environment === 2 ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : document.recipient.name)}` +
     `${addressXml(document.recipient.address, 'enderDest')}` +
     `${tag('indIEDest', document.recipient.ieIndicator)}` +
     `${document.recipient.ie ? tag('IE', document.recipient.ie) : ''}</dest>`;
-  const items = document.items.map((item) => {
-    const p = item.product;
-    const c = item.classification;
-    requireCode(c.ncm, /^\d{8}$/, `NCM do item ${item.itemNumber}`);
-    requireCode(c.cfop, /^[567]\d{3}$/, `CFOP do item ${item.itemNumber}`);
-    if (!c.cfop.startsWith('5'))
-      throw new Error(`CFOP do item ${item.itemNumber} não corresponde ao destino.`);
-    requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
-    const product = `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +
-      `${tag('xProd', document.environment === 2 && item.itemNumber === 1 ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
-      `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
-      `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
-      `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +
-      `${tag('vUnCom', decimal(p.unitValue, 4))}${tag('vProd', money(p.gross))}` +
-      `${tag('cEANTrib', p.gtin)}${tag('uTrib', c.unit)}` +
-      `${tag('qTrib', decimal(p.quantity, 4))}${tag('vUnTrib', decimal(p.unitValue, 4))}` +
-      `${p.freight ? tag('vFrete', money(p.freight)) : ''}` +
-      `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
-      `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +
-      `${p.otherExpenses ? tag('vOutro', money(p.otherExpenses)) : ''}` +
-      `${tag('indTot', '1')}</prod>`;
-    return `<det nItem="${item.itemNumber}">${product}${taxXml(item.taxes, c.origin)}</det>`;
-  }).join('');
+  const items = document.items
+    .map((item) => {
+      const p = item.product;
+      const c = item.classification;
+      requireCode(c.ncm, /^\d{8}$/, `NCM do item ${item.itemNumber}`);
+      requireCode(c.cfop, /^[567]\d{3}$/, `CFOP do item ${item.itemNumber}`);
+      if (!c.cfop.startsWith('5'))
+        throw new Error(`CFOP do item ${item.itemNumber} não corresponde ao destino.`);
+      requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
+      const product =
+        `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +
+        `${tag('xProd', document.environment === 2 && item.itemNumber === 1 ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
+        `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
+        `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
+        `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +
+        `${tag('vUnCom', decimal(p.unitValue, 4))}${tag('vProd', money(p.gross))}` +
+        `${tag('cEANTrib', p.gtin)}${tag('uTrib', c.unit)}` +
+        `${tag('qTrib', decimal(p.quantity, 4))}${tag('vUnTrib', decimal(p.unitValue, 4))}` +
+        `${p.freight ? tag('vFrete', money(p.freight)) : ''}` +
+        `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
+        `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +
+        `${p.otherExpenses ? tag('vOutro', money(p.otherExpenses)) : ''}` +
+        `${tag('indTot', '1')}</prod>`;
+      return `<det nItem="${item.itemNumber}">${product}${taxXml(item.taxes, c.origin)}</det>`;
+    })
+    .join('');
   const t = document.totals;
-  const total = `<total><ICMSTot>${tag('vBC', money(t.icmsBase))}` +
+  const total =
+    `<total><ICMSTot>${tag('vBC', money(t.icmsBase))}` +
     `${tag('vICMS', money(t.icms))}${tag('vICMSDeson', money(t.icmsExempt))}` +
     `${tag('vFCP', money(t.fcp))}${tag('vBCST', money(t.icmsStBase))}` +
     `${tag('vST', money(t.icmsSt))}${tag('vFCPST', money(t.fcpSt))}` +
@@ -193,11 +247,15 @@ export function serializeFiscalDocument(
     `${tag('vIPI', money(t.ipi))}${tag('vIPIDevol', money(t.ipiReturned))}` +
     `${tag('vPIS', money(t.pis))}${tag('vCOFINS', money(t.cofins))}` +
     `${tag('vOutro', money(t.otherExpenses))}${tag('vNF', money(t.invoice))}</ICMSTot></total>`;
-  const payments = `<pag>${document.payments.map((payment) => {
-    requireCode(payment.methodCode, /^\d{2}$/, 'Meio de pagamento');
-    return `<detPag>${tag('tPag', payment.methodCode)}${tag('vPag', money(payment.amount))}</detPag>`;
-  }).join('')}${t.change ? tag('vTroco', money(t.change)) : ''}</pag>`;
-  return `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe">` +
+  const payments = `<pag>${document.payments
+    .map((payment) => {
+      requireCode(payment.methodCode, /^\d{2}$/, 'Meio de pagamento');
+      return `<detPag>${tag('tPag', payment.methodCode)}${tag('vPag', money(payment.amount))}</detPag>`;
+    })
+    .join('')}${t.change ? tag('vTroco', money(t.change)) : ''}</pag>`;
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe">` +
     `<infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}` +
-    `<transp>${tag('modFrete', operation.freightMode)}</transp>${payments}</infNFe></NFe>`;
+    `<transp>${tag('modFrete', operation.freightMode)}</transp>${payments}</infNFe></NFe>`
+  );
 }

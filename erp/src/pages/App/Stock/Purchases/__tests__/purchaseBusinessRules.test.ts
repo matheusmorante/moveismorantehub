@@ -59,7 +59,7 @@ describe('Suíte de Regras de Negócio: Pedido de Compra (Cálculos, 3-Way Match
     it('calcula o valor total do pedido como a soma exata de todos os itens processados', () => {
       const rawItems = [
         { baseCost: 150, quantity: 2 }, // Unit: 150 + 15(10%) + 7.5(5%) = 172.50 | Tot: 345.00
-        { baseCost: 80, quantity: 4 },  // Unit: 80 + 8(10%) + 4(5%) = 92.00 | Tot: 368.00
+        { baseCost: 80, quantity: 4 }, // Unit: 80 + 8(10%) + 4(5%) = 92.00 | Tot: 368.00
         { baseCost: 45, quantity: 10 }, // Unit: 45 + 4.5(10%) + 2.25(5%) = 51.75 | Tot: 517.50
       ];
 
@@ -208,7 +208,7 @@ describe('Suíte de Regras de Negócio: Pedido de Compra (Cálculos, 3-Way Match
       const mockPurchases = [
         { id: '1', supplierId: 'sup-alpha', status: 'ordered' },
         { id: '2', supplierId: 'sup-alpha', status: 'cancelled' }, // Cancelado
-        { id: '3', supplierId: 'sup-beta', status: 'ordered' },    // Outro fornecedor
+        { id: '3', supplierId: 'sup-beta', status: 'ordered' }, // Outro fornecedor
         { id: '4', supplierId: 'sup-alpha', status: 'fulfilled' },
       ];
 

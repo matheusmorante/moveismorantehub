@@ -8,7 +8,12 @@ afterEach(cleanup);
 
 describe('TemporaryProductWarning', () => {
   it('explica estoque e conciliação ao passar o mouse sem bloquear o formulário', () => {
-    render(<><TemporaryProductWarning /><input aria-label="Outro campo" /></>);
+    render(
+      <>
+        <TemporaryProductWarning />
+        <input aria-label="Outro campo" />
+      </>
+    );
     expect(screen.queryByRole('tooltip')).toBeNull();
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Aviso: produto sem cadastro' }));
     const tooltip = screen.getByRole('tooltip');

@@ -33,6 +33,8 @@ function response() {
 
 function database(role = 'seller') {
   const rpc = vi.fn(async () => ({ data: 701, error: null }));
+  const sequenceRead = vi.fn(async () => ({ data: { ultimo_numero: 701 }, error: null }));
+  const sequenceFilters: Array<[string, string | number]> = [];
   const db = {
     auth: {
       getUser: vi.fn(async () => ({
@@ -40,22 +42,34 @@ function database(role = 'seller') {
         error: null,
       })),
     },
-    from: vi.fn((table: string) => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => ({
-            data:
-              table === 'profiles'
-                ? { role, roles: [role] }
-                : { data: { nfeHomologationSerie: '900', nfeHomologationNextNumber: 700 } },
-            error: null,
+    from: vi.fn((table: string) => {
+      if (table === 'nfe_sequences') {
+        const query: any = {
+          eq: vi.fn((field: string, value: string | number) => {
+            sequenceFilters.push([field, value]);
+            return query;
+          }),
+          maybeSingle: sequenceRead,
+        };
+        return { select: vi.fn(() => query) };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data:
+                table === 'profiles'
+                  ? { role, roles: [role] }
+                  : { data: { nfeHomologationSerie: '900', nfeHomologationNextNumber: 700 } },
+              error: null,
+            }),
           }),
         }),
-      }),
-    })),
+      };
+    }),
     rpc,
   };
-  return { db, rpc };
+  return { db, rpc, sequenceRead, sequenceFilters };
 }
 
 describe('reserva fiscal via API autenticada', () => {
@@ -114,6 +128,58 @@ describe('reserva fiscal via API autenticada', () => {
       code: 'FISCAL_CORE_REQUIRED',
       numberReserved: false,
     });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { model: '55', environment: '2', series: '1', expectedEnvironment: 2 },
+    { model: '65', environment: '1', series: '7', expectedEnvironment: 1 },
+  ])(
+    'consulta uma prévia isolada por modelo, série e ambiente ($model/$series/$environment)',
+    async ({ model, environment, series, expectedEnvironment }) => {
+      const { db, rpc, sequenceRead, sequenceFilters } = database();
+      mocks.createClient.mockReturnValue(db);
+      const handler = (await import('../../../../../../api/nfe/reserve-number')).default;
+      const result = response();
+      await handler(
+        {
+          method: 'GET',
+          headers: { authorization: 'Bearer user-token' },
+          query: { model, environment, series, minimumNumber: '700' },
+        } as any,
+        result.res
+      );
+      expect(result.statusCode).toBe(200);
+      expect(result.body).toEqual({ success: true, nextNumber: 702 });
+      expect(result.res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+      expect(sequenceRead).toHaveBeenCalledOnce();
+      expect(sequenceFilters).toEqual([
+        ['modelo', model],
+        ['serie', series],
+        ['ambiente', expectedEnvironment],
+      ]);
+      expect(rpc).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejeita consulta GET sem sessão ou com parâmetros inválidos', async () => {
+    const { db, rpc, sequenceRead } = database();
+    mocks.createClient.mockReturnValue(db);
+    const handler = (await import('../../../../../../api/nfe/reserve-number')).default;
+    const unauthenticated = response();
+    await handler({ method: 'GET', headers: {}, query: {} } as any, unauthenticated.res);
+    expect(unauthenticated.statusCode).toBe(401);
+    const invalid = response();
+    await handler(
+      {
+        method: 'GET',
+        headers: { authorization: 'Bearer user-token' },
+        query: { model: '55', environment: '2', series: '1', minimumNumber: '0' },
+      } as any,
+      invalid.res
+    );
+    expect(invalid.statusCode).toBe(400);
+    expect(sequenceRead).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 });

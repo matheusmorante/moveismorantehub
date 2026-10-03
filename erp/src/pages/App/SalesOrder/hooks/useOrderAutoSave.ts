@@ -24,8 +24,7 @@ export function useOrderAutoSave(
   latestStateRef: React.MutableRefObject<any>,
   isDraftAutoSaveEnabled: boolean
 ) {
-  const [draftAutoSaveStatus, setDraftAutoSaveStatus] =
-    useState<DraftAutoSaveStatus>('idle');
+  const [draftAutoSaveStatus, setDraftAutoSaveStatus] = useState<DraftAutoSaveStatus>('idle');
   const autoSaveTimerRef = useRef<any>(null);
   const isInitialMount = useRef(true);
   const isSavingRef = useRef(false);
@@ -118,14 +117,10 @@ export function useOrderAutoSave(
         if (!latestStateRef.current.currentOrderId && savedId) {
           setCurrentOrderId(savedId);
         }
-        setDraftAutoSaveStatus(
-          saveRevision === saveRevisionRef.current ? 'saved' : 'pending'
-        );
+        setDraftAutoSaveStatus(saveRevision === saveRevisionRef.current ? 'saved' : 'pending');
       } catch (error) {
         console.error('Erro no salvamento automático:', error);
-        setDraftAutoSaveStatus(
-          saveRevision === saveRevisionRef.current ? 'error' : 'pending'
-        );
+        setDraftAutoSaveStatus(saveRevision === saveRevisionRef.current ? 'error' : 'pending');
       } finally {
         isSavingRef.current = false;
       }

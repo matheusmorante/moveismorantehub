@@ -143,9 +143,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   };
 
   const handleUpdateItem = (idx: number, updatedItem: PurchaseItem) => {
-    setItems((currentItems) =>
-      currentItems.map((item, i) => (i === idx ? updatedItem : item))
-    );
+    setItems((currentItems) => currentItems.map((item, i) => (i === idx ? updatedItem : item)));
   };
 
   const compressImage = async (file: File): Promise<File> => {

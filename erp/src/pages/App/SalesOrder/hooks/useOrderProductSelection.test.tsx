@@ -26,14 +26,16 @@ describe('seleção de produto na venda por origem do estoque', () => {
         return { items, ...useOrderProductSelection(items, setItems) };
       });
 
-      act(() => result.current.handleSelectProduct(0, {
-        id: `produto-${productKind}`,
-        productKind,
-        name: 'Mesa',
-        code: 'MESA-1',
-        unitPrice: 120,
-        costPrice: 80,
-      }));
+      act(() =>
+        result.current.handleSelectProduct(0, {
+          id: `produto-${productKind}`,
+          productKind,
+          name: 'Mesa',
+          code: 'MESA-1',
+          unitPrice: 120,
+          costPrice: 80,
+        })
+      );
 
       const item = result.current.items[0];
       expect(item.condition).toBe(expectedCondition);

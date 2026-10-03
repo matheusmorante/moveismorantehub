@@ -1,3 +1,4 @@
+> **Arquivo histórico, substituído.** Este documento descreve um laboratório Supabase Local/Docker que não faz mais parte do fluxo. Não siga seus procedimentos operacionais. A política vigente é [`SUPABASE_REMOTE_TEST_POLICY.md`](SUPABASE_REMOTE_TEST_POLICY.md): os testes de integração usam o projeto Supabase remoto configurado, com fixtures sintéticas e escopo controlado.
 # Auditoria do Ambiente Supabase Local de Testes
 
 Este documento define como certificar o laboratório Supabase local usado para validar o MoranteHub. Ele verifica se o ambiente produz evidência confiável; não audita a correção funcional de um módulo.

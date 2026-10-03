@@ -13,16 +13,28 @@ function readResponsibleTechnicianConfig(
   env: Record<string, string | undefined> = process.env,
   environment: 1 | 2 = 2
 ): ResponsibleTechnicianConfig {
-  const cnpj = String(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ || '').replace(/\D/g, '');
-  const contact = String(env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || '').trim();
+  const cnpj = String(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ || '').replace(
+    /\D/g,
+    ''
+  );
+  const contact = String(
+    env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || ''
+  ).trim();
   const email = String(env.NFE_RESP_TECH_EMAIL || env.NFE_RESPONSIBLE_TECH_EMAIL || '').trim();
-  const phone = String(env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE || '').replace(/\D/g, '');
-  const csrtId = String(environment === 2
-    ? env.NFE_ID_CSRT_HOMOLOGACAO || env.NFE_CSRT_ID || ''
-    : env.NFE_ID_CSRT_PRODUCAO || env.NFE_CSRT_ID || '').trim();
-  const csrt = String(environment === 2
-    ? env.NFE_CSRT_HOMOLOGACAO || env.NFE_CSRT_SECRET || ''
-    : env.NFE_CSRT_PRODUCAO || env.NFE_CSRT_SECRET || '').trim();
+  const phone = String(env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE || '').replace(
+    /\D/g,
+    ''
+  );
+  const csrtId = String(
+    environment === 2
+      ? env.NFE_ID_CSRT_HOMOLOGACAO || env.NFE_CSRT_ID || ''
+      : env.NFE_ID_CSRT_PRODUCAO || env.NFE_CSRT_ID || ''
+  ).trim();
+  const csrt = String(
+    environment === 2
+      ? env.NFE_CSRT_HOMOLOGACAO || env.NFE_CSRT_SECRET || ''
+      : env.NFE_CSRT_PRODUCAO || env.NFE_CSRT_SECRET || ''
+  ).trim();
 
   return { cnpj, contact, email, phone, csrtId, csrt };
 }
@@ -41,13 +53,15 @@ function invalidConfigurationFields(config: ResponsibleTechnicianConfig): string
 
 /** Only field names; never return credentials or their values in diagnostics. */
 export function getResponsibleTechnicianConfigurationIssues(
-  env: Record<string, string | undefined> = process.env, environment: 1 | 2 = 2
+  env: Record<string, string | undefined> = process.env,
+  environment: 1 | 2 = 2
 ): string[] {
   return invalidConfigurationFields(readResponsibleTechnicianConfig(env, environment));
 }
 
 export function getResponsibleTechnicianConfig(
-  env: Record<string, string | undefined> = process.env, environment: 1 | 2 = 2
+  env: Record<string, string | undefined> = process.env,
+  environment: 1 | 2 = 2
 ): ResponsibleTechnicianConfig | null {
   const config = readResponsibleTechnicianConfig(env, environment);
   return invalidConfigurationFields(config).length ? null : config;

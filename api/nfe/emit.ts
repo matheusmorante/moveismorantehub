@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
@@ -9,7 +10,12 @@ import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { validateNfeAgainstOfficialSchema } from './schemaValidator';
-import { emitHmlTechnical, recoverHmlTechnical, retryHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
+import {
+  emitHmlTechnical,
+  recoverHmlTechnical,
+  retryHmlTechnical,
+  isHmlRuleSet,
+} from './emitHmlTechnical';
 import { embeddedNfeXml } from './xmlEnvelope';
 import {
   appendResponsibleTechnician,
@@ -28,7 +34,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey = getSupabaseSecretKey() || '';
 
 // Endpoints Oficiais SEFAZ-PR Homologação e Produção
 const SEFAZ_PR_URLS = {
@@ -336,11 +342,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Produção exige uma matriz fiscal aprovada e um pipeline próprio.',
         });
 
-      if (
-        !orderId ||
-        ![1, 2].includes(selectedEnvironment) ||
-        !['55', '65'].includes(model)
-      )
+      if (!orderId || ![1, 2].includes(selectedEnvironment) || !['55', '65'].includes(model))
         return res.status(409).json({
           success: false,
           error: 'Documento original sem pedido, modelo ou ambiente fiscal válido.',
@@ -370,7 +372,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (
         String(retryDoc.motivo_status || '').indexOf('217') === -1 &&
-        String(retryDoc.motivo_status || '').toLowerCase().indexOf('não consta') === -1
+        String(retryDoc.motivo_status || '')
+          .toLowerCase()
+          .indexOf('não consta') === -1
       )
         return res.status(400).json({
           success: false,
@@ -381,13 +385,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (selectedEnvironment === 1 && productionConfirmed !== true)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          ...retryResponseMetadata,
-          error: 'Confirmação explícita de Produção ausente.',
-        });
+      return res.status(400).json({
+        success: false,
+        ...retryResponseMetadata,
+        error: 'Confirmação explícita de Produção ausente.',
+      });
     if (selectedEnvironment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
       return res.status(503).json({
         success: false,
@@ -402,13 +404,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', String(orderId))
       .maybeSingle();
     if (orderError || !orderRow)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          ...retryResponseMetadata,
-          error: 'Pedido não encontrado para emissão fiscal.',
-        });
+      return res.status(404).json({
+        success: false,
+        ...retryResponseMetadata,
+        error: 'Pedido não encontrado para emissão fiscal.',
+      });
     if (
       !['sale', 'showroom'].includes(String(orderRow.order_type)) ||
       ['cancelled', 'cancelado'].includes(String(orderRow.status).toLowerCase())
@@ -417,7 +417,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         success: false,
         ...retryResponseMetadata,
         error:
-        'A emissão de saída só pode ser solicitada para pedido comercial válido. Devoluções e estornos usam o fluxo fiscal próprio.',
+          'A emissão de saída só pode ser solicitada para pedido comercial válido. Devoluções e estornos usam o fluxo fiscal próprio.',
       });
     }
 
@@ -475,7 +475,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!req.body.retryDocumentId && String(model) === '55') {
-      const responsibleTechnician = getResponsibleTechnicianConfig(process.env, selectedEnvironment as 1 | 2);
+      const responsibleTechnician = getResponsibleTechnicianConfig(
+        process.env,
+        selectedEnvironment as 1 | 2
+      );
       if (!responsibleTechnician)
         return res.status(503).json({
           success: false,

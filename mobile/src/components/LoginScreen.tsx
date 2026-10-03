@@ -54,7 +54,9 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   const [errorMsg, setErrorMsg] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [recoveryStage, setRecoveryStage] = useState<'idle' | 'email' | 'code' | 'password'>('idle');
+  const [recoveryStage, setRecoveryStage] = useState<'idle' | 'email' | 'code' | 'password'>(
+    'idle'
+  );
   const [recoveryCode, setRecoveryCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -327,7 +329,10 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
                   accessibilityRole="button"
                   disabled={recoveryBusy || !recoveryCode.trim()}
                   onPress={() => void verifyRecoveryCode()}
-                  style={[styles.submitBtn, (recoveryBusy || !recoveryCode.trim()) && styles.submitBtnDisabled]}
+                  style={[
+                    styles.submitBtn,
+                    (recoveryBusy || !recoveryCode.trim()) && styles.submitBtnDisabled,
+                  ]}
                 >
                   {recoveryBusy ? (
                     <ActivityIndicator color="#fff" />
@@ -506,9 +511,7 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
 
               <View style={styles.divider}>
                 <View style={[styles.dividerLine, isDarkMode && styles.dividerLineDark]} />
-                <Text style={[styles.dividerText, isDarkMode && styles.fieldLabelDark]}>
-                  ou
-                </Text>
+                <Text style={[styles.dividerText, isDarkMode && styles.fieldLabelDark]}>ou</Text>
                 <View style={[styles.dividerLine, isDarkMode && styles.dividerLineDark]} />
               </View>
 

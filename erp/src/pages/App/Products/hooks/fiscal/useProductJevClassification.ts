@@ -41,7 +41,8 @@ export function useProductJevClassification(
   }, [isOpen]);
 
   useEffect(() => {
-    if (rejectedSignature.current && rejectedSignature.current !== signature) rejectedSignature.current = '';
+    if (rejectedSignature.current && rejectedSignature.current !== signature)
+      rejectedSignature.current = '';
     if (!isOpen || title.length < 3 || itemType === 'service' || (categoryId && ncm)) {
       setSuggestion(null);
       return;
@@ -64,21 +65,38 @@ export function useProductJevClassification(
         const response = await fetch('/api/products/classify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, title: productTitle, description, material, categoryId, ncm }),
+          body: JSON.stringify({
+            name,
+            title: productTitle,
+            description,
+            material,
+            categoryId,
+            ncm,
+          }),
           signal: controller.signal,
         });
         if (!response.ok) return;
-        const result = await response.json() as Result;
-        if (controller.signal.aborted || requestId !== requestNumber.current || latestSignature.current !== signature) return;
+        const result = (await response.json()) as Result;
+        if (
+          controller.signal.aborted ||
+          requestId !== requestNumber.current ||
+          latestSignature.current !== signature
+        )
+          return;
         if (!ncm && result.ncm && /^\d{8}$/.test(result.ncm.code)) {
           setSuggestion(result.ncm);
           void withSpan('product.jev.ncm.present', async () => undefined, { module: 'Products' });
         }
         if (!categoryId && result.category?.id) {
           const nextSignature = JSON.stringify([title, description, material, result.category.id]);
-          if (result.ncm && /^\d{8}$/.test(result.ncm.code)) skipAutomaticCategory.current = nextSignature;
-          setFormData((prev) => prev.categoryIds?.length ? prev : { ...prev, categoryIds: [result.category!.id] });
-          void withSpan('product.jev.category.apply', async () => undefined, { module: 'Products' });
+          if (result.ncm && /^\d{8}$/.test(result.ncm.code))
+            skipAutomaticCategory.current = nextSignature;
+          setFormData((prev) =>
+            prev.categoryIds?.length ? prev : { ...prev, categoryIds: [result.category!.id] }
+          );
+          void withSpan('product.jev.category.apply', async () => undefined, {
+            module: 'Products',
+          });
         }
       } catch {
         // A classificação é opcional: o formulário e a escolha manual continuam disponíveis.
@@ -88,7 +106,19 @@ export function useProductJevClassification(
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [isOpen, signature, title, categoryId, ncm, itemType, setFormData, name, productTitle, description, material]);
+  }, [
+    isOpen,
+    signature,
+    title,
+    categoryId,
+    ncm,
+    itemType,
+    setFormData,
+    name,
+    productTitle,
+    description,
+    material,
+  ]);
 
   const rejectSuggestion = () => {
     rejectedSignature.current = signature;
@@ -100,15 +130,33 @@ export function useProductJevClassification(
     if (!suggestion || ncm) return;
     try {
       const current = await ncmService.getCatalogEntry(suggestion.code);
-      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-      if (!current?.active || !current.is_active || (current.start_date && current.start_date > today) || (current.end_date && current.end_date < today)) {
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+      if (
+        !current?.active ||
+        !current.is_active ||
+        (current.start_date && current.start_date > today) ||
+        (current.end_date && current.end_date < today)
+      ) {
         setSuggestion(null);
         return;
       }
-      setFormData((prev) => prev.fiscal?.ncm ? prev : {
-        ...prev,
-        fiscal: { ...prev.fiscal!, ncm: current.code, ncmDescription: current.official_description },
-      });
+      setFormData((prev) =>
+        prev.fiscal?.ncm
+          ? prev
+          : {
+              ...prev,
+              fiscal: {
+                ...prev.fiscal!,
+                ncm: current.code,
+                ncmDescription: current.official_description,
+              },
+            }
+      );
       setSuggestion(null);
       void withSpan('product.jev.ncm.accept', async () => undefined, { module: 'Products' });
     } catch {

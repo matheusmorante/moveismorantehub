@@ -207,7 +207,11 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
   const orderStatus = order.status || data.status || 'scheduled';
   const statusLabel = getOrderStatusLabel(
     { ...order, ...data, status: orderStatus },
-    orderStatus === 'fulfilled' ? 'Atendido' : orderStatus === 'scheduled' ? 'Agendado' : orderStatus
+    orderStatus === 'fulfilled'
+      ? 'Atendido'
+      : orderStatus === 'scheduled'
+        ? 'Agendado'
+        : orderStatus
   );
 
   return (

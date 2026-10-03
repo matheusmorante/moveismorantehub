@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
@@ -16,23 +17,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   if (!['GET', 'POST', 'PATCH'].includes(req.method || ''))
     return res.status(405).json({ success: false, error: 'Método inválido.' });
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const supabaseSecret = getSupabaseSecretKey();
+  if (!supabaseSecret)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
   const db = createClient<FiscalDatabase>(
     process.env.VITE_SUPABASE_URL ||
       process.env.SUPABASE_URL ||
       'https://hkoxhourxwlddgsfdgws.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    supabaseSecret
   );
   const auth = await authorizeFiscalOperator(db, req.headers.authorization);
   if (!auth.ok) return res.status(auth.status).json({ success: false, error: auth.message });
   try {
     const configuration = await loadHmlCsosnConfiguration(db);
-    if (req.method === 'GET') return res.status(200).json({ success: true, configuration,
-      readiness: { environment: 2, configurationIssues: [
-        ...getResponsibleTechnicianConfigurationIssues(process.env, 2),
-        ...(!process.env.NFE_CERTIFICATE_BASE64 ? ['certificate.base64'] : []),
-      ] } });
+    if (req.method === 'GET')
+      return res.status(200).json({
+        success: true,
+        configuration,
+        readiness: {
+          environment: 2,
+          configurationIssues: [
+            ...getResponsibleTechnicianConfigurationIssues(process.env, 2),
+            ...(!process.env.NFE_CERTIFICATE_BASE64 ? ['certificate.base64'] : []),
+          ],
+        },
+      });
     const body = req.body as Record<string, unknown>;
     if (body?.environment !== 2)
       return res
@@ -46,12 +55,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .maybeSingle();
       if (profileError) throw new Error('Não foi possível validar a permissão de configuração.');
       if (profile?.role !== 'administrator' && !profile?.roles?.includes('administrator'))
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: 'Somente administradores alteram configurações fiscais.',
-          });
+        return res.status(403).json({
+          success: false,
+          error: 'Somente administradores alteram configurações fiscais.',
+        });
       if (Object.keys(body).some((key) => !['environment', 'csosn'].includes(key)))
         throw new Error('Campos de configuração inválidos.');
       const updated = parseHmlCsosnConfiguration({
@@ -59,12 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         csosn: validateCsosn(body.csosn, configuration.issuerCrt),
         version: randomUUID(),
       });
-      const { error } = await db
-        .from('settings')
-        .upsert({
-          id: HML_CSOSN_SETTINGS_ID,
-          data: { ...updated, updatedAt: new Date().toISOString(), updatedBy: auth.userId },
-        });
+      const { error } = await db.from('settings').upsert({
+        id: HML_CSOSN_SETTINGS_ID,
+        data: { ...updated, updatedAt: new Date().toISOString(), updatedBy: auth.userId },
+      });
       if (error)
         return res.status(503).json({ success: false, error: 'O padrão CSOSN não foi salvo.' });
       return res.status(200).json({ success: true, configuration: updated });
@@ -103,8 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : { data: [], error: null };
     // The current schema persists fiscal data on products and order items;
     // product_variations has no fiscal column. Do not invent a storage contract.
-    if (products.error)
-      throw new Error('Não foi possível conferir exceções fiscais do cadastro.');
+    if (products.error) throw new Error('Não foi possível conferir exceções fiscais do cadastro.');
     const resolved = items.map((item, index) => {
       const fiscal = item.fiscal as Record<string, unknown> | undefined;
       const product = products.data?.find((row) => row.id === item.productId);
@@ -122,11 +126,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     return res.status(200).json({ success: true, configuration, items: resolved });
   } catch (error) {
-    return res
-      .status(422)
-      .json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Preparação fiscal inválida.',
-      });
+    return res.status(422).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Preparação fiscal inválida.',
+    });
   }
 }

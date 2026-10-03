@@ -136,7 +136,10 @@ const Profile = () => {
       }
       if (error) {
         toast.error(
-          getPasswordAuthErrorMessage(error, passwordReauthRequired ? 'recovery-verify' : 'password-update')
+          getPasswordAuthErrorMessage(
+            error,
+            passwordReauthRequired ? 'recovery-verify' : 'password-update'
+          )
         );
         return;
       }
@@ -483,7 +486,9 @@ const Profile = () => {
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       value={passwordReauthCode}
-                      onChange={(e: any) => setPasswordReauthCode(e.target.value.replace(/\s/g, ''))}
+                      onChange={(e: any) =>
+                        setPasswordReauthCode(e.target.value.replace(/\s/g, ''))
+                      }
                       className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       placeholder="Código enviado por e-mail"
                     />
@@ -519,8 +524,10 @@ const Profile = () => {
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : passwordReauthRequired ? (
+                  'Confirmar e alterar senha'
                 ) : (
-                  passwordReauthRequired ? 'Confirmar e alterar senha' : 'Alterar senha'
+                  'Alterar senha'
                 )}
               </button>
             </div>

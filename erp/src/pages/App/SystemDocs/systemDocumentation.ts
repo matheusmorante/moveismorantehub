@@ -45,7 +45,10 @@ export const systemDocumentation: DocumentationSection[] = [
     flow: [
       { title: 'Rascunho', detail: 'Preenchimento sem saída de estoque.' },
       { title: 'Agendado', detail: 'Agenda e baixa configurada são acionadas.' },
-      { title: 'Entregue/Retirado', detail: 'Cliente recebeu a mercadoria; devolução pode ser criada.' },
+      {
+        title: 'Entregue/Retirado',
+        detail: 'Cliente recebeu a mercadoria; devolução pode ser criada.',
+      },
       {
         title: 'Devolução atendida',
         detail: 'Após confirmação de cinco segundos, cria entrada e fica definitiva.',

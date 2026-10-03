@@ -63,7 +63,11 @@ function response() {
 function database() {
   const events: Record<string, any>[] = [];
   let attempt = 0;
-  const matches = (row: Record<string, any>, filters: Record<string, unknown>, inFilters: Record<string, unknown[]>) =>
+  const matches = (
+    row: Record<string, any>,
+    filters: Record<string, unknown>,
+    inFilters: Record<string, unknown[]>
+  ) =>
     Object.entries(filters).every(([key, value]) => row[key] === value) &&
     Object.entries(inFilters).every(([key, values]) => values.includes(row[key]));
 
@@ -98,19 +102,21 @@ function database() {
           error: null,
         }),
         then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-          Promise.resolve().then(() => {
-            if (action === 'update') {
-              const rows = events.filter((row) => matches(row, filters, inFilters));
-              rows.forEach((row) => Object.assign(row, updateValues));
-              return { data: rows, error: null };
-            }
-            return {
-              data: events
-                .filter((row) => matches(row, filters, inFilters))
-                .sort((a, b) => b.attempt_number - a.attempt_number),
-              error: null,
-            };
-          }).then(resolve, reject),
+          Promise.resolve()
+            .then(() => {
+              if (action === 'update') {
+                const rows = events.filter((row) => matches(row, filters, inFilters));
+                rows.forEach((row) => Object.assign(row, updateValues));
+                return { data: rows, error: null };
+              }
+              return {
+                data: events
+                  .filter((row) => matches(row, filters, inFilters))
+                  .sort((a, b) => b.attempt_number - a.attempt_number),
+                error: null,
+              };
+            })
+            .then(resolve, reject),
       };
       return query;
     }),
@@ -140,12 +146,13 @@ function database() {
   return { db, events };
 }
 
-const authorizedRequest = (body: Record<string, unknown>, method = 'POST') => ({
-  method,
-  headers: { authorization: 'Bearer user-token' },
-  query: { documentId },
-  body: { documentId, ...body },
-}) as any;
+const authorizedRequest = (body: Record<string, unknown>, method = 'POST') =>
+  ({
+    method,
+    headers: { authorization: 'Bearer user-token' },
+    query: { documentId },
+    body: { documentId, ...body },
+  }) as any;
 
 describe('API de Carta de Correção Eletrônica', () => {
   beforeEach(() => {
@@ -166,11 +173,22 @@ describe('API de Carta de Correção Eletrônica', () => {
   it('nega requisição sem autorização fiscal antes de consultar documento ou transmitir', async () => {
     const { db } = database();
     mocks.createClient.mockReturnValue(db);
-    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: false, status: 403, message: 'Sem permissão.' });
+    mocks.authorizeFiscalOperator.mockResolvedValue({
+      ok: false,
+      status: 403,
+      message: 'Sem permissão.',
+    });
     const handler = (await import('../../../../../../api/nfe/cce')).default;
     const result = response();
 
-    await handler(authorizedRequest({ action: 'transmit', correction: 'Correção válida com quinze caracteres.', requestId }), result.res);
+    await handler(
+      authorizedRequest({
+        action: 'transmit',
+        correction: 'Correção válida com quinze caracteres.',
+        requestId,
+      }),
+      result.res
+    );
 
     expect(result.statusCode).toBe(403);
     expect(db.from).not.toHaveBeenCalled();
@@ -196,10 +214,21 @@ describe('API de Carta de Correção Eletrônica', () => {
     );
 
     expect(result.statusCode).toBe(200);
-    expect(result.body).toMatchObject({ success: true, sequence: 1, cStat: '135', protocolNumber: '141260000000001' });
-    expect(events[0]).toMatchObject({ status: 'registered', cstat: '135', protocol_number: '141260000000001' });
+    expect(result.body).toMatchObject({
+      success: true,
+      sequence: 1,
+      cStat: '135',
+      protocolNumber: '141260000000001',
+    });
+    expect(events[0]).toMatchObject({
+      status: 'registered',
+      cstat: '135',
+      protocol_number: '141260000000001',
+    });
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledWith(
-      expect.objectContaining({ url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4' })
+      expect.objectContaining({
+        url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
+      })
     );
 
     const retryResult = response();
@@ -245,7 +274,11 @@ describe('API de Carta de Correção Eletrônica', () => {
 
     expect(reconcileResult.statusCode).toBe(200);
     expect(reconcileResult.body).toMatchObject({ success: true, reconciled: true, sequence: 1 });
-    expect(events[0]).toMatchObject({ status: 'registered', cstat: '135', protocol_number: '141260000000002' });
+    expect(events[0]).toMatchObject({
+      status: 'registered',
+      cstat: '135',
+      protocol_number: '141260000000002',
+    });
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
     expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toBe(
       'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4'

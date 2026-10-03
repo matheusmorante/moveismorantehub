@@ -9,12 +9,7 @@ import {
   createCurrentUserPassword,
 } from '../services/authPasswordSetup';
 
-export type PasswordCredentialStatus =
-  | 'idle'
-  | 'checking'
-  | 'required'
-  | 'configured'
-  | 'error';
+export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 
 interface AuthContextProps {
   userProfile: any;

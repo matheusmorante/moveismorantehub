@@ -4,12 +4,17 @@ import { getSelectedProductPricing } from '@/pages/utils/productPricing';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import { getProductKind } from '@/pages/utils/productKindRules';
 
-const selectedStockOrigin = (product: any, variation?: any, chosenOrigin?: Item['condition']): Item['condition'] => {
+const selectedStockOrigin = (
+  product: any,
+  variation?: any,
+  chosenOrigin?: Item['condition']
+): Item['condition'] => {
   const kind = getProductKind(product);
   if (kind === 'salvado') return 'salvado';
   if (kind === 'usado') return 'usado';
   if (chosenOrigin === 'salvado' || chosenOrigin === 'usado') return chosenOrigin;
-  if (variation?.condition === 'salvado' || variation?.condition === 'usado') return variation.condition;
+  if (variation?.condition === 'salvado' || variation?.condition === 'usado')
+    return variation.condition;
   if (product.condition === 'salvado' || product.condition === 'usado') return product.condition;
   return 'novo';
 };

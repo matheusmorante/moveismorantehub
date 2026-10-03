@@ -5,6 +5,8 @@ description: Diretrizes obrigatórias de banco de dados, Supabase, PostgreSQL, m
 
 # Skill: Banco de Dados, Supabase, PostgreSQL e Eficiência de Dados
 
+Para obter configuração Supabase no desenvolvimento local, uso de `SUPABASE_SECRET_KEY` e escolha de ambiente Vercel, siga [vercel-development](../vercel-development/SKILL.md); não replique aqui as regras de sincronização de env.
+
 ## Quando aplicar esta Skill
 Aplicar quando a tarefa envolver:
 - Consultas ao Supabase (`supabase.from(...)`), RPCs e Edge Functions;
@@ -112,11 +114,10 @@ O PostgreSQL dispõe das extensões `pg_trgm` (trigramas) e `unaccent` para acel
 
 ## 6. Testes de Banco e Migrações
 
-- Ao alterar schema, RLS, funções, triggers ou RPCs, aplique a matriz canônica de `testes-seguros-erp` quando houver comportamento relevante no banco: PostgreSQL real isolado, estado final, constraints, permissões, atomicidade, rollback, concorrência e idempotência conforme aplicável.
-- Quando Docker/Supabase Local estiver disponível, prefira-o para testes de banco, inclusive os destrutivos e de falha. Se estiver indisponível, o remoto operacional só pode ser usado em verificações controladas, não destrutivas, com dados sintéticos e isolamento comprovado; nunca para reset, migration experimental, DROP/TRUNCATE, alteração arriscada de schema/RLS, fault injection, rollback destrutivo ou concorrência de teste.
-- Não criar branch ou projeto HML Supabase separado para este projeto. A exceção de uso do banco operacional é a homologação fiscal real em `tpAmb=2`, com pedido e dados sintéticos, backend restrito a endpoints SEFAZ de homologação e verificação de que registros não contaminam estoque, financeiro ou indicadores. O procedimento detalhado está em `testes-seguros-erp` e `fiscal-nfe-nfce-official-docs`.
-- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. A indisponibilidade do Docker não autoriza uma operação arriscada no remoto; marque essa evidência como bloqueada e avance nas validações independentes.
-- Teste migrations em banco novo e upgrade de banco existente representativo. Preserve compatibilidade e dados legados conforme `migration`; confira constraints, índices, funções, triggers e políticas afetadas.
+- Ao alterar schema, RLS, funções, triggers ou RPCs, aplique a matriz canônica de `testes-seguros-erp` quando houver comportamento relevante no banco: PostgreSQL remoto com fixtures sintéticas de escopo isolado, estado final, constraints, permissões, atomicidade, rollback, concorrência controlada e idempotência conforme aplicável.
+- Use o projeto Supabase remoto configurado para integração de banco, migrations versionadas revisadas, RPCs, RLS, constraints, triggers, transações e rollback, sempre com escopo controlado e fixtures sintéticas próprias identificadas por `TEST_AUT_<uuid>`. Não use, instale ou inicie Docker/Supabase Local. Confirme project ref antes da operação, execute `npm run advisors` antes de migrations e não faça reset, DROP/TRUNCATE, fault injection ou carga ampla no banco compartilhado. Consulte `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`.
+- Não trate mocks, inspeção SQL ou resposta de API como prova de integração/atomicidade. Quando um cenário não puder ser isolado com segurança no remoto, registre a limitação específica e siga as validações independentes; ausência de Docker não é motivo de bloqueio.
+- Revise e aplique migrations versionadas no remoto conforme a política canônica; declare como limitação a ausência de validação em banco novo/cópia isolada. Preserve compatibilidade e dados legados conforme `migration`; confira constraints, índices, funções, triggers e políticas afetadas.
 
 ---
 

@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Release
 
+Para a sincronização de variáveis do ambiente local, secrets e limites de Preview/Production, consulte [vercel-development](../vercel-development/SKILL.md). Esta skill governa releases e deploys, não o carregamento local de variáveis.
+
 Cut a release, validate the changelog, and ensure git hooks are installed.
 
 ## Usage

@@ -4,6 +4,7 @@ import returnCapacity from '../../server/nfe/return-capacity.cjs';
 import operationDrafts from '../../server/nfe/operation-drafts.cjs';
 import transmitOperationDraft from '../../server/nfe/transmit-operation-draft.cjs';
 import cce from '../../server/nfe/cce.cjs';
+import reserveNumber from '../../server/nfe/reserve-number.cjs';
 
 type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 const unwrap = (handler: Handler): Handler =>
@@ -14,6 +15,7 @@ const handlers: Record<string, Handler> = {
   'operation-drafts': unwrap(operationDrafts),
   'transmit-operation-draft': unwrap(transmitOperationDraft),
   cce: unwrap(cce),
+  'reserve-number': unwrap(reserveNumber),
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

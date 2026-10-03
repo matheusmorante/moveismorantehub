@@ -17,7 +17,9 @@ const createClient = () => {
     data: { user: { id: 'auth-user-1' }, session: { access_token: 'session' } },
     error: null,
   });
-  const updateUser = vi.fn().mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null });
+  const updateUser = vi
+    .fn()
+    .mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null });
   const reauthenticate = vi.fn().mockResolvedValue({ error: null });
   const client = {
     auth: { resetPasswordForEmail, verifyOtp, updateUser, reauthenticate },
@@ -28,7 +30,9 @@ const createClient = () => {
 describe('authPasswordRecovery mobile', () => {
   it('solicita recuperação pelo Supabase sem criar usuário nem revelar sua existência', async () => {
     const { client, resetPasswordForEmail } = createClient();
-    await expect(requestPasswordRecoveryCode(client, '  pessoa@example.invalid  ')).resolves.toEqual({
+    await expect(
+      requestPasswordRecoveryCode(client, '  pessoa@example.invalid  ')
+    ).resolves.toEqual({
       error: null,
     });
     expect(resetPasswordForEmail).toHaveBeenCalledWith('pessoa@example.invalid');
@@ -67,10 +71,7 @@ describe('authPasswordRecovery mobile', () => {
     );
     expect(getPasswordAuthErrorMessage({ status: 429 }, 'recovery-send')).toContain('Aguarde');
     expect(
-      getPasswordAuthErrorMessage(
-        { message: 'Token has expired or is invalid' },
-        'recovery-verify'
-      )
+      getPasswordAuthErrorMessage({ message: 'Token has expired or is invalid' }, 'recovery-verify')
     ).toContain('inválido');
     expect(validatePasswordSetup('senha-segura-123', 'senha-diferente-123')).toContain(
       'não coincidem'

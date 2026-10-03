@@ -1,9 +1,6 @@
 import { supabase } from '../supabaseConfig';
 import { resolveOrderFiscalBadgeStatus } from './orderFiscalBadgeRules';
-import type {
-  FiscalDocumentStatusRow,
-  OrderFiscalBadgeStatus,
-} from './orderFiscalBadgeRules';
+import type { FiscalDocumentStatusRow, OrderFiscalBadgeStatus } from './orderFiscalBadgeRules';
 
 export const fetchOrderFiscalBadgeStatuses = async (
   orderIds: readonly string[]

@@ -18,7 +18,12 @@ export interface InventoryBadgeContentResult {
   badgeColorClass: string;
 }
 
-export type ItemMovementStatus = 'effective' | 'reversed' | 'not_effective' | 'unregistered' | 'non_stock';
+export type ItemMovementStatus =
+  | 'effective'
+  | 'reversed'
+  | 'not_effective'
+  | 'unregistered'
+  | 'non_stock';
 
 export interface ItemMovementDisplay {
   description: string;

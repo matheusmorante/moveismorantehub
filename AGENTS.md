@@ -21,6 +21,11 @@
 - Leia referências adicionais de uma skill somente quando a tarefa exigir.
 - Ao escolher, inserir, trocar ou adaptar responsivamente logos, favicons ou splash screens, siga obrigatoriamente `morante-responsive-logo-usage`.
 
+## Ambiente local da Vercel
+
+- A política única para sincronização de variáveis, `.env.local`, Development, Preview, secrets, Supabase e ambiente fiscal local está em [`.agents/skills/vercel-development/SKILL.md`](.agents/skills/vercel-development/SKILL.md). Consulte-a antes de alterar scripts ou orientar setup local; skills de domínio devem referenciá-la em vez de duplicar regras de ambiente.
+- O comando diário é `npm run dev`: o lifecycle `predev` atualiza `.env.local` exclusivamente com Vercel Development antes de iniciar o `dev`. Se o pull falhar, o npm não inicia a aplicação.
+
 ## Saída e investigação
 
 - Prefira comandos com saída limitada e direcionada.
@@ -49,7 +54,7 @@
 
 - Código/arquitetura: `design-patterns`, `modularizacao_codigo`, `modelagem-negocio-arquitetura`.
 - Banco/Supabase: `database-supabase`, `supabase-egress-guard`.
-- ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`, `nfe-sefaz-direto`; NF-e/NFC-e, XML, DANFE, eventos, tributação ou SEFAZ exigem também `fiscal-nfe-nfce-official-docs` e o índice `docs/fiscal/manuais/README.md`.
+- ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`; para fontes oficiais de NF-e/NFC-e, consulte os links em `docs/fiscal/manuais/README.md`.
 - Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
 - Refatoração/limpeza: `safe-refactor`, `surgical-patch`, `limpeza-projeto-segura`.
 - Deploy/release: `release`, `mobile-eas-publicacao`.
@@ -64,7 +69,7 @@
 - **Roteamento de testes por plataforma:**
   - **Vitest**: lógica pura, cálculos de negócio, transformações e integração de serviços isolados em memória.
   - **Playwright**: automação funcional e E2E no navegador (ERP React/Web e Expo Web quando suportado). Viewports mobile no Playwright são úteis para responsividade web, mas não comprovam runtime nativo.
-  - **Maestro**: ferramenta E2E para o app Android, somente em celular físico conectado por **Depuração sem fio (Wi‑Fi)**. Emulador/AVD e alvo USB são recusados pelo executor. O celular deve estar pareado/conectado no ADB antes de iniciar o Maestro; use `ANDROID_SERIAL` se houver mais de um alvo Wi‑Fi. Os testes mobile usam o Supabase remoto; não inicie o Docker local junto deles por causa do consumo de RAM. Para testes no ERP, o Docker é permitido, mas o **Docker Desktop deve ser iniciado primeiro e manualmente**.
+  - **Maestro**: ferramenta E2E para o app Android, somente em celular físico conectado por **Depuração sem fio (Wi‑Fi)**. Emulador/AVD e alvo USB são recusados pelo executor. O celular deve estar pareado/conectado no ADB antes de iniciar o Maestro; use `ANDROID_SERIAL` se houver mais de um alvo Wi‑Fi. Todos os testes de integração que usam PostgreSQL/Supabase usam o projeto remoto configurado, com fixtures sintéticas isoladas conforme `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`.
   - **ADB**: usado somente para parear/conectar o celular por Wi‑Fi e pelas operações necessárias ao Maestro (seleção do dispositivo, instalação/build e reverse da porta Metro). Não usar ADB para executar testes em emulador nem em alvo USB.
   - **Teste manual no APK**: validação final de hardware não automatizável (sensores, biometria física, câmera real).
 - **Replicação ERP ↔ App:** preservar testes Playwright do ERP e testar o caminho Expo Web no navegador quando aplicável. Complementar com Vitest e verificações estáticas focadas; no Android via Maestro e celular físico conectado por Wi‑Fi, validar os fluxos nativos do aplicativo. Para limitações nativas que não possam ser verificadas pelo Maestro, entregar APK para validação manual.
@@ -79,9 +84,9 @@
 
 ## Governança de Desenvolvimento e Testes (Supabase, pgTAP, k6, ZAP)
 
-**Regra fiscal permanente de ambiente:** `environment=1` é exclusivamente Produção; `environment=2` e `tpAmb=2` são Homologação. Todo teste HML usa endpoints e credenciais HML de ponta a ponta, sem fallback para Produção. Documentos, eventos, cancelamentos e devoluções só se vinculam a registros do mesmo ambiente (1→1, 2→2). Supabase remoto indica apenas onde está o banco, não o ambiente fiscal. Um bug do MoranteHub durante E2E HML exige diagnóstico, correção, teste focado e retomada do objetivo; não encerre nem rotule o E2E como bloqueado só por encontrar um defeito. Pause apenas o passo afetado por impedimento externo comprovado ou risco concreto a dados de terceiros e continue etapas seguras independentes.
-- **Ambiente de banco e homologação fiscal**: Não criar branch ou segundo projeto Supabase HML para este projeto. Quando Docker/Supabase Local estiver disponível, prefira-o para migrations, RPCs, RLS, constraints, rollback, atomicidade, idempotência e concorrência. Docker Desktop deve ser iniciado manualmente; não o execute junto aos testes Maestro no celular por Wi‑Fi devido ao limite de RAM. Quando Docker/Supabase Local estiver indisponível, o Supabase remoto atual fica autorizado como fallback para testes controlados, não destrutivos e isolados, sem exigir nova autorização para cada execução dentro destes limites: use registros sintéticos próprios do teste, identificados por `TEST_AUT_<uuid>`, preserve pedidos/clientes/produtos operacionais existentes e comprove que os efeitos ficam restritos à massa de teste, sem alterar estoque disponível, financeiro ou indicadores comerciais. Um produto real do catálogo pode ser referenciado quando autorizado pelo usuário, sem atualizar seu cadastro ou saldo. Emissão e eventos fiscais remotos ficam restritos a `tpAmb=2`, com endpoint de homologação derivado no backend e sem fallback para Produção; preserve documentos, tentativas e protocolos HML como trilha fiscal. O fallback remoto não autoriza reset, migration/DDL experimental, DROP/TRUNCATE, mudança arriscada de schema/RLS, fault injection, teste de rollback destrutivo, concorrência/carga ou mutação de registros reais; esses casos continuam exigindo Supabase Local isolado. Consulte `testes-seguros-erp` e `fiscal-nfe-nfce-official-docs` para os gates completos.
-- **Supabase CLI Local**: Use para ambiente de testes destrutivos com banco reproduzível (`supabase db reset`) somente em Supabase Local isolado; nunca aplique escritas destrutivas no banco operacional. Inicie o Docker Desktop manualmente antes de usar.
+**Regra fiscal de ambiente:** `environment=1` é exclusivamente Produção; `environment=2` e `tpAmb=2` são Homologação. Documentos, eventos, cancelamentos e devoluções só se vinculam a registros do mesmo ambiente (1→1, 2→2). A localização remota do Supabase não altera o ambiente fiscal.
+- **Ambiente de banco**: O Supabase remoto configurado é o ambiente padrão para testes de integração com PostgreSQL. Antes de qualquer operação remota, confirme o project ref configurado no app e siga `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Use registros sintéticos próprios identificados por `TEST_AUT_<uuid>`, preserve registros operacionais e verifique que dashboards/indicadores excluem a massa por regra. Limpe fixtures pelo fluxo normal. Mudanças versionadas de schema exigem revisão da migration, confirmação do projeto, `npm run advisors` e execução controlada; não faça reset, DROP/TRUNCATE, fault injection ou carga ampla no projeto operacional.
+- **Supabase remoto**: Use para integração, persistência, RPC, RLS e migrations revisadas, sempre com escopo controlado e fixtures sintéticas. Não use Supabase Local ou Docker para testes.
 - **pgTAP**: Utilize para testes nativos de banco de dados (RPCs, RLS, Constraints, Triggers).
 - **Atomicidade e Banco Real**: Falhas no meio de transações devem ser provadas no banco, garantindo o rollback.
 - **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (ambos em ambiente local).

@@ -668,9 +668,8 @@ export function ProductGrid({ filters }: ProductGridProps) {
   };
 
   const configuredColumns = cardStyle.product_grid_columns;
-  const columnsClass = typeof configuredColumns === 'number'
-    ? ''
-    : productGridStyleClasses.columns[configuredColumns];
+  const columnsClass =
+    typeof configuredColumns === 'number' ? '' : productGridStyleClasses.columns[configuredColumns];
   const gridTemplateColumns = (() => {
     if (typeof configuredColumns === 'number') {
       const numericColumnLimit = Math.min(6, Math.max(2, Math.floor(configuredColumns)));

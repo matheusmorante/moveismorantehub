@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { createLabelImage, deleteLabelImage, fetchLabelImages } from '../services/labelImageService';
+import {
+  createLabelImage,
+  deleteLabelImage,
+  fetchLabelImages,
+} from '../services/labelImageService';
 import type { LabelImage } from '../types/LabelImage.types';
 export type { LabelImage } from '../types/LabelImage.types';
 

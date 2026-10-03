@@ -26,9 +26,7 @@ export const AiQuotaHeaderNotice: React.FC = () => {
           <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 flex-shrink-0">
             <i className="bi bi-exclamation-triangle-fill text-[11px]" />
           </span>
-          <span className="font-semibold text-amber-800">
-            Aviso de Cota de IA:
-          </span>
+          <span className="font-semibold text-amber-800">Aviso de Cota de IA:</span>
           <div className="flex items-center gap-1.5 flex-wrap">
             {alerts.map((alert) => (
               <span

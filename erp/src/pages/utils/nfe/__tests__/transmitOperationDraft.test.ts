@@ -272,7 +272,9 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
-    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<?xml version="1.0" encoding="UTF-8"?>\n<NFe>\n  <infNFe><xProd>Produto Teste</xProd></infNFe>\n</NFe>');
+    mocks.buildReviewedFiscalOperationXml.mockReturnValue(
+      '<?xml version="1.0" encoding="UTF-8"?>\n<NFe>\n  <infNFe><xProd>Produto Teste</xProd></infNFe>\n</NFe>'
+    );
     mocks.validateNfeAgainstOfficialSchema.mockImplementation(async (xml: string) => {
       if (!xml.includes('<Signature')) throw new Error('O XSD oficial exige assinatura digital.');
     });
@@ -299,8 +301,12 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(mocks.validateUnsignedNfeStructure).toHaveBeenCalledTimes(1);
     expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledTimes(1);
     expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledWith(state.draft.signed_xml);
-    expect(mocks.validateUnsignedNfeStructure.mock.invocationCallOrder[0]).toBeLessThan(mocks.signNfeXml.mock.invocationCallOrder[0]);
-    expect(mocks.signNfeXml.mock.invocationCallOrder[0]).toBeLessThan(mocks.validateNfeAgainstOfficialSchema.mock.invocationCallOrder[0]);
+    expect(mocks.validateUnsignedNfeStructure.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.signNfeXml.mock.invocationCallOrder[0]
+    );
+    expect(mocks.signNfeXml.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.validateNfeAgainstOfficialSchema.mock.invocationCallOrder[0]
+    );
     expect(state.draft.signed_xml).toContain('<?xml');
     const transmittedXml = mocks.sendSoapToSefaz.mock.calls[0][0].xmlPayload as string;
     expect(transmittedXml).not.toContain('<?xml');
@@ -388,7 +394,8 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   it('bloqueia retransmissão após 217 quando o XML armazenado não passa no XSD', async () => {
     const { db, state } = createDatabase();
     state.draft.access_key = '4'.repeat(44);
-    state.draft.signed_xml = '<NFe><infNFe><infRespTec><idCSRT>01</idCSRT><hashCSRT>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</hashCSRT></infRespTec></infNFe></NFe><Signature/>';
+    state.draft.signed_xml =
+      '<NFe><infNFe><infRespTec><idCSRT>01</idCSRT><hashCSRT>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</hashCSRT></infRespTec></infNFe></NFe><Signature/>';
     mocks.createClient.mockReturnValue(db);
     mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
       new Error('XML da NF-e não passou pelo schema oficial PL_010f_v1.04: inválido')

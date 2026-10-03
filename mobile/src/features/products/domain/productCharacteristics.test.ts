@@ -24,7 +24,12 @@ describe('productCharacteristics', () => {
   it('aproveita dados antigos em formato de atributos e rejeita valores não aplicáveis', () => {
     const effectiveValues = getEffectiveVariationTechnicalValues(
       {},
-      { attributes: [{ name: 'Cor', value: 'Azul' }, { name: 'Material da estrutura', value: 'N/A' }] }
+      {
+        attributes: [
+          { name: 'Cor', value: 'Azul' },
+          { name: 'Material da estrutura', value: 'N/A' },
+        ],
+      }
     );
     expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual(['Material da estrutura']);
   });

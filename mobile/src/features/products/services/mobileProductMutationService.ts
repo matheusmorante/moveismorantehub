@@ -117,7 +117,9 @@ export const deleteMobileProduct = async (productId: string, isDraft = false) =>
 
 export const saveMobileProduct = async (productData: any) => {
   const isEditing = Boolean(productData.id);
-  const operationId = isUuid(productData.operationId) ? productData.operationId : createOperationId();
+  const operationId = isUuid(productData.operationId)
+    ? productData.operationId
+    : createOperationId();
   const savedProductId = isEditing
     ? productData.id
     : isUuid(productData.clientProductId)
@@ -298,7 +300,9 @@ export const saveMobileProduct = async (productData: any) => {
 
   const { data, error } = await supabase.rpc('save_mobile_product_transaction', {
     p_operation_id: operationId,
-    p_expected_updated_at: isEditing ? productData.updated_at || productData.updatedAt || null : null,
+    p_expected_updated_at: isEditing
+      ? productData.updated_at || productData.updatedAt || null
+      : null,
     p_is_edit: isEditing,
     p_product_id: savedProductId,
     p_product: payload,

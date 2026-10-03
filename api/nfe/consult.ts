@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey } from './nfeSigner';
@@ -10,7 +11,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 const endpoints = {
   '55': {
     1: 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
@@ -52,12 +53,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
     if (isHmlRuleSet(doc.fiscal_ruleset_version)) {
-      const result = doc.status === 'homologada'
-        ? await consultAuthorizedHmlTechnical(doc)
-        : await retryHmlTechnical(supabase, doc.id, false);
-      return res.status(result.status).json({ ...result.body,
-        state: result.body.success ? 'authorized'
-          : result.body.code === 'HML_CONFIRMED_NOT_FOUND' ? 'not_found' : 'unknown' });
+      const result =
+        doc.status === 'homologada'
+          ? await consultAuthorizedHmlTechnical(doc)
+          : await retryHmlTechnical(supabase, doc.id, false);
+      return res.status(result.status).json({
+        ...result.body,
+        state: result.body.success
+          ? 'authorized'
+          : result.body.code === 'HML_CONFIRMED_NOT_FOUND'
+            ? 'not_found'
+            : 'unknown',
+      });
     }
     const model = String(doc.modelo) as '55' | '65';
     const environment = Number(doc.ambiente) as 1 | 2;

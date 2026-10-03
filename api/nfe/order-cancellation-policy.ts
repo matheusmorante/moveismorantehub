@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
@@ -6,7 +7,7 @@ import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEl
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,7 +21,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const authorization = await authorizeFiscalOperator(db, req.headers.authorization);
-  if (!authorization.ok) return res.status(authorization.status).json({ error: authorization.message });
+  if (!authorization.ok)
+    return res.status(authorization.status).json({ error: authorization.message });
 
   const orderId = String(req.body?.orderId || '');
   const preview = req.body?.preview === true;
@@ -33,10 +35,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .maybeSingle();
   if (orderError) return res.status(503).json({ error: 'Não foi possível validar o pedido.' });
   const orderStatus = String(order?.status || '').toLowerCase();
-  if (!order || (preview
-    ? !['scheduled', 'agendado', 'aguardando retirada'].includes(orderStatus)
-    : !['cancelled', 'cancelado'].includes(orderStatus)))
-    return res.status(409).json({ error: preview ? 'O pedido não está em um estado cancelável.' : 'Cancele o pedido antes de tratar o documento fiscal.' });
+  if (
+    !order ||
+    (preview
+      ? !['scheduled', 'agendado', 'aguardando retirada'].includes(orderStatus)
+      : !['cancelled', 'cancelado'].includes(orderStatus))
+  )
+    return res.status(409).json({
+      error: preview
+        ? 'O pedido não está em um estado cancelável.'
+        : 'Cancele o pedido antes de tratar o documento fiscal.',
+    });
   if (hasGoodsCirculated(order))
     return res.status(409).json({ error: 'Mercadoria circulou; o fluxo correto é devolução.' });
 
@@ -47,14 +56,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('document_type', 'outbound')
     .in('status', ['autorizada', 'homologada'])
     .order('created_at', { ascending: false });
-  if (documentsError) return res.status(503).json({ error: 'Não foi possível consultar as NF-e do pedido.' });
-  if (!documents?.length) return res.status(200).json({ action: 'none', hasAuthorizedInvoice: false });
+  if (documentsError)
+    return res.status(503).json({ error: 'Não foi possível consultar as NF-e do pedido.' });
+  if (!documents?.length)
+    return res.status(200).json({ action: 'none', hasAuthorizedInvoice: false });
   if (documents.length !== 1)
-    return res.status(409).json({ action: 'manual_review', error: 'Mais de uma NF-e autorizada está vinculada ao pedido.' });
+    return res.status(409).json({
+      action: 'manual_review',
+      error: 'Mais de uma NF-e autorizada está vinculada ao pedido.',
+    });
 
   const document = documents[0];
   if (![1, 2].includes(Number(document.ambiente)))
-    return res.status(409).json({ action: 'manual_review', error: 'Ambiente fiscal da NF-e inválido.' });
+    return res
+      .status(409)
+      .json({ action: 'manual_review', error: 'Ambiente fiscal da NF-e inválido.' });
   const policy = getFiscalCancellationPolicy({
     model: String(document.modelo),
     authorizedAt: getAuthorizedAt(document.xml_protocolo || '', document.created_at || ''),

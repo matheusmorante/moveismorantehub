@@ -8,7 +8,10 @@ import { toast } from 'react-toastify';
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
 import { checkEcomLegibility } from '../../utils/productLegibilityRules';
-import { scrollToRequirementField, ProductFormTabKey } from '../../utils/form/productRequirementNavigation';
+import {
+  scrollToRequirementField,
+  ProductFormTabKey,
+} from '../../utils/form/productRequirementNavigation';
 import { getProductFormTabs, isExistingRegisteredProduct } from '../../modals/productFormTabs';
 import { isDraftSaveEligible } from './rules/productDraftRules';
 
@@ -108,12 +111,7 @@ export function useProductFormModal({
       autoSaveDraft(latestFormDataRef.current);
     }, 500);
   }, [autoSaveDraft, isDraftProduct]);
-  const images = useProductFormImages(
-    formData,
-    setFormData,
-    setLoading,
-    scheduleDraftAutoSave
-  );
+  const images = useProductFormImages(formData, setFormData, setLoading, scheduleDraftAutoSave);
 
   useProductFormSync({ formData, setFormData });
 

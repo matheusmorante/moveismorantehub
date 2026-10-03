@@ -54,7 +54,8 @@ const getReturnEntryDisplay = (order: Order | undefined, item: ItemMovementDispl
       label: '',
       badgeClass:
         'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-      tooltip: 'Não foi gerada entrada de estoque porque este produto convencional ainda não está cadastrado ou vinculado ao catálogo.',
+      tooltip:
+        'Não foi gerada entrada de estoque porque este produto convencional ainda não está cadastrado ou vinculado ao catálogo.',
       warning: true,
     };
   }
@@ -231,18 +232,17 @@ export const InventoryBadgePopover = ({
                   (() => {
                     const entry = getReturnEntryDisplay(order, item);
                     return (
-                      entry && (
-                        entry.warning ? (
-                          <MovementWarning tooltip={entry.tooltip} />
-                        ) : (
-                          <span
-                            className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${entry.badgeClass}`}
-                            title={entry.tooltip}
-                          >
-                            {entry.label}
-                          </span>
-                        )
-                      )
+                      entry &&
+                      (entry.warning ? (
+                        <MovementWarning tooltip={entry.tooltip} />
+                      ) : (
+                        <span
+                          className={`justify-self-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${entry.badgeClass}`}
+                          title={entry.tooltip}
+                        >
+                          {entry.label}
+                        </span>
+                      ))
                     );
                   })()}
               </div>

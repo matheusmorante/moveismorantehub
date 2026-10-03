@@ -40,9 +40,19 @@ export default function TemporaryProductWarning() {
           className="space-y-2 rounded-2xl border border-amber-200 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-xl dark:border-amber-800 dark:bg-slate-900 dark:text-slate-300"
         >
           <p className="font-bold text-amber-700 dark:text-amber-400">Produto sem cadastro</p>
-          <p>Este item foi informado sem vínculo com um produto cadastrado. Enquanto estiver assim, ele não gerará movimentação de estoque ao atender a venda.</p>
-          <p><strong>Antes de atender a venda:</strong> edite o item e selecione o produto correto no catálogo.</p>
-          <p><strong>Se a venda já estiver atendida:</strong> use o botão de conciliação para vincular o item a um produto cadastrado. Essa conciliação atualiza o vínculo comercial nos relatórios de vendas, mas não gera movimentação retroativa de estoque.</p>
+          <p>
+            Este item foi informado sem vínculo com um produto cadastrado. Enquanto estiver assim,
+            ele não gerará movimentação de estoque ao atender a venda.
+          </p>
+          <p>
+            <strong>Antes de atender a venda:</strong> edite o item e selecione o produto correto no
+            catálogo.
+          </p>
+          <p>
+            <strong>Se a venda já estiver atendida:</strong> use o botão de conciliação para
+            vincular o item a um produto cadastrado. Essa conciliação atualiza o vínculo comercial
+            nos relatórios de vendas, mas não gera movimentação retroativa de estoque.
+          </p>
         </div>
       </DropdownPortal>
     </>

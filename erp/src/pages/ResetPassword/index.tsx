@@ -103,7 +103,11 @@ const ResetPassword = () => {
   };
 
   const title =
-    stage === 'email' ? 'Esqueci minha senha' : stage === 'code' ? 'Digite o código' : 'Crie sua nova senha';
+    stage === 'email'
+      ? 'Esqueci minha senha'
+      : stage === 'code'
+        ? 'Digite o código'
+        : 'Crie sua nova senha';
   const description =
     stage === 'email'
       ? 'Informe o e-mail da sua conta MoranteHub.'
@@ -125,7 +129,9 @@ const ResetPassword = () => {
             <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight text-center">
               {title}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mt-3">{description}</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mt-3">
+              {description}
+            </p>
           </div>
 
           {message && (
@@ -150,7 +156,9 @@ const ResetPassword = () => {
               className="space-y-5"
             >
               <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail</span>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  E-mail
+                </span>
                 <input
                   type="email"
                   autoComplete="email"
@@ -174,7 +182,9 @@ const ResetPassword = () => {
           {stage === 'code' && (
             <div className="space-y-4">
               <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Código de recuperação</span>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Código de recuperação
+                </span>
                 <input
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -207,7 +217,9 @@ const ResetPassword = () => {
           {stage === 'password' && (
             <form onSubmit={saveNewPassword} className="space-y-4">
               <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Nova senha</span>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Nova senha
+                </span>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -218,7 +230,9 @@ const ResetPassword = () => {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Confirmar nova senha</span>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Confirmar nova senha
+                </span>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -249,7 +263,8 @@ const ResetPassword = () => {
       </div>
       <style
         dangerouslySetInnerHTML={{
-          __html: '@keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }',
+          __html:
+            '@keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }',
         }}
       />
     </div>

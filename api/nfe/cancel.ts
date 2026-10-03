@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey, signNfeEventXml } from './nfeSigner';
@@ -19,7 +20,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey = getSupabaseSecretKey() || '';
 const EVENT_ENDPOINTS = {
   '55': {
     1: 'https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',

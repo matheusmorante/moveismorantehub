@@ -64,7 +64,6 @@ Nenhuma tarefa relevante deve ser executada utilizando apenas uma Skill. O agent
 │  CAMADA DE DOMÍNIO E DOCUMENTAÇÃO (`docs/`)            │
 │  - `regras-de-negocio-erp` (CMPM, estoque, devoluções) │
 │  - `modelagem-negocio-arquitetura` (Diagramas, Docs)   │
-│  - `nfe-sefaz-direto` (Fiscal, SEFAZ-PR, impostos)     │
 │  - `auditoria-e2e-assistente-financeiro` (Transações)  │
 └────────────────────────────────────────────────────────┘
 ```

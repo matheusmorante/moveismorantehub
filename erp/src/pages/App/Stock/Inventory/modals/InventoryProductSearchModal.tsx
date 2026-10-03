@@ -93,32 +93,32 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
                 return kind !== 'salvado' && kind !== 'usado';
               })
               .map(({ p, v, key }) => {
-              const displayName =
-                getVariationDisplayName(p, v) || p.description || p.name || 'Produto';
-              const systemStock = v ? Number(v.stock ?? 0) : Number(p.stock ?? 0);
+                const displayName =
+                  getVariationDisplayName(p, v) || p.description || p.name || 'Produto';
+                const systemStock = v ? Number(v.stock ?? 0) : Number(p.stock ?? 0);
 
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className="w-full flex items-center gap-4 px-6 py-4 hover:bg-violet-50 dark:hover:bg-violet-900/10 text-left transition-colors"
-                  onClick={() => handleSelect(p, v)}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-                    <i className="bi bi-box text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">
-                      {displayName}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Estoque: {systemStock} {p.unit || 'UN'}
-                    </p>
-                  </div>
-                  <i className="bi bi-plus-circle text-violet-600 dark:text-violet-400 text-lg shrink-0" />
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className="w-full flex items-center gap-4 px-6 py-4 hover:bg-violet-50 dark:hover:bg-violet-900/10 text-left transition-colors"
+                    onClick={() => handleSelect(p, v)}
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                      <i className="bi bi-box text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Estoque: {systemStock} {p.unit || 'UN'}
+                      </p>
+                    </div>
+                    <i className="bi bi-plus-circle text-violet-600 dark:text-violet-400 text-lg shrink-0" />
+                  </button>
+                );
+              })}
         </div>
       </div>
     </div>

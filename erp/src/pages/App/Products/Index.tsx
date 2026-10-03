@@ -1,8 +1,5 @@
 import React from 'react';
-import Product, {
-  ProductVisibilitySettings,
-  Variation,
-} from '../../types/product.type';
+import Product, { ProductVisibilitySettings, Variation } from '../../types/product.type';
 import ProductList from './ProductList';
 import ProductFilters, { ProductFiltersData } from './ProductFilters';
 import ProductFormModal from './modals/ProductFormModal';

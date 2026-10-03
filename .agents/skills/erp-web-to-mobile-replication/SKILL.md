@@ -103,7 +103,7 @@ Para cada tela, estado ou ação, confira a cadeia de paridade:
 
 Use Playwright como única automação de interface: valide o ERP Web e, quando suportado, a aplicação em Expo Web no navegador. Use viewport mobile para avaliar layout responsivo, deixando explícito que isso valida o browser, não o runtime nativo.
 
-Não instale/configure/inicie emulador/AVD nem automatize aparelho por USB. Quando a validação nativa for necessária e autorizada, use Maestro somente em celular físico conectado por Depuração sem fio (Wi‑Fi), com o Supabase remoto e sem Docker local em paralelo. ADB fica limitado ao pareamento/conexão Wi‑Fi e operações necessárias ao Maestro. Câmera, permissões, lifecycle, SQLite nativo e demais integrações exclusivas do React Native não são comprovadas por Playwright; quando não forem cobertas pelo Maestro, prepare um APK para validação manual.
+Não instale/configure/inicie emulador/AVD nem automatize aparelho por USB. Quando a validação nativa for necessária e autorizada, use Maestro somente em celular físico conectado por Depuração sem fio (Wi‑Fi), com o Supabase remoto configurado e fixtures sintéticas, conforme `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. ADB fica limitado ao pareamento/conexão Wi‑Fi e operações necessárias ao Maestro. Câmera, permissões, lifecycle, SQLite nativo e demais integrações exclusivas do React Native não são comprovadas por Playwright; quando não forem cobertas pelo Maestro, prepare um APK para validação manual.
 
 Trabalhe em uma aba de cada vez e, dentro dela, em um estado por vez. Não replique o módulo inteiro antes de comparar.
 

@@ -77,7 +77,26 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   return [
     ...CHARACTERISTIC_TOPICS.flatMap((topic) => {
       const groupedFields = groups.get(topic.title);
-      return groupedFields?.length ? [{ title: topic.title, fields: groupedFields }] : [];
+      if (!groupedFields?.length) return [];
+
+      if (topic.title === 'Dimensões e peso') {
+        const orderMap: Record<string, number> = {
+          altura: 1,
+          largura: 2,
+          profundidade: 3,
+          comprimento: 4,
+          peso: 5,
+        };
+        groupedFields.sort((a, b) => {
+          const nameA = a.name.trim().toLowerCase();
+          const nameB = b.name.trim().toLowerCase();
+          const rankA = orderMap[nameA] ?? 99;
+          const rankB = orderMap[nameB] ?? 99;
+          return rankA - rankB;
+        });
+      }
+
+      return [{ title: topic.title, fields: groupedFields }];
     }),
     ...(otherFields.length > 0 ? [{ title: 'Outras características', fields: otherFields }] : []),
   ];
@@ -354,7 +373,7 @@ export const getApplicableTechnicalFields = (
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
 
-  return allFields.filter((field) => {
+  let applicable = allFields.filter((field) => {
     // Uma especificação global obrigatória sempre aparece, independentemente da categoria.
     if (field.isRequired) return true;
 
@@ -376,6 +395,39 @@ export const getApplicableTechnicalFields = (
     // Por padrão, se não possui categoria vinculada, NÃO entra automaticamente na lista
     return false;
   });
+
+  // Exclusividade Profundidade vs Comprimento
+  const profundidade = applicable.find(f => f.name.toLowerCase() === 'profundidade');
+  const comprimento = applicable.find(f => f.name.toLowerCase() === 'comprimento');
+
+  if (profundidade && comprimento) {
+    const valProf = String(productTechnicalValues[profundidade.name] ?? '').trim();
+    const valComp = String(productTechnicalValues[comprimento.name] ?? '').trim();
+    
+    let activeName = profundidade.name;
+    
+    if (manualSet.has(comprimento.name) && !manualSet.has(profundidade.name)) {
+      activeName = comprimento.name;
+    } else if (manualSet.has(profundidade.name) && !manualSet.has(comprimento.name)) {
+      activeName = profundidade.name;
+    } else if (valComp && !valProf) {
+      activeName = comprimento.name;
+    } else if (valProf && !valComp) {
+      activeName = profundidade.name;
+    } else if (Object.prototype.hasOwnProperty.call(productTechnicalValues, comprimento.name) && !Object.prototype.hasOwnProperty.call(productTechnicalValues, profundidade.name)) {
+      activeName = comprimento.name;
+    }
+    
+    applicable = applicable.filter(f => {
+      const lower = f.name.toLowerCase();
+      if (lower === 'profundidade' || lower === 'comprimento') {
+        return f.name === activeName;
+      }
+      return true;
+    });
+  }
+
+  return applicable;
 };
 
 /**

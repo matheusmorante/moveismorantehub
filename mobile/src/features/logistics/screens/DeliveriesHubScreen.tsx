@@ -182,14 +182,18 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               disabled={dateScopeDisabled}
               accessibilityRole="button"
               accessibilityState={{ disabled: dateScopeDisabled }}
-              accessibilityHint={dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined}
+              accessibilityHint={
+                dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined
+              }
               activeOpacity={0.8}
             >
               <Text
                 style={[
                   styles.dateScopeBtnText,
                   isDarkMode && styles.dateScopeBtnTextDark,
-                  !dateScopeDisabled && scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
+                  !dateScopeDisabled &&
+                    scheduleDateScope === 'today' &&
+                    styles.dateScopeBtnTextActive,
                   dateScopeDisabled && styles.dateScopeBtnTextDisabled,
                   dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
                 ]}
@@ -203,20 +207,26 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                 styles.dateScopeBtn,
                 dateScopeDisabled && styles.dateScopeBtnDisabled,
                 dateScopeDisabled && isDarkMode && styles.dateScopeBtnDisabledDark,
-                !dateScopeDisabled && scheduleDateScope === 'next_days' && styles.dateScopeBtnActive,
+                !dateScopeDisabled &&
+                  scheduleDateScope === 'next_days' &&
+                  styles.dateScopeBtnActive,
               ]}
               onPress={() => setScheduleDateScope('next_days')}
               disabled={dateScopeDisabled}
               accessibilityRole="button"
               accessibilityState={{ disabled: dateScopeDisabled }}
-              accessibilityHint={dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined}
+              accessibilityHint={
+                dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined
+              }
               activeOpacity={0.8}
             >
               <Text
                 style={[
                   styles.dateScopeBtnText,
                   isDarkMode && styles.dateScopeBtnTextDark,
-                  !dateScopeDisabled && scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
+                  !dateScopeDisabled &&
+                    scheduleDateScope === 'next_days' &&
+                    styles.dateScopeBtnTextActive,
                   dateScopeDisabled && styles.dateScopeBtnTextDisabled,
                   dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
                 ]}

@@ -88,7 +88,9 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         if (!response.ok || !result.success)
           throw new Error(result.error || 'Não foi possível conferir o saldo faturado.');
         if (!active) return;
-        loadedHasAuthorizedInvoice = Boolean(result.hasAuthorizedInvoice ?? result.hasAuthorizedProductionInvoice);
+        loadedHasAuthorizedInvoice = Boolean(
+          result.hasAuthorizedInvoice ?? result.hasAuthorizedProductionInvoice
+        );
         loadedFiscalLines = result.lines || [];
         setHasAuthorizedInvoice(loadedHasAuthorizedInvoice);
         setFiscalCapacityLines(loadedFiscalLines);

@@ -17,7 +17,9 @@ const createAuthClient = () => {
     data: { user: { id: 'auth-user-1' }, session: { user: { id: 'auth-user-1' } } },
     error: null,
   });
-  const signInWithOAuth = vi.fn().mockResolvedValue({ data: { url: 'https://google.test' }, error: null });
+  const signInWithOAuth = vi
+    .fn()
+    .mockResolvedValue({ data: { url: 'https://google.test' }, error: null });
   const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
   const client = {
     auth: { updateUser, signInWithPassword, signInWithOAuth },
@@ -36,7 +38,11 @@ describe('authPasswordSetup', () => {
 
   it('configura uma senha para uma conta recém-criada pelo Google na mesma identidade Auth', async () => {
     expect(await checkCurrentUserHasPassword(mocks.client)).toBe(false);
-    const user = await createCurrentUserPassword(mocks.client, 'senha-segura-123', 'senha-segura-123');
+    const user = await createCurrentUserPassword(
+      mocks.client,
+      'senha-segura-123',
+      'senha-segura-123'
+    );
 
     expect(user?.id).toBe('auth-user-1');
     expect(mocks.updateUser).toHaveBeenCalledWith({ password: 'senha-segura-123' });
@@ -96,7 +102,11 @@ describe('authPasswordSetup', () => {
   });
 
   it('não cria usuário ou perfil duplicado ao adicionar senha à identidade atual', async () => {
-    const user = await createCurrentUserPassword(mocks.client, 'senha-segura-123', 'senha-segura-123');
+    const user = await createCurrentUserPassword(
+      mocks.client,
+      'senha-segura-123',
+      'senha-segura-123'
+    );
     const auth = mocks.client.auth as unknown as { signUp?: unknown };
 
     expect(user?.id).toBe('auth-user-1');

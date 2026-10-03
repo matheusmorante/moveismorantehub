@@ -10,11 +10,74 @@ import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { resolveNfeSequenceSettings } from './nfeSequenceSettings';
 import { canIssueCce } from './nfeCce';
 import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
-import { isFiscalNumber, parseFiscalNumberConflict } from '../../../../../shared-utils/fiscalNumbering';
+import {
+  isFiscalNumber,
+  parseFiscalNumberConflict,
+} from '../../../../../shared-utils/fiscalNumbering';
 
 export { canIssueCce };
 
 const fiscalEmissionRequestIds = new Map<string, string>();
+
+export const FISCAL_NUMBER_PREVIEW_TTL_MS = 30_000;
+const fiscalNumberPreviewCache = new Map<string, { nextNumber: number; timestamp: number }>();
+
+export function updateFiscalNumberPreviewCache(
+  model: '55' | '65',
+  environment: 1 | 2,
+  series: string,
+  nextNumber: number
+) {
+  const cacheKey = `${environment}:${model}:${series}`;
+  fiscalNumberPreviewCache.set(cacheKey, { nextNumber, timestamp: Date.now() });
+}
+
+export function getCachedFiscalNumberPreview(
+  model: '55' | '65',
+  environment: 1 | 2,
+  series: string
+): number | null {
+  const cacheKey = `${environment}:${model}:${series}`;
+  const cached = fiscalNumberPreviewCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < FISCAL_NUMBER_PREVIEW_TTL_MS) {
+    return cached.nextNumber;
+  }
+  return null;
+}
+
+/** Read-only sequence preview; the emission endpoint reserves the final number atomically. */
+export async function getNextNfeNumberPreview(
+  model: '55' | '65',
+  environment: 1 | 2,
+  series: string,
+  minimumNumber: number
+): Promise<number> {
+  const cacheKey = `${environment}:${model}:${series}`;
+  const cached = fiscalNumberPreviewCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < FISCAL_NUMBER_PREVIEW_TTL_MS) {
+    return cached.nextNumber;
+  }
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token)
+    throw new Error('Faça login novamente para consultar a numeração fiscal.');
+  const query = new URLSearchParams({
+    model,
+    environment: String(environment),
+    series,
+    minimumNumber: String(minimumNumber),
+  });
+  const response = await fetch(`/api/nfe/reserve-number?${query}`, {
+    headers: { Authorization: `Bearer ${data.session.access_token}` },
+    cache: 'no-store',
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !Number.isInteger(result.nextNumber))
+    throw new Error(result.error || 'Não foi possível consultar a numeração fiscal.');
+
+  fiscalNumberPreviewCache.set(cacheKey, { nextNumber: result.nextNumber, timestamp: Date.now() });
+  return result.nextNumber;
+}
 
 export interface NfeEmissionResult {
   success: boolean;
@@ -33,6 +96,11 @@ export interface NfeEmissionResult {
   error?: string;
   pending?: boolean;
   cStat?: string;
+  diagnosticId?: string;
+  diagnosticStage?: string;
+  databaseCode?: string;
+  diagnosticCategory?: string;
+  diagnosticHint?: string;
   retryDocumentId?: string;
   sefazMessage?: string;
   validation?: NfeValidationResult;
@@ -48,7 +116,8 @@ export async function emitNfeForOrder(
   productionConfirmed = false,
   retryDocumentId?: string,
   requestedNumber?: number,
-  originalItemNcms: string[] = []
+  originalItemNcms: string[] = [],
+  recipientTaxId?: string
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
   if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
@@ -98,8 +167,10 @@ export async function emitNfeForOrder(
         pending: Boolean(retryResult.pending),
         cStat: retryResult.cStat,
         sefazMessage: retryResult.xMotivo,
-        numberConflict: retryResult.code === 'NFE_NUMBER_ALREADY_USED'
-          ? parseFiscalNumberConflict(retryResult.numberConflict) : undefined,
+        numberConflict:
+          retryResult.code === 'NFE_NUMBER_ALREADY_USED'
+            ? parseFiscalNumberConflict(retryResult.numberConflict)
+            : undefined,
       };
 
       if (!response.ok || !retryResult.success)
@@ -159,26 +230,67 @@ export async function emitNfeForOrder(
       const requestKey = `${String(order.id || '')}:55:${environment}`;
       const storageKey = `nfe-emission-request:${requestKey}`;
       let storedRequestId: string | null = null;
-      try { storedRequestId = typeof window !== 'undefined'
-        ? window.localStorage.getItem(storageKey) : null; } catch { /* storage indisponível */ }
-      const emissionRequestId = fiscalEmissionRequestIds.get(requestKey) ||
+      try {
+        storedRequestId =
+          typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null;
+      } catch {
+        /* storage indisponível */
+      }
+      const emissionRequestId =
+        fiscalEmissionRequestIds.get(requestKey) ||
         (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
         crypto.randomUUID();
       fiscalEmissionRequestIds.set(requestKey, emissionRequestId);
-      try { if (typeof window !== 'undefined')
-        window.localStorage.setItem(storageKey, emissionRequestId); } catch { /* storage indisponível */ }
-      const itemCsosnOverrides = Object.fromEntries((order.items || []).filter((item) => item.itemType !== 'service')
-        .flatMap((item, index) => {
-          const fiscal = (item as unknown as { fiscal?: { cst?: string; csosnSource?: string } }).fiscal;
-          return fiscal?.csosnSource === 'manual' && fiscal.cst ? [[String(index + 1), fiscal.cst]] : [];
-        }));
-      const itemFiscalSelections = parseFiscalItemSelections(Object.fromEntries(
-        (order.items || []).filter((item) => item.itemType !== 'service').flatMap((item, index) => {
-          const fiscal = (item as unknown as { fiscal?: { ncm?: string; cfop?: string;
-            origem?: string; cest?: string; cst?: string } }).fiscal;
-          return fiscal ? [[String(index + 1), { ncm: fiscal.ncm, cfop: fiscal.cfop,
-            origem: fiscal.origem, cest: fiscal.cest ?? '', csosn: fiscal.cst }]] : [];
-        })));
+      try {
+        if (typeof window !== 'undefined')
+          window.localStorage.setItem(storageKey, emissionRequestId);
+      } catch {
+        /* storage indisponível */
+      }
+      const itemCsosnOverrides = Object.fromEntries(
+        (order.items || [])
+          .filter((item) => item.itemType !== 'service')
+          .flatMap((item, index) => {
+            const fiscal = (item as unknown as { fiscal?: { cst?: string; csosnSource?: string } })
+              .fiscal;
+            return fiscal?.csosnSource === 'manual' && fiscal.cst
+              ? [[String(index + 1), fiscal.cst]]
+              : [];
+          })
+      );
+      const itemFiscalSelections = parseFiscalItemSelections(
+        Object.fromEntries(
+          (order.items || [])
+            .filter((item) => item.itemType !== 'service')
+            .flatMap((item, index) => {
+              const fiscal = (
+                item as unknown as {
+                  fiscal?: {
+                    ncm?: string;
+                    cfop?: string;
+                    origem?: string;
+                    cest?: string;
+                    cst?: string;
+                  };
+                }
+              ).fiscal;
+              return fiscal
+                ? [
+                    [
+                      String(index + 1),
+                      {
+                        ncm: fiscal.ncm,
+                        cfop: fiscal.cfop,
+                        origem: fiscal.origem,
+                        cest: fiscal.cest ?? '',
+                        csosn: fiscal.cst,
+                      },
+                    ],
+                  ]
+                : [];
+            })
+        )
+      );
       const response = await fetch('/api/nfe/emit', {
         method: 'POST',
         headers: {
@@ -192,28 +304,44 @@ export async function emitNfeForOrder(
           emissionRequestId,
           ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
           ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+          ...(recipientTaxId ? { recipientTaxId } : {}),
           ...(requestedNumber === undefined ? {} : { requestedNumber }),
         }),
       });
       const result = await response.json().catch(() => ({}));
-      const numberConflict = result.code === 'NFE_NUMBER_ALREADY_USED'
-        ? parseFiscalNumberConflict(result.numberConflict) : undefined;
-      const freshIntentionRequired = Boolean(numberConflict) ||
-        (result.success === false && result.pending !== true &&
-          result.numberReserved === true && result.sefazContacted === false &&
+      const numberConflict =
+        result.code === 'NFE_NUMBER_ALREADY_USED'
+          ? parseFiscalNumberConflict(result.numberConflict)
+          : undefined;
+      const freshIntentionRequired =
+        Boolean(numberConflict) ||
+        (result.success === false &&
+          result.pending !== true &&
+          result.numberReserved === true &&
+          result.sefazContacted === false &&
           typeof result.documentId !== 'string');
       if (freshIntentionRequired) {
         // A rejected signed key or a snapshot with no document can safely start a new intention.
         fiscalEmissionRequestIds.delete(requestKey);
-        try { if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey); }
-        catch { /* storage indisponível */ }
+        try {
+          if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey);
+        } catch {
+          /* storage indisponível */
+        }
       }
-      if (result.success === false && result.pending !== true && ['244', '209'].includes(result.cStat)) {
+      if (
+        result.success === false &&
+        result.pending !== true &&
+        ['244', '209'].includes(result.cStat)
+      ) {
         // A confirmed series/IE rejection ends this intention. The next explicit click
         // uses a new request; the database links it and preserves the rejected XML.
         fiscalEmissionRequestIds.delete(requestKey);
-        try { if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey); }
-        catch { /* storage indisponível */ }
+        try {
+          if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey);
+        } catch {
+          /* storage indisponível */
+        }
       }
       const metadata = {
         documentId: typeof result.documentId === 'string' ? result.documentId : undefined,
@@ -221,27 +349,55 @@ export async function emitNfeForOrder(
         accessKey: typeof result.accessKey === 'string' ? result.accessKey : undefined,
         nfeNumber: Number.isInteger(result.nfeNumber) ? result.nfeNumber : undefined,
         series: typeof result.series === 'string' ? result.series : undefined,
-        model: result.model === '55' ? '55' as const : undefined,
+        model: result.model === '55' ? ('55' as const) : undefined,
         environment,
         xml: typeof result.signedXml === 'string' ? result.signedXml : undefined,
-        protocolNumber: typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
+        protocolNumber:
+          typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
         protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : undefined,
         pending: Boolean(result.pending),
         cStat: typeof result.cStat === 'string' ? result.cStat : undefined,
         sefazMessage: typeof result.xMotivo === 'string' ? result.xMotivo : undefined,
+        diagnosticId: typeof result.diagnosticId === 'string' ? result.diagnosticId : undefined,
+        diagnosticStage:
+          typeof result.diagnosticStage === 'string' ? result.diagnosticStage : undefined,
+        databaseCode: typeof result.databaseCode === 'string' ? result.databaseCode : undefined,
+        diagnosticCategory:
+          typeof result.diagnosticCategory === 'string' ? result.diagnosticCategory : undefined,
+        diagnosticHint:
+          typeof result.diagnosticHint === 'string' ? result.diagnosticHint : undefined,
         numberConflict,
       };
       if (response.ok && result.success === true)
-        return { success: true, ...metadata,
-          danfeUnavailableReason: 'DANFE HML deve ser gerado do XML fiscal persistido no backend.' };
+        return {
+          success: true,
+          ...metadata,
+          danfeUnavailableReason: 'DANFE HML deve ser gerado do XML fiscal persistido no backend.',
+        };
+      console.error('[NFe Service] Erro retornado pela API interna de emissão', {
+        endpoint: '/api/nfe/emit',
+        httpStatus: response.status,
+        apiCode: typeof result.code === 'string' ? result.code : 'UNKNOWN',
+        diagnosticId: metadata.diagnosticId,
+        diagnosticStage: metadata.diagnosticStage,
+        databaseCode: metadata.databaseCode,
+        databaseReason:
+          typeof result.databaseReason === 'string' ? result.databaseReason : undefined,
+        diagnosticCategory: metadata.diagnosticCategory,
+        diagnosticHint: metadata.diagnosticHint,
+        emissionRequestId,
+        model: '55',
+        environment,
+      });
       return {
         success: false,
         ...metadata,
         error:
           typeof result.error === 'string'
             ? result.error
-            : (typeof result.xMotivo === 'string' ? result.xMotivo
-              : 'A SEFAZ não confirmou a emissão fiscal.'),
+            : typeof result.xMotivo === 'string'
+              ? result.xMotivo
+              : 'A SEFAZ não confirmou a emissão fiscal.',
       };
     } catch (error) {
       return {
@@ -319,10 +475,15 @@ export async function emitNfeForOrder(
     const entry = ncmByCode.get(code);
     return (
       !entry?.active ||
-      (!entry.is_active && order.items.filter((item) => item.itemType !== 'service').some((item, index) => {
-        const itemCode = String((item as any).fiscal?.ncm || '').replace(/\D/g, '');
-        return itemCode === code && String(originalItemNcms[index] || '').replace(/\D/g, '') !== code;
-      })) ||
+      (!entry.is_active &&
+        order.items
+          .filter((item) => item.itemType !== 'service')
+          .some((item, index) => {
+            const itemCode = String((item as any).fiscal?.ncm || '').replace(/\D/g, '');
+            return (
+              itemCode === code && String(originalItemNcms[index] || '').replace(/\D/g, '') !== code
+            );
+          })) ||
       (entry.start_date && entry.start_date > today) ||
       (entry.end_date && entry.end_date < today)
     );
@@ -523,7 +684,10 @@ export function canCancelFiscalDocument(doc: {
     operationDidNotOccur: true,
   });
   if (policy.action !== 'cancel') {
-    return { canCancel: false, reason: policy.reason || 'A NF-e não está elegível para cancelamento.' };
+    return {
+      canCancel: false,
+      reason: policy.reason || 'A NF-e não está elegível para cancelamento.',
+    };
   }
   return { canCancel: true };
 }
@@ -543,13 +707,19 @@ export async function processOrderCancellationFiscalEffects(
     body: JSON.stringify({ orderId }),
   });
   const policy = await policyResponse.json();
-  if (!policyResponse.ok) throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
+  if (!policyResponse.ok)
+    throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
   if (policy.action === 'none') return { action: 'none' };
 
   const endpoint = policy.action === 'cancel' ? '/api/nfe/cancel' : '/api/nfe/operation-drafts';
   const body =
     policy.action === 'cancel'
-      ? { documentId: policy.documentId, reason, productionConfirmed: true, viaOrderCancellation: true }
+      ? {
+          documentId: policy.documentId,
+          reason,
+          productionConfirmed: true,
+          viaOrderCancellation: true,
+        }
       : {
           kind: 'estorno',
           originalDocumentId: policy.documentId,

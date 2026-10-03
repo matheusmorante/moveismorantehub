@@ -12,11 +12,7 @@ export async function fetchLabelImages(): Promise<LabelImage[]> {
 }
 
 export async function createLabelImage(input: CreateLabelImageInput): Promise<LabelImage> {
-  const { data, error } = await supabase
-    .from('label_images')
-    .insert([input])
-    .select()
-    .single();
+  const { data, error } = await supabase.from('label_images').insert([input]).select().single();
 
   if (error) throw error;
   if (!data) throw new Error('O banco não retornou a imagem de etiqueta criada.');

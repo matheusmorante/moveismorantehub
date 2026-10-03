@@ -7,7 +7,12 @@ export const getNonStockOrigin = (item?: Item): 'salvado' | 'usado' | null =>
 export const removeNonStockItemLinks = (order: Order): Order => {
   if (order.orderType !== 'sale' && order.orderType !== 'return') return order;
   const items = order.items || [];
-  if (!items.some((item) => getNonStockOrigin(item) && (item.productId || item.variationId || !item.isTemporaryProduct))) {
+  if (
+    !items.some(
+      (item) =>
+        getNonStockOrigin(item) && (item.productId || item.variationId || !item.isTemporaryProduct)
+    )
+  ) {
     return order;
   }
   return {
@@ -55,7 +60,11 @@ export const getSaleInventoryDate = (order: Order, historical: boolean = false, 
 /** Verifica se um item de venda é elegível para movimentação física no estoque. */
 export const isStockEligibleSaleItem = (item?: Item): item is Item & { productId: string } =>
   Boolean(
-    item && item.productId?.trim() && !item.isTemporaryProduct && !getNonStockOrigin(item) && item.itemType !== 'service'
+    item &&
+      item.productId?.trim() &&
+      !item.isTemporaryProduct &&
+      !getNonStockOrigin(item) &&
+      item.itemType !== 'service'
   );
 
 /**

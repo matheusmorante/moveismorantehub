@@ -4,7 +4,11 @@ import { composeServiceFiscalValues } from '../serviceFiscalComposition';
 import { buildItemsXml } from '../xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from '../xml/xmlTotalsBlock';
 
-const product = (id: string, unitPrice: number, quantity = 1): Item & {
+const product = (
+  id: string,
+  unitPrice: number,
+  quantity = 1
+): Item & {
   fiscal: { ncm: string; cfop: string; cst: string; origem: string };
 } => ({
   orderItemId: id,
@@ -52,8 +56,9 @@ describe('service fiscal composition', () => {
       item.fiscal.cst = cst;
       expect(() => buildItemsXml({ items: [item] } as any, settings, true)).toThrow();
     }
-    expect(() => buildItemsXml({ items: [product('A', 100)] } as any,
-      { ...settings, companyCRT: '3' }, true)).toThrow(/CRT 1/);
+    expect(() =>
+      buildItemsXml({ items: [product('A', 100)] } as any, { ...settings, companyCRT: '3' }, true)
+    ).toThrow(/CRT 1/);
   });
 
   it('routes unlinked services to vOutro; linked values attach to the exact product line', () => {

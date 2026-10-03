@@ -1,9 +1,8 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
-import {
-  getAuthorizedAt,
-} from '../../erp/src/pages/utils/nfe/nfeEventRules';
+import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import {
@@ -17,7 +16,7 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function extractFiscalBlock(xml: string, name: string): string {

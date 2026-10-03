@@ -86,18 +86,26 @@ describe('cadastro de pedido com estoque atômico', () => {
 
     await executeSaveOrder(order as any, vi.fn());
     const createdItems = mocks.rpc.mock.calls[0][1].p_items;
-    expect(createdItems.map((item: any) => item.productId)).toEqual(['normal', undefined, undefined]);
+    expect(createdItems.map((item: any) => item.productId)).toEqual([
+      'normal',
+      undefined,
+      undefined,
+    ]);
     expect(createdItems.slice(1)).toEqual([
       expect.objectContaining({ condition: 'salvado', isTemporaryProduct: true }),
       expect.objectContaining({ condition: 'usado', isTemporaryProduct: true }),
     ]);
 
     mocks.rpc.mockClear();
-    await executeUpdateOrder('pedido-1', { status: 'fulfilled' } as any, {
-      ...order,
-      id: 'pedido-1',
-      orderIndex: 123,
-    } as any);
+    await executeUpdateOrder(
+      'pedido-1',
+      { status: 'fulfilled' } as any,
+      {
+        ...order,
+        id: 'pedido-1',
+        orderIndex: 123,
+      } as any
+    );
     expect(mocks.rpc.mock.calls[0][1].p_items).toEqual(createdItems);
   });
 

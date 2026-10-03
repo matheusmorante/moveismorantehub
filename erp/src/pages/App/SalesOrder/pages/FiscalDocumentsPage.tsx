@@ -203,7 +203,9 @@ export default function FiscalDocumentsPage() {
         toast.info('Não há documento fiscal autorizado pendente neste pedido.');
       }
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : 'Não foi possível tratar a nota do pedido.');
+      toast.error(
+        cause instanceof Error ? cause.message : 'Não foi possível tratar a nota do pedido.'
+      );
     } finally {
       setProcessingOrderFiscalId(null);
     }
@@ -323,7 +325,7 @@ export default function FiscalDocumentsPage() {
           ? 'SEFAZ confirmou o cancelamento; documento reconciliado.'
           : result.sefazConsulted === true
             ? `Consulta direta à SEFAZ confirmou a autorização${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
-          : `Documento autorizado na SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
+            : `Documento autorizado na SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
       );
       await loadDocuments();
       if (result.state === 'cancelled') {
@@ -679,7 +681,9 @@ export default function FiscalDocumentsPage() {
                               aria-label={`Reprocessar tratamento fiscal do pedido da NF-e ${doc.numero_nfe}`}
                               className="p-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white transition-all cursor-pointer disabled:opacity-50"
                             >
-                              <i className={`bi ${processingOrderFiscalId === doc.order_id ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-repeat'}`} />
+                              <i
+                                className={`bi ${processingOrderFiscalId === doc.order_id ? 'bi-arrow-repeat animate-spin' : 'bi-arrow-repeat'}`}
+                              />
                             </button>
                           )}
 
@@ -750,11 +754,13 @@ export default function FiscalDocumentsPage() {
             <div className="space-y-4">
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
                 <p className="font-bold">
-                  A nova CC-e substitui as anteriores. Inclua neste texto todas as correções que ainda devem valer.
+                  A nova CC-e substitui as anteriores. Inclua neste texto todas as correções que
+                  ainda devem valer.
                 </p>
                 <p className="mt-2">
-                  Não use para alterar valores da operação, base/alíquota/imposto, quantidade, emitente ou destinatário,
-                  nem as datas de emissão ou saída. A CC-e só pode corrigir informação permitida para NF-e modelo 55.
+                  Não use para alterar valores da operação, base/alíquota/imposto, quantidade,
+                  emitente ou destinatário, nem as datas de emissão ou saída. A CC-e só pode
+                  corrigir informação permitida para NF-e modelo 55.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -766,12 +772,15 @@ export default function FiscalDocumentsPage() {
                       : 'Não foi possível determinar a próxima sequência.'}
                 </span>
                 {ccePreviousCorrection && !isLoadingCceInfo && (
-                  <span className="font-semibold">Texto da última CC-e carregado para revisão.</span>
+                  <span className="font-semibold">
+                    Texto da última CC-e carregado para revisão.
+                  </span>
                 )}
               </div>
               {ccePending && (
                 <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs leading-relaxed text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
-                  Há uma tentativa sem resultado confirmado. Consulte a SEFAZ antes de iniciar outra transmissão.
+                  Há uma tentativa sem resultado confirmado. Consulte a SEFAZ antes de iniciar outra
+                  transmissão.
                 </div>
               )}
 
@@ -788,7 +797,9 @@ export default function FiscalDocumentsPage() {
                   disabled={isLoadingCceInfo || ccePending || isSubmittingCce}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-bold outline-none focus:border-amber-500 transition-all resize-y disabled:opacity-60"
                 />
-                <div className="mt-2 text-right text-[11px] text-slate-400">{cceText.trim().length}/1000</div>
+                <div className="mt-2 text-right text-[11px] text-slate-400">
+                  {cceText.trim().length}/1000
+                </div>
               </div>
               {selectedDoc.ambiente === 1 && (
                 <label className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs leading-relaxed text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
@@ -831,7 +842,11 @@ export default function FiscalDocumentsPage() {
                   disabled={isSubmittingCce || isLoadingCceInfo}
                   className="px-5 py-2.5 rounded-2xl bg-sky-600 text-white hover:bg-sky-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmittingCce ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-arrow-clockwise" />}
+                  {isSubmittingCce ? (
+                    <i className="bi bi-arrow-repeat animate-spin" />
+                  ) : (
+                    <i className="bi bi-arrow-clockwise" />
+                  )}
                   Consultar resultado na SEFAZ
                 </button>
               ) : (
@@ -847,7 +862,11 @@ export default function FiscalDocumentsPage() {
                   }
                   className="px-5 py-2.5 rounded-2xl bg-amber-600 text-white hover:bg-amber-700 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmittingCce ? <i className="bi bi-arrow-repeat animate-spin" /> : <i className="bi bi-send-fill" />}
+                  {isSubmittingCce ? (
+                    <i className="bi bi-arrow-repeat animate-spin" />
+                  ) : (
+                    <i className="bi bi-send-fill" />
+                  )}
                   Transmitir CC-e à SEFAZ
                 </button>
               )}

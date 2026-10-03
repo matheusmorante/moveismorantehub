@@ -116,7 +116,8 @@ export const findRegisteredSefazCceEvent = (
     (match) => match[0]
   );
   const event = eventBlocks.find(
-    (block) => readTag(block, 'tpEvento') === '110110' && Number(readTag(block, 'nSeqEvento')) === sequence
+    (block) =>
+      readTag(block, 'tpEvento') === '110110' && Number(readTag(block, 'nSeqEvento')) === sequence
   );
   if (!event) return null;
   const cStat = readTag(event, 'cStat');

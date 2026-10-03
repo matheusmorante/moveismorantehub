@@ -65,9 +65,7 @@ export const hasGoodsCirculated = (row: OrderCirculationState | null | undefined
 
   // The ERP's fulfilled state means the sale was completed; missing delivery
   // metadata must not make an already fulfilled sale eligible for NF-e cancel.
-  return ['fulfilled', 'atendido', 'completed'].includes(
-    String(row?.status || '').toLowerCase()
-  );
+  return ['fulfilled', 'atendido', 'completed'].includes(String(row?.status || '').toLowerCase());
 };
 
 /** @deprecated Use the business term `hasGoodsCirculated`. */

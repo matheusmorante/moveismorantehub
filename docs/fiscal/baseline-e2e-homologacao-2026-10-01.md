@@ -1,5 +1,7 @@
 # Baseline fiscal E2E — homologação SEFAZ-PR
 
+> **Registro histórico de execução:** esta baseline preserva evidências e resultados de 2026-10-01. As instruções e critérios para novos testes de NF-e/NFC-e em homologação foram removidos em 2026-10-03 para redefinição. Não use este arquivo como roteiro nem retransmita os documentos registrados.
+
 Estado de referência aprovado em `2026-10-01T19:32:18.854Z` para o `testRunId` `11ae099c-9497-4b0c-b308-1116c88c6d06`. O backend usado foi a implantação Vercel [`morantehub-1jo971ypw`](https://morantehub-1jo971ypw-matheusmorantes-projects.vercel.app), com `tpAmb=2`, série 1 e produção desabilitada. Projeto Supabase: `hkoxhourxwlddgsfdgws`.
 
 Esta baseline congela o comportamento operacional já aprovado; não representa um tag Git nem uma árvore de trabalho limpa. O `HEAD` observado durante o registro era `e3930b8a9f37d81f9b674a8a5c1e76912bebed60`, e havia alterações locais em andamento. A implantação e os hashes abaixo identificam a evidência fiscal de referência sem misturá-la às alterações posteriores da interface.

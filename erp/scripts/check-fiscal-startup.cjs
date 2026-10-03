@@ -24,7 +24,7 @@ async function check() {
     return;
   }
   for (const route of ['emit', 'consult', 'item-defaults', 'cancel', 'return-capacity',
-    'operation-drafts', 'transmit-operation-draft', 'cce']) {
+    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number']) {
     const dynamic = !['emit', 'consult', 'item-defaults'].includes(route);
     const source = await readFile(resolve(__dirname, `../api/nfe/${dynamic ? 'operations' : route}.ts`), 'utf8');
     const emitted = ts.transpileModule(source, {

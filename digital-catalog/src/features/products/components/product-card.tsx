@@ -154,9 +154,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
             <Badge
               className={cn(
                 'absolute top-[2px] right-2 font-black px-2 py-0.5 rounded-lg shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
-                isSalvados
-                  ? 'bg-orange-500 text-white border-orange-600/20'
-                  : 'text-white',
+                isSalvados ? 'bg-orange-500 text-white border-orange-600/20' : 'text-white',
                 getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
               )}
               style={

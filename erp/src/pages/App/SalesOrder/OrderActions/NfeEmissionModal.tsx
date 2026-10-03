@@ -6,6 +6,26 @@ import { NfeItemsSection } from './nfe-modal/NfeItemsSection';
 import { NfeSuccessCard } from './nfe-modal/NfeSuccessCard';
 import { useNfeEmission } from './nfe-modal/useNfeEmission';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
+import { fetchPersonById } from '@/pages/utils/personService';
+import { recipientTaxIdKind } from '../../../../../../shared-utils/recipientTaxId';
+
+const maskRecipientTaxId = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  if (digits.length > 11) {
+    if (digits.length > 12)
+      return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+    if (digits.length > 8)
+      return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+    if (digits.length > 5) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+    if (digits.length > 2) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    return digits;
+  }
+  if (digits.length > 9)
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  if (digits.length > 6) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digits.length > 3) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  return digits;
+};
 
 interface NfeEmissionModalProps {
   isOpen: boolean;
@@ -20,15 +40,73 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const [customerPersonType, setCustomerPersonType] = React.useState<'PF' | 'PJ' | undefined>(
+    order?.customerData?.personType
+  );
+  const [isLoadingCustomerType, setIsLoadingCustomerType] = React.useState(
+    Boolean(order?.customerData?.id && !order?.customerData?.personType)
+  );
+  React.useEffect(() => {
+    let active = true;
+    const loadPersonType = async () => {
+      const snapshotType = order?.customerData?.personType;
+      const snapshotDocument = order?.customerData?.cpfCnpj || order?.customerData?.document || '';
+      if (snapshotType) {
+        setCustomerPersonType(snapshotType);
+        setIsLoadingCustomerType(false);
+        return;
+      }
+      setCustomerPersonType(
+        snapshotDocument
+          ? recipientTaxIdKind(snapshotDocument) === 'CNPJ'
+            ? 'PJ'
+            : 'PF'
+          : undefined
+      );
+      if (!order?.customerData?.id) {
+        setIsLoadingCustomerType(false);
+        return;
+      }
+      setIsLoadingCustomerType(true);
+      const person = await fetchPersonById(order.customerData.id);
+      if (active) {
+        if (person?.personType) setCustomerPersonType(person.personType);
+        setIsLoadingCustomerType(false);
+      }
+    };
+    void loadPersonType();
+    return () => {
+      active = false;
+    };
+  }, [
+    order?.id,
+    order?.customerData?.id,
+    order?.customerData?.personType,
+    order?.customerData?.cpfCnpj,
+    order?.customerData?.document,
+  ]);
+  const emissionOrder = React.useMemo(
+    () =>
+      order && customerPersonType
+        ? { ...order, customerData: { ...order.customerData, personType: customerPersonType } }
+        : order,
+    [order, customerPersonType]
+  );
   const {
     canOperateFiscal,
     environment,
     setEnvironment,
     isSubmitting,
-    requestedNumber,
-    setRequestedNumber,
+    numberPreview,
+    nfeNumberSequence,
+    isLoadingNfeNumber,
+    nfeNumberError,
     isLoadingFiscalData,
     fiscalPreparationError,
+    recipientTaxIdError,
+    recipientTaxId,
+    setRecipientTaxId,
+    setNumberPreview,
     emissionResult,
     nfeItems,
     handleUpdateItemFiscal,
@@ -36,9 +114,20 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handleEmit,
     handleReconcile,
     handlePrintDanfe,
-  } = useNfeEmission(order, onSuccess);
+  } = useNfeEmission(emissionOrder, onSuccess);
   const [productionConfirmed, setProductionConfirmed] = React.useState(false);
   const [retryNumber, setRetryNumber] = React.useState('');
+  const recipientTaxIdInput = React.useRef<HTMLInputElement>(null);
+  React.useEffect(
+    () =>
+      setRecipientTaxId(
+        maskRecipientTaxId(order?.customerData?.cpfCnpj || order?.customerData?.document || '')
+      ),
+    [order?.id, order?.customerData?.cpfCnpj, order?.customerData?.document, setRecipientTaxId]
+  );
+  React.useEffect(() => {
+    if (recipientTaxIdError) recipientTaxIdInput.current?.focus();
+  }, [recipientTaxIdError]);
   React.useEffect(() => {
     setRetryNumber(emissionResult?.numberConflict?.nextNumber?.toString() ?? '');
   }, [emissionResult?.numberConflict?.previousNumber, emissionResult?.numberConflict?.nextNumber]);
@@ -51,10 +140,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
   const isPickup = order.shipping?.deliveryMethod === 'pickup';
   const modelLabel = isPickup ? 'NFC-e · modelo 65 · retirada' : 'NF-e · modelo 55 · entrega';
+  const numberPreviewContext = `${nfeNumberSequence.model === '55' ? 'NF-e 55' : 'NFC-e 65'} · Série ${nfeNumberSequence.series ?? '—'} · ${environment === 2 ? 'Homologação' : 'Produção'}`;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Emitir nota fiscal de saída"
-      className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Emitir nota fiscal de saída"
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4"
+    >
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
@@ -134,19 +228,46 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               Dados adicionais do destinatário
             </h4>
             <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
-              Os dados vêm do snapshot deste pedido e não serão alterados pela emissão.
+              CPF/CNPJ preenchido aqui será usado somente nesta emissão e não altera o cadastro do
+              cliente.
             </p>
-            {order.shipping?.deliveryMethod !== 'pickup' && (
-              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                Endereço:{' '}
-                {order.shipping?.deliveryAddress?.street ||
-                  order.customerData?.fullAddress?.street ||
-                  'Não informado'}
-                {order.shipping?.deliveryAddress?.number
-                  ? `, ${order.shipping.deliveryAddress.number}`
-                  : ''}
-              </p>
-            )}
+            <div className="mt-2">
+              <label
+                htmlFor="nfe-recipient-tax-id"
+                className={`text-xs font-semibold ${recipientTaxIdError ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-200'}`}
+              >
+                {isPickup
+                  ? 'CPF/CNPJ (Opcional para NFC-e)'
+                  : `Insira ${customerPersonType === 'PJ' ? 'o CNPJ' : 'o CPF'}`}
+              </label>
+              <input
+                id="nfe-recipient-tax-id"
+                ref={recipientTaxIdInput}
+                aria-invalid={Boolean(recipientTaxIdError)}
+                inputMode="numeric"
+                autoComplete="off"
+                value={maskRecipientTaxId(recipientTaxId)}
+                onChange={(event) => setRecipientTaxId(maskRecipientTaxId(event.target.value))}
+                placeholder={
+                  isPickup
+                    ? 'Insira o CPF ou CNPJ (Opcional)'
+                    : customerPersonType === 'PJ'
+                      ? 'Insira o CNPJ'
+                      : 'Insira o CPF'
+                }
+                aria-describedby={recipientTaxIdError ? 'nfe-recipient-tax-id-error' : undefined}
+                className={`mt-1 w-full rounded-none border-0 border-b-2 bg-white px-3 py-2 text-sm outline-none transition-colors dark:bg-slate-950 ${recipientTaxIdError ? 'border-rose-500 focus:border-rose-500' : 'border-slate-300 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
+              />
+              {recipientTaxIdError && (
+                <p
+                  id="nfe-recipient-tax-id-error"
+                  role="alert"
+                  className="mt-1 text-xs text-rose-700 dark:text-rose-300"
+                >
+                  {recipientTaxIdError}
+                </p>
+              )}
+            </div>
           </section>
 
           {/* Lista de Itens com campos fiscais e busca de NCM por código/tokens */}
@@ -163,33 +284,29 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           <NfeEnvironmentSelector environment={environment} onSelect={setEnvironment} />
 
           <label className="flex max-w-xs flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
-            Número da nota (opcional)
+            Número da nota (prévia)
             <input
-              aria-label="Número manual da nota fiscal"
+              aria-label="Prévia do próximo número fiscal"
               inputMode="numeric"
               pattern="[0-9]*"
-              min={isPickup ? 600 : 102}
-              value={requestedNumber}
-              onChange={(event) => setRequestedNumber(event.target.value)}
-              disabled={isSubmitting || Boolean(emissionResult?.pending) ||
-                Boolean(emissionResult?.error?.includes('217') && emissionResult.documentId)}
-              placeholder={isPickup ? '600 em diante' : '102 em diante'}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono dark:border-slate-700 dark:bg-slate-950"
+              value={numberPreview}
+              onChange={(e) => setNumberPreview(e.target.value.replace(/\D/g, ''))}
+              placeholder="Consultando..."
+              className="mt-1 w-full rounded-none border-0 border-b-2 border-slate-300 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-blue-500"
             />
-            <span className="font-normal text-slate-500">
-              Em branco, o próximo número será reservado automaticamente.
-            </span>
-          </label>
-
-          {isLoadingFiscalData && (
-            <div
-              role="status"
-              className="flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
+            <span
+              data-testid="nfe-number-preview-context"
+              className="font-normal text-slate-600 dark:text-slate-300"
             >
-              <i className="bi bi-arrow-repeat animate-spin" /> Carregando NCMs e dados fiscais dos
-              produtos…
-            </div>
-          )}
+              {numberPreviewContext}
+            </span>
+            {nfeNumberError && (
+              <span role="status" className="font-normal text-amber-700 dark:text-amber-300">
+                Prévia indisponível. {nfeNumberError} A reserva automática continua no backend ao
+                emitir.
+              </span>
+            )}
+          </label>
 
           {fiscalPreparationError && (
             <div
@@ -238,12 +355,23 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                   </label>
                   <button
                     type="button"
-                    onClick={() => handleEmit(productionConfirmed, false,
-                      /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined)}
-                    disabled={!canOperateFiscal || isSubmitting || isLoadingFiscalData || Boolean(emissionResult.pending) ||
+                    onClick={() =>
+                      handleEmit(
+                        productionConfirmed,
+                        false,
+                        /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
+                      )
+                    }
+                    disabled={
+                      !canOperateFiscal ||
+                      isSubmitting ||
+                      isLoadingFiscalData ||
+                      isLoadingNfeNumber ||
+                      Boolean(emissionResult.pending) ||
                       Boolean(fiscalPreparationError) ||
                       (environment === 1 && !productionConfirmed) ||
-                      !/^\d{1,9}$/.test(retryNumber)}
+                      !/^\d{1,9}$/.test(retryNumber)
+                    }
                     className="mt-3 rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
                   >
                     {isSubmitting ? 'Enviando…' : 'Tentar novamente'}
@@ -323,6 +451,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                       !canOperateFiscal ||
                       isSubmitting ||
                       isLoadingFiscalData ||
+                      isLoadingNfeNumber ||
+                      isLoadingCustomerType ||
                       Boolean(fiscalPreparationError) ||
                       (environment === 1 && !productionConfirmed)
                     }

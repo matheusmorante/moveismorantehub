@@ -6,7 +6,10 @@ import { getNonStockOrigin } from './saleInventoryRules';
 export const getReturnUnitCost = (item: Item) => item.unitCost;
 
 export const shouldCreateReturnEntry = (item: Item, alreadyExists: boolean) =>
-  Boolean(item.productId?.trim()) && !item.isTemporaryProduct && !getNonStockOrigin(item) && !alreadyExists;
+  Boolean(item.productId?.trim()) &&
+  !item.isTemporaryProduct &&
+  !getNonStockOrigin(item) &&
+  !alreadyExists;
 
 export const canProcessReturnStock = (order: Order) =>
   order.orderType === 'return' && order.status === 'fulfilled';

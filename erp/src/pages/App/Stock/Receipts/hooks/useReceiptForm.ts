@@ -427,57 +427,57 @@ export function useReceiptForm({
         );
       }
 
-        const safeReceivedAt = (() => {
-          if (!receiptDate) return new Date().toISOString();
-          const d = new Date(receiptDate.includes('T') ? receiptDate : `${receiptDate}T12:00:00`);
-          return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-        })();
+      const safeReceivedAt = (() => {
+        if (!receiptDate) return new Date().toISOString();
+        const d = new Date(receiptDate.includes('T') ? receiptDate : `${receiptDate}T12:00:00`);
+        return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+      })();
 
-        await finalizeGoodsReceipt({
-          id: receiptId,
-          receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
-          purchaseId: sourcePurchaseId || undefined,
-          supplierId,
-          supplierName: supplier.fullName,
-          receivedAt: safeReceivedAt,
-          invoiceNumber,
-          invoiceDate,
-          items: processedItems,
-          totalValue,
-          observation: observations.join('\n'),
-          fiscalKey,
-          attachments,
-          ipiPercent,
-          freightPercent,
-          nonFiscalDiscountMode,
-          nonFiscalDiscountValue,
-          nonFiscalFreightMode,
-          nonFiscalFreightValue,
-          nonFiscalOtherExpensesMode,
-          nonFiscalOtherExpensesValue,
-          fiscalIpi,
-          fiscalFreight,
-          fiscalDiscount,
-          fiscalOtherExpenses,
-          status: 'received',
-          isDraft: false,
-        });
+      await finalizeGoodsReceipt({
+        id: receiptId,
+        receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
+        purchaseId: sourcePurchaseId || undefined,
+        supplierId,
+        supplierName: supplier.fullName,
+        receivedAt: safeReceivedAt,
+        invoiceNumber,
+        invoiceDate,
+        items: processedItems,
+        totalValue,
+        observation: observations.join('\n'),
+        fiscalKey,
+        attachments,
+        ipiPercent,
+        freightPercent,
+        nonFiscalDiscountMode,
+        nonFiscalDiscountValue,
+        nonFiscalFreightMode,
+        nonFiscalFreightValue,
+        nonFiscalOtherExpensesMode,
+        nonFiscalOtherExpensesValue,
+        fiscalIpi,
+        fiscalFreight,
+        fiscalDiscount,
+        fiscalOtherExpenses,
+        status: 'received',
+        isDraft: false,
+      });
 
-        const isCompleteInvoiceReceipt =
-          !inboundItems ||
-          inboundItems.every((item) => item.quantity >= (item.expectedQuantity || item.quantity));
-        if (fiscalKey && fiscalKey.length === 44 && isCompleteInvoiceReceipt) {
-          await markInvoiceAsReceived(fiscalKey, receiptId);
-        }
+      const isCompleteInvoiceReceipt =
+        !inboundItems ||
+        inboundItems.every((item) => item.quantity >= (item.expectedQuantity || item.quantity));
+      if (fiscalKey && fiscalKey.length === 44 && isCompleteInvoiceReceipt) {
+        await markInvoiceAsReceived(fiscalKey, receiptId);
+      }
 
-        toast.success('Recebimento de mercadorias confirmado com sucesso!');
-        onClose();
-      } catch (error: unknown) {
-        console.error('Erro ao finalizar recebimento:', error);
-        const message =
-          error instanceof Error ? error.message : 'Não foi possível concluir o recebimento.';
-        toast.error(message);
-      } finally {
+      toast.success('Recebimento de mercadorias confirmado com sucesso!');
+      onClose();
+    } catch (error: unknown) {
+      console.error('Erro ao finalizar recebimento:', error);
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível concluir o recebimento.';
+      toast.error(message);
+    } finally {
       setIsSaving(false);
     }
   };

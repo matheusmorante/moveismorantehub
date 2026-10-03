@@ -3,7 +3,14 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
 
-type NcmFilter = 'all' | 'vigentes' | 'encerrados' | 'alterados' | 'com_produtos' | 'revisar' | 'futuros';
+type NcmFilter =
+  | 'all'
+  | 'vigentes'
+  | 'encerrados'
+  | 'alterados'
+  | 'com_produtos'
+  | 'revisar'
+  | 'futuros';
 type StoreFilter = 'active' | 'inactive' | 'all';
 interface NcmRow {
   code: string;
@@ -37,7 +44,11 @@ interface NcmSummary {
     source_valid_count: number;
   };
 }
-interface StoreSummary { total_count: number; active_count: number; inactive_count: number }
+interface StoreSummary {
+  total_count: number;
+  active_count: number;
+  inactive_count: number;
+}
 interface NcmPreview {
   sync_run_id: string;
   source_updated_at: string;
@@ -149,7 +160,9 @@ export function NcmManagementPanel() {
           p_offset: page * PAGE_SIZE,
         }),
       ]);
-      const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc('get_ncm_store_activation_summary');
+      const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc(
+        'get_ncm_store_activation_summary'
+      );
       if (summaryError) throw summaryError;
       if (storeSummaryError) throw storeSummaryError;
       if (catalogError) throw catalogError;
@@ -168,7 +181,10 @@ export function NcmManagementPanel() {
   const toggleStoreActivation = async (row: NcmRow) => {
     try {
       setErrorMessage('');
-      const { error } = await supabase.rpc('set_ncm_store_activation', { p_code: row.code, p_is_active: !row.is_active });
+      const { error } = await supabase.rpc('set_ncm_store_activation', {
+        p_code: row.code,
+        p_is_active: !row.is_active,
+      });
       if (error) throw error;
       await loadCatalog();
     } catch (error: any) {
@@ -629,11 +645,27 @@ export function NcmManagementPanel() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Filtrar por ativação na loja">
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2"
+          aria-label="Filtrar por ativação na loja"
+        >
           <span className="text-xs font-bold text-slate-500">Uso na loja:</span>
-          {([{ id: 'active', label: 'Ativos' }, { id: 'inactive', label: 'Desativados' }, { id: 'all', label: 'Todos' }] as const).map((option) => (
-            <button type="button" key={option.id} onClick={() => { setPage(0); setStoreFilter(option.id); }}
-              className={`rounded-lg px-3 py-2 text-xs font-bold ${storeFilter === option.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+          {(
+            [
+              { id: 'active', label: 'Ativos' },
+              { id: 'inactive', label: 'Desativados' },
+              { id: 'all', label: 'Todos' },
+            ] as const
+          ).map((option) => (
+            <button
+              type="button"
+              key={option.id}
+              onClick={() => {
+                setPage(0);
+                setStoreFilter(option.id);
+              }}
+              className={`rounded-lg px-3 py-2 text-xs font-bold ${storeFilter === option.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
+            >
               {option.label}
             </button>
           ))}
@@ -677,10 +709,16 @@ export function NcmManagementPanel() {
                       Detalhes
                     </button>
                   </div>
-                  <p className="mt-2 text-[10px] font-bold">Uso na loja: {row.is_active ? 'Ativo' : 'Desativado'}</p>
+                  <p className="mt-2 text-[10px] font-bold">
+                    Uso na loja: {row.is_active ? 'Ativo' : 'Desativado'}
+                  </p>
                   {canManage && !row.is_unverified && (
-                    <button type="button" disabled={!row.is_active && (!row.active || getNcmStatus(row) !== 'Vigente')} onClick={() => void toggleStoreActivation(row)}
-                      className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-blue-700 disabled:opacity-50 dark:border-slate-700 dark:text-blue-300">
+                    <button
+                      type="button"
+                      disabled={!row.is_active && (!row.active || getNcmStatus(row) !== 'Vigente')}
+                      onClick={() => void toggleStoreActivation(row)}
+                      className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-blue-700 disabled:opacity-50 dark:border-slate-700 dark:text-blue-300"
+                    >
                       {row.is_active ? 'Desativar na loja' : 'Ativar na loja'}
                     </button>
                   )}
@@ -739,8 +777,21 @@ export function NcmManagementPanel() {
                         <StatusPill status={status} />
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{row.is_active ? 'Ativo' : 'Desativado'}</span>
-                        {canManage && !row.is_unverified && <button type="button" disabled={!row.is_active && status !== 'Vigente'} onClick={() => void toggleStoreActivation(row)} className="ml-2 text-[10px] font-bold text-blue-600 underline disabled:opacity-50">{row.is_active ? 'Desativar' : 'Ativar'}</button>}
+                        <span
+                          className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                          {row.is_active ? 'Ativo' : 'Desativado'}
+                        </span>
+                        {canManage && !row.is_unverified && (
+                          <button
+                            type="button"
+                            disabled={!row.is_active && status !== 'Vigente'}
+                            onClick={() => void toggleStoreActivation(row)}
+                            className="ml-2 text-[10px] font-bold text-blue-600 underline disabled:opacity-50"
+                          >
+                            {row.is_active ? 'Desativar' : 'Ativar'}
+                          </button>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">
                         {row.product_count}

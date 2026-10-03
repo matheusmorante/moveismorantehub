@@ -1,6 +1,6 @@
 # Maestro: Android físico por Depuração Wi‑Fi
 
-O Maestro executa os flows Android somente em um celular físico pareado e conectado ao ADB pela **Depuração sem fio (Wi‑Fi)**. O executor recusa emuladores/AVDs e alvos conectados por USB. Use o Supabase remoto durante o teste; não inicie o Docker local em paralelo por causa do consumo de RAM.
+O Maestro executa os flows Android somente em um celular físico pareado e conectado ao ADB pela **Depuração sem fio (Wi‑Fi)**. O executor recusa emuladores/AVDs e alvos conectados por USB. Use o Supabase remoto configurado durante o teste e siga `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, com fixtures sintéticas próprias; Docker/Supabase Local não fazem parte do fluxo.
 
 ## Preparar o celular
 

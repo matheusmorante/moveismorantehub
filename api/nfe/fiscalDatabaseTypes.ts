@@ -27,9 +27,22 @@ export type FiscalDatabase = {
         data: Record<string, unknown> | null;
       }>;
       products: FiscalTable<{ id: string; fiscal: Record<string, unknown> | null }>;
-      people: FiscalTable<{ id: string; full_name: string; cpf_cnpj: string | null;
-        address: string | null; rg_ie: string | null; person_type_pf_pj: string | null; deleted: boolean }>;
-      ncms: FiscalTable<{ code: string; active: boolean; is_active: boolean; start_date: string | null; end_date: string | null }>;
+      people: FiscalTable<{
+        id: string;
+        full_name: string;
+        cpf_cnpj: string | null;
+        address: string | null;
+        rg_ie: string | null;
+        person_type_pf_pj: string | null;
+        deleted: boolean;
+      }>;
+      ncms: FiscalTable<{
+        code: string;
+        active: boolean;
+        is_active: boolean;
+        start_date: string | null;
+        end_date: string | null;
+      }>;
       profiles: FiscalTable<{ id: string; role: string | null; roles: string[] | null }>;
       nfe_documents: FiscalTable<
         {

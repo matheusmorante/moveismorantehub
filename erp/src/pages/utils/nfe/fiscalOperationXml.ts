@@ -54,7 +54,8 @@ function parseBlock(xml: string, expected: string): Element {
   if (!xml || /<!DOCTYPE|<!ENTITY|<\?/i.test(xml)) throw new Error(`Bloco ${expected} inválido.`);
   let parseError = '';
   const onParseError = (level: string, message: string) => {
-    if (level === 'warning' && message.includes('errorHandler') && message.includes('deprecated')) return;
+    if (level === 'warning' && message.includes('errorHandler') && message.includes('deprecated'))
+      return;
     parseError ||= message;
   };
   const document = new DOMParser({

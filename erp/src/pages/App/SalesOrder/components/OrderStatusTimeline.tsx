@@ -53,7 +53,9 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
       cancelled: { label: 'Cancelado', color: 'red', icon: 'bi-x-circle' },
       returned: { label: 'Devolvido', color: 'orange', icon: 'bi-arrow-return-left' },
     };
-    if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status.toLowerCase())) {
+    if (
+      ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status.toLowerCase())
+    ) {
       return {
         label: getOrderStatusLabel({ ...order, status }, 'Atendido'),
         color: 'emerald',

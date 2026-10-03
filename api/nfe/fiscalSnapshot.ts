@@ -1,6 +1,9 @@
 import { determineWithApprovedRules, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { parseItemCsosnOverrides } from './csosnPolicy';
-import { parseFiscalItemSelections, type FiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
+import {
+  parseFiscalItemSelections,
+  type FiscalItemSelections,
+} from '../../shared-utils/fiscalItemSelections';
 
 export type FiscalJsonValue =
   | string
@@ -52,6 +55,7 @@ export type FiscalSnapshot = {
     number: number;
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
+    recipientTaxId?: string;
   };
 };
 
@@ -64,6 +68,7 @@ export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & 
     environment: 1 | 2;
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
+    recipientTaxId?: string;
   };
 };
 
@@ -240,6 +245,7 @@ export type FiscalEmissionCommand = {
   requestedNumber?: number;
   itemCsosnOverrides?: Record<string, string>;
   itemFiscalSelections?: FiscalItemSelections;
+  recipientTaxId?: string;
 };
 
 export type FiscalSnapshotReservation = {
@@ -280,6 +286,7 @@ export function parseFiscalEmissionCommand(
     'requestedNumber',
     'itemCsosnOverrides',
     'itemFiscalSelections',
+    'recipientTaxId',
   ]);
   if (Object.keys(body).some((field) => !allowedFields.has(field)))
     return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
@@ -296,14 +303,21 @@ export function parseFiscalEmissionCommand(
   )
     return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
 
-  if (body.requestedNumber !== undefined &&
-      (typeof body.requestedNumber !== 'number' || !Number.isInteger(body.requestedNumber) ||
-       body.requestedNumber < 1 || body.requestedNumber > 999999999))
+  if (
+    body.requestedNumber !== undefined &&
+    (typeof body.requestedNumber !== 'number' ||
+      !Number.isInteger(body.requestedNumber) ||
+      body.requestedNumber < 1 ||
+      body.requestedNumber > 999999999)
+  )
     return { error: 'Informe um número de nota fiscal inteiro entre 1 e 999999999.' };
 
   let itemCsosnOverrides: Record<string, string>;
-  try { itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides); }
-  catch (error) { return { error: error instanceof Error ? error.message : 'Escolhas de CSOSN inválidas.' }; }
+  try {
+    itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Escolhas de CSOSN inválidas.' };
+  }
   let itemFiscalSelections: FiscalItemSelections;
   try {
     itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
@@ -313,15 +327,22 @@ export function parseFiscalEmissionCommand(
       if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
         throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
     }
-  } catch (error) { return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' }; }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' };
+  }
   return {
     command: {
       orderId,
       environment: environment as 1 | 2,
       emissionRequestId,
-      ...(body.requestedNumber === undefined ? {} : { requestedNumber: body.requestedNumber as number }),
+      ...(body.requestedNumber === undefined
+        ? {}
+        : { requestedNumber: body.requestedNumber as number }),
       ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
       ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+      ...(typeof body.recipientTaxId === 'string'
+        ? { recipientTaxId: body.recipientTaxId.trim() }
+        : {}),
       ...(body.productionConfirmed === undefined
         ? {}
         : { productionConfirmed: body.productionConfirmed }),

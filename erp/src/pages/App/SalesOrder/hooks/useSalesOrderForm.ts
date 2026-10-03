@@ -403,7 +403,9 @@ export const useSalesOrderForm = (
           latestState.current.status = resolvedStatus;
 
           if (resolvedStatus === 'fulfilled') {
-            toast.success(`Pedido cadastrado. ${getFulfillmentLabels(orderData).successMessage} ✨`);
+            toast.success(
+              `Pedido cadastrado. ${getFulfillmentLabels(orderData).successMessage} ✨`
+            );
           } else {
             toast.success('Pedido CADASTRADO com sucesso!');
           }

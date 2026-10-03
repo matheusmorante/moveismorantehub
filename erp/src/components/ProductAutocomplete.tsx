@@ -103,8 +103,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             }}
             onFocus={() => setShowSuggestions(query.trim().length >= 2)}
             placeholder={placeholder}
-            className={
-              `${inputEndAdornment ? 'pr-10 ' : ''}${inputClassName ||
+            className={`${inputEndAdornment ? 'pr-10 ' : ''}${
+              inputClassName ||
               `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
                 isAiSuggestion
                   ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
@@ -113,8 +113,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     : isSelected
                       ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
                       : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
-              } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}`
-            }
+              } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
+            }`}
           />
 
           {/* Faixa amarela animada passando no input durante o processamento */}
@@ -125,9 +125,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           )}
 
           {inputEndAdornment ? (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              {inputEndAdornment}
-            </div>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">{inputEndAdornment}</div>
           ) : isLoadingSuggestions ? (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-amber-600 dark:text-amber-400">
               <i className="bi bi-arrow-repeat animate-spin text-sm" />

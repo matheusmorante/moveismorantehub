@@ -186,13 +186,14 @@ export const ProductFormScreen: React.FC<Props> = ({
         : [];
   const hasCategory = categoryIds.length > 0;
   const hasProductName = String(formData.name || '').trim().length >= 2;
-  const hasMissingRequiredTechnical =
-    (Array.isArray(formData.variations) ? formData.variations : []).some(
-      (variation: any) =>
-        getMissingRequiredCharacteristics(
-          getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
-        ).length > 0
-    );
+  const hasMissingRequiredTechnical = (
+    Array.isArray(formData.variations) ? formData.variations : []
+  ).some(
+    (variation: any) =>
+      getMissingRequiredCharacteristics(
+        getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
+      ).length > 0
+  );
 
   const isTabDisabled = (tabId: TabId) => {
     if (tabId === 'technical') return !hasCategory;
@@ -553,10 +554,11 @@ export const ProductFormScreen: React.FC<Props> = ({
       if (!saveAsDraft) {
         const technicalValues = formData.technicalValues || {};
         const variations = Array.isArray(formData.variations) ? formData.variations : [];
-        const incompleteVariation = variations.find((variation: any) =>
-          getMissingRequiredCharacteristics(
-            getEffectiveVariationTechnicalValues(technicalValues, variation)
-          ).length
+        const incompleteVariation = variations.find(
+          (variation: any) =>
+            getMissingRequiredCharacteristics(
+              getEffectiveVariationTechnicalValues(technicalValues, variation)
+            ).length
         );
         if (incompleteVariation) {
           Alert.alert(

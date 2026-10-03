@@ -28,7 +28,7 @@
 ## 🚀 Próximas Frentes de Desenvolvimento
 
 ### 1. 🏛️ Emissão Direta de NF-e e NFC-e no SEFAZ-PR
-- [ ] Concluir testes de envio com certificado A1 no ambiente de homologação (`tpAmb: 2`).
+- [ ] Redefinir o plano de testes fiscais em homologação; os critérios e instruções anteriores foram removidos em 2026-10-03.
 - [ ] Geração do DANFE em PDF com chave de acesso e código de barras via Edge Function.
 - [ ] Fluxo de cancelamento e inutilização de numeração diretamente pelo ERP.
 - [ ] Envio automático do XML e DANFE ao cliente via WhatsApp e e-mail.

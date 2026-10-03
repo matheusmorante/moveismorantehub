@@ -1,7 +1,9 @@
 # Auditoria inicial — conformidade documental do módulo fiscal
 
+> **Registro histórico:** auditoria de 2026-09-29. A skill indicada abaixo foi removida em 2026-10-03 a pedido da usuária, e os critérios de teste HML foram retirados para redefinição. Este arquivo preserva o diagnóstico da época e não é roteiro atual.
+
 **Data:** 2026-09-29  
-**Skill aplicada:** `.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md`  
+**Skill aplicada à época:** `fiscal-nfe-nfce-official-docs` (removida em 2026-10-03)
 **Escopo:** leitura do roadmap fiscal existente, inventário estrutural de API/UI/testes/migrations e conferência direcionada do portal nacional e páginas SEFA/PR. Esta é uma triagem documental/arquitetural; não é homologação fiscal, revisão tributária linha a linha, nem prova de conformidade de cada XML contra os pacotes XSD atualmente vigentes. A auditoria de ferramentas e arquitetura está em [auditoria-stack-fiscal-saida.md](auditoria-stack-fiscal-saida.md).
 
 ## Estado por área

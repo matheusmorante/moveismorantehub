@@ -48,18 +48,15 @@ Requisição autorizada: `5594dbc0-d8a3-4ac8-ae3d-f7fd5aeaa39e`. Cada correção
 
 ### Próxima etapa
 
-1. Não emitir novamente o pedido 3474: a intenção acima já está autorizada em HML. Recuperar pelo request ID ou consultar pelo document ID; preservar as duas rejeições vinculadas.
-2. Ampliar a matriz modelo 55 com poucos pedidos elegíveis: múltiplos produtos, descontos, frete e formas de pagamento diferentes. Exceções fora da matriz fiscal suportada devem bloquear.
-3. Validar separadamente consulta SOAP posterior, eventos e demais cenários necessários à produção. Recuperação local idempotente não substitui esses cenários.
-4. Produção fiscal e NFC-e 65 continuam fora do aceite desta etapa.
+As instruções anteriores para testar NF-e/NFC-e em homologação foram removidas em 2026-10-03 para serem refeitas. Os documentos, chaves, protocolos e resultados descritos acima são registros históricos; preserve-os e não os retransmita. Não há roteiro de testes HML vigente neste documento.
 
-Scripts: `nfe-hml-ui-audit.cjs` é somente leitura por padrão; seu modo de primeira emissão recusa histórico existente. `nfe-hml-live.cjs` seleciona a tentativa pela requisição exata, preserva os campos do snapshot e usa retryDocumentId na reconciliação. `nfe-hml-document-audit.cjs` verifica assinatura. `nfe-hml-series-correction-local.cjs` exercita as migrations em PostgreSQL local descartável. Todos ficam em scripts/testing.
+Os scripts de homologação mencionados nos registros anteriores continuam sendo artefatos históricos; sua existência não define procedimento vigente nem autoriza uma nova transmissão.
 
-Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md), [limites do pedido real](limites-teste-pedido-real-hml.md), [índice oficial de manuais](manuais/README.md).
+Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md), [índice oficial de manuais](manuais/README.md).
 
 ## 1. Estado Atual e Correções Conceituais (Auditoria Revisada)
 
-**Status de produção: BLOQUEADO até aprovação da matriz real de homologação SEFAZ-PR abaixo.** O módulo possui implementação e testes locais, mas não deve ser considerado pronto para emissão fiscal em produção antes de haver evidência real aprovada para os modelos 55 e 65. Homologação de testes não equivale a autorização para produção.
+**Status de produção: BLOQUEADO.** As regras e a matriz de testes em homologação foram removidas em 2026-10-03 para redefinição. Este roadmap não contém critérios vigentes para executar testes HML. A remoção não libera emissão fiscal em produção.
 
 A auditoria identificou exageros e incorreções conceituais na análise anterior que agora estão corrigidos:
 - **Homologação x Produção:** O código suporta configurar ambos, mas **Produção não está "homologada"**. O fato de existirem endpoints não significa que a emissão de produção foi validada ponta a ponta. O status real é: *código preparado e testado localmente, mas a integração contra a SEFAZ em Produção carece de validação e operação efetiva*.
@@ -71,23 +68,9 @@ A auditoria identificou exageros e incorreções conceituais na análise anterio
 
 ## 2. Roadmap por prioridade
 
-### 🔴 P0 — Bloqueador de produção: homologação ponta a ponta real
+### 🔴 P0 — Plano de homologação a redefinir
 
-Executar contra os web services oficiais de homologação SEFAZ-PR. Conforme instrução de 30/09/2026, a NF-e 55 deve usar pedido real existente, exclusivamente `tpAmb=2`, sem efeitos comerciais; não criar massa comercial fictícia para comprovar autorização. Cada execução deve registrar modelo, cenário, request XML efetivamente transmitido (sanitizado apenas de dados pessoais quando o artefato for compartilhado; preservar hash do XML integral), chave de acesso, `cStat`/`xMotivo`, protocolo quando emitido, estado final de tentativa e documento no banco, e resultado observado na interface.
-
-**Regra de aceite por cenário:** o status só pode mudar de “não executado” para “aprovado” quando houver evidências persistidas e verificáveis dos sistemas envolvidos. Relato textual, captura de tela isolada ou teste local não são suficientes. Para emissão autorizada, conferir correspondência entre chave de acesso, protocolo, `cStat`, XML final/protocolado e documento persistido no banco; anexar também a evidência da resposta SEFAZ e do estado apresentado pela interface. Guardar artefatos com acesso restrito e identificador/hash para permitir revisão sem expor dados pessoais ou credenciais.
-
-| Cenário | Modelo | Evidências obrigatórias | Status |
-|---|---:|---|---|
-| Emissão autorizada | 55 | XML assinado/transmitido, chave, `cStat`, protocolo, registro persistido e UI autorizada | ✅ Pedido 3474, NF-e 701/série 1 autorizada em HML (cStat 100); protocolo, itens e UI conferidos |
-| Emissão autorizada | 65 | XML assinado/transmitido, chave, `cStat`, protocolo, registro persistido e UI autorizada | ⬜ Não executado nesta auditoria |
-| Rejeição fiscal conhecida | 55 e 65 | XML, `cStat`/motivo, estado rejeitado no banco e orientação/UI sem falso sucesso | Modelo 55: 244 e 209 preservados no banco e UI; modelo 65 não executado |
-| Consulta posterior de documento autorizado | 55 e 65 | resposta de consulta, protocolo/estado reconciliado no banco e UI atualizada | ⬜ Não executado nesta auditoria |
-| Cancelamento fiscal elegível | 55 e 65 | evento transmitido, retorno SEFAZ, protocolo e estado reconciliado; respeitar regra de circulação/prazo do modelo | ⬜ Não executado nesta auditoria |
-| Carta de Correção Eletrônica | 55 | evento 110110 assinado/transmitido, sequência, `cStat`/protocolo, XML/resposta persistidos e tentativa repetida idempotente | ⬜ Não executado nesta auditoria |
-| Emissão com resposta perdida/pendente e recuperação | 55 e 65 | tentativa e XML persistidos antes do envio, consulta posterior e reconciliação sem duplicar autorização | ⬜ Não executado nesta auditoria |
-
-**Gate:** só marcar P0 concluído e reavaliar liberação de produção quando todas as linhas aplicáveis tiverem evidências anexadas e revisadas. Não registrar chaves, dados pessoais ou XML integral em logs públicos; armazenar artefatos de homologação com acesso restrito.
+As instruções e os critérios anteriores foram removidos em 2026-10-03 a pedido da usuária. A estratégia será redefinida; esta seção não prescreve cenários, massa, execução nem critérios de aceite.
 
 ### 🟠 P1 — Segurança operacional
 
@@ -97,14 +80,14 @@ Executar contra os web services oficiais de homologação SEFAZ-PR. Conforme ins
 - [ ] Rejeição 217: permitir apenas retransmissão explícita da mesma chave e do mesmo XML.
 - [ ] Repetição/retry idempotente da requisição e proteção contra cliques repetidos.
 
-Evidência local já indicada: reserva atômica foi exercitada com duas conexões PostgreSQL; existem testes unitários para timeout/217 em `transmitOperationDraft.test.ts`. Isso não substitui a matriz real P0 nem prova a cadeia completa de migrations/API/UI.
+Evidência local já indicada: reserva atômica foi exercitada com duas conexões PostgreSQL; existem testes unitários para timeout/217 em `transmitOperationDraft.test.ts`. Isso não prova por si só a cadeia completa de migrations/API/UI.
 
 ### 🟡 P2 — Operações fiscais ainda faltantes
 
 - [ ] Inutilização de faixa numérica pelo serviço e leiaute próprios `inutNFe`.
 - [ ] Contingência offline de NFC-e, incluindo guarda de XML assinado, transmissão posterior e reconciliação.
 - [ ] Contingências de NF-e aplicáveis ao PR (SVC-RS/EPEC), com regras e serviços separados da NFC-e.
-- [x] Carta de Correção Eletrônica (CC-e), somente para modelo 55. API/UI, sequência/idempotência, confirmação do retorno e reconciliação estão implementadas e cobertas por testes locais focados; falta validar na matriz de homologação P0.
+- [x] Carta de Correção Eletrônica (CC-e), somente para modelo 55. API/UI, sequência/idempotência, confirmação do retorno e reconciliação estão implementadas e cobertas por testes locais focados.
 
 ### 🟢 P3 — UX de rejeições
 
@@ -126,12 +109,12 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 
 ### 🔴 P0 — Bloqueia Emissão Segura (Caminho Principal, histórico)
 *Focar exclusivamente em garantir que o fluxo base não tenha pontas soltas antes de avançar para eventos acessórios.*
+*Esta lista é histórica. O critério anterior de concluir uma matriz ponta a ponta em homologação foi removido em 2026-10-03 e não está vigente.*
 - **Geração Normal 55/65, XML e Assinatura:** Garantir geração fiel ao MOC vigente.
 - **Numeração e Persistência Seguras:** Numeração estritamente atômica.
 - **Timeouts e Reconciliação (O gargalo atual):** Falhas de rede ou de Edge Functions geram notas "pendentes". O sistema precisa *obrigatoriamente* possuir uma rotina sólida de conciliação (`consSitNFe`) que recupere recibos/protocolos "perdidos" para impedir dupla emissão na SEFAZ.
 - **Idempotência Real:** Impedir duplo processamento de uma mesma requisição de emissão sob concorrência.
 - **Isolamento de Ambientes:** Separação inquebrável de Produção x Homologação.
-- **Homologação SEFAZ:** Emissão 100% validada ponta a ponta contra o webservice de Homologação real do Paraná.
 
 ### 🟡 P1 — Necessário para Operação Fiscal Completa (histórico)
 *Recursos que não bloqueiam a emissão da primeira nota perfeitamente válida, mas são vitais para o dia a dia e contabilidade.*
@@ -161,4 +144,4 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 ---
 ## 5. Próximo Passo Exato
 
-**Próximo passo: executar e preencher a matriz P0 real contra o ambiente de Homologação da SEFAZ-PR.** O núcleo pode estar pronto para ser homologado, mas permanece bloqueado para produção até a aprovação documentada dos cenários aplicáveis.
+**Próximo passo: redefinir o plano de testes fiscais em homologação.** Não há instruções ou critérios HML vigentes neste documento. Produção continua bloqueada.

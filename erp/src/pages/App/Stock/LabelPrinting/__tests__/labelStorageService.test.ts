@@ -71,10 +71,7 @@ describe('labelStorageService', () => {
 
   it('keeps default logos first and adds valid stored logos once', () => {
     const defaults = [{ id: 'default', name: 'Padrão', image: 'default.svg' }];
-    saveAvailableLabelLogos([
-      ...defaults,
-      { id: 'custom', name: 'Extra', image: 'extra.svg' },
-    ]);
+    saveAvailableLabelLogos([...defaults, { id: 'custom', name: 'Extra', image: 'extra.svg' }]);
 
     expect(getAvailableLabelLogos(defaults)).toEqual([
       ...defaults,

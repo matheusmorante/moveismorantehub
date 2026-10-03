@@ -14,11 +14,7 @@ interface FilterContentProps {
   onClose?: () => void;
 }
 
-export function FilterContent({
-  filters,
-  onApply,
-  onClose,
-}: FilterContentProps) {
+export function FilterContent({ filters, onApply, onClose }: FilterContentProps) {
   const [localPrice, setLocalPrice] = useState([filters.minPrice, filters.maxPrice]);
 
   useEffect(() => {
@@ -39,8 +35,7 @@ export function FilterContent({
           <h3 className="font-black text-lg text-primary">Filtros</h3>
         </div>
         <div className="flex items-center gap-2">
-          {(localPrice[0] > 0 ||
-            localPrice[1] < 10000) && (
+          {(localPrice[0] > 0 || localPrice[1] < 10000) && (
             <Button
               variant="ghost"
               size="sm"
@@ -135,7 +130,6 @@ export function FilterContent({
             className="py-4"
           />
         </div>
-
       </div>
 
       <div className="lg:hidden border-t border-gray-100 p-4 bg-white flex items-center justify-between gap-4 shrink-0">
@@ -180,11 +174,7 @@ export function FilterSidebar({ filters, onApply }: FilterSidebarProps) {
           side="left"
           className="w-full sm:max-w-md p-0 border-none bg-transparent h-full max-h-[100dvh] flex flex-col"
         >
-          <FilterContent
-            filters={filters}
-            onApply={onApply}
-            onClose={() => setOpen(false)}
-          />
+          <FilterContent filters={filters} onApply={onApply} onClose={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     </div>

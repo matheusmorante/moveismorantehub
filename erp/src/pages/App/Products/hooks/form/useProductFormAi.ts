@@ -61,7 +61,8 @@ export function useProductFormAi(
         if (prev.categoryIds?.includes(direct.id)) return prev;
         return { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] };
       });
-      if (!isAutoTrigger) toast.success(`Categoria identificada: ${direct.name || direct.category}`);
+      if (!isAutoTrigger)
+        toast.success(`Categoria identificada: ${direct.name || direct.category}`);
     } catch (error: unknown) {
       console.error(error);
     } finally {

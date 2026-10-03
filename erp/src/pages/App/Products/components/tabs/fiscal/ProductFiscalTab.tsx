@@ -20,7 +20,13 @@ interface ProductFiscalTabProps {
   readonly onRejectNcmSuggestion?: () => void;
 }
 
-const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormData, ncmSuggestion, onAcceptNcmSuggestion, onRejectNcmSuggestion }) => {
+const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
+  formData,
+  setFormData,
+  ncmSuggestion,
+  onAcceptNcmSuggestion,
+  onRejectNcmSuggestion,
+}) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Fechar modal com tecla Escape
@@ -91,7 +97,13 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({ formData, setFormDa
             </div>
           ) : (
             <>
-              <ProductNcmSelector formData={formData} setFormData={setFormData} suggestion={ncmSuggestion} onAcceptSuggestion={onAcceptNcmSuggestion} onRejectSuggestion={onRejectNcmSuggestion} />
+              <ProductNcmSelector
+                formData={formData}
+                setFormData={setFormData}
+                suggestion={ncmSuggestion}
+                onAcceptSuggestion={onAcceptNcmSuggestion}
+                onRejectSuggestion={onRejectNcmSuggestion}
+              />
 
               {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
               {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (

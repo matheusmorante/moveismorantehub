@@ -22,7 +22,9 @@ interface FiscalDocumentStatusRow {
   document_type?: string | null;
 }
 
-const resolveFiscalBadgeStatus = (documents: readonly FiscalDocumentStatusRow[]): FiscalBadgeStatus => {
+const resolveFiscalBadgeStatus = (
+  documents: readonly FiscalDocumentStatusRow[]
+): FiscalBadgeStatus => {
   const isAuthorized = (document: FiscalDocumentStatusRow) =>
     document.status === 'autorizada' || document.status === 'homologada';
   const isOutbound = (document: FiscalDocumentStatusRow) =>

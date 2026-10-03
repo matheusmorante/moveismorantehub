@@ -30,21 +30,57 @@ const parseOrderDate = (rawDate: unknown): string => {
 };
 
 const normalizeLabel = (value: unknown) =>
-  String(value || '').trim().toLocaleLowerCase('pt-BR');
+  String(value || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
 
 const smallProductNameWords = new Set([
-  'a', 'as', 'o', 'os', 'e', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas',
-  'para', 'por', 'com', 'sem',
+  'a',
+  'as',
+  'o',
+  'os',
+  'e',
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'para',
+  'por',
+  'com',
+  'sem',
 ]);
 const productNameAcronyms: Record<string, string> = {
-  abnt: 'ABNT', led: 'LED', mdf: 'MDF', mdp: 'MDP', rgb: 'RGB', tv: 'TV', usb: 'USB', pvc: 'PVC',
+  abnt: 'ABNT',
+  led: 'LED',
+  mdf: 'MDF',
+  mdp: 'MDP',
+  rgb: 'RGB',
+  tv: 'TV',
+  usb: 'USB',
+  pvc: 'PVC',
 };
 
 const formatAssemblyItemName = (item: any) => {
-  const raw = item?.description || item?.name || item?.title || item?.productName || item?.product_name || item?.product || '';
+  const raw =
+    item?.description ||
+    item?.name ||
+    item?.title ||
+    item?.productName ||
+    item?.product_name ||
+    item?.product ||
+    '';
   if (!raw) return 'Móvel';
   const exactName =
-    String(raw).replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim() || String(raw);
+    String(raw)
+      .replace(/\(.*?\)/g, '')
+      .replace(/\[.*?\]/g, '')
+      .trim() || String(raw);
   const observation =
     typeof item.observation === 'string'
       ? item.observation.trim()
@@ -116,8 +152,7 @@ const mapOrderRow = (row: any) => {
   const data = row.order_data || {};
   const shipping = data.shipping || {};
   const schedule = shipping.scheduling || data.schedule || data.scheduling || row.schedule || {};
-  const scheduledDate =
-    schedule.date || schedule.startDate || row.scheduled_date || row.date || '';
+  const scheduledDate = schedule.date || schedule.startDate || row.scheduled_date || row.date || '';
   const customerData =
     data.customerData ||
     data.customer ||
@@ -206,8 +241,7 @@ const getOrderAssemblyTasks = (rows: any[], settings: AppSettings) => {
           items: [{ description, quantity }],
           status: order.status,
           deliveryMethod: order.shipping?.deliveryMethod,
-          observation:
-            shipping.deliveryAddress?.observation || order.observation || '',
+          observation: shipping.deliveryAddress?.observation || order.observation || '',
           isOutside,
           pendingScheduling: Boolean(
             schedule.pendingScheduling ||
@@ -315,7 +349,11 @@ export function useAssemblyListQuery() {
 
     const channel = supabase
       .channel(`assembly-list-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, requestFetchAssemblies)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        requestFetchAssemblies
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'showroom_assemblies' },

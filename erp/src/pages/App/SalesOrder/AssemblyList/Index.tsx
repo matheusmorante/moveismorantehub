@@ -316,21 +316,24 @@ const AssemblyList = ({ onClose }: Props) => {
               ) : (
                 <div className="flex flex-col gap-6">
                   {Object.entries(
-                    assemblies.reduce((acc, as) => {
-                      const d = new Date(as.date + 'T00:00:00');
-                      const today = new Date();
-                      let key = d.toLocaleDateString('pt-BR');
-                      if (
-                        d.getDate() === today.getDate() &&
-                        d.getMonth() === today.getMonth() &&
-                        d.getFullYear() === today.getFullYear()
-                      ) {
-                        key = 'PARA HOJE';
-                      }
-                      if (!acc[key]) acc[key] = [];
-                      acc[key].push(as);
-                      return acc;
-                    }, {} as Record<string, Assembly[]>)
+                    assemblies.reduce(
+                      (acc, as) => {
+                        const d = new Date(as.date + 'T00:00:00');
+                        const today = new Date();
+                        let key = d.toLocaleDateString('pt-BR');
+                        if (
+                          d.getDate() === today.getDate() &&
+                          d.getMonth() === today.getMonth() &&
+                          d.getFullYear() === today.getFullYear()
+                        ) {
+                          key = 'PARA HOJE';
+                        }
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(as);
+                        return acc;
+                      },
+                      {} as Record<string, Assembly[]>
+                    )
                   ).map(([dateLabel, groupAssemblies]) => (
                     <div key={dateLabel} className="mb-2 animate-fade-in">
                       <div className="flex items-center gap-2 mb-3 px-2 border-b border-slate-100 dark:border-slate-800 pb-2">
@@ -339,7 +342,8 @@ const AssemblyList = ({ onClose }: Props) => {
                           {dateLabel}
                         </h3>
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                          {groupAssemblies.length} {groupAssemblies.length === 1 ? 'montagem' : 'montagens'}
+                          {groupAssemblies.length}{' '}
+                          {groupAssemblies.length === 1 ? 'montagem' : 'montagens'}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -365,7 +369,9 @@ const AssemblyList = ({ onClose }: Props) => {
                                         : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                                     }`}
                                   >
-                                    {as.type === 'delivery' ? 'MONTAGEM FORA' : 'MONTAGEM NO DEPÓSITO'}
+                                    {as.type === 'delivery'
+                                      ? 'MONTAGEM FORA'
+                                      : 'MONTAGEM NO DEPÓSITO'}
                                   </span>
                                   {as.time && (
                                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -381,7 +387,11 @@ const AssemblyList = ({ onClose }: Props) => {
                             <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
                               <button
                                 onClick={() => toggleStatus(as)}
-                                title={as.status === 'completed' ? 'Marcar como pendente' : 'Marcar como concluída'}
+                                title={
+                                  as.status === 'completed'
+                                    ? 'Marcar como pendente'
+                                    : 'Marcar como concluída'
+                                }
                                 className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
                               >
                                 <i

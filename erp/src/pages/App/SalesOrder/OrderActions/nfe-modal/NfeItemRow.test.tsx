@@ -8,19 +8,18 @@ vi.mock('./NcmSelect', () => ({ NcmSelect: () => null }));
 describe('NfeItemRow', () => {
   afterEach(() => cleanup());
 
-  const createItem = (isUnregistered: boolean) => ({
-    description: 'Mesa de madeira',
-    itemType: 'product',
-    quantity: 1,
-    unitPrice: 100,
-    fiscal: { ncm: '', cfop: '5102', cst: '102', origem: '0' },
-    isUnregistered,
-  }) as any;
+  const createItem = (isUnregistered: boolean) =>
+    ({
+      description: 'Mesa de madeira',
+      itemType: 'product',
+      quantity: 1,
+      unitPrice: 100,
+      fiscal: { ncm: '', cfop: '5102', cst: '102', origem: '0' },
+      isUnregistered,
+    }) as any;
 
   it('mostra o alerta e explica no tooltip flutuante por que o NCM não foi carregado', async () => {
-    const { container } = render(
-      <NfeItemRow item={createItem(true)} onUpdateFiscal={vi.fn()} />
-    );
+    const { container } = render(<NfeItemRow item={createItem(true)} onUpdateFiscal={vi.fn()} />);
     const indicator = screen.getByRole('button', { name: 'Produto não cadastrado no ERP' });
 
     expect(container.querySelector('.bi-exclamation-triangle-fill')).toBeTruthy();

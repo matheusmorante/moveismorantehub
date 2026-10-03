@@ -62,7 +62,9 @@ export const useOrderHistory = (filters?: any) => {
             if (active) setFiscalBadgeStatusByOrderId(statuses);
           })
           .catch(() => {
-            console.error('[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.');
+            console.error(
+              '[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.'
+            );
           });
       })
       .catch((err) => {

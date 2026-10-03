@@ -1,3 +1,5 @@
+> **Registro histórico:** preserve este relatório como estado observado na época. As instruções antigas sobre Docker/Supabase local foram substituídas pela política em [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md). Os critérios de testes fiscais em homologação aqui descritos foram removidos em 2026-10-03 para redefinição e não são um roteiro vigente.
+
 # Auditoria de domínio — Pedido → FiscalDocument → NF-e/NFC-e
 
 ## Diretriz de operação confirmada em 30/09/2026
@@ -407,7 +409,7 @@ A evidência da emissão SEFAZ real e a promoção do deployment serão registra
 
 ## 16. Mudança para pedido real em homologação (30/09/2026)
 
-Instrução posterior do usuário abandona as fixtures comerciais fictícias para prova SEFAZ e exige o fluxo normal sobre pedido real, sem efeitos comerciais. Os testes automatizados existentes permanecem. A configuração HML e a correção de carregamento são reaproveitadas; a regra/RPC exclusivamente sintética não deve ser apresentada como implementação do fluxo normal. Critérios, candidatos auditados e bloqueios estão em `docs/fiscal/limites-teste-pedido-real-hml.md`.
+Instrução posterior do usuário abandona as fixtures comerciais fictícias para prova SEFAZ e exige o fluxo normal sobre pedido real, sem efeitos comerciais. Os testes automatizados existentes permanecem. A configuração HML e a correção de carregamento são reaproveitadas; a regra/RPC exclusivamente sintética não deve ser apresentada como implementação do fluxo normal. O roteiro que reunia os critérios de execução foi removido em 2026-10-03 para redefinição; este registro permanece histórico e não constitui plano de teste vigente.
 
 ## 17. Integridade do modal e primeira tentativa com venda real (30/09/2026)
 

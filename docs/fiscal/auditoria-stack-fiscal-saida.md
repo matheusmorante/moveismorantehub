@@ -1,5 +1,7 @@
 # Auditoria da stack fiscal de saída — NF-e 55 / NFC-e 65
 
+> **Registro histórico:** esta auditoria foi escrita em 2026-09-29. As recomendações de testes fiscais em homologação descritas nela foram removidas em 2026-10-03 para redefinição; este documento não é um roteiro vigente.
+
 **Data:** 2026-09-29. **Método:** inspeção estática dos manifests/lockfiles, rotas, testes, migrations, skills e documentação; consulta ao portal nacional e à SEFA/PR; conferência em memória do ZIP XSD oficial por SHA-256. Não houve instalação, migration, escrita remota, transmissão SEFAZ ou teste de homologação nesta auditoria. O repositório já tinha muitas alterações locais em andamento; não atribuir seus resultados a um deploy.
 
 ## Atualização da auditoria — prontidão da emissão (2026-09-29)
@@ -48,7 +50,7 @@ O XML fiscal ainda é parcialmente construído em `erp/src/pages/utils/nfe/`, co
 
 ## 2. Skills e regras existentes
 
-- `AGENTS.md` roteia tarefas fiscais para `nfe-sefaz-direto` e `fiscal-nfe-nfce-official-docs`; a regra 17 de `.agents/rules/principios-inviolaveis.md` exige fonte oficial vigente.
+- Na data desta auditoria, `AGENTS.md` roteava tarefas fiscais para as skills `nfe-sefaz-direto` e `fiscal-nfe-nfce-official-docs`. Ambas foram removidas em 2026-10-03 a pedido da usuária. A regra atual de fontes oficiais está em `.agents/rules/principios-inviolaveis.md`.
 - A skill fiscal foi ampliada nesta tarefa com auditoria antes de instalar, fronteiras, reconciliação e Golden Files. Os critérios FISCAL-001..018 ficam em [invariantes-arquiteturais.md](invariantes-arquiteturais.md), sem duplicá-los na regra global.
 - `docs/fiscal/manuais/README.md` é índice de links oficiais; PDFs antigos não devem ser fonte normativa permanente.
 

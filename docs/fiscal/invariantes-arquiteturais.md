@@ -1,6 +1,6 @@
 # Invariantes do emissor fiscal de saída
 
-**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-09-29. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade da implementação. A fonte normativa de cada mudança deve ser consultada novamente conforme a [skill fiscal](../../.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md).
+**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-09-29. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade da implementação. A fonte normativa de cada mudança deve ser consultada novamente nas publicações oficiais aplicáveis, listadas em [manuais](manuais/README.md).
 
 | ID | Invariante | Evidência mínima para considerá-la atendida |
 |---|---|---|
@@ -33,4 +33,4 @@
 
 ## Gatilhos de revisão antes de produção
 
-O fluxo principal `api/nfe/emit.ts` ainda não chama `validateNfeAgainstOfficialSchema`, enquanto `api/nfe/transmit-operation-draft.ts` chama antes e depois da assinatura. Portanto FISCAL-010 está **parcial**. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; testes mockados não bastam. A matriz de homologação SEFAZ/PR e a revisão tributária permanecem abertas no [relatório de auditoria](auditoria-stack-fiscal-saida.md).
+O fluxo principal `api/nfe/emit.ts` ainda não chama `validateNfeAgainstOfficialSchema`, enquanto `api/nfe/transmit-operation-draft.ts` chama antes e depois da assinatura. Portanto FISCAL-010 está **parcial**. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; testes mockados não bastam. O roteiro e os critérios para novos testes fiscais em homologação foram removidos em 2026-10-03 para redefinição; este documento não define procedimento HML.

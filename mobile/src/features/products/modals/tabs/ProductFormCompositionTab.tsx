@@ -69,21 +69,23 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
             );
           });
           setResults(
-            filtered.flatMap((product) => {
-              const variations = (product.product_variations || []).filter(
-                (variation: any) => variation.active !== false && variation.status !== 'merged'
-              );
-              return variations.length > 0
-                ? variations.map((variation: any) => ({
-                    ...product,
-                    variationId: variation.id,
-                    variationName: variation.name,
-                    variationSku: variation.sku,
-                    variationPrice: variation.price ?? variation.unit_price,
-                    variationStock: variation.stock,
-                  }))
-                : [product];
-            }).slice(0, 5)
+            filtered
+              .flatMap((product) => {
+                const variations = (product.product_variations || []).filter(
+                  (variation: any) => variation.active !== false && variation.status !== 'merged'
+                );
+                return variations.length > 0
+                  ? variations.map((variation: any) => ({
+                      ...product,
+                      variationId: variation.id,
+                      variationName: variation.name,
+                      variationSku: variation.sku,
+                      variationPrice: variation.price ?? variation.unit_price,
+                      variationStock: variation.stock,
+                    }))
+                  : [product];
+              })
+              .slice(0, 5)
           );
         }
       } catch (e) {

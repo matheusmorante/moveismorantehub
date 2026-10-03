@@ -15,7 +15,10 @@ export const userDocumentation: DocumentationSection[] = [
     flow: [
       { title: 'Preencher', detail: 'Inclua cliente, itens, pagamento e agendamento.' },
       { title: 'Cadastrar', detail: 'Pedido passa a Agendado.' },
-      { title: 'Acompanhar', detail: 'Confirme entrega ou retirada ao entregar a mercadoria ao cliente.' },
+      {
+        title: 'Acompanhar',
+        detail: 'Confirme entrega ou retirada ao entregar a mercadoria ao cliente.',
+      },
       {
         title: 'Pós-venda',
         detail: 'Use devolução somente para itens realmente recebidos de volta.',
@@ -37,7 +40,10 @@ export const userDocumentation: DocumentationSection[] = [
     flow: [
       { title: 'Consultar', detail: 'Filtre data e tipo na agenda.' },
       { title: 'Executar', detail: 'Realize entrega ou montagem conforme o pedido.' },
-      { title: 'Atualizar', detail: 'Confirme entrega ou retirada após a execução; montagem segue o fluxo do serviço.' },
+      {
+        title: 'Atualizar',
+        detail: 'Confirme entrega ou retirada após a execução; montagem segue o fluxo do serviço.',
+      },
       { title: 'Divergência', detail: 'Encaminhe a ocorrência antes de alterar o status.' },
     ],
   },

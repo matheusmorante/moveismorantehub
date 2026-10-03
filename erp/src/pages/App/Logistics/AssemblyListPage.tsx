@@ -2,10 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
-import {
-  ShowcaseAssembly,
-  deleteShowcaseAssembly,
-} from '@/pages/utils/showcaseAssemblyService';
+import { ShowcaseAssembly, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { useAssemblyListQuery } from './hooks/useAssemblyListQuery';
 import AssemblyCard from './components/AssemblyCard';
@@ -85,7 +82,8 @@ const AssemblyListPage = () => {
   });
 
   useEffect(() => {
-    if (!isStandalone || loading || filteredAssemblies.length === 0 || hasInitialScrolled.current) return;
+    if (!isStandalone || loading || filteredAssemblies.length === 0 || hasInitialScrolled.current)
+      return;
 
     // Find the closest date (today or future)
     const availableDates = filteredAssemblies
@@ -168,7 +166,9 @@ const AssemblyListPage = () => {
   const renderAssemblyList = () => {
     const scopedAssemblies = filteredAssemblies.filter((item) => {
       if (item.origin === 'order') {
-        const status = String(item.status || '').trim().toLowerCase();
+        const status = String(item.status || '')
+          .trim()
+          .toLowerCase();
         if (
           item.pendingScheduling ||
           status === 'draft' ||
@@ -195,7 +195,10 @@ const AssemblyListPage = () => {
     const dateKeys = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
     const sections = dateKeys.map((dateKey) => ({
       key: dateKey,
-      title: dateKey === todayKey ? `PARA HOJE · ${grouped[dateKey].length}` : formatUpcomingDate(dateKey),
+      title:
+        dateKey === todayKey
+          ? `PARA HOJE · ${grouped[dateKey].length}`
+          : formatUpcomingDate(dateKey),
       count: grouped[dateKey].length,
       items: grouped[dateKey],
     }));
@@ -274,7 +277,8 @@ const AssemblyListPage = () => {
                               <span className="min-w-0 flex-1 text-sm leading-5">
                                 <span className="font-extrabold">{productName}</span>
                                 <span className="font-semibold text-slate-600 dark:text-slate-300">
-                                  {' '}— {item.customerName}
+                                  {' '}
+                                  — {item.customerName}
                                 </span>
                               </span>
                               <i className="bi bi-chevron-right shrink-0 text-sm text-slate-500 dark:text-slate-400" />
@@ -419,14 +423,14 @@ const AssemblyListPage = () => {
             {/* ── Linha vertical da timeline ── */}
             <div className="relative border-l-2 border-slate-100 dark:border-slate-800 ml-3">
               {grouped[dateKey].map((item: any, idx: number) => (
-                  <AssemblyCard
-                    key={item.id + idx}
-                    item={item}
-                    idx={idx}
-                    isStandalone={isStandalone}
-                    handleEditShowcase={handleEditShowcase}
-                    handleDeleteShowcase={handleDeleteShowcase}
-                  />
+                <AssemblyCard
+                  key={item.id + idx}
+                  item={item}
+                  idx={idx}
+                  isStandalone={isStandalone}
+                  handleEditShowcase={handleEditShowcase}
+                  handleDeleteShowcase={handleDeleteShowcase}
+                />
               ))}
             </div>
           </div>

@@ -7,11 +7,7 @@ export type PasswordAuthError = {
 export type PasswordRecoveryClient = {
   auth: {
     resetPasswordForEmail: (email: string) => PromiseLike<{ error: PasswordAuthError | null }>;
-    verifyOtp: (credentials: {
-      email: string;
-      token: string;
-      type: 'recovery';
-    }) => PromiseLike<{
+    verifyOtp: (credentials: { email: string; token: string; type: 'recovery' }) => PromiseLike<{
       data: { user: { id: string } | null; session: unknown | null };
       error: PasswordAuthError | null;
     }>;
@@ -27,7 +23,11 @@ export type PasswordRecoveryClient = {
   };
 };
 
-type PasswordAuthErrorContext = 'recovery-send' | 'recovery-verify' | 'password-update' | 'reauth-send';
+type PasswordAuthErrorContext =
+  | 'recovery-send'
+  | 'recovery-verify'
+  | 'password-update'
+  | 'reauth-send';
 
 const errorCode = (error: PasswordAuthError) => error.code?.toLowerCase() ?? '';
 const errorMessage = (error: PasswordAuthError) => error.message?.toLowerCase() ?? '';

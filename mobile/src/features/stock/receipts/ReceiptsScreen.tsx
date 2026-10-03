@@ -53,7 +53,12 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
                 >
                   <View>
                     <Text style={[styles.title, isDarkMode && styles.textDark]}>
-                      Rec #{r.receipt_index || r.receiptIndex ? String(r.receipt_index || r.receiptIndex).padStart(6, '0') : (r.id ? r.id.split('-')[0].toUpperCase() : '—')}
+                      Rec #
+                      {r.receipt_index || r.receiptIndex
+                        ? String(r.receipt_index || r.receiptIndex).padStart(6, '0')
+                        : r.id
+                          ? r.id.split('-')[0].toUpperCase()
+                          : '—'}
                     </Text>
                     <Text
                       style={{ color: '#059669', fontSize: 12, fontWeight: '700', marginTop: 2 }}

@@ -127,12 +127,7 @@ export function AdvantagesSection() {
   }, [carouselApi]);
 
   useEffect(() => {
-    if (
-      !carouselApi ||
-      !isMobile ||
-      prefersReducedMotion ||
-      isPausedAfterInteraction
-    ) {
+    if (!carouselApi || !isMobile || prefersReducedMotion || isPausedAfterInteraction) {
       return;
     }
 
@@ -143,12 +138,7 @@ export function AdvantagesSection() {
     }, AUTOPLAY_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [
-    carouselApi,
-    isMobile,
-    isPausedAfterInteraction,
-    prefersReducedMotion,
-  ]);
+  }, [carouselApi, isMobile, isPausedAfterInteraction, prefersReducedMotion]);
 
   useEffect(() => {
     return () => {
@@ -208,7 +198,6 @@ export function AdvantagesSection() {
                 />
               ))}
             </div>
-
           </div>
         </Carousel>
 

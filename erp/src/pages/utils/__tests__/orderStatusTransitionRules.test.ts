@@ -200,10 +200,16 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       };
 
       expect(
-        shouldAutoFulfillScheduledSaleOnEdit({ status: 'fulfilled', orderType: 'sale' }, immediatePickup)
+        shouldAutoFulfillScheduledSaleOnEdit(
+          { status: 'fulfilled', orderType: 'sale' },
+          immediatePickup
+        )
       ).toBe(false);
       expect(
-        shouldAutoFulfillScheduledSaleOnEdit({ status: 'scheduled', orderType: 'return' }, immediatePickup)
+        shouldAutoFulfillScheduledSaleOnEdit(
+          { status: 'scheduled', orderType: 'return' },
+          immediatePickup
+        )
       ).toBe(false);
     });
   });

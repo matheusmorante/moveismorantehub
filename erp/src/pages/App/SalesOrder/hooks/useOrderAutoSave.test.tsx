@@ -34,25 +34,26 @@ function renderAutoSave(isDraftAutoSaveEnabled = true) {
     latestStateRef.current.currentOrderId = id;
   });
 
-  const hook = renderHook(({ items }) => {
-    latestStateRef.current.items = items;
-    return useOrderAutoSave(
-      items,
-      shipping,
-      payments,
-      customerData,
-      '',
-      '',
-      'organic',
-      '2026-09-30',
-      'draft',
-      1201,
-      getOrderData,
-      setCurrentOrderId,
-      latestStateRef,
-      isDraftAutoSaveEnabled
-    );
-  },
+  const hook = renderHook(
+    ({ items }) => {
+      latestStateRef.current.items = items;
+      return useOrderAutoSave(
+        items,
+        shipping,
+        payments,
+        customerData,
+        '',
+        '',
+        'organic',
+        '2026-09-30',
+        'draft',
+        1201,
+        getOrderData,
+        setCurrentOrderId,
+        latestStateRef,
+        isDraftAutoSaveEnabled
+      );
+    },
     { initialProps: { items: emptyItems } }
   );
 

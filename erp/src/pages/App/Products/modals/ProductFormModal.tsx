@@ -253,7 +253,13 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           )}
 
           {activeTab === 'fiscal' && (
-            <ProductFiscalTab formData={formData} setFormData={setFormData} ncmSuggestion={jev.suggestion} onAcceptNcmSuggestion={jev.acceptSuggestion} onRejectNcmSuggestion={jev.rejectSuggestion} />
+            <ProductFiscalTab
+              formData={formData}
+              setFormData={setFormData}
+              ncmSuggestion={jev.suggestion}
+              onAcceptNcmSuggestion={jev.acceptSuggestion}
+              onRejectNcmSuggestion={jev.rejectSuggestion}
+            />
           )}
         </div>
 

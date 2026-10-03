@@ -66,16 +66,34 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
           <strong>Consequências desta venda:</strong>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>Pedido será cancelado.</li>
-            {order.stockProcessed
-              ? <li>Movimentações de saída vinculadas serão revertidas uma vez.</li>
-              : <li>Não há saída de estoque registrada para reverter.</li>}
-            {preview.action === 'cancel' && <li>A NF-e modelo {preview.model || ''} autorizada será cancelada junto à SEFAZ.</li>}
-            {preview.action === 'estorno' && <li>A NF-e original permanecerá no histórico e será preparado um documento fiscal de estorno para revisão.</li>}
-            {preview.action === 'manual_review' && <li>A NF-e original permanecerá preservada; o caso exige revisão fiscal antes de qualquer procedimento.</li>}
-            {preview.action === 'none' && <li>Não há NF-e autorizada vinculada; o cancelamento será somente comercial.</li>}
+            {order.stockProcessed ? (
+              <li>Movimentações de saída vinculadas serão revertidas uma vez.</li>
+            ) : (
+              <li>Não há saída de estoque registrada para reverter.</li>
+            )}
+            {preview.action === 'cancel' && (
+              <li>A NF-e modelo {preview.model || ''} autorizada será cancelada junto à SEFAZ.</li>
+            )}
+            {preview.action === 'estorno' && (
+              <li>
+                A NF-e original permanecerá no histórico e será preparado um documento fiscal de
+                estorno para revisão.
+              </li>
+            )}
+            {preview.action === 'manual_review' && (
+              <li>
+                A NF-e original permanecerá preservada; o caso exige revisão fiscal antes de
+                qualquer procedimento.
+              </li>
+            )}
+            {preview.action === 'none' && (
+              <li>Não há NF-e autorizada vinculada; o cancelamento será somente comercial.</li>
+            )}
           </ul>
         </div>
-        {preview.reason && preview.action === 'manual_review' && <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{preview.reason}</p>}
+        {preview.reason && preview.action === 'manual_review' && (
+          <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{preview.reason}</p>
+        )}
         <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
           Esta ação é definitiva: uma venda cancelada não pode mais ser editada nem ter o status
           alterado. Caso precise corrigir ou refazer a operação, duplique o pedido e trabalhe na

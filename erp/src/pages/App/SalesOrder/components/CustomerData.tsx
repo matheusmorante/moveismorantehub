@@ -51,7 +51,8 @@ const CustomerDataInputs = ({
     searchTerm: string;
   } | null>(null);
   const isFinalConsumer =
-    !customerData.id && customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
+    !customerData.id &&
+    customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
   const hasError = !isFinalConsumer && Boolean(errors.customer_fullName || errors.customer_phone);
 
   // Load recent on mount
@@ -186,11 +187,10 @@ const CustomerDataInputs = ({
         noAddress: customerData.noAddress,
         fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
         additionalContacts: customerData.additionalContacts || [],
-        marketingOrigin: (
-          (customerData as CustomerData & { marketingOrigin?: string }).marketingOrigin ||
+        marketingOrigin: ((customerData as CustomerData & { marketingOrigin?: string })
+          .marketingOrigin ||
           marketingOrigin ||
-          ''
-        ) as Person['marketingOrigin'],
+          '') as Person['marketingOrigin'],
         type: 'customers',
       };
       setEditingPerson(fallbackPerson as Person);
@@ -276,10 +276,10 @@ const CustomerDataInputs = ({
             isFinalConsumer
               ? 'cursor-not-allowed pl-9 border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
               : hasError
-              ? 'pl-3 border-red-500 focus:border-red-600 text-red-700 dark:text-red-300'
-              : isCustomerSelected
-                ? 'pl-9 border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400 font-medium text-slate-800 dark:text-slate-100'
-                : 'pl-3 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:text-slate-300 dark:focus:border-blue-500'
+                ? 'pl-3 border-red-500 focus:border-red-600 text-red-700 dark:text-red-300'
+                : isCustomerSelected
+                  ? 'pl-9 border-emerald-500 focus:border-emerald-600 dark:border-emerald-500 dark:focus:border-emerald-400 font-medium text-slate-800 dark:text-slate-100'
+                  : 'pl-3 border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:text-slate-300 dark:focus:border-blue-500'
           }`}
         />
         <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">

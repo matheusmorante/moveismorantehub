@@ -142,9 +142,8 @@ const OrderHistoryRow = ({
   ];
   const visibleColumnCount = Math.max(
     1,
-    rowColumnKeys.filter(
-      (key) => visibilitySettings[key as keyof VisibilitySettings] !== false
-    ).length
+    rowColumnKeys.filter((key) => visibilitySettings[key as keyof VisibilitySettings] !== false)
+      .length
   );
 
   const renderCell = (key: string) => {

@@ -322,10 +322,7 @@ function Router() {
               path="/stock/purchases"
               element={<Navigate to="/estoque/pedidos-compra" replace />}
             />
-            <Route
-              path="/purchases"
-              element={<Navigate to="/estoque/pedidos-compra" replace />}
-            />
+            <Route path="/purchases" element={<Navigate to="/estoque/pedidos-compra" replace />} />
             <Route path="/estoque/notas-fiscais-entrada" element={<InboundInvoicesPage />} />
             <Route path="/estoque/recebimentos" element={<ReceiptsPage />} />
             <Route path="/estoque/bling" element={<BlingStock />} />

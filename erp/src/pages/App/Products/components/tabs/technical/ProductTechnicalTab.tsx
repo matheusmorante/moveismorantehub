@@ -10,6 +10,7 @@ import {
   isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
+import { AttributeManagementModal } from '../../modals/attributes/AttributeManagementModal';
 
 interface ProductTechnicalTabProps {
   readonly formData: Partial<Product>;
@@ -26,6 +27,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   isImprovingDescription,
   validationErrors,
 }) => {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
@@ -172,7 +175,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   // Só exibe características globais ou vinculadas às categorias selecionadas.
   const visibleFields = getApplicableTechnicalFields(
@@ -220,6 +223,37 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const handleRemoveManualField = (fieldName: string) => {
     setManualFieldNames((prev) => prev.filter((name) => name !== fieldName));
     handleTechnicalValueChange(fieldName, undefined);
+  };
+
+  const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
+    const isProfundidade = currentField.name.toLowerCase() === 'profundidade';
+    const newName = isProfundidade ? 'Comprimento' : 'Profundidade';
+    const oldName = currentField.name;
+
+    const newFieldDef = allTechnicalFields.find(f => f.name.toLowerCase() === newName.toLowerCase());
+    if (!newFieldDef) {
+      console.warn(`Campo '${newName}' não encontrado no cadastro global de características.`);
+      return;
+    }
+    const actualNewName = newFieldDef.name;
+
+    const currentValue = formData.technicalValues?.[oldName];
+
+    setFormData((prev) => {
+      const tv = { ...(prev.technicalValues || {}) };
+      if (currentValue !== undefined) {
+        tv[actualNewName] = currentValue;
+      } else {
+        tv[actualNewName] = '';
+      }
+      delete tv[oldName];
+      return { ...prev, technicalValues: tv };
+    });
+
+    setManualFieldNames((prev) => {
+      const filtered = prev.filter(n => n !== oldName && n !== actualNewName);
+      return [...filtered, actualNewName];
+    });
   };
 
   const hasCategory = (formData.categoryIds || []).length > 0;
@@ -294,6 +328,26 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                 Manual
                               </span>
                             )}
+                            {field.name.toLowerCase() === 'cor' && (
+                              <button
+                                type="button"
+                                title="Gerenciar cores"
+                                onClick={() => setIsAttributeModalOpen(true)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                              >
+                                <i className="bi bi-gear-fill" />
+                              </button>
+                            )}
+                            {(field.name.toLowerCase() === 'profundidade' || field.name.toLowerCase() === 'comprimento') && (
+                              <button
+                                type="button"
+                                title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                                onClick={() => handleToggleDepthLength(field)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                              >
+                                <i className="bi bi-arrow-left-right" />
+                              </button>
+                            )}
                           </label>
                           <div className="flex items-center gap-1.5">
                             {/* Switch Toggle: Ligado = Se aplica (padrão) | Desligado = Não se aplica */}
@@ -361,6 +415,14 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           </div>
         )}
       </div>
+
+      <AttributeManagementModal
+        isOpen={isAttributeModalOpen}
+        onClose={() => {
+          setIsAttributeModalOpen(false);
+          setRefreshKey((prev) => prev + 1);
+        }}
+      />
     </div>
   );
 };

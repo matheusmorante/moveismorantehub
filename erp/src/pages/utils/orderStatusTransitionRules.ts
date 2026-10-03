@@ -37,10 +37,7 @@ export const validateOrderStatusTransition = (
     };
   }
 
-  if (
-    newStatus === 'cancelled' &&
-    hasGoodsCirculated({ ...currentOrder, status: currentStatus })
-  ) {
+  if (newStatus === 'cancelled' && hasGoodsCirculated({ ...currentOrder, status: currentStatus })) {
     return {
       allowed: false,
       reason:
@@ -56,10 +53,12 @@ export const validateOrderStatusTransition = (
  * Vendas agendadas podem ser canceladas;
  * Vendas já atendidas ('fulfilled') devem passar pelo fluxo de devolução/estorno de estoque.
  */
-export const canCancelOrderDirectly = (order: OrderCirculationState & {
-  status?: Order['status'];
-  orderType?: string;
-}): boolean => {
+export const canCancelOrderDirectly = (
+  order: OrderCirculationState & {
+    status?: Order['status'];
+    orderType?: string;
+  }
+): boolean => {
   if (!order.status || order.status === 'cancelled' || order.status === 'draft') {
     return false;
   }

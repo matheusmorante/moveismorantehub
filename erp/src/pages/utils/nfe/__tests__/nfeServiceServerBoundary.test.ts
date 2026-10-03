@@ -17,32 +17,55 @@ describe('emissão NF-e no ERP', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it.each(['244', '209'])('uma rejeição %s confirmada permite nova chave de intenção somente no próximo clique', async (cStat) => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({
-      success: false, pending: false, cStat, documentId: 'rejected-series',
-      xMotivo: 'Série incompatível',
-    }) }));
-    vi.stubGlobal('fetch', fetchMock);
-    const { emitNfeForOrder } = await import('../nfeService');
-    const order = { id: `TEST_AUT_correction-${cStat}` } as any;
-    await emitNfeForOrder(order, 2);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await emitNfeForOrder(order, 2);
-    const requests = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
-    expect(requests[1].emissionRequestId).not.toBe(requests[0].emissionRequestId);
-  }, 15000);
-  it.each(['244', '209'])('mantém a intenção pendente, mesmo que a resposta mencione %s', async (cStat) => {
-    const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({
-      success: false, pending: true, cStat, error: 'Resposta inconclusiva',
-    }) }));
-    vi.stubGlobal('fetch', fetchMock);
-    const { emitNfeForOrder } = await import('../nfeService');
-    const order = { id: `TEST_AUT_uncertain-${cStat}` } as any;
-    await emitNfeForOrder(order, 2);
-    await emitNfeForOrder(order, 2);
-    const requests = fetchMock.mock.calls.map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)));
-    expect(requests[1].emissionRequestId).toBe(requests[0].emissionRequestId);
-  });
+  it.each(['244', '209'])(
+    'uma rejeição %s confirmada permite nova chave de intenção somente no próximo clique',
+    async (cStat) => {
+      const fetchMock = vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          success: false,
+          pending: false,
+          cStat,
+          documentId: 'rejected-series',
+          xMotivo: 'Série incompatível',
+        }),
+      }));
+      vi.stubGlobal('fetch', fetchMock);
+      const { emitNfeForOrder } = await import('../nfeService');
+      const order = { id: `TEST_AUT_correction-${cStat}` } as any;
+      await emitNfeForOrder(order, 2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await emitNfeForOrder(order, 2);
+      const requests = fetchMock.mock.calls.map((call) =>
+        JSON.parse(String((call as unknown as [string, RequestInit])[1].body))
+      );
+      expect(requests[1].emissionRequestId).not.toBe(requests[0].emissionRequestId);
+    },
+    15000
+  );
+  it.each(['244', '209'])(
+    'mantém a intenção pendente, mesmo que a resposta mencione %s',
+    async (cStat) => {
+      const fetchMock = vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          success: false,
+          pending: true,
+          cStat,
+          error: 'Resposta inconclusiva',
+        }),
+      }));
+      vi.stubGlobal('fetch', fetchMock);
+      const { emitNfeForOrder } = await import('../nfeService');
+      const order = { id: `TEST_AUT_uncertain-${cStat}` } as any;
+      await emitNfeForOrder(order, 2);
+      await emitNfeForOrder(order, 2);
+      const requests = fetchMock.mock.calls.map((call) =>
+        JSON.parse(String((call as unknown as [string, RequestInit])[1].body))
+      );
+      expect(requests[1].emissionRequestId).toBe(requests[0].emissionRequestId);
+    }
+  );
 
   it('envia ao backend só pedido, ambiente e chave; não reserva número nem monta XML no navegador', async () => {
     const fetchMock = vi.fn(async () => ({
@@ -72,19 +95,84 @@ describe('emissão NF-e no ERP', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
     await emitNfeForOrder({ id: 'order-123' } as any, 2);
-    const repeated = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    const repeated = JSON.parse(
+      String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body)
+    );
     expect(repeated.emissionRequestId).toBe(JSON.parse(String(request.body)).emissionRequestId);
+  });
+
+  it('registra o status HTTP e os dados seguros do diagnóstico retornado pelo backend', async () => {
+    const diagnosticLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        success: false,
+        code: 'HML_SNAPSHOT_RESERVATION_FAILED',
+        error: 'Não foi possível reservar snapshot.',
+        diagnosticId: '2b705d8e-cb38-4310-86dc-7016e1f875fd',
+        diagnosticStage: 'snapshot-reservation',
+        databaseCode: '42883',
+        diagnosticCategory: 'SQL_FUNCTION_NOT_FOUND',
+        diagnosticHint: 'Verifique migration e schema cache.',
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+
+    const result = await emitNfeForOrder({ id: 'TEST_AUT_snapshot-diagnostic' } as any, 2);
+
+    expect(result).toMatchObject({
+      success: false,
+      diagnosticId: '2b705d8e-cb38-4310-86dc-7016e1f875fd',
+      databaseCode: '42883',
+    });
+    expect(diagnosticLog).toHaveBeenCalledWith(
+      '[NFe Service] Erro retornado pela API interna de emissão',
+      expect.objectContaining({
+        endpoint: '/api/nfe/emit',
+        httpStatus: 503,
+        apiCode: 'HML_SNAPSHOT_RESERVATION_FAILED',
+        databaseCode: '42883',
+        diagnosticId: '2b705d8e-cb38-4310-86dc-7016e1f875fd',
+      })
+    );
   });
 
   it('sends all confirmed item fields and distinguishes explicit CSOSN choices', async () => {
     const fetchMock = vi.fn(async () => ({ ok: false, json: async () => ({ error: 'pending' }) }));
     vi.stubGlobal('fetch', fetchMock);
     const { emitNfeForOrder } = await import('../nfeService');
-    await emitNfeForOrder({ id: 'manual-order', items: [
-      { itemType: 'product', fiscal: { cst: '103', csosnSource: 'default', ncm: '94036000', cfop: '5102', origem: '0' } },
-      { itemType: 'service' },
-      { itemType: 'product', fiscal: { cst: '102', csosnSource: 'manual', ncm: '94034000', cfop: '5102', origem: '2', cest: '2804400' } },
-    ] } as any, 2);
+    await emitNfeForOrder(
+      {
+        id: 'manual-order',
+        items: [
+          {
+            itemType: 'product',
+            fiscal: {
+              cst: '103',
+              csosnSource: 'default',
+              ncm: '94036000',
+              cfop: '5102',
+              origem: '0',
+            },
+          },
+          { itemType: 'service' },
+          {
+            itemType: 'product',
+            fiscal: {
+              cst: '102',
+              csosnSource: 'manual',
+              ncm: '94034000',
+              cfop: '5102',
+              origem: '2',
+              cest: '2804400',
+            },
+          },
+        ],
+      } as any,
+      2
+    );
     const [, request] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(request.body)).itemCsosnOverrides).toEqual({ '2': '102' });
     expect(JSON.parse(String(request.body)).itemFiscalSelections).toEqual({
@@ -115,12 +203,7 @@ describe('emissão NF-e no ERP', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { emitNfeForOrder } = await import('../nfeService');
 
-    const result = await emitNfeForOrder(
-      { id: 'order-123' } as any,
-      1,
-      false,
-      'nfe-doc-123'
-    );
+    const result = await emitNfeForOrder({ id: 'order-123' } as any, 1, false, 'nfe-doc-123');
 
     expect(result).toMatchObject({
       success: true,

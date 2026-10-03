@@ -33,7 +33,9 @@ const resolveMethod = (order: OrderPresentationInput): 'delivery' | 'pickup' | u
     order.order_data?.shipping?.deliveryMethod ||
     order.order_data?.deliveryMethod ||
     order.order_data?.delivery_method;
-  const method = String(rawMethod || '').trim().toLocaleLowerCase('pt-BR');
+  const method = String(rawMethod || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
   if (['pickup', 'retirada', 'retirar', 'pick-up'].includes(method)) return 'pickup';
   if (['delivery', 'entrega', 'deliver'].includes(method)) return 'delivery';
   return undefined;
@@ -41,21 +43,44 @@ const resolveMethod = (order: OrderPresentationInput): 'delivery' | 'pickup' | u
 
 const isSalesOrder = (order: OrderPresentationInput) => {
   const type = String(
-    order.orderType || order.order_type || order.order_data?.orderType || order.order_data?.order_type || 'sale'
+    order.orderType ||
+      order.order_type ||
+      order.order_data?.orderType ||
+      order.order_data?.order_type ||
+      'sale'
   ).toLocaleLowerCase('pt-BR');
-  return !['return', 'devolução', 'devolucao', 'assistance', 'assistência', 'assistencia', 'budget', 'orçamento', 'orcamento'].includes(type);
+  return ![
+    'return',
+    'devolução',
+    'devolucao',
+    'assistance',
+    'assistência',
+    'assistencia',
+    'budget',
+    'orçamento',
+    'orcamento',
+  ].includes(type);
 };
 
 const isReturnOrder = (order: OrderPresentationInput) => {
-  const type = String(order.orderType || order.order_type || order.order_data?.orderType || order.order_data?.order_type || '').toLowerCase();
+  const type = String(
+    order.orderType ||
+      order.order_type ||
+      order.order_data?.orderType ||
+      order.order_data?.order_type ||
+      ''
+  ).toLowerCase();
   return ['return', 'devolução', 'devolucao'].includes(type);
 };
 
-const resolveReturnMethod = (order: OrderPresentationInput): 'store_delivery' | 'store_collection' | undefined => {
+const resolveReturnMethod = (
+  order: OrderPresentationInput
+): 'store_delivery' | 'store_collection' | undefined => {
   const explicit = String(order.returnMethod || order.order_data?.returnMethod || '').toLowerCase();
   if (explicit === 'store_delivery' || explicit === 'store_collection') return explicit;
   if (String(order.status || '').toLowerCase() === 'scheduled') return 'store_collection';
-  if (['fulfilled', 'atendido'].includes(String(order.status || '').toLowerCase())) return 'store_delivery';
+  if (['fulfilled', 'atendido'].includes(String(order.status || '').toLowerCase()))
+    return 'store_delivery';
   return undefined;
 };
 
@@ -67,12 +92,20 @@ export const getFulfillmentLabels = (
     const returnMethod = resolveReturnMethod(order);
     const isCollection = returnMethod === 'store_collection';
     return {
-      status: isCollection ? 'Coletada' : returnMethod === 'store_delivery' ? 'Recebida' : fallbackStatus,
+      status: isCollection
+        ? 'Coletada'
+        : returnMethod === 'store_delivery'
+          ? 'Recebida'
+          : fallbackStatus,
       preFulfillmentStatus: isCollection ? 'Aguardando coleta' : 'Aguardando recebimento',
       confirmAction: isCollection ? 'Confirmar coleta' : 'Confirmar recebimento',
       correctionAction: isCollection ? 'Corrigir coleta' : 'Corrigir recebimento',
-      confirmationQuestion: isCollection ? 'A mercadoria já foi coletada?' : 'A mercadoria já foi recebida na loja?',
-      successMessage: isCollection ? 'Devolução coletada com sucesso.' : 'Devolução recebida com sucesso.',
+      confirmationQuestion: isCollection
+        ? 'A mercadoria já foi coletada?'
+        : 'A mercadoria já foi recebida na loja?',
+      successMessage: isCollection
+        ? 'Devolução coletada com sucesso.'
+        : 'Devolução recebida com sucesso.',
     };
   }
   if (!isSalesOrder(order)) {
@@ -121,7 +154,9 @@ export const getOrderStatusLabel = (
   order: OrderPresentationInput,
   fallbackStatus = 'Atendido'
 ): string => {
-  const status = String(order.status || '').trim().toLocaleLowerCase('pt-BR');
+  const status = String(order.status || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
   if (isReturnOrder(order)) {
     if (status === 'scheduled') return 'Aguardando coleta';
     if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status)) {

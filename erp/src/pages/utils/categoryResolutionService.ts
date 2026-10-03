@@ -22,13 +22,7 @@ type CategoryAliasRule = {
 const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   {
     category: 'Guarda-Roupas',
-    aliases: [
-      'guarda roupa',
-      'roupeiro',
-      'armario roupa',
-      'g roupa',
-      'armario de quarto',
-    ],
+    aliases: ['guarda roupa', 'roupeiro', 'armario roupa', 'g roupa', 'armario de quarto'],
   },
   {
     category: 'Balcões para Pia',
@@ -48,7 +42,10 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
     aliases: ['balcao filtro', 'balcao para filtro', 'balcao para agua'],
   },
   { category: 'Armários Aéreos', aliases: ['armario aereo', 'armarios aereos', 'aereo cozinha'] },
-  { category: 'Armários para Fornos', aliases: ['armario forno', 'armario para forno', 'torre quente'] },
+  {
+    category: 'Armários para Fornos',
+    aliases: ['armario forno', 'armario para forno', 'torre quente'],
+  },
   { category: 'Paneleiros', aliases: ['paneleiro', 'paneleiros', 'armario paneleiro'] },
   {
     category: 'Cozinhas Moduladas e Compactas',
@@ -57,10 +54,19 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   { category: 'Conjunto para Sala de Jantar', aliases: ['conjunto sala jantar', 'cj sala jantar'] },
   { category: 'Mesa para Sala de Jantar', aliases: ['mesa sala jantar', 'mesa para jantar'] },
   { category: 'Cadeiras para Sala de Jantar', aliases: ['cadeira sala jantar', 'cadeiras jantar'] },
-  { category: 'Mesas para Escritório', aliases: ['mesa escritorio', 'escrivaninha', 'mesa para escritorio'] },
-  { category: 'Cadeiras para Escritório', aliases: ['cadeira escritorio', 'cadeira para escritorio'] },
+  {
+    category: 'Mesas para Escritório',
+    aliases: ['mesa escritorio', 'escrivaninha', 'mesa para escritorio'],
+  },
+  {
+    category: 'Cadeiras para Escritório',
+    aliases: ['cadeira escritorio', 'cadeira para escritorio'],
+  },
   { category: 'Conjuntos para Banheiro', aliases: ['conjunto banheiro', 'conjunto para banheiro'] },
-  { category: 'Espelheira para Banheiro', aliases: ['espelheira banheiro', 'espelheira para banheiro'] },
+  {
+    category: 'Espelheira para Banheiro',
+    aliases: ['espelheira banheiro', 'espelheira para banheiro'],
+  },
   { category: 'Cristaleiras', aliases: ['cristaleira'] },
   { category: 'Berços', aliases: ['berco', 'mini cama bebe'] },
   { category: 'Cômodas', aliases: ['comoda'] },
@@ -69,8 +75,14 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
   { category: 'Beliches', aliases: ['beliche'] },
   { category: 'Treliches', aliases: ['treliche'] },
   { category: 'Colchões', aliases: ['colchao'] },
-  { category: 'Camas/Bases Box', aliases: ['cama box', 'base box', 'base bau', 'cama casal', 'cama solteiro'] },
-  { category: 'Mesas de Cabeceira', aliases: ['mesa cabeceira', 'criado mudo', 'mesa de cabeceira'] },
+  {
+    category: 'Camas/Bases Box',
+    aliases: ['cama box', 'base box', 'base bau', 'cama casal', 'cama solteiro'],
+  },
+  {
+    category: 'Mesas de Cabeceira',
+    aliases: ['mesa cabeceira', 'criado mudo', 'mesa de cabeceira'],
+  },
   { category: 'Aparadores Buffets', aliases: ['aparador sala', 'buffet sala'] },
   { category: 'Racks', aliases: ['rack tv', 'rack para tv', 'rack'] },
   { category: 'Painéis', aliases: ['painel tv', 'painel para tv'] },
@@ -125,7 +137,10 @@ function levenshteinDistance(a: string, b: string): number {
 }
 
 function tokenMatches(input: string, expected: string): boolean {
-  if (input === expected || (input.length > 3 && input.replace(/s$/, '') === expected.replace(/s$/, ''))) {
+  if (
+    input === expected ||
+    (input.length > 3 && input.replace(/s$/, '') === expected.replace(/s$/, ''))
+  ) {
     return true;
   }
   if (Math.min(input.length, expected.length) < 5) return false;
@@ -133,7 +148,9 @@ function tokenMatches(input: string, expected: string): boolean {
 }
 
 function aliasScore(titleTokens: readonly string[], alias: string): number {
-  const aliasTokens = normalize(alias).split(' ').filter((token) => !IGNORE_TOKENS.has(token));
+  const aliasTokens = normalize(alias)
+    .split(' ')
+    .filter((token) => !IGNORE_TOKENS.has(token));
   if (!aliasTokens.length) return 0;
 
   let matched = 0;
@@ -142,7 +159,8 @@ function aliasScore(titleTokens: readonly string[], alias: string): number {
     const found = titleTokens.find((token) => tokenMatches(token, expected));
     if (found) {
       matched += 1;
-      if (found !== expected && found.replace(/s$/, '') !== expected.replace(/s$/, '')) fuzzy = true;
+      if (found !== expected && found.replace(/s$/, '') !== expected.replace(/s$/, ''))
+        fuzzy = true;
     }
   }
 
@@ -185,7 +203,9 @@ export function rankCategoryCandidates(
     if (best.score > 0) scores.push({ category, ...best });
   }
 
-  return scores.sort((a, b) => b.score - a.score || (a.category.name || '').localeCompare(b.category.name || ''));
+  return scores.sort(
+    (a, b) => b.score - a.score || (a.category.name || '').localeCompare(b.category.name || '')
+  );
 }
 
 const AUTO_SELECT_MIN_SCORE = 0.86;

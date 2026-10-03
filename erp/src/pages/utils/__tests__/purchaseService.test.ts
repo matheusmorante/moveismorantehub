@@ -252,9 +252,9 @@ describe('Suíte Unitária e de Integração: purchaseService (Pedidos de Compra
         error: null,
       });
 
-      await expect(
-        updatePurchase('inexistente', { observation: 'Teste' })
-      ).rejects.toThrow('Pedido não encontrado');
+      await expect(updatePurchase('inexistente', { observation: 'Teste' })).rejects.toThrow(
+        'Pedido não encontrado'
+      );
     });
   });
 

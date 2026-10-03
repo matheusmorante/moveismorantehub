@@ -14,6 +14,7 @@
     { "source": "/api/nfe/operation-drafts", "destination": "/api/nfe/operations?operation=operation-drafts" },
     { "source": "/api/nfe/transmit-operation-draft", "destination": "/api/nfe/operations?operation=transmit-operation-draft" },
     { "source": "/api/nfe/cce", "destination": "/api/nfe/operations?operation=cce" },
+    { "source": "/api/nfe/reserve-number", "destination": "/api/nfe/operations?operation=reserve-number" },
     {
       "source": "/api/facebook-catalog.csv",
       "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"

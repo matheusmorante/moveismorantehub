@@ -117,13 +117,32 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         />
       </div>
       {suggestion && !formData.fiscal?.ncm && (
-        <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+        >
           <div className="min-w-0 flex-1 text-[10px]">
             <strong>Sugestão de NCM aguardando confirmação: {suggestion.code}</strong>
             <p className="truncate">{suggestion.description}</p>
           </div>
-          <button type="button" aria-label="Aceitar sugestão de NCM" title="Aceitar sugestão de NCM" onClick={onAcceptSuggestion} className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900">✓</button>
-          <button type="button" aria-label="Rejeitar sugestão de NCM" title="Rejeitar sugestão de NCM" onClick={onRejectSuggestion} className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900">×</button>
+          <button
+            type="button"
+            aria-label="Aceitar sugestão de NCM"
+            title="Aceitar sugestão de NCM"
+            onClick={onAcceptSuggestion}
+            className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900"
+          >
+            ✓
+          </button>
+          <button
+            type="button"
+            aria-label="Rejeitar sugestão de NCM"
+            title="Rejeitar sugestão de NCM"
+            onClick={onRejectSuggestion}
+            className="rounded px-2 py-1 font-bold hover:bg-amber-100 dark:hover:bg-amber-900"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -137,8 +156,12 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         </p>
       )}
       {currentCatalogEntry?.active && !currentCatalogEntry.is_active && (
-        <p role="status" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] leading-relaxed text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-          Este NCM está desativado para novas seleções da loja. O código já salvo foi preservado; escolha um NCM ativo se quiser substituí-lo.
+        <p
+          role="status"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] leading-relaxed text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        >
+          Este NCM está desativado para novas seleções da loja. O código já salvo foi preservado;
+          escolha um NCM ativo se quiser substituí-lo.
         </p>
       )}
       {hasCheckedCatalogEntry && currentCatalogEntry === null && (

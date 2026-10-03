@@ -214,7 +214,9 @@ const toDbPurchaseUpdates = (updates: Partial<MobilePurchase>) => {
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.invoiceNumber !== undefined) dbUpdates.invoice_number = updates.invoiceNumber || null;
   if (updates.invoiceDate !== undefined)
-    dbUpdates.invoice_date = updates.invoiceDate ? new Date(updates.invoiceDate).toISOString() : null;
+    dbUpdates.invoice_date = updates.invoiceDate
+      ? new Date(updates.invoiceDate).toISOString()
+      : null;
   if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
   if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
   if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
@@ -228,7 +230,10 @@ const toDbPurchaseUpdates = (updates: Partial<MobilePurchase>) => {
 };
 
 export const updateMobilePurchase = async (id: string, updates: Partial<MobilePurchase>) => {
-  const { error } = await supabase.from('purchases').update(toDbPurchaseUpdates(updates)).eq('id', id);
+  const { error } = await supabase
+    .from('purchases')
+    .update(toDbPurchaseUpdates(updates))
+    .eq('id', id);
   if (error) throw error;
   if (updates.items) await syncPurchaseItems(id, updates.items);
   return fetchMobilePurchase(id);

@@ -1,4 +1,7 @@
-import { DEFAULT_NFE_NUMBER, DEFAULT_NFCE_NUMBER } from '../../../../../shared-utils/fiscalNumbering.js';
+import {
+  DEFAULT_NFE_NUMBER,
+  DEFAULT_NFCE_NUMBER,
+} from '../../../../../shared-utils/fiscalNumbering.js';
 
 type FiscalSequenceSettings = {
   nfeSerie?: string;
@@ -15,7 +18,7 @@ export function resolveNfeSequenceSettings(
   environment: 1 | 2
 ) {
   const series = validateContributorNfeSeries(
-    environment === 2 ? (settings.nfeHomologationSerie || '1') : (settings.nfeSerie || '1')
+    environment === 2 ? settings.nfeHomologationSerie || '1' : settings.nfeSerie || '1'
   );
   if (environment === 2) {
     return {
@@ -31,7 +34,9 @@ export function resolveNfeSequenceSettings(
   return {
     series,
     minimumNumber: Number(
-      model === '65' ? (settings.nfceNextNumber ?? DEFAULT_NFCE_NUMBER) : (settings.nfeNextNumber ?? DEFAULT_NFE_NUMBER)
+      model === '65'
+        ? (settings.nfceNextNumber ?? DEFAULT_NFCE_NUMBER)
+        : (settings.nfeNextNumber ?? DEFAULT_NFE_NUMBER)
     ),
   };
 }
@@ -40,6 +45,8 @@ export function resolveNfeSequenceSettings(
 export function validateContributorNfeSeries(value: unknown): string {
   const series = typeof value === 'string' ? value.trim() : '';
   if (!/^\d{1,3}$/.test(series) || Number(series) > 889)
-    throw new Error('A série deste emissor deve estar entre 0 e 889. A série 900 é reservada à emissão avulsa pelo Fisco. Corrija a série nas configurações fiscais.');
+    throw new Error(
+      'A série deste emissor deve estar entre 0 e 889. A série 900 é reservada à emissão avulsa pelo Fisco. Corrija a série nas configurações fiscais.'
+    );
   return String(Number(series));
 }

@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, ShieldCheck, Settings, LogOut, RefreshCw, BellRing, KeyRound } from 'lucide-react-native';
+import {
+  X,
+  ShieldCheck,
+  Settings,
+  LogOut,
+  RefreshCw,
+  BellRing,
+  KeyRound,
+} from 'lucide-react-native';
 import * as Updates from 'expo-updates';
 import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
 import { testRemotePushNotification } from '../../services/notificationService';

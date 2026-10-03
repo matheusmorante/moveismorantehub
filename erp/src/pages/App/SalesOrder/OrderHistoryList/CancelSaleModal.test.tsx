@@ -21,8 +21,12 @@ describe('modal de cancelamento da venda', () => {
       />
     );
 
-    expect(screen.getByRole('dialog').textContent).toContain('Movimentações de saída vinculadas serão revertidas uma vez');
-    expect(screen.getByRole('dialog').textContent).toContain('A NF-e modelo 55 autorizada será cancelada junto à SEFAZ');
+    expect(screen.getByRole('dialog').textContent).toContain(
+      'Movimentações de saída vinculadas serão revertidas uma vez'
+    );
+    expect(screen.getByRole('dialog').textContent).toContain(
+      'A NF-e modelo 55 autorizada será cancelada junto à SEFAZ'
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);

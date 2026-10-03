@@ -75,7 +75,12 @@ function database(orderStatus: 'fulfilled' | 'scheduled' | 'cancelled') {
           table === 'nfe_documents'
             ? fiscalDocument
             : table === 'orders'
-              ? { status: orderStatus, delivery_status: null, delivery_method: null, order_data: {} }
+              ? {
+                  status: orderStatus,
+                  delivery_status: null,
+                  delivery_method: null,
+                  order_data: {},
+                }
               : null,
         error: null,
       }),
@@ -139,7 +144,9 @@ describe('API de cancelamento de NF-e', () => {
     mocks.createClient.mockReturnValue(db);
     process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
     mocks.extractCertificateAndKey.mockReturnValue({
-      privateKeyPem: 'mock-key', certPem: 'mock-cert', certDerBase64: 'mock-der',
+      privateKeyPem: 'mock-key',
+      certPem: 'mock-cert',
+      certDerBase64: 'mock-der',
     });
     mocks.signNfeEventXml.mockImplementation((xml: string) => xml);
     mocks.sendSoapToSefaz.mockResolvedValue(
@@ -152,14 +159,21 @@ describe('API de cancelamento de NF-e', () => {
     const after = Date.now();
 
     expect(result.statusCode).toBe(200);
-    expect(result.body).toMatchObject({ success: true, status: 'cancelada', cStat: '135', protocolNumber: '141260000000001', reconciliationRequired: false });
+    expect(result.body).toMatchObject({
+      success: true,
+      status: 'cancelada',
+      cStat: '135',
+      protocolNumber: '141260000000001',
+      reconciliationRequired: false,
+    });
     const xml = mocks.signNfeEventXml.mock.calls[0][0] as string;
     const timestamp = xml.match(/<dhEvento>([^<]+)<\/dhEvento>/)?.[1];
     expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/);
     expect(Date.parse(timestamp!)).toBeGreaterThanOrEqual(before - 1000);
     expect(Date.parse(timestamp!)).toBeLessThanOrEqual(after);
     expect(mocks.sendSoapToSefaz.mock.calls[0][0]).toMatchObject({
-      url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4', xmlPayload: xml,
+      url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
+      xmlPayload: xml,
     });
     expect(db.rpc).not.toHaveBeenCalled();
   });

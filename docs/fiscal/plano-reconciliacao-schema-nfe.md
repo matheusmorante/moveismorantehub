@@ -1,6 +1,8 @@
+> **Orientação histórica substituída:** instruções sobre Docker, Supabase Local ou exigência de PostgreSQL isolado neste relatório não são mais operacionais. A validação vigente segue [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md) com o Supabase remoto configurado e fixtures sintéticas; preserve este relatório como registro do estado observado na época. Os critérios de testes fiscais em homologação foram removidos em 2026-10-03 para redefinição.
+
 # Plano de reconciliação por objeto — NF-e de saída
 
-> Auditoria de schema e plano de trabalho. Este documento não altera o roadmap fiscal e não declara emissão homologada ou pronta para produção.
+> Auditoria de schema e plano de trabalho. Este documento não altera o roadmap fiscal e não declara emissão homologada ou pronta para produção. Não define testes fiscais em homologação; o roteiro anterior foi removido em 2026-10-03 para redefinição.
 
 ## Escopo e evidência
 
@@ -116,7 +118,6 @@ O grafo é lógico, não é uma ordem de `db push`. As dependências devem ser c
 - Conferir assinaturas exatas, `SECURITY DEFINER`, `search_path` e ACL das RPCs; negar chamadas fiscais a `anon` e a papéis não previstos.
 - Fazer consulta de consistência dos contadores por modelo/série/ambiente e provar que nenhuma série de homologação cruza produção.
 - Em banco representativo, comprovar que qualquer falha em etapa essencial reverte documento, número/estado e efeitos de pedido/estoque; repetir operação e concorrência para provar idempotência.
-- Somente depois dos gates de schema/API/A1, executar a matriz real de homologação com `tpAmb=2`; evidência SEFAZ permanece requisito independente. O snapshot deste plano não conta como homologação.
 
 ## Decisão do snapshot
 

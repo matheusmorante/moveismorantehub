@@ -10,7 +10,9 @@ type Props = {
 
 const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) => {
   const [seconds, setSeconds] = React.useState(5);
-  const isCollection = order.returnMethod === 'store_collection' || (order.status === 'scheduled' && !order.returnMethod);
+  const isCollection =
+    order.returnMethod === 'store_collection' ||
+    (order.status === 'scheduled' && !order.returnMethod);
   const completion = isCollection ? 'coletada' : 'recebida';
 
   React.useEffect(() => {
@@ -38,7 +40,7 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <button
         type="button"
-          aria-label={`Fechar confirmação de devolução ${completion}`}
+        aria-label={`Fechar confirmação de devolução ${completion}`}
         className="fixed inset-0 bg-slate-950/60 transition-opacity"
         onClick={onCancel}
       />
@@ -56,7 +58,12 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
           Confirmar devolução {completion}?
         </h2>
         <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Confirme somente após {isCollection ? 'a equipe trazer a mercadoria coletada' : 'a loja receber fisicamente a mercadoria do cliente'}. Uma movimentação de entrada será gerada para os itens com produto cadastrado. Depois disso, esta devolução não poderá ser cancelada ou desfeita.
+          Confirme somente após{' '}
+          {isCollection
+            ? 'a equipe trazer a mercadoria coletada'
+            : 'a loja receber fisicamente a mercadoria do cliente'}
+          . Uma movimentação de entrada será gerada para os itens com produto cadastrado. Depois
+          disso, esta devolução não poderá ser cancelada ou desfeita.
         </p>
         {hasUnregistered ? (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">

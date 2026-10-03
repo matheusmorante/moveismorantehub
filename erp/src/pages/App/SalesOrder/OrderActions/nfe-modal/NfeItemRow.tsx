@@ -68,7 +68,10 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
           <div className="flex flex-col items-stretch gap-1.5 min-w-[190px] sm:min-w-[220px]">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
-              NCM:
+              NCM{' '}
+              <span aria-hidden="true" className="text-rose-600">
+                *
+              </span>
             </label>
             <span className={`text-[10px] ${isNcmValid ? 'text-emerald-600' : 'text-rose-600'}`}>
               {isNcmValid ? '8 dígitos' : 'Informe 8 dígitos'}
@@ -98,7 +101,10 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-              CFOP *
+              CFOP{' '}
+              <span aria-hidden="true" className="text-rose-600">
+                *
+              </span>
             </label>
             <select
               aria-label="CFOP"
@@ -116,7 +122,10 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
           </div>
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-              CSOSN *
+              CSOSN{' '}
+              <span aria-hidden="true" className="text-rose-600">
+                *
+              </span>
             </label>
             <select
               aria-label="CSOSN"
@@ -132,12 +141,16 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
               ))}
             </select>
             <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-              Padrão definido nas Configurações Fiscais para este ambiente; ajuste conforme a operação.
+              Padrão definido nas Configurações Fiscais para este ambiente; ajuste conforme a
+              operação.
             </p>
           </div>
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-              Origem *
+              Origem{' '}
+              <span aria-hidden="true" className="text-rose-600">
+                *
+              </span>
             </label>
             <select
               aria-label="Origem fiscal"

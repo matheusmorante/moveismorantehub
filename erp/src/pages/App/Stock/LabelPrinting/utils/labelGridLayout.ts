@@ -29,7 +29,7 @@ export const expandLabelItems = (
   return expanded;
 };
 
-export const getLabelGridPageItems = <T,>(
+export const getLabelGridPageItems = <T>(
   items: readonly T[],
   pageSize: number,
   pageIndex: number

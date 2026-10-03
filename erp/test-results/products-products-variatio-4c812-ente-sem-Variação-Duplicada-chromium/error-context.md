@@ -1,0 +1,554 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: products\products-variations-e2e.spec.ts >> Suíte E2E B2B - Criação de Produto, Variações e Validações de Negócio >> Caso 5: Cadastro Rápido de Variação em Pai Existente sem Variação Duplicada
+- Location: tests\e2e\products\products-variations-e2e.spec.ts:153:5
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded while running "beforeEach" hook.
+```
+
+```
+Error: Erros críticos de console detectados
+
+expect(received).toEqual(expected) // deep equality
+
+- Expected  - 1
++ Received  + 3
+
+- Array []
++ Array [
++   "Failed to load resource: the server responded with a status of 401 ()",
++ ]
+```
+
+```
+Tearing down "context" exceeded the test timeout of 30000ms.
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - region "Notifications Alt+T"
+    - main [ref=e4]:
+      - generic [ref=e7]:
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - generic [ref=e11]: 
+            - textbox "Pesquisar produtos..." [ref=e12]
+          - button "" [ref=e15] [cursor=pointer]
+        - generic [ref=e17]:
+          - generic [ref=e20]:
+            - generic [ref=e21]:
+              - text:                                                                                                  
+              - generic [ref=e22]:
+                - button " Variações (1) 000001 Status ERP derivado das variações  Rascunho Continuar Cadastramento Opções do produto [teste_aut]_var_1791056068148 Guarda-Roupa de Casal com Espelho -" [ref=e23] [cursor=pointer]:
+                  - generic [ref=e24]:
+                    - generic [ref=e25]:
+                      - button " Variações (1)" [ref=e26]:
+                        - generic [ref=e27]: 
+                        - generic [ref=e28]: Variações (1)
+                      - generic [ref=e29]: "000001"
+                    - generic [ref=e30]:
+                      - generic "Status ERP derivado das variações" [ref=e32]:
+                        - generic [ref=e33]:
+                          - generic [ref=e34]: ERP
+                          - generic [ref=e35]: Desativado
+                      - generic [ref=e38]:
+                        - generic [ref=e39]: 
+                        - text: Rascunho
+                      - generic [ref=e40]:
+                        - button "Continuar Cadastramento" [ref=e41]:
+                          - generic [ref=e42]: 
+                        - button "Opções do produto" [ref=e43]:
+                          - generic [ref=e44]: 
+                  - generic [ref=e46]:
+                    - heading "[teste_aut]_var_1791056068148 Guarda-Roupa de Casal com Espelho" [level=3] [ref=e47]
+                    - generic [ref=e48]: "-"
+                - button " Variações (1) 000001 Status ERP derivado das variações  Rascunho Continuar Cadastramento Opções do produto [teste_aut]_var_1791055961467 Poltrona do Papai com Reclinador -" [ref=e50] [cursor=pointer]:
+                  - generic [ref=e51]:
+                    - generic [ref=e52]:
+                      - button " Variações (1)" [ref=e53]:
+                        - generic [ref=e54]: 
+                        - generic [ref=e55]: Variações (1)
+                      - generic [ref=e56]: "000001"
+                    - generic [ref=e57]:
+                      - generic "Status ERP derivado das variações" [ref=e59]:
+                        - generic [ref=e60]:
+                          - generic [ref=e61]: ERP
+                          - generic [ref=e62]: Desativado
+                      - generic [ref=e65]:
+                        - generic [ref=e66]: 
+                        - text: Rascunho
+                      - generic [ref=e67]:
+                        - button "Continuar Cadastramento" [ref=e68]:
+                          - generic [ref=e69]: 
+                        - button "Opções do produto" [ref=e70]:
+                          - generic [ref=e71]: 
+                  - generic [ref=e73]:
+                    - heading "[teste_aut]_var_1791055961467 Poltrona do Papai com Reclinador" [level=3] [ref=e74]
+                    - generic [ref=e75]: "-"
+                - button " Variações (1) 004030 Status ERP derivado das variações  Rascunho  Queima dos Salvados Continuar Cadastramento Opções do produto Cozinha Compacta 6 Portas 1 Gaveta com Tampo Dália New Cadorin Cozinhas Moduladas e Compactas •  Multiloja Salvados" [ref=e77] [cursor=pointer]:
+                  - generic [ref=e78]:
+                    - generic [ref=e79]:
+                      - button " Variações (1)" [ref=e80]:
+                        - generic [ref=e81]: 
+                        - generic [ref=e82]: Variações (1)
+                      - generic [ref=e83]: "004030"
+                    - generic [ref=e84]:
+                      - generic "Status ERP derivado das variações" [ref=e86]:
+                        - generic [ref=e87]:
+                          - generic [ref=e88]: ERP
+                          - generic [ref=e89]: Desativado
+                      - generic [ref=e92]:
+                        - generic [ref=e93]: 
+                        - text: Rascunho
+                      - generic [ref=e94]:
+                        - generic [ref=e95]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e96]:
+                        - button "Continuar Cadastramento" [ref=e97]:
+                          - generic [ref=e98]: 
+                        - button "Opções do produto" [ref=e99]:
+                          - generic [ref=e100]: 
+                  - generic [ref=e102]:
+                    - heading "Cozinha Compacta 6 Portas 1 Gaveta com Tampo Dália New Cadorin" [level=3] [ref=e103]
+                    - generic [ref=e104]:
+                      - generic [ref=e105]: Cozinhas Moduladas e Compactas
+                      - generic [ref=e106]: •
+                      - generic [ref=e107]:
+                        - generic [ref=e108]: 
+                        - text: Multiloja Salvados
+                - button " Variações (1) TEST_AUT_db3441d2-246d-48c8-9639-f0bb884a77ad Status ERP derivado das variações Editar Produto Opções do produto Test_aut_db3441d2-246d-48c8-9639-F0bb884a77ad Criado-Mudo de Madeira Hml -" [ref=e109] [cursor=pointer]:
+                  - generic [ref=e110]:
+                    - generic [ref=e111]:
+                      - button " Variações (1)" [ref=e112]:
+                        - generic [ref=e113]: 
+                        - generic [ref=e114]: Variações (1)
+                      - generic [ref=e115]: TEST_AUT_db3441d2-246d-48c8-9639-f0bb884a77ad
+                    - generic [ref=e116]:
+                      - generic "Status ERP derivado das variações" [ref=e118]:
+                        - generic [ref=e119]:
+                          - generic [ref=e120]: ERP
+                          - generic [ref=e121]: Ativo
+                      - generic [ref=e124]:
+                        - button "Editar Produto" [ref=e125]:
+                          - generic [ref=e126]: 
+                        - button "Opções do produto" [ref=e127]:
+                          - generic [ref=e128]: 
+                  - generic [ref=e130]:
+                    - heading "Test_aut_db3441d2-246d-48c8-9639-F0bb884a77ad Criado-Mudo de Madeira Hml" [level=3] [ref=e131]
+                    - generic [ref=e132]: "-"
+                - button " Variações (1) TEST_AUT_76df12ca-185e-4080-9338-88444f09fab6 Status ERP derivado das variações Editar Produto Opções do produto Test_aut_76df12ca-185e-4080-9338-88444f09fab6 Criado-Mudo de Madeira Hml -" [ref=e134] [cursor=pointer]:
+                  - generic [ref=e135]:
+                    - generic [ref=e136]:
+                      - button " Variações (1)" [ref=e137]:
+                        - generic [ref=e138]: 
+                        - generic [ref=e139]: Variações (1)
+                      - generic [ref=e140]: TEST_AUT_76df12ca-185e-4080-9338-88444f09fab6
+                    - generic [ref=e141]:
+                      - generic "Status ERP derivado das variações" [ref=e143]:
+                        - generic [ref=e144]:
+                          - generic [ref=e145]: ERP
+                          - generic [ref=e146]: Ativo
+                      - generic [ref=e149]:
+                        - button "Editar Produto" [ref=e150]:
+                          - generic [ref=e151]: 
+                        - button "Opções do produto" [ref=e152]:
+                          - generic [ref=e153]: 
+                  - generic [ref=e155]:
+                    - heading "Test_aut_76df12ca-185e-4080-9338-88444f09fab6 Criado-Mudo de Madeira Hml" [level=3] [ref=e156]
+                    - generic [ref=e157]: "-"
+                - button " Variações (1) TEST_AUT_5734635f-4e1b-4ef2-8220-2bb2c46a7ba4 Status ERP derivado das variações Editar Produto Opções do produto Test_aut_5734635f-4e1b-4ef2-8220-2bb2c46a7ba4 Criado-Mudo de Madeira Hml -" [ref=e159] [cursor=pointer]:
+                  - generic [ref=e160]:
+                    - generic [ref=e161]:
+                      - button " Variações (1)" [ref=e162]:
+                        - generic [ref=e163]: 
+                        - generic [ref=e164]: Variações (1)
+                      - generic [ref=e165]: TEST_AUT_5734635f-4e1b-4ef2-8220-2bb2c46a7ba4
+                    - generic [ref=e166]:
+                      - generic "Status ERP derivado das variações" [ref=e168]:
+                        - generic [ref=e169]:
+                          - generic [ref=e170]: ERP
+                          - generic [ref=e171]: Ativo
+                      - generic [ref=e174]:
+                        - button "Editar Produto" [ref=e175]:
+                          - generic [ref=e176]: 
+                        - button "Opções do produto" [ref=e177]:
+                          - generic [ref=e178]: 
+                  - generic [ref=e180]:
+                    - heading "Test_aut_5734635f-4e1b-4ef2-8220-2bb2c46a7ba4 Criado-Mudo de Madeira Hml" [level=3] [ref=e181]
+                    - generic [ref=e182]: "-"
+                - button " Variações (1) TEST_AUT_3bbc3842-15ab-4a6b-950b-62917ce614b8 Status ERP derivado das variações Editar Produto Opções do produto Test_aut_3bbc3842-15ab-4a6b-950b-62917ce614b8 Criado-Mudo de Madeira Hml -" [ref=e184] [cursor=pointer]:
+                  - generic [ref=e185]:
+                    - generic [ref=e186]:
+                      - button " Variações (1)" [ref=e187]:
+                        - generic [ref=e188]: 
+                        - generic [ref=e189]: Variações (1)
+                      - generic [ref=e190]: TEST_AUT_3bbc3842-15ab-4a6b-950b-62917ce614b8
+                    - generic [ref=e191]:
+                      - generic "Status ERP derivado das variações" [ref=e193]:
+                        - generic [ref=e194]:
+                          - generic [ref=e195]: ERP
+                          - generic [ref=e196]: Ativo
+                      - generic [ref=e199]:
+                        - button "Editar Produto" [ref=e200]:
+                          - generic [ref=e201]: 
+                        - button "Opções do produto" [ref=e202]:
+                          - generic [ref=e203]: 
+                  - generic [ref=e205]:
+                    - heading "Test_aut_3bbc3842-15ab-4a6b-950b-62917ce614b8 Criado-Mudo de Madeira Hml" [level=3] [ref=e206]
+                    - generic [ref=e207]: "-"
+                - button " Variações (1) CRI-000001 Status ERP derivado das variações  Rascunho Continuar Cadastramento Opções do produto [HML FISCAL] Criado-mudo de madeira TEST_AUT_cc21e342-9d76-4b0f-a8ef-27de9031cea7 -" [ref=e209] [cursor=pointer]:
+                  - generic [ref=e210]:
+                    - generic [ref=e211]:
+                      - button " Variações (1)" [ref=e212]:
+                        - generic [ref=e213]: 
+                        - generic [ref=e214]: Variações (1)
+                      - generic [ref=e215]: CRI-000001
+                    - generic [ref=e216]:
+                      - generic "Status ERP derivado das variações" [ref=e218]:
+                        - generic [ref=e219]:
+                          - generic [ref=e220]: ERP
+                          - generic [ref=e221]: Desativado
+                      - generic [ref=e224]:
+                        - generic [ref=e225]: 
+                        - text: Rascunho
+                      - generic [ref=e226]:
+                        - button "Continuar Cadastramento" [ref=e227]:
+                          - generic [ref=e228]: 
+                        - button "Opções do produto" [ref=e229]:
+                          - generic [ref=e230]: 
+                  - generic [ref=e232]:
+                    - heading "[HML FISCAL] Criado-mudo de madeira TEST_AUT_cc21e342-9d76-4b0f-a8ef-27de9031cea7" [level=3] [ref=e233]
+                    - generic [ref=e234]: "-"
+                - button " Variações (1) 004029 Status ERP derivado das variações  Rascunho  Queima dos Salvados Continuar Cadastramento Opções do produto Sofá 3 Lugares Retrátil Reclinável com USB Veludo 200cm Khalifa Woodx Estofados Sofás •  Multiloja Salvados" [ref=e236] [cursor=pointer]:
+                  - generic [ref=e237]:
+                    - generic [ref=e238]:
+                      - button " Variações (1)" [ref=e239]:
+                        - generic [ref=e240]: 
+                        - generic [ref=e241]: Variações (1)
+                      - generic [ref=e242]: "004029"
+                    - generic [ref=e243]:
+                      - generic "Status ERP derivado das variações" [ref=e245]:
+                        - generic [ref=e246]:
+                          - generic [ref=e247]: ERP
+                          - generic [ref=e248]: Desativado
+                      - generic [ref=e251]:
+                        - generic [ref=e252]: 
+                        - text: Rascunho
+                      - generic [ref=e253]:
+                        - generic [ref=e254]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e255]:
+                        - button "Continuar Cadastramento" [ref=e256]:
+                          - generic [ref=e257]: 
+                        - button "Opções do produto" [ref=e258]:
+                          - generic [ref=e259]: 
+                  - generic [ref=e261]:
+                    - heading "Sofá 3 Lugares Retrátil Reclinável com USB Veludo 200cm Khalifa Woodx Estofados" [level=3] [ref=e262]
+                    - generic [ref=e263]:
+                      - generic [ref=e264]: Sofás
+                      - generic [ref=e265]: •
+                      - generic [ref=e266]:
+                        - generic [ref=e267]: 
+                        - text: Multiloja Salvados
+                - button " Variações (2) 004004 Status ERP derivado das variações Editar Produto Opções do produto Estante Multiuso Open 56cm Estantes | Armários Multiuso •  Movelipe" [ref=e268] [cursor=pointer]:
+                  - generic [ref=e269]:
+                    - generic [ref=e270]:
+                      - button " Variações (2)" [ref=e271]:
+                        - generic [ref=e272]: 
+                        - generic [ref=e273]: Variações (2)
+                      - generic [ref=e274]: "004004"
+                    - generic [ref=e275]:
+                      - generic "Status ERP derivado das variações" [ref=e277]:
+                        - generic [ref=e278]:
+                          - generic [ref=e279]: ERP
+                          - generic [ref=e280]: Ativo
+                      - generic [ref=e283]:
+                        - button "Editar Produto" [ref=e284]:
+                          - generic [ref=e285]: 
+                        - button "Opções do produto" [ref=e286]:
+                          - generic [ref=e287]: 
+                  - generic [ref=e289]:
+                    - heading "Estante Multiuso Open 56cm" [level=3] [ref=e290]
+                    - generic [ref=e291]:
+                      - generic [ref=e292]: Estantes | Armários Multiuso
+                      - generic [ref=e293]: •
+                      - generic [ref=e294]:
+                        - generic [ref=e295]: 
+                        - text: Movelipe
+                - button " Variações (1) 004002 Status ERP derivado das variações  Queima dos Salvados Editar Produto Opções do produto Sapateira 2 Portas Espelhadas Grife Demóbile Sapateiras | Guarda-Roupas | Armários Multiuso •  Multiloja Salvados" [ref=e296] [cursor=pointer]:
+                  - generic [ref=e297]:
+                    - generic [ref=e298]:
+                      - button " Variações (1)" [ref=e299]:
+                        - generic [ref=e300]: 
+                        - generic [ref=e301]: Variações (1)
+                      - generic [ref=e302]: "004002"
+                    - generic [ref=e303]:
+                      - generic "Status ERP derivado das variações" [ref=e305]:
+                        - generic [ref=e306]:
+                          - generic [ref=e307]: ERP
+                          - generic [ref=e308]: Desativado
+                      - generic [ref=e311]:
+                        - generic [ref=e312]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e313]:
+                        - button "Editar Produto" [ref=e314]:
+                          - generic [ref=e315]: 
+                        - button "Opções do produto" [ref=e316]:
+                          - generic [ref=e317]: 
+                  - generic [ref=e319]:
+                    - heading "Sapateira 2 Portas Espelhadas Grife Demóbile" [level=3] [ref=e320]
+                    - generic [ref=e321]:
+                      - generic [ref=e322]: Sapateiras | Guarda-Roupas | Armários Multiuso
+                      - generic [ref=e323]: •
+                      - generic [ref=e324]:
+                        - generic [ref=e325]: 
+                        - text: Multiloja Salvados
+                - button " Variações (1) 004001 Status ERP derivado das variações  Queima dos Salvados Editar Produto Opções do produto Conjunto Mesa Itália Granito 1,40m com 6 Cadeiras Metal Conjunto para Sala de Jantar •  Multiloja Salvados" [ref=e326] [cursor=pointer]:
+                  - generic [ref=e327]:
+                    - generic [ref=e328]:
+                      - button " Variações (1)" [ref=e329]:
+                        - generic [ref=e330]: 
+                        - generic [ref=e331]: Variações (1)
+                      - generic [ref=e332]: "004001"
+                    - generic [ref=e333]:
+                      - generic "Status ERP derivado das variações" [ref=e335]:
+                        - generic [ref=e336]:
+                          - generic [ref=e337]: ERP
+                          - generic [ref=e338]: Desativado
+                      - generic [ref=e341]:
+                        - generic [ref=e342]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e343]:
+                        - button "Editar Produto" [ref=e344]:
+                          - generic [ref=e345]: 
+                        - button "Opções do produto" [ref=e346]:
+                          - generic [ref=e347]: 
+                  - generic [ref=e349]:
+                    - heading "Conjunto Mesa Itália Granito 1,40m com 6 Cadeiras Metal" [level=3] [ref=e350]
+                    - generic [ref=e351]:
+                      - generic [ref=e352]: Conjunto para Sala de Jantar
+                      - generic [ref=e353]: •
+                      - generic [ref=e354]:
+                        - generic [ref=e355]: 
+                        - text: Multiloja Salvados
+                - button " Variações (1) 004000 Status ERP derivado das variações  Queima dos Salvados Editar Produto Opções do produto Conjunto Mesa Vidro 2,10 M Ester Cimol com 8 Poltronas Grecia para Sala de Jantar Conjunto para Sala de Jantar •  Multiloja Salvados" [ref=e356] [cursor=pointer]:
+                  - generic [ref=e357]:
+                    - generic [ref=e358]:
+                      - button " Variações (1)" [ref=e359]:
+                        - generic [ref=e360]: 
+                        - generic [ref=e361]: Variações (1)
+                      - generic [ref=e362]: "004000"
+                    - generic [ref=e363]:
+                      - generic "Status ERP derivado das variações" [ref=e365]:
+                        - generic [ref=e366]:
+                          - generic [ref=e367]: ERP
+                          - generic [ref=e368]: Desativado
+                      - generic [ref=e371]:
+                        - generic [ref=e372]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e373]:
+                        - button "Editar Produto" [ref=e374]:
+                          - generic [ref=e375]: 
+                        - button "Opções do produto" [ref=e376]:
+                          - generic [ref=e377]: 
+                  - generic [ref=e379]:
+                    - heading "Conjunto Mesa Vidro 2,10 M Ester Cimol com 8 Poltronas Grecia para Sala de Jantar" [level=3] [ref=e380]
+                    - generic [ref=e381]:
+                      - generic [ref=e382]: Conjunto para Sala de Jantar
+                      - generic [ref=e383]: •
+                      - generic [ref=e384]:
+                        - generic [ref=e385]: 
+                        - text: Multiloja Salvados
+                - button " Variações (1) 003999 Status ERP derivado das variações  Queima dos Salvados Editar Produto Opções do produto Base Bau Casal 1,38 Damulti Premium Camas/Bases Box •  Multiloja Salvados" [ref=e386] [cursor=pointer]:
+                  - generic [ref=e387]:
+                    - generic [ref=e388]:
+                      - button " Variações (1)" [ref=e389]:
+                        - generic [ref=e390]: 
+                        - generic [ref=e391]: Variações (1)
+                      - generic [ref=e392]: "003999"
+                    - generic [ref=e393]:
+                      - generic "Status ERP derivado das variações" [ref=e395]:
+                        - generic [ref=e396]:
+                          - generic [ref=e397]: ERP
+                          - generic [ref=e398]: Desativado
+                      - generic [ref=e401]:
+                        - generic [ref=e402]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e403]:
+                        - button "Editar Produto" [ref=e404]:
+                          - generic [ref=e405]: 
+                        - button "Opções do produto" [ref=e406]:
+                          - generic [ref=e407]: 
+                  - generic [ref=e409]:
+                    - heading "Base Bau Casal 1,38 Damulti Premium" [level=3] [ref=e410]
+                    - generic [ref=e411]:
+                      - generic [ref=e412]: Camas/Bases Box
+                      - generic [ref=e413]: •
+                      - generic [ref=e414]:
+                        - generic [ref=e415]: 
+                        - text: Multiloja Salvados
+                - button " Variações (1) 003998 Status ERP derivado das variações  Queima dos Salvados Editar Produto Opções do produto Guarda Roupa Thb Splendore Glass 4 Porta 2 Gaveta Guarda-Roupas •  Multiloja Salvados" [ref=e416] [cursor=pointer]:
+                  - generic [ref=e417]:
+                    - generic [ref=e418]:
+                      - button " Variações (1)" [ref=e419]:
+                        - generic [ref=e420]: 
+                        - generic [ref=e421]: Variações (1)
+                      - generic [ref=e422]: "003998"
+                    - generic [ref=e423]:
+                      - generic "Status ERP derivado das variações" [ref=e425]:
+                        - generic [ref=e426]:
+                          - generic [ref=e427]: ERP
+                          - generic [ref=e428]: Desativado
+                      - generic [ref=e431]:
+                        - generic [ref=e432]: 
+                        - text: Queima dos Salvados
+                      - generic [ref=e433]:
+                        - button "Editar Produto" [ref=e434]:
+                          - generic [ref=e435]: 
+                        - button "Opções do produto" [ref=e436]:
+                          - generic [ref=e437]: 
+                  - generic [ref=e439]:
+                    - heading "Guarda Roupa Thb Splendore Glass 4 Porta 2 Gaveta" [level=3] [ref=e440]
+                    - generic [ref=e441]:
+                      - generic [ref=e442]: Guarda-Roupas
+                      - generic [ref=e443]: •
+                      - generic [ref=e444]:
+                        - generic [ref=e445]: 
+                        - text: Multiloja Salvados
+            - generic [ref=e446]:
+              - generic [ref=e447]:
+                - generic [ref=e448]: Página 1 · 275 itens no catálogo
+                - combobox [ref=e450]:
+                  - option "10 por página"
+                  - option "15 por página" [selected]
+              - generic [ref=e451]:
+                - button "" [disabled] [ref=e452]
+                - button "1" [disabled] [ref=e456]
+                - button "2" [ref=e458] [cursor=pointer]
+                - button "" [ref=e459] [cursor=pointer]
+          - generic [ref=e461]:
+            - generic [ref=e462]:
+              - button " Resumo dos Produtos " [ref=e463] [cursor=pointer]:
+                - generic [ref=e464]:
+                  - generic [ref=e465]: 
+                  - heading "Resumo dos Produtos" [level=4] [ref=e467]
+                - generic [ref=e468]: 
+              - generic [ref=e469]:
+                - tablist "Canal do resumo" [ref=e470]:
+                  - tab "ERP" [selected] [ref=e471] [cursor=pointer]
+                  - tab "Catálogo" [ref=e472] [cursor=pointer]
+                - button " Total de Cadastrados 297" [ref=e473] [cursor=pointer]:
+                  - generic [ref=e474]:
+                    - generic [ref=e475]: 
+                    - generic [ref=e476]: Total de Cadastrados
+                  - generic [ref=e477]: "297"
+                - generic [ref=e478]:
+                  - button "Ativos 142" [ref=e479] [cursor=pointer]:
+                    - generic [ref=e480]: Ativos
+                    - generic [ref=e481]: "142"
+                  - button "Desativados 155" [ref=e482] [cursor=pointer]:
+                    - generic [ref=e483]: Desativados
+                    - generic [ref=e484]: "155"
+                  - button " Rascunhos (Em Cadastro) 2" [ref=e485] [cursor=pointer]:
+                    - generic [ref=e486]:
+                      - generic [ref=e487]: 
+                      - generic [ref=e488]: Rascunhos (Em Cadastro)
+                    - generic [ref=e489]: "2"
+            - generic [ref=e490]:
+              - button " Filtros " [ref=e491] [cursor=pointer]:
+                - generic [ref=e492]:
+                  - generic [ref=e493]: 
+                  - heading "Filtros" [level=4] [ref=e495]
+                - generic [ref=e496]: 
+              - complementary "Filtros de produtos" [ref=e498]:
+                - generic [ref=e499]:
+                  - generic [ref=e500]: Parâmetros
+                  - generic [ref=e502]:
+                    - generic [ref=e503]:
+                      - generic [ref=e504]: Categoria
+                      - combobox "Categoria" [ref=e505] [cursor=pointer]:
+                        - option "Todas as Categorias" [selected]
+                        - option "Somente Produtos"
+                        - option "Somente Serviços"
+                        - option "Aparadores Buffets"
+                        - option "Armários Aéreos"
+                        - option "Armários Multiuso"
+                        - option "Armários para Fornos"
+                        - option "Balcões com Fruteiras"
+                        - option "Balcões com Tampo"
+                        - option "Balcões para Cooktop"
+                        - option "Balcões para Filtro de Àgua"
+                        - option "Balcões para Pia"
+                        - option "Banheiro"
+                        - option "Beliches"
+                        - option "Berços"
+                        - option "Cabeceiras"
+                        - option "Cadeiras para Escritório"
+                        - option "Cadeiras para Sala de Jantar"
+                        - option "Camas/Bases Box"
+                        - option "Colchões"
+                        - option "Cômodas"
+                        - option "Conjunto para Sala de Jantar"
+                        - option "Conjuntos para Banheiro"
+                        - option "Cozinha"
+                        - option "Cozinhas Moduladas e Compactas"
+                        - option "Cristaleiras"
+                        - option "Escritório"
+                        - option "Espelheira para Banheiro"
+                        - option "Estantes"
+                        - option "Guarda-Roupas"
+                        - option "Homes"
+                        - option "Lavanderia"
+                        - option "Mesa para Sala de Jantar"
+                        - option "Mesas de Cabeceira"
+                        - option "Mesas para Escritório"
+                        - option "Painéis"
+                        - option "Paneleiros"
+                        - option "Penteadeiras"
+                        - option "Pias"
+                        - option "Poltronas"
+                        - option "Quarto"
+                        - option "Racks"
+                        - option "Sala de Estar"
+                        - option "Sala de Jantar"
+                        - option "Sapateiras"
+                        - option "Sofás"
+                        - option "Tampos"
+                        - option "Treliches"
+                    - generic [ref=e506]:
+                      - generic [ref=e507]: Situação no ERP
+                      - combobox "Situação no ERP" [ref=e508] [cursor=pointer]:
+                        - option "Todos os Produtos" [selected]
+                        - option "Produtos Ativos"
+                        - option "Produtos Desativados"
+                        - option "Rascunhos (Em Cadastro)"
+                    - generic [ref=e509]:
+                      - generic [ref=e510]: Catálogo Digital
+                      - combobox "Catálogo Digital" [ref=e511] [cursor=pointer]:
+                        - option "Todos" [selected]
+                        - option "Publicado no Catálogo"
+                        - option "Ocultado do Catálogo"
+                - button "Limpar Filtros" [ref=e513] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=e514]: 
+                  - text: Limpar Filtros
+    - generic [ref=e516]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=e517] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=e519]
+  - region "Notifications Alt+T"
+```

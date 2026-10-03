@@ -4,14 +4,18 @@ export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Material da estrutura'] as
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
 
 export const isRequiredCharacteristicName = (name: string) =>
-  REQUIRED_CHARACTERISTIC_NAMES.some((requiredName) => normalizeName(requiredName) === normalizeName(name));
+  REQUIRED_CHARACTERISTIC_NAMES.some(
+    (requiredName) => normalizeName(requiredName) === normalizeName(name)
+  );
 
 export const getEffectiveVariationTechnicalValues = (
   parentValues: Record<string, unknown> = {},
   variation: any = {}
 ): Record<string, unknown> => {
   const valuesByName = new Map<string, unknown>();
-  Object.entries(parentValues).forEach(([name, value]) => valuesByName.set(normalizeName(name), value));
+  Object.entries(parentValues).forEach(([name, value]) =>
+    valuesByName.set(normalizeName(name), value)
+  );
 
   let attributes = variation?.attributes;
   if (typeof attributes === 'string' && attributes.trim()) {

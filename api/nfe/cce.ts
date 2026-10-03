@@ -1,3 +1,4 @@
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomInt } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -15,7 +16,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseSecretKey() || '';
 const eventEndpoints = {
   1: 'https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
   2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
@@ -170,7 +171,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const queryDocumentId = Array.isArray(req.query?.documentId)
     ? req.query.documentId[0]
     : req.query?.documentId;
-  const documentId = String(req.method === 'GET' ? queryDocumentId || '' : req.body?.documentId || '');
+  const documentId = String(
+    req.method === 'GET' ? queryDocumentId || '' : req.body?.documentId || ''
+  );
   if (!documentId)
     return res.status(400).json({ success: false, error: 'Documento fiscal não informado.' });
 
@@ -179,20 +182,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (documentError || !document)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
     if (document.modelo !== '55')
-      return res.status(409).json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
-    if (![1, 2].includes(Number(document.ambiente)) || !/^\d{44}$/.test(document.chave_acesso || ''))
-      return res.status(409).json({ success: false, error: 'Ambiente ou chave de acesso inválidos.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
+    if (
+      ![1, 2].includes(Number(document.ambiente)) ||
+      !/^\d{44}$/.test(document.chave_acesso || '')
+    )
+      return res
+        .status(409)
+        .json({ success: false, error: 'Ambiente ou chave de acesso inválidos.' });
     if (!['autorizada', 'homologada'].includes(document.status))
-      return res.status(409).json({ success: false, error: 'A NF-e precisa estar autorizada para receber CC-e.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'A NF-e precisa estar autorizada para receber CC-e.' });
 
     const { events, error: eventsError } = await getCceEvents(db, document.id);
     if (eventsError)
-      return res.status(503).json({ success: false, error: 'Não foi possível consultar o histórico de CC-e.' });
+      return res
+        .status(503)
+        .json({ success: false, error: 'Não foi possível consultar o histórico de CC-e.' });
     const latest = events[0] || null;
     const latestRegistered = events.find((event) => event.status === 'registered') || null;
 
     if (req.method === 'GET') {
-      const pendingEvent = latest && ['transmitting', 'unknown'].includes(latest.status) ? latest : null;
+      const pendingEvent =
+        latest && ['transmitting', 'unknown'].includes(latest.status) ? latest : null;
       const nextSequence = pendingEvent
         ? null
         : latest?.status === 'registered'
@@ -206,7 +221,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         previousSequence: latestRegistered?.event_sequence || null,
         nextSequence,
         pending: pendingEvent
-          ? { id: pendingEvent.id, status: pendingEvent.status, sequence: pendingEvent.event_sequence }
+          ? {
+              id: pendingEvent.id,
+              status: pendingEvent.status,
+              sequence: pendingEvent.event_sequence,
+            }
           : null,
         sequenceLimitReached: nextSequence !== null && nextSequence > 20,
       });
@@ -215,7 +234,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = String(req.body?.action || 'transmit');
     if (action === 'reconcile') {
       if (!latest || !['transmitting', 'unknown'].includes(latest.status))
-        return res.status(409).json({ success: false, error: 'Não há CC-e pendente para consultar.' });
+        return res
+          .status(409)
+          .json({ success: false, error: 'Não há CC-e pendente para consultar.' });
       return reconcilePendingEvent(db, document, latest, res, true);
     }
 
@@ -224,17 +245,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const requestId = String(req.body?.requestId || '');
     if (!isUuid(requestId))
-      return res.status(400).json({ success: false, error: 'Identificador da solicitação inválido.' });
+      return res
+        .status(400)
+        .json({ success: false, error: 'Identificador da solicitação inválido.' });
 
     const { data: previousRequest, error: requestLookupError } = await db
       .from('nfe_document_events')
-      .select('id,event_sequence,attempt_number,status,justification,request_id,requested_at,cstat,xmotivo,protocol_number,protocol_date')
+      .select(
+        'id,event_sequence,attempt_number,status,justification,request_id,requested_at,cstat,xmotivo,protocol_number,protocol_date'
+      )
       .eq('document_id', document.id)
       .eq('event_type', '110110')
       .eq('request_id', requestId)
       .maybeSingle();
     if (requestLookupError)
-      return res.status(503).json({ success: false, error: 'Não foi possível verificar a solicitação anterior.' });
+      return res
+        .status(503)
+        .json({ success: false, error: 'Não foi possível verificar a solicitação anterior.' });
     if (previousRequest) {
       const previous = previousRequest as CceEvent;
       if (previous.status === 'registered')
@@ -260,11 +287,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const correction = String(req.body?.correction || '').trim();
     const correctionError = validateNfeCce(correction);
-    if (correctionError)
-      return res.status(400).json({ success: false, error: correctionError });
+    if (correctionError) return res.status(400).json({ success: false, error: correctionError });
     if (Number(document.ambiente) === 1 && !readProductionConfirmation(req))
-      return res.status(400).json({ success: false, error: 'Confirme explicitamente a CC-e em Produção.' });
-    if (Number(document.ambiente) === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED))
+      return res
+        .status(400)
+        .json({ success: false, error: 'Confirme explicitamente a CC-e em Produção.' });
+    if (
+      Number(document.ambiente) === 1 &&
+      !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)
+    )
       return res.status(503).json({
         success: false,
         error: 'Eventos fiscais em Produção estão desabilitados neste servidor.',
@@ -272,16 +303,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const pfx = process.env.NFE_CERTIFICATE_BASE64;
     if (!pfx)
-      return res.status(503).json({ success: false, error: 'Certificado digital do emitente não configurado.' });
+      return res
+        .status(503)
+        .json({ success: false, error: 'Certificado digital do emitente não configurado.' });
     if (!document.xml_nfe)
-      return res.status(409).json({ success: false, error: 'XML original da NF-e não está disponível.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'XML original da NF-e não está disponível.' });
     const issuerCnpj = document.xml_nfe.match(/<emit\b[^>]*>[\s\S]*?<CNPJ>(\d{14})<\/CNPJ>/i)?.[1];
     if (!issuerCnpj)
-      return res.status(409).json({ success: false, error: 'CNPJ do emitente não encontrado no XML original.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'CNPJ do emitente não encontrado no XML original.' });
 
-    const sequence = latest?.status === 'rejected' ? latest.event_sequence : (latest?.event_sequence || 0) + 1;
+    const sequence =
+      latest?.status === 'rejected' ? latest.event_sequence : (latest?.event_sequence || 0) + 1;
     if (sequence > 20)
-      return res.status(409).json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
+      return res
+        .status(409)
+        .json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
 
     const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
     const eventXml = buildNfeCceXml({
@@ -310,23 +350,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (reservationError) {
       const message = String(reservationError.message || '');
       if (message.includes('CCE_PREVIOUS_EVENT_PENDING'))
-        return res.status(409).json({ success: false, pending: true, error: 'Existe uma CC-e anterior com resultado incerto. Consulte a SEFAZ antes de continuar.' });
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error:
+            'Existe uma CC-e anterior com resultado incerto. Consulte a SEFAZ antes de continuar.',
+        });
       if (message.includes('CCE_SEQUENCE_LIMIT'))
-        return res.status(409).json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
+        return res
+          .status(409)
+          .json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
       if (message.includes('CCE_SEQUENCE_CHANGED'))
-        return res.status(409).json({ success: false, error: 'A sequência de CC-e mudou. Atualize o histórico e tente novamente.' });
+        return res.status(409).json({
+          success: false,
+          error: 'A sequência de CC-e mudou. Atualize o histórico e tente novamente.',
+        });
       if (message.includes('NFE_DOCUMENT_NOT_FOUND'))
         return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
       if (message.includes('CCE_REQUIRES_MODEL_55'))
-        return res.status(409).json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
-      if (message.includes('CCE_ENVIRONMENT_MISMATCH') || message.includes('CCE_REQUIRES_AUTHORIZED_NFE'))
-        return res.status(409).json({ success: false, error: 'O documento fiscal mudou de ambiente ou não está mais autorizado.' });
-      return res.status(503).json({ success: false, error: 'Não foi possível reservar a transmissão da CC-e.' });
+        return res
+          .status(409)
+          .json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
+      if (
+        message.includes('CCE_ENVIRONMENT_MISMATCH') ||
+        message.includes('CCE_REQUIRES_AUTHORIZED_NFE')
+      )
+        return res.status(409).json({
+          success: false,
+          error: 'O documento fiscal mudou de ambiente ou não está mais autorizado.',
+        });
+      return res
+        .status(503)
+        .json({ success: false, error: 'Não foi possível reservar a transmissão da CC-e.' });
     }
 
     const reservationRow = Array.isArray(reservation) ? reservation[0] : reservation;
     if (!reservationRow?.event_id || reservationRow.created !== true)
-      return res.status(503).json({ success: false, pending: true, error: 'A solicitação já está em processamento; consulte o resultado antes de repetir.' });
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'A solicitação já está em processamento; consulte o resultado antes de repetir.',
+      });
 
     let responseXml: string;
     try {
@@ -341,10 +405,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch {
       await db
         .from('nfe_document_events')
-        .update({ status: 'unknown', xmotivo: 'Transmissão iniciada sem confirmação da resposta da SEFAZ.' })
+        .update({
+          status: 'unknown',
+          xmotivo: 'Transmissão iniciada sem confirmação da resposta da SEFAZ.',
+        })
         .eq('id', reservationRow.event_id)
         .eq('status', 'transmitting');
-      return pendingResponse(res, 'Resultado incerto após o envio. Consulte a SEFAZ antes de qualquer nova tentativa.');
+      return pendingResponse(
+        res,
+        'Resultado incerto após o envio. Consulte a SEFAZ antes de qualquer nova tentativa.'
+      );
     }
 
     const result = parseSefazCceEvent(responseXml);
@@ -384,7 +454,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (result.pending)
       return pendingResponse(
         res,
-        result.xMotivo || 'A SEFAZ não confirmou o vínculo da CC-e à NF-e. Consulte antes de repetir.',
+        result.xMotivo ||
+          'A SEFAZ não confirmou o vínculo da CC-e à NF-e. Consulte antes de repetir.',
         result.cStat
       );
     return res.status(422).json({

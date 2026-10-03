@@ -15,6 +15,7 @@ import {
   isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
+import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
 
 interface VariationTechnicalTabProps {
   readonly formData: Variation;
@@ -31,6 +32,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   showDescription = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
@@ -128,7 +131,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   // Atributos definidos na própria variação (ex: Cor, Material, Tamanho vindos do cadastro de variação)
   // Mapeados de forma normalizada para garantir match case-insensitive com o nome dos campos técnicos
@@ -143,14 +146,24 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     return map;
   }, [formData?.attributes]);
 
+  const parentNormalizedValues = useMemo(() => {
+    const map: Record<string, any> = {};
+    (parentProduct?.attributes || []).forEach((attr) => {
+      if (attr.name && attr.value) {
+        map[attr.name] = attr.value;
+      }
+    });
+    return { ...map, ...(parentProduct?.technicalValues || {}) };
+  }, [parentProduct?.attributes, parentProduct?.technicalValues]);
+
   // Campos visíveis na variação: categorias do pai + valores do pai + overrides da variação + atributos da variação + manuais
   const combinedValues = useMemo(() => {
     return {
-      ...(parentProduct?.technicalValues || {}),
+      ...parentNormalizedValues,
       ...variationAttributeValues,
       ...(formData?.technicalValues || {}),
     };
-  }, [parentProduct?.technicalValues, variationAttributeValues, formData?.technicalValues]);
+  }, [parentNormalizedValues, variationAttributeValues, formData?.technicalValues]);
 
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
   const visibleFields = getApplicableTechnicalFields(
@@ -215,11 +228,40 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleRemoveOverride(fieldName);
   };
 
+  const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
+    const isProfundidade = currentField.name.toLowerCase() === 'profundidade';
+    const newName = isProfundidade ? 'Comprimento' : 'Profundidade';
+    const oldName = currentField.name;
+
+    const newFieldDef = allTechnicalFields.find(f => f.name.toLowerCase() === newName.toLowerCase());
+    if (!newFieldDef) {
+      console.warn(`Campo '${newName}' não encontrado no cadastro global de características.`);
+      return;
+    }
+    const actualNewName = newFieldDef.name;
+
+    const currentValue = getEffectiveTechnicalValue(
+      parentProduct?.technicalValues || {},
+      { ...variationAttributeValues, ...(formData.technicalValues || {}) },
+      oldName
+    );
+
+    // Salva o novo valor na variação
+    handleSetOverride(actualNewName, currentValue || '');
+    // Remove o antigo
+    handleRemoveOverride(oldName);
+
+    setManualFieldNames((prev) => {
+      const filtered = prev.filter(n => n !== oldName && n !== actualNewName);
+      return [...filtered, actualNewName];
+    });
+  };
+
   const handleImproveDescriptionWithAI = async () => {
     const title = (formData.name || parentProduct.name || parentProduct.description || '').trim();
     setIsImprovingDescription(true);
     const mergedTechnicalValues = {
-      ...(parentProduct.technicalValues || {}),
+      ...parentNormalizedValues,
       ...(formData.technicalValues || {}),
     };
 
@@ -288,7 +330,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                     const isOverridden = hasExplicitOverride || hasAttributeValue;
 
                     const rawEffectiveVal = getEffectiveTechnicalValue(
-                      parentProduct?.technicalValues || {},
+                      parentNormalizedValues,
                       { ...variationAttributeValues, ...(formData.technicalValues || {}) },
                       field.name
                     );
@@ -298,7 +340,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         : variationAttributeValues[fieldLower];
                     const isManual = manualFieldNames.includes(field.name);
                     // Campo está "ativo" se tem override próprio OU se o pai informou valor
-                    const parentVal = parentProduct?.technicalValues?.[field.name];
+                    const parentVal = parentNormalizedValues[field.name];
                     const parentText = String(parentVal ?? '').trim();
                     const parentIsZero =
                       ['integer', 'number', 'decimal', 'measure'].includes(field.dataType) &&
@@ -318,8 +360,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                       isAlwaysApplicable ||
                       (isOverridden
                         ? normalizedEffectiveValue !== 'não se aplica'
-                        : normalizedEffectiveValue !== '' &&
-                          normalizedEffectiveValue !== 'não se aplica');
+                        : normalizedEffectiveValue !== 'não se aplica');
                     // O vínculo é a fonte da verdade: sem override a variação está
                     // sincronizada e o status deve ser somente leitura. Ao dessincronizar,
                     // handleSetOverride cria também um override vazio, quando necessário.
@@ -340,6 +381,26 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                               <span className="ml-1 text-red-500" aria-label="Obrigatório">
                                 *
                               </span>
+                            )}
+                            {field.name.toLowerCase() === 'cor' && (
+                              <button
+                                type="button"
+                                title="Gerenciar cores"
+                                onClick={() => setIsAttributeModalOpen(true)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                              >
+                                <i className="bi bi-gear-fill" />
+                              </button>
+                            )}
+                            {(field.name.toLowerCase() === 'profundidade' || field.name.toLowerCase() === 'comprimento') && (
+                              <button
+                                type="button"
+                                title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                                onClick={() => handleToggleDepthLength(field)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                              >
+                                <i className="bi bi-arrow-left-right" />
+                              </button>
                             )}
                           </label>
                           <div className="flex items-center gap-1 shrink-0">
@@ -498,6 +559,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
           </div>
         </>
       )}
+
+      <AttributeManagementModal
+        isOpen={isAttributeModalOpen}
+        onClose={() => {
+          setIsAttributeModalOpen(false);
+          setRefreshKey((prev) => prev + 1);
+        }}
+      />
     </div>
   );
 };

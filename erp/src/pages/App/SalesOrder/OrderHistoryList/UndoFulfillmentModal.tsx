@@ -30,7 +30,7 @@ const UndoFulfillmentModal = ({
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <button
         type="button"
-          aria-label={`Fechar modal: ${correctionLabel.toLocaleLowerCase('pt-BR')}`}
+        aria-label={`Fechar modal: ${correctionLabel.toLocaleLowerCase('pt-BR')}`}
         className="fixed inset-0 bg-slate-950/55 transition-opacity"
         onClick={onCancel}
       />
@@ -51,7 +51,8 @@ const UndoFulfillmentModal = ({
           {correctionLabel}?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          O pedido voltará para {returnStatusLabel}. As movimentações de estoque não serão alteradas.
+          O pedido voltará para {returnStatusLabel}. As movimentações de estoque não serão
+          alteradas.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button

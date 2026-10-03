@@ -29,12 +29,7 @@ export interface Profile {
   state?: string;
 }
 
-export type PasswordCredentialStatus =
-  | 'idle'
-  | 'checking'
-  | 'required'
-  | 'configured'
-  | 'error';
+export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 
 interface AuthContextType {
   user: User | null;

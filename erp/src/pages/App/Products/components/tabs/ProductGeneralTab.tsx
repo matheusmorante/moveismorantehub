@@ -56,8 +56,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
   const secondCategoryCandidate = productNameCategoryCandidates[1];
   const categorySuggestions =
     !formData.categoryIds?.length && topCategoryCandidate?.score >= 0.7
-      ? secondCategoryCandidate &&
-        topCategoryCandidate.score - secondCategoryCandidate.score < 0.12
+      ? secondCategoryCandidate && topCategoryCandidate.score - secondCategoryCandidate.score < 0.12
         ? productNameCategoryCandidates.slice(0, 2)
         : [topCategoryCandidate]
       : [];

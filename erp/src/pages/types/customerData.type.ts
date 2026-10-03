@@ -2,6 +2,7 @@ import FullAddress from './fullAddress.type';
 
 type CustomerData = {
   id?: string;
+  personType?: 'PF' | 'PJ';
   fullName: string;
   phone: string;
   email?: string;

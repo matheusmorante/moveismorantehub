@@ -9,9 +9,13 @@ export type NcmCandidate = {
 };
 
 export function isCurrentNcm(candidate: NcmCandidate, today: string): boolean {
-  return /^\d{8}$/.test(candidate.code) && candidate.active && candidate.is_active &&
+  return (
+    /^\d{8}$/.test(candidate.code) &&
+    candidate.active &&
+    candidate.is_active &&
     (!candidate.start_date || candidate.start_date <= today) &&
-    (!candidate.end_date || candidate.end_date >= today);
+    (!candidate.end_date || candidate.end_date >= today)
+  );
 }
 
 export function validateCategoryChoice(
@@ -38,11 +42,18 @@ export function validateNcmChoice(
 }
 
 export function buildNcmSearchTerms(title: string, category: string, material: string): string[] {
-  const clean = title.toLowerCase().replace(/[^a-záéíóúâêôãõç0-9 ]/g, ' ').trim();
+  const clean = title
+    .toLowerCase()
+    .replace(/[^a-záéíóúâêôãõç0-9 ]/g, ' ')
+    .trim();
   const words = clean.split(/\s+/).filter((word) => word.length > 2);
   const terms = [clean];
   if (words.length >= 2) terms.push(`${words[0]} ${words[1]}`);
   if (words.length >= 3) terms.push(`${words[1]} ${words[2]}`);
-  terms.push(...words, category.toLowerCase().split('/').pop()?.trim() || '', material.toLowerCase().trim());
+  terms.push(
+    ...words,
+    category.toLowerCase().split('/').pop()?.trim() || '',
+    material.toLowerCase().trim()
+  );
   return [...new Set(terms.filter((term) => term.length >= 3))].slice(0, 5);
 }

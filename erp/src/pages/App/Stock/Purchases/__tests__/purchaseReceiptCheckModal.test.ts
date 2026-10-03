@@ -72,9 +72,7 @@ describe('Suíte de Integração: Fluxo de Conferência de Compra (PurchaseRecei
               String(varItem.id).toLowerCase() === cleanCode
           );
           if (v) {
-            return purchase.items.find(
-              (i) => i.productId === p.id && i.variationId === v.id
-            );
+            return purchase.items.find((i) => i.productId === p.id && i.variationId === v.id);
           }
         }
       }

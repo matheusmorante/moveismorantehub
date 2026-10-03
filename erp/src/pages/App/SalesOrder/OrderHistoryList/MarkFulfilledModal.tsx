@@ -4,11 +4,7 @@ interface MarkFulfilledModalProps {
   actionLabel: string;
 }
 
-const MarkFulfilledModal = ({
-  onCancel,
-  onConfirm,
-  actionLabel,
-}: MarkFulfilledModalProps) => {
+const MarkFulfilledModal = ({ onCancel, onConfirm, actionLabel }: MarkFulfilledModalProps) => {
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div

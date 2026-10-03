@@ -249,7 +249,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   cardDark: { backgroundColor: '#0f172a' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 18,
+  },
   title: { color: '#0f172a', fontSize: 20, fontWeight: '900' },
   textLight: { color: '#f8fafc' },
   subtitle: { color: '#64748b', fontSize: 12, marginTop: 4 },

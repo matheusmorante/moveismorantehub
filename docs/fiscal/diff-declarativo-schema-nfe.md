@@ -1,3 +1,5 @@
+> **Orientação histórica substituída:** instruções sobre Docker, Supabase Local ou exigência de PostgreSQL isolado neste relatório não são mais operacionais. A validação vigente segue [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md) com o Supabase remoto configurado e fixtures sintéticas; preserve este relatório como registro do estado observado na época.
+
 # Diff declarativo por objeto — schema de NF-e de saída
 
 > **Rascunho de especificação; não é migration e não é SQL para executar.** Descreve o delta observado em 28/09/2026 e o estado final proposto. O snapshot abaixo foi revalidado em 2026-09-28 15:38 UTC. Nenhum DDL fiscal foi executado nesta revalidação; a migration de proteção de papéis foi aplicada separadamente.
@@ -346,7 +348,7 @@ Além da inspeção declarativa: verificar `has_table_privilege`/`has_function_p
 - Se qualquer pré-condição apontar objeto divergente, interromper antes do primeiro DDL desse grupo.
 - Aplicar DDL futuro numa transação cuja atomicidade tenha sido confirmada no runner escolhido. Erro antes do `COMMIT` implica `ROLLBACK` integral, sem registrar manualmente a migration.
 - Se a transação já foi confirmada e uma validação posterior falhar, preservar o schema/dados e corrigir por nova alteração revisada. Não apagar documento, XML, evento ou sequência para simular rollback.
-- A emissão real continua bloqueada até o diff ser testado em banco representativo, schema/policies validados, A1 confirmado e P0 homologado com evidência persistida da SEFAZ-PR.
+- A emissão real continua bloqueada até o diff ser testado em banco representativo, schema/policies validados e A1 confirmado. Os critérios de testes fiscais em homologação foram removidos em 2026-10-03 para redefinição; este plano não os substitui.
 
 ## Resultado
 

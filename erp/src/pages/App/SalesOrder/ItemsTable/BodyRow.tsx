@@ -70,7 +70,9 @@ const BodyRow = ({
       !item.isTemporaryProduct &&
       !nonStockOrigin
   );
-  const isTemporaryProduct = Boolean(!isService && item.description?.trim() && (!item.productId || nonStockOrigin));
+  const isTemporaryProduct = Boolean(
+    !isService && item.description?.trim() && (!item.productId || nonStockOrigin)
+  );
   const errorKey = `item_${idx}_description`;
   const error = errors[errorKey];
   const handlingErrorKey = `item_${idx}_handlingType`;
@@ -92,7 +94,9 @@ const BodyRow = ({
     onBatchChange(idx, { condition: condition || '', isTemporaryProduct: item.isTemporaryProduct });
   };
   const settings = getSettings();
-  const linkableProductItems = productItems.filter((product) => Boolean(product.description?.trim()));
+  const linkableProductItems = productItems.filter((product) =>
+    Boolean(product.description?.trim())
+  );
   const serviceProductLink = isService ? (
     <div className="mt-2">
       <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
@@ -435,9 +439,7 @@ const BodyRow = ({
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
-              allowedProductKinds={
-                STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']
-              }
+              allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
               includeDeactivated
               placeholder="Buscar produto no catálogo..."
               isTemporary={isTemporaryProduct}
@@ -669,9 +671,7 @@ const BodyRow = ({
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
-              allowedProductKinds={
-                STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']
-              }
+              allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
               includeDeactivated
               placeholder="Busque ou digite um produto..."
               isTemporary={isTemporaryProduct}

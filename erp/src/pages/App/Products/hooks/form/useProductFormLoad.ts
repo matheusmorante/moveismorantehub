@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import Product from '@/pages/types/product.type';
 import { getFullProduct, getNextSequentialProductCode } from '@/pages/utils/productService';
-import {
-  ensureDefaultVariation,
-} from '@/pages/utils/productVariationDefaults';
+import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
 
 interface LoadProps {

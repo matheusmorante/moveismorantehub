@@ -29,11 +29,7 @@ export const resolveOrderFiscalBadgeStatus = (
     return 'issued';
   }
 
-  if (
-    documents.some(
-      (document) => isOutbound(document) && document.status === 'cancelada'
-    )
-  ) {
+  if (documents.some((document) => isOutbound(document) && document.status === 'cancelada')) {
     return 'cancelled';
   }
 

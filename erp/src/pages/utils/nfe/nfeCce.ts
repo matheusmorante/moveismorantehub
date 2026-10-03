@@ -37,8 +37,7 @@ const escapeXml = (value: string) =>
 export const validateNfeCce = (correction: string): string | null => {
   const normalized = correction.trim();
   const length = Array.from(normalized).length;
-  if (length < 15 || length > 1000)
-    return 'O texto da CC-e deve ter entre 15 e 1.000 caracteres.';
+  if (length < 15 || length > 1000) return 'O texto da CC-e deve ter entre 15 e 1.000 caracteres.';
   const hasInvalidXmlControlCharacter = Array.from(normalized).some((character) => {
     const codePoint = character.codePointAt(0) ?? 0;
     return codePoint < 0x20 && codePoint !== 0x09 && codePoint !== 0x0a && codePoint !== 0x0d;

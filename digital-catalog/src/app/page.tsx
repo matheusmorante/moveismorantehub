@@ -400,10 +400,7 @@ function HomeContent() {
           <div className="flex gap-8 items-start relative">
             {/* Sidebar Desktop LG+ */}
             <aside className="hidden lg:block w-72 xl:w-80 shrink-0 self-start">
-              <FilterContent
-                filters={filters}
-                onApply={handleFilterChange}
-              />
+              <FilterContent filters={filters} onApply={handleFilterChange} />
             </aside>
 
             {/* Conteúdo do Catálogo */}

@@ -212,4 +212,4 @@ export const useLabelModalsAndAssets = ({
     handleSaveCustomLabel,
     handleDeleteCustomLabel,
   };
-}
+};

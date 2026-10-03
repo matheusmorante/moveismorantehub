@@ -1,3 +1,5 @@
+> **Legado arquivado:** este harness Supabase Local/Docker não faz parte do fluxo ativo e não deve ser executado. A política vigente usa Supabase remoto configurado com fixtures sintéticas e escopo controlado: [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](../../../docs/testing/SUPABASE_REMOTE_TEST_POLICY.md). O conteúdo abaixo é mantido apenas como registro técnico histórico.
+
 # Supabase local de teste para Indisponibilidades
 
 Este ambiente é isolado do projeto padrão: usa `project_id = morantehub-local-tests` e portas 55320–55329. O diretório temporário de execução não compartilha containers, volume ou portas com `supabase/config.toml` da raiz.

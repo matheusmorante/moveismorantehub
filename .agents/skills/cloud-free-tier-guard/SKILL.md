@@ -5,6 +5,8 @@ description: Proteção permanente contra cobranças inesperadas de serviços Cl
 
 # Skill: Cloud Free Tier Guard (`cloud-free-tier-guard`)
 
+Para uso de variáveis Vercel no desenvolvimento local e restrição de Production/Preview, siga a fonte única [vercel-development](../vercel-development/SKILL.md).
+
 ## OBJETIVO
 
 Proteger todos os projetos deste workspace contra cobranças inesperadas de serviços Cloud, APIs externas e especialmente **Google Cloud / Google Maps Platform**.

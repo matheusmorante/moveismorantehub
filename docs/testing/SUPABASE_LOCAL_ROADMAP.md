@@ -1,3 +1,4 @@
+> **Arquivo histórico, substituído.** Este documento descreve um laboratório Supabase Local/Docker que não faz mais parte do fluxo. Não siga seus procedimentos operacionais. A política vigente é [`SUPABASE_REMOTE_TEST_POLICY.md`](SUPABASE_REMOTE_TEST_POLICY.md): os testes de integração usam o projeto Supabase remoto configurado, com fixtures sintéticas e escopo controlado.
 # Roadmap — Certificação do Supabase Local
 
 Fonte de critérios: [SUPABASE_LOCAL_CERTIFICATION.md](./SUPABASE_LOCAL_CERTIFICATION.md). Este plano acompanha a execução e não replica os critérios da certificação.

@@ -25,15 +25,13 @@ describe('resolveOrderFiscalBadgeStatus', () => {
 
   it.each(['return', 'estorno'])('marks authorized %s documents as reversed', (document_type) => {
     expect(
-      resolveOrderFiscalBadgeStatus([
-        { order_id: 'order-1', status: 'autorizada', document_type },
-      ])
+      resolveOrderFiscalBadgeStatus([{ order_id: 'order-1', status: 'autorizada', document_type }])
     ).toBe('reversed');
   });
 
   it('keeps issued state when one of several outbound documents was canceled', () => {
-    expect(
-      resolveOrderFiscalBadgeStatus([outbound('cancelada'), outbound('autorizada')])
-    ).toBe('issued');
+    expect(resolveOrderFiscalBadgeStatus([outbound('cancelada'), outbound('autorizada')])).toBe(
+      'issued'
+    );
   });
 });
