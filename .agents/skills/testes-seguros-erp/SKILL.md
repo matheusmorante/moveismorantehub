@@ -5,7 +5,7 @@ description: Planeje e execute testes seguros do ERP e App Mobile em alteraçõe
 
 # Testes Seguros do ERP & App Mobile
 
-Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
+Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap de Testes por Ciclos** do Morante Hub.
 
 ## Quando aplicar esta Skill
 
@@ -33,6 +33,23 @@ Se uma camada falhar, interrompa a escalada, investigue e corrija antes de pross
 ## Prioridade de execução sobre auditoria
 
 Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir um fluxo já compreendido, confirme apenas as pré-condições materiais de segurança (sessão/permissão, ambiente, dados de teste, isolamento de efeitos e caminho de execução). Assim que estiverem comprovadas, pare a investigação ampla e execute: preparar cenário, percorrer o fluxo e validar o resultado. Investigue apenas erros concretos no caminho afetado; corrija e repita o cenário antes da regressão necessária. Não adie a execução para ler mais arquivos ou buscar alternativas sem uma dúvida material que possa causar perda de dados, atingir produção, gerar efeito financeiro, comprometer segurança ou invalidar o resultado. “Ainda estou auditando” não é bloqueio; bloqueios devem apontar uma dependência ou risco concreto. Priorize como progresso a fixture criada, o fluxo executado, a resposta externa, a persistência e a correção/regressão comprovadas.
+
+## Gates e continuidade da execução
+
+Esta é a fonte canônica para gates de testes e retomada. Skills especializadas mantêm os requisitos próprios de domínio e referenciam esta seção para continuidade.
+
+- Registre os gates materiais do objetivo como `PENDENTE`, `BLOQUEADO`, `APROVADO` ou `FALHOU`, com evidência curta e o escopo/ambiente a que ela se aplica. `BLOQUEADO` exige dependência externa ou risco concreto; não é sinônimo de dúvida ou tarefa trabalhosa.
+- Reutilize um gate `APROVADO` enquanto ambiente, configuração, código e dados relevantes permanecerem iguais. Só reabra o gate se uma mudança posterior ou evidência nova puder invalidá-lo. Um readiness parcial reabre apenas o gate que falhou.
+- Uma skill especializada não pode reabrir um gate `APROVADO` apenas por conter uma regra própria de “sempre validar”. Para invalidá-lo, deve haver mudança concreta em código, ambiente, dados, configuração ou resultado observado que afete diretamente aquele gate.
+- Ao retomar trabalho após compactação de contexto, trate checkpoint e gates registrados como evidência válida. A compactação, troca de turno ou retomada, por si só, não invalida aprovações nem justifica repetir verificações.
+- Em E2E autorizado, ao encontrar bloqueio de infraestrutura ou configuração, corrija somente o componente afetado, faça um único readiness/preflight mínimo desse componente e, se passar, retome do último passo aprovado. Não reinicie migrações, Advisors, RLS, documentação, setup de navegador ou outros gates independentes já aprovados.
+- Faça um preflight por execução identificada (`testRunId`) e contexto de ambiente. Suítes e retomadas do mesmo fluxo podem reutilizá-lo se projeto, endpoints, credenciais-alvo, build e configuração não mudaram. Uma troca de deployment/secret exige readiness do componente afetado; não invalida automaticamente os demais gates.
+- Cada nova verificação deve eliminar uma dúvida material ainda aberta. Após três verificações preparatórias consecutivas sem novo bloqueio, interrompa a preparação e execute o fluxo principal se seus gates indispensáveis estiverem aprovados. O número é um detector de looping, não um limite para verificações necessárias após mudança ou falha observada.
+- Evidência suficiente é proporcional ao risco; não é necessário provar antecipadamente que o E2E passará. Se a operação estiver autorizada e seus gates necessários estiverem aprovados, execute-a e deixe o teste revelar defeitos.
+- Use snapshots de navegador para obter refs ou esclarecer mudanças relevantes. Reutilize refs/observações válidas e faça novo snapshot após navegação, mudança significativa do DOM ou ref obsoleta; não repita snapshot sem mudança ou pergunta concreta.
+- Em validação fiscal HML, registre a chave de idempotência/tentativa antes de transmitir uma única vez. Após timeout ou resposta ambígua, consulte a tentativa existente; só crie outra intenção quando estiver comprovado que a anterior não produziu reserva, snapshot, documento, transmissão, chave ou protocolo. Nunca retransmita em caso de possível recepção pela SEFAZ.
+
+O cenário de regressão versionado em `docs/testing/anti-loop-regression.md` valida retomada após bloqueios sucessivos sem reabrir gates aprovados.
 
 ---
 
@@ -108,9 +125,9 @@ Testes de componentes e telas (integração e E2E) devem verificar, no mínimo:
 - **Erro**: feedback ao usuário quando API/rede falha.
 - **Desabilitado / Sem permissão / Offline**: quando aplicável ao fluxo.
 
-### 3.2 Checklist Transversal de Casos Negativos
+### 3.2 Seleção de Casos Negativos
 
-Para cada módulo, além do happy path:
+Esta lista é um catálogo de cenários, não uma bateria obrigatória por tarefa. Selecione somente casos suportados pelo fluxo e relevantes para a mudança ou critério de aceite ainda não provado. Não rode cenário já coberto por evidência atual sem mudança que possa invalidá-la:
 - [ ] Entrada inválida / campos obrigatórios vazios.
 - [ ] Valores limites (0, mínimo, máximo, negativo).
 - [ ] Operação duplicada / duplo clique / reenvio (idempotência).
@@ -146,7 +163,7 @@ Para cada módulo, além do happy path:
 
 ## 4. Ordem Oficial dos Módulos Vitais e Críticos
 
-Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
+Quando o usuário solicitar a execução do **roteiro global**, siga a ordem de criticidade do negócio abaixo. Em tarefas focadas (incluindo E2E fiscal), vá diretamente ao fluxo e aos pré-requisitos técnicos necessários; não execute módulos anteriores sem dependência concreta:
 
 ```
 [MÓDULO 1] Vendas & Pedidos de Venda (SalesOrder)
@@ -166,17 +183,14 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
 [MÓDULO 8] Catálogo Digital & Integração Meta
     ↓
 [MÓDULO 9] Relatórios Gerenciais, DRE & Métricas Comerciais
-    ↓
-[RECOMEÇO DO CICLO] → Retorna ao [MÓDULO 1] (Ciclo N+1)
 ```
 
 ---
 
-## 5. Roteiro Cíclico Contínuo e Continuação por Goals
+## 5. Roteiro de testes e continuação por Goals
 
 > [!IMPORTANT]
-> **Roteiro Cíclico Infinito**: O teste nunca termina em um ponto morto. Quando o **Módulo 9** é concluído com sucesso, o roteiro **recomeça no Módulo 1** em uma nova rodada de checagem (Ciclo 1 → Ciclo 2 → Ciclo 3...).
-> **Continuação Exata de Onde Parou**: Sempre que o usuário solicitar *"continue os testes"*, *"prossiga com o roteiro"* ou acionar a execução, o agente deve obrigatoriamente ler o arquivo de tracking `docs/ROTEIRO_TESTES_CICLICOS.md`, identificar o último goal/módulo concluído e retomar a partir da etapa seguinte.
+> O roteiro é um backlog/checkpoint, não uma execução automática ou infinita. Ao concluir o Módulo 9, encerre o ciclo e registre-o como concluído. Comece outro ciclo somente quando o usuário pedir nova rodada ou indicar novo objetivo. Para um pedido explícito de continuação, leia o checkpoint e execute apenas a próxima etapa pendente pertinente.
 
 ### Protocolo de Execução do Roteiro Cíclico:
 
@@ -197,7 +211,7 @@ Os testes devem seguir rigorosamente a **ordem de criticidade do negócio**:
      - Registro de qualquer bug detectado para correção imediata.
 5. **Avanço do Cursor de Goals**:
    - Avance o cursor para a próxima etapa.
-   - Se completou o Módulo 9, atualize `Ciclo Atual = Ciclo + 1` e aponte para `Módulo 1 - Etapa 1.1`.
+   - Ao concluir o Módulo 9, marque o ciclo como concluído; não inicie outro ciclo nem mova o cursor para o Módulo 1 automaticamente.
 6. **Reporte ao Usuário**:
    Apresente um resumo claro do que foi testado, qual foi o resultado, e qual é o próximo goal pronto para execução.
 

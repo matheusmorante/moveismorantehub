@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
@@ -28,7 +29,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey = getSupabaseBackendKey();
 
 // Endpoints Oficiais SEFAZ-PR Homologação e Produção
 const SEFAZ_PR_URLS = {
@@ -230,6 +231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           environment: command.environment,
           itemCsosnOverrides: command.itemCsosnOverrides,
           itemFiscalSelections: command.itemFiscalSelections,
+          recipientCpf: command.recipientCpf,
         },
       };
       if (command.environment === 2) {

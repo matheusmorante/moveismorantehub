@@ -48,7 +48,8 @@ export async function emitNfeForOrder(
   productionConfirmed = false,
   retryDocumentId?: string,
   requestedNumber?: number,
-  originalItemNcms: string[] = []
+  originalItemNcms: string[] = [],
+  recipientCpf?: string
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
   if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
@@ -192,6 +193,7 @@ export async function emitNfeForOrder(
           emissionRequestId,
           ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
           ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+          ...(recipientCpf === undefined ? {} : { recipientCpf }),
           ...(requestedNumber === undefined ? {} : { requestedNumber }),
         }),
       });

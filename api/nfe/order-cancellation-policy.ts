@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

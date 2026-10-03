@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import Order from '@/pages/types/order.type';
 import { emitNfeForOrder, NfeEmissionResult, printOrderDanfe } from '@/pages/utils/nfe/nfeService';
-import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
+import { NcmChangeConfirmation, NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { getSettings } from '@/pages/utils/settingsService';
-import { getFullProduct } from '@/pages/utils/productService';
+import { getFullProduct, updateProductFiscalNcm } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -32,8 +32,20 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(false);
   const [fiscalPreparationError, setFiscalPreparationError] = useState<string | null>(null);
   const [requestedNumber, setRequestedNumber] = useState('');
+  const [recipientCpf, setRecipientCpf] = useState('');
+  const [showValidation, setShowValidation] = useState(false);
+  const [pendingNcmConfirmations, setPendingNcmConfirmations] = useState<Record<number, NcmChangeConfirmation>>({});
   const submissionInProgress = useRef(false);
   const manualFiscalFields = useRef(fiscalDrafts);
+  const editedNcmItems = useRef(new Set<number>());
+
+  useEffect(() => {
+    const savedDocument = (order?.customerData?.cpfCnpj || order?.customerData?.document || '').replace(/\D/g, '');
+    setRecipientCpf(savedDocument.length > 0 && savedDocument.length <= 11 ? savedDocument : '');
+    setShowValidation(false);
+    setPendingNcmConfirmations({});
+    editedNcmItems.current.clear();
+  }, [order?.id, order?.customerData?.cpfCnpj, order?.customerData?.document]);
 
   // Carregar e enriquecer os itens da venda com dados fiscais e detecção de cadastro
   useEffect(() => {
@@ -88,12 +100,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
           let catalogFiscal: FiscalInfo | undefined;
+          let productCatalogNcm = '';
 
           // Se o produto está cadastrado no ERP mas não veio com dados fiscais no snapshot do item,
           // consulta o cadastro do produto/variação no banco para obter NCM/dados fiscais oficiais
           if (item.productId) {
             try {
               const fullProd = await getFullProduct(item.productId);
+              productCatalogNcm = fullProd?.fiscal?.ncm || '';
               const variation = item.variationId
                 ? fullProd?.variations?.find((candidate) => candidate.id === item.variationId)
                 : undefined;
@@ -111,6 +125,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
           enrichedList.push({
             ...fallbackItems[index],
+            catalogNcm: productCatalogNcm,
             fiscal: {
               ncm: savedFiscal?.ncm || catalogFiscal?.ncm || fallbackItems[index].fiscal.ncm,
               cest: savedFiscal?.cest || catalogFiscal?.cest || fallbackItems[index].fiscal.cest,
@@ -152,6 +167,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   }, [order, environment]);
 
   const handleUpdateItemFiscal = (index: number, updates: Partial<NfeItemFiscal>) => {
+    if (updates.ncm !== undefined && updates.ncm !== nfeItems[index]?.fiscal.ncm)
+      editedNcmItems.current.add(index);
     if (order) {
       const key = draftKey(order, environment);
       const existing = manualFiscalFields.current.get(key) || {};
@@ -190,6 +207,54 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     setNfeItems(resolved);
   };
 
+  const handleNcmBlur = (index: number, value: string) => {
+    const item = nfeItems[index];
+    if (!item?.productId || item.isUnregistered || item.isTemporaryProduct) return;
+    if (!editedNcmItems.current.has(index)) return;
+    const previousNcm = (item.catalogNcm || '').replace(/\D/g, '');
+    const nextNcm = value.replace(/\D/g, '');
+    if (previousNcm === nextNcm) {
+      setPendingNcmConfirmations((current) => {
+        const next = { ...current };
+        delete next[index];
+        return next;
+      });
+      return;
+    }
+    setPendingNcmConfirmations((current) => ({
+      ...current,
+      [index]: { previousNcm, nextNcm },
+    }));
+  };
+
+  const handleResolveNcmConfirmation = async (index: number, updateCatalog: boolean) => {
+    const confirmation = pendingNcmConfirmations[index];
+    if (!confirmation) return;
+    if (updateCatalog) {
+      if (!/^\d{8}$/.test(confirmation.nextNcm)) {
+        toast.error('Informe um NCM com 8 dígitos antes de atualizar o cadastro.');
+        return;
+      }
+      const item = nfeItems[index];
+      if (!item?.productId) return;
+      try {
+        await updateProductFiscalNcm(item.productId, confirmation.nextNcm);
+        setNfeItems((current) => current.map((currentItem, currentIndex) =>
+          currentIndex === index ? { ...currentItem, catalogNcm: confirmation.nextNcm } : currentItem));
+        toast.success('NCM atualizado no cadastro do produto.');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar o NCM do produto.');
+        return;
+      }
+    }
+    editedNcmItems.current.delete(index);
+    setPendingNcmConfirmations((current) => {
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
+  };
+
   const handleEmit = async (productionConfirmed = false, isRetry = false, retryNumber?: number) => {
     if (submissionInProgress.current) return;
     if (!canOperateFiscal) {
@@ -201,14 +266,32 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       toast.error('Aguarde a preparação fiscal dos itens antes de emitir.');
       return;
     }
+    if (Object.keys(pendingNcmConfirmations).length > 0) {
+      toast.error('Escolha se deseja atualizar o NCM do cadastro antes de emitir.');
+      return;
+    }
     if (fiscalPreparationError) {
       toast.error('A emissão está bloqueada até que a preparação fiscal seja concluída.');
       return;
     }
+    const hasInvalidNcm = nfeItems.some((item) => (item.fiscal.ncm || '').replace(/\D/g, '').length !== 8);
+    if (hasInvalidNcm) {
+      setShowValidation(true);
+      toast.error('Informe um NCM com 8 dígitos para cada produto.');
+      return;
+    }
     if (nfeItems.some((item) => !item.fiscal.cst)) {
+      setShowValidation(true);
       toast.error('Selecione o CSOSN de todos os itens.');
       return;
     }
+    const cleanCpf = recipientCpf.replace(/\D/g, '');
+    if (cleanCpf && cleanCpf.length !== 11) {
+      setShowValidation(true);
+      toast.error('Informe um CPF com 11 dígitos ou deixe o campo vazio.');
+      return;
+    }
+    setShowValidation(false);
     const numberText = requestedNumber.trim();
     const manualNumber = retryNumber ?? (isRetry ? undefined :
       numberText ? (/^\d{1,9}$/.test(numberText) ? Number(numberText) : Number.NaN) : undefined);
@@ -250,7 +333,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         productionConfirmed,
           retryId,
           manualNumber,
-          (order.items || []).filter((item) => item.itemType !== 'service').map((item) => String((item as any).fiscal?.ncm || ''))
+          (order.items || []).filter((item) => item.itemType !== 'service').map((item) => String((item as any).fiscal?.ncm || '')),
+          cleanCpf
       );
       if (!res.success) {
         toast.error(res.error || 'Erro ao validar dados para emissão.');
@@ -354,12 +438,18 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     isSubmitting,
     requestedNumber,
     setRequestedNumber,
+    recipientCpf,
+    setRecipientCpf,
+    showValidation,
+    pendingNcmConfirmations,
     emissionResult,
     nfeItems,
     isLoadingFiscalData,
     fiscalPreparationError,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
+    handleNcmBlur,
+    handleResolveNcmConfirmation,
     handleEmit,
     handleReconcile,
     handlePrintDanfe,

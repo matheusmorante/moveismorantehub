@@ -32,7 +32,7 @@
 - Antes de alterar um fluxo, identifique os efeitos obrigatórios que ele cria ou reverte: estoque, financeiro, fiscal, reservas e históricos que representam estado confirmado. Declare o estado que dispara cada efeito e se uma transição posterior deve criar outro efeito.
 - Quando a operação principal e seus efeitos precisam permanecer consistentes, grave-os na mesma transação do banco ou RPC transacional. Se qualquer etapa essencial falhar, reverta tudo e apresente o erro. Chamadas independentes do cliente não constituem uma transação; não use fallback que salve apenas parte da operação.
 - Garanta idempotência e proteção contra retries, cliques repetidos e concorrência com vínculos e restrições apropriados no banco. Cancelamentos e reversões devem ser rastreáveis, vinculados à origem e não duplicados; preserve fatos confirmados em vez de apagá-los.
-- Declare quais efeitos podem ocorrer após o commit e como serão reconciliados em caso de falha. Antes de concluir, teste sucesso, falha em cada etapa essencial, repetição, concorrência, cancelamento e reversão.
+- Declare quais efeitos podem ocorrer após o commit e como serão reconciliados em caso de falha. Para operações compostas críticas, valide sucesso e falha nos limites transacionais essenciais; cubra repetição, concorrência, cancelamento e reversão quando o fluxo suportar esses estados ou a mudança puder afetá-los. Esta matriz é orientada por risco e critério de aceite, não uma bateria integral para todo módulo.
 - A regra vale para todos os módulos, mas o gatilho de cada efeito deve seguir a regra de negócio específica do fluxo; não aplique o mesmo momento de movimentação a vendas, recebimentos, inventários e devoluções.
 
 ## Política de validação de código
@@ -44,6 +44,7 @@
 - Mudanças na replicação/sincronização ERP ↔ App Mobile exigem teste focado do módulo de sync e, se envolverem persistência ou comunicação real entre serviços, integração isolada. E2E cobre somente o fluxo afetado quando agregar cobertura que testes focados não dão.
 - Não rode a suíte completa repetidamente durante o desenvolvimento; deixe-a preferencialmente para o CI no push/PR. Só execute localmente quando a mudança for transversal, houver risco concreto de regressão ampla ou o usuário solicitar.
 - Se uma camada falhar, corrija antes de escalar. Não repita validações aprovadas sem mudança relevante e mantenha logs resumidos.
+- Para tarefas com várias etapas, registre os gates materiais junto ao `testRunId` ou checkpoint já existente; reutilize `APROVADO` enquanto configuração, código, dados e alvo não mudarem. Corrija somente o gate `BLOQUEADO`/`FALHOU` e retome do último passo aprovado. Não crie preflight, snapshot ou auditoria adicional sem dúvida material ainda aberta. A regra canônica está em `.agents/skills/testes-seguros-erp/SKILL.md`.
 
 ## Roteamento rápido
 
@@ -52,7 +53,7 @@
 - ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`, `nfe-sefaz-direto`; NF-e/NFC-e, XML, DANFE, eventos, tributação ou SEFAZ exigem também `fiscal-nfe-nfce-official-docs` e o índice `docs/fiscal/manuais/README.md`.
 - Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
 - Refatoração/limpeza: `safe-refactor`, `surgical-patch`, `limpeza-projeto-segura`.
-- Deploy/release: `release`, `mobile-eas-publicacao`.
+- Deploy/release: `release`, `mobile-eas-publicacao`; secrets, Preview e readiness Vercel: `vercel-preview-secrets`.
 - Git/PR: `caveman-commit`, `pr-triage`.
 - Identidade visual responsiva: `morante-responsive-logo-usage`.
 
@@ -91,7 +92,7 @@
 - **Knip (`npm run check:knip`)**: Executar para auditoria periódica de código morto, exports órfãos e dependências não utilizadas em todos os workspaces.
 - **Biome (`npm run lint:biome`, `npm run format:biome`)**: Formatação e linting ultrarrápido complementar para checagens de alta frequência.
 - **ast-grep**: Use `npm run quality:ast-grep:scan` para auditoria estrutural ampla solicitada e `npm run quality:ast-grep:critical` para regras críticas; não adicione à rotina de alterações pequenas. Critérios canônicos em `.agents/skills/governanca-skills/SKILL.md`.
-- **Supabase Advisors (`npm run advisors`)**: Obrigatório antes de qualquer migração para detectar RLS desabilitado, search_path vulnerável e índices faltantes.
+- **Supabase Advisors (`npm run advisors`)**: Execute uma vez antes de aplicar um lote de migrations que altere schema, RLS ou objetos cobertos pelo Advisor. Reutilize o resultado no mesmo lote/estado do banco; rode novamente somente se nova migration ou mudança posterior puder alterar os riscos analisados. Não é preflight de E2E nem deve ser repetido para secret, readiness ou Preview.
 - **React Compiler**: Habilitado nativamente no Mobile (`experiments.reactCompiler`) e validado no ERP via `eslint-plugin-react-compiler` (`npm run lint --prefix erp`).
 - **Gitleaks (`npm run security:secrets`)**: Scanner de segredos. Primariamente focado para o CI, mas pode ser rodado localmente antes de commits específicos se for pertinente. Não rode automaticamente a cada tarefa.
 - **Trivy (`npm run security:vuln`, `npm run security:sbom`)**: Scanner de vulnerabilidades (CVEs). Use em CI ou auditoria de segurança direcionada.

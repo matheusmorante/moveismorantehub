@@ -608,7 +608,7 @@ export function NcmManagementPanel() {
             <input
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Pesquisar por código ou descrição"
+              placeholder="Pesquisar por código, descrição ou tag"
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
           </label>

@@ -52,6 +52,7 @@ export type FiscalSnapshot = {
     number: number;
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
+    recipientCpf?: string;
   };
 };
 
@@ -64,6 +65,7 @@ export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & 
     environment: 1 | 2;
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
+    recipientCpf?: string;
   };
 };
 
@@ -240,6 +242,7 @@ export type FiscalEmissionCommand = {
   requestedNumber?: number;
   itemCsosnOverrides?: Record<string, string>;
   itemFiscalSelections?: FiscalItemSelections;
+  recipientCpf?: string;
 };
 
 export type FiscalSnapshotReservation = {
@@ -280,6 +283,7 @@ export function parseFiscalEmissionCommand(
     'requestedNumber',
     'itemCsosnOverrides',
     'itemFiscalSelections',
+    'recipientCpf',
   ]);
   if (Object.keys(body).some((field) => !allowedFields.has(field)))
     return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
@@ -314,6 +318,10 @@ export function parseFiscalEmissionCommand(
         throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
     }
   } catch (error) { return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' }; }
+  const recipientCpf = body.recipientCpf;
+  if (recipientCpf !== undefined &&
+      (typeof recipientCpf !== 'string' || (recipientCpf !== '' && !/^\d{11}$/.test(recipientCpf))))
+    return { error: 'O CPF para esta emissão deve conter 11 dígitos.' };
   return {
     command: {
       orderId,
@@ -322,6 +330,7 @@ export function parseFiscalEmissionCommand(
       ...(body.requestedNumber === undefined ? {} : { requestedNumber: body.requestedNumber as number }),
       ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
       ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+      ...(recipientCpf === undefined ? {} : { recipientCpf }),
       ...(body.productionConfirmed === undefined
         ? {}
         : { productionConfirmed: body.productionConfirmed }),

@@ -487,7 +487,7 @@ export const buttons: OrderButton[] = [
   },
   {
     key: 'generateReturn',
-    icon: 'bi-arrow-return-left',
+    icon: 'undo-2',
     action: 'GENERATE_RETURN',
     label: 'Gerar Pedido de Devolução',
     color: 'text-amber-600 hover:bg-amber-50',
@@ -496,7 +496,7 @@ export const buttons: OrderButton[] = [
   },
   {
     key: 'undoReturn',
-    icon: 'bi-arrow-counterclockwise',
+    icon: 'undo-2',
     action: 'UNDO_RETURN',
     label: (order: Order) =>
       order?.status === 'fulfilled' || order?.orderType === 'return'

@@ -372,7 +372,7 @@ export async function recoverHmlTechnical(
         return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
           'O número fiscal desta tentativa já está congelado; use uma nova tentativa somente após rejeição confirmada.');
     }
-    if (command.itemCsosnOverrides || command.itemFiscalSelections) {
+    if (command.itemCsosnOverrides || command.itemFiscalSelections || command.recipientCpf !== undefined) {
       if (!previous.fiscal_snapshot_id) return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
         'A tentativa anterior não tem snapshot verificável das escolhas de CSOSN.');
       const { data: snapshot, error } = await db.from('nfe_fiscal_snapshots').select('snapshot_data')
@@ -381,7 +381,8 @@ export async function recoverHmlTechnical(
       if (error || !snapshot || sorted(snapshot.snapshot_data.emissionRequest.itemCsosnOverrides || {}) !==
           sorted(command.itemCsosnOverrides || {}) ||
           !fiscalSelectionsEqual(snapshot.snapshot_data.emissionRequest.itemFiscalSelections,
-            command.itemFiscalSelections))
+            command.itemFiscalSelections) ||
+          (snapshot.snapshot_data.emissionRequest.recipientCpf || '') !== (command.recipientCpf || ''))
         return failure(409, 'HML_IDEMPOTENCY_MISMATCH',
           'Esta tentativa já tem escolhas de CSOSN imutáveis. Consulte o documento original.');
     }
@@ -458,13 +459,14 @@ export async function emitHmlTechnical(
       `A numeração manual precisa ser igual ou superior ao início configurado (${sequence.minimumNumber}).`,
       { numberReserved: false, sefazContacted: false });
   const snapshotRpcName = command.requestedNumber === undefined
-    ? 'prepare_nfe_fiscal_snapshot' : 'prepare_numbered_nfe_fiscal_snapshot';
+    ? 'prepare_nfe_fiscal_snapshot_with_recipient' : 'prepare_numbered_nfe_fiscal_snapshot_with_recipient';
   const snapshotArgs = {
     p_order_id: command.orderId, p_emission_request_id: command.emissionRequestId,
     p_modelo: '55', p_ambiente: 2, p_serie: sequence.series,
     p_numero_minimo: sequence.minimumNumber,
     p_item_csosn_overrides: command.itemCsosnOverrides || {},
     p_item_fiscal_selections: command.itemFiscalSelections || {},
+    p_recipient_cpf: command.recipientCpf ?? '',
     ...(command.requestedNumber === undefined ? {} : { p_requested_number: command.requestedNumber }),
   };
   const { data: reservationValue, error: reservationError } = await db.rpc(snapshotRpcName, snapshotArgs);
@@ -499,7 +501,8 @@ export async function emitHmlTechnical(
     fiscalInputs: persisted.fiscalInputs,
     emissionRequest: { id: command.emissionRequestId, environment: 2,
       itemCsosnOverrides: persisted.emissionRequest.itemCsosnOverrides,
-      itemFiscalSelections: persisted.emissionRequest.itemFiscalSelections },
+      itemFiscalSelections: persisted.emissionRequest.itemFiscalSelections,
+      recipientCpf: persisted.emissionRequest.recipientCpf },
     persistedHash: reservation.snapshotHash,
   };
   try { const configuration = parseHmlCsosnConfiguration(persisted.fiscalConfiguration);

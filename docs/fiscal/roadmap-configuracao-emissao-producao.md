@@ -113,6 +113,7 @@ Evidência local já indicada: reserva atômica foi exercitada com duas conexõe
 
 ### 🔵 P4 — Operação madura
 
+- [ ] Migrar a autenticação do backend fiscal de `SUPABASE_SERVICE_ROLE_KEY` para uma Supabase Secret Key dedicada ao componente fiscal, mantendo-a apenas no runtime de servidor e removendo a chave legada após validar a transição.
 - [ ] Métricas de emissão/autorização/rejeição, latência SEFAZ e uso de contingência.
 - [ ] Logs estruturados e rastreáveis, com sanitização de dados pessoais e segredos.
 - [ ] Alertas para tentativas pendentes, falhas de reconciliação e contingências não transmitidas.

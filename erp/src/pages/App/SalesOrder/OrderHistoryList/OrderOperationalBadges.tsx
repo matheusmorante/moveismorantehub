@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Undo2 } from 'lucide-react';
 import Order from '../../../types/order.type';
 import InventoryMovementBadge from './InventoryMovementBadge';
+import { OrderBadgeCornerIcon } from './OrderBadgeCornerIcon';
 import { binaryOrderBadgeClass, warningOrderBadgeClass } from './orderBadgeStyles';
 import { isPartialSaleStockMovement } from '@/pages/utils/saleInventoryRules';
 
@@ -34,7 +36,7 @@ export const OrderOperationalBadges = ({
   const tIcon = isAssis
     ? 'bi-tools'
     : isRet
-      ? 'bi-arrow-return-left'
+      ? 'undo-2'
       : isPick
         ? 'bi-shop'
         : 'bi-truck';
@@ -79,9 +81,7 @@ export const OrderOperationalBadges = ({
           >
             <i className="bi bi-tag-fill text-[11px] text-white" />
             {order.isStockChecked && (
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-                <i className="bi bi-check text-[8px] font-black leading-none" />
-              </span>
+              <OrderBadgeCornerIcon variant="check" className="bg-emerald-600" />
             )}
           </button>
         </div>
@@ -106,9 +106,7 @@ export const OrderOperationalBadges = ({
             >
               <span className="text-white">Bling</span>
               {order.isRegisteredInBling && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-                  <i className="bi bi-check text-[8px] font-black leading-none" />
-                </span>
+                <OrderBadgeCornerIcon variant="check" className="bg-emerald-600" />
               )}
             </button>
           </div>
@@ -192,7 +190,7 @@ export const OrderOperationalBadges = ({
         }`}
         title={isAssis ? 'Assistência' : isPick ? 'Retirada' : isRet ? 'Devolução' : 'Entrega'}
       >
-        <i className={`bi ${tIcon} text-[11px] text-white`} />
+        {tIcon === 'undo-2' ? <Undo2 className="h-3 w-3 text-white" /> : <i className={`bi ${tIcon} text-[11px] text-white`} />}
       </div>
 
       {/* 6. Stock Processed Indicator */}
@@ -222,7 +220,7 @@ export const OrderOperationalBadges = ({
           className={`flex h-6 ${layout === 'card' ? 'items-center gap-1 px-2' : 'w-6 items-center justify-center'} rounded-md border shadow-sm ${warningOrderBadgeClass}`}
           title={`Este pedido possui uma devolução ${order.returnKind === 'complete' ? 'completa' : 'parcial'} vinculada`}
         >
-          <i className="bi bi-arrow-return-left text-[10px]" />
+          <Undo2 className="h-3 w-3" />
           {layout === 'card' && (
             <span className="text-[9px] font-black uppercase tracking-wider">
               Devolução {order.returnKind === 'complete' ? 'Total' : 'Parcial'}

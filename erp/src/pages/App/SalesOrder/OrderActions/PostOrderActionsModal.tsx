@@ -1,4 +1,5 @@
 import React from 'react';
+import { Undo2 } from 'lucide-react';
 import Order from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { updateOrder } from '../../../utils/orderHistoryService';
@@ -137,7 +138,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                   }}
                   className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                 >
-                  <i className={`bi ${btn.icon} text-2xl mb-2`}></i>
+                  {btn.icon === 'undo-2' ? <Undo2 className="mb-2 h-6 w-6" /> : <i className={`bi ${btn.icon} text-2xl mb-2`}></i>}
                   <span className="text-[10px] font-black uppercase tracking-widest text-center">
                     {typeof btn.label === 'function' ? btn.label(order) : btn.label}
                   </span>

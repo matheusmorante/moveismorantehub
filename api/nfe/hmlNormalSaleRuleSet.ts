@@ -111,7 +111,8 @@ export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
     municipalityCode: code, uf, postalCode: required(address.zipCode || address.cep || address.postalCode, 'CEP real').replace(/[-.]/g,''),
   };
   if (!/^\d{8}$/.test(recipientAddress.postalCode)) throw new Error('CEP real inválido.');
-  const cpfCnpj = required(customer.cpfCnpj, 'CPF/CNPJ real do destinatário');
+  const cpfCnpj = required(facts.emissionRequest.recipientCpf || customer.cpfCnpj,
+    'CPF/CNPJ real do destinatário');
   if (!validDocument(cpfCnpj)) throw new Error('CPF/CNPJ real inválido; emissão bloqueada.');
   if (cpfCnpj.replace(/\D/g,'').length !== 11)
     throw new Error('Destinatário PJ exige condição de contribuinte revisada; este cenário cobre pessoa física.');
@@ -124,6 +125,7 @@ export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
           ['draft','cancelled','cancelado'].includes(snapshot.order.status.toLowerCase()))
         throw new Error('Pedido real não elegível para homologação.');
       const data = snapshot.order.data;
+      const recipientCpfCnpj = snapshot.emissionRequest.recipientCpf || customer.cpfCnpj;
       const items = data.items as Array<Record<string, any>>;
       const selections = parseFiscalItemSelections(snapshot.emissionRequest.itemFiscalSelections);
       const composition = composeServiceFiscalValues(items as any);
@@ -211,7 +213,7 @@ export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
       return { snapshotHash: hash, ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION, model: '55', environment: 2,
         issuer: { cnpj: required(issuer.companyCnpj,'CNPJ emitente').replace(/\D/g,''), name: required(issuer.companyName,'Razão social'),
           ie: required(issuer.companyIE,'IE emitente').replace(/\D/g,''), crt: '1', municipalityCode: issuerAddress.municipalityCode, address: issuerAddress },
-        recipient: { name: required(customer.fullName,'Nome real'), cpfCnpj: cpfCnpj.replace(/\D/g,''), ieIndicator: '9', address: recipientAddress },
+        recipient: { name: required(customer.fullName,'Nome real'), cpfCnpj: required(recipientCpfCnpj,'CPF/CNPJ real do destinatário').replace(/\D/g,''), ieIndicator: '9', address: recipientAddress },
         operation: { natureOfOperation: 'VENDA DE MERCADORIA', direction: 'outbound', purpose: '1', destination: '1',
           presence: '1', finalConsumer: '1', freightMode: freight ? '0' : '9' },
         items: determinedItems, payments, decisions: traces,

@@ -218,6 +218,20 @@ export type FiscalDatabase = {
         };
         Returns: Record<string, unknown>;
       };
+      prepare_nfe_fiscal_snapshot_with_recipient: {
+        Args: {
+          p_item_csosn_overrides?: Record<string, string>;
+          p_item_fiscal_selections?: import('../../shared-utils/fiscalItemSelections').FiscalItemSelections;
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_modelo: string;
+          p_ambiente: number;
+          p_serie: string;
+          p_numero_minimo: number;
+          p_recipient_cpf: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       prepare_numbered_nfe_fiscal_snapshot: {
         Args: {
           p_emission_request_id: string;
@@ -229,6 +243,21 @@ export type FiscalDatabase = {
           p_order_id: string;
           p_serie: string;
           p_requested_number: number;
+        };
+        Returns: Record<string, unknown>;
+      };
+      prepare_numbered_nfe_fiscal_snapshot_with_recipient: {
+        Args: {
+          p_emission_request_id: string;
+          p_item_csosn_overrides: Record<string, string>;
+          p_item_fiscal_selections: import('../../shared-utils/fiscalItemSelections').FiscalItemSelections;
+          p_modelo: string;
+          p_ambiente: number;
+          p_numero_minimo: number;
+          p_order_id: string;
+          p_serie: string;
+          p_requested_number: number;
+          p_recipient_cpf: string;
         };
         Returns: Record<string, unknown>;
       };

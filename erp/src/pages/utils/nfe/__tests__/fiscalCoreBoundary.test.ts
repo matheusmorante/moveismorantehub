@@ -20,6 +20,19 @@ describe('fronteira do Fiscal Core server-side', () => {
     });
   });
 
+  it('aceita o CPF opcional do destinatário no comando fiscal atual', () => {
+    expect(
+      parseFiscalEmissionCommand({
+        orderId: 'order-123',
+        environment: 2,
+        emissionRequestId,
+        recipientCpf: '12345678901',
+      })
+    ).toEqual({
+      command: { orderId: 'order-123', environment: 2, emissionRequestId, recipientCpf: '12345678901' },
+    });
+  });
+
   it.each(['xml', 'model', 'series', 'nfeNumber', 'accessKey', 'fiscalSnapshotId'])(
     'rejeita %s vindo do navegador',
     (field) => {

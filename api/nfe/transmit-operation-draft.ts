@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import type { AppSettings } from '../../erp/src/pages/utils/settingsService';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
 import { buildReviewedFiscalOperationXml } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
@@ -24,7 +25,7 @@ import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { embeddedNfeXml } from './xmlEnvelope';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 const authorizationUrls = {
   1: 'https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
   2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',

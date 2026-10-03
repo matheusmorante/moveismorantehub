@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { extractCertificateAndKey } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
@@ -10,7 +11,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 const endpoints = {
   '55': {
     1: 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',

@@ -54,6 +54,7 @@ Nenhuma tarefa relevante deve ser executada utilizando apenas uma Skill. O agent
 │  - `modularizacao_codigo` (SOLID, coesão, 30-100 lin)  │
 │  - `database-supabase` (Busca aproximada, Egress, SQL) │
 │  - `testes-seguros-erp` (Vitest, Playwright, E2E)      │
+│  - `vercel-preview-secrets` (Vercel Preview e Secrets) │
 │  - `cloud-free-tier-guard` (APIs externas, Maps, AI)   │
 │  - `mobile-offline-first` (SQLite, fila de eventos)    │
 │  - `arquitetura-agente-gemini` (Function Calling)      │

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 
@@ -7,7 +8,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 
 type FiscalDocRow = { id: string; modelo: string; xml_nfe: string | null };
 type FiscalSnapshotRow = { item_number: number; billed_quantity: number | string };

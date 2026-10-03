@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Undo2 } from 'lucide-react';
 import Order, { OrderAction, IsButtonsClicked } from '../../../types/order.type';
 import { buttons, actionsMap } from './orderActionsConfig';
 import { validateOrder } from '../../../utils/validations';
@@ -211,7 +212,7 @@ const OrderActions = ({ order, context = 'list' }: { order: Order; context?: 'fo
                 markClicked(btn.key as keyof IsButtonsClicked);
               }}
             >
-              <i className={`bi ${btn.icon} text-sm`} />
+              {btn.icon === 'undo-2' ? <Undo2 className="h-4 w-4" /> : <i className={`bi ${btn.icon} text-sm`} />}
               <span>{btn.label}</span>
               {localClicked[btn.key as keyof IsButtonsClicked] && (
                 <i className="bi bi-check-circle-fill text-green-500 ml-1" />

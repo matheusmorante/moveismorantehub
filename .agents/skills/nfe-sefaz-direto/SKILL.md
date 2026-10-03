@@ -3,13 +3,21 @@ name: nfe-sefaz-direto
 description: >
   Status e diretrizes oficiais da implementacao de emissao de NF-e/NFC-e diretamente
   com o SEFAZ-PR e sincronizacao/recepcao automatica de NF-e de entrada via Distribuicao DF-e
-  (NFeDistribuicaoDFe) e Manifestacao do Destinatario no Ambiente Nacional. Consulte esta skill SEMPRE
-  que for trabalhar com: NF-e, NFC-e, Distribuicao DF-e, NFeDistribuicaoDFe, Ambiente Nacional,
+  (NFeDistribuicaoDFe) e Manifestacao do Destinatario no Ambiente Nacional. Consulte esta skill para alterar
+  ou diagnosticar regras/fluxos técnicos de: NF-e, NFC-e, Distribuicao DF-e, NFeDistribuicaoDFe, Ambiente Nacional,
   Manifestacao do Destinatario, distNSU, consChNFe, consNSU, nota fiscal, fiscal, certificado digital,
   DANFE, XML, SEFAZ, emissao, tributacao, cancelamento ou devolucao fiscal.
 ---
 
 # NF-e SEFAZ Direto & Distribuição DF-e — Diretrizes Oficiais e Arquitetura
+
+## Quando aplicar esta Skill
+
+Use para mudanças ou diagnóstico técnico de emissão NF-e/NFC-e e de integração Distribuição DF-e/Manifestação do Destinatário.
+
+## Quando NÃO aplicar
+
+Não a use para repetir auditoria técnica completa ao retomar um E2E já preparado; use `testes-seguros-erp` para gates e continuidade. Regras normativas fiscais seguem `fiscal-nfe-nfce-official-docs`.
 
 ## 🏛️ Contexto e Arquitetura Geral
 
@@ -20,6 +28,8 @@ O Morante Hub opera em dois pilares fiscais diretos e integrados:
 ---
 
 ## 🚦 ORDEM OBRIGATÓRIA DE TRABALHO PARA SINCRONIZAÇÃO / DF-e
+
+Para gates, evidência reutilizável e retomada sem repetir etapas aprovadas, siga `testes-seguros-erp`. O roteiro abaixo se aplica a mudanças ou diagnóstico técnico do fluxo DF-e, não é uma lista para reexecutar durante cada E2E fiscal. Consulte fonte oficial vigente quando alterar comportamento normativo, endpoint, schema ou protocolo, e somente a parte pertinente à dúvida atual.
 
 Toda e qualquer intervenção, planejamento ou código relacionado a sincronização SEFAZ e Distribuição DF-e **DEVE** seguir impreterivelmente esta ordem de 5 etapas:
 
@@ -36,14 +46,14 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
      - Jobs, agendamentos ou cron existentes no backend/Supabase.
    - **Proibido criar uma segunda arquitetura fiscal paralela.** A Distribuição DF-e é apenas mais uma fonte de entrada para o mesmo importador.
 
-2. **ETAPA 2 — CONSULTAR A DOCUMENTAÇÃO OFICIAL VIGENTE:**
-   - **NUNCA implementar com base em memória interna, suposições, posts de blogs ou fóruns.**
-   - Consultar fontes oficiais vigentes antes de escrever código:
+2. **ETAPA 2 — CONSULTAR A DOCUMENTAÇÃO OFICIAL VIGENTE QUANDO A REGRA MUDAR OU ESTIVER INCERTA:**
+   - Siga os requisitos e a precedência de fontes descritos em `fiscal-nfe-nfce-official-docs`; consulte somente os materiais oficiais pertinentes à mudança atual.
+   - Para DF-e, as referências relevantes incluem:
      - Portal Nacional da NF-e (`nfe.fazenda.gov.br`);
      - Notas Técnicas vigentes: NT 2014.002 e suas versões/atualizações vigentes para Distribuição DF-e;
      - Manual de Orientação do Contribuinte (MOC) e schemas XML oficiais (`retDistDFeInt`, `docZip`, `resNFe`, `procNFe`);
      - SEFA/PR e Ambiente Nacional para registro de eventos da Manifestação do Destinatário.
-   - Se houver divergência entre prompts anteriores e a documentação oficial mais recente, a **documentação oficial prevalece**.
+   - Divergência normativa deve ser resolvida conforme a skill fiscal oficial antes de alterar comportamento.
 
 3. **ETAPA 3 — DESENHAR FLUXO E ARQUITETURA DE FORMA CONCISA:**
    - Documentar brevemente o que já existe, o que será estendido e o que realmente precisa ser criado.
@@ -171,3 +181,8 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
 - **Endereço Completo:** R. Cascavel, 306, Guaraituba, Colombo - PR, CEP: 83410-270 (Código IBGE Município: `4105805`)
 - **CSC NFC-e Homologação SEFAZ-PR:** carregar exclusivamente do armazenamento seguro de secrets em runtime; nunca registrar valor em skill, documentação, logs ou bundle do cliente.
 - **Numeração Sequencial Inicial:** Padrão configurado a partir de `#000700` (`nfeNextNumber: 700`, `nfceNextNumber: 700`).
+
+## Referências e fonte canônica de documentação
+
+- Regras normativas, fontes oficiais, ambiente HML/Produção e idempotência fiscal: `.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md`.
+- Gates e retomada de testes: `.agents/skills/testes-seguros-erp/SKILL.md`.

@@ -4,21 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNfeEmission } from './useNfeEmission';
 import { NfeEmissionModal } from '../NfeEmissionModal';
 import PostOrderActionsModal from '../PostOrderActionsModal';
-const mocks = vi.hoisted(() => ({ prepare: vi.fn(), emit: vi.fn(), toast: vi.fn() }));
+const mocks = vi.hoisted(() => ({ prepare: vi.fn(), emit: vi.fn(), toast: vi.fn(), searchNcms: vi.fn() }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { role: 'administrator' } }) }));
 vi.mock('@/pages/utils/nfe/csosnConfigurationService', () => ({ prepareHmlItemCsosns: mocks.prepare }));
 vi.mock('@/pages/utils/nfe/nfeService', () => ({ emitNfeForOrder: mocks.emit, printOrderDanfe: vi.fn() }));
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({ fiscalDefaults: { cst: '102' } }) }));
 vi.mock('@/pages/utils/productService', () => ({ getFullProduct: vi.fn() }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
-vi.mock('./NcmSelect', () => ({ NcmSelect: () => null }));
+vi.mock('@/services/fiscal/ncmService', () => ({ ncmService: { searchNcms: mocks.searchNcms } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.toast, success: vi.fn() } }));
 describe('preenchimento dos itens da NF-e', () => {
   afterEach(() => cleanup());
   beforeEach(() => { vi.resetAllMocks(); mocks.prepare.mockResolvedValue([
     { itemNumber: 1, csosn: '103', source: 'default' },
     { itemNumber: 2, csosn: '500', source: 'saved' },
-  ]); });
+  ]); mocks.searchNcms.mockResolvedValue([]); });
   const order: any = { id: 'synthetic-order', items: [
     { quantity: 1, description: 'ITEM A', fiscal: { ncm: '94036000', cfop: '5102', origem: '2' } },
     { quantity: 1, description: 'ITEM B', fiscal: { cst: '500', ncm: '94036000', origem: '0' } },
@@ -118,5 +118,30 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(await screen.findByText('Item avulso para conferência')).toBeTruthy();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('pesquisa tag no campo NCM do modal e seleciona o resultado sem transmitir a nota', async () => {
+    const orderForSearch: any = {
+      ...order,
+      items: [{ ...order.items[0], fiscal: { ...order.items[0].fiscal, ncm: '' } }],
+    };
+    const originalOrder = structuredClone(orderForSearch);
+    mocks.searchNcms.mockImplementation(async (searchTerm: string) => searchTerm === 'armário para cozinha'
+      ? [{ code: '94034000', official_description: 'Móveis de madeira para cozinhas', alias_match: 'armário para cozinha MDF/MDP', rank: 1.5 }]
+      : []);
+
+    render(<NfeEmissionModal isOpen order={orderForSearch} onClose={vi.fn()} />);
+    await screen.findByRole('dialog', { name: 'Emitir nota fiscal de saída' });
+    await waitFor(() => expect(screen.queryByText(/Carregando NCMs e dados fiscais/)).toBeNull());
+
+    const ncmInput = screen.getByRole('textbox', { name: 'NCM' });
+    fireEvent.change(ncmInput, { target: { value: 'armário para cozinha' } });
+    const tagResult = await screen.findByText('armário para cozinha MDF/MDP');
+    fireEvent.click(tagResult);
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty('value', '94034000'));
+    expect(mocks.searchNcms).toHaveBeenCalledWith('armário para cozinha', 10);
+    expect(mocks.emit).not.toHaveBeenCalled();
+    expect(orderForSearch).toEqual(originalOrder);
   });
 });

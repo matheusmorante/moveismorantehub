@@ -27,12 +27,18 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     isSubmitting,
     requestedNumber,
     setRequestedNumber,
+    recipientCpf,
+    setRecipientCpf,
+    showValidation,
+    pendingNcmConfirmations,
     isLoadingFiscalData,
     fiscalPreparationError,
     emissionResult,
     nfeItems,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
+    handleNcmBlur,
+    handleResolveNcmConfirmation,
     handleEmit,
     handleReconcile,
     handlePrintDanfe,
@@ -134,8 +140,24 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               Dados adicionais do destinatário
             </h4>
             <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
-              Os dados vêm do snapshot deste pedido e não serão alterados pela emissão.
+              Os dados vêm do snapshot deste pedido. O CPF abaixo vale somente para esta emissão e não altera o cadastro do cliente.
             </p>
+            <label className="mt-3 flex max-w-sm flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+              CPF para esta nota (opcional)
+              <input
+                aria-label="CPF para esta nota fiscal"
+                inputMode="numeric"
+                autoComplete="off"
+                value={recipientCpf.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')}
+                onChange={(event) => setRecipientCpf(event.target.value.replace(/\D/g, '').slice(0, 11))}
+                aria-invalid={showValidation && !!recipientCpf && recipientCpf.replace(/\D/g, '').length !== 11}
+                className={`w-full border-0 border-b rounded-none bg-transparent px-1 py-2 font-mono outline-none ${showValidation && recipientCpf && recipientCpf.replace(/\D/g, '').length !== 11 ? 'border-rose-500 text-rose-700 focus:border-rose-600' : 'border-slate-300 text-slate-800 focus:border-blue-500 dark:border-slate-600 dark:text-slate-100'}`}
+                placeholder="000.000.000-00"
+              />
+              {showValidation && recipientCpf && recipientCpf.replace(/\D/g, '').length !== 11 && (
+                <span className="font-normal text-rose-600">Informe 11 dígitos ou deixe o campo vazio.</span>
+              )}
+            </label>
             {order.shipping?.deliveryMethod !== 'pickup' && (
               <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                 Endereço:{' '}
@@ -156,6 +178,11 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               items={nfeItems}
               onUpdateItemFiscal={handleUpdateItemFiscal}
               onBatchUpdateItems={handleBatchUpdateItems}
+              showNcmErrors={showValidation}
+              disabled={isLoadingFiscalData}
+              pendingNcmConfirmations={pendingNcmConfirmations}
+              onNcmBlur={handleNcmBlur}
+              onResolveNcmConfirmation={handleResolveNcmConfirmation}
             />
           )}
 
@@ -174,7 +201,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               disabled={isSubmitting || Boolean(emissionResult?.pending) ||
                 Boolean(emissionResult?.error?.includes('217') && emissionResult.documentId)}
               placeholder={isPickup ? '600 em diante' : '102 em diante'}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono dark:border-slate-700 dark:bg-slate-950"
+              className="border-0 border-b border-slate-300 bg-transparent px-1 py-2 font-mono outline-none focus:border-blue-500 dark:border-slate-700"
             />
             <span className="font-normal text-slate-500">
               Em branco, o próximo número será reservado automaticamente.
@@ -233,7 +260,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                       onChange={(event) => setRetryNumber(event.target.value)}
                       disabled={isSubmitting || Boolean(emissionResult.pending)}
                       placeholder="Informe outro número"
-                      className="rounded-lg border border-rose-300 bg-white px-3 py-2 font-mono text-slate-900 dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+                      className="border-0 border-b border-rose-300 bg-transparent px-1 py-2 font-mono text-slate-900 outline-none focus:border-rose-500 dark:border-rose-800 dark:text-slate-100"
                     />
                   </label>
                   <button

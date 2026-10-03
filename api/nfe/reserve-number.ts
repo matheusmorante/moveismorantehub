@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl =
@@ -20,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST')
     return res.status(405).json({ success: false, error: 'Método inválido.' });
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = getSupabaseBackendKey();
   if (!serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
   const db = createClient(supabaseUrl, serviceKey);

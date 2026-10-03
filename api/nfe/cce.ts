@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomInt } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { buildNfeCceXml, validateNfeCce } from '../../erp/src/pages/utils/nfe/nfeCce';
 import {
   findRegisteredSefazCceEvent,
@@ -15,7 +16,7 @@ const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 const eventEndpoints = {
   1: 'https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
   2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',

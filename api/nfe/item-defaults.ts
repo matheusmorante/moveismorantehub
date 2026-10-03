@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
   HML_CSOSN_SETTINGS_ID,
@@ -16,23 +17,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
   if (!['GET', 'POST', 'PATCH'].includes(req.method || ''))
     return res.status(405).json({ success: false, error: 'Método inválido.' });
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const supabaseKey = getSupabaseBackendKey();
+  if (!supabaseKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
   const db = createClient<FiscalDatabase>(
     process.env.VITE_SUPABASE_URL ||
       process.env.SUPABASE_URL ||
       'https://hkoxhourxwlddgsfdgws.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    supabaseKey
   );
   const auth = await authorizeFiscalOperator(db, req.headers.authorization);
   if (!auth.ok) return res.status(auth.status).json({ success: false, error: auth.message });
   try {
     const configuration = await loadHmlCsosnConfiguration(db);
-    if (req.method === 'GET') return res.status(200).json({ success: true, configuration,
-      readiness: { environment: 2, configurationIssues: [
-        ...getResponsibleTechnicianConfigurationIssues(process.env, 2),
-        ...(!process.env.NFE_CERTIFICATE_BASE64 ? ['certificate.base64'] : []),
-      ] } });
+    if (req.method === 'GET') {
+      const responsibleTechnicianIssues = getResponsibleTechnicianConfigurationIssues(process.env, 2);
+      const readiness = {
+        environment: 2,
+        ...(process.env.VERCEL_ENV === 'preview'
+          ? {
+              secretReadiness: {
+                supabaseSecretKey: Boolean(process.env.SUPABASE_SECRET_KEY?.trim()),
+                certificateBase64: Boolean(process.env.NFE_CERTIFICATE_BASE64),
+                certificatePassword: Boolean(process.env.NFE_CERTIFICATE_PASSWORD),
+                responsibleTechnician: ['cnpj', 'contact', 'email', 'phone'].every(
+                  (field) => !responsibleTechnicianIssues.includes(`responsibleTechnician.${field}`)
+                ),
+                csrtId: !responsibleTechnicianIssues.includes('responsibleTechnician.csrtId'),
+                csrt: !responsibleTechnicianIssues.includes('responsibleTechnician.csrt'),
+              },
+            }
+          : {}),
+        configurationIssues: [
+          ...responsibleTechnicianIssues,
+          ...(!process.env.NFE_CERTIFICATE_BASE64 ? ['certificate.base64'] : []),
+        ],
+      };
+      return res.status(200).json({ success: true, configuration, readiness });
+    }
     const body = req.body as Record<string, unknown>;
     if (body?.environment !== 2)
       return res

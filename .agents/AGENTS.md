@@ -24,6 +24,7 @@ Diretrizes para foco, velocidade e economia máxima de contexto e tokens.
 * Qualidade e Segurança Estática: Biome (Lint/Format Rápido), Knip (Código Morto), Supabase Advisors (RLS/Índices), React Compiler (Otimização Reativa), Gitleaks (Detecção de Segredos), Trivy (CVEs/SBOM) e OpenTelemetry (Tracing com Sanitização PII).
 * Para buscas estruturais complexas e auditorias/migrações globais solicitadas, use ast-grep e as regras existentes; mudanças pequenas não exigem a ferramenta. Critérios em `.agents/skills/governanca-skills/SKILL.md`.
 * Para rastrear callers/callees, caminhos entre módulos e impacto de mudanças, use CALM quando disponível; use `rg` para busca textual simples. CALM informa relações do código e não substitui skills, documentação de domínio ou testes. Configuração: `.codex/config.toml`; índice local ignorado: `.calm/`.
+* Para gates persistentes, reaproveitamento de evidências e retomada após bloqueio em testes, siga a seção `Gates e continuidade da execução` da skill `.agents/skills/testes-seguros-erp/SKILL.md`; não reabra gates aprovados sem mudança ou evidência nova.
 
 ## Consultas Opcionais (Apenas Sob Demanda Específica)
 Consulte apenas se a tarefa envolver o tema correspondente:

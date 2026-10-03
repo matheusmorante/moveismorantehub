@@ -16,6 +16,12 @@ export interface NfeItemFiscal {
 export interface NfeItemWithFiscal extends Item {
   fiscal: NfeItemFiscal;
   isUnregistered: boolean;
+  catalogNcm?: string;
+}
+
+export interface NcmChangeConfirmation {
+  previousNcm: string;
+  nextNcm: string;
 }
 
 interface Props {
@@ -23,9 +29,22 @@ interface Props {
   items: NfeItemWithFiscal[];
   onUpdateItemFiscal: (index: number, fiscalUpdates: Partial<NfeItemFiscal>) => void;
   onBatchUpdateItems: (updated: NfeItemWithFiscal[]) => void;
+  showNcmErrors?: boolean;
+  disabled?: boolean;
+  pendingNcmConfirmations?: Record<number, NcmChangeConfirmation>;
+  onNcmBlur?: (index: number, value: string) => void;
+  onResolveNcmConfirmation?: (index: number, updateCatalog: boolean) => void;
 }
 
-export const NfeItemsSection: React.FC<Props> = ({ items, onUpdateItemFiscal }) => {
+export const NfeItemsSection: React.FC<Props> = ({
+  items,
+  onUpdateItemFiscal,
+  showNcmErrors = false,
+  disabled = false,
+  pendingNcmConfirmations = {},
+  onNcmBlur,
+  onResolveNcmConfirmation,
+}) => {
   // Contadores informativos
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
 
@@ -57,6 +76,11 @@ export const NfeItemsSection: React.FC<Props> = ({ items, onUpdateItemFiscal }) 
           <NfeItemRow
             key={`${item.productId || 'item'}_${index}`}
             item={item}
+            showNcmError={showNcmErrors}
+            disabled={disabled}
+            pendingNcmConfirmation={pendingNcmConfirmations[index]}
+            onNcmBlur={(value) => onNcmBlur?.(index, value)}
+            onResolveNcmConfirmation={(updateCatalog) => onResolveNcmConfirmation?.(index, updateCatalog)}
             onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
           />
         ))}

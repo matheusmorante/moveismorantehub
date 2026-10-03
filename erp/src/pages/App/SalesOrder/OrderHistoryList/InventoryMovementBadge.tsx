@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Check, Package, PackageMinus, PackagePlus, PackageX } from 'lucide-react';
+import { PackageMinus, PackagePlus, PackageX } from 'lucide-react';
 import type Order from '../../../types/order.type';
 import { isPartialSaleStockMovement } from '../../../utils/saleInventoryRules';
 import { getInventoryBadgeContent } from './inventoryBadgeContent';
 import { InventoryBadgePopover } from './InventoryBadgePopover';
+import { OrderBadgeCornerIcon } from './OrderBadgeCornerIcon';
 
 type Props = {
   orderType?: string;
@@ -159,9 +160,7 @@ const InventoryMovementBadge = ({
         )}
 
         {hasMovement && !isReversed && (
-          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-            <Check className="h-2 w-2 stroke-[3]" />
-          </span>
+          <OrderBadgeCornerIcon variant="check" className="bg-emerald-600" />
         )}
       </button>
 

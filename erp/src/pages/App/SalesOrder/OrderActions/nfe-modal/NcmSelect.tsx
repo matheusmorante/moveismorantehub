@@ -6,12 +6,20 @@ interface NcmSelectProps {
   value: string;
   onChange: (ncm: string) => void;
   placeholder?: string;
+  hasError?: boolean;
+  onBlur?: (value: string) => void;
+  disabled?: boolean;
 }
+
+const MIN_SEARCH_LENGTH = 3;
 
 export const NcmSelect: React.FC<NcmSelectProps> = ({
   value,
   onChange,
   placeholder = 'Selecione ou digite o NCM...',
+  hasError = false,
+  onBlur,
+  disabled = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState(value || '');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -65,7 +73,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
 
   useEffect(() => {
     const fetchNcms = async () => {
-      if (searchQuery.trim().length < 2) {
+      if (searchQuery.trim().length < MIN_SEARCH_LENGTH) {
         setResults([]);
         return;
       }
@@ -93,6 +101,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
         <input
           ref={inputRef}
           aria-label="NCM"
+          disabled={disabled}
           type="text"
           value={searchQuery}
           onChange={(e) => {
@@ -104,15 +113,23 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             setIsDropdownOpen(true);
           }}
           onFocus={() => setIsDropdownOpen(true)}
+          onBlur={(event) => {
+            const nextFocus = event.relatedTarget as Node | null;
+            if (!nextFocus || (!dropdownRef.current?.contains(nextFocus) && !resultsRef.current?.contains(nextFocus))) {
+              onBlur?.(searchQuery);
+            }
+          }}
           placeholder={placeholder}
-          className={`w-full pl-3 pr-7 py-1.5 bg-white dark:bg-slate-950 border rounded-xl outline-none text-xs font-mono font-bold transition-all ${
-            isNcmValid
-              ? 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500'
-              : 'border-red-400 bg-red-50/40 dark:bg-red-950/30 text-red-700 dark:text-red-300 focus:border-red-500'
+          aria-invalid={hasError && !isNcmValid}
+          className={`w-full pl-1 pr-7 py-1.5 bg-transparent border-0 border-b rounded-none outline-none text-xs font-mono font-bold transition-all ${
+            hasError && !isNcmValid
+              ? 'border-red-400 text-red-700 dark:text-red-300 focus:border-red-500'
+              : 'border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 focus:border-blue-500'
           }`}
         />
         <button
           type="button"
+          disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
             setIsDropdownOpen((prev) => !prev);
@@ -125,7 +142,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
         </button>
       </div>
 
-      {isDropdownOpen && dropdownPosition && (searchQuery.length >= 2 || results.length > 0) && createPortal(
+      {isDropdownOpen && dropdownPosition && (searchQuery.trim().length >= MIN_SEARCH_LENGTH || results.length > 0) && createPortal(
         <div
           ref={resultsRef}
           className="fixed z-[100000000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-1.5 max-h-56 overflow-y-auto custom-scrollbar flex flex-col gap-0.5"
@@ -139,11 +156,13 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             results.map((item) => (
               <div
                 key={item.code}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange(item.code);
                   setSearchQuery(item.code);
                   setIsDropdownOpen(false);
+                  onBlur?.(item.code);
                 }}
                 className="px-2.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/70 cursor-pointer transition-colors text-left rounded-xl group"
               >

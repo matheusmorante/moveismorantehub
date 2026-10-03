@@ -159,10 +159,6 @@ const OrderHistoryRow = ({
                 <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                   {formatOrderCode(order)}
                 </span>
-                <OrderFiscalBadge
-                  status={fiscalBadgeStatus}
-                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
-                />
               </div>
               {order.linkedOrderId && (
                 <button
@@ -239,6 +235,10 @@ const OrderHistoryRow = ({
                 {toTitleCase(order.customerData?.fullName || 'Não informado')}
               </span>
               <div className="flex flex-wrap items-center gap-1">
+                <OrderFiscalBadge
+                  status={fiscalBadgeStatus}
+                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}

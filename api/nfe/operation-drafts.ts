@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBackendKey } from './supabaseBackendKey';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import {
   getAuthorizedAt,
@@ -17,7 +18,7 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = getSupabaseBackendKey();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function extractFiscalBlock(xml: string, name: string): string {
