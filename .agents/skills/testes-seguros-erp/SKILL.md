@@ -57,6 +57,8 @@ Em tarefas cujo objetivo explícito seja executar, testar, validar ou reproduzir
 
 ## 2. Ambientes de Teste
 
+Por decisão do usuário em 03/10/2026, testes de banco usam sempre o Supabase remoto configurado. Não solicitar abertura, instalação ou inicialização do Docker Desktop como gate.
+
 Use esta ordem de decisão, sem depender de dia ou horário:
 
 1. **Teste focado**: prefira Vitest/Jest com mocks, fixtures e estado em memória para lógica isolada.

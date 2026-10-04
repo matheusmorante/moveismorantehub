@@ -46,6 +46,10 @@ Os PDFs fornecidos foram removidos do repositório a pedido da usuária. Este ar
 
 ## Regra de uso
 
+### Decisão de modelo para varejo no Paraná — 2026-10-03
+
+Consulte [a política central de NF-e/NFC-e](../decisao-modelo-varejo-pr.md) para a matriz de consumidor final, entrega/retirada, UF, identificação, CEP e motivos que exigem modelo 55. Ela registra as fontes oficiais e o fluxo implementado.
+
 Este índice é apenas um mapa de navegação. Use as publicações oficiais atuais para identificar a norma aplicável ao assunto. Não salvar cópias locais de manuais/MOC/NT como fonte permanente. Manter apenas artefatos técnicos necessários ao funcionamento do sistema, como schemas XSD efetivamente utilizados, com versão e origem rastreáveis.
 
 ### Verificação de cancelamento comercial/fiscal — 2026-10-01

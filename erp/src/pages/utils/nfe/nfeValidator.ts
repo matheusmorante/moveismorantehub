@@ -1,5 +1,6 @@
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../settingsService';
+import { resolveOrderFiscalModel, getFiscalRecipientAddress, fiscalPresence, fiscalRecipientRequirements } from '../../../../../shared-utils/fiscalDocumentModel';
 
 export interface NfeValidationResult {
   isValid: boolean;
@@ -68,32 +69,23 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
     });
   }
 
-  // 3. Validação do Destinatário (especialmente para NF-e modelo 55 - Entrega)
-  const isPickup = order.shipping?.deliveryMethod === 'pickup';
-  if (!isPickup) {
-    // NF-e modelo 55 exige endereço do destinatário
-    const customer = order.customerData;
-    if (!customer) {
-      errors.push(
-        'Para entregas (NF-e Modelo 55), os dados do cliente destinatário são obrigatórios.'
-      );
-    }
-    const address =
-      order.shipping?.deliveryAddress || customer?.fullAddress || (customer as any)?.address;
-    const missingAddressFields = [
-      ['logradouro', (address as any)?.street],
-      ['bairro', (address as any)?.neighborhood || (address as any)?.bairro],
-      ['código IBGE do município', (address as any)?.cityCode || (address as any)?.cMun],
-      ['município', (address as any)?.city],
-      ['UF', (address as any)?.state || (address as any)?.uf],
-      ['CEP', (address as any)?.postalCode || (address as any)?.cep],
-    ]
-      .filter(([, value]) => !String(value || '').trim())
-      .map(([label]) => label);
-    if (missingAddressFields.length) {
-      errors.push(
-        `Identificação do destinatário para NF-e incompleta: informe ${missingAddressFields.join(', ')} no endereço do pedido/cliente.`
-      );
+  // Recipient requirements follow the fiscal model and presence, not pickup/delivery alone.
+  const decision = resolveOrderFiscalModel(order, { issuerUf: settings.companyUF, finalConsumer: order.fiscalContext?.finalConsumer ?? true });
+  if (decision.status === 'blocked') errors.push(decision.reason);
+  else {
+    const presence = fiscalPresence(decision.model, order.shipping?.deliveryMethod, order.fiscalContext?.presence);
+    const requirements = fiscalRecipientRequirements(decision.model, presence, order.paymentsSummary?.totalOrderValue || 0);
+    const document = (order.customerData?.cpfCnpj || order.customerData?.document || '').replace(/\D/g, '');
+    if (requirements.documentRequired && ![11,14].includes(document.length)) errors.push('CPF/CNPJ do destinatário obrigatório para esta operação.');
+    if (document && ![11,14].includes(document.length)) errors.push('CPF/CNPJ do destinatário inválido.');
+    if (requirements.addressRequired) {
+      const address = getFiscalRecipientAddress(order);
+      const missing = [['logradouro',address.street],['número',address.number],['bairro',address.neighborhood || address.bairro],
+        ['código IBGE do município',address.cityCode || address.cMun],['município',address.city],['UF',address.state || address.uf]]
+        .filter(([,value]) => !String(value || '').trim()).map(([field]) => field);
+      if (missing.length) errors.push('Endereço do destinatário incompleto: informe ' + missing.join(', ') + '.');
+      const cep = String(address.zipCode || address.postalCode || address.cep || '').replace(/\D/g,'');
+      if (cep && !/^\d{8}$/.test(cep)) errors.push('CEP do destinatário inválido.');
     }
   }
 

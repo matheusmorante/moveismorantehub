@@ -1,32 +1,47 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Order from '@/pages/types/order.type';
-import {
-  emitNfeForOrder,
-  getNextNfeNumberPreview,
-  getCachedFiscalNumberPreview,
-  updateFiscalNumberPreviewCache,
-  NfeEmissionResult,
-  printOrderDanfe,
-} from '@/pages/utils/nfe/nfeService';
-import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
-import { getSettings } from '@/pages/utils/settingsService';
-import { getFullProduct } from '@/pages/utils/productService';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
-import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSettings';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
-import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
+import type Item from '@/pages/types/items.type';
+import type Order from '@/pages/types/order.type';
 import type { FiscalInfo } from '@/pages/types/product.type';
 import { prepareHmlItemCsosns } from '@/pages/utils/nfe/csosnConfigurationService';
+import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
+import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
+import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSettings';
+import {
+  emitNfeForOrder,
+  getCachedFiscalNumberPreview,
+  getNextNfeNumberPreview,
+  type NfeEmissionResult,
+  printOrderDanfe,
+  updateFiscalNumberPreviewCache,
+} from '@/pages/utils/nfe/nfeService';
+import { getFullProduct } from '@/pages/utils/productService';
+import { getSettings } from '@/pages/utils/settingsService';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import {
+  fiscalPresence,
+  fiscalRecipientRequirements,
+  resolveOrderFiscalModel,
+} from '../../../../../../../shared-utils/fiscalDocumentModel';
 import {
   DEFAULT_NFCE_NUMBER,
   DEFAULT_NFE_NUMBER,
   isFiscalNumber,
 } from '../../../../../../../shared-utils/fiscalNumbering.js';
+import {
+  type DeliveryMethod,
+  type FreightContractResponsible,
+  resolveDefaultTransport,
+  resolveTransport,
+  type TransportResponsible,
+} from '../../../../../../../shared-utils/fiscalTransportModel';
 import { isValidRecipientTaxId } from '../../../../../../../shared-utils/recipientTaxId';
+import type { NfeItemFiscal, NfeItemWithFiscal } from './NfeItemsSection';
+import type { ThirdPartyTransporterForm } from './NfeTransportSection';
 
 // In-memory emission drafts survive modal unmounts; no product/order mutation or persistent PII.
+const emissionContexts = new Map<string, { finalConsumer: boolean }>();
 const fiscalDrafts = new Map<string, Record<number, Partial<NfeItemFiscal>>>();
 const draftKey = (order: Order, environment: number) =>
   JSON.stringify([
@@ -51,15 +66,73 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
-  const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(false);
+  const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(Boolean(order?.id && order.items));
   const [fiscalPreparationError, setFiscalPreparationError] = useState<string | null>(null);
+  const contextKey = order ? draftKey(order, environment) : '';
+  const [finalConsumer, setFinalConsumer] = useState(
+    () =>
+      emissionContexts.get(contextKey)?.finalConsumer ?? order?.fiscalContext?.finalConsumer ?? true
+  );
+  const deliveryMethod: DeliveryMethod =
+    order?.shipping?.deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
+
+  const modelDecision = order
+    ? resolveOrderFiscalModel(
+        { ...order, items: nfeItems.length ? nfeItems : order.items },
+        { finalConsumer }
+      )
+    : null;
+  const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';
+
+  const initialTransportDefaults = resolveDefaultTransport(currentModel, deliveryMethod);
+  const [hasTransport, setHasTransport] = useState<boolean>(initialTransportDefaults.hasTransport);
+  const [transportResponsible, setTransportResponsible] = useState<TransportResponsible | 'NONE'>(
+    initialTransportDefaults.transportResponsible
+  );
+  const [freightContractResponsible, setFreightContractResponsible] =
+    useState<FreightContractResponsible>('SENDER');
+
+  const [thirdPartyTransporter, setThirdPartyTransporter] = useState<ThirdPartyTransporterForm>(
+    () => {
+      const t = order?.shipping?.transporter;
+      const doc = t?.cnpj || t?.cpf || '';
+      return {
+        personType: doc.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ',
+        cnpjCpf: doc,
+        name: t?.name || '',
+        ie: t?.ie || '',
+        isIeExempt: !t?.ie,
+        address: t?.address || '',
+        city: t?.city || '',
+        uf: t?.uf || 'PR',
+      };
+    }
+  );
+
+  useEffect(() => {
+    const nextDefaults = resolveDefaultTransport(currentModel, deliveryMethod);
+    setHasTransport(nextDefaults.hasTransport);
+    setTransportResponsible(nextDefaults.transportResponsible);
+  }, [order?.id, deliveryMethod, currentModel]);
+
+  const resolvedTransport = resolveTransport({
+    fiscalModel: currentModel,
+    deliveryMethod,
+    hasTransport,
+    transportResponsible,
+    freightContractResponsible,
+  });
+  useEffect(() => {
+    const saved = emissionContexts.get(contextKey);
+    setFinalConsumer(saved?.finalConsumer ?? order?.fiscalContext?.finalConsumer ?? true);
+  }, [contextKey, order?.fiscalContext?.finalConsumer]);
   const [numberPreviewState, setNumberPreviewState] = useState<{
     number: string;
     model: '55' | '65';
     series: string;
     environment: 1 | 2;
   } | null>(() => {
-    const model = order?.shipping?.deliveryMethod === 'pickup' ? '65' : '55';
+    const model = currentModel;
     try {
       const sequence = resolveNfeSequenceSettings(getSettings(), model, DEFAULT_NFE_ENVIRONMENT);
       const cached = getCachedFiscalNumberPreview(model, DEFAULT_NFE_ENVIRONMENT, sequence.series);
@@ -70,7 +143,10 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           series: sequence.series,
           environment: DEFAULT_NFE_ENVIRONMENT,
         };
-    } catch {}
+    } catch (err) {
+      console.warn('[useNfeEmission] Falha ao recuperar prévia em cache da sequência fiscal:', err);
+      return null;
+    }
     return null;
   });
   const [nfeNumberSequenceSettings, setNfeNumberSequenceSettings] = useState<{
@@ -78,22 +154,25 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     series: string | null;
     environment: 1 | 2;
   }>(() => {
-    const model = order?.shipping?.deliveryMethod === 'pickup' ? '65' : '55';
+    const model = currentModel;
     try {
       return {
         model,
         series: resolveNfeSequenceSettings(getSettings(), model, DEFAULT_NFE_ENVIRONMENT).series,
         environment: DEFAULT_NFE_ENVIRONMENT,
       };
-    } catch {
+    } catch (err) {
+      console.warn(
+        '[useNfeEmission] Falha ao resolver configuração de série da sequência fiscal:',
+        err
+      );
       return { model, series: null, environment: DEFAULT_NFE_ENVIRONMENT };
     }
   });
   const [isResolvingNfeNumber, setIsResolvingNfeNumber] = useState(Boolean(order?.id));
   const [nfeNumberLookupError, setNfeNumberLookupError] = useState<string | null>(null);
   const orderId = order?.id;
-  const deliveryMethod = order?.shipping?.deliveryMethod;
-  const currentModel: '55' | '65' = deliveryMethod === 'pickup' ? '65' : '55';
+
   const sequenceScopeMatches =
     nfeNumberSequenceSettings.model === currentModel &&
     nfeNumberSequenceSettings.environment === environment;
@@ -120,7 +199,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   useEffect(() => {
     if (!orderId) return;
     let active = true;
-    const model = deliveryMethod === 'pickup' ? '65' : '55';
+    const model = currentModel;
     setNfeNumberLookupError(null);
     let sequence: ReturnType<typeof resolveNfeSequenceSettings>;
     try {
@@ -173,7 +252,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     return () => {
       active = false;
     };
-  }, [orderId, deliveryMethod, environment]);
+  }, [orderId, currentModel, environment]);
   const [recipientTaxIdError, setRecipientTaxIdError] = useState<string | null>(null);
   const [recipientTaxId, setRecipientTaxId] = useState(
     order?.customerData?.cpfCnpj || order?.customerData?.document || ''
@@ -181,13 +260,13 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const handleRecipientTaxIdChange = useCallback(
     (value: string) => {
       setRecipientTaxId(value);
-      if (value.trim() === '' && order?.shipping?.deliveryMethod === 'pickup') {
+      if (value.trim() === '' && currentModel === '65') {
         setRecipientTaxIdError(null);
       } else if (isValidRecipientTaxId(value)) {
         setRecipientTaxIdError(null);
       }
     },
-    [order?.shipping?.deliveryMethod]
+    [currentModel]
   );
   const submissionInProgress = useRef(false);
   const manualFiscalFields = useRef(fiscalDrafts);
@@ -202,7 +281,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     }
 
     const settings = getSettings();
-    const defaultFiscal = (settings as any).fiscalDefaults || {};
+    const defaultFiscal = settings.fiscalDefaults || {};
 
     let isMounted = true;
     setIsLoadingFiscalData(true);
@@ -210,7 +289,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
     const productItems = order.items.filter((item) => item.itemType !== 'service');
     const fallbackItems: NfeItemWithFiscal[] = productItems.map((item) => {
-      const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
+      const savedFiscal = item.fiscal;
       return {
         ...item,
         isUnregistered: !item.productId,
@@ -243,7 +322,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
           if (environment === 2 && !preparedCsosn && !preparationError)
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
-          const savedFiscal = (item as any).fiscal as FiscalInfo | undefined;
+          const savedFiscal = item.fiscal;
           let catalogFiscal: FiscalInfo | undefined;
 
           // Consulta o cadastro atual para preencher o NCM; o snapshot é fallback
@@ -261,8 +340,11 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
                 cst: variation?.fiscal?.cst || fullProd?.fiscal?.cst,
                 origem: variation?.fiscal?.origem || fullProd?.fiscal?.origem,
               };
-            } catch {
-              // ignore
+            } catch (err) {
+              console.warn(
+                `[useNfeEmission] Falha ao consultar catálogo do produto ${item.productId}:`,
+                err
+              );
             }
           }
 
@@ -367,18 +449,42 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     }
     if (!order) return;
     const taxId = recipientTaxId;
-    if (order.shipping?.deliveryMethod !== 'pickup') {
-      const missingMessage =
-        'CPF ou CNPJ do destinatário é obrigatório para emitir NF-e modelo 55.';
+    if (modelDecision?.status !== 'ready') {
+      toast.error(modelDecision?.reason || 'Confirme os dados da operação fiscal.');
+      return;
+    }
+    const currentPresence = fiscalPresence(
+      currentModel,
+      deliveryMethod,
+      order.fiscalContext?.presence,
+      Boolean(taxId.trim())
+    );
+    const effectiveItemsTotal = (nfeItems.length ? nfeItems : order.items || [])
+      .filter((it) => it.itemType !== 'service')
+      .reduce((sum, it) => sum + (Number(it.quantity) || 1) * (Number(it.unitPrice) || 0), 0);
+    const effectiveFreightTotal = Number(order.shipping?.value) || 0;
+    const effectiveDiscountTotal = Number(order.itemsSummary?.totalFixedDiscount) || 0;
+    const effectiveInvoiceTotal =
+      Number(order.paymentsSummary?.totalOrderValue) ||
+      effectiveItemsTotal + effectiveFreightTotal - effectiveDiscountTotal;
+
+    const recipientReqs = fiscalRecipientRequirements(
+      currentModel,
+      currentPresence,
+      effectiveInvoiceTotal
+    );
+    const recipientRequired = recipientReqs.documentRequired;
+
+    if (recipientRequired) {
+      const isValueLimitNfce = currentModel === '65' && effectiveInvoiceTotal >= 10000;
+      const missingMessage = isValueLimitNfce
+        ? 'Identificação obrigatória — NFC-e com valor igual ou superior a R$ 10.000.'
+        : 'CPF ou CNPJ do destinatário é obrigatório para esta operação fiscal.';
       const invalidMessage = 'CPF ou CNPJ do destinatário inválido.';
       if (!isValidRecipientTaxId(taxId)) {
         const message = taxId.trim() ? invalidMessage : missingMessage;
         setRecipientTaxIdError(message);
-        toast.error(
-          taxId.trim()
-            ? 'Confira o CPF/CNPJ do destinatário deste pedido de entrega.'
-            : 'Informe o CPF/CNPJ do destinatário para emitir a NF-e deste pedido de entrega.'
-        );
+        toast.error(taxId.trim() ? 'Confira o CPF/CNPJ do destinatário.' : missingMessage);
         return;
       }
       setRecipientTaxIdError(null);
@@ -414,12 +520,12 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       toast.error('Informe um número inteiro entre 1 e 999999999.');
       return;
     }
-    const modelMinimum =
-      order.shipping?.deliveryMethod === 'pickup' ? DEFAULT_NFCE_NUMBER : DEFAULT_NFE_NUMBER;
+    const modelMinimum = currentModel === '65' ? DEFAULT_NFCE_NUMBER : DEFAULT_NFE_NUMBER;
     if (manualNumber !== undefined && manualNumber < modelMinimum) {
       toast.error(`O número desta nota deve ser igual ou superior a ${modelMinimum}.`);
       return;
     }
+    emissionContexts.set(contextKey, { finalConsumer });
     submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
@@ -428,11 +534,10 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         ...order,
         items: [
           ...nfeItems.map(
-            (item) =>
-              ({
-                ...item,
-                fiscal: item.fiscal,
-              }) as any
+            (item): Item => ({
+              ...item,
+              fiscal: item.fiscal,
+            })
           ),
           ...(order.items || []).filter((item) => item.itemType === 'service'),
         ],
@@ -450,8 +555,18 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         manualNumber,
         (order.items || [])
           .filter((item) => item.itemType !== 'service')
-          .map((item) => String((item as any).fiscal?.ncm || '')),
-        recipientTaxId
+          .map((item) => String(item.fiscal?.ncm || '')),
+        recipientTaxId,
+        finalConsumer,
+        resolvedTransport.isEmitterTransporter,
+        true,
+        resolvedTransport.requiresTransporterData ? thirdPartyTransporter : undefined,
+        resolvedTransport.modFrete,
+        resolvedTransport.hasTransport,
+        resolvedTransport.transportResponsible !== 'NONE'
+          ? resolvedTransport.transportResponsible
+          : undefined,
+        resolvedTransport.freightContractResponsible
       );
       if (!res.success) {
         toast.error(res.error || 'Erro ao validar dados para emissão.');
@@ -577,6 +692,9 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   return {
+    finalConsumer,
+    setFinalConsumer,
+    modelDecision,
     canOperateFiscal,
     environment,
     setEnvironment,
@@ -598,5 +716,31 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     handleEmit,
     handleReconcile,
     handlePrintDanfe,
+    hasTransport,
+    setHasTransport,
+    transportResponsible,
+    setTransportResponsible,
+    freightContractResponsible,
+    setFreightContractResponsible,
+    thirdPartyTransporter,
+    setThirdPartyTransporter,
+    resolvedTransport,
+    transportType:
+      resolvedTransport.transportResponsible === 'OWN_COMPANY'
+        ? 'OWN'
+        : resolvedTransport.transportResponsible === 'THIRD_PARTY'
+          ? 'THIRD_PARTY'
+          : 'NONE',
+    setTransportType: (type: 'OWN' | 'THIRD_PARTY' | 'NONE') => {
+      if (type === 'NONE') {
+        setHasTransport(false);
+        setTransportResponsible('NONE');
+      } else {
+        setHasTransport(true);
+        setTransportResponsible(type === 'OWN' ? 'OWN_COMPANY' : 'THIRD_PARTY');
+      }
+    },
+    freightMode: resolvedTransport.modFrete,
+    setFreightMode: () => {},
   };
 }

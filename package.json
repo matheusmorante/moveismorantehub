@@ -45,7 +45,7 @@
     "security:secrets": "node scripts/security.cjs secrets",
     "security:vuln": "node scripts/security.cjs vuln",
     "security:sbom": "node scripts/security.cjs sbom",
-    "advisors": "npx supabase db advisors --local"
+    "advisors": "npx supabase db advisors --linked"
   },
   "devDependencies": {
     "@ast-grep/cli": "0.45.3",

@@ -12,13 +12,30 @@ describe('autoridade TLS oficial somente na SEFAZ-PR de homologação', () => {
     expect(certificate.verify(certificate.publicKey)).toBe(true);
     expect(Date.parse(certificate.validTo)).toBeGreaterThan(Date.now());
   });
-  it('preserva as autoridades padrão e adiciona a raiz específica no host HML', () => {
+  it.each([
+    'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
+    'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
+  ])('preserva as autoridades padrão e adiciona a raiz específica no host HML %s', (url) => {
+    const defaultCerts = typeof getCACertificates === 'function' ? (getCACertificates('default') ?? []) : [];
+    const systemCerts = typeof getCACertificates === 'function' ? (getCACertificates('system') ?? []) : [];
+    const localCAs = [];
+    if (process.platform === 'win32') {
+      try {
+        const fs = require('node:fs');
+        const avast = 'C:/ProgramData/Avast Software/Avast/wscert.pem';
+        if (fs.existsSync(avast)) {
+          localCAs.push(fs.readFileSync(avast, 'utf8'));
+        }
+      } catch {}
+    }
     expect(
-      hmlSefazTrust('https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4')
-    ).toEqual([...getCACertificates('default'), ICP_BRASIL_V10]);
+      hmlSefazTrust(url)
+    ).toEqual([...defaultCerts, ...systemCerts, ...localCAs, ICP_BRASIL_V10]);
   });
   it.each([
     'https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
+    'https://nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
+    'https://homologacao.nfce.sefa.pr.gov.br.example.com/',
     'http://homologacao.nfe.sefa.pr.gov.br/',
     'https://homologacao.nfe.sefa.pr.gov.br.example.com/',
     'https://example.com/',

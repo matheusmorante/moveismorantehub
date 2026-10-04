@@ -21,6 +21,7 @@ interface OrderMenuActiveActionsProps {
   onStatusUpdate: (id: string, newStatus: Order['status']) => void;
   onShowPostSaleActions?: (order: Order) => void;
   onCloseMenu: () => void;
+  hideEditAction?: boolean;
 }
 
 export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
@@ -33,6 +34,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
   onStatusUpdate,
   onShowPostSaleActions,
   onCloseMenu,
+  hideEditAction,
 }) => {
   return (
     <>
@@ -70,7 +72,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
         </button>
       )}
 
-      {!isEditLocked && !isCancelled && (
+      {!isEditLocked && !isCancelled && !hideEditAction && (
         <button
           onClick={(e) => {
             e.stopPropagation();

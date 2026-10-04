@@ -21,6 +21,8 @@ interface OrderOptionsMenuProps {
   onStatusUpdate: (id: string, newStatus: Order['status']) => void;
   onShowPostSaleActions?: (order: Order) => void;
   onCloseOtherPopovers?: () => void;
+  hideEditAction?: boolean;
+  buttonClassName?: string;
 }
 
 export const OrderOptionsMenu = ({
@@ -34,6 +36,8 @@ export const OrderOptionsMenu = ({
   onStatusUpdate,
   onShowPostSaleActions,
   onCloseOtherPopovers,
+  hideEditAction,
+  buttonClassName,
 }: OrderOptionsMenuProps) => {
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
@@ -80,7 +84,7 @@ export const OrderOptionsMenu = ({
     <div className="relative">
       <button
         ref={menuButtonRef}
-        className={`p-2 rounded-xl transition-all border flex items-center justify-center h-7 w-7 shadow-sm ${
+        className={`p-2 rounded-xl transition-all border flex items-center justify-center ${buttonClassName || 'h-7 w-7'} shadow-sm ${
           showMenu
             ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
             : isCancelled
@@ -149,6 +153,7 @@ export const OrderOptionsMenu = ({
                   isEditLocked={isEditLocked}
                   isCancelled={isCancelled}
                   canReconcileTemporaryProducts={canReconcileTemporaryProducts}
+                  hideEditAction={hideEditAction}
                   onEdit={onEdit}
                   onAction={onAction}
                   onStatusUpdate={onStatusUpdate}

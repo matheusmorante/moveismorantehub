@@ -8,9 +8,12 @@ describe('fiscal document suggestion', () => {
     expect(getSuggestedFiscalDocumentLabel(order)).toBe('Gerar NFC-e');
   });
 
-  it('suggests NF-e for delivery', () => {
-    const order = { orderType: 'sale' as const, shipping: { deliveryMethod: 'delivery' as const } };
-    expect(getSuggestedFiscalDocument(order)).toBe('NFE');
-    expect(getSuggestedFiscalDocumentLabel(order)).toBe('Gerar NF-e');
+  it('suggests NFC-e for final-consumer delivery in Paraná', () => {
+    const order = { orderType: 'sale' as const, shipping: { deliveryMethod: 'delivery' as const, deliveryAddress: { state: 'PR' } } };
+    expect(getSuggestedFiscalDocument(order)).toBe('NFCE');
+    expect(getSuggestedFiscalDocumentLabel(order)).toBe('Gerar NFC-e');
+  });
+  it('requires recipient UF before suggesting an invoice for delivery', () => {
+    expect(getSuggestedFiscalDocument({ shipping: { deliveryMethod: 'delivery' } })).toBe('UNDETERMINED');
   });
 });

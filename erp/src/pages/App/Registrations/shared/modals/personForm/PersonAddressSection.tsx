@@ -82,7 +82,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
         >
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              CEP
+              CEP (opcional)
             </label>
             <input
               type="text"

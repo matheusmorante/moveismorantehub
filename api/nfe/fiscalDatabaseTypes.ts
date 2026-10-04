@@ -231,6 +231,32 @@ export type FiscalDatabase = {
         };
         Returns: Record<string, unknown>;
       };
+      prepare_nfe_fiscal_snapshot_with_recipient: {
+        Args: {
+          p_item_csosn_overrides?: Record<string, string>;
+          p_item_fiscal_selections?: import('../../shared-utils/fiscalItemSelections').FiscalItemSelections;
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_modelo: string;
+          p_ambiente: number;
+          p_serie: string;
+          p_numero_minimo: number;
+          p_recipient_cpf: string;
+        };
+        Returns: Record<string, unknown>;
+      };
+      prepare_nfe_fiscal_snapshot_with_context: {
+        Args: FiscalDatabase['public']['Functions']['prepare_nfe_fiscal_snapshot']['Args'] & {
+          p_recipient_tax_id: string;
+          p_final_consumer: boolean; p_delivery_by_issuer: boolean; p_card_not_integrated: boolean; p_model_decision: unknown;
+        }; Returns: Record<string, unknown>;
+      };
+      prepare_numbered_nfe_fiscal_snapshot_with_context: {
+        Args: FiscalDatabase['public']['Functions']['prepare_numbered_nfe_fiscal_snapshot']['Args'] & {
+          p_recipient_tax_id: string;
+          p_final_consumer: boolean; p_delivery_by_issuer: boolean; p_card_not_integrated: boolean; p_model_decision: unknown;
+        }; Returns: Record<string, unknown>;
+      };
       prepare_numbered_nfe_fiscal_snapshot: {
         Args: {
           p_emission_request_id: string;

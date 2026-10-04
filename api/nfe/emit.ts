@@ -236,6 +236,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           environment: command.environment,
           itemCsosnOverrides: command.itemCsosnOverrides,
           itemFiscalSelections: command.itemFiscalSelections,
+          recipientTaxId: command.recipientTaxId,
+          finalConsumer: command.finalConsumer,
+          deliveryByIssuer: command.deliveryByIssuer,
+          cardNotIntegrated: command.cardNotIntegrated,
+          hasTransport: command.hasTransport,
+          transportResponsible: command.transportResponsible,
+          freightContractResponsible: command.freightContractResponsible,
+          transporter: command.transporter,
+          freightMode: command.freightMode,
         },
       };
       if (command.environment === 2) {

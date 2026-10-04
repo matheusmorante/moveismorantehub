@@ -45,8 +45,11 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
 
   const response = await axios.post(url, soapEnvelope, {
     httpsAgent,
+    decompress: false,
     headers: {
       'Content-Type': `application/soap+xml; charset=utf-8; action="${action}"`,
+      'Content-Length': Buffer.byteLength(soapEnvelope, 'utf8'),
+      'Accept-Encoding': 'identity',
       Accept: 'application/soap+xml, text/xml',
     },
     timeout: 25000,

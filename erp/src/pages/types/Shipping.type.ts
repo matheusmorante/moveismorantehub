@@ -2,6 +2,8 @@ import FullAddress from './fullAddress.type';
 
 type Shipping = {
   value: number;
+  freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
+  transporter?: { cnpj?: string; cpf?: string; name: string; ie?: string; address?: string; city?: string; uf?: string };
   distance?: number;
   durationMinutes?: number;
   deliveryMethod: 'delivery' | 'pickup';

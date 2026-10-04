@@ -1,5 +1,9 @@
 # Auditoria da stack fiscal de saída — NF-e 55 / NFC-e 65
 
+## Atualização de modelo — 03/10/2026
+
+O achado histórico de escolha do modelo somente por entrega/retirada foi corrigido pela [política central de varejo no PR](decisao-modelo-varejo-pr.md). Consumidor final, UF e exigências fiscais determinam o modelo no backend; o contexto e o motivo ficam vinculados ao snapshot e à tentativa. As evidências antigas abaixo descrevem o estado observado na data da auditoria.
+
 > **Registro histórico:** esta auditoria foi escrita em 2026-09-29. As recomendações de testes fiscais em homologação descritas nela foram removidas em 2026-10-03 para redefinição; este documento não é um roteiro vigente.
 
 **Data:** 2026-09-29. **Método:** inspeção estática dos manifests/lockfiles, rotas, testes, migrations, skills e documentação; consulta ao portal nacional e à SEFA/PR; conferência em memória do ZIP XSD oficial por SHA-256. Não houve instalação, migration, escrita remota, transmissão SEFAZ ou teste de homologação nesta auditoria. O repositório já tinha muitas alterações locais em andamento; não atribuir seus resultados a um deploy.

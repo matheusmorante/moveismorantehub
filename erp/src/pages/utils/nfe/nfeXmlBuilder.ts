@@ -4,6 +4,7 @@ import { buildIdeXml, buildEmitXml } from './xml/xmlEmitterBlock';
 import { buildDestXml } from './xml/xmlDestBlock';
 import { buildItemsXml } from './xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from './xml/xmlTotalsBlock';
+import { fiscalPresence } from '../../../../../shared-utils/fiscalDocumentModel';
 
 export interface NfeXmlBuilderParams {
   order: Order;
@@ -89,6 +90,8 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     environment,
     dhEmi,
     municipalityCode: settings.companyCMun,
+    finalConsumer: order.fiscalContext?.finalConsumer === false ? 0 : 1,
+    presenceIndicator: Number(fiscalPresence(model, order.shipping?.deliveryMethod, order.fiscalContext?.presence)) as 0 | 1 | 2 | 3 | 4 | 5 | 9,
   });
 
   // 2. Bloco do Emitente (<emit>)
@@ -101,17 +104,14 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
   const { itemsXml, vProdTotal, vDescTotal } = buildItemsXml(order, settings, isHomologacao);
 
   // 5. Bloco de Totais, Transporte, Pagamento e Informações Adicionais (<total>, <transp>, <pag>, <infAdic>)
-  const totalsXml = buildTotalsAndPaymentXml(order, vProdTotal, vDescTotal);
+  const totalsXml = buildTotalsAndPaymentXml(order, vProdTotal, vDescTotal, model);
 
-  // NFC-e online (PR): QR Code 3.0 uses the access key, environment and
-  // the CSC identifier registered at SEFA/PR. The CSC secret itself must
-  // never be embedded in the XML/QR Code.
+  // NFC-e online: QR Code v3 uses only access key, version and environment.
   const infNFeSupl =
     model === '65'
       ? (() => {
-          const cscId = String((settings as any).cscId || '').trim();
-          const qrCode = `http://www.fazenda.pr.gov.br/nfce/qrcode?p=${accessKey}|3|${environment}|${cscId}`;
-          return `\n<infNFeSupl><qrCode><![CDATA[${qrCode}]]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/qrcode</urlChave></infNFeSupl>`;
+          const qrCode = `http://www.fazenda.pr.gov.br/nfce/qrcode?p=${accessKey}|3|${environment}`;
+          return `\n<infNFeSupl><qrCode><![CDATA[${qrCode}]]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl>`;
         })()
       : '';
 

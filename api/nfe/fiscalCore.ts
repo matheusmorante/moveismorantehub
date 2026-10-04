@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { validateCsosn } from './csosnPolicy';
 import { assertFiscalSelectionIntegrity } from './fiscalSelectionIntegrity';
+import { resolveOrderFiscalModel, getFiscalRecipientAddress, isSameFiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
 import type {
   FiscalDocument,
   FiscalDocumentResolution,
@@ -94,6 +95,18 @@ export function validateFiscalDocument(
   }
   if (!['55', '65'].includes(document.model) || !document.items.length || !document.payments.length)
     throw new Error('Modelo, itens ou pagamentos fiscais ausentes.');
+  if (ruleSet.version === 'HML_NORMAL_SALE_V2') {
+    const customer = snapshot.fiscalInputs?.customer as Record<string, unknown> | undefined;
+    const decision = resolveOrderFiscalModel({ ...snapshot.order.data, orderType: snapshot.order.type,
+      paymentsSummary: { totalOrderValue: document.totals.invoice },
+      items: document.items.map((item) => ({ fiscal: { cfop: item.classification.cfop } })),
+    }, { issuerUf: String(snapshot.issuerProfile.companyUF || ''), finalConsumer: snapshot.emissionRequest.finalConsumer,
+      recipientAddress: getFiscalRecipientAddress({ ...snapshot.order.data, customerData: { fullAddress: customer?.address } }) });
+    if (decision.status !== 'ready' || decision.model !== document.model ||
+        decision.finalConsumer !== (document.operation.finalConsumer === '1') ||
+        !isSameFiscalModelDecision(decision, document.modelDecision))
+      throw new Error('Modelo fiscal diverge dos fatos e da política de varejo.');
+  }
   required(document.issuer.name, 'Razão social');
   required(document.issuer.ie, 'IE do emitente');
   required(document.issuer.crt, 'CRT do emitente');

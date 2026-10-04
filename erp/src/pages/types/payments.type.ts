@@ -2,6 +2,7 @@ type FeeType = 'percentage' | 'fixed';
 
 export type Payment = {
   method: string;
+  fiscalCard?: { integrationType: '1' | '2'; acquirerCnpj?: string; brand?: string; authorization?: string };
   amount: number;
   fee: number;
   feeType: FeeType;

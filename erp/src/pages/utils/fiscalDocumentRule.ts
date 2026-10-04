@@ -1,6 +1,7 @@
 import Order from '../types/order.type';
+import { resolveOrderFiscalModel } from '../../../../shared-utils/fiscalDocumentModel';
 
-export type SuggestedFiscalDocument = 'NFE' | 'NFCE';
+export type SuggestedFiscalDocument = 'NFE' | 'NFCE' | 'UNDETERMINED';
 
 type FiscalOrderContext =
   | Pick<Order, 'orderType' | 'shipping'>
@@ -8,11 +9,13 @@ type FiscalOrderContext =
 
 /**
  * Defines the document initially suggested for a sale.
- * Fiscal model is based on how the sale is fulfilled, never on CPF/CNPJ alone.
+ * Retail suggestion only; the backend determines and records the final decision.
  */
 export const getSuggestedFiscalDocument = (order: FiscalOrderContext): SuggestedFiscalDocument => {
-  return (order as any).shipping?.deliveryMethod === 'pickup' ? 'NFCE' : 'NFE';
+  const decision = resolveOrderFiscalModel(order, {finalConsumer: (order as Order).fiscalContext?.finalConsumer ?? true});
+  return decision.status === 'blocked' ? 'UNDETERMINED' : decision.model === '65' ? 'NFCE' : 'NFE';
 };
 
 export const getSuggestedFiscalDocumentLabel = (order: FiscalOrderContext): string =>
-  getSuggestedFiscalDocument(order) === 'NFCE' ? 'Gerar NFC-e' : 'Gerar NF-e';
+  getSuggestedFiscalDocument(order) === 'NFCE' ? 'Gerar NFC-e' :
+    getSuggestedFiscalDocument(order) === 'NFE' ? 'Gerar NF-e' : 'Emitir nota fiscal';

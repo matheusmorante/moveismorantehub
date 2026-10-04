@@ -23,7 +23,8 @@ export interface IdeParams {
   finalidade?: 1 | 3 | 4;
   referencedAccessKey?: string;
   destinationIndicator?: 1 | 2 | 3;
-  presenceIndicator?: 0 | 1 | 2 | 3 | 9;
+  presenceIndicator?: 0 | 1 | 2 | 3 | 4 | 5 | 9;
+  finalConsumer?: 0 | 1;
   municipalityCode?: string;
 }
 
@@ -47,12 +48,12 @@ export function buildIdeXml(p: IdeParams): string {
       <tpNF>${p.operationType ?? 1}</tpNF>
       <idDest>${p.destinationIndicator ?? 1}</idDest>
       <cMunFG>${p.municipalityCode}</cMunFG>
-      <tpImp>1</tpImp>
+      <tpImp>${p.model === '65' ? 4 : 1}</tpImp>
       <tpEmis>1</tpEmis>
       <cDV>${p.checkDigit}</cDV>
       <tpAmb>${p.environment}</tpAmb>
       <finNFe>${p.finalidade ?? 1}</finNFe>
-      <indFinal>1</indFinal>
+      <indFinal>${p.finalConsumer ?? 1}</indFinal>
       <indPres>${p.presenceIndicator ?? 1}</indPres>
       <procEmi>0</procEmi>
       <verProc>MoranteHub_1.0</verProc>

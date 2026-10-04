@@ -1,50 +1,75 @@
 import React from 'react';
-import { NFE_ENVIRONMENTS } from '@/pages/utils/nfe/nfeEnvironment';
 
 interface NfeEnvironmentSelectorProps {
   environment: 1 | 2;
   onSelect: (env: 1 | 2) => void;
+  disabled?: boolean;
 }
 
 export const NfeEnvironmentSelector: React.FC<NfeEnvironmentSelectorProps> = ({
   environment,
   onSelect,
+  disabled = false,
 }) => {
   return (
-    <div className="flex flex-col gap-2">
-      <fieldset>
-        <legend className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Ambiente de emissão
-        </legend>
-        <div className="grid grid-cols-2 gap-3">
-          {NFE_ENVIRONMENTS.map((option) => (
-            <label
-              key={option.value}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition-all ${
-                environment === option.value
-                  ? option.value === 1
-                    ? 'border-rose-500 bg-rose-50/70 text-rose-800 ring-2 ring-rose-500/20 dark:bg-rose-950/30 dark:text-rose-200'
-                    : 'border-blue-600 bg-blue-50/50 text-blue-700 ring-2 ring-blue-500/20 dark:bg-blue-950/30 dark:text-blue-300'
-                  : 'border-slate-200 text-slate-600 dark:border-slate-800 dark:text-slate-400'
-              }`}
-            >
-              <span>
-                <span className="block text-xs font-black uppercase">{option.title}</span>
-                <span className="block text-[10px] opacity-75">{option.detail}</span>
-              </span>
-              <input
-                type="radio"
-                name="nfe-environment"
-                aria-label={option.title}
-                value={option.value}
-                checked={environment === option.value}
-                onChange={() => onSelect(option.value)}
-                className="h-4 w-4 accent-blue-600"
-              />
-            </label>
-          ))}
-        </div>
-      </fieldset>
+    <div
+      role="radiogroup"
+      aria-label="Ambiente de emissão"
+      className={`inline-flex items-center rounded-xl bg-slate-200/80 p-1 border border-slate-300/70 dark:bg-slate-800 dark:border-slate-700/80 ${
+        disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+      }`}
+    >
+      {/* Botão Liga/Desliga: Homologação */}
+      <label
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+          environment === 2
+            ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-600/30'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+        }`}
+      >
+        <input
+          type="radio"
+          name="nfe-environment"
+          aria-label="Homologação"
+          value={2}
+          checked={environment === 2}
+          disabled={disabled}
+          onChange={() => onSelect(2)}
+          className="sr-only"
+        />
+        <span
+          className={`h-2 w-2 rounded-full ${
+            environment === 2 ? 'bg-white' : 'bg-amber-500/70'
+          }`}
+        />
+        <span>Homologação</span>
+      </label>
+
+      {/* Botão Liga/Desliga: Produção */}
+      <label
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+          environment === 1
+            ? 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-700/30'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+        }`}
+      >
+        <input
+          type="radio"
+          name="nfe-environment"
+          aria-label="Produção"
+          value={1}
+          checked={environment === 1}
+          disabled={disabled}
+          onChange={() => onSelect(1)}
+          className="sr-only"
+        />
+        <span
+          className={`h-2 w-2 rounded-full ${
+            environment === 1 ? 'bg-white' : 'bg-rose-500/70'
+          }`}
+        />
+        <span>Produção</span>
+      </label>
     </div>
   );
 };

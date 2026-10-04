@@ -112,6 +112,8 @@ export const userDocumentation: DocumentationSection[] = [
     summary:
       'Guia para emissão de recibos digitais com QR Code, carimbo ICP-Brasil e envio automatizado aos clientes.',
     rules: [
+      'Na emissão fiscal, escolha a Finalidade da compra: Uso / consumo próprio corresponde a consumidor final Sim; Revenda corresponde a Não. Entrega e retirada dentro do Paraná para consumidor final usam NFC-e 65 quando a operação é elegível; a tela informa o motivo quando NF-e 55 é necessária.',
+      'Entrega em NFC-e exige endereço e identificação do destinatário. O CEP é opcional; se informado, precisa ser válido. Dados de transporte e de pagamento devem corresponder à operação real.',
       'Recibos contam com assinatura digital e QR Code público dinâmico para validação imediata no smartphone.',
       'Observações cadastradas no item de venda são anexadas automaticamente ao nome do produto na folha de pedido, no recibo e no WhatsApp.',
       'Para reimprimir ou reenviar um pedido com comprovante assinado, acerte as opções no botão de Ações pós-venda ou no menu do pedido.',

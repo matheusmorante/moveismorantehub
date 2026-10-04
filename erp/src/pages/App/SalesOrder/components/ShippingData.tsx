@@ -202,7 +202,7 @@ const ShippingData = ({
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-[1]">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 ml-1 block">
-                        CEP
+                        CEP (opcional)
                       </label>
                       <PatternFormat
                         format="#####-###"

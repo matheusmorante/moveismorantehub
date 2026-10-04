@@ -88,6 +88,7 @@ describe('emissão NF-e no ERP', () => {
     expect(Object.keys(JSON.parse(String(request.body))).sort()).toEqual([
       'emissionRequestId',
       'environment',
+      'finalConsumer',
       'orderId',
       'productionConfirmed',
     ]);

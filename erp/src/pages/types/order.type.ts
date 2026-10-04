@@ -15,6 +15,16 @@ export type AssistanceItem = {
 };
 
 export type Order = {
+  fiscalContext?: {
+    finalConsumer?: boolean;
+    operationType?: 'sale' | 'return' | 'transfer' | 'shipment' | 'goods_return' | 'export' | 'import';
+    purpose?: '1' | '2' | '3' | '4';
+    requiresTaxCredit?: boolean;
+    publicAdministrationRequirement?: boolean;
+    otherFiscalRequirement?: boolean;
+    presence?: string;
+    recipientIeIndicator?: '1' | '2' | '9';
+  };
   id?: string;
   orderType?: OrderType;
   status?: string;

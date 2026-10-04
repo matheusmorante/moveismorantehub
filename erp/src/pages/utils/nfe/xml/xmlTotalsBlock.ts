@@ -5,7 +5,8 @@ import { escapeXml } from './xmlEmitterBlock';
 export function buildTotalsAndPaymentXml(
   order: Order,
   vProdTotal: number,
-  vDescTotal: number
+  vDescTotal: number,
+  model?: '55' | '65'
 ): string {
   const vFrete = Number(order.shipping?.value || 0);
   const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
@@ -15,8 +16,9 @@ export function buildTotalsAndPaymentXml(
     ? `<infAdic><infCpl>Pedido #${escapeXml(String(orderReference))}</infCpl></infAdic>`
     : '';
 
-  // Modalidade de Frete: 0=Remetente/Entrega, 9=Sem frete/Retirada
-  const modFrete = order.shipping?.deliveryMethod === 'pickup' ? '9' : '0';
+  const modFrete = model === '65' && order.shipping?.deliveryMethod === 'pickup' ? '9' : order.shipping?.freightMode || '9';
+  if (model === '65' && order.shipping?.deliveryMethod === 'delivery')
+    throw new Error('NFC-e com entrega exige transportador e deve ser montada no Fiscal Core do backend.');
 
   // Meio de pagamento
   const paymentMethods = (order as any).payments || [];

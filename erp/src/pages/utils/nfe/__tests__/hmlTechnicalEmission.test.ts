@@ -437,9 +437,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
       protocolNumber: '141260000000001',
     });
     expect(state.calls.map((call) => call.name)).toEqual([
-      'prepare_nfe_fiscal_snapshot',
-      'reserve_hml_nfe_outbound',
-      'persist_hml_nfe_result',
+      'prepare_nfe_fiscal_snapshot', 'reserve_hml_nfe_outbound', 'persist_hml_nfe_result',
       'release_hml_nfe_attempt',
     ]);
     expect(state.calls[0].args).toMatchObject({
@@ -585,9 +583,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toContain('NFeConsultaProtocolo4');
     expect(mocks.sendSoapToSefaz.mock.calls[2][0].xmlPayload).toContain(embeddedNfeXml(original));
     expect(state.calls.map((call) => call.name)).toContain('reactivate_hml_nfe_retry');
-    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(
-      1
-    );
+    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(1);
   });
 
   it('impede consulta e retry paralelos enquanto o envio original está em andamento', async () => {
@@ -608,9 +604,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     resolveResponse('<retEnviNFe><cStat>105</cStat></retEnviNFe>');
     await first;
     expect(state.document?.attemptToken).toBeNull();
-    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(
-      1
-    );
+    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(1);
   });
 
   it('reconcilia autorização após falha na persistência sem retransmitir nem reservar número', async () => {
@@ -636,9 +630,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(state.document?.status).toBe('homologada');
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
     expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toContain('NFeConsultaProtocolo4');
-    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(
-      1
-    );
+    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(1);
   });
 
   it('devolve a autorização persistida mesmo após mudança no pedido e retirada do certificado', async () => {
@@ -657,9 +649,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     );
     expect(recovered.body).toMatchObject({ success: true, protocolNumber: '141260000000004' });
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
-    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(
-      1
-    );
+    expect(state.calls.filter((call) => call.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(1);
   });
 
   it('não aceita protocolo de outra chave mesmo se a chave correta estiver fora do protocolo', async () => {
@@ -767,9 +757,8 @@ describe('pipeline técnico NF-e 55 HML', () => {
     };
     mocks.sendSoapToSefaz.mockResolvedValue('<retEnviNFe><cStat>105</cStat></retEnviNFe>');
     await emitHmlTechnical(state.db, selected, facts, {});
-    expect(
-      state.calls.find((call) => call.name === 'prepare_nfe_fiscal_snapshot')?.args
-    ).toMatchObject({ p_item_csosn_overrides: { '1': '102' } });
+    expect(state.calls.find((call) => call.name === 'prepare_nfe_fiscal_snapshot')?.args)
+      .toMatchObject({ p_item_csosn_overrides: { '1': '102' } });
     expect(state.document?.xml_nfe).toContain('<CSOSN>102</CSOSN>');
     const changed = await emitHmlTechnical(
       state.db,

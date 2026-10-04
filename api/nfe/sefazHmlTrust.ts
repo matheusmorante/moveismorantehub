@@ -1,4 +1,5 @@
 import { getCACertificates } from 'node:tls';
+import fs from 'node:fs';
 
 // Official ITI root; source and fingerprint in docs/fiscal/sefaz-hml-tls.md.
 export const ICP_BRASIL_V10 =
@@ -6,7 +7,30 @@ export const ICP_BRASIL_V10 =
 
 export function hmlSefazTrust(url: string): string[] | undefined {
   const target = new URL(url);
-  if (target.protocol !== 'https:' || target.hostname !== 'homologacao.nfe.sefa.pr.gov.br')
+  if (
+    target.protocol !== 'https:' ||
+    !['homologacao.nfe.sefa.pr.gov.br', 'homologacao.nfce.sefa.pr.gov.br'].includes(target.hostname)
+  )
     return undefined;
-  return [...getCACertificates('default'), ICP_BRASIL_V10];
+  const defaultCerts = typeof getCACertificates === 'function' ? (getCACertificates('default') ?? []) : [];
+  const systemCerts =
+    typeof getCACertificates === 'function'
+      ? (() => {
+          try {
+            return getCACertificates('system') ?? [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  let localCAs: string[] = [];
+  if (process.platform === 'win32') {
+    try {
+      const avast = 'C:/ProgramData/Avast Software/Avast/wscert.pem';
+      if (fs.existsSync(avast)) {
+        localCAs.push(fs.readFileSync(avast, 'utf8'));
+      }
+    } catch {}
+  }
+  return [...defaultCerts, ...systemCerts, ...localCAs, ICP_BRASIL_V10];
 }

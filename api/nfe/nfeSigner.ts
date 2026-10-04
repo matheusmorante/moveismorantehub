@@ -102,7 +102,7 @@ function signFiscalEventXml(
   });
 
   signer.computeSignature(xml, {
-    location: { reference: `//*[local-name(.)='${elementName}']`, action: 'after' },
+    location: { reference: `//*[local-name(.)='${elementName === 'infNFe' && xml.includes('<infNFeSupl>') ? 'infNFeSupl' : elementName}']`, action: 'after' },
   });
 
   return signer.getSignedXml();

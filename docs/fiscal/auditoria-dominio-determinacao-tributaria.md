@@ -2,6 +2,10 @@
 
 # Auditoria de domínio — Pedido → FiscalDocument → NF-e/NFC-e
 
+## Atualização de modelo — 03/10/2026
+
+A relação antiga entre modalidade logística e modelo foi substituída pela [política central de varejo no Paraná](decisao-modelo-varejo-pr.md). O Fiscal Core decide 55/65 e registra o motivo; o serializer HML suporta os dois modelos no escopo tributário aprovado. As constatações antigas abaixo permanecem como histórico, não como regra vigente.
+
 ## Diretriz de operação confirmada em 30/09/2026
 
 - Para mercadorias da empresa no Simples Nacional, **CSOSN 102 é o valor inicial do sistema**. No formulário de emissão, o operador pode ajustar **NCM, CSOSN e CFOP por item** quando a classificação do caso exigir correção, inclusive após uma rejeição definitiva. O valor inicial segue a prioridade: linha já salva no pedido → variação/produto cadastrado → configuração fiscal geral → padrão 102 para CSOSN. A alteração no formulário não reescreve automaticamente o cadastro do produto.

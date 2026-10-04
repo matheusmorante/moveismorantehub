@@ -32,6 +32,8 @@ export const systemDocumentation: DocumentationSection[] = [
     summary:
       'Vendas e devoluções formam um mesmo fluxo operacional: a venda reduz estoque e a devolução atendida registra a entrada correspondente.',
     rules: [
+      'O modelo fiscal é decidido pela operação, UF e indicador Consumidor final. Entrega e retirada não definem isoladamente o modelo: varejo interno no Paraná para consumidor final prioriza NFC-e 65; revenda, operação interestadual, devolução e demais exigências fiscais usam NF-e 55.',
+      'O backend recalcula a decisão fiscal e salva seu motivo junto ao contexto e à numeração. A emissão fiscal não cria outra saída de estoque nem altera o financeiro do pedido.',
       'Rascunho é criado durante o preenchimento e não pode voltar a ser escolhido depois do cadastro.',
       'Ao cadastrar um pedido válido, ele passa para Agendado; isso habilita os gatilhos da agenda e de estoque configurados.',
       'A venda Agendada pode ser concluída mediante confirmação. O status interno fulfilled significa que o cliente recebeu a mercadoria: a interface exibe Entregue para entrega e Retirado para retirada. A correção volta ao estado operacional anterior sem alterar itens ou valores.',

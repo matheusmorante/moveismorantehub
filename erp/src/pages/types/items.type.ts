@@ -1,3 +1,5 @@
+import type { FiscalInfo } from './product.type';
+
 type DiscountType = 'percentage' | 'fixed';
 
 export type Item = {
@@ -24,6 +26,7 @@ export type Item = {
   condition?: 'novo' | 'usado' | 'salvado' | '';
   deliveryMethod?: 'delivery' | 'pickup';
   itemType?: 'product' | 'service';
+  fiscal?: FiscalInfo;
   isCombo?: boolean;
   isComboItem?: boolean;
   currentStock?: number;

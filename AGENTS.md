@@ -89,7 +89,7 @@
 - **Supabase remoto**: Use para integração, persistência, RPC, RLS e migrations revisadas, sempre com escopo controlado e fixtures sintéticas. Não use Supabase Local ou Docker para testes.
 - **pgTAP**: Utilize para testes nativos de banco de dados (RPCs, RLS, Constraints, Triggers).
 - **Atomicidade e Banco Real**: Falhas no meio de transações devem ser provadas no banco, garantindo o rollback.
-- **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (ambos em ambiente local).
+- **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (com escopo isolado e controlado; não gerar carga ampla no Supabase operacional).
 - **Separação Estrita**: Diferencie testes de persistência local (SQLite/IndexedDB) de persistência real (PostgreSQL). O fluxo de testes deve ser proporcional ao risco (Baixo a Crítico/Concorrente).
 
 ## Ferramentas Oficiais de Qualidade, Infraestrutura e Segurança

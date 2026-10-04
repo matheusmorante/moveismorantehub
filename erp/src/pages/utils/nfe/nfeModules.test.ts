@@ -62,6 +62,7 @@ describe('NF-e Validator', () => {
         value: 50,
         deliveryAddress: {
           street: 'Rua de Teste',
+          number: '100',
           neighborhood: 'Centro',
           cityCode: '4105805',
           city: 'Colombo',

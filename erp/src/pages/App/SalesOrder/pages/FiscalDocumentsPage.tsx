@@ -134,9 +134,8 @@ export default function FiscalDocumentsPage() {
             unitPrice: doc.valor_total || 0,
           },
         ],
-        shipping: {
-          deliveryMethod: doc.modelo === '65' ? 'pickup' : 'delivery',
-        },
+        // Logistics comes from the original order; its fiscal model does not identify it.
+        shipping: {},
       };
 
       // Tentar recuperar o pedido real se existir

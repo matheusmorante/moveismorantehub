@@ -16,6 +16,7 @@ import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { canGenerateReturn } from '../../utils/returnPolicy';
 import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
+import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
 
 const SalesOrder = () => {
   const [orderModalType, setOrderModalType] = useState<
@@ -35,7 +36,9 @@ const SalesOrder = () => {
   const isBudgetRoute = location.pathname === '/budgets';
   const isAssistanceRoute = location.pathname === '/assistance-orders';
   const isReturnRoute = location.pathname === '/returns';
-  const isSalesOrderRoute = location.pathname === '/sales-order';
+  const isSalesOrderRoute =
+    location.pathname === '/sales-order' ||
+    (!isBudgetRoute && !isAssistanceRoute && !isReturnRoute);
   const showOrderFilters = !isReturnRoute && !isSalesOrderRoute;
 
   const [filters, setFilters] = useState<Filters>({
@@ -221,19 +224,27 @@ const SalesOrder = () => {
         }`}
       >
         <div className="flex flex-col gap-3 mb-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            {/* Title (escondido em telas pequenas para economizar espaço) */}
-            <div className="min-w-0 hidden lg:block">
-              <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight">
-                {isBudgetRoute
-                  ? 'Orçamentos'
-                  : isAssistanceRoute
-                    ? 'Assistências'
-                    : isReturnRoute
-                      ? 'Devoluções'
-                      : 'Pedidos de Venda'}
-              </h1>
-              {!isSalesOrderRoute && (
+          <div className="flex items-center justify-between gap-3 w-full">
+            {/* Lado esquerdo: no Pedidos de Venda fica o campo de busca de cliente; nas outras abas fica o título */}
+            {isSalesOrderRoute ? (
+              <div className="flex-1 max-w-sm sm:max-w-md min-w-0">
+                <OrderCustomerSearchBar
+                  value={filters.customerName}
+                  onChange={(name) => setFilters((prev) => ({ ...prev, customerName: name }))}
+                  placeholder="Buscar pedido pelo nome do cliente..."
+                />
+              </div>
+            ) : (
+              <div className="min-w-0 hidden lg:block">
+                <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight">
+                  {isBudgetRoute
+                    ? 'Orçamentos'
+                    : isAssistanceRoute
+                      ? 'Assistências'
+                      : isReturnRoute
+                        ? 'Devoluções'
+                        : 'Pedidos de Venda'}
+                </h1>
                 <p className="text-slate-500 dark:text-slate-400 font-medium text-[10px] mt-0.5 hidden lg:block">
                   {isBudgetRoute
                     ? 'Gestão de Propostas e Orçamentos'
@@ -243,13 +254,11 @@ const SalesOrder = () => {
                         ? 'Controle de Devoluções e Estornos'
                         : 'Gestão de Vendas e Fluxo de Pedidos'}
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Top Control Bar on Mobile & Desktop */}
-            <div className="flex items-center justify-between w-full sm:w-auto gap-2 flex-wrap sm:flex-nowrap">
-              {/* Action Buttons Group */}
-              <div className="ml-auto flex items-center gap-2 shrink-0">
+            {/* Action Buttons Group (lá no final do lado direito) */}
+            <div className="ml-auto flex items-center gap-2 shrink-0">
                 {/* Visualizacao Dropdown */}
                 {!isReturnRoute && !isSalesOrderRoute && (
                   <div className="relative hidden lg:block">
@@ -373,7 +382,6 @@ const SalesOrder = () => {
                   </button>
                 )}
               </div>
-            </div>
           </div>
         </div>
 
@@ -418,8 +426,10 @@ const SalesOrder = () => {
                   highlightOrderId={highlightOrderId}
                   ref={orderListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
-                  onCustomerSearchChange={(name) =>
-                    setFilters((prev) => ({ ...prev, customerName: name }))
+                  onCustomerSearchChange={
+                    isSalesOrderRoute
+                      ? undefined
+                      : (name) => setFilters((prev) => ({ ...prev, customerName: name }))
                   }
                   onAction={handleOrderAction}
                   onShowPostSaleActions={setPostOrderDetails}
