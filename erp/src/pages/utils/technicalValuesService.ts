@@ -397,15 +397,15 @@ export const getApplicableTechnicalFields = (
   });
 
   // Exclusividade Profundidade vs Comprimento
-  const profundidade = applicable.find(f => f.name.toLowerCase() === 'profundidade');
-  const comprimento = applicable.find(f => f.name.toLowerCase() === 'comprimento');
+  const profundidade = applicable.find((f) => f.name.toLowerCase() === 'profundidade');
+  const comprimento = applicable.find((f) => f.name.toLowerCase() === 'comprimento');
 
   if (profundidade && comprimento) {
     const valProf = String(productTechnicalValues[profundidade.name] ?? '').trim();
     const valComp = String(productTechnicalValues[comprimento.name] ?? '').trim();
-    
+
     let activeName = profundidade.name;
-    
+
     if (manualSet.has(comprimento.name) && !manualSet.has(profundidade.name)) {
       activeName = comprimento.name;
     } else if (manualSet.has(profundidade.name) && !manualSet.has(comprimento.name)) {
@@ -414,11 +414,14 @@ export const getApplicableTechnicalFields = (
       activeName = comprimento.name;
     } else if (valProf && !valComp) {
       activeName = profundidade.name;
-    } else if (Object.prototype.hasOwnProperty.call(productTechnicalValues, comprimento.name) && !Object.prototype.hasOwnProperty.call(productTechnicalValues, profundidade.name)) {
+    } else if (
+      Object.prototype.hasOwnProperty.call(productTechnicalValues, comprimento.name) &&
+      !Object.prototype.hasOwnProperty.call(productTechnicalValues, profundidade.name)
+    ) {
       activeName = comprimento.name;
     }
-    
-    applicable = applicable.filter(f => {
+
+    applicable = applicable.filter((f) => {
       const lower = f.name.toLowerCase();
       if (lower === 'profundidade' || lower === 'comprimento') {
         return f.name === activeName;

@@ -1,0 +1,333 @@
+- generic [ref=e2]:
+  - generic [ref=e6]:
+    - region "Notifications Alt+T":
+      - alert [ref=e1000] [cursor=pointer]:
+        - text: "217: NF-e não encontrada. A próxima tentativa deve reutilizar o XML e a chave originais."
+        - button "close" [ref=e1004]
+        - progressbar "notification timer" [ref=e1009]
+    - banner [ref=e8]:
+      - generic [ref=e9]:
+        - button "" [ref=e10] [cursor=pointer]
+        - link [ref=e12] [cursor=pointer]:
+          - /url: /
+          - img "ERP Móveis Morante" [ref=e14]
+        - text:                 
+      - generic [ref=e15]:
+        - button "" [ref=e17] [cursor=pointer]
+        - button "" [ref=e19] [cursor=pointer]
+        - button "M Matheus Morante Administrador " [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: M
+          - generic [ref=e24]:
+            - generic [ref=e25]: Matheus Morante
+            - generic [ref=e26]: Administrador
+          - generic [ref=e27]: 
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: 
+            - generic [ref=e35]:
+              - heading "Notas Fiscais (NF-e & NFC-e)" [level=1] [ref=e36]
+              - paragraph [ref=e37]: Gestão centralizada de documentos fiscais, cancelamentos, CC-e e DANFE SEFAZ-PR.
+          - button " Atualizar" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]: 
+            - text: Atualizar
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: 
+            - textbox "Buscar por número, chave de acesso, cliente ou CPF/CNPJ..." [ref=e44]
+          - generic [ref=e45]:
+            - combobox [ref=e46] [cursor=pointer]:
+              - option "Todos os Modelos" [selected]
+              - option "NFC-e (Mod. 65)"
+              - option "NF-e (Mod. 55)"
+            - combobox [ref=e47] [cursor=pointer]:
+              - option "Todos os Status" [selected]
+              - option "Autorizadas"
+              - option "Canceladas"
+              - option "Rejeitadas"
+        - table [ref=e681]:
+          - rowgroup [ref=e682]:
+            - row [ref=e683]:
+              - columnheader "Modelo / Número" [ref=e684]
+              - columnheader "Chave de Acesso" [ref=e685]
+              - columnheader "Destinatário" [ref=e686]
+              - columnheader "Valor Total" [ref=e687]
+              - columnheader "Emissão" [ref=e688]
+              - columnheader "Status" [ref=e689]
+              - columnheader "Ações" [ref=e690]
+          - rowgroup [ref=e691]:
+            - row [ref=e692]:
+              - 'cell "NFC-e #000609 Série 1" [ref=e693]':
+                - generic [ref=e694]:
+                  - generic [ref=e695]: NFC-e
+                  - generic [ref=e696]: "#000609"
+                  - generic [ref=e697]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0914 0864 7557" [ref=e698]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e699]:
+                - generic [ref=e700]: CONSUMIDOR FINAL
+                - generic [ref=e701]: Não informado
+              - cell "R$ 0,00" [ref=e702]
+              - cell "05/10/2026" [ref=e703]
+              - cell "pendente" [ref=e704]
+              - cell [ref=e705]:
+                - generic [ref=e706]:
+                  - button "" [ref=e707] [cursor=pointer]
+                  - button "" [ref=e709] [cursor=pointer]
+                  - button "" [ref=e711] [cursor=pointer]
+            - row [ref=e713]:
+              - 'cell "NFC-e #000608 Série 1" [ref=e714]':
+                - generic [ref=e715]:
+                  - generic [ref=e716]: NFC-e
+                  - generic [ref=e717]: "#000608"
+                  - generic [ref=e718]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0815 7435 8309" [ref=e719]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e720]:
+                - generic [ref=e721]: CONSUMIDOR FINAL
+                - generic [ref=e722]: Não informado
+              - cell "R$ 0,00" [ref=e723]
+              - cell "04/10/2026" [ref=e724]
+              - cell "erro" [ref=e725]
+              - cell [ref=e726]:
+                - generic [ref=e727]:
+                  - button "" [ref=e728] [cursor=pointer]
+                  - button "" [ref=e730] [cursor=pointer]
+                  - button "" [ref=e732] [cursor=pointer]
+            - row [ref=e734]:
+              - 'cell "NFC-e #000607 Série 1" [ref=e735]':
+                - generic [ref=e736]:
+                  - generic [ref=e737]: NFC-e
+                  - generic [ref=e738]: "#000607"
+                  - generic [ref=e739]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0710 9288 5955" [ref=e740]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e741]:
+                - generic [ref=e742]: CONSUMIDOR FINAL
+                - generic [ref=e743]: Não informado
+              - cell "R$ 0,00" [ref=e744]
+              - cell "04/10/2026" [ref=e745]
+              - cell "erro" [ref=e746]
+              - cell [ref=e747]:
+                - generic [ref=e748]:
+                  - button "" [ref=e749] [cursor=pointer]
+                  - button "" [ref=e751] [cursor=pointer]
+                  - button "" [ref=e753] [cursor=pointer]
+            - row [ref=e755]:
+              - 'cell "NFC-e #000606 Série 1" [ref=e756]':
+                - generic [ref=e757]:
+                  - generic [ref=e758]: NFC-e
+                  - generic [ref=e759]: "#000606"
+                  - generic [ref=e760]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0610 4750 0171" [ref=e761]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e762]:
+                - generic [ref=e763]: CONSUMIDOR FINAL
+                - generic [ref=e764]: Não informado
+              - cell "R$ 0,00" [ref=e765]
+              - cell "04/10/2026" [ref=e766]
+              - cell "erro" [ref=e767]
+              - cell [ref=e768]:
+                - generic [ref=e769]:
+                  - button "" [ref=e770] [cursor=pointer]
+                  - button "" [ref=e772] [cursor=pointer]
+                  - button "" [ref=e774] [cursor=pointer]
+            - row [ref=e776]:
+              - 'cell "NFC-e #000605 Série 1" [ref=e777]':
+                - generic [ref=e778]:
+                  - generic [ref=e779]: NFC-e
+                  - generic [ref=e780]: "#000605"
+                  - generic [ref=e781]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0513 5462 5977" [ref=e782]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e783]:
+                - generic [ref=e784]: CONSUMIDOR FINAL
+                - generic [ref=e785]: Não informado
+              - cell "R$ 0,00" [ref=e786]
+              - cell "04/10/2026" [ref=e787]
+              - cell "erro" [ref=e788]
+              - cell [ref=e789]:
+                - generic [ref=e790]:
+                  - button "" [ref=e791] [cursor=pointer]
+                  - button "" [ref=e793] [cursor=pointer]
+                  - button "" [ref=e795] [cursor=pointer]
+            - row [ref=e797]:
+              - 'cell "NFC-e #000604 Série 1" [ref=e798]':
+                - generic [ref=e799]:
+                  - generic [ref=e800]: NFC-e
+                  - generic [ref=e801]: "#000604"
+                  - generic [ref=e802]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0417 5979 4300" [ref=e803]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e804]:
+                - generic [ref=e805]: CONSUMIDOR FINAL
+                - generic [ref=e806]: Não informado
+              - cell "R$ 0,00" [ref=e807]
+              - cell "04/10/2026" [ref=e808]
+              - cell "erro" [ref=e809]
+              - cell [ref=e810]:
+                - generic [ref=e811]:
+                  - button "" [ref=e812] [cursor=pointer]
+                  - button "" [ref=e814] [cursor=pointer]
+                  - button "" [ref=e816] [cursor=pointer]
+            - row [ref=e818]:
+              - 'cell "NFC-e #000603 Série 1" [ref=e819]':
+                - generic [ref=e820]:
+                  - generic [ref=e821]: NFC-e
+                  - generic [ref=e822]: "#000603"
+                  - generic [ref=e823]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0319 1500 3363" [ref=e824]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e825]:
+                - generic [ref=e826]: CONSUMIDOR FINAL
+                - generic [ref=e827]: Não informado
+              - cell "R$ 569,00" [ref=e828]
+              - cell "04/10/2026" [ref=e829]
+              - cell "homologada Prazo normal expirado • limite 04/10/2026, 01:11:26" [ref=e830]:
+                - text: homologada
+                - generic [ref=e831]: Prazo normal expirado • limite 04/10/2026, 01:11:26
+              - cell [ref=e832]:
+                - generic [ref=e833]:
+                  - button "" [ref=e834] [cursor=pointer]
+                  - button "" [ref=e836] [cursor=pointer]
+                  - button "Reprocessar tratamento fiscal do pedido da NF-e 603" [ref=e838] [cursor=pointer]:
+                    - generic [ref=e839]: 
+                  - button "" [ref=e840] [cursor=pointer]
+            - row [ref=e842]:
+              - 'cell "NFC-e #000602 Série 1" [ref=e843]':
+                - generic [ref=e844]:
+                  - generic [ref=e845]: NFC-e
+                  - generic [ref=e846]: "#000602"
+                  - generic [ref=e847]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0210 9856 2841" [ref=e848]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e849]:
+                - generic [ref=e850]: CONSUMIDOR FINAL
+                - generic [ref=e851]: Não informado
+              - cell "R$ 0,00" [ref=e852]
+              - cell "04/10/2026" [ref=e853]
+              - cell "erro" [ref=e854]
+              - cell [ref=e855]:
+                - generic [ref=e856]:
+                  - button "" [ref=e857] [cursor=pointer]
+                  - button "" [ref=e859] [cursor=pointer]
+                  - button "" [ref=e861] [cursor=pointer]
+            - row [ref=e863]:
+              - 'cell "NFC-e #000601 Série 1" [ref=e864]':
+                - generic [ref=e865]:
+                  - generic [ref=e866]: NFC-e
+                  - generic [ref=e867]: "#000601"
+                  - generic [ref=e868]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0111 0542 0272" [ref=e869]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e870]:
+                - generic [ref=e871]: CONSUMIDOR FINAL
+                - generic [ref=e872]: Não informado
+              - cell "R$ 0,00" [ref=e873]
+              - cell "04/10/2026" [ref=e874]
+              - cell "erro" [ref=e875]
+              - cell [ref=e876]:
+                - generic [ref=e877]:
+                  - button "" [ref=e878] [cursor=pointer]
+                  - button "" [ref=e880] [cursor=pointer]
+                  - button "" [ref=e882] [cursor=pointer]
+            - row [ref=e884]:
+              - 'cell "NFC-e #000600 Série 1" [ref=e885]':
+                - generic [ref=e886]:
+                  - generic [ref=e887]: NFC-e
+                  - generic [ref=e888]: "#000600"
+                  - generic [ref=e889]: Série 1
+              - cell "4126 1044 5122 4800 0107 6500 1000 0006 0018 7052 1113" [ref=e890]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e891]:
+                - generic [ref=e892]: CONSUMIDOR FINAL
+                - generic [ref=e893]: Não informado
+              - cell "R$ 0,00" [ref=e894]
+              - cell "04/10/2026" [ref=e895]
+              - cell "erro" [ref=e896]
+              - cell [ref=e897]:
+                - generic [ref=e898]:
+                  - button "" [ref=e899] [cursor=pointer]
+                  - button "" [ref=e901] [cursor=pointer]
+                  - button "" [ref=e903] [cursor=pointer]
+            - row [ref=e1010]:
+              - 'cell "NF-e #000111 Série 1" [ref=e906]':
+                - generic [ref=e907]:
+                  - generic [ref=e908]: NF-e
+                  - generic [ref=e909]: "#000111"
+                  - generic [ref=e910]: Série 1
+              - cell "4126 1044 5122 4800 0107 5500 1000 0001 1113 5899 9828" [ref=e911]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e912]:
+                - generic [ref=e913]: CONSUMIDOR FINAL
+                - generic [ref=e914]: Não informado
+              - cell "R$ 449,00" [ref=e915]
+              - cell "03/10/2026" [ref=e916]
+              - cell "homologada Cancelamento até 10/10/2026, 11:32:21 • restam 5 dias e 13 horas e 19 min" [ref=e1011]:
+                - text: homologada
+                - generic [ref=e918]: Cancelamento até 10/10/2026, 11:32:21 • restam 5 dias e 13 horas e 19 min
+              - cell [ref=e919]:
+                - generic [ref=e920]:
+                  - button "" [ref=e921] [cursor=pointer]
+                  - button "" [ref=e923] [cursor=pointer]
+                  - button "Reprocessar tratamento fiscal do pedido da NF-e 111" [ref=e925] [cursor=pointer]:
+                    - generic [ref=e926]: 
+                  - button "" [ref=e927] [cursor=pointer]
+                  - button "" [ref=e929] [cursor=pointer]
+            - row [ref=e1012]:
+              - 'cell "NF-e #000701 Série 1" [ref=e932]':
+                - generic [ref=e933]:
+                  - generic [ref=e934]: NF-e
+                  - generic [ref=e935]: "#000701"
+                  - generic [ref=e936]: Série 1
+              - cell "4126 0944 5122 4800 0107 5500 1000 0007 0118 9031 7198" [ref=e937]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e938]:
+                - generic [ref=e939]: CONSUMIDOR FINAL
+                - generic [ref=e940]: Não informado
+              - cell "R$ 0,00" [ref=e941]
+              - cell "30/09/2026" [ref=e942]
+              - cell "homologada Cancelamento até 07/10/2026, 19:37:07 • restam 2 dias e 21 horas e 24 min" [ref=e1013]:
+                - text: homologada
+                - generic [ref=e944]: Cancelamento até 07/10/2026, 19:37:07 • restam 2 dias e 21 horas e 24 min
+              - cell [ref=e945]:
+                - generic [ref=e946]:
+                  - button "" [ref=e947] [cursor=pointer]
+                  - button "" [ref=e949] [cursor=pointer]
+                  - button "Reprocessar tratamento fiscal do pedido da NF-e 701" [ref=e951] [cursor=pointer]:
+                    - generic [ref=e952]: 
+                  - button "" [ref=e953] [cursor=pointer]
+                  - button "" [ref=e955] [cursor=pointer]
+            - row [ref=e957]:
+              - 'cell "NF-e #000700 Série 1" [ref=e958]':
+                - generic [ref=e959]:
+                  - generic [ref=e960]: NF-e
+                  - generic [ref=e961]: "#000700"
+                  - generic [ref=e962]: Série 1
+              - cell "4126 0944 5122 4800 0107 5500 1000 0007 0016 7256 8876" [ref=e963]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e964]:
+                - generic [ref=e965]: CONSUMIDOR FINAL
+                - generic [ref=e966]: Não informado
+              - cell "R$ 0,00" [ref=e967]
+              - cell "30/09/2026" [ref=e968]
+              - cell "erro" [ref=e969]
+              - cell [ref=e970]:
+                - generic [ref=e971]:
+                  - button "" [ref=e972] [cursor=pointer]
+                  - button "" [ref=e974] [cursor=pointer]
+                  - button "" [ref=e976] [cursor=pointer]
+            - row [ref=e978]:
+              - 'cell "NF-e #000700 Série 900" [ref=e979]':
+                - generic [ref=e980]:
+                  - generic [ref=e981]: NF-e
+                  - generic [ref=e982]: "#000700"
+                  - generic [ref=e983]: Série 900
+              - cell "4126 0944 5122 4800 0107 5590 0000 0007 0018 8601 1257" [ref=e984]
+              - cell "CONSUMIDOR FINAL Não informado" [ref=e985]:
+                - generic [ref=e986]: CONSUMIDOR FINAL
+                - generic [ref=e987]: Não informado
+              - cell "R$ 0,00" [ref=e988]
+              - cell "30/09/2026" [ref=e989]
+              - cell "erro" [ref=e990]
+              - cell [ref=e991]:
+                - generic [ref=e992]:
+                  - button "" [ref=e993] [cursor=pointer]
+                  - button "" [ref=e995] [cursor=pointer]
+                  - button "" [ref=e997] [cursor=pointer]
+    - generic [ref=e348]:
+      - generic:
+        - generic:
+          - generic: Seu Lizandro
+          - generic: Agente IA do ERP
+      - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=e349] [cursor=pointer]:
+        - img "Seu Lizandro - Agente IA" [ref=e351]
+  - region "Notifications Alt+T"

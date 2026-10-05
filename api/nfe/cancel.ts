@@ -85,15 +85,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (docError || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
+    if (doc.document_type !== 'outbound')
+      return res.status(409).json({
+        success: false,
+        error: 'Somente uma NF-e de saída pode receber este evento de cancelamento.',
+      });
     if (!['autorizada', 'homologada'].includes(doc.status))
       return res.status(409).json({
         success: false,
         error: 'Somente documento autorizado pode receber evento de cancelamento.',
       });
     if (
-      !['55', '65'].includes(String(doc.modelo)) ||
-      ![1, 2].includes(Number(doc.ambiente)) ||
-      !/^\d{44}$/.test(String(doc.chave_acesso || ''))
+        !['55', '65'].includes(String(doc.modelo)) ||
+        ![1, 2].includes(Number(doc.ambiente)) ||
+        doc.status !== (Number(doc.ambiente) === 2 ? 'homologada' : 'autorizada') ||
+        !/^\d{44}$/.test(String(doc.chave_acesso || ''))
     ) {
       return res.status(409).json({
         success: false,
@@ -105,10 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(400)
         .json({ success: false, error: 'Confirme explicitamente o cancelamento em Produção.' });
     }
-    if (!doc.numero_protocolo || !doc.xml_nfe)
+    if (!/^\d{15}$/.test(String(doc.numero_protocolo || '')) || !doc.xml_nfe)
       return res.status(409).json({
         success: false,
-        error: 'A nota não contém XML autorizado e protocolo original para referenciar o evento.',
+        error: 'A nota não contém XML autorizado e protocolo original válidos para referenciar o evento.',
       });
 
     if (!doc.order_id)
@@ -122,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (doc.order_id) {
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('status,delivery_status,delivery_method,order_data')
+        .select('status,delivery_status,delivery_method,order_type,order_data')
         .eq('id', doc.order_id)
         .maybeSingle();
       if (orderError)
@@ -132,6 +138,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       commercialOrderStatus = String(order?.status || '').toLowerCase();
       physicalCirculationConfirmed = hasGoodsCirculated(order);
+      const orderType = String(order?.order_type || order?.order_data?.orderType || 'sale').toLowerCase();
+      if (!['sale', 'showroom'].includes(orderType))
+        return res.status(409).json({
+          success: false,
+          error: 'O pedido vinculado não é uma venda elegível para este cancelamento fiscal.',
+        });
     }
 
     const { data: priorEvents, error: priorError } = await supabase
@@ -203,6 +215,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             response_xml: situationXml,
             cstat: situation.cStat,
             xmotivo: situation.xMotivo,
+            protocol_number: valueIn(situation.cancellationEventXml || '', 'nProt'),
+            protocol_date: valueIn(situation.cancellationEventXml || '', 'dhRegEvento'),
             confirmed_at: new Date().toISOString(),
           })
           .eq('id', priorEvent.id);
@@ -220,6 +234,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           status: 'cancelada',
           cStat: situation.cStat,
           xMotivo: situation.xMotivo,
+          protocolNumber: valueIn(situation.cancellationEventXml || '', 'nProt'),
+          protocolDate: valueIn(situation.cancellationEventXml || '', 'dhRegEvento'),
           reconciliationRequired: Boolean(eventUpdateError || docUpdateError),
         });
       }
@@ -250,7 +266,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (doc.order_id && !['cancelled', 'cancelado'].includes(commercialOrderStatus || ''))
       return res.status(409).json({
         success: false,
-        error: 'A ação fiscal de uma venda deve partir de um pedido cancelado.',
+        error:
+          'A operação comercial do pedido vinculado ainda não foi cancelada; nenhum evento fiscal foi transmitido.',
       });
     const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), doc.created_at);
     const cancellationPolicy = getFiscalCancellationPolicy({
@@ -395,6 +412,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       cStat: result.cStat,
       xMotivo: result.xMotivo,
       protocolNumber: result.protocolNumber,
+      protocolDate: result.protocolDate,
       reconciliationRequired: Boolean(documentUpdateError),
     });
   } catch (error: any) {

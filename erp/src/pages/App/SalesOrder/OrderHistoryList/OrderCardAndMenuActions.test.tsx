@@ -72,7 +72,6 @@ describe('OrderCardAndMenuActions', () => {
         onPermanentDelete={vi.fn()}
         onAction={vi.fn()}
         onStatusUpdate={vi.fn()}
-        visibilitySettings={{} as any}
       />
     );
 
@@ -90,5 +89,42 @@ describe('OrderCardAndMenuActions', () => {
     // Ao abrir o menu no card, a opção Editar Venda não deve estar duplicada lá dentro
     fireEvent.click(menuBtn);
     expect(screen.queryByText('Editar Venda')).toBeNull();
+  });
+
+  it('exibe o rótulo NFH no card apenas quando houver nota fiscal de homologação emitida', () => {
+    const { rerender } = render(
+      <OrderHistoryCard
+        order={baseOrder}
+        fiscalBadgeStatus="not_issued"
+        fiscalHmlBadgeStatus="not_issued"
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+        onAction={vi.fn()}
+        onStatusUpdate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('NF')).toBeTruthy();
+    expect(screen.queryByText('NFH')).toBeNull();
+
+    rerender(
+      <OrderHistoryCard
+        order={baseOrder}
+        fiscalBadgeStatus="not_issued"
+        fiscalHmlBadgeStatus="issued"
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+        onAction={vi.fn()}
+        onStatusUpdate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('NF')).toBeTruthy();
+    expect(screen.getByText('NFH')).toBeTruthy();
+    expect(screen.getByTitle('Nota fiscal de homologação emitida')).toBeTruthy();
   });
 });

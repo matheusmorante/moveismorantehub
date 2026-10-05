@@ -28,6 +28,7 @@ const fiscalDocument = {
   modelo: '55',
   ambiente: 2,
   status: 'homologada',
+  document_type: 'outbound',
   chave_acesso: '1'.repeat(44),
   numero_protocolo: '123456789012345',
   xml_nfe: '<NFe><emit><CNPJ>12345678000195</CNPJ></emit></NFe>',
@@ -60,7 +61,14 @@ function response() {
   };
 }
 
-function database(orderStatus: 'fulfilled' | 'scheduled' | 'cancelled') {
+function database(
+  orderStatus: 'fulfilled' | 'scheduled' | 'cancelled',
+  options: {
+    priorEvents?: Array<Record<string, unknown>>;
+    reservationError?: boolean;
+    documentOverrides?: Partial<typeof fiscalDocument>;
+  } = {}
+) {
   const from = vi.fn((table: string) => {
     const query: any = {
       select: () => query,
@@ -69,11 +77,14 @@ function database(orderStatus: 'fulfilled' | 'scheduled' | 'cancelled') {
       insert: vi.fn(() => query),
       update: vi.fn(() => query),
       in: () => query,
-      single: async () => ({ data: { id: 'event-id' }, error: null }),
+      single: async () =>
+        options.reservationError && table === 'nfe_document_events'
+          ? { data: null, error: { code: '23505', message: 'duplicate event attempt' } }
+          : { data: { id: 'event-id' }, error: null },
       maybeSingle: async () => ({
         data:
           table === 'nfe_documents'
-            ? fiscalDocument
+            ? { ...fiscalDocument, ...options.documentOverrides }
             : table === 'orders'
               ? {
                   status: orderStatus,
@@ -85,7 +96,7 @@ function database(orderStatus: 'fulfilled' | 'scheduled' | 'cancelled') {
         error: null,
       }),
       then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-        Promise.resolve({ data: [], error: null }).then(resolve, reject),
+        Promise.resolve({ data: table === 'nfe_document_events' ? options.priorEvents || [] : [], error: null }).then(resolve, reject),
     };
     return query;
   });
@@ -125,7 +136,7 @@ describe('API de cancelamento de NF-e', () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
-  it('só libera o evento fiscal depois do cancelamento comercial', async () => {
+  it('não transmite evento fiscal se a operação comercial do pedido ainda não foi cancelada', async () => {
     const db = database('scheduled');
     mocks.createClient.mockReturnValue(db);
     const handler = (await import('../../../../../../api/nfe/cancel')).default;
@@ -134,9 +145,76 @@ describe('API de cancelamento de NF-e', () => {
     await handler(request, result.res as any);
 
     expect(result.statusCode).toBe(409);
-    expect(result.body?.error).toContain('pedido cancelado');
+    expect(result.body?.error).toContain('operação comercial');
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia no backend uma nota cujo status não corresponde ao ambiente fiscal', async () => {
+    const db = database('cancelled', { documentOverrides: { ambiente: 1 } });
+    mocks.createClient.mockReturnValue(db);
+    const handler = (await import('../../../../../../api/nfe/cancel')).default;
+    const result = response();
+
+    await handler(request, result.res as any);
+
+    expect(result.statusCode).toBe(409);
+    expect(result.body?.error).toContain('ambiente');
+    expect(mocks.signNfeEventXml).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('não retransmite quando a consulta após uma tentativa incerta não confirma o estado', async () => {
+    const db = database('cancelled', {
+      priorEvents: [
+        {
+          id: 'prior-event',
+          status: 'unknown',
+          requested_at: new Date(Date.now() - 60_000).toISOString(),
+          attempt_number: 1,
+        },
+      ],
+    });
+    mocks.createClient.mockReturnValue(db);
+    process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
+    mocks.extractCertificateAndKey.mockReturnValue({
+      privateKeyPem: 'mock-key',
+      certPem: 'mock-cert',
+      certDerBase64: 'mock-der',
+    });
+    mocks.sendSoapToSefaz.mockResolvedValue(
+      '<retConsSitNFe><cStat>999</cStat><xMotivo>Situação ainda inconclusiva</xMotivo></retConsSitNFe>'
+    );
+    const handler = (await import('../../../../../../api/nfe/cancel')).default;
+    const result = response();
+
+    await handler(request, result.res as any);
+
+    expect(result.statusCode).toBe(202);
+    expect(result.body).toMatchObject({ success: false, pending: true });
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+    expect(mocks.sendSoapToSefaz.mock.calls[0][0].xmlPayload).toContain('<consSitNFe');
+    expect(mocks.signNfeEventXml).not.toHaveBeenCalled();
+  });
+
+  it('não transmite se a reserva do evento perde uma disputa concorrente', async () => {
+    const db = database('cancelled', { reservationError: true });
+    mocks.createClient.mockReturnValue(db);
+    process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
+    mocks.extractCertificateAndKey.mockReturnValue({
+      privateKeyPem: 'mock-key',
+      certPem: 'mock-cert',
+      certDerBase64: 'mock-der',
+    });
+    mocks.signNfeEventXml.mockImplementation((xml: string) => xml);
+    const handler = (await import('../../../../../../api/nfe/cancel')).default;
+    const result = response();
+
+    await handler(request, result.res as any);
+
+    expect(result.statusCode).toBe(409);
+    expect(result.body).toMatchObject({ success: false, pending: true });
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
   it('envia dhEvento sem fração de segundo, com fuso explícito, e persiste o protocolo do cancelamento', async () => {
@@ -155,7 +233,13 @@ describe('API de cancelamento de NF-e', () => {
     const handler = (await import('../../../../../../api/nfe/cancel')).default;
     const result = response();
     const before = Date.now();
-    await handler(request, result.res as any);
+    await handler(
+      {
+        ...request,
+        body: { ...request.body },
+      },
+      result.res as any
+    );
     const after = Date.now();
 
     expect(result.statusCode).toBe(200);
@@ -164,6 +248,7 @@ describe('API de cancelamento de NF-e', () => {
       status: 'cancelada',
       cStat: '135',
       protocolNumber: '141260000000001',
+      protocolDate: '2026-10-01T15:00:00-03:00',
       reconciliationRequired: false,
     });
     const xml = mocks.signNfeEventXml.mock.calls[0][0] as string;

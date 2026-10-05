@@ -14,14 +14,15 @@ import {
   getNextNfeNumberPreview,
   type NfeEmissionResult,
   printOrderDanfe,
+  clearFiscalEmissionRequest,
   updateFiscalNumberPreviewCache,
 } from '@/pages/utils/nfe/nfeService';
 import { getFullProduct } from '@/pages/utils/productService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
+  decideFiscalRecipientRequirements,
   fiscalPresence,
-  fiscalRecipientRequirements,
   resolveOrderFiscalModel,
 } from '../../../../../../../shared-utils/fiscalDocumentModel';
 import {
@@ -36,13 +37,28 @@ import {
   resolveTransport,
   type TransportResponsible,
 } from '../../../../../../../shared-utils/fiscalTransportModel';
-import { isValidRecipientTaxId } from '../../../../../../../shared-utils/recipientTaxId';
+import {
+  isValidRecipientTaxId,
+  recipientTaxIdMatchesPersonType,
+} from '../../../../../../../shared-utils/recipientTaxId';
 import type { NfeItemFiscal, NfeItemWithFiscal } from './NfeItemsSection';
 import type { ThirdPartyTransporterForm } from './NfeTransportSection';
+
+export interface FiscalFieldError {
+  tab: 'general' | 'customer' | 'items' | 'transport' | 'payment';
+  fieldId: string;
+  message: string;
+  itemIndex?: number;
+  itemField?: 'ncm' | 'cfop' | 'cst' | 'origem';
+}
 
 // In-memory emission drafts survive modal unmounts; no product/order mutation or persistent PII.
 const emissionContexts = new Map<string, { finalConsumer: boolean }>();
 const fiscalDrafts = new Map<string, Record<number, Partial<NfeItemFiscal>>>();
+export const clearFiscalEmissionDrafts = () => {
+  emissionContexts.clear();
+  fiscalDrafts.clear();
+};
 const draftKey = (order: Order, environment: number) =>
   JSON.stringify([
     String(order.id),
@@ -65,6 +81,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
+  const [fiscalFieldError, setFiscalFieldError] = useState<FiscalFieldError | null>(null);
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
   const [isLoadingFiscalData, setIsLoadingFiscalData] = useState(Boolean(order?.id && order.items));
   const [fiscalPreparationError, setFiscalPreparationError] = useState<string | null>(null);
@@ -85,7 +102,6 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';
 
   const initialTransportDefaults = resolveDefaultTransport(currentModel, deliveryMethod);
-  const [hasTransport, setHasTransport] = useState<boolean>(initialTransportDefaults.hasTransport);
   const [transportResponsible, setTransportResponsible] = useState<TransportResponsible | 'NONE'>(
     initialTransportDefaults.transportResponsible
   );
@@ -111,14 +127,12 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
 
   useEffect(() => {
     const nextDefaults = resolveDefaultTransport(currentModel, deliveryMethod);
-    setHasTransport(nextDefaults.hasTransport);
     setTransportResponsible(nextDefaults.transportResponsible);
   }, [order?.id, deliveryMethod, currentModel]);
 
   const resolvedTransport = resolveTransport({
     fiscalModel: currentModel,
     deliveryMethod,
-    hasTransport,
     transportResponsible,
     freightContractResponsible,
   });
@@ -262,11 +276,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       setRecipientTaxId(value);
       if (value.trim() === '' && currentModel === '65') {
         setRecipientTaxIdError(null);
-      } else if (isValidRecipientTaxId(value)) {
+      } else if (
+        isValidRecipientTaxId(value) &&
+        recipientTaxIdMatchesPersonType(value, order?.customerData?.personType)
+      ) {
         setRecipientTaxIdError(null);
       }
     },
-    [currentModel]
+    [currentModel, order?.customerData?.personType]
   );
   const submissionInProgress = useRef(false);
   const manualFiscalFields = useRef(fiscalDrafts);
@@ -297,7 +314,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           ncm: savedFiscal?.ncm || '',
           cest: savedFiscal?.cest || '',
           cfop: savedFiscal?.cfop || defaultFiscal.cfop || '5102',
-          cst: savedFiscal?.cst || '',
+          cst: savedFiscal?.cst || defaultFiscal.cst || '103',
           origem: savedFiscal?.origem || defaultFiscal.origem || '0',
         },
       };
@@ -354,7 +371,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
               ncm: catalogFiscal?.ncm || savedFiscal?.ncm || fallbackItems[index].fiscal.ncm,
               cest: savedFiscal?.cest || catalogFiscal?.cest || fallbackItems[index].fiscal.cest,
               cfop: savedFiscal?.cfop || catalogFiscal?.cfop || fallbackItems[index].fiscal.cfop,
-              cst: preparedCsosn?.csosn || savedFiscal?.cst || catalogFiscal?.cst || '',
+              cst: preparedCsosn?.csosn || savedFiscal?.cst || catalogFiscal?.cst || '103',
               csosnSource: preparedCsosn?.source,
               origem:
                 savedFiscal?.origem || catalogFiscal?.origem || fallbackItems[index].fiscal.origem,
@@ -441,7 +458,46 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     setNfeItems(resolved);
   };
 
-  const handleEmit = async (productionConfirmed = false, isRetry = false, retryNumber?: number) => {
+  const handleSaveDraft = async () => {
+    if (!order?.id) return;
+    try {
+      // 1. Save NCM to products table
+      const productsToUpdate = nfeItems
+        .filter((i) => i.productId && i.fiscal?.ncm)
+        .map((i) => ({ id: i.productId, ncm: i.fiscal.ncm.replace(/\D/g, '') }));
+      if (productsToUpdate.length > 0) {
+        for (const p of productsToUpdate) {
+            const { data: existingProduct } = await supabase.from('products').select('fiscal').eq('id', p.id).single();
+            if (existingProduct) {
+              const newFiscal = { ...(existingProduct.fiscal || {}), ncm: p.ncm };
+              await supabase.from('products').update({ fiscal: newFiscal }).eq('id', p.id);
+            }
+          }
+      }
+
+      // 2. Save order_data to orders table; a modal-only tax ID must not rewrite the customer profile.
+      const updatedOrder = {
+        ...order,
+        customerData: {
+          ...order.customerData,
+          cpfCnpj: recipientTaxId,
+          document: recipientTaxId,
+        },
+        items: order.items.map((it, idx) => ({
+          ...it,
+          fiscal: {
+            ...(it.fiscal || {}),
+            ncm: nfeItems[idx]?.fiscal?.ncm || it.fiscal?.ncm || '',
+          },
+        })),
+      };
+      await supabase.from('orders').update({ order_data: updatedOrder }).eq('id', order.id);
+    } catch (err) {
+      console.warn('Erro ao salvar os dados da emissão:', err);
+    }
+  };
+
+  const handleEmit = async (productionConfirmed = false, isRetry = false, retryNumber?: number, freshHmlEmission = false) => {
     if (submissionInProgress.current) return;
     if (!canOperateFiscal) {
       toast.error('Seu perfil não pode operar documentos fiscais.');
@@ -456,8 +512,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     const currentPresence = fiscalPresence(
       currentModel,
       deliveryMethod,
-      order.fiscalContext?.presence,
-      Boolean(taxId.trim())
+      order.fiscalContext?.presence
     );
     const effectiveItemsTotal = (nfeItems.length ? nfeItems : order.items || [])
       .filter((it) => it.itemType !== 'service')
@@ -468,30 +523,52 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       Number(order.paymentsSummary?.totalOrderValue) ||
       effectiveItemsTotal + effectiveFreightTotal - effectiveDiscountTotal;
 
-    const recipientReqs = fiscalRecipientRequirements(
-      currentModel,
-      currentPresence,
-      effectiveInvoiceTotal
-    );
+    const recipientReqs = decideFiscalRecipientRequirements({
+      model: currentModel,
+      presence: currentPresence,
+      total: effectiveInvoiceTotal,
+      personType: order.customerData?.personType,
+      recipientTaxId: taxId,
+      operationScope: 'NORMAL_DOMESTIC_SALE',
+    });
+    if (!recipientReqs.supported) {
+      toast.error(recipientReqs.message || 'A matriz fiscal não atende a esta operação.');
+      return;
+    }
     const recipientRequired = recipientReqs.documentRequired;
+    const validForPerson =
+      isValidRecipientTaxId(taxId) &&
+      recipientTaxIdMatchesPersonType(taxId, order.customerData?.personType);
 
     if (recipientRequired) {
-      const isValueLimitNfce = currentModel === '65' && effectiveInvoiceTotal >= 10000;
-      const missingMessage = isValueLimitNfce
-        ? 'Identificação obrigatória — NFC-e com valor igual ou superior a R$ 10.000.'
-        : 'CPF ou CNPJ do destinatário é obrigatório para esta operação fiscal.';
-      const invalidMessage = 'CPF ou CNPJ do destinatário inválido.';
-      if (!isValidRecipientTaxId(taxId)) {
-        const message = taxId.trim() ? invalidMessage : missingMessage;
+      const missingMessage = recipientReqs.message || 'Documento do destinatário obrigatório.';
+      if (!validForPerson) {
+        const message = taxId.trim()
+          ? 'Documento inválido ou incompatível com o tipo PF/PJ do cadastro.'
+          : missingMessage;
         setRecipientTaxIdError(message);
-        toast.error(taxId.trim() ? 'Confira o CPF/CNPJ do destinatário.' : missingMessage);
+        const fieldErr: FiscalFieldError = {
+          tab: 'customer',
+          fieldId: 'nfe-recipient-tax-id',
+          message: taxId.trim()
+            ? 'Confira o documento do destinatário e o tipo PF/PJ.'
+            : missingMessage,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
         return;
       }
       setRecipientTaxIdError(null);
     } else {
-      if (taxId.trim() && !isValidRecipientTaxId(taxId)) {
-        setRecipientTaxIdError('CPF ou CNPJ inválido.');
-        toast.error('Confira o CPF/CNPJ informado.');
+      if (taxId.trim() && !validForPerson) {
+        setRecipientTaxIdError('Documento inválido ou incompatível com o tipo PF/PJ do cadastro.');
+        const fieldErr: FiscalFieldError = {
+          tab: 'customer',
+          fieldId: 'nfe-recipient-tax-id',
+          message: 'Confira o documento informado e o tipo PF/PJ do cadastro.',
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
         return;
       }
       setRecipientTaxIdError(null);
@@ -508,14 +585,89 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       toast.error('Aguarde a consulta do próximo número fiscal.');
       return;
     }
-    if (nfeItems.some((item) => !item.fiscal.cst)) {
-      toast.error('Selecione o CSOSN de todos os itens.');
-      return;
+
+    // Validação granular e atômica dos dados tributários de cada item
+    for (let index = 0; index < nfeItems.length; index++) {
+      const item = nfeItems[index];
+      const itemLabel = item.description ? `"${item.description}"` : `Item #${index + 1}`;
+      const ncmClean = (item.fiscal?.ncm || '').replace(/\D/g, '');
+
+      if (!ncmClean) {
+        const fieldErr: FiscalFieldError = {
+          tab: 'items',
+          fieldId: `nfe-item-ncm-${index}`,
+          itemIndex: index,
+          itemField: 'ncm',
+          message: `Informe o NCM do produto ${itemLabel}.`,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
+        return;
+      }
+
+      if (ncmClean.length !== 8) {
+        const fieldErr: FiscalFieldError = {
+          tab: 'items',
+          fieldId: `nfe-item-ncm-${index}`,
+          itemIndex: index,
+          itemField: 'ncm',
+          message: `NCM do produto ${itemLabel} deve conter exatamente 8 dígitos.`,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
+        return;
+      }
+
+      if (!item.fiscal?.cfop?.trim()) {
+        const fieldErr: FiscalFieldError = {
+          tab: 'items',
+          fieldId: `nfe-item-cfop-${index}`,
+          itemIndex: index,
+          itemField: 'cfop',
+          message: `Selecione o CFOP do produto ${itemLabel}.`,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
+        return;
+      }
+
+      if (!item.fiscal?.cst?.trim()) {
+        const fieldErr: FiscalFieldError = {
+          tab: 'items',
+          fieldId: `nfe-item-csosn-${index}`,
+          itemIndex: index,
+          itemField: 'cst',
+          message: `Selecione o CSOSN do produto ${itemLabel}.`,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
+        return;
+      }
+
+      if (!item.fiscal?.origem?.trim()) {
+        const fieldErr: FiscalFieldError = {
+          tab: 'items',
+          fieldId: `nfe-item-origem-${index}`,
+          itemIndex: index,
+          itemField: 'origem',
+          message: `Selecione a Origem fiscal do produto ${itemLabel}.`,
+        };
+        setFiscalFieldError(fieldErr);
+        toast.error(fieldErr.message);
+        return;
+      }
     }
+
+    setFiscalFieldError(null);
     // de conflito é enviado, ou caso o usuário tenha editado a prévia manualmente.
     // Novas emissões não modificadas deixam a reserva para a transação do backend.
+    const retryId =
+      isRetry && emissionResult?.hmlConfirmedNotFound && emissionResult.documentId
+        ? emissionResult.documentId
+        : undefined;
     const manualNumber =
-      retryNumber ?? (manualNumberInput !== null ? Number(manualNumberInput) : undefined);
+      retryId || freshHmlEmission ? undefined :
+        retryNumber ?? (manualNumberInput !== null ? Number(manualNumberInput) : undefined);
     if (manualNumber !== undefined && !isFiscalNumber(manualNumber)) {
       toast.error('Informe um número inteiro entre 1 e 999999999.');
       return;
@@ -543,10 +695,6 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         ],
       };
 
-      const retryId =
-        isRetry && emissionResult?.error?.includes('217') && emissionResult?.documentId
-          ? emissionResult.documentId
-          : undefined;
       const res = await emitNfeForOrder(
         orderWithFiscalItems,
         environment,
@@ -566,8 +714,9 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         resolvedTransport.transportResponsible !== 'NONE'
           ? resolvedTransport.transportResponsible
           : undefined,
-        resolvedTransport.freightContractResponsible
-      );
+        resolvedTransport.freightContractResponsible,
+          false
+        );
       if (!res.success) {
         toast.error(res.error || 'Erro ao validar dados para emissão.');
         setEmissionResult(res);
@@ -625,7 +774,14 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       toast.error('Seu perfil não pode operar documentos fiscais.');
       return;
     }
+    if (!order) return;
+    if (submissionInProgress.current) return;
+    if (emissionResult?.reservationRecoveryRequired) {
+      await handleEmit(false, true);
+      return;
+    }
     if (!emissionResult?.documentId) return;
+    submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase.auth.getSession();
@@ -639,7 +795,26 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         body: JSON.stringify({ documentId: emissionResult.documentId }),
       });
       const result = await response.json();
-      if (!response.ok || (!result.success && result.state !== 'not_found'))
+      const confirmedNotFound =
+        ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(result.code) &&
+        result.state === 'not_found' && result.pending === false;
+      const confirmedRejection = result.pending === false &&
+        ['HML_SEFAZ_REJECTED', 'HML_SERIES_CORRECTION_REQUIRED',
+          'HML_ISSUER_IE_CORRECTION_REQUIRED', 'NFE_NUMBER_ALREADY_USED'].includes(result.code);
+      if (confirmedRejection) {
+        clearFiscalEmissionRequest(String(order.id), environment);
+        setEmissionResult((prev) => prev ? {
+          ...prev, pending: false, hmlConfirmedNotFound: false,
+          cStat: result.cStat, sefazMessage: result.xMotivo,
+          error: result.error || result.xMotivo || 'Tentativa rejeitada pela SEFAZ.',
+        } : null);
+        toast.error(result.error || result.xMotivo || 'Corrija a rejeição antes de emitir novamente.');
+        return;
+      }
+      if (
+        (!response.ok && !confirmedNotFound) ||
+        (!result.success && !confirmedNotFound)
+      )
         throw new Error(result.error || result.xMotivo || 'Consulta SEFAZ inconclusiva.');
 
       if (result.state === 'authorized') {
@@ -658,15 +833,19 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         );
         if (onSuccess) onSuccess();
       } else if (result.state === 'not_found') {
+        const needsNewEmission = result.code === 'HML_NEW_EMISSION_REQUIRED' && result.safeNewEmission === true;
         toast.warning(
-          `Rejeição 217: A SEFAZ não recebeu a tentativa anterior. Você pode emitir novamente.`
+          needsNewEmission ? result.error :
+            'Rejeição 217: a SEFAZ confirmou que a nota não consta. Você pode retransmitir o mesmo documento.'
         );
         setEmissionResult((prev) =>
           prev
             ? {
                 ...prev,
                 pending: false,
-                error: result.xMotivo || 'NF-e não consta na SEFAZ. Emita novamente.',
+                hmlConfirmedNotFound: !needsNewEmission,
+                hmlNewEmissionRequired: needsNewEmission,
+                error: result.error || result.xMotivo || 'NF-e não consta na SEFAZ. Emita novamente.',
               }
             : null
         );
@@ -676,8 +855,17 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     } catch (err: any) {
       toast.error(err.message || 'Não foi possível reconciliar o documento agora.');
     } finally {
+      submissionInProgress.current = false;
       setIsSubmitting(false);
     }
+  };
+
+  const handleStartFreshHmlEmission = async () => {
+    if (!order || environment !== 2 || !emissionResult?.hmlNewEmissionRequired || submissionInProgress.current) return;
+    clearFiscalEmissionRequest(String(order.id), environment);
+    setManualNumberInput(null);
+    setEmissionResult(null);
+    await handleEmit(false, false, undefined, true);
   };
 
   const handlePrintDanfe = () => {
@@ -708,6 +896,9 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     nfeItems,
     isLoadingFiscalData,
     fiscalPreparationError,
+    fiscalFieldError,
+    clearFiscalFieldError: () => setFiscalFieldError(null),
+    handleSaveDraft,
     recipientTaxIdError,
     recipientTaxId,
     setRecipientTaxId: handleRecipientTaxIdChange,
@@ -715,9 +906,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     handleBatchUpdateItems,
     handleEmit,
     handleReconcile,
+    handleStartFreshHmlEmission,
     handlePrintDanfe,
-    hasTransport,
-    setHasTransport,
     transportResponsible,
     setTransportResponsible,
     freightContractResponsible,
@@ -731,15 +921,6 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         : resolvedTransport.transportResponsible === 'THIRD_PARTY'
           ? 'THIRD_PARTY'
           : 'NONE',
-    setTransportType: (type: 'OWN' | 'THIRD_PARTY' | 'NONE') => {
-      if (type === 'NONE') {
-        setHasTransport(false);
-        setTransportResponsible('NONE');
-      } else {
-        setHasTransport(true);
-        setTransportResponsible(type === 'OWN' ? 'OWN_COMPANY' : 'THIRD_PARTY');
-      }
-    },
     freightMode: resolvedTransport.modFrete,
     setFreightMode: () => {},
   };

@@ -1,4 +1,5 @@
 import https from 'node:https';
+import { createSefazHttpsAgent } from './sefazHttpsAgent';
 
 export interface DistDfeSoapParams {
   url: string;
@@ -24,12 +25,7 @@ export async function sendDistDfeSoapToSefaz(
   const { url, soapEnvelope, certPem, privateKeyPem, timeoutMs = 25000 } = params;
   const parsedUrl = new URL(url);
 
-  const agent = new https.Agent({
-    cert: certPem,
-    key: privateKeyPem,
-    rejectUnauthorized: true,
-    keepAlive: false,
-  });
+  const agent = createSefazHttpsAgent(certPem, privateKeyPem);
 
   const payloadBuffer = Buffer.from(soapEnvelope, 'utf-8');
 
@@ -69,7 +65,7 @@ export async function sendDistDfeSoapToSefaz(
       );
 
       req.on('timeout', () => {
-        req.destroy(new Error(`Timeout na comunicação com a SEFAZ após ${timeoutMs}ms.`));
+        req.destroy(Object.assign(new Error('Timeout na comunicação com a SEFAZ.'), {code: 'ETIMEDOUT'}));
       });
 
       req.on('error', (err) => {
@@ -86,6 +82,7 @@ export async function sendDistDfeSoapToSefaz(
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await executeAttempt();
+      agent.destroy();
       return response;
     } catch (err: any) {
       lastError = err;
@@ -95,6 +92,7 @@ export async function sendDistDfeSoapToSefaz(
     }
   }
 
+  agent.destroy();
   throw new Error(
     `Falha na comunicação mTLS com SEFAZ: ${lastError?.message || String(lastError)}`
   );

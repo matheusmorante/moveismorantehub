@@ -155,6 +155,12 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
     | 'cancelled'
     | 'reversed'
     | undefined;
+  const fiscalHmlBadgeStatus = order.fiscalHmlBadgeStatus as
+    | 'not_issued'
+    | 'issued'
+    | 'cancelled'
+    | 'reversed'
+    | undefined;
   const pendingScheduling = Boolean(
     shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling
   );
@@ -299,7 +305,7 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
             </View>
           )}
 
-          {/* 7. Selo de Agendamento Pendente */}
+          {/* Selo de Nota Fiscal (Produção) */}
           {fiscalBadgeStatus && (
             <View
               accessibilityLabel={`Nota fiscal ${
@@ -324,6 +330,30 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
             >
               <Text style={styles.textBadgeLabel}>NF</Text>
               {fiscalBadgeStatus === 'issued' && <CheckCircle2 size={10} color="#ffffff" />}
+            </View>
+          )}
+
+          {/* Selo de Nota Fiscal de Homologação (NFH) - só aparece se emitida/autorizada */}
+          {fiscalHmlBadgeStatus && fiscalHmlBadgeStatus !== 'not_issued' && (
+            <View
+              accessibilityLabel={`Nota fiscal de homologação ${
+                fiscalHmlBadgeStatus === 'issued'
+                  ? 'emitida'
+                  : fiscalHmlBadgeStatus === 'cancelled'
+                    ? 'cancelada'
+                    : 'de devolução ou estorno'
+              }`}
+              style={[
+                styles.textBadge,
+                fiscalHmlBadgeStatus === 'issued'
+                  ? styles.fiscalBadgeSuccess
+                  : fiscalHmlBadgeStatus === 'cancelled'
+                    ? styles.fiscalBadgeCancelled
+                    : styles.fiscalBadgeReversed,
+              ]}
+            >
+              <Text style={styles.textBadgeLabel}>NFH</Text>
+              {fiscalHmlBadgeStatus === 'issued' && <CheckCircle2 size={10} color="#ffffff" />}
             </View>
           )}
 

@@ -1,4 +1,3 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { startOfDay, endOfDay, subDays, subMonths } from '../erp/node_modules/date-fns/index.js';

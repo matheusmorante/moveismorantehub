@@ -13,15 +13,38 @@ import {
 
 interface Props {
   item: NfeItemWithFiscal;
+  itemIndex: number;
+  fieldError?: { field: 'ncm' | 'cfop' | 'cst' | 'origem'; message: string } | null;
   onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
+  onUpdateFiscalBlur?: () => void;
+  onClearFieldError?: () => void;
 }
 
-export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
+export const NfeItemRow: React.FC<Props> = ({
+  item,
+  itemIndex,
+  fieldError,
+  onUpdateFiscal,
+  onClearFieldError,
+  onUpdateFiscalBlur,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const values = composeServiceFiscalValues([item]).products[0];
   const itemTotal = (values.vProdCents - values.vDescCents) / 100;
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
   const isNcmValid = cleanNcm.length === 8;
+
+  const hasNcmError = fieldError?.field === 'ncm';
+  const hasCfopError = fieldError?.field === 'cfop';
+  const hasCstError = fieldError?.field === 'cst';
+  const hasOrigemError = fieldError?.field === 'origem';
+
+  // Se o erro estiver dentro da sanfona (CFOP, CSOSN, Origem), abre automaticamente
+  React.useEffect(() => {
+    if (hasCfopError || hasCstError || hasOrigemError) {
+      setIsExpanded(true);
+    }
+  }, [hasCfopError, hasCstError, hasOrigemError]);
 
   return (
     <div
@@ -68,18 +91,37 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
         {/* Campos Fiscais Rápidos (NCM via Select/Pesquisa) */}
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
           <div className="flex flex-col items-stretch gap-1.5 min-w-[190px] sm:min-w-[220px]">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+            <label
+              htmlFor={`nfe-item-ncm-${itemIndex}`}
+              className={`text-[10px] font-black uppercase tracking-wider shrink-0 ${
+                hasNcmError ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
+              }`}
+            >
               NCM{' '}
               <span aria-hidden="true" className="text-rose-600">
                 *
               </span>
             </label>
-            <span className={`text-[10px] ${isNcmValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <span
+              className={`text-[10px] ${
+                hasNcmError
+                  ? 'text-rose-600 font-bold dark:text-rose-400'
+                  : isNcmValid
+                    ? 'text-emerald-600'
+                    : 'text-rose-600'
+              }`}
+            >
               {isNcmValid ? '8 dígitos' : 'Informe 8 dígitos'}
             </span>
             <NcmSelect
+              id={`nfe-item-ncm-${itemIndex}`}
+              hasError={hasNcmError}
               value={item.fiscal?.ncm || ''}
-              onChange={(val) => onUpdateFiscal('ncm', val)}
+              onBlur={onUpdateFiscalBlur}
+              onChange={(val) => {
+                if (hasNcmError && onClearFieldError) onClearFieldError();
+                onUpdateFiscal('ncm', val);
+              }}
             />
           </div>
 
@@ -101,17 +143,30 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
       {isExpanded && (
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+            <label
+              htmlFor={`nfe-item-cfop-${itemIndex}`}
+              className={`text-[10px] font-black uppercase tracking-wider block mb-1 ${
+                hasCfopError ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
+              }`}
+            >
               CFOP{' '}
               <span aria-hidden="true" className="text-rose-600">
                 *
               </span>
             </label>
             <select
+              id={`nfe-item-cfop-${itemIndex}`}
               aria-label="CFOP"
               value={item.fiscal?.cfop || ''}
-              onChange={(e) => onUpdateFiscal('cfop', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+              onChange={(e) => {
+                if (hasCfopError && onClearFieldError) onClearFieldError();
+                onUpdateFiscal('cfop', e.target.value);
+              }}
+              className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none ${
+                hasCfopError
+                  ? 'border-rose-500 bg-rose-50/50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100 focus:border-rose-600'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-500'
+              }`}
             >
               <option value="">Selecione o CFOP</option>
               {CFOP_OPTIONS.map((cf) => (
@@ -122,19 +177,25 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
             </select>
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+            <label
+              htmlFor={`nfe-item-csosn-${itemIndex}`}
+              className={`text-[10px] font-black uppercase tracking-wider block mb-1 ${
+                hasCstError ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
+              }`}
+            >
               CSOSN{' '}
               <span aria-hidden="true" className="text-rose-600">
                 *
               </span>
             </label>
             <select
+              id={`nfe-item-csosn-${itemIndex}`}
               aria-label="CSOSN"
-              value={item.fiscal?.cst || ''}
-              onChange={(e) => onUpdateFiscal('cst', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+              disabled
+              value={item.fiscal?.cst || '103'}
+              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 cursor-not-allowed"
+              title="CSOSN 103 fixado por padrão conforme regime tributário da empresa"
             >
-              <option value="">Selecione o CSOSN</option>
               {CSOSN_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -142,22 +203,34 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
               ))}
             </select>
             <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-              Padrão definido nas Configurações Fiscais para este ambiente; ajuste conforme a
-              operação.
+              Padrão 103 (Isenção do ICMS no Simples Nacional) fixo para este ambiente.
             </p>
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+            <label
+              htmlFor={`nfe-item-origem-${itemIndex}`}
+              className={`text-[10px] font-black uppercase tracking-wider block mb-1 ${
+                hasOrigemError ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
+              }`}
+            >
               Origem{' '}
               <span aria-hidden="true" className="text-rose-600">
                 *
               </span>
             </label>
             <select
+              id={`nfe-item-origem-${itemIndex}`}
               aria-label="Origem fiscal"
               value={item.fiscal?.origem || ''}
-              onChange={(e) => onUpdateFiscal('origem', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-600 dark:focus:border-blue-500"
+              onChange={(e) => {
+                if (hasOrigemError && onClearFieldError) onClearFieldError();
+                onUpdateFiscal('origem', e.target.value);
+              }}
+              className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none ${
+                hasOrigemError
+                  ? 'border-rose-500 bg-rose-50/50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100 focus:border-rose-600'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-500'
+              }`}
             >
               <option value="">Selecione a origem</option>
               {ORIGEM_OPTIONS.map((o) => (
@@ -168,10 +241,14 @@ export const NfeItemRow: React.FC<Props> = ({ item, onUpdateFiscal }) => {
             </select>
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+            <label
+              htmlFor={`nfe-item-cest-${itemIndex}`}
+              className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1"
+            >
               CEST
             </label>
             <select
+              id={`nfe-item-cest-${itemIndex}`}
               aria-label="CEST"
               value={item.fiscal?.cest || ''}
               onChange={(e) => onUpdateFiscal('cest', e.target.value)}

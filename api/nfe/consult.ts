@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
+import { randomUUID } from 'node:crypto';
+import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { retryHmlTechnical, consultAuthorizedHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
@@ -61,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...result.body,
         state: result.body.success
           ? 'authorized'
-          : result.body.code === 'HML_CONFIRMED_NOT_FOUND'
+          : ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(String(result.body.code))
             ? 'not_found'
             : 'unknown',
       });
@@ -188,10 +190,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       reconciliationRequired: Boolean(documentSyncError),
     });
   } catch (err: any) {
-    console.error('[NF-e Consult] Falha na consulta SEFAZ:', err?.message || 'erro desconhecido');
+    const diagnosticId = randomUUID();
+    const transportDiagnostic = sefazTransportDiagnostic(err);
+    console.error('[NF-e Consult] Falha de transporte:', {documentId, diagnosticId, ...transportDiagnostic});
     return res.status(502).json({
       success: false,
       pending: true,
+      diagnosticId,
+      diagnosticStage: 'sefaz-consultation',
+      transportDiagnostic,
       error:
         'Não foi possível confirmar a situação do documento na SEFAZ. Nenhum novo evento foi enviado.',
     });

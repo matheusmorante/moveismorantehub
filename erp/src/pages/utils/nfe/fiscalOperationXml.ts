@@ -219,22 +219,33 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
       originalItems.add(line.originalItemNumber);
       const product = parseBlock(line.productXml, 'prod');
       const taxes = parseBlock(line.taxesXml, 'imposto');
-      if (
-        directText(product, 'CFOP') !== line.cfop ||
-        !/^\d{8}$/.test(directText(product, 'NCM'))
-      ) {
-        throw new Error(`Item ${index + 1}: CFOP ou NCM do produto não conferido.`);
+      if (directText(product, 'CFOP') !== line.cfop) {
+        throw new Error(`Item ${index + 1}: CFOP do produto não conferido.`);
+      }
+      if (!/^\d{8}$/.test(directText(product, 'NCM'))) {
+        throw new Error(`Item ${index + 1}: NCM do produto deve ter 8 dígitos.`);
+      }
+      if (line.originalProductCode && directText(product, 'cProd') !== line.originalProductCode) {
+        throw new Error(
+          `Item ${index + 1}: código do produto deve preservar o documento fiscal original.`
+        );
+      }
+      if (line.originalDescription && directText(product, 'xProd') !== line.originalDescription) {
+        throw new Error(
+          `Item ${index + 1}: descrição do produto deve preservar o documento fiscal original.`
+        );
+      }
+      if (line.originalNcm && directText(product, 'NCM') !== line.originalNcm) {
+        throw new Error(
+          `Item ${index + 1}: NCM do produto deve preservar o documento fiscal original.`
+        );
       }
       if (
-        (line.originalProductCode && directText(product, 'cProd') !== line.originalProductCode) ||
-        (line.originalDescription && directText(product, 'xProd') !== line.originalDescription) ||
-        (line.originalNcm && directText(product, 'NCM') !== line.originalNcm) ||
-        (line.originalUnitValue !== undefined &&
-          Math.abs(decimal(directText(product, 'vUnCom'), 'vUnCom') - line.originalUnitValue) >
-            0.0001)
+        line.originalUnitValue !== undefined &&
+        Math.abs(decimal(directText(product, 'vUnCom'), 'vUnCom') - line.originalUnitValue) > 0.0001
       ) {
         throw new Error(
-          `Item ${index + 1}: código, descrição, NCM e preço unitário devem preservar o documento fiscal original.`
+          `Item ${index + 1}: preço unitário do produto deve preservar o documento fiscal original.`
         );
       }
       assertQuantity(

@@ -27,6 +27,7 @@ interface NfeGeneralTabProps {
   isLoadingNfeNumber: boolean;
   fiscalPreparationError: string | null;
   onReconcile?: () => void;
+  onStartFreshHmlEmission?: () => void;
 }
 
 export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
@@ -53,11 +54,12 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   isLoadingNfeNumber,
   fiscalPreparationError,
   onReconcile,
+  onStartFreshHmlEmission,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* Aviso de Ambiente */}
-      {environment === 2 ? (
+      {/* Aviso de Ambiente Homologação */}
+      {environment === 2 && (
         <div
           role="status"
           className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs dark:border-amber-900/50 dark:bg-amber-950/30"
@@ -72,30 +74,6 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
               fiscal em produção.
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-3 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs dark:border-rose-900/60 dark:bg-rose-950/30">
-          <div className="flex items-start gap-3">
-            <i className="bi bi-exclamation-triangle-fill mt-0.5 shrink-0 text-xl text-rose-600 dark:text-rose-400" />
-            <div>
-              <p className="font-black uppercase tracking-wider text-rose-800 dark:text-rose-300">
-                Produção · documento fiscal válido
-              </p>
-              <p className="mt-1 leading-relaxed text-rose-800 dark:text-rose-200">
-                A emissão será transmitida à SEFAZ como documento real. Confira pedido, itens,
-                destinatário e NCM antes de confirmar.
-              </p>
-            </div>
-          </div>
-          <label className="flex cursor-pointer items-start gap-2 font-bold text-rose-900 dark:text-rose-100">
-            <input
-              type="checkbox"
-              checked={productionConfirmed}
-              onChange={(event) => onProductionConfirmedChange(event.target.checked)}
-              className="mt-0.5 accent-rose-600"
-            />
-            <span>Confirmo que quero transmitir esta nota em Produção.</span>
-          </label>
         </div>
       )}
 
@@ -144,7 +122,8 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
                 min={1}
                 max={999999999}
                 step={1}
-                value={numberPreview}
+                value={isLocked && emissionResult?.nfeNumber ? String(emissionResult.nfeNumber) : numberPreview}
+                readOnly={isLocked || isSubmitting}
                 onChange={(e) => onNumberPreviewChange(e.target.value.replace(/\D/g, ''))}
                 placeholder="Consultando..."
                 className="mt-1 w-full rounded-none border-0 border-b-2 border-slate-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500"
@@ -185,91 +164,143 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
         </div>
       )}
 
-      {emissionResult && !emissionResult.success && (emissionResult.pending || emissionResult.numberConflict) && (
-        <div
-          role="alert"
-          className={`rounded-2xl border p-4 text-xs ${
-            emissionResult.pending
-              ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200'
-              : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200'
-          }`}
-        >
-          <p className="font-black text-sm">
-            {emissionResult.pending
-              ? 'Emissão pendente de confirmação'
-              : 'Não foi possível autorizar a nota'}
-          </p>
-          <p className="mt-1">{emissionResult.error}</p>
-          {emissionResult.numberConflict && (
-            <div className="mt-3 rounded-xl border border-rose-300 bg-white/70 p-3 dark:border-rose-800 dark:bg-slate-950/50">
-              <p className="font-bold">
-                Número {emissionResult.numberConflict.previousNumber} já está sendo usado.
-                {emissionResult.numberConflict.nextNumber
-                  ? ` Número sugerido: ${emissionResult.numberConflict.previousNumber} → ${emissionResult.numberConflict.nextNumber}.`
-                  : ' Digite outro número para continuar.'}
+      {emissionResult &&
+        !emissionResult.success &&
+        (emissionResult.pending ||
+          emissionResult.numberConflict ||
+          emissionResult.hmlConfirmedNotFound ||
+          emissionResult.hmlNewEmissionRequired) && (
+          <div
+            role="alert"
+            className={`rounded-2xl border p-4 text-xs ${
+              emissionResult.pending
+                ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200'
+                : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200'
+            }`}
+          >
+            <p className="font-black text-sm">
+              {emissionResult.pending
+                ? 'Emissão pendente de confirmação'
+                : emissionResult.hmlNewEmissionRequired
+                  ? 'É necessária uma nova emissão'
+                : 'Não foi possível autorizar a nota'}
+            </p>
+            <p className="mt-1">{emissionResult.error}</p>
+            {emissionResult.hmlNewEmissionRequired && onStartFreshHmlEmission && (
+              <button
+                type="button"
+                data-testid="nfe-start-fresh-hml-emission"
+                onClick={onStartFreshHmlEmission}
+                disabled={
+                  !canOperateFiscal ||
+                  isSubmitting ||
+                  isLoadingFiscalData ||
+                  isLoadingNfeNumber ||
+                  Boolean(fiscalPreparationError)
+                }
+                className="mt-3 rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
+              >
+                {isSubmitting ? 'Preparando nova tentativa…' : 'Emitir com nova numeração'}
+              </button>
+            )}
+            {emissionResult.numberConflict && (
+              <div className="mt-3 rounded-xl border border-rose-300 bg-white/70 p-3 dark:border-rose-800 dark:bg-slate-950/50">
+                <p className="font-bold">
+                  Número {emissionResult.numberConflict.previousNumber} já está sendo usado.
+                  {emissionResult.numberConflict.nextNumber
+                    ? ` Número sugerido: ${emissionResult.numberConflict.previousNumber} → ${emissionResult.numberConflict.nextNumber}.`
+                    : ' Digite outro número para continuar.'}
+                </p>
+                <label className="mt-2 flex max-w-xs flex-col gap-1 font-semibold">
+                  Novo número da nota
+                  <input
+                    aria-label="Novo número da nota fiscal"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={retryNumber}
+                    onChange={(event) => onRetryNumberChange?.(event.target.value)}
+                    disabled={isSubmitting || Boolean(emissionResult.pending)}
+                    placeholder="Informe outro número"
+                    className="rounded-none border-0 border-b-2 border-rose-300 bg-white px-3 py-2 font-mono text-slate-900 outline-none focus:border-rose-600 dark:border-rose-800 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </label>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    disabled={
+                      !canOperateFiscal ||
+                      isSubmitting ||
+                      isLoadingFiscalData ||
+                      isLoadingNfeNumber ||
+                      Boolean(emissionResult.pending) ||
+                      Boolean(fiscalPreparationError) ||
+                      (environment === 1 && !productionConfirmed) ||
+                      !/^\d{1,9}$/.test(retryNumber)
+                    }
+                    className="mt-3 rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Enviando…' : 'Tentar novamente'}
+                  </button>
+                )}
+              </div>
+            )}
+            {emissionResult.cStat && (
+              <p className="mt-1 font-mono">
+                SEFAZ cStat {emissionResult.cStat}
+                {emissionResult.sefazMessage ? ` · ${emissionResult.sefazMessage}` : ''}
               </p>
-              <label className="mt-2 flex max-w-xs flex-col gap-1 font-semibold">
-                Novo número da nota
-                <input
-                  aria-label="Novo número da nota fiscal"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={retryNumber}
-                  onChange={(event) => onRetryNumberChange?.(event.target.value)}
-                  disabled={isSubmitting || Boolean(emissionResult.pending)}
-                  placeholder="Informe outro número"
-                  className="rounded-none border-0 border-b-2 border-rose-300 bg-white px-3 py-2 font-mono text-slate-900 outline-none focus:border-rose-600 dark:border-rose-800 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </label>
-              {onRetry && (
+            )}
+            {emissionResult.validation?.errors.map((error) => (
+              <p key={error} className="mt-1">
+                • {error}
+              </p>
+            ))}
+            {emissionResult.pending && (
+              <p className="mt-2 font-semibold">
+                Consulte a situação do documento antes de tentar novamente para evitar duplicidade.
+              </p>
+            )}
+            {emissionResult.pending &&
+              (emissionResult.documentId || emissionResult.reservationRecoveryRequired) && onReconcile && (
+              <button
+                type="button"
+                onClick={onReconcile}
+                disabled={!canOperateFiscal || isSubmitting}
+                className="mt-3 px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black uppercase tracking-wider text-[10px] transition-all"
+              >
+                {isSubmitting
+                  ? 'Verificando...'
+                  : emissionResult.reservationRecoveryRequired
+                    ? 'Retomar reserva existente'
+                    : emissionResult.databaseReason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
+                      ? 'Consultar tentativa em andamento'
+                      : 'Consultar SEFAZ Agora'}
+              </button>
+            )}
+            {environment === 2 &&
+              emissionResult.hmlConfirmedNotFound &&
+              !emissionResult.pending &&
+              emissionResult.documentId &&
+              onRetry && (
                 <button
                   type="button"
+                  data-testid="nfe-retry-same-document"
                   onClick={onRetry}
                   disabled={
                     !canOperateFiscal ||
                     isSubmitting ||
                     isLoadingFiscalData ||
-                    isLoadingNfeNumber ||
-                    Boolean(emissionResult.pending) ||
-                    Boolean(fiscalPreparationError) ||
-                    (environment === 1 && !productionConfirmed) ||
-                    !/^\d{1,9}$/.test(retryNumber)
+                    Boolean(fiscalPreparationError)
                   }
-                  className="mt-3 rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
+                  className="mt-3 rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Enviando…' : 'Tentar novamente'}
+                  {isSubmitting ? 'Retransmitindo...' :
+                    `Retransmitir a mesma ${emissionResult.model === '55' ? 'NF-e' : 'NFC-e'}`}
                 </button>
               )}
-            </div>
-          )}
-          {emissionResult.cStat && (
-            <p className="mt-1 font-mono">
-              SEFAZ cStat {emissionResult.cStat}
-              {emissionResult.sefazMessage ? ` · ${emissionResult.sefazMessage}` : ''}
-            </p>
-          )}
-          {emissionResult.validation?.errors.map((error) => (
-            <p key={error} className="mt-1">
-              • {error}
-            </p>
-          ))}
-          {emissionResult.pending && (
-            <p className="mt-2 font-semibold">
-              Consulte a situação do documento antes de tentar novamente para evitar duplicidade.
-            </p>
-          )}
-          {emissionResult.pending && emissionResult.documentId && onReconcile && (
-            <button
-              type="button"
-              onClick={onReconcile}
-              disabled={!canOperateFiscal || isSubmitting}
-              className="mt-3 px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black uppercase tracking-wider text-[10px] transition-all"
-            >
-              {isSubmitting ? 'Consultando...' : 'Consultar SEFAZ Agora'}
-            </button>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
       {emissionResult?.validation?.warnings?.length ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">

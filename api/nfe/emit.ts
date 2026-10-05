@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
+import { randomUUID } from 'node:crypto';
+import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { validateOrdinaryOutboundEnvelope } from '../../erp/src/pages/utils/nfe/fiscalEnvelope';
@@ -690,13 +692,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         privateKeyPem,
       });
     } catch (soapErr: any) {
-      console.error('[NF-e Emit] Erro na conexão SOAP SEFAZ:', soapErr.message);
+      const diagnosticId = randomUUID();
+      const transportDiagnostic = sefazTransportDiagnostic(soapErr);
+      const attemptDiagnostic = {diagnosticId, emissionRequestId, ...transportDiagnostic};
+      console.error('[NF-e Emit] Falha de transporte:', {documentId, ...attemptDiagnostic});
       // Falha de rede é ambígua: manter reserva pendente evita uma retransmissão duplicada.
       await supabase
         .from('nfe_documents')
         .update({
           status: 'pendente',
-          motivo_status: `Resultado da transmissão não confirmado: ${soapErr.message}`,
+          motivo_status: `Resultado da transmissão não confirmado: ${JSON.stringify(attemptDiagnostic)}`,
           xml_nfe: signedXml,
           updated_at: new Date().toISOString(),
         })
@@ -707,7 +712,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...retryResponseMetadata,
         documentId,
         signedXml,
-        error: `Conexão com SEFAZ-PR: ${soapErr.message}`,
+        diagnosticId,
+        diagnosticStage: 'sefaz-transmission',
+        transportDiagnostic,
+        error: 'Transmissão sem resposta confirmada. Consulte a chave original antes de tentar novamente.',
       });
     }
 

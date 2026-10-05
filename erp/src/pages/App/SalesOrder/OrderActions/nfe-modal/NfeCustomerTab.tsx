@@ -1,6 +1,11 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type Order from '@/pages/types/order.type';
+import {
+  formatRecipientTaxId,
+  isValidRecipientTaxId,
+  recipientTaxIdKind,
+} from '../../../../../../../shared-utils/recipientTaxId';
 
 interface NfeCustomerTabProps {
   order: Order;
@@ -8,14 +13,17 @@ interface NfeCustomerTabProps {
   isIdentityOptional: boolean;
   recipientTaxId: string;
   onRecipientTaxIdChange: (val: string) => void;
+  onRecipientTaxIdBlur?: () => void;
   recipientTaxIdError: string | null;
   recipientTaxIdInputRef: React.RefObject<HTMLInputElement>;
   disabled?: boolean;
-  fiscalModel?: '55' | '65';
-  invoiceTotal?: number;
+  documentType?: 'CPF' | 'CNPJ' | 'CPF/CNPJ';
+  requirementMessage?: string | null;
 }
 
-const maskTaxId = (value: string) => {
+const maskTaxId = (value: string, personType?: 'PF' | 'PJ') => {
+  if (personType === 'PJ' || /[a-z]/i.test(value))
+    return formatRecipientTaxId(value, 'PJ');
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length > 11) {
     if (digits.length > 12)
@@ -39,27 +47,34 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
   isIdentityOptional,
   recipientTaxId,
   onRecipientTaxIdChange,
+  onRecipientTaxIdBlur,
   recipientTaxIdError,
   recipientTaxIdInputRef,
   disabled = false,
-  fiscalModel = '55',
-  invoiceTotal = 0,
+  documentType,
+  requirementMessage,
 }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const customer = order.customerData;
   const address = customer?.fullAddress;
   const hasAddress = Boolean(address?.street || address?.city);
 
-  const cleanTaxId = recipientTaxId.replace(/\D/g, '');
-  const hasValidDocument = cleanTaxId.length === 11 || cleanTaxId.length === 14;
-
-  const isPJ =
-    customerPersonType === 'PJ' ||
-    customer?.personType === 'PJ' ||
-    (customer as { personType?: string })?.personType === 'legal' ||
-    cleanTaxId.length > 11;
-
-  const docLabel = isPJ ? 'CNPJ' : 'CPF';
+  const hasValidDocument = isValidRecipientTaxId(recipientTaxId);
+  const effectivePersonType =
+    customerPersonType ||
+    (customer?.personType === 'PF' || customer?.personType === 'PJ'
+      ? customer.personType
+      : undefined);
+  const inferredDocumentType = recipientTaxIdKind(recipientTaxId);
+  const isPJ = effectivePersonType === 'PJ' || inferredDocumentType === 'CNPJ';
+  const isPF = effectivePersonType === 'PF' || inferredDocumentType === 'CPF';
+  const docLabel =
+    documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
+  const personLabel = isPJ
+    ? 'Pessoa Jurídica (PJ)'
+    : isPF
+      ? 'Pessoa Física (PF)'
+      : 'Tipo de pessoa não determinado';
 
   // Lógica de status e explicação de identificação
   let identificationStatus: {
@@ -73,25 +88,20 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
       label: 'Identificado',
       variant: 'identified',
       explanation: isIdentityOptional
-        ? 'Documento informado pelo cliente registrado para esta emissão.'
-        : fiscalModel === '65' && invoiceTotal >= 10000
-          ? 'Venda NFC-e igual ou superior a R$ 10.000: identificação vinculada.'
-          : 'Documento obrigatório preenchido para autorização da SEFAZ.',
+        ? 'Documento opcional informado e validado para esta emissão.'
+        : requirementMessage || 'Documento obrigatório preenchido para autorização da SEFAZ.',
     };
   } else if (!isIdentityOptional) {
     identificationStatus = {
       label: 'Identificação obrigatória',
       variant: 'required',
-      explanation:
-        fiscalModel === '65' && invoiceTotal >= 10000
-          ? 'Venda NFC-e igual ou superior a R$ 10.000.'
-          : 'NF-e modelo 55 exige identificação do destinatário perante a SEFAZ.',
+      explanation: requirementMessage || 'Informe o documento do destinatário para esta operação.',
     };
   } else {
     identificationStatus = {
       label: 'Identificação não exigida',
       variant: 'neutral',
-      explanation: 'Identificação não exigida pela SEFAZ nesta operação.',
+      explanation: 'Documento opcional nesta NFC-e; se informado, será validado.',
     };
   }
 
@@ -120,7 +130,7 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
             </p>
           </div>
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-            {isPJ ? 'Pessoa Jurídica (PJ)' : 'Pessoa Física (PF)'}
+            {personLabel}
           </span>
         </div>
 
@@ -235,11 +245,14 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
             id="nfe-recipient-tax-id"
             ref={recipientTaxIdInputRef}
             aria-invalid={Boolean(recipientTaxIdError)}
-            inputMode="numeric"
+            inputMode={docLabel === 'CNPJ' || docLabel === 'CPF/CNPJ' ? 'text' : 'numeric'}
             autoComplete="off"
             disabled={disabled}
-            value={maskTaxId(recipientTaxId)}
-            onChange={(event) => onRecipientTaxIdChange(maskTaxId(event.target.value))}
+            value={maskTaxId(recipientTaxId, effectivePersonType)}
+            onChange={(event) =>
+              onRecipientTaxIdChange(maskTaxId(event.target.value, effectivePersonType))
+            }
+            onBlur={onRecipientTaxIdBlur}
             placeholder={`Insira o ${docLabel}`}
             aria-describedby={recipientTaxIdError ? 'nfe-recipient-tax-id-error' : undefined}
             className={`w-full rounded-none border-0 border-b-2 bg-white px-3 py-2 font-mono text-sm outline-none transition-all dark:bg-slate-900 ${
@@ -322,21 +335,35 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
                     <strong className="text-slate-700 dark:text-slate-200">
                       NF-e (modelo 55):
                     </strong>{' '}
-                    O documento do destinatário (CPF para pessoa física ou CNPJ para pessoa
-                    jurídica) é de preenchimento obrigatório perante a SEFAZ.
+                    Nesta emissão de venda doméstica normal, PF usa CPF e PJ usa CNPJ. Operações
+                    especiais ou com destinatário estrangeiro seguem uma matriz fiscal própria.
                   </li>
                   <li>
                     <strong className="text-slate-700 dark:text-slate-200">
-                      NFC-e (modelo 65) - Valor a partir de R$ 10.000,00:
+                      NFC-e (modelo 65) - Valor igual ou superior a R$ 10.000,00:
                     </strong>{' '}
-                    Obrigatória a identificação com CPF ou CNPJ conforme legislação do Paraná.
+                    Identificação obrigatória, inclusive exatamente em R$ 10.000,00.
                   </li>
                   <li>
                     <strong className="text-slate-700 dark:text-slate-200">
-                      NFC-e (modelo 65) - Valor abaixo de R$ 10.000,00:
+                      NFC-e presencial (indPres 1 ou 5) abaixo de R$ 10.000,00:
                     </strong>{' '}
-                    Identificação facultativa, sendo informada caso o adquirente solicite ou já
-                    esteja cadastrado.
+                    CPF/CNPJ pode ficar vazio se o comprador não solicitar identificação. Se for
+                    informado, continua sujeito à validação.
+                  </li>
+                  <li>
+                    <strong className="text-slate-700 dark:text-slate-200">
+                      NFC-e não presencial, inclusive entrega em domicílio:
+                    </strong>{' '}
+                    CPF/CNPJ e endereço do destinatário são obrigatórios em qualquer valor. Para
+                    entrega em domicílio, o XML usa indPres=4. Desde 03/08/2026, a regra inclui
+                    também as demais operações não presenciais.
+                  </li>
+                  <li>
+                    <strong className="text-slate-700 dark:text-slate-200">
+                      Entrega pela própria loja:
+                    </strong>{' '}
+                    O frete é modFrete=3. Isso não exige cadastrar transportadora terceirizada.
                   </li>
                   <li>
                     <strong className="text-slate-700 dark:text-slate-200">

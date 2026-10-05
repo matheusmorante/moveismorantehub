@@ -234,14 +234,26 @@ describe('Fiscal Core e serializer de NF-e 55', () => {
     expect(() => serializeFiscalDocument(snapshot, document, rules, identity)).toThrow('snapshot');
     const resolved = resolveFiscalDocument(snapshot, rules);
     if (resolved.status !== 'ready') throw new Error('Cenário sintético deveria resolver.');
-    expect(() => serializeFiscalDocument(snapshot, { ...resolved.document, model: '65' }, rules, identity))
-      .toThrow('modelo');
-    expect(() => serializeFiscalDocument(snapshot, {
-      ...resolved.document,
-      operation: { ...resolved.document.operation, destination: '2' },
-    }, rules, identity)).toThrow('Operação fiscal não suportada');
-    expect(() => serializeFiscalDocument(snapshot, resolved.document, rules,
-      { ...identity, accessKey: '1'.repeat(44) })).toThrow('Chave');
+    expect(() =>
+      serializeFiscalDocument(snapshot, { ...resolved.document, model: '65' }, rules, identity)
+    ).toThrow('modelo');
+    expect(() =>
+      serializeFiscalDocument(
+        snapshot,
+        {
+          ...resolved.document,
+          operation: { ...resolved.document.operation, destination: '2' },
+        },
+        rules,
+        identity
+      )
+    ).toThrow('Operação fiscal não suportada');
+    expect(() =>
+      serializeFiscalDocument(snapshot, resolved.document, rules, {
+        ...identity,
+        accessKey: '1'.repeat(44),
+      })
+    ).toThrow('Chave');
   });
 
   it('HML_TECHNICAL_V1 só resolve fixture explícito em tpAmb=2', async () => {

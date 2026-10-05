@@ -3,20 +3,25 @@ import type Order from '@/pages/types/order.type';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { fetchPersonById } from '@/pages/utils/personService';
 import {
+  decideFiscalRecipientRequirements,
   fiscalPresence,
-  fiscalRecipientRequirements,
 } from '../../../../../../shared-utils/fiscalDocumentModel';
-import { recipientTaxIdKind } from '../../../../../../shared-utils/recipientTaxId';
+import {
+  formatRecipientTaxId,
+  recipientTaxIdKind,
+} from '../../../../../../shared-utils/recipientTaxId';
 import { NfeCustomerTab } from './nfe-modal/NfeCustomerTab';
-import { NfeEnvironmentSelector } from './nfe-modal/NfeEnvironmentSelector';
 import { NfeGeneralTab } from './nfe-modal/NfeGeneralTab';
 import { NfeItemsSection } from './nfe-modal/NfeItemsSection';
 import { NfePaymentTab } from './nfe-modal/NfePaymentTab';
 import { NfeSuccessCard } from './nfe-modal/NfeSuccessCard';
 import { NfeTransportSection } from './nfe-modal/NfeTransportSection';
 import { useNfeEmission } from './nfe-modal/useNfeEmission';
+import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
+import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 const maskRecipientTaxId = (value: string) => {
+  if (/[a-z]/i.test(value)) return formatRecipientTaxId(value, 'PJ');
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length > 11) {
     if (digits.length > 12)
@@ -39,6 +44,7 @@ export type NfeTabId = 'general' | 'customer' | 'items' | 'transport' | 'payment
 interface NfeEmissionModalProps {
   isOpen: boolean;
   order: Order | null;
+  initialEnvironment?: 1 | 2;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -46,6 +52,7 @@ interface NfeEmissionModalProps {
 export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   isOpen,
   order,
+  initialEnvironment,
   onClose,
   onSuccess,
 }) => {
@@ -56,6 +63,30 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const [isLoadingCustomerType, setIsLoadingCustomerType] = React.useState(
     Boolean(order?.customerData?.id && !order?.customerData?.personType)
   );
+  const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    const orderId = order?.id;
+    if (!isOpen || !orderId) {
+      setFiscalStatuses(null);
+      return;
+    }
+
+    fetchOrderFiscalBadgeStatuses([orderId])
+      .then((res) => {
+        if (active && res[orderId]) {
+          setFiscalStatuses(res[orderId]);
+        }
+      })
+      .catch((err) => {
+        console.error('[NfeEmissionModal] Falha ao consultar status fiscais do pedido:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, order?.id]);
 
   React.useEffect(() => {
     let active = true;
@@ -119,9 +150,12 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     nfeNumberError,
     isLoadingFiscalData,
     fiscalPreparationError,
+    fiscalFieldError,
+    clearFiscalFieldError,
     recipientTaxIdError,
     recipientTaxId,
     setRecipientTaxId,
+    handleSaveDraft,
     setNumberPreview,
     emissionResult,
     nfeItems,
@@ -129,9 +163,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handleBatchUpdateItems,
     handleEmit,
     handleReconcile,
+    handleStartFreshHmlEmission,
     handlePrintDanfe,
-    hasTransport,
-    setHasTransport,
     transportResponsible,
     setTransportResponsible,
     freightContractResponsible,
@@ -160,11 +193,27 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   );
 
   React.useEffect(() => {
-    if (recipientTaxIdError) {
+    if (fiscalFieldError) {
+      setActiveTab(fiscalFieldError.tab);
+      const timer = window.setTimeout(() => {
+        const el = document.getElementById(fiscalFieldError.fieldId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if ('focus' in el && typeof el.focus === 'function') {
+            el.focus();
+          }
+        }
+      }, 100);
+      return () => window.clearTimeout(timer);
+    }
+  }, [fiscalFieldError]);
+
+  React.useEffect(() => {
+    if (recipientTaxIdError && !fiscalFieldError) {
       setActiveTab('customer');
       recipientTaxIdInput.current?.focus();
     }
-  }, [recipientTaxIdError]);
+  }, [recipientTaxIdError, fiscalFieldError]);
 
   React.useEffect(() => {
     setRetryNumber(emissionResult?.numberConflict?.nextNumber?.toString() ?? '');
@@ -185,18 +234,35 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     };
   }, [isOpen]);
 
+  const isHmlIssued = Boolean(
+    fiscalStatuses?.homologation === 'issued' ||
+      (order?.nfeData?.status === 'homologada' && order?.nfeData?.environment === 2)
+  );
+  const isProdIssued = Boolean(
+    fiscalStatuses?.production === 'issued' ||
+      (order?.nfeData?.status === 'autorizada' && (order?.nfeData?.environment ?? 1) === 1)
+  );
+
   React.useEffect(() => {
     if (isOpen) {
-      setEnvironment(DEFAULT_NFE_ENVIRONMENT);
+      if (initialEnvironment) {
+        setEnvironment(initialEnvironment);
+      } else if (isProdIssued && !isHmlIssued) {
+        setEnvironment(2);
+      } else if (isHmlIssued && !isProdIssued) {
+        setEnvironment(1);
+      } else {
+        setEnvironment(DEFAULT_NFE_ENVIRONMENT);
+      }
       setActiveTab('general');
     }
-  }, [isOpen, setEnvironment]);
+  }, [isOpen, initialEnvironment, isHmlIssued, isProdIssued, setEnvironment]);
 
   if (!isOpen || !order) return null;
 
   const isPreparingInitialData = isLoadingFiscalData || isLoadingCustomerType;
   const isLocked = Boolean(
-    emissionResult?.documentId || emissionResult?.success || emissionResult?.pending
+    emissionResult?.success || emissionResult?.pending || emissionResult?.hmlConfirmedNotFound
   );
 
   const selectedModel =
@@ -221,15 +287,18 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const currentPresence = fiscalPresence(
     selectedModel || '55',
     order.shipping?.deliveryMethod,
-    order.fiscalContext?.presence,
-    Boolean(recipientTaxId.trim())
+    order.fiscalContext?.presence
   );
-  const recipientRequirements = fiscalRecipientRequirements(
-    selectedModel || '55',
-    currentPresence,
-    invoiceTotal
-  );
-  const isIdentityOptional = !recipientRequirements.documentRequired;
+  const recipientRequirements = decideFiscalRecipientRequirements({
+    model: selectedModel || '55',
+    presence: currentPresence,
+    total: invoiceTotal,
+    personType: customerPersonType,
+    recipientTaxId,
+    operationScope: 'NORMAL_DOMESTIC_SALE',
+  });
+  const isIdentityOptional =
+    recipientRequirements.supported && !recipientRequirements.documentRequired;
   const isNfce = selectedModel === '65';
 
   // Definição das 5 Abas solicitadas na ordem estrita
@@ -267,15 +336,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       aria-modal="true"
       aria-label="Emitir nota fiscal de saída"
       aria-busy={isPreparingInitialData}
-      className="fixed inset-0 z-[999999] flex flex-col bg-white dark:bg-slate-900 w-full h-full overflow-hidden overscroll-none animate-in fade-in duration-150"
+      className="fixed inset-0 z-[999999] flex h-full min-h-0 w-full flex-col overflow-hidden overscroll-none bg-white dark:bg-slate-900 animate-in fade-in duration-150"
     >
       {/* Cabeçalho Compacto (Menor Espaçamento Vertical) */}
-      <header className="px-4 py-1.5 sm:px-6 sm:py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
-        <div className="flex items-center justify-end gap-2 sm:gap-2.5 w-full sm:w-auto">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-2">
+        <div className="flex min-w-0 w-full items-center justify-start gap-2 sm:flex-1 sm:gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
             <i className="bi bi-receipt-cutoff text-sm" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
               <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 leading-tight truncate">
                 Emitir nota fiscal de saída
@@ -287,12 +356,16 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <NfeEnvironmentSelector
-            environment={environment}
-            onSelect={setEnvironment}
-            disabled={isSubmitting || !!emissionResult?.documentId || !!emissionResult?.pending}
-          />
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3">
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider select-none ${
+              environment === 2
+                ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                : 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+            }`}
+          >
+            {environment === 2 ? 'Homologação' : 'Produção'}
+          </span>
           <button
             type="button"
             aria-label="Fechar emissão fiscal"
@@ -308,7 +381,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       <div
         role="tablist"
         aria-label="Abas da emissão fiscal"
-        className="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shrink-0 overflow-x-auto custom-scrollbar"
+        className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900 custom-scrollbar sm:gap-2 sm:px-6"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -321,7 +394,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               aria-controls={`tabpanel-${tab.id}`}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 py-2 px-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap outline-none ${
+              className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-bold whitespace-nowrap outline-none transition-all ${
                 isActive
                   ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-300 font-black'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200'
@@ -335,8 +408,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       </div>
 
       {/* Conteúdo das Abas (Painéis Full Screen com scroll) */}
-      <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-950/20">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/50 p-4 dark:bg-slate-950/20 custom-scrollbar sm:p-6">
+        <div className="mx-auto max-w-6xl space-y-6">
           {/* Card de Sucesso da Emissão (Exibido no topo se já emitido) */}
           {emissionResult?.success && (
             <NfeSuccessCard result={emissionResult} onPrintDanfe={handlePrintDanfe} />
@@ -368,17 +441,20 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               retryNumber={retryNumber}
               onRetryNumberChange={setRetryNumber}
               onRetry={() =>
-                handleEmit(
-                  productionConfirmed,
-                  false,
-                  /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
-                )
+                emissionResult?.hmlConfirmedNotFound
+                  ? handleEmit(productionConfirmed, true)
+                  : handleEmit(
+                      productionConfirmed,
+                      false,
+                      /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
+                    )
               }
               canOperateFiscal={canOperateFiscal}
               isLoadingFiscalData={isLoadingFiscalData}
               isLoadingNfeNumber={isLoadingNfeNumber}
               fiscalPreparationError={fiscalPreparationError}
               onReconcile={handleReconcile}
+              onStartFreshHmlEmission={handleStartFreshHmlEmission}
             />
           </section>
 
@@ -395,11 +471,12 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               isIdentityOptional={isIdentityOptional}
               recipientTaxId={recipientTaxId}
               onRecipientTaxIdChange={setRecipientTaxId}
+              onRecipientTaxIdBlur={handleSaveDraft}
               recipientTaxIdError={recipientTaxIdError}
               recipientTaxIdInputRef={recipientTaxIdInput}
               disabled={isSubmitting || isLocked}
-              fiscalModel={selectedModel || '55'}
-              invoiceTotal={invoiceTotal}
+              documentType={recipientRequirements.documentType}
+              requirementMessage={recipientRequirements.message}
             />
           </section>
 
@@ -414,7 +491,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               <NfeItemsSection
                 order={order}
                 items={nfeItems}
+                activeError={fiscalFieldError}
+                onClearFieldError={clearFiscalFieldError}
                 onUpdateItemFiscal={handleUpdateItemFiscal}
+                onUpdateItemFiscalBlur={handleSaveDraft}
                 onBatchUpdateItems={handleBatchUpdateItems}
               />
             )}
@@ -431,8 +511,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               <NfeTransportSection
                 fiscalModel={selectedModel || '55'}
                 deliveryMethod={order.shipping?.deliveryMethod === 'pickup' ? 'pickup' : 'delivery'}
-                hasTransport={hasTransport}
-                onHasTransportChange={setHasTransport}
                 transportResponsible={transportResponsible}
                 onTransportResponsibleChange={setTransportResponsible}
                 freightContractResponsible={freightContractResponsible}
@@ -473,11 +551,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               )}
             </strong>
           </span>
-          <span className="hidden sm:inline-block h-3.5 w-px bg-slate-200 dark:bg-slate-800" />
-          <span className="hidden sm:inline-block text-[11px] text-slate-400">
-            {isNfce ? 'NFC-e 65' : 'NF-e 55'} • Ambiente{' '}
-            {environment === 1 ? 'Produção' : 'Homologação'}
-          </span>
         </div>
 
         <div className="flex items-center justify-end gap-2 sm:gap-2.5 w-full sm:w-auto">
@@ -491,9 +564,12 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
           {!emissionResult?.success && !emissionResult?.pending ? (
             (() => {
-              if (emissionResult?.numberConflict) return null;
-              const isRetryable217 =
-                emissionResult?.error?.includes('217') && emissionResult?.documentId;
+              if (
+                emissionResult?.numberConflict ||
+                emissionResult?.hmlConfirmedNotFound ||
+                emissionResult?.hmlNewEmissionRequired
+              )
+                return null;
               return (
                 <>
                   {!canOperateFiscal && (
@@ -504,33 +580,23 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                   <button
                     type="button"
                     data-testid="nfe-emit-button"
-                    onClick={() => handleEmit(productionConfirmed, !!isRetryable217)}
+                    onClick={() => handleEmit(productionConfirmed, false)}
                     disabled={
                       !canOperateFiscal ||
                       isSubmitting ||
                       isLoadingFiscalData ||
                       isLoadingNfeNumber ||
                       isLoadingCustomerType ||
-                      Boolean(fiscalPreparationError) ||
-                      (environment === 1 && !productionConfirmed)
+                      Boolean(fiscalPreparationError)
                     }
-                    className={`px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 ${
-                      isRetryable217
-                        ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
-                        : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'
-                    }`}
+                    className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
                   >
                     {isSubmitting ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         <span>
-                          Transmitindo {environment === 1 ? 'em Produção' : 'em Homologação'}…
+                          Transmitindo {environment === 1 ? 'em Produção' : 'em Homologação'}...
                         </span>
-                      </>
-                    ) : isRetryable217 ? (
-                      <>
-                        <i className="bi bi-arrow-clockwise" />
-                        <span>Retransmitir mesma NF-e</span>
                       </>
                     ) : (
                       <>

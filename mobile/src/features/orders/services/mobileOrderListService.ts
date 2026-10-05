@@ -11,15 +11,22 @@ export interface MobileOrderListItem {
   total_value: number;
   order_data: Record<string, unknown>;
   fiscalBadgeStatus?: 'not_issued' | 'issued' | 'cancelled' | 'reversed';
+  fiscalHmlBadgeStatus?: 'not_issued' | 'issued' | 'cancelled' | 'reversed';
   version?: number;
 }
 
 type FiscalBadgeStatus = NonNullable<MobileOrderListItem['fiscalBadgeStatus']>;
 
+export interface MobileFiscalBadgeStatuses {
+  production: FiscalBadgeStatus;
+  homologation?: FiscalBadgeStatus;
+}
+
 interface FiscalDocumentStatusRow {
   order_id: string | null;
   status: string;
   document_type?: string | null;
+  ambiente?: number | null;
 }
 
 const resolveFiscalBadgeStatus = (
@@ -46,15 +53,30 @@ const resolveFiscalBadgeStatus = (
   return 'not_issued';
 };
 
+export const resolveMobileFiscalBadgePair = (
+  documents: readonly FiscalDocumentStatusRow[]
+): MobileFiscalBadgeStatuses => {
+  const prodDocs = documents.filter((doc) => doc.ambiente !== 2);
+  const hmlDocs = documents.filter((doc) => doc.ambiente === 2);
+
+  const production = resolveFiscalBadgeStatus(prodDocs);
+  const homologation = resolveFiscalBadgeStatus(hmlDocs);
+
+  return {
+    production,
+    homologation: homologation !== 'not_issued' ? homologation : undefined,
+  };
+};
+
 export const fetchMobileOrderFiscalBadgeStatuses = async (
   orderIds: readonly string[]
-): Promise<Record<string, FiscalBadgeStatus>> => {
+): Promise<Record<string, MobileFiscalBadgeStatuses>> => {
   const uniqueOrderIds = [...new Set(orderIds.filter(Boolean))];
   if (uniqueOrderIds.length === 0) return {};
 
   const { data, error } = await supabase
     .from('nfe_documents')
-    .select('order_id,status,document_type')
+    .select('order_id,status,document_type,ambiente')
     .in('order_id', uniqueOrderIds);
   if (error) throw error;
 
@@ -69,7 +91,7 @@ export const fetchMobileOrderFiscalBadgeStatuses = async (
   return Object.fromEntries(
     uniqueOrderIds.map((orderId) => [
       orderId,
-      resolveFiscalBadgeStatus(documentsByOrderId.get(orderId) || []),
+      resolveMobileFiscalBadgePair(documentsByOrderId.get(orderId) || []),
     ])
   );
 };

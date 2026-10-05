@@ -91,7 +91,9 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     dhEmi,
     municipalityCode: settings.companyCMun,
     finalConsumer: order.fiscalContext?.finalConsumer === false ? 0 : 1,
-    presenceIndicator: Number(fiscalPresence(model, order.shipping?.deliveryMethod, order.fiscalContext?.presence)) as 0 | 1 | 2 | 3 | 4 | 5 | 9,
+    presenceIndicator: Number(
+      fiscalPresence(model, order.shipping?.deliveryMethod, order.fiscalContext?.presence)
+    ) as 0 | 1 | 2 | 3 | 4 | 5 | 9,
   });
 
   // 2. Bloco do Emitente (<emit>)

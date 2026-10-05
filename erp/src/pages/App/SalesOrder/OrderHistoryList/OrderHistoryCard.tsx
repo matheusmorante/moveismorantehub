@@ -18,6 +18,9 @@ import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeR
 interface OrderHistoryCardProps {
   readonly order: Order;
   readonly fiscalBadgeStatus?: OrderFiscalBadgeStatus;
+  readonly fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
+  readonly fiscalDocumentId?: string;
+  readonly fiscalHmlDocumentId?: string;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -49,6 +52,9 @@ interface OrderHistoryCardProps {
 const OrderHistoryCard = ({
   order,
   fiscalBadgeStatus,
+  fiscalHmlBadgeStatus,
+  fiscalDocumentId,
+  fiscalHmlDocumentId,
   onEdit,
   onDelete,
   onRestore,
@@ -197,6 +203,13 @@ const OrderHistoryCard = ({
         <div className="ml-auto flex items-center gap-1.5">
           <OrderFiscalBadge
             status={fiscalBadgeStatus}
+            documentId={fiscalDocumentId}
+            reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+          />
+          <OrderFiscalBadge
+            variant="homologation"
+            status={fiscalHmlBadgeStatus}
+            documentId={fiscalHmlDocumentId}
             reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <div

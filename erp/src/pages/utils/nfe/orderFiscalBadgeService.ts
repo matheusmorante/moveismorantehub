@@ -1,16 +1,16 @@
 import { supabase } from '../supabaseConfig';
-import { resolveOrderFiscalBadgeStatus } from './orderFiscalBadgeRules';
-import type { FiscalDocumentStatusRow, OrderFiscalBadgeStatus } from './orderFiscalBadgeRules';
+import { resolveOrderFiscalBadgePair } from './orderFiscalBadgeRules';
+import type { FiscalDocumentStatusRow, OrderFiscalBadgeStatuses } from './orderFiscalBadgeRules';
 
 export const fetchOrderFiscalBadgeStatuses = async (
   orderIds: readonly string[]
-): Promise<Record<string, OrderFiscalBadgeStatus>> => {
+): Promise<Record<string, OrderFiscalBadgeStatuses>> => {
   const uniqueOrderIds = [...new Set(orderIds.filter(Boolean))];
   if (uniqueOrderIds.length === 0) return {};
 
   const { data, error } = await supabase
     .from('nfe_documents')
-    .select('order_id,status,document_type')
+    .select('id,order_id,status,document_type,ambiente,created_at')
     .in('order_id', uniqueOrderIds);
 
   if (error) throw error;
@@ -26,7 +26,7 @@ export const fetchOrderFiscalBadgeStatuses = async (
   return Object.fromEntries(
     uniqueOrderIds.map((orderId) => [
       orderId,
-      resolveOrderFiscalBadgeStatus(documentsByOrderId.get(orderId) || []),
+      resolveOrderFiscalBadgePair(documentsByOrderId.get(orderId) || []),
     ])
   );
 };

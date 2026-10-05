@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     supabaseSecret
   );
   const auth = await authorizeFiscalOperator(db, req.headers.authorization);
-  if (!auth.ok) return res.status(auth.status).json({ success: false, error: auth.message });
+  if (auth.ok === false) return res.status(auth.status).json({ success: false, error: auth.message });
   try {
     const configuration = await loadHmlCsosnConfiguration(db);
     if (req.method === 'GET')
@@ -98,17 +98,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (item) => item.itemType !== 'service'
       ) || [];
     if (items.length > 990) throw new Error('Pedido excede o limite de itens da NF-e.');
-    const productIds = [
-      ...new Set(
-        items.flatMap((item) => (typeof item.productId === 'string' ? [item.productId] : []))
-      ),
-    ];
+    const productIds = Array.from(new Set(items.flatMap((item) => typeof item.productId === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(item.productId) ? [item.productId] : [])));
     const products = productIds.length
       ? await db.from('products').select('id,fiscal').in('id', productIds)
       : { data: [], error: null };
     // The current schema persists fiscal data on products and order items;
     // product_variations has no fiscal column. Do not invent a storage contract.
-    if (products.error) throw new Error('Não foi possível conferir exceções fiscais do cadastro.');
+    if (products.error) throw new Error('Não foi possível conferir exceções fiscais do cadastro: ' + products.error.message);
     const resolved = items.map((item, index) => {
       const fiscal = item.fiscal as Record<string, unknown> | undefined;
       const product = products.data?.find((row) => row.id === item.productId);
@@ -125,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     });
     return res.status(200).json({ success: true, configuration, items: resolved });
-  } catch (error) {
+  } catch (error) { console.error("ITEM DEFAULTS ERROR:", error); 
     return res.status(422).json({
       success: false,
       error: error instanceof Error ? error.message : 'Preparação fiscal inválida.',

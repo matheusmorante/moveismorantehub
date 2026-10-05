@@ -8,7 +8,7 @@ import {
 
 type SourceDocument = {
   id: string;
-  order_id: string;
+  order_id: string | null;
   modelo: '55' | '65';
   ambiente: 1 | 2;
   numero_nfe: number;

@@ -230,7 +230,9 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     const newName = isProfundidade ? 'Comprimento' : 'Profundidade';
     const oldName = currentField.name;
 
-    const newFieldDef = allTechnicalFields.find(f => f.name.toLowerCase() === newName.toLowerCase());
+    const newFieldDef = allTechnicalFields.find(
+      (f) => f.name.toLowerCase() === newName.toLowerCase()
+    );
     if (!newFieldDef) {
       console.warn(`Campo '${newName}' não encontrado no cadastro global de características.`);
       return;
@@ -251,7 +253,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     });
 
     setManualFieldNames((prev) => {
-      const filtered = prev.filter(n => n !== oldName && n !== actualNewName);
+      const filtered = prev.filter((n) => n !== oldName && n !== actualNewName);
       return [...filtered, actualNewName];
     });
   };
@@ -338,7 +340,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                 <i className="bi bi-gear-fill" />
                               </button>
                             )}
-                            {(field.name.toLowerCase() === 'profundidade' || field.name.toLowerCase() === 'comprimento') && (
+                            {(field.name.toLowerCase() === 'profundidade' ||
+                              field.name.toLowerCase() === 'comprimento') && (
                               <button
                                 type="button"
                                 title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}

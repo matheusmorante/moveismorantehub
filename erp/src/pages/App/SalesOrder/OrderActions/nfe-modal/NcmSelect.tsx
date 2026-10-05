@@ -3,15 +3,21 @@ import { createPortal } from 'react-dom';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 
 interface NcmSelectProps {
+  id?: string;
   value: string;
   onChange: (ncm: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
+  hasError?: boolean;
 }
 
 export const NcmSelect: React.FC<NcmSelectProps> = ({
+  id,
   value,
   onChange,
+  onBlur,
   placeholder = 'Selecione ou digite o NCM...',
+  hasError = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState(value || '');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -95,6 +101,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
     <div className="relative w-full" ref={dropdownRef}>
       <div className="relative flex items-center">
         <input
+          id={id}
           ref={inputRef}
           aria-label="NCM"
           type="text"
@@ -108,11 +115,14 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             setIsDropdownOpen(true);
           }}
           onFocus={() => setIsDropdownOpen(true)}
+          onBlur={() => setTimeout(() => onBlur?.(), 150)}
           placeholder={placeholder}
           className={`w-full pl-3 pr-7 py-1.5 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs font-mono font-bold transition-all ${
-            isNcmValid
-              ? 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500'
-              : 'border-red-400 bg-red-50/40 dark:bg-red-950/30 text-red-700 dark:text-red-300 focus:border-red-500'
+            hasError
+              ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 focus:border-rose-600 ring-1 ring-rose-500/30'
+              : isNcmValid
+                ? 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:border-blue-500'
+                : 'border-red-400 bg-red-50/40 dark:bg-red-950/30 text-red-700 dark:text-red-300 focus:border-red-500'
           }`}
         />
         <button

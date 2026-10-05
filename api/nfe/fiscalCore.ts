@@ -1,7 +1,17 @@
 import { createHash } from 'node:crypto';
 import { validateCsosn } from './csosnPolicy';
 import { assertFiscalSelectionIntegrity } from './fiscalSelectionIntegrity';
-import { resolveOrderFiscalModel, getFiscalRecipientAddress, isSameFiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
+import {
+  resolveOrderFiscalModel,
+  getFiscalRecipientAddress,
+  isSameFiscalModelDecision,
+  decideFiscalRecipientRequirements,
+} from '../../shared-utils/fiscalDocumentModel';
+import {
+  isValidRecipientTaxId,
+  normalizeRecipientTaxId,
+  recipientTaxIdMatchesPersonType,
+} from '../../shared-utils/recipientTaxId';
 import type {
   FiscalDocument,
   FiscalDocumentResolution,
@@ -97,15 +107,59 @@ export function validateFiscalDocument(
     throw new Error('Modelo, itens ou pagamentos fiscais ausentes.');
   if (ruleSet.version === 'HML_NORMAL_SALE_V2') {
     const customer = snapshot.fiscalInputs?.customer as Record<string, unknown> | undefined;
-    const decision = resolveOrderFiscalModel({ ...snapshot.order.data, orderType: snapshot.order.type,
-      paymentsSummary: { totalOrderValue: document.totals.invoice },
-      items: document.items.map((item) => ({ fiscal: { cfop: item.classification.cfop } })),
-    }, { issuerUf: String(snapshot.issuerProfile.companyUF || ''), finalConsumer: snapshot.emissionRequest.finalConsumer,
-      recipientAddress: getFiscalRecipientAddress({ ...snapshot.order.data, customerData: { fullAddress: customer?.address } }) });
-    if (decision.status !== 'ready' || decision.model !== document.model ||
-        decision.finalConsumer !== (document.operation.finalConsumer === '1') ||
-        !isSameFiscalModelDecision(decision, document.modelDecision))
+    const customerPersonType =
+      customer?.personType === 'PF' || customer?.personType === 'PJ'
+        ? customer.personType
+        : undefined;
+    const snapshotRecipientTaxId = normalizeRecipientTaxId(
+      String(snapshot.emissionRequest.recipientTaxId ?? customer?.cpfCnpj ?? '')
+    );
+    const documentRecipientTaxId = normalizeRecipientTaxId(document.recipient.cpfCnpj);
+    if (
+      snapshotRecipientTaxId !== documentRecipientTaxId ||
+      (documentRecipientTaxId &&
+        (!isValidRecipientTaxId(documentRecipientTaxId) ||
+          !recipientTaxIdMatchesPersonType(documentRecipientTaxId, customerPersonType)))
+    )
+      throw new Error('Identificação do destinatário diverge do snapshot fiscal ou do cadastro PF/PJ.');
+    const decision = resolveOrderFiscalModel(
+      {
+        ...snapshot.order.data,
+        orderType: snapshot.order.type,
+        paymentsSummary: { totalOrderValue: document.totals.invoice },
+        items: document.items.map((item) => ({ fiscal: { cfop: item.classification.cfop } })),
+      },
+      {
+        issuerUf: String(snapshot.issuerProfile.companyUF || ''),
+        finalConsumer: snapshot.emissionRequest.finalConsumer,
+        recipientAddress: getFiscalRecipientAddress({
+          ...snapshot.order.data,
+          customerData: { fullAddress: customer?.address },
+        }),
+      }
+    );
+    if (
+      decision.status !== 'ready' ||
+      decision.model !== document.model ||
+      decision.finalConsumer !== (document.operation.finalConsumer === '1') ||
+      !isSameFiscalModelDecision(decision, document.modelDecision)
+    )
       throw new Error('Modelo fiscal diverge dos fatos e da política de varejo.');
+    const recipientRequirements = decideFiscalRecipientRequirements({
+      model: document.model,
+      presence: document.operation.presence,
+      total: document.totals.invoice,
+      personType: customerPersonType,
+      recipientTaxId: documentRecipientTaxId,
+      operationScope: 'NORMAL_DOMESTIC_SALE',
+    });
+    if (
+      !recipientRequirements.supported ||
+      (recipientRequirements.documentRequired && !documentRecipientTaxId)
+    )
+      throw new Error(
+        recipientRequirements.message || 'Documento do destinatário não atende à matriz fiscal.'
+      );
   }
   required(document.issuer.name, 'Razão social');
   required(document.issuer.ie, 'IE do emitente');

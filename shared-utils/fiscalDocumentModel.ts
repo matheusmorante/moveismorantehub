@@ -1,3 +1,5 @@
+import { recipientTaxIdKind } from './recipientTaxId';
+
 /** Paraná retail policy. Logistics and recipient PF/PJ never select a model alone. */
 export const FISCAL_MODEL_POLICY_VERSION = 'PR_RETAIL_2026_10';
 export type FiscalModelReason = 'RETAIL_FINAL_CONSUMER_IN_STATE' | 'INTERSTATE_OPERATION' |
@@ -104,25 +106,121 @@ export function resolveOrderFiscalModel(order: unknown, options: {issuerUf?: str
 export function fiscalPresence(
   model: '55' | '65',
   deliveryMethod?: string,
-  presence?: string,
-  hasRecipientDoc?: boolean
+  presence?: string
 ): string {
   if (model === '65') {
-    // Na NFC-e modelo 65, se o consumidor NÃO tem identificação CPF/CNPJ,
-    // a presença nunca pode ser '4' (a SEFAZ rejeita com 787).
-    // Permanece como presencial ('1').
-    if (hasRecipientDoc === false) return '1';
-    if (presence) return (presence === '4' && !hasRecipientDoc) ? '1' : presence;
-    return (deliveryMethod === 'delivery' && Boolean(hasRecipientDoc)) ? '4' : '1';
+    if (deliveryMethod === 'delivery') return '4';
+    if (deliveryMethod === 'pickup' && presence === '4') return '1';
+    return presence || '1';
   }
+  if (deliveryMethod === 'delivery' && !['2', '3', '9'].includes(presence || '')) return '9';
+  if (deliveryMethod === 'pickup' && presence === '4') return '1';
   return presence || (deliveryMethod === 'delivery' ? '9' : '1');
 }
+
+export const NFCE_RECIPIENT_IDENTIFICATION_LIMIT = 10_000;
+
+export type FiscalRecipientRequirementReason =
+  | 'NFE_MODEL_55_DOMESTIC_NORMAL_SALE'
+  | 'NFCE_AMOUNT_LIMIT'
+  | 'NFCE_NON_PRESENT_OPERATION'
+  | 'NFCE_HOME_DELIVERY'
+  | 'SPECIAL_FISCAL_OPERATION';
+
+export type FiscalRecipientRequirementDecision = {
+  supported: boolean;
+  documentRequired: boolean;
+  addressRequired: boolean;
+  documentType: 'CPF' | 'CNPJ' | 'CPF/CNPJ';
+  reasonCodes: FiscalRecipientRequirementReason[];
+  message: string | null;
+};
+
+export type FiscalRecipientRequirementFacts = {
+  model: '55' | '65';
+  presence: string;
+  total: number;
+  personType?: string;
+  recipientTaxId?: string;
+  operationScope: 'NORMAL_DOMESTIC_SALE' | 'SPECIAL_OR_FOREIGN_OPERATION';
+};
+
+/**
+ * Official recipient-identification matrix for the supported Paraná retail
+ * path. Special/foreign operations intentionally require their own fiscal
+ * ruleset instead of inheriting model 55's domestic-sale rule.
+ */
+export function decideFiscalRecipientRequirements(
+  facts: FiscalRecipientRequirementFacts
+): FiscalRecipientRequirementDecision {
+  const knownPersonType = facts.personType === 'PF' || facts.personType === 'PJ'
+    ? facts.personType
+    : undefined;
+  const documentType = knownPersonType === 'PF'
+    ? 'CPF'
+    : knownPersonType === 'PJ'
+      ? 'CNPJ'
+      : recipientTaxIdKind(facts.recipientTaxId || '') || 'CPF/CNPJ';
+  const unsupported = (reason = 'Esta operação precisa de uma matriz fiscal específica aprovada.'): FiscalRecipientRequirementDecision => ({
+    supported: false,
+    documentRequired: false,
+    addressRequired: false,
+    documentType,
+    reasonCodes: ['SPECIAL_FISCAL_OPERATION'],
+    message: reason,
+  });
+
+  if (facts.operationScope !== 'NORMAL_DOMESTIC_SALE') return unsupported();
+  if (!Number.isFinite(facts.total) || facts.total < 0)
+    return unsupported('Total fiscal inválido; confirme o valor da operação antes da emissão.');
+
+  if (facts.model === '55') {
+    return {
+      supported: true,
+      documentRequired: true,
+      addressRequired: true,
+      documentType,
+      reasonCodes: ['NFE_MODEL_55_DOMESTIC_NORMAL_SALE'],
+      message: `A NF-e modelo 55 desta venda doméstica exige ${documentType} do destinatário.`,
+    };
+  }
+
+  if (!['1', '2', '3', '4', '5', '9'].includes(facts.presence))
+    return unsupported('Indicador de presença ausente ou inválido para a NFC-e.');
+
+  const nonPresent = ['2', '3', '4', '9'].includes(facts.presence);
+  const amountLimit = facts.total >= NFCE_RECIPIENT_IDENTIFICATION_LIMIT;
+  const reasonCodes: FiscalRecipientRequirementReason[] = [];
+  if (amountLimit) reasonCodes.push('NFCE_AMOUNT_LIMIT');
+  if (nonPresent) reasonCodes.push('NFCE_NON_PRESENT_OPERATION');
+  if (facts.presence === '4') reasonCodes.push('NFCE_HOME_DELIVERY');
+
+  const documentRequired = amountLimit || nonPresent;
+  const message = !documentRequired
+    ? null
+    : facts.presence === '4'
+      ? `Como este pedido será entregue no endereço do cliente, o ${documentType} do destinatário é obrigatório para a NFC-e.`
+      : nonPresent
+        ? `Esta operação NFC-e não presencial exige o ${documentType} do destinatário e o respectivo endereço.`
+        : `Esta NFC-e tem valor igual ou superior a R$ ${NFCE_RECIPIENT_IDENTIFICATION_LIMIT.toLocaleString('pt-BR')}; informe o ${documentType} do destinatário.`;
+
+  return {
+    supported: true,
+    documentRequired,
+    addressRequired: nonPresent,
+    documentType,
+    reasonCodes,
+    message,
+  };
+}
+
+/** Compatibility facade; new fiscal paths use the full centralized decision. */
 export function fiscalRecipientRequirements(model: '55' | '65', presence?: string, total?: number) {
-  const isValueLimitNfce = model === '65' && typeof total === 'number' && total >= 10000;
-  // Na NFC-e (modelo 65), CPF/CNPJ NÃO é obrigatório pela SEFAZ abaixo de R$ 10.000
-  const documentRequired = model === '55' || isValueLimitNfce;
-  const isDelivery = presence === '4';
-  const nonPresent = presence ? !['1', '5'].includes(presence) : false;
-  const addressRequired = model === '55' || (model === '65' && isDelivery) || nonPresent;
-  return { documentRequired, addressRequired };
+  const decision = decideFiscalRecipientRequirements({
+    model,
+    presence: presence || (model === '55' ? '1' : ''),
+    total: total ?? 0,
+    operationScope: 'NORMAL_DOMESTIC_SALE',
+  });
+  return { documentRequired: decision.documentRequired, addressRequired: decision.addressRequired };
 }

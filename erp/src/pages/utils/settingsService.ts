@@ -445,7 +445,7 @@ export const getDefaultSettings = (): AppSettings => ({
     cfop: '5102',
     returnCfop: '1202',
     inverseCfopMappings: {},
-    cst: '102',
+    cst: '103',
     icmsPercent: 0,
     origem: '0',
     pisCst: '99',

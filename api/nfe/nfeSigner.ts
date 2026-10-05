@@ -1,5 +1,7 @@
 import forge from 'node-forge';
 import { SignedXml } from 'xml-crypto';
+import { X509Certificate, createPrivateKey } from 'node:crypto';
+import { validateSefazClientCertificate } from './sefazHttpsAgent';
 
 export interface ExtractedCertData {
   privateKeyPem: string;
@@ -21,7 +23,7 @@ export function extractCertificateAndKey(pfxBase64: string, password: string): E
     keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0] ||
     p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0];
 
-  if (!keyBag || !keyBag.key) {
+  if (!keyBag?.key) {
     throw new Error('Chave privada RSA não encontrada no arquivo .pfx.');
   }
 
@@ -29,13 +31,18 @@ export function extractCertificateAndKey(pfxBase64: string, password: string): E
 
   // Obter certificado
   const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
-  const certBag = certBags[forge.pki.oids.certBag]?.[0];
+  const privateKey = createPrivateKey(privateKeyPem);
+  const certBag = certBags[forge.pki.oids.certBag]?.find(bag =>
+    bag.cert && !new X509Certificate(forge.pki.certificateToPem(bag.cert)).ca &&
+    new X509Certificate(forge.pki.certificateToPem(bag.cert)).checkPrivateKey(privateKey)
+  );
 
-  if (!certBag || !certBag.cert) {
+  if (!certBag?.cert) {
     throw new Error('Certificado X.509 não encontrado no arquivo .pfx.');
   }
 
   const certPem = forge.pki.certificateToPem(certBag.cert);
+  validateSefazClientCertificate(certPem, privateKeyPem);
   const certDer = forge.asn1.toDer(forge.pki.certificateToAsn1(certBag.cert)).getBytes();
   const certDerBase64 = forge.util.encode64(certDer);
 
@@ -102,7 +109,10 @@ function signFiscalEventXml(
   });
 
   signer.computeSignature(xml, {
-    location: { reference: `//*[local-name(.)='${elementName === 'infNFe' && xml.includes('<infNFeSupl>') ? 'infNFeSupl' : elementName}']`, action: 'after' },
+    location: {
+      reference: `//*[local-name(.)='${elementName === 'infNFe' && xml.includes('<infNFeSupl>') ? 'infNFeSupl' : elementName}']`,
+      action: 'after',
+    },
   });
 
   return signer.getSignedXml();

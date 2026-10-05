@@ -1,177 +1,327 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
-import type { FiscalDocument, FiscalJsonValue, FiscalSnapshotCandidate, FiscalDecisionTrace, FiscalAddress, DeterminedFiscalItem } from './fiscalSnapshot';
+import type {
+  FiscalDocument,
+  FiscalJsonValue,
+  FiscalSnapshotCandidate,
+  FiscalDecisionTrace,
+  FiscalAddress,
+  DeterminedFiscalItem,
+} from './fiscalSnapshot';
 import { createHmlTechnicalRuleSet } from './hmlTechnicalRuleSet';
 import { resolveItemCsosn, type HmlCsosnConfiguration } from './csosnPolicy';
 import { ZERO_OWN_ICMS_CSOSNS } from '../../shared-utils/fiscalIcmsGroups';
 import { parseFiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
 import { composeServiceFiscalValues } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
-import { resolveOrderFiscalModel, getFiscalRecipientAddress, fiscalPresence, fiscalRecipientRequirements } from '../../shared-utils/fiscalDocumentModel';
-import { resolveTransport, type DeliveryMethod, type TransportResponsible } from '../../shared-utils/fiscalTransportModel';
+import {
+  resolveOrderFiscalModel,
+  getFiscalRecipientAddress,
+  fiscalPresence,
+  decideFiscalRecipientRequirements,
+} from '../../shared-utils/fiscalDocumentModel';
+import {
+  isValidRecipientTaxId,
+  normalizeRecipientTaxId,
+  recipientTaxIdMatchesPersonType,
+} from '../../shared-utils/recipientTaxId';
+import {
+  resolveTransport,
+  type DeliveryMethod,
+  type TransportResponsible,
+} from '../../shared-utils/fiscalTransportModel';
 
 export const HML_NORMAL_SALE_RULESET_VERSION = 'HML_NORMAL_SALE_V2';
 const obj = (value: unknown): Record<string, any> => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Fatos fiscais obrigatórios ausentes.');
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Fatos fiscais obrigatórios ausentes.');
   return value as Record<string, any>;
 };
 const required = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${field} ausente.`);
   return value.trim();
 };
-const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+const normalize = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
 let municipalities: Promise<Array<{ id: number; nome: string }>> | undefined;
 async function municipalityCode(city: string): Promise<string> {
-  municipalities ||= fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados/41/municipios',
-    { signal: AbortSignal.timeout(10000) }).then(async (response) => {
+  municipalities ||= fetch(
+    'https://servicodados.ibge.gov.br/api/v1/localidades/estados/41/municipios',
+    { signal: AbortSignal.timeout(10000) }
+  )
+    .then(async (response) => {
       if (!response.ok) throw new Error('Consulta oficial IBGE indisponível.');
       const data = await response.json();
-      if (!Array.isArray(data) || data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== 'string'))
+      if (
+        !Array.isArray(data) ||
+        data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== 'string')
+      )
         throw new Error('Resposta oficial IBGE inválida.');
       return data as Array<{ id: number; nome: string }>;
-    }).catch((error) => { municipalities = undefined; throw error; });
+    })
+    .catch((error) => {
+      municipalities = undefined;
+      throw error;
+    });
   const match = (await municipalities!).find((item) => normalize(item.nome) === normalize(city));
-  if (!match) throw new Error('Município do destinatário não encontrado na fonte oficial IBGE do PR.');
+  if (!match)
+    throw new Error('Município do destinatário não encontrado na fonte oficial IBGE do PR.');
   return String(match.id);
 }
 const money = (value: unknown, field: string, positive = false): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < (positive ? 0.01 : 0) ||
-      Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    value < (positive ? 0.01 : 0) ||
+    Math.abs(value * 100 - Math.round(value * 100)) > 0.000001
+  )
     throw new Error(`${field} inválido ou fora da precisão de centavos.`);
   return Math.round(value * 100);
 };
-function validDocument(raw: string): boolean {
-  const value = raw.replace(/[.\/-]/g, '');
-  if (!/^(?:\d{11}|\d{14})$/.test(value) || /^(\d)\1+$/.test(value)) return false;
-  const digit = (base: string, weights: number[]) => {
-    const rest = [...base].reduce((sum, char, i) => sum + Number(char) * weights[i], 0) % 11;
-    return rest < 2 ? 0 : 11 - rest;
-  };
-  const cpf = value.length === 11;
-  const first = cpf ? [10,9,8,7,6,5,4,3,2] : [5,4,3,2,9,8,7,6,5,4,3,2];
-  const second = cpf ? [11,10,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
-  return digit(value.slice(0,-2),first) === Number(value.at(-2)) &&
-    digit(value.slice(0,-1),second) === Number(value.at(-1));
-}
-
 /** Read-only preflight inputs; the canonical snapshot RPC captures these again under locks. */
-export async function loadHmlNormalSaleInputs(db: SupabaseClient<FiscalDatabase>, facts: FiscalSnapshotCandidate,
-  appSettings: Record<string, unknown>): Promise<void> {
+export async function loadHmlNormalSaleInputs(
+  db: SupabaseClient<FiscalDatabase>,
+  facts: FiscalSnapshotCandidate,
+  appSettings: Record<string, unknown>
+): Promise<void> {
   const items = facts.order.data.items as Array<Record<string, any>>;
   if (!Array.isArray(items)) throw new Error('Itens comerciais ausentes.');
-  const ids = [...new Set(items.map((item) => item.productId).filter((id): id is string => typeof id === 'string'))];
+  const ids = Array.from(new Set(
+    items.map((item) => item.productId).filter((id): id is string => typeof id === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id))
+  ));
   const customerId = obj(facts.order.data.customerData).id;
   const [catalog, customer, decision] = await Promise.all([
-    ids.length ? db.from('products').select('id,fiscal').in('id', ids) : Promise.resolve({ data: [], error: null }),
-    db.from('people').select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted').eq('id', String(customerId || '')).maybeSingle(),
-    db.from('settings').select('data').eq('id', 'fiscal_decision_simples_nfe55_normal_sale_v1').maybeSingle(),
+    ids.length
+      ? db.from('products').select('id,fiscal').in('id', ids)
+      : Promise.resolve({ data: [], error: null }),
+    db
+      .from('people')
+      .select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted')
+      .eq('id', String(customerId || ''))
+      .maybeSingle(),
+    db
+      .from('settings')
+      .select('data')
+      .eq('id', 'fiscal_decision_simples_nfe55_normal_sale_v1')
+      .maybeSingle(),
   ]);
   if (catalog.error || customer.error || decision.error || !customer.data || customer.data.deleted)
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
-  facts.fiscalInputs = { products: Object.fromEntries((catalog.data || []).map((row) => [row.id, row.fiscal])) as FiscalJsonValue,
-    customer: { id: customer.data.id, fullName: customer.data.full_name, cpfCnpj: customer.data.cpf_cnpj,
-      address: customer.data.address, ie: customer.data.rg_ie, personType: customer.data.person_type_pf_pj },
+  facts.fiscalInputs = {
+    products: Object.fromEntries(
+      (catalog.data || []).map((row) => [row.id, row.fiscal])
+    ) as FiscalJsonValue,
+    customer: {
+      id: customer.data.id,
+      fullName: customer.data.full_name,
+      cpfCnpj: customer.data.cpf_cnpj,
+      address: customer.data.address,
+      ie: customer.data.rg_ie,
+      personType: customer.data.person_type_pf_pj,
+    },
     contributionDecision: (decision.data?.data || null) as FiscalJsonValue,
-    fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue };
+    fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue,
+  };
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
   const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
   if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
-  const ncms = await db.from('ncms').select('code,active,is_active,start_date,end_date').in('code', codes);
-  const date = facts.capturedAt.slice(0,10);
+  const ncms = await db
+    .from('ncms')
+    .select('code,active,is_active,start_date,end_date')
+    .in('code', codes);
+  const date = facts.capturedAt.slice(0, 10);
   const products = obj(facts.fiscalInputs.products);
   const invalidSelection = Object.entries(selections).some(([itemNumber, selection]) => {
-    const item = items.filter((candidate) => candidate.itemType !== 'service')[Number(itemNumber) - 1];
+    const item = items.filter((candidate) => candidate.itemType !== 'service')[
+      Number(itemNumber) - 1
+    ];
     const savedItemFiscal = item?.fiscal && typeof item.fiscal === 'object' ? item.fiscal : {};
-    const savedProductFiscal = item?.productId && products[item.productId] && typeof products[item.productId] === 'object'
-      ? products[item.productId] as Record<string, unknown> : {};
-    const originalNcm = String(savedItemFiscal.ncm || savedProductFiscal.ncm || '').replace(/\D/g, '');
-    return !ncms.data?.some((ncm) => ncm.code === selection.ncm && ncm.active &&
-      (!ncm.start_date || ncm.start_date <= date) && (!ncm.end_date || ncm.end_date >= date) &&
-      (ncm.is_active || originalNcm === selection.ncm));
+    const savedProductFiscal =
+      item?.productId && products[item.productId] && typeof products[item.productId] === 'object'
+        ? (products[item.productId] as Record<string, unknown>)
+        : {};
+    const originalNcm = String(savedItemFiscal.ncm || savedProductFiscal.ncm || '').replace(
+      /\D/g,
+      ''
+    );
+    return !ncms.data?.some(
+      (ncm) =>
+        ncm.code === selection.ncm &&
+        ncm.active &&
+        (!ncm.start_date || ncm.start_date <= date) &&
+        (!ncm.end_date || ncm.end_date >= date) &&
+        (ncm.is_active || originalNcm === selection.ncm)
+    );
   });
   if (ncms.error || invalidSelection)
-    throw new Error('NCM escolhido está oficialmente inválido ou desativado para novas seleções da loja.');
+    throw new Error(
+      'NCM escolhido está oficialmente inválido ou desativado para novas seleções da loja.'
+    );
 }
 
 /** Limited HML matrix: internal sale, CRT1, supported zero own-ICMS groups. */
-export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
-  configuration: HmlCsosnConfiguration) {
+export async function createHmlNormalSaleRuleSet(
+  facts: FiscalSnapshotCandidate,
+  configuration: HmlCsosnConfiguration
+) {
   const inputs = obj(facts.fiscalInputs);
   const contribution = obj(inputs.contributionDecision);
   // Share the existing issuer/CRT/environment/contribution approval gates.
   const context = createHmlTechnicalRuleSet(facts, contribution, configuration);
   const customer = obj(inputs.customer);
-  const address = getFiscalRecipientAddress({ ...facts.order.data,
-    customerData: { ...obj(facts.order.data.customerData || {}), fullAddress: customer.address } });
+  const address = getFiscalRecipientAddress({
+    ...facts.order.data,
+    customerData: { ...obj(facts.order.data.customerData || {}), fullAddress: customer.address },
+  });
   const contextData = facts.order.data.fiscalContext ? obj(facts.order.data.fiscalContext) : {};
   const initialComposition = composeServiceFiscalValues(facts.order.data.items as any);
-  const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
-    initialComposition.vOutroCents + money(facts.order.data.shipping ? obj(facts.order.data.shipping).value ?? 0 : 0, "Frete comercial");
-  const decisionOrder = { ...facts.order.data, orderType: facts.order.type, paymentsSummary: { totalOrderValue: modelTotal / 100 },
-    items: (facts.order.data.items as Array<Record<string, any>>).filter((item) => item.itemType !== 'service').map((item, index) => ({ ...item,
-      fiscal: { ...item.fiscal, cfop: facts.emissionRequest.itemFiscalSelections?.[String(index + 1)]?.cfop || item.fiscal?.cfop } })) };
-  const modelDecision = resolveOrderFiscalModel(decisionOrder, { issuerUf: String(facts.issuerProfile.companyUF || ''),
-    finalConsumer: facts.emissionRequest.finalConsumer, recipientAddress: address });
+  const modelTotal =
+    initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
+    initialComposition.vOutroCents +
+    money(
+      facts.order.data.shipping ? (obj(facts.order.data.shipping).value ?? 0) : 0,
+      'Frete comercial'
+    );
+  const decisionOrder = {
+    ...facts.order.data,
+    orderType: facts.order.type,
+    paymentsSummary: { totalOrderValue: modelTotal / 100 },
+    items: (facts.order.data.items as Array<Record<string, any>>)
+      .filter((item) => item.itemType !== 'service')
+      .map((item, index) => ({
+        ...item,
+        fiscal: {
+          ...item.fiscal,
+          cfop:
+            facts.emissionRequest.itemFiscalSelections?.[String(index + 1)]?.cfop ||
+            item.fiscal?.cfop,
+        },
+      })),
+  };
+  const modelDecision = resolveOrderFiscalModel(decisionOrder, {
+    issuerUf: String(facts.issuerProfile.companyUF || ''),
+    finalConsumer: facts.emissionRequest.finalConsumer,
+    recipientAddress: address,
+  });
   if (modelDecision.status !== 'ready') throw new Error(modelDecision.reason);
-  if (modelDecision.reasons.some((reason) => !['RETAIL_FINAL_CONSUMER_IN_STATE', 'RESALE', 'VALUE_LIMIT'].includes(reason)))
-    throw new Error(`${modelDecision.reason} Esta operação exige matriz tributária específica aprovada.`);
+  if (
+    modelDecision.reasons.some(
+      (reason) => !['RETAIL_FINAL_CONSUMER_IN_STATE', 'RESALE', 'VALUE_LIMIT'].includes(reason)
+    )
+  )
+    throw new Error(
+      `${modelDecision.reason} Esta operação exige matriz tributária específica aprovada.`
+  );
   const shippingData = facts.order.data.shipping ? obj(facts.order.data.shipping) : {};
-  const cpfCnpj = String(facts.emissionRequest.recipientTaxId || facts.emissionRequest.recipientCpf || customer.cpfCnpj || '').replace(/\D/g, '');
-  const presence = fiscalPresence(modelDecision.model, shippingData.deliveryMethod, contextData.presence, Boolean(cpfCnpj));
-  const requirements = fiscalRecipientRequirements(modelDecision.model, presence,
-    modelTotal / 100);
-  const city = requirements.addressRequired ? required(address.city, 'Município real do destinatário') : '';
-  const uf = requirements.addressRequired ? required(address.state || address.uf, 'UF real do destinatário') : 'PR';
+  if (!['delivery', 'pickup'].includes(String(shippingData.deliveryMethod || '')))
+    throw new Error('Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.');
+  const deliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  const cpfCnpj = normalizeRecipientTaxId(
+    String(facts.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
+  );
+  const personType =
+    customer.personType === 'PF' || customer.personType === 'PJ'
+      ? customer.personType
+      : undefined;
+  const presence = fiscalPresence(
+    modelDecision.model,
+    deliveryMethod,
+    contextData.presence
+  );
+  const requirements = decideFiscalRecipientRequirements({
+    model: modelDecision.model,
+    presence,
+    total: modelTotal / 100,
+    personType,
+    recipientTaxId: cpfCnpj,
+    operationScope: 'NORMAL_DOMESTIC_SALE',
+  });
+  if (!requirements.supported) throw new Error(requirements.message || 'Matriz fiscal não aplicável.');
+  const city = requirements.addressRequired
+    ? required(address.city, 'Município real do destinatário')
+    : '';
+  const uf = requirements.addressRequired
+    ? required(address.state || address.uf, 'UF real do destinatário')
+    : 'PR';
   if (uf !== 'PR') throw new Error('Operação interestadual exige matriz fiscal específica.');
-  const code = requirements.addressRequired ? await municipalityCode(city) : String(facts.issuerProfile.companyCMun || '');
-  const recipientAddress: FiscalAddress | undefined = requirements.addressRequired ? {
-    street: required(address.street, 'Logradouro real'), number: required(String(address.number || ''), 'Número real'),
-    district: required(address.neighborhood || address.bairro, 'Bairro real'), municipality: city,
-    municipalityCode: code, uf, postalCode: String(address.zipCode || address.cep || address.postalCode || '').replace(/[-.]/g,''),
-  } : undefined;
-  if (recipientAddress?.postalCode && !/^\d{8}$/.test(recipientAddress.postalCode)) throw new Error('CEP real inválido.');
-  if (requirements.documentRequired && !cpfCnpj) throw new Error('CPF/CNPJ do destinatário é obrigatório para esta operação fiscal.');
-  if (cpfCnpj && !validDocument(cpfCnpj)) throw new Error('CPF/CNPJ do destinatário inválido para esta operação fiscal.');
+  const code = requirements.addressRequired
+    ? await municipalityCode(city)
+    : String(facts.issuerProfile.companyCMun || '');
+  const recipientAddress: FiscalAddress | undefined = requirements.addressRequired
+    ? {
+        street: required(address.street, 'Logradouro real'),
+        number: required(String(address.number || ''), 'Número real'),
+        district: required(address.neighborhood || address.bairro, 'Bairro real'),
+        municipality: city,
+        municipalityCode: code,
+        uf,
+        postalCode: String(address.zipCode || address.cep || address.postalCode || '').replace(
+          /[-.]/g,
+          ''
+        ),
+      }
+    : undefined;
+  if (recipientAddress?.postalCode && !/^\d{8}$/.test(recipientAddress.postalCode))
+    throw new Error('CEP real inválido.');
+  if (requirements.documentRequired && !cpfCnpj)
+    throw new Error(`${requirements.documentType} do destinatário é obrigatório para esta operação fiscal.`);
+  if (cpfCnpj && !isValidRecipientTaxId(cpfCnpj))
+    throw new Error('CPF/CNPJ do destinatário inválido para esta operação fiscal.');
+  if (cpfCnpj && !recipientTaxIdMatchesPersonType(cpfCnpj, personType))
+    throw new Error(`CPF/CNPJ do destinatário inválido para o tipo ${personType}.`);
   const ieIndicator = contextData.recipientIeIndicator || '9';
-  if (!['1','2','9'].includes(ieIndicator) || ieIndicator === '1' && !customer.ie)
+  if (!['1', '2', '9'].includes(ieIndicator) || (ieIndicator === '1' && !customer.ie))
     throw new Error('Condição de contribuinte e IE do destinatário precisam ser preenchidas.');
   if (modelDecision.model === '65' && ieIndicator !== '9')
-    throw new Error('NFC-e exige destinatário não contribuinte; revise a condição fiscal da operação.');
-  const isDelivery = shippingData.deliveryMethod === 'delivery';
-  const deliveryMethod: DeliveryMethod = isDelivery ? 'delivery' : 'pickup';
+    throw new Error(
+      'NFC-e exige destinatário não contribuinte; revise a condição fiscal da operação.'
+    );
   const effectiveTransporter = facts.emissionRequest.transporter || shippingData.transporter;
-  const isDeliveryByIssuer =
-    facts.emissionRequest.deliveryByIssuer === true ||
-    facts.emissionRequest.transportResponsible === 'OWN_COMPANY';
-
   if (facts.emissionRequest.transportResponsible === 'THIRD_PARTY' && !effectiveTransporter)
     throw new Error('Identifique o transportador terceirizado.');
 
-  if (modelDecision.model === '65' && isDelivery && !isDeliveryByIssuer && !effectiveTransporter)
-    throw new Error('Identifique o transportador ou confirme entrega própria da loja para NFC-e com entrega.');
-
-  return { ...context, version: HML_NORMAL_SALE_RULESET_VERSION,
+  return {
+    ...context,
+    version: HML_NORMAL_SALE_RULESET_VERSION,
     approvedBy: 'operator_instruction_real_orders_hml_only',
     determine: (snapshot: FiscalSnapshotCandidate, hash: string): FiscalDocument => {
-      if (snapshot.emissionRequest.environment !== 2 || snapshot.order.deleted ||
-          snapshot.order.id.startsWith('TEST_AUT_') || snapshot.order.type !== 'sale' ||
-          ['draft','cancelled','cancelado'].includes(snapshot.order.status.toLowerCase()))
+      if (
+        snapshot.emissionRequest.environment !== 2 ||
+        snapshot.order.deleted ||
+        snapshot.order.id.startsWith('TEST_AUT_') ||
+        snapshot.order.type !== 'sale' ||
+        ['draft', 'cancelled', 'cancelado'].includes(snapshot.order.status.toLowerCase())
+      )
         throw new Error('Pedido real não elegível para homologação.');
       const data = snapshot.order.data;
-      const recipientCpfCnpj = snapshot.emissionRequest.recipientTaxId || snapshot.emissionRequest.recipientCpf || customer.cpfCnpj;
+      const recipientCpfCnpj = normalizeRecipientTaxId(
+        String(snapshot.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
+      );
       const items = data.items as Array<Record<string, any>>;
       const selections = parseFiscalItemSelections(snapshot.emissionRequest.itemFiscalSelections);
       const composition = composeServiceFiscalValues(items as any);
-      if (!composition.products.length || Object.keys(selections).length !== composition.products.length)
+      if (
+        !composition.products.length ||
+        Object.keys(selections).length !== composition.products.length
+      )
         throw new Error('Campos confirmados não cobrem todos os produtos.');
       for (const item of items) {
-        if (typeof item.quantity !== 'number' || item.quantity <= 0 || !Number.isFinite(item.quantity))
+        if (
+          typeof item.quantity !== 'number' ||
+          item.quantity <= 0 ||
+          !Number.isFinite(item.quantity)
+        )
           throw new Error('Quantidade comercial inválida.');
         money(item.unitPrice, 'Preço comercial', true);
         if (item.unitDiscount !== undefined) money(item.unitDiscount, 'Desconto comercial');
-        if (item.unitDiscount && !['fixed','percentage'].includes(item.discountType))
+        if (item.unitDiscount && !['fixed', 'percentage'].includes(item.discountType))
           throw new Error('Tipo de desconto ausente ou não suportado.');
-        if (item.discountType === 'percentage' && item.unitDiscount > 100 ||
-            item.discountType === 'fixed' && item.unitDiscount > item.unitPrice)
+        if (
+          (item.discountType === 'percentage' && item.unitDiscount > 100) ||
+          (item.discountType === 'fixed' && item.unitDiscount > item.unitPrice)
+        )
           throw new Error('Desconto excede o preço comercial.');
       }
       const shipping = data.shipping ? obj(data.shipping) : {};
@@ -183,71 +333,178 @@ export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
         const saved = (item as any).fiscal || {};
         const productFiscal = catalog[item.productId || ''] || {};
         for (const fiscal of [saved, productFiscal]) {
-          if (fiscal.cfop && fiscal.cfop !== '5102' ||
-              ['icmsPercent','pisPercent','cofinsPercent','ipiPercent'].some((field) => Number(fiscal[field] || 0) !== 0))
-            throw new Error('Exceção tributária do pedido/cadastro exige matriz específica; os dados não foram substituídos.');
+          if (
+            (fiscal.cfop && fiscal.cfop !== '5102') ||
+            ['icmsPercent', 'pisPercent', 'cofinsPercent', 'ipiPercent'].some(
+              (field) => Number(fiscal[field] || 0) !== 0
+            )
+          )
+            throw new Error(
+              'Exceção tributária do pedido/cadastro exige matriz específica; os dados não foram substituídos.'
+            );
         }
-        const csosn = resolveItemCsosn({ configuration, environment: 2, issuerCrt: '1',
+        const csosn = resolveItemCsosn({
+          configuration,
+          environment: 2,
+          issuerCrt: '1',
           manual: snapshot.emissionRequest.itemCsosnOverrides?.[String(index + 1)],
-          saved: saved.cst, catalog: productFiscal.cst });
-        if (selected.csosn !== csosn.csosn) throw new Error('CSOSN confirmado diverge da escolha fiscal preparada.');
+          saved: saved.cst,
+          catalog: productFiscal.cst,
+        });
+        if (selected.csosn !== csosn.csosn)
+          throw new Error('CSOSN confirmado diverge da escolha fiscal preparada.');
         if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn) || selected.cfop !== '5102')
-          throw new Error('CSOSN ou CFOP escolhido exige matriz fiscal específica; nenhuma escolha foi substituída.');
-        if ((saved.pisCst && saved.pisCst !== contribution.pis.cst) ||
-            (saved.cofinsCst && saved.cofinsCst !== contribution.cofins.cst) ||
-            (productFiscal.pisCst && productFiscal.pisCst !== contribution.pis.cst) ||
-            (productFiscal.cofinsCst && productFiscal.cofinsCst !== contribution.cofins.cst))
+          throw new Error(
+            'CSOSN ou CFOP escolhido exige matriz fiscal específica; nenhuma escolha foi substituída.'
+          );
+        if (
+          (saved.pisCst && saved.pisCst !== contribution.pis.cst) ||
+          (saved.cofinsCst && saved.cofinsCst !== contribution.cofins.cst) ||
+          (productFiscal.pisCst && productFiscal.pisCst !== contribution.pis.cst) ||
+          (productFiscal.cofinsCst && productFiscal.cofinsCst !== contribution.cofins.cst)
+        )
           throw new Error('Exceção de PIS/COFINS exige regra específica.');
-        return { decisionId: `hml-real-item-${index + 1}`, ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION,
-          effectiveAt: contribution.confirmedAt, inputFacts: { orderId: snapshot.order.id, itemNumber: index + 1,
-            environment: 2, issuerCrt: '1', recipientMunicipalitySource: 'IBGE', recipientMunicipalityCode: code },
-          result: { ...selected, csosnSource: csosn.source, configurationVersion: configuration.version,
-            pisCst: contribution.pis.cst, cofinsCst: contribution.cofins.cst, modelDecision },
+        return {
+          decisionId: `hml-real-item-${index + 1}`,
+          ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION,
+          effectiveAt: contribution.confirmedAt,
+          inputFacts: {
+            orderId: snapshot.order.id,
+            itemNumber: index + 1,
+            environment: 2,
+            issuerCrt: '1',
+            recipientMunicipalitySource: 'IBGE',
+            recipientMunicipalityCode: code,
+          },
+          result: {
+            ...selected,
+            csosnSource: csosn.source,
+            configurationVersion: configuration.version,
+            pisCst: contribution.pis.cst,
+            cofinsCst: contribution.cofins.cst,
+            modelDecision,
+          },
           reason: modelDecision.reason,
-          approver: 'operator_instruction_real_orders_hml_only' };
+          approver: 'operator_instruction_real_orders_hml_only',
+        };
       });
-      const determinedItems = composition.products.map(({ item, vProdCents, vDescCents }, index): DeterminedFiscalItem => {
-        const selected = selections[String(index + 1)];
-        return { itemNumber: index + 1, product: {
-          code: String(item.productId || item.orderItemId || `ITEM-${index + 1}`).slice(0,60),
-          description: required(item.description, 'Descrição comercial'), gtin: 'SEM GTIN',
-          quantity: item.quantity, unitValue: vProdCents / 100 / item.quantity, gross: vProdCents / 100,
-          discount: vDescCents / 100, freight: index === 0 ? freight / 100 : 0,
-          insurance: 0, otherExpenses: index === 0 ? composition.vOutroCents / 100 : 0 },
-          classification: { ncm: selected.ncm, cfop: selected.cfop, origin: selected.origem,
-            cest: selected.cest || undefined, unit: 'UN' },
-          taxes: [
-            { group: 'ICMS' as const, codeSystem: 'CSOSN' as const, code: selected.csosn, values: { vICMS: 0 }, decisionId: traces[index].decisionId },
-            { group: 'PIS' as const, codeSystem: 'CST' as const, code: contribution.pis.cst, values: { vBC: contribution.pis.base, pPIS: contribution.pis.rate, vPIS: contribution.pis.value }, decisionId: traces[index].decisionId },
-            { group: 'COFINS' as const, codeSystem: 'CST' as const, code: contribution.cofins.cst, values: { vBC: contribution.cofins.base, pCOFINS: contribution.cofins.rate, vCOFINS: contribution.cofins.value }, decisionId: traces[index].decisionId },
-          ], decisions: [traces[index]] };
-      });
-      const products = composition.products.reduce((sum, item) => sum + item.vProdCents,0);
-      const discount = composition.products.reduce((sum, item) => sum + item.vDescCents,0);
+      const determinedItems = composition.products.map(
+        ({ item, vProdCents, vDescCents }, index): DeterminedFiscalItem => {
+          const selected = selections[String(index + 1)];
+          return {
+            itemNumber: index + 1,
+            product: {
+              code: String(item.productId || item.orderItemId || `ITEM-${index + 1}`).slice(0, 60),
+              description: required(item.description, 'Descrição comercial'),
+              gtin: 'SEM GTIN',
+              quantity: item.quantity,
+              unitValue: vProdCents / 100 / item.quantity,
+              gross: vProdCents / 100,
+              discount: vDescCents / 100,
+              freight: index === 0 ? freight / 100 : 0,
+              insurance: 0,
+              otherExpenses: index === 0 ? composition.vOutroCents / 100 : 0,
+            },
+            classification: {
+              ncm: selected.ncm,
+              cfop: selected.cfop,
+              origin: selected.origem,
+              cest: selected.cest || undefined,
+              unit: 'UN',
+            },
+            taxes: [
+              {
+                group: 'ICMS' as const,
+                codeSystem: 'CSOSN' as const,
+                code: selected.csosn,
+                values: { vICMS: 0 },
+                decisionId: traces[index].decisionId,
+              },
+              {
+                group: 'PIS' as const,
+                codeSystem: 'CST' as const,
+                code: contribution.pis.cst,
+                values: {
+                  vBC: contribution.pis.base,
+                  pPIS: contribution.pis.rate,
+                  vPIS: contribution.pis.value,
+                },
+                decisionId: traces[index].decisionId,
+              },
+              {
+                group: 'COFINS' as const,
+                codeSystem: 'CST' as const,
+                code: contribution.cofins.cst,
+                values: {
+                  vBC: contribution.cofins.base,
+                  pCOFINS: contribution.cofins.rate,
+                  vCOFINS: contribution.cofins.value,
+                },
+                decisionId: traces[index].decisionId,
+              },
+            ],
+            decisions: [traces[index]],
+          };
+        }
+      );
+      const products = composition.products.reduce((sum, item) => sum + item.vProdCents, 0);
+      const discount = composition.products.reduce((sum, item) => sum + item.vDescCents, 0);
       const invoice = products - discount + freight + composition.vOutroCents;
-      if (!Array.isArray(data.payments) || !data.payments.length) throw new Error('Pagamentos comerciais ausentes.');
+      if (!Array.isArray(data.payments) || !data.payments.length)
+        throw new Error('Pagamentos comerciais ausentes.');
       const payments = data.payments.map((raw) => {
         const payment = obj(raw);
         const method = normalize(required(payment.method, 'Meio de pagamento'));
-        const code = method.includes('PIX') ? '17' : method.includes('CREDITO') || method.includes('CREDIT') ? '03' :
-          method.includes('DEBITO') || method.includes('DEBIT') ? '04' : method.includes('DINHEIRO') || method.includes('CASH') ? '01' :
-          method.includes('BOLETO') ? '15' : undefined;
+        const code = method.includes('PIX')
+          ? '17'
+          : method.includes('CREDITO') || method.includes('CREDIT')
+            ? '03'
+            : method.includes('DEBITO') || method.includes('DEBIT')
+              ? '04'
+              : method.includes('DINHEIRO') || method.includes('CASH')
+                ? '01'
+                : method.includes('BOLETO')
+                  ? '15'
+                  : undefined;
         if (!code) throw new Error('Meio de pagamento exige mapeamento fiscal específico.');
-        const card = payment.fiscalCard || (snapshot.emissionRequest.cardNotIntegrated && ['03','04'].includes(code) ? { integrationType: '2' } : undefined);
-        if (modelDecision.model === '65' && ['03','04'].includes(code) &&
-            (!card || !['1','2'].includes(card.integrationType) || card.integrationType === '1' &&
+        const card =
+          payment.fiscalCard ||
+          (snapshot.emissionRequest.cardNotIntegrated && ['03', '04'].includes(code)
+            ? { integrationType: '2' }
+            : undefined);
+        if (
+          modelDecision.model === '65' &&
+          ['03', '04'].includes(code) &&
+          (!card ||
+            !['1', '2'].includes(card.integrationType) ||
+            (card.integrationType === '1' &&
               (!/^\d{14}$/.test(card.acquirerCnpj || '') || !card.authorization)))
-          throw new Error('Informe a integração e os dados fiscais reais do pagamento com cartão para NFC-e.');
-        return { methodCode: code, amount: money(payment.amount,'Pagamento real',true)/100,
-          ...(card ? { card } : {}), decision: traces[0] };
+        )
+          throw new Error(
+            'Informe a integração e os dados fiscais reais do pagamento com cartão para NFC-e.'
+          );
+        return {
+          methodCode: code,
+          amount: money(payment.amount, 'Pagamento real', true) / 100,
+          ...(card ? { card } : {}),
+          decision: traces[0],
+        };
       });
-      const payment = payments.reduce((sum,item) => sum + Math.round(item.amount*100),0);
-      if (payment !== invoice) throw new Error('Pagamentos reais não reconciliam com produtos, descontos, serviços e frete.');
+      const payment = payments.reduce((sum, item) => sum + Math.round(item.amount * 100), 0);
+      if (payment !== invoice)
+        throw new Error(
+          'Pagamentos reais não reconciliam com produtos, descontos, serviços e frete.'
+        );
       const issuer = snapshot.issuerProfile;
-      const issuerAddress: FiscalAddress = { street: required(issuer.companyLogradouro,'Logradouro emitente'),
-        number: required(issuer.companyNumero,'Número emitente'), district: required(issuer.companyBairro,'Bairro emitente'),
-        municipalityCode: required(issuer.companyCMun,'IBGE emitente'), municipality: required(issuer.companyXMun,'Município emitente'),
-        uf: required(issuer.companyUF,'UF emitente'), postalCode: required(issuer.companyCEP,'CEP emitente').replace(/\D/g,'') };
+      const issuerAddress: FiscalAddress = {
+        street: required(issuer.companyLogradouro, 'Logradouro emitente'),
+        number: required(issuer.companyNumero, 'Número emitente'),
+        district: required(issuer.companyBairro, 'Bairro emitente'),
+        municipalityCode: required(issuer.companyCMun, 'IBGE emitente'),
+        municipality: required(issuer.companyXMun, 'Município emitente'),
+        uf: required(issuer.companyUF, 'UF emitente'),
+        postalCode: required(issuer.companyCEP, 'CEP emitente').replace(/\D/g, ''),
+      };
 
       const isDelivery = shipping.deliveryMethod === 'delivery';
       const deliveryMethod: DeliveryMethod = isDelivery ? 'delivery' : 'pickup';
@@ -268,30 +525,80 @@ export async function createHmlNormalSaleRuleSet(facts: FiscalSnapshotCandidate,
         freightContractResponsible: snapshot.emissionRequest.freightContractResponsible,
       });
 
-      const resolvedTransporter = resolvedTransport.isEmitterTransporter
-        ? {
-            cnpj: String(issuer.companyCnpj || '').replace(/\D/g, ''),
-            name: String(issuer.companyName || ''),
-            ie: String(issuer.companyIE || '').replace(/\D/g, ''),
-            city: issuerAddress.municipality,
-            uf: issuerAddress.uf,
-          }
-        : resolvedTransport.requiresTransporterData && effectiveTransporter
-          ? effectiveTransporter
-          : undefined;
+      const resolvedTransporter =
+        resolvedTransport.isEmitterTransporter && modelDecision.model === '55'
+          ? {
+              cnpj: String(issuer.companyCnpj || '').replace(/\D/g, ''),
+              name: String(issuer.companyName || ''),
+              ie: String(issuer.companyIE || '').replace(/\D/g, ''),
+              city: issuerAddress.municipality,
+              uf: issuerAddress.uf,
+            }
+          : resolvedTransport.requiresTransporterData && effectiveTransporter
+            ? effectiveTransporter
+            : undefined;
 
-      return { snapshotHash: hash, ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION, model: modelDecision.model, modelDecision, environment: 2,
-        issuer: { cnpj: required(issuer.companyCnpj,'CNPJ emitente').replace(/\D/g,''), name: required(issuer.companyName,'Razão social'),
-          ie: required(issuer.companyIE,'IE emitente').replace(/\D/g,''), crt: '1', municipalityCode: issuerAddress.municipalityCode, address: issuerAddress },
-        recipient: { name: customer.fullName || 'CONSUMIDOR FINAL', cpfCnpj: String(recipientCpfCnpj || '').replace(/\D/g,''), ieIndicator,
-          ...(ieIndicator === '1' ? { ie: required(customer.ie, 'IE destinatário').replace(/\D/g,'') } : {}), address: recipientAddress },
-        operation: { natureOfOperation: 'VENDA DE MERCADORIA', direction: 'outbound', purpose: '1', destination: '1',
-          presence, finalConsumer: modelDecision.finalConsumer ? '1' : '0',
+      return {
+        snapshotHash: hash,
+        ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION,
+        model: modelDecision.model,
+        modelDecision,
+        environment: 2,
+        issuer: {
+          cnpj: required(issuer.companyCnpj, 'CNPJ emitente').replace(/\D/g, ''),
+          name: required(issuer.companyName, 'Razão social'),
+          ie: required(issuer.companyIE, 'IE emitente').replace(/\D/g, ''),
+          crt: '1',
+          municipalityCode: issuerAddress.municipalityCode,
+          address: issuerAddress,
+        },
+        recipient: {
+          name: customer.fullName || 'CONSUMIDOR FINAL',
+          cpfCnpj: recipientCpfCnpj,
+          ...(personType ? { personType } : {}),
+          ieIndicator,
+          ...(ieIndicator === '1'
+            ? { ie: required(customer.ie, 'IE destinatário').replace(/\D/g, '') }
+            : {}),
+          address: recipientAddress,
+        },
+        operation: {
+          natureOfOperation: 'VENDA DE MERCADORIA',
+          direction: 'outbound',
+          purpose: '1',
+          destination: '1',
+          presence,
+          finalConsumer: modelDecision.finalConsumer ? '1' : '0',
           freightMode: resolvedTransport.modFrete,
-          ...(resolvedTransporter ? { transporter: resolvedTransporter } : {}) },
-        items: determinedItems, payments, decisions: traces,
-        totals: { icmsBase: 0, products: products/100, discount: discount/100, freight: freight/100, insurance: 0,
-          otherExpenses: composition.vOutroCents/100, icms: 0, icmsExempt: 0, fcp: 0, icmsStBase: 0, icmsSt: 0,
-          fcpSt: 0, fcpStRetained: 0, ii: 0, ipi: 0, ipiReturned: 0, pis: 0, cofins: 0, invoice: invoice/100, payment: payment/100, change: 0 } };
-    } };
+          ...(resolvedTransporter ? { transporter: resolvedTransporter } : {}),
+        },
+        items: determinedItems,
+        payments,
+        decisions: traces,
+        totals: {
+          icmsBase: 0,
+          products: products / 100,
+          discount: discount / 100,
+          freight: freight / 100,
+          insurance: 0,
+          otherExpenses: composition.vOutroCents / 100,
+          icms: 0,
+          icmsExempt: 0,
+          fcp: 0,
+          icmsStBase: 0,
+          icmsSt: 0,
+          fcpSt: 0,
+          fcpStRetained: 0,
+          ii: 0,
+          ipi: 0,
+          ipiReturned: 0,
+          pis: 0,
+          cofins: 0,
+          invoice: invoice / 100,
+          payment: payment / 100,
+          change: 0,
+        },
+      };
+    },
+  };
 }

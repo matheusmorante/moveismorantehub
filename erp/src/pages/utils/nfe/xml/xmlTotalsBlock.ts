@@ -16,9 +16,14 @@ export function buildTotalsAndPaymentXml(
     ? `<infAdic><infCpl>Pedido #${escapeXml(String(orderReference))}</infCpl></infAdic>`
     : '';
 
-  const modFrete = model === '65' && order.shipping?.deliveryMethod === 'pickup' ? '9' : order.shipping?.freightMode || '9';
+  const modFrete =
+    model === '65' && order.shipping?.deliveryMethod === 'pickup'
+      ? '9'
+      : order.shipping?.freightMode || '9';
   if (model === '65' && order.shipping?.deliveryMethod === 'delivery')
-    throw new Error('NFC-e com entrega exige transportador e deve ser montada no Fiscal Core do backend.');
+    throw new Error(
+      'NFC-e com entrega exige transportador e deve ser montada no Fiscal Core do backend.'
+    );
 
   // Meio de pagamento
   const paymentMethods = (order as any).payments || [];

@@ -133,26 +133,46 @@ export const PersonIdentificationSection: React.FC<PersonIdentificationSectionPr
       )}
 
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+        <label
+          htmlFor="person-cpf-cnpj"
+          className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
+        >
           {isEmployee ? 'CPF' : formData.personType === 'PJ' ? 'CNPJ' : 'CPF'}{' '}
           {collectionName !== 'suppliers' && settings.requiredFields.customer?.cpfCnpj ? (
             <span className="text-red-500">*</span>
           ) : null}
         </label>
-        <PatternFormat
-          format={
-            isEmployee || formData.personType === 'PF' ? '###.###.###-##' : '##.###.###/####-##'
-          }
-          type="text"
-          value={formData.cpfCnpj || ''}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setFormData({ ...formData, cpfCnpj: e.target.value })
-          }
-          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
-          placeholder={
-            isEmployee || formData.personType === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'
-          }
-        />
+        {isEmployee || formData.personType !== 'PJ' ? (
+          <PatternFormat
+            id="person-cpf-cnpj"
+            format="###.###.###-##"
+            type="text"
+            inputMode="numeric"
+            value={formData.cpfCnpj || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setFormData({ ...formData, cpfCnpj: e.target.value })
+            }
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+            placeholder="000.000.000-00"
+          />
+        ) : (
+          <input
+            id="person-cpf-cnpj"
+            type="text"
+            inputMode="text"
+            autoCapitalize="characters"
+            maxLength={18}
+            value={formData.cpfCnpj || ''}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                cpfCnpj: e.target.value.toUpperCase().replace(/[^0-9A-Z./\-\s]/g, ''),
+              })
+            }
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
+            placeholder="00.ABC.000/0000-00"
+          />
+        )}
       </div>
 
       {collectionName === 'suppliers' && (

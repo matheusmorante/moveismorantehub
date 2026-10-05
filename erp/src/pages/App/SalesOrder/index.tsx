@@ -12,6 +12,7 @@ import { OrderHistoryListRef } from './OrderHistoryList';
 import PostOrderActionsModal from './OrderActions/PostOrderActionsModal';
 import ReturnOrderModal from './OrderActions/ReturnOrderModal';
 import NfeEmissionModal from './OrderActions/NfeEmissionModal';
+import NfeEnvironmentChoiceModal from './OrderActions/nfe-modal/NfeEnvironmentChoiceModal';
 import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { canGenerateReturn } from '../../utils/returnPolicy';
@@ -29,6 +30,8 @@ const SalesOrder = () => {
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
   const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
   const [returningOrder, setReturningOrder] = useState<Order | null>(null);
+  const [nfeChoiceOrder, setNfeChoiceOrder] = useState<Order | null>(null);
+  const [chosenNfeEnvironment, setChosenNfeEnvironment] = useState<1 | 2>(1);
   const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
   const location = useLocation();
@@ -209,7 +212,7 @@ const SalesOrder = () => {
       sessionStorage.setItem('pdv_duplicate_order', JSON.stringify(duplicated));
       navigate(`/sales-order/new?type=sale&duplicate=true`);
     } else if (key === 'issueNfe' || key === 'ISSUE_NFE') {
-      setNfeModalOrder(order);
+      setNfeChoiceOrder(order);
     }
   };
 
@@ -259,129 +262,122 @@ const SalesOrder = () => {
 
             {/* Action Buttons Group (lá no final do lado direito) */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
-                {/* Visualizacao Dropdown */}
-                {!isReturnRoute && !isSalesOrderRoute && (
-                  <div className="relative hidden lg:block">
-                    <button
-                      onClick={() => setShowSettings(!showSettings)}
-                      className={`flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider active:scale-95 ${
-                        showSettings
-                          ? 'border-blue-300 text-blue-600 dark:border-blue-800'
-                          : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
-                      }`}
-                      title="Visualização"
-                    >
-                      <i
-                        className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-sm`}
-                      ></i>
-                      <span>Visualização</span>
-                    </button>
-
-                    {showSettings && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setShowSettings(false)}
-                        />
-                        <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">
-                            Colunas da Tabela
-                          </h4>
-                          <div className="grid grid-cols-1 gap-2">
-                            {[
-                              { key: 'id', label: 'ID do Pedido' },
-                              { key: 'orderDate', label: 'Data do Pedido' },
-                              { key: 'deliveryDate', label: 'Data de Entrega' },
-                              { key: 'customer', label: 'Cliente' },
-                              { key: 'totalValue', label: 'Valor Total' },
-                              { key: 'labels', label: 'Rótulos' },
-                              { key: 'status', label: 'Status' },
-                              { key: 'actions', label: 'Ações' },
-                            ].map((col) => (
-                              <button
-                                key={col.key}
-                                onClick={() =>
-                                  toggleVisibility(col.key as keyof VisibilitySettings)
-                                }
-                                className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
-                              >
-                                <span
-                                  className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}
-                                >
-                                  {col.label}
-                                </span>
-                                <div
-                                  className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}
-                                >
-                                  <div
-                                    className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`}
-                                  />
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
-                {showOrderFilters && (
+              {/* Visualizacao Dropdown */}
+              {!isReturnRoute && !isSalesOrderRoute && (
+                <div className="relative hidden lg:block">
                   <button
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${
-                      isSidebarOpen
-                        ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
-                        : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
+                    onClick={() => setShowSettings(!showSettings)}
+                    className={`flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-wider active:scale-95 ${
+                      showSettings
+                        ? 'border-blue-300 text-blue-600 dark:border-blue-800'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
                     }`}
-                    title="Filtros"
+                    title="Visualização"
                   >
                     <i
-                      className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}
+                      className={`bi ${showSettings ? 'bi-eye-slash-fill' : 'bi-eye-fill'} text-sm`}
                     ></i>
-                    <span>Filtros</span>
+                    <span>Visualização</span>
                   </button>
-                )}
 
-                {/* Main Create Button */}
-                {isBudgetRoute && (
-                  <button
-                    onClick={() => setOrderModalType('budget')}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-blue-500/20 transition-all active:scale-95"
-                  >
-                    <i className="bi bi-plus-lg text-sm" />
-                    <span>Novo Orçamento</span>
-                  </button>
-                )}
-                {isAssistanceRoute && (
-                  <button
-                    onClick={() => setOrderModalType('assistance')}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
-                  >
-                    <i className="bi bi-tools text-sm" />
-                    <span>Nova Assistência</span>
-                  </button>
-                )}
-                {isReturnRoute && (
-                  <button
-                    onClick={() => setOrderModalType('return')}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
-                  >
-                    <i className="bi bi-arrow-return-left text-sm" />
-                    <span>Nova devolução sem venda vinculada</span>
-                  </button>
-                )}
-                {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
-                  <button
-                    onClick={() => setOrderModalType('sale')}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-emerald-500/20 transition-all active:scale-95"
-                  >
-                    <i className="bi bi-plus-lg text-sm" />
-                    <span>Nova Venda</span>
-                  </button>
-                )}
-              </div>
+                  {showSettings && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+                      <div className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-2xl p-4 flex flex-col gap-3 z-50 animate-slide-up">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1">
+                          Colunas da Tabela
+                        </h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {[
+                            { key: 'id', label: 'ID do Pedido' },
+                            { key: 'orderDate', label: 'Data do Pedido' },
+                            { key: 'deliveryDate', label: 'Data de Entrega' },
+                            { key: 'customer', label: 'Cliente' },
+                            { key: 'totalValue', label: 'Valor Total' },
+                            { key: 'labels', label: 'Rótulos' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'actions', label: 'Ações' },
+                          ].map((col) => (
+                            <button
+                              key={col.key}
+                              onClick={() => toggleVisibility(col.key as keyof VisibilitySettings)}
+                              className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-950 transition-all group outline-none"
+                            >
+                              <span
+                                className={`text-[11px] font-bold ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'}`}
+                              >
+                                {col.label}
+                              </span>
+                              <div
+                                className={`w-8 h-4 rounded-full p-0.5 transition-colors ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-200 dark:bg-slate-800'}`}
+                              >
+                                <div
+                                  className={`w-3 h-3 bg-white dark:bg-slate-300 rounded-full transition-transform ${visibilitySettings[col.key as keyof VisibilitySettings] ? 'translate-x-4' : 'translate-x-0'}`}
+                                />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
+              {showOrderFilters && (
+                <button
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className={`min-[1701px]:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-sm font-bold text-[10px] uppercase tracking-widest border ${
+                    isSidebarOpen
+                      ? 'bg-white text-blue-600 border-blue-100 dark:bg-slate-900 dark:border-blue-900/30'
+                      : 'bg-white text-slate-600 border-slate-200 dark:bg-slate-900 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800'
+                  }`}
+                  title="Filtros"
+                >
+                  <i className={`bi ${isSidebarOpen ? 'bi-funnel-fill' : 'bi-funnel'} text-sm`}></i>
+                  <span>Filtros</span>
+                </button>
+              )}
+
+              {/* Main Create Button */}
+              {isBudgetRoute && (
+                <button
+                  onClick={() => setOrderModalType('budget')}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-blue-500/20 transition-all active:scale-95"
+                >
+                  <i className="bi bi-plus-lg text-sm" />
+                  <span>Novo Orçamento</span>
+                </button>
+              )}
+              {isAssistanceRoute && (
+                <button
+                  onClick={() => setOrderModalType('assistance')}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
+                >
+                  <i className="bi bi-tools text-sm" />
+                  <span>Nova Assistência</span>
+                </button>
+              )}
+              {isReturnRoute && (
+                <button
+                  onClick={() => setOrderModalType('return')}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
+                >
+                  <i className="bi bi-arrow-return-left text-sm" />
+                  <span>Nova devolução sem venda vinculada</span>
+                </button>
+              )}
+              {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
+                <button
+                  onClick={() => setOrderModalType('sale')}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-emerald-500/20 transition-all active:scale-95"
+                >
+                  <i className="bi bi-plus-lg text-sm" />
+                  <span>Nova Venda</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -695,7 +691,7 @@ const SalesOrder = () => {
         <PostOrderActionsModal
           order={postOrderDetails}
           onClose={() => setPostOrderDetails(null)}
-          onIssueNfe={(order) => setNfeModalOrder(order)}
+          onIssueNfe={(order) => setNfeChoiceOrder(order)}
         />
       )}
 
@@ -716,10 +712,25 @@ const SalesOrder = () => {
         />
       )}
 
+      {nfeChoiceOrder && (
+        <NfeEnvironmentChoiceModal
+          isOpen={Boolean(nfeChoiceOrder)}
+          order={nfeChoiceOrder}
+          onClose={() => setNfeChoiceOrder(null)}
+          onSelectEnvironment={(env) => {
+            const current = nfeChoiceOrder;
+            setNfeChoiceOrder(null);
+            setChosenNfeEnvironment(env);
+            setNfeModalOrder(current);
+          }}
+        />
+      )}
+
       {nfeModalOrder && (
         <NfeEmissionModal
           isOpen={Boolean(nfeModalOrder)}
           order={nfeModalOrder}
+          initialEnvironment={chosenNfeEnvironment}
           onClose={() => setNfeModalOrder(null)}
           onSuccess={() => {
             orderListRef.current?.refresh();
@@ -731,3 +742,4 @@ const SalesOrder = () => {
 };
 
 export default SalesOrder;
+

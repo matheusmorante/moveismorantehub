@@ -132,6 +132,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
             return false;
           if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled'))
             return false;
+          if (btn.key === 'issueNfe' && order.nfeData?.status === 'homologada') return false;
 
           return true;
         })

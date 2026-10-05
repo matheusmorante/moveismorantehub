@@ -248,14 +248,22 @@ export type FiscalDatabase = {
       prepare_nfe_fiscal_snapshot_with_context: {
         Args: FiscalDatabase['public']['Functions']['prepare_nfe_fiscal_snapshot']['Args'] & {
           p_recipient_tax_id: string;
-          p_final_consumer: boolean; p_delivery_by_issuer: boolean; p_card_not_integrated: boolean; p_model_decision: unknown;
-        }; Returns: Record<string, unknown>;
+          p_final_consumer: boolean;
+          p_delivery_by_issuer: boolean;
+          p_card_not_integrated: boolean;
+          p_model_decision: unknown;
+        };
+        Returns: Record<string, unknown>;
       };
       prepare_numbered_nfe_fiscal_snapshot_with_context: {
         Args: FiscalDatabase['public']['Functions']['prepare_numbered_nfe_fiscal_snapshot']['Args'] & {
           p_recipient_tax_id: string;
-          p_final_consumer: boolean; p_delivery_by_issuer: boolean; p_card_not_integrated: boolean; p_model_decision: unknown;
-        }; Returns: Record<string, unknown>;
+          p_final_consumer: boolean;
+          p_delivery_by_issuer: boolean;
+          p_card_not_integrated: boolean;
+          p_model_decision: unknown;
+        };
+        Returns: Record<string, unknown>;
       };
       prepare_numbered_nfe_fiscal_snapshot: {
         Args: {

@@ -58,9 +58,13 @@ function response() {
 }
 
 function database() {
-  const from = vi.fn<(table: string) => any>((table: string) => ({
-    select: () => ({
-      eq: () => ({
+  const from = vi.fn<(table: string) => any>((table: string) => {
+    const query: any = {
+        select: () => query,
+        eq: () => query,
+        in: () => query,
+        order: () => query,
+        limit: () => query,
         maybeSingle: async () => ({
           data:
             table === 'orders'
@@ -72,14 +76,14 @@ function database() {
                   version: 1,
                   updated_at: '2026-09-30T12:00:00.000Z',
                 }
-              : table === 'nfe_documents'
+              : ['nfe_documents', 'nfe_fiscal_snapshots'].includes(table)
                 ? null
                 : { data: { companyCnpj: '00000000000000', companyCMun: '4106902' } },
           error: null,
         }),
-      }),
-    }),
-  }));
+    };
+    return query;
+  });
   return { from, rpc: vi.fn() };
 }
 
@@ -317,7 +321,9 @@ describe('API de emissão fiscal server-side', () => {
       series: '4',
       model: '65',
       environment: 2,
-      error: 'Conexão com SEFAZ-PR: synthetic network timeout',
+      error: 'Transmissão sem resposta confirmada. Consulte a chave original antes de tentar novamente.',
+      diagnosticId: expect.any(String),
+      diagnosticStage: 'sefaz-transmission',
     });
     expect(db.queriedOrderIds).toEqual([retryOrderId]);
     expect(db.from).not.toHaveBeenCalledWith('settings');

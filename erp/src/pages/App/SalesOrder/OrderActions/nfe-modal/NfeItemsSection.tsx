@@ -21,11 +21,24 @@ export interface NfeItemWithFiscal extends Item {
 interface Props {
   order: Order;
   items: NfeItemWithFiscal[];
+  activeError?: {
+    itemIndex?: number;
+    itemField?: 'ncm' | 'cfop' | 'cst' | 'origem';
+    message: string;
+  } | null;
+  onClearFieldError?: () => void;
   onUpdateItemFiscal: (index: number, fiscalUpdates: Partial<NfeItemFiscal>) => void;
+  onUpdateItemFiscalBlur?: () => void | Promise<void>;
   onBatchUpdateItems: (updated: NfeItemWithFiscal[]) => void;
 }
 
-export const NfeItemsSection: React.FC<Props> = ({ items, onUpdateItemFiscal }) => {
+export const NfeItemsSection: React.FC<Props> = ({
+  items,
+  activeError,
+  onClearFieldError,
+  onUpdateItemFiscalBlur,
+  onUpdateItemFiscal,
+}) => {
   // Contadores informativos
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
 
@@ -53,13 +66,23 @@ export const NfeItemsSection: React.FC<Props> = ({ items, onUpdateItemFiscal }) 
 
       {/* Lista dos Itens da Venda */}
       <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
-        {items.map((item, index) => (
-          <NfeItemRow
-            key={`${item.productId || 'item'}_${index}`}
-            item={item}
-            onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
-          />
-        ))}
+        {items.map((item, index) => {
+          const itemFieldError =
+            activeError?.itemIndex === index && activeError.itemField
+              ? { field: activeError.itemField, message: activeError.message }
+              : null;
+          return (
+            <NfeItemRow
+              key={`${item.productId || 'item'}_${index}`}
+              item={item}
+              itemIndex={index}
+              fieldError={itemFieldError}
+              onClearFieldError={onClearFieldError}
+              onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
+              onUpdateFiscalBlur={onUpdateItemFiscalBlur}
+            />
+          );
+        })}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import { useWindowSize } from '../../../../hooks/useWindowSize';
 import { filterOrder, sortOrders } from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
-import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 
 const PAGE_SIZE = 15;
@@ -29,7 +29,7 @@ export const useOrderHistory = (filters?: any) => {
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
   const [fiscalBadgeStatusByOrderId, setFiscalBadgeStatusByOrderId] = useState<
-    Partial<Record<string, OrderFiscalBadgeStatus>>
+    Partial<Record<string, OrderFiscalBadgeStatuses>>
   >({});
 
   const { width } = useWindowSize();
@@ -126,6 +126,12 @@ export const useOrderHistory = (filters?: any) => {
       );
       return;
     }
+    if (newStatus === 'cancelled' && !canCancelOrderDirectly(currentOrder)) {
+      toast.warning(
+        'A mercadoria já saiu para entrega ou foi retirada. Registre uma devolução para reverter a operação.'
+      );
+      return;
+    }
     if (
       currentOrder.orderType === 'return' &&
       currentOrder.status === 'fulfilled' &&
@@ -200,12 +206,6 @@ export const useOrderHistory = (filters?: any) => {
   const handleAction = async (actionKey: string, order: Order) => {
     if (actionKey === 'retryOrderFiscalCancellation') {
       await operations.retryFiscalCancellation(order);
-      return;
-    }
-    if (newStatus === 'cancelled' && !canCancelOrderDirectly(currentOrder)) {
-      toast.warning(
-        'A mercadoria já saiu para entrega ou foi retirada. Registre uma devolução para reverter a operação.'
-      );
       return;
     }
 

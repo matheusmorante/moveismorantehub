@@ -4,11 +4,15 @@ import { buttons } from './orderActionsConfig';
 import { updateOrder } from '../../../utils/orderHistoryService';
 import { POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
 import { NfeEmissionModal } from './NfeEmissionModal';
+import { NfeEnvironmentChoiceModal } from './nfe-modal/NfeEnvironmentChoiceModal';
+
+import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
+import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
 
 interface PostOrderActionsModalProps {
   readonly order: Order;
   readonly onClose: () => void;
-  readonly onIssueNfe?: (order: Order) => void;
+  readonly onIssueNfe?: (order: Order, environment?: 1 | 2) => void;
 }
 
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
@@ -16,7 +20,31 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   onClose,
   onIssueNfe,
 }) => {
-  const [nfeOrder, setNfeOrder] = React.useState<Order | null>(null);
+  const [nfeChoiceOrder, setNfeChoiceOrder] = React.useState<Order | null>(null);
+  const [chosenEnvironment, setChosenEnvironment] = React.useState<1 | 2>(1);
+  const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
+  const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    if (!order?.id) return;
+    void fetchOrderFiscalBadgeStatuses([order.id])
+      .then((res) => {
+        if (active) setFiscalStatuses(res[order.id] || null);
+      })
+      .catch((err) => console.error('Erro ao buscar status fiscal:', err));
+    return () => {
+      active = false;
+    };
+  }, [order?.id]);
+
+  const isNfeIssued = Boolean(
+    fiscalStatuses?.production === 'issued' ||
+      (order.nfeData?.status === 'autorizada' && (order.nfeData?.environment ?? 1) === 1) ||
+      order.nfeData?.accessKey ||
+      order.nfeData?.protocolNumber
+  );
+
   const availableActions = buttons.filter(
     (btn) =>
       POST_SALE_ACTION_KEYS.has(btn.key) &&
@@ -102,17 +130,26 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               if (isOrange) baseColor = 'text-orange-600 bg-orange-50 dark:bg-orange-900/20';
               if (isIndigo) baseColor = 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20';
 
+              const isIssueNfeBtn = btn.key === 'issueNfe';
+              const isButtonDisabled = isIssueNfeBtn && isNfeIssued;
+              const tooltipText = isButtonDisabled
+                ? 'Nota fiscal já emitida para este pedido.'
+                : btn.tooltip || undefined;
+
               return (
                 <button
                   key={btn.key}
                   type="button"
+                  disabled={isButtonDisabled}
+                  title={tooltipText}
                   onClick={async () => {
+                    if (isButtonDisabled) return;
                     if (btn.key === 'issueNfe') {
                       if (onIssueNfe) {
                         onClose();
                         onIssueNfe(order);
                       } else {
-                        setNfeOrder(order);
+                        setNfeChoiceOrder(order);
                       }
                       return;
                     }
@@ -135,7 +172,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                       console.error('Erro ao executar ação pós-venda:', err);
                     }
                   }}
-                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:-translate-y-1 hover:shadow-lg relative min-h-[100px] ${baseColor} ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
+                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] ${
+                    isButtonDisabled
+                      ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 pointer-events-auto'
+                      : `${baseColor} hover:-translate-y-1 hover:shadow-lg`
+                  } ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                 >
                   <i className={`bi ${btn.icon} text-2xl mb-2`}></i>
                   <span className="text-[10px] font-black uppercase tracking-widest text-center">
@@ -151,10 +192,22 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               );
             })}
           </div>
+          <NfeEnvironmentChoiceModal
+            isOpen={Boolean(nfeChoiceOrder)}
+            order={nfeChoiceOrder}
+            onClose={() => setNfeChoiceOrder(null)}
+            onSelectEnvironment={(env) => {
+              const currentOrder = nfeChoiceOrder;
+              setNfeChoiceOrder(null);
+              setChosenEnvironment(env);
+              setNfeEmissionOrder(currentOrder);
+            }}
+          />
           <NfeEmissionModal
-            isOpen={Boolean(nfeOrder)}
-            order={nfeOrder}
-            onClose={() => setNfeOrder(null)}
+            isOpen={Boolean(nfeEmissionOrder)}
+            order={nfeEmissionOrder}
+            initialEnvironment={chosenEnvironment}
+            onClose={() => setNfeEmissionOrder(null)}
           />
         </div>
 

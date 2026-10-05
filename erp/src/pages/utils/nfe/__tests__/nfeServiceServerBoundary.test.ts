@@ -129,7 +129,7 @@ describe('emissão NF-e no ERP', () => {
       databaseCode: '42883',
     });
     expect(diagnosticLog).toHaveBeenCalledWith(
-      '[NFe Service] Erro retornado pela API interna de emissão',
+      '[NFe Service] Retorno da API interna de emissão',
       expect.objectContaining({
         endpoint: '/api/nfe/emit',
         httpStatus: 503,
@@ -138,6 +138,55 @@ describe('emissão NF-e no ERP', () => {
         diagnosticId: '2b705d8e-cb38-4310-86dc-7016e1f875fd',
       })
     );
+  });
+
+  it('mantém a intenção no conflito ativo e direciona a consulta ao documento existente', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false, status: 409,
+      json: async () => ({ success: false, code: 'HML_SNAPSHOT_RESERVATION_FAILED',
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', databaseCode: '23505',
+        documentId: 'active-document', model: '65', nfeNumber: 611,
+        emissionRequestId: '2b0631bb-fa0b-4b20-965a-fcc3dc1cb07d',
+        sefazContacted: false, numberReserved: false }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    const order = { id: 'TEST_AUT_active-conflict' } as any;
+    const result = await emitNfeForOrder(order, 2);
+    expect(result).toMatchObject({ pending: true, documentId: 'active-document',
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', model: '65',
+      error: 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.' });
+    await emitNfeForOrder(order, 2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId)
+      .toBe('2b0631bb-fa0b-4b20-965a-fcc3dc1cb07d');
+  });
+
+  it('preserva a intenção e a reserva após falha anterior ao envio, mesmo com força de nova intenção', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 422,
+      json: async () => ({ success: false, numberReserved: true, sefazContacted: false, code: 'HML_XML_INVALID' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    const order = { id: 'TEST_AUT_reserved-pre-send' } as any;
+    await emitNfeForOrder(order, 2);
+    await emitNfeForOrder(order, 2, false, undefined, undefined, [], undefined, undefined,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, true);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId)
+      .toBe(JSON.parse(fetchMock.mock.calls[0][1].body).emissionRequestId);
+  });
+
+  it('limpa a chave correta apenas após encerramento explícito e preserva 217 para o retry original', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 409,
+      json: async () => ({ success: false, code: 'HML_CONFIRMED_NOT_FOUND', cStat: '217' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder, clearFiscalEmissionRequest } = await import('../nfeService');
+    const order = { id: 'TEST_AUT_explicit-clear' } as any;
+    await emitNfeForOrder(order, 2);
+    await emitNfeForOrder(order, 2);
+    const original = JSON.parse(fetchMock.mock.calls[0][1].body).emissionRequestId;
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId).toBe(original);
+    clearFiscalEmissionRequest(order.id, 2);
+    await emitNfeForOrder(order, 2);
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body).emissionRequestId).not.toBe(original);
   });
 
   it('sends all confirmed item fields and distinguishes explicit CSOSN choices', async () => {

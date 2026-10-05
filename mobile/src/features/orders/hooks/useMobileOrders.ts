@@ -87,9 +87,15 @@ export function useMobileOrders() {
           )
             .then((statuses) => {
               setOrders((current) =>
-                current.map((order) =>
-                  statuses[order.id] ? { ...order, fiscalBadgeStatus: statuses[order.id] } : order
-                )
+                current.map((order) => {
+                  const itemStatus = statuses[order.id];
+                  if (!itemStatus) return order;
+                  return {
+                    ...order,
+                    fiscalBadgeStatus: itemStatus.production,
+                    fiscalHmlBadgeStatus: itemStatus.homologation,
+                  };
+                })
               );
             })
             .catch(() => {

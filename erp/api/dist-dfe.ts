@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import https from 'node:https';
+import { createSefazHttpsAgent } from '../../api/nfe/sefazHttpsAgent';
+import { extractCertificateAndKey } from '../../api/nfe/nfeSigner';
 import { createPrivateKey, X509Certificate } from 'node:crypto';
-import forge from 'node-forge';
 
 type ApiRequest = IncomingMessage & {
   query?: Record<string, string | string[] | undefined>;
@@ -17,23 +18,6 @@ const SEFAZ_DFE_URL_PROD = 'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/N
 const SEFAZ_DFE_URL_HOM = 'https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
 const CERTIFICATE_HEALTH_VERSION = 'cert-a1-2026-09-28-v2';
 const EXPECTED_ISSUER_CNPJ = '44512248000107';
-
-function extractCertificateAndKey(pfxBase64: string, password: string) {
-  const pfxAsn1 = forge.asn1.fromDer(forge.util.decode64(pfxBase64));
-  const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password);
-  const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
-  const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]
-    ?? p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0];
-  if (!keyBag?.key) throw new Error('Chave privada não encontrada no PFX.');
-
-  const certBag = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0];
-  if (!certBag?.cert) throw new Error('Certificado X.509 não encontrado no PFX.');
-
-  return {
-    certPem: forge.pki.certificateToPem(certBag.cert),
-    privateKeyPem: forge.pki.privateKeyToPem(keyBag.key),
-  };
-}
 
 function validateAuthToken(authHeader?: string): boolean {
   if (!authHeader) return false;
@@ -78,12 +62,7 @@ async function sendDistDfeSoapToSefaz(params: {
   const { url, soapEnvelope, certPem, privateKeyPem, timeoutMs = 25000 } = params;
   const parsedUrl = new URL(url);
 
-  const agent = new https.Agent({
-    cert: certPem,
-    key: privateKeyPem,
-    rejectUnauthorized: true,
-    keepAlive: false,
-  });
+  const agent = createSefazHttpsAgent(certPem, privateKeyPem);
 
   const payloadBuffer = Buffer.from(soapEnvelope, 'utf-8');
   const start = Date.now();
@@ -111,6 +90,7 @@ async function sendDistDfeSoapToSefaz(params: {
           body += chunk;
         });
         res.on('end', () => {
+          agent.destroy();
           resolve({
             statusCode: res.statusCode || 200,
             responseXml: body,
@@ -121,10 +101,11 @@ async function sendDistDfeSoapToSefaz(params: {
     );
 
     req.on('timeout', () => {
-      req.destroy(new Error(`Timeout na comunicação com a SEFAZ após ${timeoutMs}ms.`));
+      req.destroy(Object.assign(new Error('Timeout na comunicação com a SEFAZ.'), {code: 'ETIMEDOUT'}));
     });
 
     req.on('error', (err) => {
+      agent.destroy();
       reject(err);
     });
 

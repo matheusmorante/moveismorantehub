@@ -1,6 +1,16 @@
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../settingsService';
-import { resolveOrderFiscalModel, getFiscalRecipientAddress, fiscalPresence, fiscalRecipientRequirements } from '../../../../../shared-utils/fiscalDocumentModel';
+import {
+  resolveOrderFiscalModel,
+  getFiscalRecipientAddress,
+  fiscalPresence,
+  decideFiscalRecipientRequirements,
+} from '../../../../../shared-utils/fiscalDocumentModel';
+import {
+  isValidRecipientTaxId,
+  normalizeRecipientTaxId,
+  recipientTaxIdMatchesPersonType,
+} from '../../../../../shared-utils/recipientTaxId';
 
 export interface NfeValidationResult {
   isValid: boolean;
@@ -70,21 +80,58 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
   }
 
   // Recipient requirements follow the fiscal model and presence, not pickup/delivery alone.
-  const decision = resolveOrderFiscalModel(order, { issuerUf: settings.companyUF, finalConsumer: order.fiscalContext?.finalConsumer ?? true });
+  const decision = resolveOrderFiscalModel(order, {
+    issuerUf: settings.companyUF,
+    finalConsumer: order.fiscalContext?.finalConsumer ?? true,
+  });
   if (decision.status === 'blocked') errors.push(decision.reason);
   else {
-    const presence = fiscalPresence(decision.model, order.shipping?.deliveryMethod, order.fiscalContext?.presence);
-    const requirements = fiscalRecipientRequirements(decision.model, presence, order.paymentsSummary?.totalOrderValue || 0);
-    const document = (order.customerData?.cpfCnpj || order.customerData?.document || '').replace(/\D/g, '');
-    if (requirements.documentRequired && ![11,14].includes(document.length)) errors.push('CPF/CNPJ do destinatário obrigatório para esta operação.');
-    if (document && ![11,14].includes(document.length)) errors.push('CPF/CNPJ do destinatário inválido.');
+    const presence = fiscalPresence(
+      decision.model,
+      order.shipping?.deliveryMethod,
+      order.fiscalContext?.presence
+    );
+    const document = normalizeRecipientTaxId(
+      order.customerData?.cpfCnpj || order.customerData?.document || ''
+    );
+    const normalSale = decision.reasons.every((reason) =>
+      ['RETAIL_FINAL_CONSUMER_IN_STATE', 'RESALE', 'VALUE_LIMIT'].includes(reason)
+    );
+    const requirements = decideFiscalRecipientRequirements({
+      model: decision.model,
+      presence,
+      total: order.paymentsSummary?.totalOrderValue || 0,
+      personType: order.customerData?.personType,
+      recipientTaxId: document,
+      operationScope: normalSale ? 'NORMAL_DOMESTIC_SALE' : 'SPECIAL_OR_FOREIGN_OPERATION',
+    });
+    if (!requirements.supported) errors.push(requirements.message || 'Operação exige matriz fiscal própria.');
+    else if (requirements.documentRequired && !document)
+      errors.push(requirements.message || 'Documento do destinatário obrigatório para esta operação.');
+    if (
+      document &&
+      (!isValidRecipientTaxId(document) ||
+        !recipientTaxIdMatchesPersonType(document, order.customerData?.personType))
+    )
+      errors.push('CPF/CNPJ do destinatário inválido.');
     if (requirements.addressRequired) {
       const address = getFiscalRecipientAddress(order);
-      const missing = [['logradouro',address.street],['número',address.number],['bairro',address.neighborhood || address.bairro],
-        ['código IBGE do município',address.cityCode || address.cMun],['município',address.city],['UF',address.state || address.uf]]
-        .filter(([,value]) => !String(value || '').trim()).map(([field]) => field);
-      if (missing.length) errors.push('Endereço do destinatário incompleto: informe ' + missing.join(', ') + '.');
-      const cep = String(address.zipCode || address.postalCode || address.cep || '').replace(/\D/g,'');
+      const missing = [
+        ['logradouro', address.street],
+        ['número', address.number],
+        ['bairro', address.neighborhood || address.bairro],
+        ['código IBGE do município', address.cityCode || address.cMun],
+        ['município', address.city],
+        ['UF', address.state || address.uf],
+      ]
+        .filter(([, value]) => !String(value || '').trim())
+        .map(([field]) => field);
+      if (missing.length)
+        errors.push('Endereço do destinatário incompleto: informe ' + missing.join(', ') + '.');
+      const cep = String(address.zipCode || address.postalCode || address.cep || '').replace(
+        /\D/g,
+        ''
+      );
       if (cep && !/^\d{8}$/.test(cep)) errors.push('CEP do destinatário inválido.');
     }
   }

@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveOrderFiscalBadgePair,
   resolveOrderFiscalBadgeStatus,
   type FiscalDocumentStatusRow,
 } from '../orderFiscalBadgeRules';
 
-const outbound = (status: string): FiscalDocumentStatusRow => ({
+const outbound = (status: string, ambiente?: number): FiscalDocumentStatusRow => ({
   order_id: 'order-1',
   status,
   document_type: 'outbound',
+  ambiente,
 });
 
 describe('resolveOrderFiscalBadgeStatus', () => {
@@ -33,5 +35,52 @@ describe('resolveOrderFiscalBadgeStatus', () => {
     expect(resolveOrderFiscalBadgeStatus([outbound('cancelada'), outbound('autorizada')])).toBe(
       'issued'
     );
+  });
+});
+
+describe('resolveOrderFiscalBadgePair', () => {
+  it('retorna produção not_issued e homologação undefined quando não há documentos', () => {
+    const result = resolveOrderFiscalBadgePair([]);
+    expect(result).toEqual({
+      production: 'not_issued',
+      homologation: undefined,
+    });
+  });
+
+  it('mantém homologação oculta (undefined) se não houver nota autorizada/emitida em homologação', () => {
+    const result = resolveOrderFiscalBadgePair([outbound('rejeitada', 2), outbound('rascunho', 2)]);
+    expect(result.production).toBe('not_issued');
+    expect(result.homologation).toBeUndefined();
+  });
+
+  it('exibe NFH quando homologação estiver autorizada e NF permanece not_issued se produção não tiver nota', () => {
+    const result = resolveOrderFiscalBadgePair([outbound('autorizada', 2)]);
+    expect(result.production).toBe('not_issued');
+    expect(result.homologation).toBe('issued');
+  });
+
+  it('reconhece nota emitida em produção no rótulo NF e preserva NFH oculto se homologação não tiver nota', () => {
+    const result = resolveOrderFiscalBadgePair([outbound('autorizada', 1)]);
+    expect(result.production).toBe('issued');
+    expect(result.homologation).toBeUndefined();
+  });
+
+  it('permite coexistência de NF e NFH quando ambos foram emitidos', () => {
+    const result = resolveOrderFiscalBadgePair([
+      outbound('autorizada', 1),
+      outbound('autorizada', 2),
+    ]);
+    expect(result.production).toBe('issued');
+    expect(result.homologation).toBe('issued');
+  });
+
+  it('exibe cancelamento e estorno de homologação no NFH', () => {
+    const cancelledHml = resolveOrderFiscalBadgePair([outbound('cancelada', 2)]);
+    expect(cancelledHml.homologation).toBe('cancelled');
+
+    const reversedHml = resolveOrderFiscalBadgePair([
+      { order_id: 'order-1', status: 'autorizada', document_type: 'return', ambiente: 2 },
+    ]);
+    expect(reversedHml.homologation).toBe('reversed');
   });
 });

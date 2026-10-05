@@ -52,11 +52,17 @@ describe('contrato estrito do modal fiscal', () => {
     });
     expect(parsed).toMatchObject({ command: { itemFiscalSelections: { '1': selection } } });
   });
-  it.each(['123.456.789-09', '11.222.333/0001-81'])('preserva o CPF/CNPJ %s digitado no modal no comando temporário de emissão', (recipientTaxId) => {
-    const parsed = parseFiscalEmissionCommand({ ...command, recipientTaxId });
-    expect(parsed).toMatchObject({ command: { recipientTaxId } });
-  });
-  it.each(['abc12345678909', '12345678', 12345678909])('rejeita documento malformado %s', (recipientTaxId) => {
-    expect(parseFiscalEmissionCommand({ ...command, recipientTaxId })).toHaveProperty('error');
-  });
+  it.each(['123.456.789-09', '11.222.333/0001-81'])(
+    'preserva o CPF/CNPJ %s digitado no modal no comando temporário de emissão',
+    (recipientTaxId) => {
+      const parsed = parseFiscalEmissionCommand({ ...command, recipientTaxId });
+      expect(parsed).toMatchObject({ command: { recipientTaxId } });
+    }
+  );
+  it.each(['abc12345678909', '12345678', 12345678909])(
+    'rejeita documento malformado %s',
+    (recipientTaxId) => {
+      expect(parseFiscalEmissionCommand({ ...command, recipientTaxId })).toHaveProperty('error');
+    }
+  );
 });

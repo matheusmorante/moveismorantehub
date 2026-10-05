@@ -17,7 +17,14 @@ export type AssistanceItem = {
 export type Order = {
   fiscalContext?: {
     finalConsumer?: boolean;
-    operationType?: 'sale' | 'return' | 'transfer' | 'shipment' | 'goods_return' | 'export' | 'import';
+    operationType?:
+      | 'sale'
+      | 'return'
+      | 'transfer'
+      | 'shipment'
+      | 'goods_return'
+      | 'export'
+      | 'import';
     purpose?: '1' | '2' | '3' | '4';
     requiresTaxCredit?: boolean;
     publicAdministrationRequirement?: boolean;

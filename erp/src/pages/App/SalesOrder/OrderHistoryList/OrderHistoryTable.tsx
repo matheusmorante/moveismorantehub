@@ -8,11 +8,16 @@ import { useAutoScroll } from '../../../utils/useAutoScroll';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 
 import { OrderTableHeader, COLUMNS_DEF, ColumnDef, OrderHistoryFilters } from './OrderTableHeader';
-import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import type {
+  OrderFiscalBadgeStatus,
+  OrderFiscalBadgeStatuses,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 export interface OrderHistoryTableProps {
   readonly orders: readonly Order[];
-  readonly fiscalBadgeStatusByOrderId?: Partial<Record<string, OrderFiscalBadgeStatus>>;
+  readonly fiscalBadgeStatusByOrderId?: Partial<
+    Record<string, OrderFiscalBadgeStatuses | OrderFiscalBadgeStatus>
+  >;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -181,31 +186,46 @@ const OrderHistoryTable = ({
               isReturnOnly={isReturnOnly}
             />
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-              {orders.map((order) => (
-                <OrderHistoryRow
-                  key={order.id}
-                  order={order}
-                  fiscalBadgeStatus={fiscalBadgeStatusByOrderId?.[order.id!]}
-                  onEdit={onEdit}
-                  onViewDetails={onViewDetails}
-                  onDelete={onDelete}
-                  onRestore={onRestore}
-                  onPermanentDelete={onPermanentDelete}
-                  onAction={onAction}
-                  onStatusUpdate={onStatusUpdate}
-                  visibilitySettings={visibilitySettings}
-                  showTrash={showTrash}
-                  orderedColumnKeys={columnsToRender.map((c) => c.key as string)}
-                  isSelected={selectedOrders.includes(order.id!)}
-                  onToggleSelection={() => onToggleSelection(order.id!)}
-                  onBlingUpdate={onBlingUpdate}
-                  onStockCheckUpdate={onStockCheckUpdate}
-                  isHighlighted={highlightOrderId === order.id}
-                  id={`order-row-${order.id}`}
-                  onFilterByOrderId={onFilterByOrderId}
-                  onShowPostSaleActions={onShowPostSaleActions}
-                />
-              ))}
+              {orders.map((order) => {
+                const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
+                const prodStatus =
+                  typeof badgeInfo === 'string' ? badgeInfo : badgeInfo?.production;
+                const hmlStatus =
+                  typeof badgeInfo === 'object' ? badgeInfo?.homologation : undefined;
+                const prodDocumentId =
+                  typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
+                const hmlDocumentId =
+                  typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+
+                return (
+                  <OrderHistoryRow
+                    key={order.id}
+                    order={order}
+                    fiscalBadgeStatus={prodStatus}
+                    fiscalHmlBadgeStatus={hmlStatus}
+                    fiscalDocumentId={prodDocumentId}
+                    fiscalHmlDocumentId={hmlDocumentId}
+                    onEdit={onEdit}
+                    onViewDetails={onViewDetails}
+                    onDelete={onDelete}
+                    onRestore={onRestore}
+                    onPermanentDelete={onPermanentDelete}
+                    onAction={onAction}
+                    onStatusUpdate={onStatusUpdate}
+                    visibilitySettings={visibilitySettings}
+                    showTrash={showTrash}
+                    orderedColumnKeys={columnsToRender.map((c) => c.key as string)}
+                    isSelected={selectedOrders.includes(order.id!)}
+                    onToggleSelection={() => onToggleSelection(order.id!)}
+                    onBlingUpdate={onBlingUpdate}
+                    onStockCheckUpdate={onStockCheckUpdate}
+                    isHighlighted={highlightOrderId === order.id}
+                    id={`order-row-${order.id}`}
+                    onFilterByOrderId={onFilterByOrderId}
+                    onShowPostSaleActions={onShowPostSaleActions}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -219,29 +239,42 @@ const OrderHistoryTable = ({
               </p>
             </div>
           ) : (
-            orders.map((order) => (
-              <OrderHistoryCard
-                key={order.id}
-                order={order}
-                fiscalBadgeStatus={fiscalBadgeStatusByOrderId?.[order.id!]}
-                onEdit={onEdit}
-                onViewDetails={onViewDetails}
-                onDelete={onDelete}
-                onRestore={onRestore}
-                onPermanentDelete={onPermanentDelete}
-                onAction={onAction}
-                onStatusUpdate={onStatusUpdate}
-                showTrash={showTrash}
-                isSelected={selectedOrders.includes(order.id!)}
-                onToggleSelection={() => onToggleSelection(order.id!)}
-                onBlingUpdate={onBlingUpdate}
-                onStockCheckUpdate={onStockCheckUpdate}
-                isHighlighted={highlightOrderId === order.id}
-                id={`order-card-${order.id}`}
-                onFilterByOrderId={onFilterByOrderId}
-                onShowPostSaleActions={onShowPostSaleActions}
-              />
-            ))
+            orders.map((order) => {
+              const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
+              const prodStatus = typeof badgeInfo === 'string' ? badgeInfo : badgeInfo?.production;
+              const hmlStatus = typeof badgeInfo === 'object' ? badgeInfo?.homologation : undefined;
+              const prodDocumentId =
+                typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
+              const hmlDocumentId =
+                typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+
+              return (
+                <OrderHistoryCard
+                  key={order.id}
+                  order={order}
+                  fiscalBadgeStatus={prodStatus}
+                  fiscalHmlBadgeStatus={hmlStatus}
+                  fiscalDocumentId={prodDocumentId}
+                  fiscalHmlDocumentId={hmlDocumentId}
+                  onEdit={onEdit}
+                  onViewDetails={onViewDetails}
+                  onDelete={onDelete}
+                  onRestore={onRestore}
+                  onPermanentDelete={onPermanentDelete}
+                  onAction={onAction}
+                  onStatusUpdate={onStatusUpdate}
+                  showTrash={showTrash}
+                  isSelected={selectedOrders.includes(order.id!)}
+                  onToggleSelection={() => onToggleSelection(order.id!)}
+                  onBlingUpdate={onBlingUpdate}
+                  onStockCheckUpdate={onStockCheckUpdate}
+                  isHighlighted={highlightOrderId === order.id}
+                  id={`order-card-${order.id}`}
+                  onFilterByOrderId={onFilterByOrderId}
+                  onShowPostSaleActions={onShowPostSaleActions}
+                />
+              );
+            })
           )}
         </div>
       )}

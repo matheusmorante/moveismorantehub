@@ -208,7 +208,10 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
             id: getVal('id'),
             fullName: getVal('fullName') || '',
             nickname: getVal('nickname'),
-            personType: (getVal('cpfCnpj')?.length || 0) > 14 ? 'PJ' : 'PF',
+            personType:
+              String(getVal('cpfCnpj') || '').replace(/[^0-9A-Z]/gi, '').length === 14
+                ? 'PJ'
+                : 'PF',
             cpfCnpj: getVal('cpfCnpj'),
             rgIe: getVal('rgIe'),
             email: getVal('email'),

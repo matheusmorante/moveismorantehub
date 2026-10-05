@@ -9,11 +9,16 @@ describe('fiscal document suggestion', () => {
   });
 
   it('suggests NFC-e for final-consumer delivery in Paraná', () => {
-    const order = { orderType: 'sale' as const, shipping: { deliveryMethod: 'delivery' as const, deliveryAddress: { state: 'PR' } } };
+    const order = {
+      orderType: 'sale' as const,
+      shipping: { deliveryMethod: 'delivery' as const, deliveryAddress: { state: 'PR' } },
+    };
     expect(getSuggestedFiscalDocument(order)).toBe('NFCE');
     expect(getSuggestedFiscalDocumentLabel(order)).toBe('Gerar NFC-e');
   });
   it('requires recipient UF before suggesting an invoice for delivery', () => {
-    expect(getSuggestedFiscalDocument({ shipping: { deliveryMethod: 'delivery' } })).toBe('UNDETERMINED');
+    expect(getSuggestedFiscalDocument({ shipping: { deliveryMethod: 'delivery' } })).toBe(
+      'UNDETERMINED'
+    );
   });
 });

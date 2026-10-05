@@ -17,6 +17,9 @@ import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeR
 interface OrderHistoryRowProps {
   order: Order;
   fiscalBadgeStatus?: OrderFiscalBadgeStatus;
+  fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
+  fiscalDocumentId?: string;
+  fiscalHmlDocumentId?: string;
   onEdit: (
     order: Order,
     initialStep?: number,
@@ -50,6 +53,9 @@ interface OrderHistoryRowProps {
 const OrderHistoryRow = ({
   order,
   fiscalBadgeStatus,
+  fiscalHmlBadgeStatus,
+  fiscalDocumentId,
+  fiscalHmlDocumentId,
   onEdit,
   onDelete,
   onRestore,
@@ -160,6 +166,13 @@ const OrderHistoryRow = ({
                 </span>
                 <OrderFiscalBadge
                   status={fiscalBadgeStatus}
+                  documentId={fiscalDocumentId}
+                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
+                <OrderFiscalBadge
+                  variant="homologation"
+                  status={fiscalHmlBadgeStatus}
+                  documentId={fiscalHmlDocumentId}
                   reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
                 />
               </div>

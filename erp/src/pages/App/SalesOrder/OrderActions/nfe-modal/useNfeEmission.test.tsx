@@ -10,9 +10,11 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
+import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import { NfeEmissionModal } from '../NfeEmissionModal';
 import PostOrderActionsModal from '../PostOrderActionsModal';
-import { useNfeEmission } from './useNfeEmission';
+import { NfeEnvironmentChoiceModal } from './NfeEnvironmentChoiceModal';
+import { clearFiscalEmissionDrafts, useNfeEmission } from './useNfeEmission';
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   nextNumber: vi.fn(),
   getFullProduct: vi.fn(),
+  getSession: vi.fn(),
 }));
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'administrator' } }),
@@ -32,28 +35,61 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
   getNextNfeNumberPreview: mocks.nextNumber,
   getCachedFiscalNumberPreview: vi.fn(() => null),
   updateFiscalNumberPreviewCache: vi.fn(),
+  clearFiscalEmissionRequest: vi.fn(),
   printOrderDanfe: vi.fn(),
 }));
 vi.mock('@/pages/utils/settingsService', () => ({
-  getSettings: () => ({ fiscalDefaults: { cst: '102' } }),
+  getSettings: () => ({ fiscalDefaults: { cst: '103' } }),
 }));
 vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.getFullProduct }));
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({
+  supabase: { auth: { getSession: mocks.getSession } },
+}));
+vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
+  fetchOrderFiscalBadgeStatuses: vi.fn().mockResolvedValue({}),
+}));
 vi.mock('./NcmSelect', () => ({
-  NcmSelect: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
-    <input aria-label="NCM" value={value} onChange={(event) => onChange(event.target.value)} />
+  NcmSelect: ({
+    id,
+    hasError,
+    value,
+    onChange,
+  }: {
+    id?: string;
+    hasError?: boolean;
+    value: string;
+    onChange: (value: string) => void;
+  }) => (
+    <input
+      id={id}
+      data-has-error={hasError ? 'true' : undefined}
+      aria-label="NCM"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
   ),
 }));
-vi.mock('react-toastify', () => ({ toast: { error: mocks.toast, success: vi.fn() } }));
+vi.mock('react-toastify', () => ({
+  toast: { error: mocks.toast, success: vi.fn(), warning: vi.fn() },
+}));
 describe('preenchimento dos itens da NF-e', () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
   beforeEach(() => {
     vi.resetAllMocks();
+    clearFiscalEmissionDrafts();
     mocks.nextNumber.mockResolvedValue(102);
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'synthetic-test-token' } },
+      error: null,
+    });
     mocks.prepare.mockResolvedValue([
       { itemNumber: 1, csosn: '103', source: 'default' },
       { itemNumber: 2, csosn: '500', source: 'saved' },
     ]);
+    vi.mocked(fetchOrderFiscalBadgeStatuses).mockResolvedValue({});
   });
   const order: any = {
     id: 'synthetic-order',
@@ -95,6 +131,7 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][4]).toBeUndefined();
+    expect(mocks.emit.mock.calls[0][15]).toBe(false);
   });
 
   it('mantém a reserva automática se a consulta da prévia falhar', async () => {
@@ -109,6 +146,164 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][4]).toBeUndefined();
+  });
+
+  it('permite retransmitir a mesma NFC-e depois da reconciliação 217 confirmada', async () => {
+    mocks.emit
+      .mockResolvedValueOnce({
+        success: false,
+        pending: true,
+        documentId: 'hml-document-609',
+        environment: 2,
+        model: '65',
+        nfeNumber: 609,
+        error: 'Transmissão sem resposta confirmada.',
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        pending: true,
+        documentId: 'hml-document-609',
+        error: 'HML_RETRY_CONTROLLED',
+      });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          success: false,
+          code: 'HML_CONFIRMED_NOT_FOUND',
+          state: 'not_found',
+          pending: false,
+          documentId: 'hml-document-609',
+          xMotivo: '217: NF-e não encontrada.',
+        }),
+      })
+    );
+
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar SEFAZ Agora' }));
+    const retrySameDocument = await screen.findByRole('button', {
+      name: 'Retransmitir a mesma NFC-e',
+    });
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+
+    fireEvent.click(retrySameDocument);
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.emit.mock.calls[1][3]).toBe('hml-document-609');
+    expect(mocks.emit.mock.calls[1][15]).toBe(false);
+  });
+
+  it('consulta 217 com XML vencido exige clique explícito e nova reserva automática', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false, pending: true, documentId: 'hml-old', environment: 2,
+      model: '65', nfeNumber: 614, error: 'Transmissão incerta.',
+    }).mockResolvedValueOnce({success: false, pending: true, documentId: 'hml-new'});
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: false, json: async () => ({
+      success: false, pending: false, state: 'not_found', cStat: '217',
+      code: 'HML_NEW_EMISSION_REQUIRED', safeNewEmission: true,
+      error: 'XML vencido; é necessária uma nova emissão.',
+    })}));
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    const number = await screen.findByRole('spinbutton', {name: 'Número da nota'});
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    fireEvent.change(number, {target: {value: '615'}});
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    fireEvent.click(await screen.findByRole('button', {name: 'Consultar SEFAZ Agora'}));
+    const fresh = await screen.findByTestId('nfe-start-fresh-hml-emission');
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', {name: 'Retransmitir a mesma NFC-e'})).toBeNull();
+    fireEvent.click(fresh);
+    fireEvent.click(fresh);
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.emit.mock.calls[1][3]).toBeUndefined();
+    expect(mocks.emit.mock.calls[1][4]).toBeUndefined();
+  });
+
+  it('retoma o 217 retornado pela emissão com o número original, mesmo após edição manual', async () => {
+    mocks.nextNumber.mockResolvedValue(614);
+    mocks.emit.mockResolvedValueOnce({
+      success: false, pending: false, hmlConfirmedNotFound: true,
+      documentId: 'hml-document-613', environment: 2, model: '65',
+      nfeNumber: 613, series: '1', cStat: '217', error: 'NF-e não consta na SEFAZ.',
+    }).mockResolvedValueOnce({success: false, pending: true, documentId: 'hml-document-613'});
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    const number = await screen.findByRole('spinbutton', {name: 'Número da nota'});
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    fireEvent.change(number, {target: {value: '615'}});
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    const retry = await screen.findByRole('button', {name: 'Retransmitir a mesma NFC-e'});
+    expect((number as HTMLInputElement).value).toBe('613');
+    expect((number as HTMLInputElement).readOnly).toBe(true);
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.emit.mock.calls[1][3]).toBe('hml-document-613');
+    expect(mocks.emit.mock.calls[1][4]).toBeUndefined();
+  });
+
+  it('duplo clique e conflito ativo mantêm uma emissão e oferecem consulta sem nova transmissão', async () => {
+    let resolveEmission!: (result: unknown) => void;
+    mocks.emit.mockReturnValue(new Promise((resolve) => { resolveEmission = resolve; }));
+    const onSuccess = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      success: true, state: 'authorized', protocolNumber: 'synthetic-protocol',
+    }) });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} onSuccess={onSuccess} />);
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    const emit = screen.getByTestId('nfe-emit-button');
+    fireEvent.click(emit);
+    fireEvent.click(emit);
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    await act(async () => resolveEmission({ success: false, pending: true,
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', documentId: 'existing-hml-document',
+      model: '65', nfeNumber: 611, error: 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.' }));
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar tentativa em andamento' }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({documentId:'existing-hml-document'});
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('retoma uma reserva sem documento pelo fluxo de emissão original', async () => {
+    mocks.emit.mockResolvedValueOnce({ success: false, pending: true,
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', reservationRecoveryRequired: true,
+      error: 'Retome a reserva existente.' }).mockResolvedValueOnce({success:false,error:'TEST_AUT_RESUMED'});
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Retomar reserva existente' }));
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.emit.mock.calls[1][3]).toBeUndefined();
+    expect(mocks.emit.mock.calls[1][15]).toBe(false);
+  });
+
+  it('consulta inconclusiva mantém a emissão bloqueada e rejeição persistida libera correção', async () => {
+    mocks.emit.mockResolvedValue({success:false,pending:true,documentId:'existing-attempt',
+      databaseReason:'ALREADY_ACTIVE_FISCAL_ATTEMPT',error:'Tentativa em andamento.'});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ok:false,json:async()=>({success:false,pending:true,
+        code:'HML_RECONCILIATION_REQUIRED',error:'Consulta indisponível'})})
+      .mockResolvedValueOnce({ok:false,json:async()=>({success:false,pending:false,
+        code:'HML_SEFAZ_REJECTED',cStat:'753',error:'Rejeição persistida da emissão'})});
+    vi.stubGlobal('fetch',fetchMock);
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(()=>expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    const consult = await screen.findByRole('button',{name:'Consultar tentativa em andamento'});
+    fireEvent.click(consult);
+    await waitFor(()=>expect(mocks.toast).toHaveBeenCalledWith('Consulta indisponível'));
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    fireEvent.click(consult);
+    await waitFor(()=>expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
   });
 
   it('mantém o modal cinza durante o carregamento e deixa CPF opcional na NFC-e comum', async () => {
@@ -141,7 +336,7 @@ describe('preenchimento dos itens da NF-e', () => {
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(screen.getByLabelText('CPF')).toBeTruthy();
-    expect(screen.queryByText(/Opcional/i)).toBeNull();
+    expect(screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][6]).toBe('');
@@ -276,11 +471,11 @@ describe('preenchimento dos itens da NF-e', () => {
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     await act(async () => result.current.handleEmit());
     expect(result.current.recipientTaxIdError).toBe(
-      'CPF ou CNPJ do destinatário é obrigatório para esta operação fiscal.'
+      'A NF-e modelo 55 desta venda doméstica exige CPF/CNPJ do destinatário.'
     );
     expect(mocks.emit).not.toHaveBeenCalled();
     expect(mocks.toast).toHaveBeenCalledWith(
-      'CPF ou CNPJ do destinatário é obrigatório para esta operação fiscal.'
+      'A NF-e modelo 55 desta venda doméstica exige CPF/CNPJ do destinatário.'
     );
   });
 
@@ -291,7 +486,7 @@ describe('preenchimento dos itens da NF-e', () => {
       shipping: { deliveryMethod: 'pickup' },
       customerData: { fullName: 'Consumidor', personType: 'PF' },
       paymentsSummary: { totalOrderValue: 4500 },
-      fiscalContext: { finalConsumer: true },
+      fiscalContext: { finalConsumer: true, presence: '4' },
     };
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     render(<NfeEmissionModal isOpen order={nfcePickupOrder} onClose={vi.fn()} />);
@@ -301,13 +496,13 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(screen.getByLabelText('CPF')).toBeTruthy();
     expect(screen.getByText('Identificação não exigida')).toBeTruthy();
-    expect(screen.getByText('Identificação não exigida pela SEFAZ nesta operação.')).toBeTruthy();
+    expect(screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')).toBeTruthy();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][6]).toBe('');
   });
 
-  it('permite emitir NFC-e modelo 65 com entrega em domicílio abaixo de R$ 10.000 sem exigir CPF/CNPJ', async () => {
+  it('exige CPF/CNPJ para NFC-e não presencial, mesmo abaixo de R$ 10.000', async () => {
     const nfceDeliveryOrder: any = {
       ...order,
       id: 'nfce-delivery-without-tax-id',
@@ -322,9 +517,18 @@ describe('preenchimento dos itens da NF-e', () => {
       expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
-    expect(screen.getByText('Identificação não exigida')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Como este pedido será entregue no endereço do cliente, o CPF do destinatário é obrigatório para a NFC-e.'
+      )
+    ).toBeTruthy();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
-    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(
+        'Como este pedido será entregue no endereço do cliente, o CPF do destinatário é obrigatório para a NFC-e.'
+      )
+    ).toBeTruthy();
+    expect(mocks.emit).not.toHaveBeenCalled();
   });
 
   it('bloqueia NFC-e modelo 65 a partir de R$ 10.000 quando não há CPF/CNPJ', async () => {
@@ -345,7 +549,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(field.getAttribute('aria-invalid')).toBe('true');
     expect(
       await screen.findByText(
-        'Identificação obrigatória — NFC-e com valor igual ou superior a R$ 10.000.'
+        'Esta NFC-e tem valor igual ou superior a R$ 10.000; informe o CPF do destinatário.'
       )
     ).toBeTruthy();
     expect(mocks.emit).not.toHaveBeenCalled();
@@ -365,9 +569,7 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     const field = await screen.findByLabelText(/CPF/);
     expect(field.getAttribute('aria-invalid')).toBe('true');
-    expect(
-      await screen.findByText(/CPF ou CNPJ do destinatário é obrigatório para esta operação fiscal/)
-    ).toBeTruthy();
+    expect(field.getAttribute('aria-describedby')).toBe('nfe-recipient-tax-id-error');
     expect(mocks.emit).not.toHaveBeenCalled();
   });
 
@@ -471,8 +673,12 @@ describe('preenchimento dos itens da NF-e', () => {
     render(<PostOrderActionsModal order={orderWithAllOrigins} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Emitir nota fiscal de saída' }));
 
+    // No novo fluxo, o clique abre primeiramente a escolha de ambiente
     expect(await screen.findByRole('dialog', { name: 'Emitir nota fiscal de saída' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: 'Itens' }));
+    // Clica em Homologação para abrir o formulário de emissão
+    fireEvent.click(screen.getByRole('button', { name: /Homologação/i }));
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Itens' }));
     for (const description of [
       'Produto de estoque novo',
       'Produto usado sem vínculo de estoque',
@@ -506,5 +712,218 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(await screen.findByText('Item avulso para conferência')).toBeTruthy();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('informa exatamente o campo NCM faltante com toast específico, alterna para a aba de itens e destaca o campo', async () => {
+    const orderMissingNcm: any = {
+      ...order,
+      id: 'missing-ncm-order',
+      items: [
+        {
+          quantity: 1,
+          description: 'CADEIRA GAMER',
+          fiscal: { ncm: '', cfop: '5102', cst: '102', origem: '0' },
+        },
+      ],
+    };
+
+    render(<NfeEmissionModal isOpen order={orderMissingNcm} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(mocks.toast).toHaveBeenCalledWith('Informe o NCM do produto "CADEIRA GAMER".');
+    expect(mocks.emit).not.toHaveBeenCalled();
+
+    // Deve alternar para a aba de Itens e renderizar o elemento de erro
+    await waitFor(() => {
+      const ncmInput = document.getElementById('nfe-item-ncm-0');
+      expect(ncmInput).toBeTruthy();
+      expect(ncmInput?.getAttribute('data-has-error')).toBe('true');
+    });
+  });
+
+  it('informa exatamente quando o NCM não possui 8 dígitos', async () => {
+    const orderInvalidNcm: any = {
+      ...order,
+      id: 'invalid-ncm-length',
+      items: [
+        {
+          quantity: 1,
+          description: 'MESA OFFICE',
+          fiscal: { ncm: '9403', cfop: '5102', cst: '102', origem: '0' },
+        },
+      ],
+    };
+
+    render(<NfeEmissionModal isOpen order={orderInvalidNcm} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(mocks.toast).toHaveBeenCalledWith(
+      'NCM do produto "MESA OFFICE" deve conter exatamente 8 dígitos.'
+    );
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it('informa exatamente o CFOP faltante, abre a sanfona do item e destaca o campo com erro', async () => {
+    const orderMissingCfop: any = {
+      ...order,
+      id: 'missing-cfop-order',
+      items: [
+        {
+          quantity: 1,
+          description: 'ESTANTE DE LIVROS',
+          fiscal: { ncm: '94036000', cfop: '', cst: '102', origem: '0' },
+        },
+      ],
+    };
+
+    render(<NfeEmissionModal isOpen order={orderMissingCfop} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+
+    // Na interface, o usuário limpa o CFOP do item
+    fireEvent.click(screen.getByRole('tab', { name: 'Itens' }));
+    // Abre a sanfona de campos fiscais
+    const expandButtons = screen.getAllByTitle('Ver / editar CFOP, CSOSN, Origem e CEST');
+    fireEvent.click(expandButtons[0]);
+    const cfopSelect = document.getElementById('nfe-item-cfop-0') as HTMLSelectElement;
+    fireEvent.change(cfopSelect, { target: { value: '' } });
+
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(mocks.toast).toHaveBeenCalledWith('Selecione o CFOP do produto "ESTANTE DE LIVROS".');
+    expect(mocks.emit).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      const cfopSelect = document.getElementById('nfe-item-cfop-0');
+      expect(cfopSelect).toBeTruthy();
+      expect(cfopSelect?.className).toContain('border-rose-500');
+    });
+  });
+
+  it('exibe o CSOSN preenchido como 103 por padrão e com campo desativado para edição manual', async () => {
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Itens' }));
+    const expandButtons = screen.getAllByTitle('Ver / editar CFOP, CSOSN, Origem e CEST');
+    fireEvent.click(expandButtons[0]);
+
+    const csosnSelect = document.getElementById('nfe-item-csosn-0') as HTMLSelectElement;
+    expect(csosnSelect).toBeTruthy();
+    expect(csosnSelect.value).toBe('103');
+    expect(csosnSelect.disabled).toBe(true);
+  });
+
+  it('desativa a opção de homologação com tooltip no modal prévio quando já emitida em homologação', async () => {
+    const orderHmlIssued: any = {
+      ...order,
+      id: 'hml-issued-order',
+      nfeData: {
+        status: 'homologada',
+        environment: 2,
+        accessKey: '41260400000000000000550010000000011000000010',
+      },
+    };
+
+    render(
+      <NfeEnvironmentChoiceModal
+        isOpen
+        order={orderHmlIssued}
+        onClose={vi.fn()}
+        onSelectEnvironment={vi.fn()}
+      />
+    );
+
+    const hmlButton = screen.getByText('Homologação').closest('button');
+    expect(hmlButton?.hasAttribute('disabled')).toBe(true);
+    expect(hmlButton?.getAttribute('title')).toBe(
+      'Nota fiscal de homologação já emitida para este pedido.'
+    );
+  });
+
+  it('mantém a opção de produção desativada por segurança no modal prévio', async () => {
+    const orderForTest: any = {
+      ...order,
+      id: 'prod-test-order',
+      nfeData: null,
+    };
+
+    render(
+      <NfeEnvironmentChoiceModal
+        isOpen
+        order={orderForTest}
+        onClose={vi.fn()}
+        onSelectEnvironment={vi.fn()}
+      />
+    );
+
+    const prodButton = screen.getByText('Produção').closest('button');
+    expect(prodButton?.hasAttribute('disabled')).toBe(true);
+    expect(prodButton?.getAttribute('title')).toBe(
+      'Emissão em produção desativada temporariamente por segurança.'
+    );
+  });
+
+  it('no modal de formulário, não exibe os botões de seleção de ambiente no cabeçalho e inicializa com o ambiente escolhido', async () => {
+    render(
+      <NfeEmissionModal
+        isOpen
+        order={order}
+        initialEnvironment={2}
+        onClose={vi.fn()}
+      />
+    );
+
+    // O cabeçalho não deve mais conter os seletores radio de ambiente
+    expect(screen.queryByRole('radiogroup', { name: 'Ambiente de emissão' })).toBeNull();
+    // Exibe a tag de identificação do ambiente no cabeçalho
+    expect(screen.getByText('Homologação')).toBeTruthy();
+  });
+
+  it('desativa o botão de emitir nota fiscal de saída nas ações pós-venda com tooltip informativo quando já emitida', async () => {
+    const orderWithNfe: any = {
+      ...order,
+      id: 'post-order-nfe-issued',
+      nfeData: {
+        status: 'autorizada',
+        accessKey: '41260400000000000000550010000000031000000030',
+      },
+    };
+
+    render(<PostOrderActionsModal order={orderWithNfe} onClose={vi.fn()} />);
+
+    const issueNfeButton = screen.getByText('Emitir nota fiscal de saída').closest('button');
+    expect(issueNfeButton).toBeTruthy();
+    expect(issueNfeButton?.hasAttribute('disabled')).toBe(true);
+    expect(issueNfeButton?.getAttribute('title')).toBe('Nota fiscal já emitida para este pedido.');
+    expect(issueNfeButton?.className).toContain('cursor-not-allowed');
+  });
+
+  it('nas ações pós-venda, ao clicar em emitir nota fiscal abre primeiramente a escolha de ambiente', async () => {
+    const freshOrder: any = {
+      ...order,
+      id: 'fresh-post-order',
+      nfeData: null,
+    };
+
+    render(<PostOrderActionsModal order={freshOrder} onClose={vi.fn()} />);
+
+    const issueNfeButton = screen.getByText('Emitir nota fiscal de saída');
+    fireEvent.click(issueNfeButton);
+
+    expect(screen.getByText('Selecione o ambiente fiscal', { exact: false })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Homologação/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Produção/i })).toBeTruthy();
   });
 });

@@ -150,7 +150,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
   });
 
   // 2. 65 + entrega própria → ON / 3
-  it('2. 65 + entrega própria: modFrete = 3, hasTransport = true e transporta oficial do emitente', async () => {
+  it('2. 65 + entrega própria: modFrete = 3 e sem dados fictícios de transportador', async () => {
     const res = resolveTransport({ fiscalModel: '65', deliveryMethod: 'delivery' });
     expect(res.hasTransport).toBe(true);
     expect(res.modFrete).toBe('3');
@@ -171,13 +171,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
     expect(result.document.model).toBe('65');
     expect(result.document.operation.freightMode).toBe('3');
-    expect(result.document.operation.transporter).toEqual({
-      cnpj: '12345678000195',
-      name: 'EMPRESA TESTE UNITARIO',
-      ie: '1234567890',
-      city: 'COLOMBO',
-      uf: 'PR',
-    });
+    expect(result.document.operation.transporter).toBeUndefined();
 
     const key = generateNfeAccessKey({
       ufCode: '41',
@@ -198,8 +192,8 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     });
 
     expect(xml).toContain('<modFrete>3</modFrete>');
-    expect(xml).toContain('<transporta>');
-    expect(xml).toContain('<CNPJ>12345678000195</CNPJ>');
+    expect(xml).toContain('<transporta/>');
+    expect(xml).not.toContain('<transporta><CNPJ>');
   });
 
   // 3. 55 + retirada própria do cliente → ON / 4
@@ -314,7 +308,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     facts.emissionRequest.transportResponsible = 'THIRD_PARTY';
     facts.emissionRequest.freightContractResponsible = 'SENDER';
     facts.emissionRequest.transporter = {
-      cnpj: '98765432000199',
+      cnpj: '11222333000181',
       name: 'TRANSPORTADORA CIF LTDA',
       city: 'Curitiba',
       uf: 'PR',
@@ -553,8 +547,8 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     delete (facts.emissionRequest as any).transporter;
     delete (facts.order.data.shipping as any).transporter;
 
-    await expect(
-      createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())
-    ).rejects.toThrow('Identifique o transportador terceirizado');
+    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
+      'Identifique o transportador terceirizado'
+    );
   });
 });

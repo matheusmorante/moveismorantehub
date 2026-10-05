@@ -1,7 +1,14 @@
 import { determineWithApprovedRules, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { parseItemCsosnOverrides } from './csosnPolicy';
-import { parseFiscalItemSelections, type FiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
+import {
+  parseFiscalItemSelections,
+  type FiscalItemSelections,
+} from '../../shared-utils/fiscalItemSelections';
 import type { FiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
+import {
+  isValidRecipientTaxId,
+  normalizeRecipientTaxId,
+} from '../../shared-utils/recipientTaxId';
 
 export type FiscalJsonValue =
   | string
@@ -27,6 +34,16 @@ export type FiscalIssuerProfileKey =
   | 'companyUF'
   | 'companyPhone'
   | 'cscId';
+
+export type FiscalTransporter = {
+  cnpj?: string;
+  cpf?: string;
+  name: string;
+  ie?: string;
+  address?: string;
+  city?: string;
+  uf?: string;
+};
 
 /** Commercial facts captured from PostgreSQL; fiscal classifications remain undetermined. */
 export type FiscalSnapshot = {
@@ -58,7 +75,7 @@ export type FiscalSnapshot = {
     deliveryByIssuer?: boolean;
     cardNotIntegrated?: boolean;
     modelDecision?: FiscalModelDecision;
-    transporter?: { cnpj?: string; cpf?: string; name: string; ie?: string; address?: string; city?: string; uf?: string };
+    transporter?: FiscalTransporter;
     freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
     hasTransport?: boolean;
     transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY';
@@ -80,7 +97,7 @@ export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & 
     deliveryByIssuer?: boolean;
     cardNotIntegrated?: boolean;
     modelDecision?: FiscalModelDecision;
-    transporter?: { cnpj?: string; cpf?: string; name: string; ie?: string; address?: string; city?: string; uf?: string };
+    transporter?: FiscalTransporter;
     freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
     hasTransport?: boolean;
     transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY';
@@ -152,6 +169,7 @@ export type FiscalAddress = {
 export type DeterminedFiscalRecipient = {
   name: string;
   cpfCnpj: string;
+  personType?: 'PF' | 'PJ';
   ieIndicator: string;
   ie?: string;
   address?: FiscalAddress;
@@ -165,7 +183,15 @@ export type DeterminedFiscalOperation = {
   presence: string;
   finalConsumer: '0' | '1';
   freightMode: string;
-  transporter?: { cnpj?: string; cpf?: string; name: string; ie?: string; address?: string; city?: string; uf?: string };
+  transporter?: {
+    cnpj?: string;
+    cpf?: string;
+    name: string;
+    ie?: string;
+    address?: string;
+    city?: string;
+    uf?: string;
+  };
 };
 
 export type ReconciledFiscalTotals = {
@@ -222,7 +248,12 @@ export type DeterminedPayment = {
   methodCode: string;
   amount: number;
   installments?: number;
-  card?: { integrationType: '1' | '2'; acquirerCnpj?: string; brand?: string; authorization?: string };
+  card?: {
+    integrationType: '1' | '2';
+    acquirerCnpj?: string;
+    brand?: string;
+    authorization?: string;
+  };
   decision: FiscalDecisionTrace;
 };
 
@@ -266,13 +297,21 @@ export type FiscalEmissionCommand = {
   itemFiscalSelections?: FiscalItemSelections;
   recipientTaxId?: string;
   finalConsumer?: boolean;
-    deliveryByIssuer?: boolean;
-    cardNotIntegrated?: boolean;
-    transporter?: { cnpj?: string; cpf?: string; name: string; ie?: string; address?: string; city?: string; uf?: string };
-    freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
-    hasTransport?: boolean;
-    transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY';
-    freightContractResponsible?: 'SENDER' | 'RECIPIENT' | 'THIRD_PARTY';
+  deliveryByIssuer?: boolean;
+  cardNotIntegrated?: boolean;
+  transporter?: {
+    cnpj?: string;
+    cpf?: string;
+    name: string;
+    ie?: string;
+    address?: string;
+    city?: string;
+    uf?: string;
+  };
+  freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
+  hasTransport?: boolean;
+  transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY';
+  freightContractResponsible?: 'SENDER' | 'RECIPIENT' | 'THIRD_PARTY';
 };
 
 export type FiscalSnapshotReservation = {
@@ -362,17 +401,25 @@ export function parseFiscalEmissionCommand(
       if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
         throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
     }
-  } catch (error) { return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' }; }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' };
+  }
   const recipientTaxId = body.recipientTaxId;
-  if (body.cardNotIntegrated !== undefined && typeof body.cardNotIntegrated !== "boolean")
-    return { error: "Confirme a integração do cartão." };
-  if (body.deliveryByIssuer !== undefined && typeof body.deliveryByIssuer !== "boolean")
-    return { error: "Entrega própria deve ser Sim ou Não." };
+  if (body.cardNotIntegrated !== undefined && typeof body.cardNotIntegrated !== 'boolean')
+    return { error: 'Confirme a integração do cartão.' };
+  if (body.deliveryByIssuer !== undefined && typeof body.deliveryByIssuer !== 'boolean')
+    return { error: 'Entrega própria deve ser Sim ou Não.' };
   if (body.hasTransport !== undefined && typeof body.hasTransport !== 'boolean')
     return { error: 'O indicador de transporte deve ser Sim ou Não.' };
-  if (body.transportResponsible !== undefined && !['OWN_COMPANY', 'CUSTOMER', 'THIRD_PARTY'].includes(String(body.transportResponsible)))
+  if (
+    body.transportResponsible !== undefined &&
+    !['OWN_COMPANY', 'CUSTOMER', 'THIRD_PARTY'].includes(String(body.transportResponsible))
+  )
     return { error: 'Responsável pelo transporte inválido.' };
-  if (body.freightContractResponsible !== undefined && !['SENDER', 'RECIPIENT', 'THIRD_PARTY'].includes(String(body.freightContractResponsible)))
+  if (
+    body.freightContractResponsible !== undefined &&
+    !['SENDER', 'RECIPIENT', 'THIRD_PARTY'].includes(String(body.freightContractResponsible))
+  )
     return { error: 'Responsável pela contratação do frete inválido.' };
   if (body.hasTransport === false) {
     if (body.transportResponsible && body.transportResponsible !== 'NONE')
@@ -384,10 +431,12 @@ export function parseFiscalEmissionCommand(
   }
   if (body.finalConsumer !== undefined && typeof body.finalConsumer !== 'boolean')
     return { error: 'Consumidor final deve ser Sim ou Não.' };
-  if (recipientTaxId !== undefined &&
-      (typeof recipientTaxId !== 'string' || (recipientTaxId !== '' &&
-        (/[^\d.\/\s-]/.test(recipientTaxId) || !/^(?:\d{11}|\d{14})$/.test(recipientTaxId.replace(/\D/g, ''))))))
-    return { error: 'O CPF/CNPJ para esta emissão deve conter 11 ou 14 dígitos.' };
+  if (
+    recipientTaxId !== undefined &&
+    (typeof recipientTaxId !== 'string' ||
+      (recipientTaxId !== '' && !isValidRecipientTaxId(recipientTaxId)))
+  )
+    return { error: 'Informe um CPF ou CNPJ válido para esta emissão.' };
 
   let transporter: FiscalTransporter | undefined;
   if (body.transporter !== undefined) {
@@ -395,13 +444,16 @@ export function parseFiscalEmissionCommand(
       return { error: 'Dados do transportador inválidos.' };
     const t = body.transporter as Record<string, unknown>;
     const name = typeof t.name === 'string' ? t.name.trim() : '';
-    const doc = typeof t.cnpj === 'string' ? t.cnpj.replace(/\D/g, '') : typeof t.cpf === 'string' ? t.cpf.replace(/\D/g, '') : '';
+    const isCnpj = typeof t.cnpj === 'string';
+    const doc = normalizeRecipientTaxId(
+      isCnpj ? String(t.cnpj) : typeof t.cpf === 'string' ? t.cpf : ''
+    );
     if (!name) return { error: 'Razão social ou nome do transportador é obrigatório.' };
-    if (![11, 14].includes(doc.length))
-      return { error: 'CNPJ ou CPF do transportador deve conter 11 ou 14 dígitos.' };
+    if (!isValidRecipientTaxId(doc) || (isCnpj ? doc.length !== 14 : doc.length !== 11))
+      return { error: 'CPF ou CNPJ válido do transportador é obrigatório.' };
     transporter = {
       name,
-      ...(doc.length === 14 ? { cnpj: doc } : { cpf: doc }),
+      ...(isCnpj ? { cnpj: doc } : { cpf: doc }),
       ...(typeof t.ie === 'string' && t.ie.trim() ? { ie: t.ie.trim().replace(/\D/g, '') } : {}),
       ...(typeof t.address === 'string' && t.address.trim() ? { address: t.address.trim() } : {}),
       ...(typeof t.city === 'string' && t.city.trim() ? { city: t.city.trim() } : {}),
@@ -428,10 +480,16 @@ export function parseFiscalEmissionCommand(
       ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
       ...(body.finalConsumer === undefined ? {} : { finalConsumer: body.finalConsumer }),
       ...(body.deliveryByIssuer === undefined ? {} : { deliveryByIssuer: body.deliveryByIssuer }),
-      ...(body.cardNotIntegrated === undefined ? {} : { cardNotIntegrated: body.cardNotIntegrated }),
+      ...(body.cardNotIntegrated === undefined
+        ? {}
+        : { cardNotIntegrated: body.cardNotIntegrated }),
       ...(body.hasTransport === undefined ? {} : { hasTransport: body.hasTransport as boolean }),
-      ...(body.transportResponsible === undefined ? {} : { transportResponsible: body.transportResponsible as any }),
-      ...(body.freightContractResponsible === undefined ? {} : { freightContractResponsible: body.freightContractResponsible as any }),
+      ...(body.transportResponsible === undefined
+        ? {}
+        : { transportResponsible: body.transportResponsible as any }),
+      ...(body.freightContractResponsible === undefined
+        ? {}
+        : { freightContractResponsible: body.freightContractResponsible as any }),
       ...(transporter ? { transporter } : {}),
       ...(freightMode ? { freightMode } : {}),
       ...(body.productionConfirmed === undefined
