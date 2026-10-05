@@ -1,0 +1,288 @@
+{
+  "roots": [
+    {
+      "source": "v2.crt",
+      "subject": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v2",
+      "issuer": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v2",
+      "serial": "01",
+      "ca": true,
+      "validFrom": "Jun 21 19:04:57 2010 GMT",
+      "validTo": "Jun 21 19:04:57 2023 GMT",
+      "fingerprint256": "FB:47:D9:2A:99:09:FD:4F:A9:BE:C0:27:37:54:3E:1F:35:14:CE:D7:47:40:7A:8D:9C:FA:39:7B:09:15:06:7C"
+    },
+    {
+      "source": "v5.crt",
+      "subject": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v5",
+      "issuer": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v5",
+      "serial": "01",
+      "ca": true,
+      "validFrom": "Mar  2 13:01:38 2016 GMT",
+      "validTo": "Mar  2 23:59:38 2029 GMT",
+      "fingerprint256": "CA:A5:3F:C6:09:1C:69:51:88:7C:97:6E:37:8F:6E:F8:9A:A6:37:7C:55:D9:7B:64:75:42:2B:71:ED:7E:9B:17"
+    },
+    {
+      "source": "icpBrasilRoots[0]",
+      "subject": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v10",
+      "issuer": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v10",
+      "serial": "D2D58B44BF819342",
+      "ca": true,
+      "validFrom": "Jul  1 19:15:59 2019 GMT",
+      "validTo": "Jul  1 12:00:59 2032 GMT",
+      "fingerprint256": "6E:0B:FF:06:9A:26:99:4C:15:DE:2C:48:88:CC:54:AF:84:88:2E:54:95:B7:FB:F6:6B:E9:CC:FF:EC:74:89:F6"
+    }
+  ],
+  "openssl": [
+    {
+      "host": "homologacao.nfe.sefa.pr.gov.br",
+      "returnCode": "0",
+      "returnString": "ok",
+      "chain": [
+        {
+          "subject": "C=BR, O=COMPANHIA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO PARANA - CELEPAR, ST=PR, L=Curitiba, serialNumber=76545011000119, CN=homologacao.nfe.sefa.pr.gov.br, businessCategory=Government Entity, jurisdictionC=BR",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "RSA sign, DSA sign, ECDSA sign",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224:ECDSA+SHA1:RSA+SHA1:DSA+SHA1:UNDEF",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224",
+          "issuer": "unknown"
+        }
+      ]
+    },
+    {
+      "host": "homologacao.nfce.sefa.pr.gov.br",
+      "returnCode": "0",
+      "returnString": "ok",
+      "chain": [
+        {
+          "subject": "C=BR, O=COMPANHIA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO PARANA - CELEPAR, ST=PR, L=Curitiba, serialNumber=76545011000119, CN=homologacao.nfce.sefa.pr.gov.br, businessCategory=Government Entity, jurisdictionC=BR",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "RSA sign, DSA sign, ECDSA sign",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224:ECDSA+SHA1:RSA+SHA1:DSA+SHA1:UNDEF",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224",
+          "issuer": "unknown"
+        }
+      ]
+    },
+    {
+      "host": "nfe.sefa.pr.gov.br",
+      "returnCode": "0",
+      "returnString": "ok",
+      "chain": [
+        {
+          "subject": "C=BR, O=COMPANHIA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO PARANA - CELEPAR, ST=PR, L=Curitiba, serialNumber=76545011000119, CN=nfe.sefa.pr.gov.br, businessCategory=Government Entity, jurisdictionC=BR",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "RSA sign, DSA sign, ECDSA sign",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224:ECDSA+SHA1:RSA+SHA1:DSA+SHA1:UNDEF",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224",
+          "issuer": "unknown"
+        }
+      ]
+    },
+    {
+      "host": "nfce.sefa.pr.gov.br",
+      "returnCode": "0",
+      "returnString": "ok",
+      "chain": [
+        {
+          "subject": "C=BR, O=COMPANHIA DE TECNOLOGIA DA INFORMACAO E COMUNICACAO DO PARANA - CELEPAR, ST=PR, L=Curitiba, serialNumber=76545011000119, CN=nfce.sefa.pr.gov.br, businessCategory=Government Entity, jurisdictionC=BR",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Autoridade Certificadora Raiz Brasileira v10, CN=AC SOLUTI SSL EV G4",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10",
+          "issuer": "C=BR, O=ICP-Brasil, OU=Instituto Nacional de Tecnologia da Informacao - ITI, CN=Autoridade Certificadora Raiz Brasileira v10"
+        },
+        {
+          "subject": "RSA sign, DSA sign, ECDSA sign",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224:ECDSA+SHA1:RSA+SHA1:DSA+SHA1:UNDEF",
+          "issuer": "unknown"
+        },
+        {
+          "subject": "ECDSA+SHA512:RSA+SHA512:ECDSA+SHA384:RSA+SHA384:ECDSA+SHA256:RSA+SHA256:ECDSA+SHA224:RSA+SHA224",
+          "issuer": "unknown"
+        }
+      ]
+    }
+  ],
+  "nodePure": [
+    {
+      "host": "homologacao.nfe.sefa.pr.gov.br",
+      "authorized": true,
+      "authorizationError": null,
+      "protocol": "TLSv1.2",
+      "cipher": "ECDHE-RSA-AES128-SHA256",
+      "peerSubject": "homologacao.nfe.sefa.pr.gov.br",
+      "peerIssuer": "AC SOLUTI SSL EV G4",
+      "peerFingerprint": "80:78:B9:7A:35:C4:9D:C0:31:D9:30:BF:FC:89:4B:2F:84:CC:BA:76:3B:B8:06:B1:FE:DA:86:99:16:36:79:4D",
+      "duration": 200
+    },
+    {
+      "host": "homologacao.nfce.sefa.pr.gov.br",
+      "authorized": true,
+      "authorizationError": null,
+      "protocol": "TLSv1.2",
+      "cipher": "ECDHE-RSA-AES128-SHA256",
+      "peerSubject": "homologacao.nfce.sefa.pr.gov.br",
+      "peerIssuer": "AC SOLUTI SSL EV G4",
+      "peerFingerprint": "EF:2A:0B:01:1E:E4:79:ED:AF:8F:EA:EE:3D:D8:5F:FF:F3:3D:75:B6:19:5D:F4:CF:73:55:20:A7:B5:7C:BD:44",
+      "duration": 150
+    },
+    {
+      "host": "nfe.sefa.pr.gov.br",
+      "authorized": true,
+      "authorizationError": null,
+      "protocol": "TLSv1.2",
+      "cipher": "ECDHE-RSA-AES128-SHA256",
+      "peerSubject": "nfe.sefa.pr.gov.br",
+      "peerIssuer": "AC SOLUTI SSL EV G4",
+      "peerFingerprint": "74:D5:A1:AC:BF:A3:95:11:A1:6C:F7:84:94:15:4A:FC:DB:F4:C6:28:76:16:70:0A:88:B6:21:47:CD:AE:BC:2B",
+      "duration": 266
+    },
+    {
+      "host": "nfce.sefa.pr.gov.br",
+      "authorized": true,
+      "authorizationError": null,
+      "protocol": "TLSv1.2",
+      "cipher": "ECDHE-RSA-AES128-SHA256",
+      "peerSubject": "nfce.sefa.pr.gov.br",
+      "peerIssuer": "AC SOLUTI SSL EV G4",
+      "peerFingerprint": "AC:24:F1:29:98:44:CC:55:9C:00:B7:84:AB:27:7D:A6:B4:62:D1:9E:8B:2A:1A:3C:80:C2:C8:5C:0A:28:74:A3",
+      "duration": 159
+    }
+  ],
+  "nodeDefault": [
+    {
+      "host": "homologacao.nfe.sefa.pr.gov.br",
+      "authorized": false,
+      "error": "SELF_SIGNED_CERT_IN_CHAIN",
+      "duration": 200
+    },
+    {
+      "host": "homologacao.nfce.sefa.pr.gov.br",
+      "authorized": false,
+      "error": "SELF_SIGNED_CERT_IN_CHAIN",
+      "duration": 81
+    },
+    {
+      "host": "nfe.sefa.pr.gov.br",
+      "authorized": false,
+      "error": "SELF_SIGNED_CERT_IN_CHAIN",
+      "duration": 90
+    },
+    {
+      "host": "nfce.sefa.pr.gov.br",
+      "authorized": false,
+      "error": "SELF_SIGNED_CERT_IN_CHAIN",
+      "duration": 82
+    }
+  ],
+  "agentErp": [
+    {
+      "host": "homologacao.nfe.sefa.pr.gov.br",
+      "status": 200,
+      "duration": 217,
+      "usedA1": true
+    },
+    {
+      "host": "homologacao.nfce.sefa.pr.gov.br",
+      "status": 200,
+      "duration": 175,
+      "usedA1": true
+    },
+    {
+      "host": "nfe.sefa.pr.gov.br",
+      "status": 200,
+      "duration": 171,
+      "usedA1": true
+    },
+    {
+      "host": "nfce.sefa.pr.gov.br",
+      "status": 200,
+      "duration": 174,
+      "usedA1": true
+    }
+  ],
+  "axiosErp": [
+    {
+      "host": "homologacao.nfe.sefa.pr.gov.br",
+      "status": 404,
+      "error": "Request failed with status code 404"
+    },
+    {
+      "host": "homologacao.nfce.sefa.pr.gov.br",
+      "status": 404,
+      "error": "Request failed with status code 404"
+    },
+    {
+      "host": "nfe.sefa.pr.gov.br",
+      "status": 404,
+      "error": "Request failed with status code 404"
+    },
+    {
+      "host": "nfce.sefa.pr.gov.br",
+      "status": 404,
+      "error": "Request failed with status code 404"
+    }
+  ],
+  "clientCert": {
+    "loaded": true,
+    "subject": "C=BR\nO=ICP-Brasil\nST=PR\nL=Colombo\nOU=AC SOLUTI Multipla v5\nOU=34878804000100\nOU=Certificado Digital\nOU=Certificado PJ A1\nCN=MOVEIS MORANTE LTDA:44512248000107",
+    "issuer": "C=BR\nO=ICP-Brasil\nOU=AC SOLUTI v5\nCN=AC SOLUTI Multipla v5",
+    "validFrom": "Sep 25 15:04:00 2026 GMT",
+    "validTo": "Sep 25 15:04:00 2027 GMT",
+    "fingerprint256": "8B:26:3A:53:F2:22:2C:B5:22:6F:50:9B:58:D2:87:21:A9:2C:85:C4:B8:48:79:A0:6C:73:69:D5:F7:72:7B:80"
+  }
+}

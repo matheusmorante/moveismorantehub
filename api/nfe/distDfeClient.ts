@@ -65,7 +65,9 @@ export async function sendDistDfeSoapToSefaz(
       );
 
       req.on('timeout', () => {
-        req.destroy(Object.assign(new Error('Timeout na comunicação com a SEFAZ.'), {code: 'ETIMEDOUT'}));
+        req.destroy(
+          Object.assign(new Error('Timeout na comunicação com a SEFAZ.'), { code: 'ETIMEDOUT' })
+        );
       });
 
       req.on('error', (err) => {

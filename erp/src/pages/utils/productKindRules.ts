@@ -22,8 +22,24 @@ export const normalizeProductForSave = (
   const isSalvado = isSalvadoProduct(formData);
   const forceInactive = options.isDraft || isSalvado;
 
+  const parseTech = (names: string[], currentVal: unknown) => {
+    if (typeof currentVal === 'number' && currentVal > 0) return currentVal;
+    const tv = formData.technicalValues || {};
+    for (const name of names) {
+      if (tv[name]) {
+        const num = Number(String(tv[name]).replace(',', '.'));
+        if (!isNaN(num) && num > 0) return num;
+      }
+    }
+    return typeof currentVal === 'number' ? currentVal : 0;
+  };
+
   return {
     ...formData,
+    width: parseTech(['Largura'], formData.width),
+    height: parseTech(['Altura'], formData.height),
+    depth: parseTech(['Profundidade', 'Comprimento'], formData.depth),
+    weight: parseTech(['Peso'], formData.weight),
     name: options.name || formData.name || 'Produto',
     productKind: formData.productKind ? getProductKind(formData) : undefined,
     isDraft: options.isDraft,

@@ -66,3 +66,10 @@ trivy-report.json
 sbom.json
 knip-report.json
 erp/server/nfe/
+
+# Client certificate containers and private keys must stay outside Git.
+*.pfx
+*.p12
+*.key
+*private*.pem
+*encrypted-client*.pem

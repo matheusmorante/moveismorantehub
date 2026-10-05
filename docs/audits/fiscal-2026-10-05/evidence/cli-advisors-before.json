@@ -1,0 +1,18 @@
+{
+  "command": "npm run advisors",
+  "exitCode": 0,
+  "count": 411,
+  "counts": {
+    "policy_exists_rls_disabled": 1,
+    "security_definer_view": 1,
+    "function_search_path_mutable": 23,
+    "rls_disabled_in_public": 3,
+    "extension_in_public": 2,
+    "anon_security_definer_function_executable": 20,
+    "authenticated_security_definer_function_executable": 62,
+    "auth_leaked_password_protection": 1,
+    "auth_rls_initplan": 27,
+    "multiple_permissive_policies": 270,
+    "duplicate_index": 1
+  }
+}

@@ -1,0 +1,595 @@
+{
+  "mode": "git-history-all-refs",
+  "exitCode": 1,
+  "count": 98,
+  "findings": [
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/services/authPasswordRecovery.test.ts",
+      "line": 104,
+      "commit": "99cdece06348ff268d4d42100842eff35298577b"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/src/services/authPasswordRecovery.test.ts",
+      "line": 104,
+      "commit": "99cdece06348ff268d4d42100842eff35298577b"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/utils/nfe/__tests__/hmlTechnicalEmission.test.ts",
+      "line": 166,
+      "commit": "fb05a42326dd0bd5e90404be34f9662fb033ec88"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/utils/inboundNfe/__tests__/inboundInvoicesService.test.ts",
+      "line": 99,
+      "commit": "d4f47cb3a24998f44a303c3f995347fd3c0c8331"
+    },
+    {
+      "rule": "jwt",
+      "file": "src/telemetry/__tests__/tracer.test.ts",
+      "line": 30,
+      "commit": "d4f47cb3a24998f44a303c3f995347fd3c0c8331"
+    },
+    {
+      "rule": "stripe-access-token",
+      "file": "src/telemetry/__tests__/tracer.test.ts",
+      "line": 30,
+      "commit": "365c0e2388cc9f4fe8eeaad5adce0a9021e22fd5"
+    },
+    {
+      "rule": "jwt",
+      "file": "src/telemetry/__tests__/tracer.test.ts",
+      "line": 29,
+      "commit": "365c0e2388cc9f4fe8eeaad5adce0a9021e22fd5"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/credentials.json",
+      "line": 5,
+      "commit": "731e092db75edcb745a5ec5da119db1ad7aa8f7a"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/utils/inboundNfe/__tests__/inboundInvoicesService.test.ts",
+      "line": 80,
+      "commit": "c39cd01e570974e9602426647a088ab89a7435a1"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "docs/MCP_POST_GENERATION.md",
+      "line": 38,
+      "commit": "f8ed79f18c96bb5a48e08e3c61f65701956f86e5"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "docs/MCP_POST_GENERATION.md",
+      "line": 104,
+      "commit": "f8ed79f18c96bb5a48e08e3c61f65701956f86e5"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/utils/divergenciasCorrecao.test.ts",
+      "line": 350,
+      "commit": "89b0664d50ee37d497d8ed4653fdcb96065c2f94"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/maps.ts",
+      "line": 76,
+      "commit": "24255374a91aa75bdeaf953497f64416ce00b84d"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/settingsService.ts",
+      "line": 304,
+      "commit": "24255374a91aa75bdeaf953497f64416ce00b84d"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/app.json",
+      "line": 46,
+      "commit": "cbdd9b164cc152218ace9a4b1fe7fd8a4b6c5912"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/src/features/logistics/services/googleRoutesService.ts",
+      "line": 63,
+      "commit": "cbdd9b164cc152218ace9a4b1fe7fd8a4b6c5912"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/src/features/logistics/services/googleRoutesService.ts",
+      "line": 65,
+      "commit": "cbdd9b164cc152218ace9a4b1fe7fd8a4b6c5912"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/google-services.json",
+      "line": 18,
+      "commit": "91e53f9a618e5aa439f9b41c5677142e09214e23"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/google-services.json",
+      "line": 18,
+      "commit": "91e53f9a618e5aa439f9b41c5677142e09214e23"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "supabase/backups/legacy_jsonb_backup_20260912/orders_order_data_legacy_dump.json",
+      "line": 69667,
+      "commit": "f02c84fff8abbd8a4c144bb453cca8cbaceb8aa7"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "supabase/backups/legacy_jsonb_backup_20260912/orders_order_data_legacy_dump.json",
+      "line": 154435,
+      "commit": "f02c84fff8abbd8a4c144bb453cca8cbaceb8aa7"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "digital-catalog/ideias_planos.md",
+      "line": 35,
+      "commit": "b59df1ff0a4ceff80939a2ebb19155ea69fc1150"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "digital-catalog/fix_espanha_r2.cjs",
+      "line": 14,
+      "commit": "76517e2fbb91c789aff2fe59946acf2a213e7749"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "digital-catalog/upload_all_to_r2.cjs",
+      "line": 14,
+      "commit": "76517e2fbb91c789aff2fe59946acf2a213e7749"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/migration/migrate_supabase_to_r2.cjs",
+      "line": 14,
+      "commit": "76517e2fbb91c789aff2fe59946acf2a213e7749"
+    },
+    {
+      "rule": "jwt",
+      "file": ".env.local",
+      "line": 3,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "jwt",
+      "file": "apps/erp/.env.local",
+      "line": 3,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "digital-catalog/ideias_planos.md",
+      "line": 16,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "digital-catalog/scratch/list-r2-buckets.js",
+      "line": 8,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "digital-catalog/scratch/update-token.ts",
+      "line": 9,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "jwt",
+      "file": "erp/copy_attributes_to_ecom.js",
+      "line": 4,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "jwt",
+      "file": "erp/copy_attributes_to_ecom.js",
+      "line": 8,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/debug/debug_meta.mjs",
+      "line": 5,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/migration/sync_whatsapp.ts",
+      "line": 14,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/migration/sync_whatsapp.mjs",
+      "line": 14,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/scripts/sync_local_images.js",
+      "line": 12,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/services/blingService.ts",
+      "line": 32,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/aiService.ts",
+      "line": 163,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/aiService.ts",
+      "line": 248,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/settingsService.ts",
+      "line": 260,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/settingsService.ts",
+      "line": 324,
+      "commit": "0f08d99c16699a7287009c03a00d98bdde02d3ab"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "digital-catalog/ideias_planos.md",
+      "line": 16,
+      "commit": "36d4816156255e2b5b0bb9c1eb00dea2168e59e6"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/aiService.ts",
+      "line": 163,
+      "commit": "36d4816156255e2b5b0bb9c1eb00dea2168e59e6"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/aiService.ts",
+      "line": 248,
+      "commit": "36d4816156255e2b5b0bb9c1eb00dea2168e59e6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "ecommerce/scratch/list-r2-buckets.js",
+      "line": 8,
+      "commit": "b6da8974072faac34b5de9681485a4919df0c268"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "ecommerce/scratch/update-token.ts",
+      "line": 9,
+      "commit": "b6da8974072faac34b5de9681485a4919df0c268"
+    },
+    {
+      "rule": "jwt",
+      "file": "erp/copy_attributes_to_ecom.js",
+      "line": 4,
+      "commit": "d6169aaa2c2a706afb4424f3bfb9315e4b187ff6"
+    },
+    {
+      "rule": "jwt",
+      "file": "erp/copy_attributes_to_ecom.js",
+      "line": 8,
+      "commit": "d6169aaa2c2a706afb4424f3bfb9315e4b187ff6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/pages/services/blingService.ts",
+      "line": 34,
+      "commit": "3dd16cda6dd5e4c8afb080881a82e51ca02a6cdf"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/test_google.mjs",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/settingsService.ts",
+      "line": 237,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/src/pages/utils/settingsService.ts",
+      "line": 301,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "73fc091d6db2ffcf87ade24f099822a7b56e3747"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "b71b66e784fbbb18697d3ed7dd4681fc3881c8d6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "9d5a56be08d7b55f06092b7a90130e1ac4f342fc"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "9d5a56be08d7b55f06092b7a90130e1ac4f342fc"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "9d5a56be08d7b55f06092b7a90130e1ac4f342fc"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "9d5a56be08d7b55f06092b7a90130e1ac4f342fc"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "9d5a56be08d7b55f06092b7a90130e1ac4f342fc"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "50bb0a920b1d48d27e116fc2f32cd78bcb945cde"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "50bb0a920b1d48d27e116fc2f32cd78bcb945cde"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "50bb0a920b1d48d27e116fc2f32cd78bcb945cde"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "50bb0a920b1d48d27e116fc2f32cd78bcb945cde"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "50bb0a920b1d48d27e116fc2f32cd78bcb945cde"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "bd1bf0feddb161b69581933d9a3a41dadf41a172"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "1ff1d02b6019c852038caf48e1a28dfeb5b12213"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "1ff1d02b6019c852038caf48e1a28dfeb5b12213"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "1ff1d02b6019c852038caf48e1a28dfeb5b12213"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "1ff1d02b6019c852038caf48e1a28dfeb5b12213"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "1ff1d02b6019c852038caf48e1a28dfeb5b12213"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "dc2c5fb889d725f1615b3f7b567aa0d913aa57b6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "dc2c5fb889d725f1615b3f7b567aa0d913aa57b6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "dc2c5fb889d725f1615b3f7b567aa0d913aa57b6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "dc2c5fb889d725f1615b3f7b567aa0d913aa57b6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "dc2c5fb889d725f1615b3f7b567aa0d913aa57b6"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "075c8505a6ce6020d821501352bcb60cc95ee0e2"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "075c8505a6ce6020d821501352bcb60cc95ee0e2"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "075c8505a6ce6020d821501352bcb60cc95ee0e2"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Default/Secure Preferences",
+      "line": 1,
+      "commit": "075c8505a6ce6020d821501352bcb60cc95ee0e2"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "automation/.wwebjs_auth/session-morante-hub-session/Local State",
+      "line": 1,
+      "commit": "075c8505a6ce6020d821501352bcb60cc95ee0e2"
+    },
+    {
+      "rule": "jwt",
+      "file": ".env.local",
+      "line": 3,
+      "commit": "d4d8a968ba8ac4e604fc1f33c473999927777972"
+    },
+    {
+      "rule": "jwt",
+      "file": "apps/ecommerce/.env.local",
+      "line": 3,
+      "commit": "d4d8a968ba8ac4e604fc1f33c473999927777972"
+    },
+    {
+      "rule": "jwt",
+      "file": "apps/erp/.env.local",
+      "line": 3,
+      "commit": "d4d8a968ba8ac4e604fc1f33c473999927777972"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "api/server.js",
+      "line": 26,
+      "commit": "35074eeddd253619accdc4fec36035f04cf2276e"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/debug/debug_meta.mjs",
+      "line": 5,
+      "commit": "35074eeddd253619accdc4fec36035f04cf2276e"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/migration/sync_whatsapp.mjs",
+      "line": 14,
+      "commit": "35074eeddd253619accdc4fec36035f04cf2276e"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "erp/scripts/sync_local_images.js",
+      "line": 12,
+      "commit": "35074eeddd253619accdc4fec36035f04cf2276e"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/scripts/migration/sync_whatsapp.ts",
+      "line": 14,
+      "commit": "35074eeddd253619accdc4fec36035f04cf2276e"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "apps/erp/scripts/sync_local_images.js",
+      "line": 12,
+      "commit": "87bebf51ac736a000397cdc60c02d980aa251c31"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "apps/erp/debug_meta.mjs",
+      "line": 5,
+      "commit": "51f5f2169c26cd094d1912d47f20d1e86edef4e3"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "apps/erp/sync_whatsapp.mjs",
+      "line": 14,
+      "commit": "51f5f2169c26cd094d1912d47f20d1e86edef4e3"
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "apps/erp/sync_whatsapp.ts",
+      "line": 14,
+      "commit": "51f5f2169c26cd094d1912d47f20d1e86edef4e3"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "server/server.js",
+      "line": 13,
+      "commit": "346a1c8e9cc345289f04bf30f78c620ae54328b4"
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "pdv/src/pages/utils/firebaseConfig.ts",
+      "line": 5,
+      "commit": "fc8dd06d08c00af839d806fcbf40dbf7cbb4a6bd"
+    }
+  ]
+}

@@ -1,0 +1,1428 @@
+{
+  "result": {
+    "lints": [
+      {
+        "name": "policy_exists_rls_disabled",
+        "title": "Policy Exists RLS Disabled",
+        "level": "ERROR",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) policies have been created, but RLS has not been enabled for the underlying table.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0007_policy_exists_rls_disabled",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Table \\`public.accounts_receivable\\` has RLS policies but RLS is not enabled on the table. Policies include {\"Escrita permissiva accounts_receivable\",\"Leitura permissiva accounts_receivable\"}.",
+            "metadata": {
+              "name": "accounts_receivable",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "rls_enabled_no_policy",
+        "title": "RLS Enabled No Policy",
+        "level": "INFO",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+        "count": 13,
+        "findings": [
+          {
+            "detail": "Table \\`public.admins\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "admins",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.banners\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "banners",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.catalog_identity_repair_log\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "catalog_identity_repair_log",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.catalog_variation_repair_map\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "catalog_variation_repair_map",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.mobile_product_save_operations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "mobile_product_save_operations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.ncm_cron_secrets\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "ncm_cron_secrets",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.ncm_sync_staging\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "ncm_sync_staging",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_document_events\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_document_events",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_document_items\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_document_items",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_operation_draft_allocations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_operation_draft_allocations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_operation_draft_lines\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_operation_draft_lines",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_operation_drafts\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_operation_drafts",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.nfe_return_item_allocations\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "nfe_return_item_allocations",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "security_definer_view",
+        "title": "Security Definer View",
+        "level": "ERROR",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects views defined with the SECURITY DEFINER property. These views enforce Postgres permissions and row level security policies (RLS) of the view creator, rather than that of the querying user",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "View \\`public.inventory_move_identity_audit\\` is defined with the SECURITY DEFINER property",
+            "metadata": {
+              "name": "inventory_move_identity_audit",
+              "type": "view",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "function_search_path_mutable",
+        "title": "Function Search Path Mutable",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects functions where the search_path parameter is not set.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable",
+        "count": 23,
+        "findings": [
+          {
+            "detail": "Function \\`public.calculate_withdrawal_unit_cost\\` has a role mutable search_path",
+            "metadata": {
+              "name": "calculate_withdrawal_unit_cost",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.trigger_inventory_moves_before\\` has a role mutable search_path",
+            "metadata": {
+              "name": "trigger_inventory_moves_before",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.handle_new_user\\` has a role mutable search_path",
+            "metadata": {
+              "name": "handle_new_user",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.trg_auto_generate_sku\\` has a role mutable search_path",
+            "metadata": {
+              "name": "trg_auto_generate_sku",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.block_product_delete\\` has a role mutable search_path",
+            "metadata": {
+              "name": "block_product_delete",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.fn_generate_sku_prefix\\` has a role mutable search_path",
+            "metadata": {
+              "name": "fn_generate_sku_prefix",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.calculate_withdrawal_unit_cost\\` has a role mutable search_path",
+            "metadata": {
+              "name": "calculate_withdrawal_unit_cost",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.move_variation_to_parent\\` has a role mutable search_path",
+            "metadata": {
+              "name": "move_variation_to_parent",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.sync_order_columns\\` has a role mutable search_path",
+            "metadata": {
+              "name": "sync_order_columns",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.flush_supabase_telemetry\\` has a role mutable search_path",
+            "metadata": {
+              "name": "flush_supabase_telemetry",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.get_aggregated_telemetry\\` has a role mutable search_path",
+            "metadata": {
+              "name": "get_aggregated_telemetry",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.next_order_index\\` has a role mutable search_path",
+            "metadata": {
+              "name": "next_order_index",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.assign_order_index\\` has a role mutable search_path",
+            "metadata": {
+              "name": "assign_order_index",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.reconcile_products_suppliers\\` has a role mutable search_path",
+            "metadata": {
+              "name": "reconcile_products_suppliers",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.next_goods_receipt_index\\` has a role mutable search_path",
+            "metadata": {
+              "name": "next_goods_receipt_index",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.assign_goods_receipt_index\\` has a role mutable search_path",
+            "metadata": {
+              "name": "assign_goods_receipt_index",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.search_suppliers\\` has a role mutable search_path",
+            "metadata": {
+              "name": "search_suppliers",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.search_catalog\\` has a role mutable search_path",
+            "metadata": {
+              "name": "search_catalog",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.get_composition_availability\\` has a role mutable search_path",
+            "metadata": {
+              "name": "get_composition_availability",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.search_catalog_shallow\\` has a role mutable search_path",
+            "metadata": {
+              "name": "search_catalog_shallow",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.trigger_inventory_moves_after\\` has a role mutable search_path",
+            "metadata": {
+              "name": "trigger_inventory_moves_after",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.record_api_usage_atomic\\` has a role mutable search_path",
+            "metadata": {
+              "name": "record_api_usage_atomic",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function \\`public.parse_order_metric_date\\` has a role mutable search_path",
+            "metadata": {
+              "name": "parse_order_metric_date",
+              "type": "function",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "rls_disabled_in_public",
+        "title": "RLS Disabled in Public",
+        "level": "ERROR",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public",
+        "count": 3,
+        "findings": [
+          {
+            "detail": "Table \\`public.order_fallback_telemetry\\` is public, but RLS has not been enabled.",
+            "metadata": {
+              "name": "order_fallback_telemetry",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.accounts_receivable\\` is public, but RLS has not been enabled.",
+            "metadata": {
+              "name": "accounts_receivable",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Table \\`public.product_materials\\` is public, but RLS has not been enabled.",
+            "metadata": {
+              "name": "product_materials",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "extension_in_public",
+        "title": "Extension in Public",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects extensions installed in the \\`public\\` schema.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public",
+        "count": 2,
+        "findings": [
+          {
+            "detail": "Extension \\`pg_trgm\\` is installed in the public schema. Move it to another schema.",
+            "metadata": {
+              "name": "pg_trgm",
+              "type": "extension",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Extension \\`unaccent\\` is installed in the public schema. Move it to another schema.",
+            "metadata": {
+              "name": "unaccent",
+              "type": "extension",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "anon_security_definer_function_executable",
+        "title": "Public Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable without signing in. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if it is not meant to be public.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable",
+        "count": 20,
+        "findings": [
+          {
+            "detail": "Function `public.confirm_goods_receipt_checked_transaction(p_receipt jsonb, p_items jsonb)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/confirm_goods_receipt_checked_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "confirm_goods_receipt_checked_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt jsonb, p_items jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.confirm_goods_receipt_transaction(p_receipt jsonb, p_items jsonb)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/confirm_goods_receipt_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "confirm_goods_receipt_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt jsonb, p_items jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.delete_goods_receipt_draft_transaction(p_receipt_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/delete_goods_receipt_draft_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "delete_goods_receipt_draft_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.enqueue_delivery_summary_audio()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/enqueue_delivery_summary_audio`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "enqueue_delivery_summary_audio",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.enqueue_delivery_summary_refresh()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/enqueue_delivery_summary_refresh`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "enqueue_delivery_summary_refresh",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.flush_supabase_telemetry(payload jsonb)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/flush_supabase_telemetry`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "flush_supabase_telemetry",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "payload jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_aggregated_telemetry(p_start_date timestamp with time zone)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_aggregated_telemetry`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_aggregated_telemetry",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_start_date timestamp with time zone",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_composition_availability(p_composition_variation_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_composition_availability`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_composition_availability",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_composition_variation_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_dashboard_aggregates(p_start timestamp with time zone, p_end timestamp with time zone, p_group_by text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_dashboard_aggregates`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_dashboard_aggregates",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_start timestamp with time zone, p_end timestamp with time zone, p_group_by text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.handle_new_user()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/handle_new_user`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "handle_new_user",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.merge_product_variation_into_canonical(p_non_canonical_variation_id uuid, p_canonical_variation_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/merge_product_variation_into_canonical`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "merge_product_variation_into_canonical",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_non_canonical_variation_id uuid, p_canonical_variation_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.move_variation_to_parent(p_variation_id uuid, p_target_parent_id uuid, p_attributes jsonb, p_name text, p_images jsonb, p_source_parent_id uuid)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/move_variation_to_parent`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "move_variation_to_parent",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_variation_id uuid, p_target_parent_id uuid, p_attributes jsonb, p_name text, p_images jsonb, p_source_parent_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.reconcile_products_suppliers(p_product_ids uuid[], p_target_supplier_id uuid, p_replace_existing boolean)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/reconcile_products_suppliers`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "reconcile_products_suppliers",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_product_ids uuid[], p_target_supplier_id uuid, p_replace_existing boolean",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.record_api_usage_atomic(p_provider text, p_service text, p_operation text, p_units numeric, p_status text, p_http_status integer, p_module_source text, p_environment text, p_cost_estimated numeric, p_cache_hit boolean, p_response_time_ms integer, p_request_id text, p_error_message text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/record_api_usage_atomic`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "record_api_usage_atomic",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_provider text, p_service text, p_operation text, p_units numeric, p_status text, p_http_status integer, p_module_source text, p_environment text, p_cost_estimated numeric, p_cache_hit boolean, p_response_time_ms integer, p_request_id text, p_error_message text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.refresh_dashboard_metric_day(p_day date)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/refresh_dashboard_metric_day`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "refresh_dashboard_metric_day",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_day date",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.refresh_dashboard_metrics_trigger()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/refresh_dashboard_metrics_trigger`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "refresh_dashboard_metrics_trigger",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.send_app_notification_push()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/send_app_notification_push`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "send_app_notification_push",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_goods_receipt_inventory_status_checked_transaction(p_receipt_id uuid, p_status text, p_reason text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_goods_receipt_inventory_status_checked_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_goods_receipt_inventory_status_checked_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid, p_status text, p_reason text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_goods_receipt_inventory_status_transaction(p_receipt_id uuid, p_status text, p_reason text)` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_goods_receipt_inventory_status_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_goods_receipt_inventory_status_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid, p_status text, p_reason text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.sync_order_items_fallback()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/sync_order_items_fallback`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "sync_order_items_fallback",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "title": "Signed-In Users Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable by signed-in users. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if signed-in users should not call it.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+        "count": 62,
+        "findings": [
+          {
+            "detail": "Function `public.apply_ncm_catalog_sync(p_sync_run_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/apply_ncm_catalog_sync`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "apply_ncm_catalog_sync",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_sync_run_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.apply_ncm_product_reviews(p_updates jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/apply_ncm_product_reviews`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "apply_ncm_product_reviews",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_updates jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.apply_order_document_stock_delta(p_product_id uuid, p_variation_id uuid, p_delta numeric, p_entry_unit_cost numeric)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/apply_order_document_stock_delta`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "apply_order_document_stock_delta",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_product_id uuid, p_variation_id uuid, p_delta numeric, p_entry_unit_cost numeric",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.capture_nfe_recipient_cpf(p_reservation jsonb, p_recipient_cpf text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/capture_nfe_recipient_cpf`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "capture_nfe_recipient_cpf",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_reservation jsonb, p_recipient_cpf text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.confirm_goods_receipt_checked_transaction(p_receipt jsonb, p_items jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/confirm_goods_receipt_checked_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "confirm_goods_receipt_checked_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt jsonb, p_items jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.confirm_goods_receipt_transaction(p_receipt jsonb, p_items jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/confirm_goods_receipt_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "confirm_goods_receipt_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt jsonb, p_items jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.create_order_with_inventory_transaction(p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_is_update boolean)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/create_order_with_inventory_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "create_order_with_inventory_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_is_update boolean",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.create_return_order_with_capacity(p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/create_return_order_with_capacity`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "create_return_order_with_capacity",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.create_return_order_with_fiscal_capacity(p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_fiscal_allocations jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/create_return_order_with_fiscal_capacity`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "create_return_order_with_fiscal_capacity",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_fiscal_allocations jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.create_stock_unavailability(p_product_id uuid, p_variation_id uuid, p_quantity numeric, p_reason text, p_treatment text, p_physical_location text, p_observation text, p_supplier_id text, p_photos text[])` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/create_stock_unavailability`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "create_stock_unavailability",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_product_id uuid, p_variation_id uuid, p_quantity numeric, p_reason text, p_treatment text, p_physical_location text, p_observation text, p_supplier_id text, p_photos text[]",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.current_user_has_password()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/current_user_has_password`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "current_user_has_password",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.delete_goods_receipt_draft_transaction(p_receipt_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/delete_goods_receipt_draft_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "delete_goods_receipt_draft_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.enqueue_delivery_summary_audio()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/enqueue_delivery_summary_audio`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "enqueue_delivery_summary_audio",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.enqueue_delivery_summary_refresh()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/enqueue_delivery_summary_refresh`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "enqueue_delivery_summary_refresh",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.finalize_inventory_transaction(p_audit_id uuid, p_code text, p_observation jsonb, p_items jsonb, p_responsible_name text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/finalize_inventory_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "finalize_inventory_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_audit_id uuid, p_code text, p_observation jsonb, p_items jsonb, p_responsible_name text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.flush_supabase_telemetry(payload jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/flush_supabase_telemetry`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "flush_supabase_telemetry",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "payload jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_aggregated_telemetry(p_start_date timestamp with time zone)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_aggregated_telemetry`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_aggregated_telemetry",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_start_date timestamp with time zone",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_composition_availability(p_composition_variation_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_composition_availability`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_composition_availability",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_composition_variation_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_dashboard_aggregates(p_start timestamp with time zone, p_end timestamp with time zone, p_group_by text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_dashboard_aggregates`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_dashboard_aggregates",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_start timestamp with time zone, p_end timestamp with time zone, p_group_by text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_ncm_catalog_summary()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_ncm_catalog_summary`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_ncm_catalog_summary",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_ncm_store_activation_summary()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_ncm_store_activation_summary`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_ncm_store_activation_summary",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.get_next_nfe_number(p_modelo character varying, p_serie character varying, p_ambiente integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/get_next_nfe_number`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "get_next_nfe_number",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_modelo character varying, p_serie character varying, p_ambiente integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.handle_new_user()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/handle_new_user`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "handle_new_user",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.has_manual_stock_movement_permission()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/has_manual_stock_movement_permission`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "has_manual_stock_movement_permission",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.is_administrator()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/is_administrator`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "is_administrator",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.list_ncm_catalog(p_search text, p_filter text, p_limit integer, p_offset integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/list_ncm_catalog`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "list_ncm_catalog",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_search text, p_filter text, p_limit integer, p_offset integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.list_ncm_catalog_for_admin(p_search text, p_store_filter text, p_filter text, p_limit integer, p_offset integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/list_ncm_catalog_for_admin`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "list_ncm_catalog_for_admin",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_search text, p_store_filter text, p_filter text, p_limit integer, p_offset integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.list_ncm_products(p_code text, p_limit integer, p_offset integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/list_ncm_products`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "list_ncm_products",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_code text, p_limit integer, p_offset integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.list_ncm_sync_changes(p_sync_run_id uuid, p_limit integer, p_offset integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/list_ncm_sync_changes`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "list_ncm_sync_changes",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_sync_run_id uuid, p_limit integer, p_offset integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.log_inventory_catalog_deletion()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/log_inventory_catalog_deletion`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "log_inventory_catalog_deletion",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.merge_product_variation_into_canonical(p_non_canonical_variation_id uuid, p_canonical_variation_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/merge_product_variation_into_canonical`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "merge_product_variation_into_canonical",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_non_canonical_variation_id uuid, p_canonical_variation_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.move_variation_to_parent(p_variation_id uuid, p_target_parent_id uuid, p_attributes jsonb, p_name text, p_images jsonb, p_source_parent_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/move_variation_to_parent`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "move_variation_to_parent",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_variation_id uuid, p_target_parent_id uuid, p_attributes jsonb, p_name text, p_images jsonb, p_source_parent_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.persist_authorized_nfe_operation_draft(p_draft_id uuid, p_document_id uuid, p_number integer, p_series text, p_access_key character varying, p_signed_xml text, p_sefaz_response_xml text, p_protocol_number text, p_protocol_date timestamp with time zone, p_status text, p_status_reason text, p_items jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/persist_authorized_nfe_operation_draft`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "persist_authorized_nfe_operation_draft",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_draft_id uuid, p_document_id uuid, p_number integer, p_series text, p_access_key character varying, p_signed_xml text, p_sefaz_response_xml text, p_protocol_number text, p_protocol_date timestamp with time zone, p_status text, p_status_reason text, p_items jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_recipient_tax_id text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_recipient_tax_id text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_nfe_operation_draft(p_kind text, p_original_document_id uuid, p_return_order_id text, p_environment smallint, p_reason text, p_user_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_nfe_operation_draft`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_nfe_operation_draft",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_kind text, p_original_document_id uuid, p_return_order_id text, p_environment smallint, p_reason text, p_user_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_numbered_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_requested_number integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_numbered_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_numbered_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_requested_number integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.prepare_numbered_nfe_fiscal_snapshot(p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_requested_number integer, p_recipient_tax_id text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/prepare_numbered_nfe_fiscal_snapshot`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "prepare_numbered_nfe_fiscal_snapshot",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_emission_request_id uuid, p_modelo character varying, p_ambiente integer, p_serie character varying, p_numero_minimo integer, p_item_csosn_overrides jsonb, p_item_fiscal_selections jsonb, p_requested_number integer, p_recipient_tax_id text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.preview_ncm_catalog_sync(p_sync_run_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/preview_ncm_catalog_sync`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "preview_ncm_catalog_sync",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_sync_run_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.protect_profile_role()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/protect_profile_role`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "protect_profile_role",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.recalculate_order_document_unit_cost(p_product_id uuid, p_variation_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/recalculate_order_document_unit_cost`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "recalculate_order_document_unit_cost",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_product_id uuid, p_variation_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.reconcile_products_suppliers(p_product_ids uuid[], p_target_supplier_id uuid, p_replace_existing boolean)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/reconcile_products_suppliers`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "reconcile_products_suppliers",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_product_ids uuid[], p_target_supplier_id uuid, p_replace_existing boolean",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.record_api_usage_atomic(p_provider text, p_service text, p_operation text, p_units numeric, p_status text, p_http_status integer, p_module_source text, p_environment text, p_cost_estimated numeric, p_cache_hit boolean, p_response_time_ms integer, p_request_id text, p_error_message text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/record_api_usage_atomic`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "record_api_usage_atomic",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_provider text, p_service text, p_operation text, p_units numeric, p_status text, p_http_status integer, p_module_source text, p_environment text, p_cost_estimated numeric, p_cache_hit boolean, p_response_time_ms integer, p_request_id text, p_error_message text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.refresh_dashboard_metric_day(p_day date)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/refresh_dashboard_metric_day`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "refresh_dashboard_metric_day",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_day date",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.refresh_dashboard_metrics_trigger()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/refresh_dashboard_metrics_trigger`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "refresh_dashboard_metrics_trigger",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.reserve_next_nfe_number(p_modelo character varying, p_serie character varying, p_ambiente integer, p_numero_minimo integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/reserve_next_nfe_number`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "reserve_next_nfe_number",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_modelo character varying, p_serie character varying, p_ambiente integer, p_numero_minimo integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.reserve_nfe_cce_event(p_document_id uuid, p_environment integer, p_event_sequence integer, p_correction text, p_signed_xml text, p_user_id uuid, p_request_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/reserve_nfe_cce_event`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "reserve_nfe_cce_event",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_document_id uuid, p_environment integer, p_event_sequence integer, p_correction text, p_signed_xml text, p_user_id uuid, p_request_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.reserve_nfe_outbound_emission(p_order_id text, p_modelo character varying, p_ambiente integer, p_emission_request_id uuid, p_chave_acesso character varying, p_xml_nfe text, p_numero_nfe integer, p_serie character varying)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/reserve_nfe_outbound_emission`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "reserve_nfe_outbound_emission",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_modelo character varying, p_ambiente integer, p_emission_request_id uuid, p_chave_acesso character varying, p_xml_nfe text, p_numero_nfe integer, p_serie character varying",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.save_mobile_product_transaction(p_operation_id uuid, p_expected_updated_at timestamp with time zone, p_is_edit boolean, p_product_id uuid, p_product jsonb, p_images jsonb, p_category_ids uuid[], p_variations jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/save_mobile_product_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "save_mobile_product_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_operation_id uuid, p_expected_updated_at timestamp with time zone, p_is_edit boolean, p_product_id uuid, p_product jsonb, p_images jsonb, p_category_ids uuid[], p_variations jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.save_nfe_operation_draft_review(p_draft_id uuid, p_review_data jsonb, p_lines jsonb, p_user_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/save_nfe_operation_draft_review`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "save_nfe_operation_draft_review",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_draft_id uuid, p_review_data jsonb, p_lines jsonb, p_user_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.save_order_transaction(p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_is_update boolean)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/save_order_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "save_order_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_is_update boolean",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.search_ncms(search_term text, max_results integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/search_ncms`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "search_ncms",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "search_term text, max_results integer",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.send_app_notification_push()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/send_app_notification_push`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "send_app_notification_push",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_android_current_release(p_version text, p_build_number integer, p_min_supported_build integer, p_file_size bigint, p_sha256 text, p_is_mandatory boolean, p_release_notes text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_android_current_release`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_android_current_release",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_version text, p_build_number integer, p_min_supported_build integer, p_file_size bigint, p_sha256 text, p_is_mandatory boolean, p_release_notes text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_goods_receipt_inventory_status_checked_transaction(p_receipt_id uuid, p_status text, p_reason text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_goods_receipt_inventory_status_checked_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_goods_receipt_inventory_status_checked_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid, p_status text, p_reason text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_goods_receipt_inventory_status_transaction(p_receipt_id uuid, p_status text, p_reason text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_goods_receipt_inventory_status_transaction`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_goods_receipt_inventory_status_transaction",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_receipt_id uuid, p_status text, p_reason text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.set_ncm_store_activation(p_code text, p_is_active boolean)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_ncm_store_activation`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "set_ncm_store_activation",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_code text, p_is_active boolean",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.sync_order_items_fallback()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/sync_order_items_fallback`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "sync_order_items_fallback",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.undo_stock_unavailability(p_unavailability_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/undo_stock_unavailability`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "undo_stock_unavailability",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_unavailability_id uuid",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          },
+          {
+            "detail": "Function `public.verify_ncm_cron_secret(p_secret_hash text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/verify_ncm_cron_secret`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "verify_ncm_cron_secret",
+              "schema": "public",
+              "language": "sql",
+              "arguments": "p_secret_hash text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-05T15:57:03.905Z"
+          }
+        ]
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "title": "Leaked Password Protection Disabled",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Leaked password protection is currently disabled.",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.",
+            "metadata": {
+              "type": "auth",
+              "entity": "Auth"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

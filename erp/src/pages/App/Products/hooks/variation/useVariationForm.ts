@@ -354,15 +354,34 @@ export function useVariationForm({
     }
 
     // Validar dimensões obrigatórias da variação (> 0)
-    const effectiveWidth = finalVariation.syncWidth
-      ? Number(parentProduct.width || 0)
-      : Number(formData.width || 0);
-    const effectiveHeight = finalVariation.syncHeight
-      ? Number(parentProduct.height || 0)
-      : Number(formData.height || 0);
-    const effectiveDepth = finalVariation.syncDepth
-      ? Number(parentProduct.depth || 0)
-      : Number(formData.depth || 0);
+
+    const getDim = (
+      prop: 'width' | 'height' | 'depth',
+      sync: boolean | undefined,
+      techNames: string[]
+    ) => {
+      const parentVal = Number(parentProduct[prop] || 0);
+      const varVal = Number(formData[prop] || 0);
+      let val = sync ? parentVal : varVal;
+      if (val <= 0) {
+        for (const name of techNames) {
+          const techVal = String(effectiveTechnicalValues[name] || '').replace(',', '.');
+          const parsed = Number(techVal);
+          if (!isNaN(parsed) && parsed > 0) {
+            val = parsed;
+            break;
+          }
+        }
+      }
+      return val;
+    };
+
+    const effectiveWidth = getDim('width', finalVariation.syncWidth, ['Largura']);
+    const effectiveHeight = getDim('height', finalVariation.syncHeight, ['Altura']);
+    const effectiveDepth = getDim('depth', finalVariation.syncDepth, [
+      'Profundidade',
+      'Comprimento',
+    ]);
 
     if (effectiveWidth <= 0 || effectiveHeight <= 0 || effectiveDepth <= 0) {
       const missingDims: string[] = [];

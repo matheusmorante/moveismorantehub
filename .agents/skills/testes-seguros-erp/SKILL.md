@@ -7,6 +7,8 @@ description: Planeje e execute testes seguros do ERP e App Mobile em alteraçõe
 
 Para sincronização das variáveis do ambiente local, falhas no `predev`, secrets ou escolha entre Development e Preview, siga a fonte única [vercel-development](../vercel-development/SKILL.md). Esta skill continua definindo os limites de segurança dos testes.
 
+A reconciliação técnica de tentativa fiscal incerta pode usar o backend/API oficial sem interface, com retransmissão desabilitada e exatamente o documento/chave/XML/`emissionRequestId` existentes. Confira persistência e isolamento dos efeitos conforme `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Evidência de backend/SEFAZ/banco deve ser distinguida da validação do botão, requisição e atualização visual no frontend; emissão de teste continua pela UI.
+
 Use esta skill sempre que a mudança puder alterar regras de negócio, persistência, interface ou efeitos entre módulos. Também utilize-a como guia mestre para executar e continuar o **Roadmap Cíclico de Testes Contínuos** do Morante Hub.
 
 ## Quando aplicar esta Skill

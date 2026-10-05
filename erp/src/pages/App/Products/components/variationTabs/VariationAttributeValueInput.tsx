@@ -119,9 +119,17 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                   : 'Insira um número inteiro'
             }
             value={isDecimal ? formatDecimalValue(value) : value}
-            onChange={(e) =>
-              onChange(isDecimal ? maskDecimalValue(e.target.value) : e.target.value)
-            }
+            onChange={(e) => {
+              if (isDecimal) {
+                onChange(maskDecimalValue(e.target.value));
+              } else {
+                let val = e.target.value;
+                if (/quantidade de (portas?|gavetas?)/i.test(attributeName || '') && Number(val) > 50) {
+                  val = '50';
+                }
+                onChange(val);
+              }
+            }}
             className={`box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 ${unit ? 'pr-8' : ''} text-xs font-bold transition-all border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-500`}
           />
           {unit && (

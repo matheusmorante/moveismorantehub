@@ -1,0 +1,136 @@
+{
+  "name": "production-env",
+  "environment": "production",
+  "exitCode": 0,
+  "records": [
+    {
+      "label": "production",
+      "node": "v22.18.0",
+      "openssl": "3.0.16",
+      "startupExtraCA": false,
+      "defaultCACount": 150,
+      "variables": {
+        "NFE_CERTIFICATE_BASE64": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_CERTIFICATE_PASSWORD": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_CSRT_HOMOLOGACAO": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_CSRT_PRODUCAO": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_ENVIRONMENT": {
+          "present": false,
+          "length": 0,
+          "hash": null,
+          "value": null
+        },
+        "NFE_ID_CSRT_HOMOLOGACAO": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_ID_CSRT_PRODUCAO": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_PRODUCTION_ENABLED": {
+          "present": true,
+          "length": 5,
+          "hash": "fdd8721e2e56217b688ae04db54f99614379c532a769cee44b82fad4a0ea9450",
+          "value": "false"
+        },
+        "NFE_RESPONSIBLE_TECH_CNPJ": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_RESPONSIBLE_TECH_CONTACT": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_RESPONSIBLE_TECH_EMAIL": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NFE_RESPONSIBLE_TECH_PHONE": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NODE_EXTRA_CA_CERTS": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NODE_TLS_REJECT_UNAUTHORIZED": {
+          "present": false,
+          "length": 0,
+          "hash": null,
+          "value": null
+        },
+        "SUPABASE_SECRET_KEY": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "SUPABASE_URL": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "VERCEL_ENV": {
+          "present": true,
+          "length": 10,
+          "hash": "c06b3ef33b34c1d0000a9549a4f3b088b54744bdb5b48d2a36672b9ca72d1d2a",
+          "value": "production"
+        },
+        "VITE_SUPABASE_ANON_KEY": {
+          "present": true,
+          "length": 208,
+          "hash": "1f4b01b9ee1b12e2561a403f3e8ecf73f69e73fdc7c778fb3041b6217b09e0b1"
+        },
+        "VITE_SUPABASE_URL": {
+          "present": true,
+          "length": 40,
+          "hash": "4f72f3ec450ab3dbd08d4fa147d6b8a27e9cb29337f15460be879c4ed80bf55b"
+        }
+      },
+      "certificate": {
+        "strictBase64": false,
+        "decodedBytes": 0,
+        "pkcs12Valid": false
+      },
+      "extraCA": {
+        "configured": false,
+        "exists": false
+      },
+      "originalPfx": {
+        "exists": true,
+        "bytes": 9124,
+        "sha256": "0486c52bc0464bf6cf833f47d19171c40a9fd341b4d738dfac30f338d4fbd200",
+        "matchesDecoded": null
+      },
+      "supabaseRef": "hkoxhourxwlddgsfdgws"
+    }
+  ]
+}

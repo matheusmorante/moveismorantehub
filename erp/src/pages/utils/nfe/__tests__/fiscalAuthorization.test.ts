@@ -29,18 +29,27 @@ describe('fiscal operation role policy', () => {
 describe('autorização fiscal no backend', () => {
   it('recusa chamada sem token antes de consultar o banco', async () => {
     const getUser = vi.fn();
-    const result = await authorizeFiscalOperator({auth: {getUser}} as any, undefined);
-    expect(result).toMatchObject({ok: false, status: 401});
+    const result = await authorizeFiscalOperator({ auth: { getUser } } as any, undefined);
+    expect(result).toMatchObject({ ok: false, status: 401 });
     expect(getUser).not.toHaveBeenCalled();
   });
-  it.each([['stockist', false], ['seller', true]] as const)('valida o papel %s pelo usuário autenticado', async (role, ok) => {
+  it.each([
+    ['stockist', false],
+    ['seller', true],
+  ] as const)('valida o papel %s pelo usuário autenticado', async (role, ok) => {
     const client = {
-      auth: {getUser: vi.fn().mockResolvedValue({data: {user: {id: 'operator'}}, error: null})},
-      from: () => ({select: () => ({eq: () => ({maybeSingle: async () => ({data: {role}, error: null})})})}),
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'operator' } }, error: null }),
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: { role }, error: null }) }),
+        }),
+      }),
     };
     const result = await authorizeFiscalOperator(client as any, 'Bearer TEST_TOKEN');
     expect(result.ok).toBe(ok);
-    if (ok) expect(result).toMatchObject({userId: 'operator'});
-    else expect(result).toMatchObject({status: 403});
+    if (ok) expect(result).toMatchObject({ userId: 'operator' });
+    else expect(result).toMatchObject({ status: 403 });
   });
 });

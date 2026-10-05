@@ -13,7 +13,17 @@ export interface ExtractedCertData {
  * Lê o certificado .pfx em base64 e a senha, extraindo a chave privada e o certificado em PEM
  */
 export function extractCertificateAndKey(pfxBase64: string, password: string): ExtractedCertData {
-  const pfxDer = forge.util.decode64(pfxBase64);
+  const normalized = pfxBase64.replace(/\s/g, '');
+  if (
+    !normalized ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(normalized) ||
+    Buffer.from(normalized, 'base64').toString('base64') !== normalized
+  ) {
+    throw Object.assign(new Error('O certificado A1 deve conter Base64 válido do arquivo PFX.'), {
+      code: 'A1_BASE64_INVALID',
+    });
+  }
+  const pfxDer = forge.util.decode64(normalized);
   const pfxAsn1 = forge.asn1.fromDer(pfxDer);
   const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password || '');
 
@@ -32,9 +42,11 @@ export function extractCertificateAndKey(pfxBase64: string, password: string): E
   // Obter certificado
   const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
   const privateKey = createPrivateKey(privateKeyPem);
-  const certBag = certBags[forge.pki.oids.certBag]?.find(bag =>
-    bag.cert && !new X509Certificate(forge.pki.certificateToPem(bag.cert)).ca &&
-    new X509Certificate(forge.pki.certificateToPem(bag.cert)).checkPrivateKey(privateKey)
+  const certBag = certBags[forge.pki.oids.certBag]?.find(
+    (bag) =>
+      bag.cert &&
+      !new X509Certificate(forge.pki.certificateToPem(bag.cert)).ca &&
+      new X509Certificate(forge.pki.certificateToPem(bag.cert)).checkPrivateKey(privateKey)
   );
 
   if (!certBag?.cert) {

@@ -99,9 +99,7 @@ export const ThirdPartyTransporterFormFields: React.FC<ThirdPartyTransporterForm
               }))
             }
             placeholder={
-              thirdPartyTransporter.personType === 'PJ'
-                ? '00.000.000/0000-00'
-                : '000.000.000-00'
+              thirdPartyTransporter.personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'
             }
             className="w-full rounded-none border-0 border-b-2 border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500"
           />
@@ -168,9 +166,7 @@ export const ThirdPartyTransporterFormFields: React.FC<ThirdPartyTransporterForm
                 ie: e.target.value.replace(/\D/g, ''),
               }))
             }
-            placeholder={
-              thirdPartyTransporter.isIeExempt ? 'Isento de IE' : 'Somente números'
-            }
+            placeholder={thirdPartyTransporter.isIeExempt ? 'Isento de IE' : 'Somente números'}
             className="w-full rounded-none border-0 border-b-2 border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:border-slate-200"
           />
         </div>

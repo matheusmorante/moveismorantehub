@@ -104,8 +104,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
         facts.emissionRequest.cardNotIntegrated = true;
         facts.order.data.shipping = { value: 30, deliveryMethod: method };
         (facts.fiscalInputs!.customer as any).cpfCnpj = cpfCnpj;
-        (facts.fiscalInputs!.customer as any).personType =
-          cpfCnpj.length === 11 ? 'PF' : 'PJ';
+        (facts.fiscalInputs!.customer as any).personType = cpfCnpj.length === 11 ? 'PF' : 'PJ';
         const address = JSON.parse((facts.fiscalInputs!.customer as any).address);
         delete address.cep;
         (facts.fiscalInputs!.customer as any).address = JSON.stringify(address);
@@ -279,10 +278,16 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     facts.emissionRequest.finalConsumer = true;
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     facts.order.data.fiscalContext = { presence: '4' };
-    facts.order.data.items = [{
-      productId: 'P-1', quantity: 1, description: 'ITEM TESTE', unitPrice: 569,
-      unitDiscount: 0, discountType: 'fixed',
-    }];
+    facts.order.data.items = [
+      {
+        productId: 'P-1',
+        quantity: 1,
+        description: 'ITEM TESTE',
+        unitPrice: 569,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+    ];
     facts.order.data.payments = [{ method: 'Pix', amount: 569 }];
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
     (facts.fiscalInputs!.customer as any).address = '{}';
@@ -290,7 +295,11 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     const result = resolveFiscalDocument(facts, rules);
     expect(result.status).toBe('ready');
     if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
-    expect(result.document).toMatchObject({ model: '65', recipient: { cpfCnpj: '' }, operation: { presence: '1' } });
+    expect(result.document).toMatchObject({
+      model: '65',
+      recipient: { cpfCnpj: '' },
+      operation: { presence: '1' },
+    });
     expect(result.document.totals.invoice).toBe(569);
   });
   it('valida o documento opcional informado e não aceita CPF/CNPJ incompatível com PF/PJ', async () => {
@@ -346,10 +355,18 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     expect(result.document.operation.transporter).toBeUndefined();
     const xml = serializeFiscalDocument(facts, result.document, rules, {
       accessKey: generateNfeAccessKey({
-        ufCode: '41', yearMonth: '2609', cnpj: '12345678000195', model: '65',
-        series: '1', number: 702, emissionType: '1', randomCode: '12345678',
+        ufCode: '41',
+        yearMonth: '2609',
+        cnpj: '12345678000195',
+        model: '65',
+        series: '1',
+        number: 702,
+        emissionType: '1',
+        randomCode: '12345678',
       }).accessKey,
-      series: 1, number: 702, issuedAt: '2026-09-30T10:00:00-03:00',
+      series: 1,
+      number: 702,
+      issuedAt: '2026-09-30T10:00:00-03:00',
     });
     expect(xml).toContain('<indPres>4</indPres>');
     expect(xml).toContain('<transp><modFrete>3</modFrete><transporta/></transp>');
@@ -377,10 +394,18 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     expect(result.document.operation).toMatchObject({ presence: '4', freightMode: '3' });
     const xml = serializeFiscalDocument(facts, result.document, rules, {
       accessKey: generateNfeAccessKey({
-        ufCode: '41', yearMonth: '2609', cnpj: '12345678000195', model: '65',
-        series: '1', number: 703, emissionType: '1', randomCode: '12345678',
+        ufCode: '41',
+        yearMonth: '2609',
+        cnpj: '12345678000195',
+        model: '65',
+        series: '1',
+        number: 703,
+        emissionType: '1',
+        randomCode: '12345678',
       }).accessKey,
-      series: 1, number: 703, issuedAt: '2026-09-30T10:00:00-03:00',
+      series: 1,
+      number: 703,
+      issuedAt: '2026-09-30T10:00:00-03:00',
     });
     expect(xml).toContain('<indPres>4</indPres>');
     expect(xml).not.toContain('<indPres>1</indPres>');
@@ -392,10 +417,18 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
         rules,
         {
           accessKey: generateNfeAccessKey({
-            ufCode: '41', yearMonth: '2609', cnpj: '12345678000195', model: '65',
-            series: '1', number: 704, emissionType: '1', randomCode: '12345678',
+            ufCode: '41',
+            yearMonth: '2609',
+            cnpj: '12345678000195',
+            model: '65',
+            series: '1',
+            number: 704,
+            emissionType: '1',
+            randomCode: '12345678',
           }).accessKey,
-          series: 1, number: 704, issuedAt: '2026-09-30T10:00:00-03:00',
+          series: 1,
+          number: 704,
+          issuedAt: '2026-09-30T10:00:00-03:00',
         }
       )
     ).toThrow('NFC-e com entrega em domicílio exige indPres=4.');

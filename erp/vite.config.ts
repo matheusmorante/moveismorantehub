@@ -6,6 +6,11 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // The official dev launcher injects Vercel Development. Do not fill missing
+  // remote values from stale ERP .env files; build/test keep their normal envDir.
+  envDir: process.env.MORANTE_ENV_SOURCE === 'vercel-development'
+    ? path.resolve(__dirname, '../.vercel')
+    : undefined,
   // O ERP reutiliza validadores financeiros determinísticos do workspace mobile.
   // No build serverless apenas as dependências do ERP são instaladas; portanto,
   // arquivos importados de `mobile/` também precisam ser transformados com as

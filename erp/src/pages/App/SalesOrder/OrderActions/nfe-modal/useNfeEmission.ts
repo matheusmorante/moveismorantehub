@@ -3,18 +3,21 @@ import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
-import type { FiscalInfo } from '@/pages/types/product.type';
 import { prepareHmlItemCsosns } from '@/pages/utils/nfe/csosnConfigurationService';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSettings';
 import {
+  buildFiscalItemSelectionPayload,
   emitNfeForOrder,
+  findFiscalDocumentForRequest,
   getCachedFiscalNumberPreview,
   getNextNfeNumberPreview,
   type NfeEmissionResult,
   printOrderDanfe,
   clearFiscalEmissionRequest,
+  abandonUntransmittedHmlAttempt,
+  setFiscalEmissionReplacementSource,
   updateFiscalNumberPreviewCache,
 } from '@/pages/utils/nfe/nfeService';
 import { getFullProduct } from '@/pages/utils/productService';
@@ -334,37 +337,37 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           }
         }
 
+        const catalogPromises = productItems.map(async (item) => {
+          if (!item.productId) return { item, catalogFiscal: undefined };
+          try {
+            const fullProd = await getFullProduct(item.productId);
+            const variation = item.variationId
+              ? fullProd?.variations?.find((candidate) => candidate.id === item.variationId)
+              : undefined;
+            const catalogFiscal = {
+              ncm: variation?.fiscal?.ncm || fullProd?.fiscal?.ncm,
+              cest: variation?.fiscal?.cest || fullProd?.fiscal?.cest,
+              cfop: variation?.fiscal?.cfop || fullProd?.fiscal?.cfop,
+              cst: variation?.fiscal?.cst || fullProd?.fiscal?.cst,
+              origem: variation?.fiscal?.origem || fullProd?.fiscal?.origem,
+            };
+            return { item, catalogFiscal };
+          } catch (err) {
+            console.warn(
+              `[useNfeEmission] Falha ao consultar catálogo do produto ${item.productId}:`,
+              err
+            );
+            return { item, catalogFiscal: undefined };
+          }
+        });
+        const catalogResults = await Promise.all(catalogPromises);
+
         const enrichedList: NfeItemWithFiscal[] = [];
-        for (const [index, item] of productItems.entries()) {
+        for (const [index, { item, catalogFiscal }] of catalogResults.entries()) {
           const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
           if (environment === 2 && !preparedCsosn && !preparationError)
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           const savedFiscal = item.fiscal;
-          let catalogFiscal: FiscalInfo | undefined;
-
-          // Consulta o cadastro atual para preencher o NCM; o snapshot é fallback
-          // e as escolhas manuais do modal continuam tendo prioridade abaixo.
-          if (item.productId) {
-            try {
-              const fullProd = await getFullProduct(item.productId);
-              const variation = item.variationId
-                ? fullProd?.variations?.find((candidate) => candidate.id === item.variationId)
-                : undefined;
-              catalogFiscal = {
-                ncm: variation?.fiscal?.ncm || fullProd?.fiscal?.ncm,
-                cest: variation?.fiscal?.cest || fullProd?.fiscal?.cest,
-                cfop: variation?.fiscal?.cfop || fullProd?.fiscal?.cfop,
-                cst: variation?.fiscal?.cst || fullProd?.fiscal?.cst,
-                origem: variation?.fiscal?.origem || fullProd?.fiscal?.origem,
-              };
-            } catch (err) {
-              console.warn(
-                `[useNfeEmission] Falha ao consultar catálogo do produto ${item.productId}:`,
-                err
-              );
-            }
-          }
-
           enrichedList.push({
             ...fallbackItems[index],
             fiscal: {
@@ -467,12 +470,16 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         .map((i) => ({ id: i.productId, ncm: i.fiscal.ncm.replace(/\D/g, '') }));
       if (productsToUpdate.length > 0) {
         for (const p of productsToUpdate) {
-            const { data: existingProduct } = await supabase.from('products').select('fiscal').eq('id', p.id).single();
-            if (existingProduct) {
-              const newFiscal = { ...(existingProduct.fiscal || {}), ncm: p.ncm };
-              await supabase.from('products').update({ fiscal: newFiscal }).eq('id', p.id);
-            }
+          const { data: existingProduct } = await supabase
+            .from('products')
+            .select('fiscal')
+            .eq('id', p.id)
+            .single();
+          if (existingProduct) {
+            const newFiscal = { ...(existingProduct.fiscal || {}), ncm: p.ncm };
+            await supabase.from('products').update({ fiscal: newFiscal }).eq('id', p.id);
           }
+        }
       }
 
       // 2. Save order_data to orders table; a modal-only tax ID must not rewrite the customer profile.
@@ -497,7 +504,12 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     }
   };
 
-  const handleEmit = async (productionConfirmed = false, isRetry = false, retryNumber?: number, freshHmlEmission = false) => {
+  const handleEmit = async (
+    productionConfirmed = false,
+    isRetry = false,
+    retryNumber?: number,
+    freshHmlEmission = false
+  ) => {
     if (submissionInProgress.current) return;
     if (!canOperateFiscal) {
       toast.error('Seu perfil não pode operar documentos fiscais.');
@@ -666,8 +678,9 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         ? emissionResult.documentId
         : undefined;
     const manualNumber =
-      retryId || freshHmlEmission ? undefined :
-        retryNumber ?? (manualNumberInput !== null ? Number(manualNumberInput) : undefined);
+      retryId || freshHmlEmission
+        ? undefined
+        : (retryNumber ?? (manualNumberInput !== null ? Number(manualNumberInput) : undefined));
     if (manualNumber !== undefined && !isFiscalNumber(manualNumber)) {
       toast.error('Informe um número inteiro entre 1 e 999999999.');
       return;
@@ -715,10 +728,9 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           ? resolvedTransport.transportResponsible
           : undefined,
         resolvedTransport.freightContractResponsible,
-          false
-        );
+        freshHmlEmission
+      );
       if (!res.success) {
-        toast.error(res.error || 'Erro ao validar dados para emissão.');
         setEmissionResult(res);
         if (res.numberConflict?.nextNumber) {
           if (nfeNumberSequence.series) {
@@ -762,7 +774,26 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || 'Erro inesperado ao emitir nota fiscal.');
+      setEmissionResult({
+        success: false,
+        pending: err?.pending === true,
+        error: err?.message || 'Ocorreu um erro ao processar a emissão fiscal.',
+        ...(typeof err?.documentId === 'string' ? { documentId: err.documentId } : {}),
+        ...(typeof err?.emissionRequestId === 'string'
+          ? { emissionRequestId: err.emissionRequestId }
+          : {}),
+        technicalDetails: {
+          ...(typeof err?.code === 'string' ? { apiCode: err.code } : {}),
+          ...(typeof err?.status === 'number' ? { httpStatus: err.status } : {}),
+          ...(typeof err?.diagnosticStage === 'string'
+            ? { diagnosticStage: err.diagnosticStage }
+            : {}),
+          ...(typeof err?.diagnosticId === 'string' ? { diagnosticId: err.diagnosticId } : {}),
+          ...(typeof err?.transportDiagnostic?.code === 'string'
+            ? { transportCode: err.transportDiagnostic.code }
+            : {}),
+        },
+      });
     } finally {
       submissionInProgress.current = false;
       setIsSubmitting(false);
@@ -780,10 +811,18 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
       await handleEmit(false, true);
       return;
     }
-    if (!emissionResult?.documentId) return;
+    if (!emissionResult?.documentId && !emissionResult?.emissionRequestId) return;
     submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
+      const documentId =
+        emissionResult.documentId ||
+        (await findFiscalDocumentForRequest(
+          String(order.id),
+          environment,
+          emissionResult.emissionRequestId!
+        ));
+      setEmissionResult((prev) => (prev ? { ...prev, documentId } : null));
       const { data, error } = await supabase.auth.getSession();
       if (error || !data.session?.access_token) throw new Error('Faça login novamente.');
       const response = await fetch('/api/nfe/consult', {
@@ -792,30 +831,80 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${data.session.access_token}`,
         },
-        body: JSON.stringify({ documentId: emissionResult.documentId }),
+        body: JSON.stringify({ documentId }),
       });
       const result = await response.json();
       const confirmedNotFound =
         ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(result.code) &&
-        result.state === 'not_found' && result.pending === false;
-      const confirmedRejection = result.pending === false &&
-        ['HML_SEFAZ_REJECTED', 'HML_SERIES_CORRECTION_REQUIRED',
-          'HML_ISSUER_IE_CORRECTION_REQUIRED', 'NFE_NUMBER_ALREADY_USED'].includes(result.code);
+        result.state === 'not_found' &&
+        result.pending === false;
+      const confirmedRejection =
+        result.pending === false &&
+        [
+          'HML_SEFAZ_REJECTED',
+          'HML_SERIES_CORRECTION_REQUIRED',
+          'HML_ISSUER_IE_CORRECTION_REQUIRED',
+          'NFE_NUMBER_ALREADY_USED',
+        ].includes(result.code);
       if (confirmedRejection) {
         clearFiscalEmissionRequest(String(order.id), environment);
-        setEmissionResult((prev) => prev ? {
-          ...prev, pending: false, hmlConfirmedNotFound: false,
-          cStat: result.cStat, sefazMessage: result.xMotivo,
-          error: result.error || result.xMotivo || 'Tentativa rejeitada pela SEFAZ.',
-        } : null);
-        toast.error(result.error || result.xMotivo || 'Corrija a rejeição antes de emitir novamente.');
+        setEmissionResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                pending: false,
+                hmlConfirmedNotFound: false,
+                databaseReason: undefined,
+                cStat: result.cStat,
+                sefazMessage: result.xMotivo,
+                error: result.error || result.xMotivo || 'Tentativa rejeitada pela SEFAZ.',
+                technicalDetails: {
+                  ...prev.technicalDetails,
+                  ...(typeof result.code === 'string' ? { apiCode: result.code } : {}),
+                  ...(typeof result.cStat === 'string' ? { sefazCode: result.cStat } : {}),
+                  ...(typeof result.diagnosticId === 'string'
+                    ? { diagnosticId: result.diagnosticId }
+                    : {}),
+                  httpStatus: response.status,
+                },
+              }
+            : null
+        );
         return;
       }
-      if (
-        (!response.ok && !confirmedNotFound) ||
-        (!result.success && !confirmedNotFound)
-      )
-        throw new Error(result.error || result.xMotivo || 'Consulta SEFAZ inconclusiva.');
+      if ((!response.ok && !confirmedNotFound) || (!result.success && !confirmedNotFound)) {
+        setEmissionResult((previous) =>
+          previous
+            ? {
+                ...previous,
+                pending: result.pending !== false,
+                hmlConfirmedNotFound: false,
+                error:
+                  typeof result.error === 'string'
+                    ? result.error
+                    : typeof result.xMotivo === 'string'
+                      ? result.xMotivo
+                      : 'A consulta não confirmou o estado da nota. Consulte novamente antes de emitir.',
+                technicalDetails: {
+                  ...previous.technicalDetails,
+                  ...(typeof result.code === 'string' ? { apiCode: result.code } : {}),
+                  ...(typeof result.diagnosticStage === 'string'
+                    ? { diagnosticStage: result.diagnosticStage }
+                    : {}),
+                  ...(typeof result.diagnosticId === 'string'
+                    ? { diagnosticId: result.diagnosticId }
+                    : {}),
+                  ...(typeof result.transportDiagnostic?.code === 'string'
+                    ? { transportCode: result.transportDiagnostic.code }
+                    : {}),
+                  ...(typeof result.cStat === 'string' ? { sefazCode: result.cStat } : {}),
+                  httpStatus: response.status,
+                },
+              }
+            : null
+        );
+        return;
+      }
 
       if (result.state === 'authorized') {
         toast.success('SEFAZ confirmou a autorização do documento! Protocolo recuperado.');
@@ -833,11 +922,8 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
         );
         if (onSuccess) onSuccess();
       } else if (result.state === 'not_found') {
-        const needsNewEmission = result.code === 'HML_NEW_EMISSION_REQUIRED' && result.safeNewEmission === true;
-        toast.warning(
-          needsNewEmission ? result.error :
-            'Rejeição 217: a SEFAZ confirmou que a nota não consta. Você pode retransmitir o mesmo documento.'
-        );
+        const needsNewEmission =
+          result.code === 'HML_NEW_EMISSION_REQUIRED' && result.safeNewEmission === true;
         setEmissionResult((prev) =>
           prev
             ? {
@@ -845,15 +931,44 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
                 pending: false,
                 hmlConfirmedNotFound: !needsNewEmission,
                 hmlNewEmissionRequired: needsNewEmission,
-                error: result.error || result.xMotivo || 'NF-e não consta na SEFAZ. Emita novamente.',
+                error:
+                  result.error || result.xMotivo || 'NF-e não consta na SEFAZ. Emita novamente.',
               }
             : null
         );
       } else {
-        toast.warning(`Situação retornada: ${result.xMotivo || result.state}`);
+        setEmissionResult((previous) =>
+          previous
+            ? {
+                ...previous,
+                pending: result.pending !== false,
+                hmlConfirmedNotFound: false,
+                error:
+                  typeof result.error === 'string'
+                    ? result.error
+                    : 'A consulta não confirmou o estado da nota. Consulte novamente antes de emitir.',
+                cStat: typeof result.cStat === 'string' ? result.cStat : previous.cStat,
+                sefazMessage:
+                  typeof result.xMotivo === 'string' ? result.xMotivo : previous.sefazMessage,
+                technicalDetails: {
+                  ...previous.technicalDetails,
+                  ...(typeof result.code === 'string' ? { apiCode: result.code } : {}),
+                  httpStatus: response.status,
+                },
+              }
+            : null
+        );
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Não foi possível reconciliar o documento agora.');
+    } catch {
+      setEmissionResult((previous) =>
+        previous
+          ? {
+              ...previous,
+              pending: true,
+              error: 'A consulta não foi concluída. Tente consultar a mesma tentativa novamente.',
+            }
+          : null
+      );
     } finally {
       submissionInProgress.current = false;
       setIsSubmitting(false);
@@ -861,11 +976,80 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
   };
 
   const handleStartFreshHmlEmission = async () => {
-    if (!order || environment !== 2 || !emissionResult?.hmlNewEmissionRequired || submissionInProgress.current) return;
+    if (
+      !order ||
+      environment !== 2 ||
+      (!emissionResult?.hmlNewEmissionRequired && !emissionResult?.hmlCanAbandonTlsFailure) ||
+      submissionInProgress.current
+    )
+      return;
+
+    if (emissionResult.hmlCanAbandonTlsFailure) {
+      if (!emissionResult.documentId || !emissionResult.emissionRequestId) return;
+      if (!canOperateFiscal) {
+        setEmissionResult((previous) =>
+          previous
+            ? {
+                ...previous,
+                error: 'Seu perfil não pode iniciar uma nova tentativa fiscal.',
+              }
+            : null
+        );
+        return;
+      }
+
+      submissionInProgress.current = true;
+      setIsSubmitting(true);
+      let readyToEmit = false;
+      try {
+        const orderWithFiscalItems: Order = {
+          ...order,
+          items: [
+            ...nfeItems.map((item): Item => ({ ...item, fiscal: item.fiscal })),
+            ...(order.items || []).filter((item) => item.itemType === 'service'),
+          ],
+        };
+        const fiscalChoices = buildFiscalItemSelectionPayload(orderWithFiscalItems);
+        const result = await abandonUntransmittedHmlAttempt(
+          String(order.id),
+          emissionResult.documentId,
+          emissionResult.emissionRequestId,
+          fiscalChoices
+        );
+        if (!result.success) throw new Error(result.error);
+
+        clearFiscalEmissionRequest(String(order.id), environment);
+        setFiscalEmissionReplacementSource(
+          String(order.id),
+          environment,
+          emissionResult.documentId
+        );
+        setManualNumberInput(null);
+        setEmissionResult(null);
+        readyToEmit = true;
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível iniciar a nova tentativa fiscal.';
+        setEmissionResult((previous) => (previous ? { ...previous, error: message } : null));
+      } finally {
+        submissionInProgress.current = false;
+        setIsSubmitting(false);
+      }
+
+      if (readyToEmit) await handleEmit(false, false, undefined, true);
+      return;
+    }
+
     clearFiscalEmissionRequest(String(order.id), environment);
     setManualNumberInput(null);
     setEmissionResult(null);
     await handleEmit(false, false, undefined, true);
+  };
+
+  const handleAbandonHmlTlsAttempt = async () => {
+    await handleStartFreshHmlEmission();
   };
 
   const handlePrintDanfe = () => {
@@ -906,6 +1090,7 @@ export function useNfeEmission(order: Order | null, onSuccess?: () => void) {
     handleBatchUpdateItems,
     handleEmit,
     handleReconcile,
+    handleAbandonHmlTlsAttempt,
     handleStartFreshHmlEmission,
     handlePrintDanfe,
     transportResponsible,

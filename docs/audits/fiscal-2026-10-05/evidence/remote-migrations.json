@@ -1,0 +1,492 @@
+{
+  "migrations": [
+    {
+      "version": "202604022000",
+      "name": "create_label_layouts"
+    },
+    {
+      "version": "20260805000000",
+      "name": "create_product_variations"
+    },
+    {
+      "version": "20260805170000",
+      "name": "update_sku_pattern"
+    },
+    {
+      "version": "20260815130000",
+      "name": "add_use_parent_name_and_active"
+    },
+    {
+      "version": "20260816160000",
+      "name": "add_ecom_fields_to_products"
+    },
+    {
+      "version": "20260817000000",
+      "name": "fix_product_images_and_columns"
+    },
+    {
+      "version": "20260817010000",
+      "name": "mark_published_catalog_products_active"
+    },
+    {
+      "version": "20260817010100",
+      "name": "deactivate_ineligible_child_products"
+    },
+    {
+      "version": "20260817010200",
+      "name": "add_variation_catalog_status"
+    },
+    {
+      "version": "20260822000000",
+      "name": "create_app_notifications_and_push_tokens"
+    },
+    {
+      "version": "20260822010000",
+      "name": "create_profiles_and_permissions"
+    },
+    {
+      "version": "202608242100",
+      "name": "add_group_layout_to_label_layouts"
+    },
+    {
+      "version": "202608242130",
+      "name": "add_art_config_to_label_layouts"
+    },
+    {
+      "version": "202608242200",
+      "name": "create_label_art_configs"
+    },
+    {
+      "version": "202608250001",
+      "name": "add_marketing_defaults_to_store_style_settings"
+    },
+    {
+      "version": "202608251415",
+      "name": "fix_label_art_configs_rls"
+    },
+    {
+      "version": "20260826010000",
+      "name": "add_opportunity_seal_image"
+    },
+    {
+      "version": "20260827010000",
+      "name": "send_mobile_push_from_database"
+    },
+    {
+      "version": "20260827020000",
+      "name": "reliable_mobile_push_notifications"
+    },
+    {
+      "version": "20260827020100",
+      "name": "update_mobile_push_sound"
+    },
+    {
+      "version": "20260827213000",
+      "name": "use_levelup_notification_sound"
+    },
+    {
+      "version": "20260827221000",
+      "name": "secure_profiles_access_management"
+    },
+    {
+      "version": "20260827233000",
+      "name": "secure_settings_writes"
+    },
+    {
+      "version": "20260828010000",
+      "name": "fix_mobile_push_custom_sound"
+    },
+    {
+      "version": "20260828030000",
+      "name": "block_product_delete"
+    },
+    {
+      "version": "20260828040000",
+      "name": "add_unit_price_to_inventory_moves"
+    },
+    {
+      "version": "20260828045000",
+      "name": "create_purchases_table"
+    },
+    {
+      "version": "20260828050000",
+      "name": "add_fiscal_fields_to_purchases"
+    },
+    {
+      "version": "20260828060000",
+      "name": "add_tax_fields_to_purchases"
+    },
+    {
+      "version": "20260828070000",
+      "name": "update_freight_type_in_purchases"
+    },
+    {
+      "version": "20260828080000",
+      "name": "add_category_seo_columns"
+    },
+    {
+      "version": "20260828085000",
+      "name": "ensure_inventory_moves_columns"
+    },
+    {
+      "version": "20260828090000",
+      "name": "fix_inventory_moves_triggers"
+    },
+    {
+      "version": "20260828091000",
+      "name": "activate_all_products"
+    },
+    {
+      "version": "20260828093000",
+      "name": "enable_unaccent"
+    },
+    {
+      "version": "20260828110000",
+      "name": "create_goods_receipts"
+    },
+    {
+      "version": "20260906170000",
+      "name": "create_delivery_summary_audio_cache"
+    },
+    {
+      "version": "20260907120000",
+      "name": "create_inbound_invoices"
+    },
+    {
+      "version": "20260907153000",
+      "name": "create_product_supplier_codes"
+    },
+    {
+      "version": "20260908110000",
+      "name": "expand_inbound_invoice_document_import"
+    },
+    {
+      "version": "20260908152000",
+      "name": "enable_delivery_summaries_realtime"
+    },
+    {
+      "version": "20260908170000",
+      "name": "allow_inbound_invoice_without_access_key"
+    },
+    {
+      "version": "20260908180000",
+      "name": "persist_delivery_summary_audio_in_storage"
+    },
+    {
+      "version": "20260913183755",
+      "name": "restore_supplier_mapping_variation_resolver"
+    },
+    {
+      "version": "20260914113000",
+      "name": "generate_delivery_summary_audio_in_backend"
+    },
+    {
+      "version": "20260922123613",
+      "name": "create_dashboard_daily_metrics"
+    },
+    {
+      "version": "20260922131557",
+      "name": "fix_characteristic_input_types"
+    },
+    {
+      "version": "20260922131701",
+      "name": "set_single_choice_characteristics"
+    },
+    {
+      "version": "20260922131749",
+      "name": "set_decimal_measure_characteristics"
+    },
+    {
+      "version": "20260922133113",
+      "name": "restore_characteristic_data_types"
+    },
+    {
+      "version": "20260922141448",
+      "name": "backfill_dimension_characteristics"
+    },
+    {
+      "version": "20260922141607",
+      "name": "rename_foot_handle_material_characteristics"
+    },
+    {
+      "version": "20260922141708",
+      "name": "rename_foot_material_characteristic"
+    },
+    {
+      "version": "20260922142113",
+      "name": "rename_door_type_characteristic"
+    },
+    {
+      "version": "20260922143616",
+      "name": "rename_structure_characteristic"
+    },
+    {
+      "version": "20260922144514",
+      "name": "require_color_characteristic"
+    },
+    {
+      "version": "20260922145010",
+      "name": "require_structure_material_characteristic"
+    },
+    {
+      "version": "20260922145734",
+      "name": "activate_required_characteristics"
+    },
+    {
+      "version": "20260922150014",
+      "name": "remove_parent_characteristic_requirement"
+    },
+    {
+      "version": "20260922185150",
+      "name": "create_supabase_telemetry"
+    },
+    {
+      "version": "20260923150030",
+      "name": "create_ncm_tables"
+    },
+    {
+      "version": "20260923150034",
+      "name": "update_search_ncms_split_words"
+    },
+    {
+      "version": "20260923150038",
+      "name": "expand_ncm_catalog_management"
+    },
+    {
+      "version": "20260923150847",
+      "name": "secure_ncm_cron_auth"
+    },
+    {
+      "version": "20260924193039",
+      "name": "require_variation_identity_for_inventory"
+    },
+    {
+      "version": "20260924193225",
+      "name": "repair_mismatched_inventory_variations"
+    },
+    {
+      "version": "20260925181618",
+      "name": "finalize_inventory_local_first"
+    },
+    {
+      "version": "20260925192839",
+      "name": "inventory_offline_catalog_timestamps"
+    },
+    {
+      "version": "20260925193044",
+      "name": "harden_inventory_catalog_trigger_functions"
+    },
+    {
+      "version": "20260926024543",
+      "name": "create_services_table"
+    },
+    {
+      "version": "20260926143351",
+      "name": "add_fiscal_documents_to_goods_receipts"
+    },
+    {
+      "version": "20260926143401",
+      "name": "add_sequential_goods_receipt_codes"
+    },
+    {
+      "version": "20260926143421",
+      "name": "create_goods_receipt_items"
+    },
+    {
+      "version": "20260926143510",
+      "name": "ensure_goods_receipts_production_columns"
+    },
+    {
+      "version": "20260926143524",
+      "name": "add_goods_receipt_item_movement_uniqueness"
+    },
+    {
+      "version": "20260926143532",
+      "name": "create_inventory_document_transaction_rpcs"
+    },
+    {
+      "version": "20260926143550",
+      "name": "create_order_with_inventory_transaction"
+    },
+    {
+      "version": "20260926143611",
+      "name": "check_goods_receipt_inventory_transactions"
+    },
+    {
+      "version": "20260926143909",
+      "name": "preserve_opening_inventory_cost"
+    },
+    {
+      "version": "20260928150615",
+      "name": "harden_profile_role_assignments"
+    },
+    {
+      "version": "20260928171344",
+      "name": "restrict_settings_data_api"
+    },
+    {
+      "version": "20260928172458",
+      "name": "restrict_order_transaction_rpcs"
+    },
+    {
+      "version": "20260928173725",
+      "name": "strip_retired_csc_token"
+    },
+    {
+      "version": "20260929200135",
+      "name": "create_nfe_documents"
+    },
+    {
+      "version": "20260929200142",
+      "name": "prevent_duplicate_outbound_nfe"
+    },
+    {
+      "version": "20260929200150",
+      "name": "reserve_next_nfe_number"
+    },
+    {
+      "version": "20260929200157",
+      "name": "create_nfe_fiscal_events"
+    },
+    {
+      "version": "20260929200205",
+      "name": "add_fiscal_lineage_and_return_allocations"
+    },
+    {
+      "version": "20260929200212",
+      "name": "support_multiple_outbound_invoices_per_order"
+    },
+    {
+      "version": "20260929200237",
+      "name": "create_nfe_operation_drafts"
+    },
+    {
+      "version": "20260929200244",
+      "name": "persist_authorized_nfe_operation_atomically"
+    },
+    {
+      "version": "20260929200251",
+      "name": "save_nfe_operation_draft_review"
+    },
+    {
+      "version": "20260929200259",
+      "name": "support_safe_nfe_draft_retries_after_rejection"
+    },
+    {
+      "version": "20260929200337",
+      "name": "atomic_nfe_outbound_reservation"
+    },
+    {
+      "version": "20260929200344",
+      "name": "harden_nfe_outbound_reservation"
+    },
+    {
+      "version": "20260929200557",
+      "name": "restrict_nfe_sequence_reservation"
+    },
+    {
+      "version": "20260929202020",
+      "name": "create_atomic_nfe_cce_reservation"
+    },
+    {
+      "version": "20260930172744",
+      "name": "nfe_hml_csosn_snapshot_atomic_isolation"
+    },
+    {
+      "version": "20260930201939",
+      "name": "nfe_modal_selections_and_real_order_hml"
+    },
+    {
+      "version": "20260930214601",
+      "name": "nfe_hml_series_correction"
+    },
+    {
+      "version": "20260930222310",
+      "name": "nfe_hml_issuer_ie_correction"
+    },
+    {
+      "version": "20261001143132",
+      "name": "save_mobile_product_transaction"
+    },
+    {
+      "version": "20261001143633",
+      "name": "restrict_mobile_product_save_rpc"
+    },
+    {
+      "version": "20261001145413",
+      "name": "fix_mobile_product_variation_history_checks"
+    },
+    {
+      "version": "20261001154339",
+      "name": "catalog_product_search"
+    },
+    {
+      "version": "20261001154807",
+      "name": "current_user_password_credential"
+    },
+    {
+      "version": "20261001162610",
+      "name": "ncm_store_activation"
+    },
+    {
+      "version": "20261001164300",
+      "name": "nfe_return_environment_isolation"
+    },
+    {
+      "version": "20261001173124",
+      "name": "isolate_operational_hml_orders"
+    },
+    {
+      "version": "20261001183013",
+      "name": "nfe_return_product_identity"
+    },
+    {
+      "version": "20261001185245",
+      "name": "restore_atomic_return_capacity_rpc"
+    },
+    {
+      "version": "20261001192820",
+      "name": "persist_nfe_operation_totals"
+    },
+    {
+      "version": "20261001193207",
+      "name": "persist_hml_invoice_totals"
+    },
+    {
+      "version": "20261001222100",
+      "name": "create_stock_unavailabilities"
+    },
+    {
+      "version": "20261001222118",
+      "name": "harden_stock_unavailabilities"
+    },
+    {
+      "version": "20261002190633",
+      "name": "search_active_ncms_by_aliases"
+    },
+    {
+      "version": "20261002190634",
+      "name": "capture_nfe_recipient_cpf"
+    },
+    {
+      "version": "20261003142729",
+      "name": "nfe_snapshot_normalize_legacy_product_ids"
+    },
+    {
+      "version": "20261003162040",
+      "name": "nfe_temporary_recipient_tax_id"
+    },
+    {
+      "version": "20261003164340",
+      "name": "restore_numbered_nfe_snapshot_allocator"
+    },
+    {
+      "version": "20261003222817",
+      "name": "retail_fiscal_model_policy"
+    },
+    {
+      "version": "20261004004500",
+      "name": "nfe_sefaz_rejection_recovery"
+    }
+  ]
+}

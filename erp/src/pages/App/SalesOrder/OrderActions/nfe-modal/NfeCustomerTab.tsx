@@ -22,8 +22,7 @@ interface NfeCustomerTabProps {
 }
 
 const maskTaxId = (value: string, personType?: 'PF' | 'PJ') => {
-  if (personType === 'PJ' || /[a-z]/i.test(value))
-    return formatRecipientTaxId(value, 'PJ');
+  if (personType === 'PJ' || /[a-z]/i.test(value)) return formatRecipientTaxId(value, 'PJ');
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length > 11) {
     if (digits.length > 12)
@@ -68,8 +67,7 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
   const inferredDocumentType = recipientTaxIdKind(recipientTaxId);
   const isPJ = effectivePersonType === 'PJ' || inferredDocumentType === 'CNPJ';
   const isPF = effectivePersonType === 'PF' || inferredDocumentType === 'CPF';
-  const docLabel =
-    documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
+  const docLabel = documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
   const personLabel = isPJ
     ? 'Pessoa Jurídica (PJ)'
     : isPF

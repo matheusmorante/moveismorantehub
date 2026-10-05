@@ -28,8 +28,12 @@ import { sendSoapToSefaz } from './sefazClient';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { loadHmlCsosnConfiguration, parseHmlCsosnConfiguration } from './csosnPolicy';
 import { assertXmlFiscalSelections } from './fiscalSelectionIntegrity';
-import { fiscalSelectionsEqual } from '../../shared-utils/fiscalItemSelections';
 import { embeddedNfeXml } from './xmlEnvelope';
+import {
+  canAbandonBeforeHmlTransmission,
+  getFiscalSelectionMismatchDetails,
+  isFormallyAbandonedHmlAttempt,
+} from './hmlAttemptSafety';
 import {
   createHmlNormalSaleRuleSet,
   HML_NORMAL_SALE_RULESET_VERSION,
@@ -259,7 +263,10 @@ function nfceXmlNeedsFreshEmission(xml: string | null | undefined, now = Date.no
   return !Number.isFinite(issuedAt) || now - issuedAt >= 4 * 60_000 || issuedAt > now + 60_000;
 }
 
-function freshNfceEmissionRequired(doc: FiscalDatabase['public']['Tables']['nfe_documents']['Row'], cStat: string) {
+function freshNfceEmissionRequired(
+  doc: FiscalDatabase['public']['Tables']['nfe_documents']['Row'],
+  cStat: string
+) {
   return failure(
     409,
     'HML_NEW_EMISSION_REQUIRED',
@@ -434,7 +441,8 @@ export async function consultAuthorizedHmlTechnical(
     | 'status'
     | 'numero_protocolo'
     | 'fiscal_ruleset_version'
-  > & Partial<Pick<HmlDocumentRow, 'emission_request_id'>>
+  > &
+    Partial<Pick<HmlDocumentRow, 'emission_request_id'>>
 ): Promise<Result> {
   if (
     doc.ambiente !== 2 ||
@@ -474,12 +482,24 @@ export async function consultAuthorizedHmlTechnical(
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
     const diagnosticId = randomUUID();
-    console.error('SEFAZ_HML_AUTHORIZED_CONSULT', {documentId: doc.id, emissionRequestId: doc.emission_request_id, diagnosticId, ...transportDiagnostic});
+    console.error('SEFAZ_HML_AUTHORIZED_CONSULT', {
+      documentId: doc.id,
+      emissionRequestId: doc.emission_request_id,
+      diagnosticId,
+      ...transportDiagnostic,
+    });
     return failure(
       502,
       'HML_AUTHORIZED_CONSULT_UNKNOWN',
       'A consulta direta à SEFAZ não teve resposta confirmada. A autorização persistida foi preservada.',
-      { pending: true, documentId: doc.id, sefazConsulted: false, diagnosticId, diagnosticStage: 'sefaz-consultation', transportDiagnostic }
+      {
+        pending: true,
+        documentId: doc.id,
+        sefazConsulted: false,
+        diagnosticId,
+        diagnosticStage: 'sefaz-consultation',
+        transportDiagnostic,
+      }
     );
   }
 
@@ -571,8 +591,12 @@ async function transmitAndPersist(
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
     const diagnosticId = randomUUID();
-    const attemptDiagnostic = {diagnosticId, emissionRequestId: metadata.emissionRequestId, ...transportDiagnostic};
-    console.error('SEFAZ_HML_TRANSPORT', {documentId, ...attemptDiagnostic});
+    const attemptDiagnostic = {
+      diagnosticId,
+      emissionRequestId: metadata.emissionRequestId,
+      ...transportDiagnostic,
+    };
+    console.error('SEFAZ_HML_TRANSPORT', { documentId, ...attemptDiagnostic });
     const { error: diagnosticPersistError } = await db.rpc('persist_hml_nfe_result', {
       p_document_id: documentId,
       p_attempt_token: attemptToken,
@@ -586,9 +610,15 @@ async function transmitAndPersist(
       502,
       'HML_TRANSMISSION_UNCERTAIN',
       'Transmissão sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.',
-      { pending: true, ...metadata, transportDiagnostic, diagnosticId,
-        diagnosticStage: 'sefaz-transmission', diagnosticCategory: 'SEFAZ_TRANSPORT_FAILED',
-        transportDiagnosticPersisted: !diagnosticPersistError }
+      {
+        pending: true,
+        ...metadata,
+        transportDiagnostic,
+        diagnosticId,
+        diagnosticStage: 'sefaz-transmission',
+        diagnosticCategory: 'SEFAZ_TRANSPORT_FAILED',
+        transportDiagnosticPersisted: !diagnosticPersistError,
+      }
     );
   }
   const parsed = parseSefazAuthorization(responseXml);
@@ -747,11 +777,7 @@ export async function retryHmlTechnical(
       }
     );
   const previousRejection = parseSefazAuthorization(String(doc.xml_protocolo || ''));
-  if (
-    doc.status === 'erro' &&
-    doc.modelo === '65' &&
-    previousRejection.cStat === '704'
-  )
+  if (doc.status === 'erro' && doc.modelo === '65' && previousRejection.cStat === '704')
     return freshNfceEmissionRequired(doc, previousRejection.cStat);
   if (
     doc.status === 'erro' &&
@@ -829,8 +855,12 @@ export async function retryHmlTechnical(
     } catch (error) {
       const transportDiagnostic = sefazTransportDiagnostic(error);
       const diagnosticId = randomUUID();
-      const attemptDiagnostic = {diagnosticId, emissionRequestId: doc.emission_request_id, ...transportDiagnostic};
-      console.error('SEFAZ_HML_CONSULT', {documentId: doc.id, ...attemptDiagnostic});
+      const attemptDiagnostic = {
+        diagnosticId,
+        emissionRequestId: doc.emission_request_id,
+        ...transportDiagnostic,
+      };
+      console.error('SEFAZ_HML_CONSULT', { documentId: doc.id, ...attemptDiagnostic });
       const { error: diagnosticPersistError } = await db.rpc('persist_hml_nfe_result', {
         p_document_id: doc.id,
         p_attempt_token: attemptToken,
@@ -844,13 +874,19 @@ export async function retryHmlTechnical(
         502,
         'HML_RECONCILIATION_REQUIRED',
         'Consulta da chave original inconclusiva; a retransmissão permanece bloqueada.',
-        { pending: true, documentId: doc.id, accessKey: doc.chave_acesso, transportDiagnostic,
-          diagnosticId, diagnosticStage: 'sefaz-consultation', diagnosticCategory: 'SEFAZ_TRANSPORT_FAILED',
-          transportDiagnosticPersisted: !diagnosticPersistError }
+        {
+          pending: true,
+          documentId: doc.id,
+          accessKey: doc.chave_acesso,
+          transportDiagnostic,
+          diagnosticId,
+          diagnosticStage: 'sefaz-consultation',
+          diagnosticCategory: 'SEFAZ_TRANSPORT_FAILED',
+          transportDiagnosticPersisted: !diagnosticPersistError,
+        }
       );
     }
-    if (consultation.body.code !== 'HML_CONFIRMED_NOT_FOUND')
-      return consultation;
+    if (consultation.body.code !== 'HML_CONFIRMED_NOT_FOUND') return consultation;
     if (doc.modelo === '65' && nfceXmlNeedsFreshEmission(doc.xml_nfe))
       return freshNfceEmissionRequired(doc, String(consultation.body.cStat || '217'));
     if (!allowRetransmission) return consultation;
@@ -920,7 +956,9 @@ export async function recoverHmlTechnical(
     );
   const { data: previous, error: previousError } = await db
     .from('nfe_documents')
-    .select('id,order_id,ambiente,modelo,fiscal_ruleset_version,fiscal_snapshot_id')
+    .select(
+      'id,order_id,emission_request_id,ambiente,modelo,status,document_type,fiscal_ruleset_version,fiscal_snapshot_id,hml_attempt_token,hml_attempt_expires_at,numero_protocolo,xml_protocolo,hml_response_history,supersedes_document_id,numero_nfe,serie'
+    )
     .eq('emission_request_id', command.emissionRequestId)
     .maybeSingle();
   if (previousError)
@@ -941,28 +979,35 @@ export async function recoverHmlTechnical(
         'HML_IDEMPOTENCY_MISMATCH',
         'A chave de solicitação já pertence a outra tentativa fiscal.'
       );
-    if (command.requestedNumber !== undefined) {
-      const { data: snapshot, error } = previous.fiscal_snapshot_id
-        ? await db
-            .from('nfe_fiscal_snapshots')
-            .select('reserved_number')
-            .eq('id', previous.fiscal_snapshot_id)
-            .maybeSingle()
-        : { data: null, error: null };
-      if (error || !snapshot || snapshot.reserved_number !== command.requestedNumber)
-        return failure(
-          409,
-          'HML_IDEMPOTENCY_MISMATCH',
-          'O número fiscal desta tentativa já está congelado; use uma nova tentativa somente após rejeição confirmada.'
-        );
-    }
+    if (isFormallyAbandonedHmlAttempt(previous.hml_response_history))
+      return failure(
+        409,
+        'HML_ATTEMPT_FORMALLY_ABANDONED',
+        'Esta tentativa foi encerrada antes do envio à SEFAZ. Use a ação explícita para iniciar uma nova tentativa fiscal.',
+        {
+          pending: false,
+          documentId: previous.id,
+          emissionRequestId: command.emissionRequestId,
+          orderId: command.orderId,
+          environment: 2,
+          model: previous.modelo,
+          hmlCanAbandonTlsFailure: false,
+        }
+      );
+    if ((previous.supersedes_document_id || null) !== (command.supersedesDocumentId || null))
+      return failure(
+        409,
+        'HML_IDEMPOTENCY_MISMATCH',
+        'A tentativa já está vinculada a outra origem fiscal. Consulte o documento original.'
+      );
     if (
-      command.itemCsosnOverrides ||
+      command.itemCsosnOverrides !== undefined ||
       command.itemFiscalSelections ||
       command.recipientTaxId !== undefined ||
       command.finalConsumer !== undefined ||
       command.deliveryByIssuer !== undefined ||
-      command.cardNotIntegrated !== undefined
+      command.cardNotIntegrated !== undefined ||
+      command.requestedNumber !== undefined
     ) {
       if (!previous.fiscal_snapshot_id)
         return failure(
@@ -972,34 +1017,45 @@ export async function recoverHmlTechnical(
         );
       const { data: snapshot, error } = await db
         .from('nfe_fiscal_snapshots')
-        .select('snapshot_data')
+        .select('snapshot_data,reserved_number')
         .eq('id', previous.fiscal_snapshot_id)
         .maybeSingle();
-      const sorted = (value: Record<string, string>) =>
-        JSON.stringify(Object.entries(value).sort());
-      if (
-        error ||
-        !snapshot ||
-        sorted(snapshot.snapshot_data.emissionRequest.itemCsosnOverrides || {}) !==
-          sorted(command.itemCsosnOverrides || {}) ||
-        !fiscalSelectionsEqual(
-          snapshot.snapshot_data.emissionRequest.itemFiscalSelections,
-          command.itemFiscalSelections
-        ) ||
-        (command.recipientTaxId !== undefined &&
-          (snapshot.snapshot_data.emissionRequest.recipientTaxId || '') !==
-            normalizeRecipientTaxId(command.recipientTaxId)) ||
-        (command.finalConsumer !== undefined &&
-          snapshot.snapshot_data.emissionRequest.finalConsumer !== command.finalConsumer) ||
-        (command.deliveryByIssuer !== undefined &&
-          snapshot.snapshot_data.emissionRequest.deliveryByIssuer !== command.deliveryByIssuer) ||
-        (command.cardNotIntegrated !== undefined &&
-          snapshot.snapshot_data.emissionRequest.cardNotIntegrated !== command.cardNotIntegrated)
-      )
+      if (error || !snapshot)
         return failure(
           409,
           'HML_IDEMPOTENCY_MISMATCH',
-          'Esta tentativa já tem escolhas de CSOSN imutáveis. Consulte o documento original.'
+          'O snapshot fiscal original não está disponível para comparar esta tentativa. Consulte o documento original.'
+        );
+      const fiscalMismatchFields = getFiscalSelectionMismatchDetails(
+        snapshot.snapshot_data,
+        command
+      );
+      if (
+        command.requestedNumber !== undefined &&
+        snapshot.reserved_number !== command.requestedNumber
+      )
+        fiscalMismatchFields.push({
+          field: 'número fiscal',
+          snapshotValue: String(snapshot.reserved_number),
+          currentValue: String(command.requestedNumber),
+        });
+      if (fiscalMismatchFields.length)
+        return failure(
+          409,
+          'HML_IDEMPOTENCY_MISMATCH',
+          'A tentativa fiscal existente não pode ser reutilizada porque os dados fiscais foram alterados após a criação do snapshot.',
+          {
+            pending: false,
+            documentId: previous.id,
+            orderId: command.orderId,
+            emissionRequestId: command.emissionRequestId,
+            nfeNumber: previous.numero_nfe,
+            series: previous.serie,
+            environment: 2,
+            model: previous.modelo,
+            fiscalMismatchFields,
+            hmlCanAbandonTlsFailure: canAbandonBeforeHmlTransmission(previous),
+          }
         );
     }
     return retryHmlTechnical(db, previous.id, false);
@@ -1011,9 +1067,15 @@ export async function recoverHmlTechnical(
       'HML_SNAPSHOT_RESERVATION_FAILED',
       SNAPSHOT_REASON_MESSAGES.ALREADY_ACTIVE_FISCAL_ATTEMPT,
       {
-        ...activeAttempt, pending: true, environment: 2, orderId: command.orderId,
-        databaseCode: '23505', databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
-        diagnosticStage: 'snapshot-reservation', numberReserved: false, sefazContacted: false,
+        ...activeAttempt,
+        pending: true,
+        environment: 2,
+        orderId: command.orderId,
+        databaseCode: '23505',
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+        diagnosticStage: 'snapshot-reservation',
+        numberReserved: false,
+        sefazContacted: false,
       }
     );
   return null;
@@ -1401,26 +1463,38 @@ export async function emitHmlTechnical(
   }
 
   const attemptToken = randomUUID();
-  const { data: documentId, error: insertError } = await db.rpc('reserve_hml_nfe_outbound', {
-    p_attempt_token: attemptToken,
-    p_order_id: command.orderId,
-    p_emission_request_id: command.emissionRequestId,
-    p_access_key: accessKey,
-    p_signed_xml: signedXml,
-    p_number: reservation.number,
-    p_series: sequence.series,
-    p_decision_trace: resolved.document.decisions as unknown as Record<string, unknown>[],
-  });
+  const { data: documentId, error: insertError } = await db.rpc(
+    'reserve_hml_nfe_outbound_with_replacement',
+    {
+      p_attempt_token: attemptToken,
+      p_order_id: command.orderId,
+      p_emission_request_id: command.emissionRequestId,
+      p_access_key: accessKey,
+      p_signed_xml: signedXml,
+      p_number: reservation.number,
+      p_series: sequence.series,
+      p_decision_trace: resolved.document.decisions as unknown as Record<string, unknown>[],
+      p_supersedes_document_id: command.supersedesDocumentId || null,
+    }
+  );
   if (insertError || !documentId) {
-    const activeAttempt = await activeAttemptMetadata(db, command.orderId, preflight.document.model);
+    const activeAttempt = await activeAttemptMetadata(
+      db,
+      command.orderId,
+      preflight.document.model
+    );
     return failure(
       409,
       'HML_ACTIVE_ATTEMPT_OR_PERSISTENCE_FAILED',
       'Tentativa fiscal já ativa ou XML não pôde ser persistido. Consulte a emissão antes de repetir.',
-      { pending: true, numberReserved: true, ...activeAttempt,
+      {
+        pending: true,
+        numberReserved: true,
+        ...activeAttempt,
         ...('documentId' in activeAttempt
           ? { databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT' }
-          : {}) }
+          : {}),
+      }
     );
   }
   const metadata = {

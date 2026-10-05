@@ -44,6 +44,22 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
     throw Object.assign(new Error('Endpoint fiscal não é um endereço HTTPS oficial da SEFAZ-PR.'), {
       code: 'SEFAZ_ENDPOINT_INVALID',
     });
+  const expectedEnvironment = target.hostname.startsWith('homologacao.') ? '2' : '1';
+  const expectedModel = target.hostname.includes('nfce.') ? '65' : '55';
+  const environments = [
+    ...xmlPayload.matchAll(/<(?:[\w-]+:)?tpAmb>\s*([^<]+)\s*<\/(?:[\w-]+:)?tpAmb>/g),
+  ];
+  const models = [...xmlPayload.matchAll(/<(?:[\w-]+:)?mod>\s*([^<]+)\s*<\/(?:[\w-]+:)?mod>/g)];
+  if (
+    environments.some((match) => match[1].trim() !== expectedEnvironment) ||
+    models.some((match) => match[1].trim() !== expectedModel)
+  )
+    throw Object.assign(
+      new Error('XML fiscal incompatível com o ambiente ou modelo do endpoint SEFAZ.'),
+      {
+        code: 'SEFAZ_ENVIRONMENT_MODEL_MISMATCH',
+      }
+    );
   const httpsAgent = createSefazHttpsAgent(certPem, privateKeyPem);
   const context: SefazTransportContext = {
     endpoint: `${target.origin}${target.pathname}`,
@@ -110,7 +126,10 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
     context.durationMs = Math.round(performance.now() - startedAt);
     if (axios.isAxiosError(transportError) && transportError.response) context.phase = 'response';
     if (transportError && typeof transportError === 'object' && Object.isExtensible(transportError))
-      Object.defineProperty(transportError, 'sefazTransportContext', { value: context, configurable: true });
+      Object.defineProperty(transportError, 'sefazTransportContext', {
+        value: context,
+        configurable: true,
+      });
     throw transportError;
   } finally {
     httpsAgent.destroy();

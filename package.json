@@ -4,16 +4,15 @@
   "description": "Master Orchestrator for Morante Ecosystem",
   "private": true,
   "scripts": {
-    "predev": "npx -y vercel env pull .env.local --environment=development --yes",
-    "pretest:nfe:hml": "npx -y vercel env pull .env.local --environment=development --yes",
-    "test:nfe:hml": "node scripts/testing/nfe-hml-automated.cjs",
-    "dev": "npm run build:fiscal --prefix erp && concurrently -k -n ERP,API -c cyan,magenta \"npm run dev:erp\" \"npm run dev:api:serve\"",
-    "dev:erp": "npm run dev --prefix erp",
-    "dev:api": "npm run build:fiscal --prefix erp && npm run dev:api:serve",
+    "test:nfe:hml": "node scripts/testing/run-fiscal-audit.cjs tls && node scripts/testing/run-fiscal-audit.cjs services",
+    "dev": "node scripts/run-vercel-env-dev.cjs",
+    "dev:stack": "node scripts/assert-vercel-development.cjs && npm run build:fiscal --prefix erp && concurrently -k -n ERP,API -c cyan,magenta \"npm run dev:erp:serve\" \"npm run dev:api:serve\"",
+    "dev:erp": "node scripts/run-vercel-env-dev.cjs erp",
+    "dev:api": "npm run build:fiscal --prefix erp && node scripts/run-vercel-env-dev.cjs api",
     "dev:api:serve": "node scripts/run-vercel-dev.cjs",
     "dev:erp:test": "npm run dev:test --prefix erp",
     "dev:catalog": "npm run dev --prefix digital-catalog -- -p 3001",
-    "dev:all": "concurrently \"npm run dev:erp\" \"npm run dev:catalog\"",
+    "dev:all": "concurrently -k \"npm run dev\" \"npm run dev:catalog\"",
     "install:erp": "npm install --prefix erp",
     "install:catalog": "npm install --prefix digital-catalog",
     "install:all": "npm install --prefix erp && npm install --prefix digital-catalog",
@@ -45,7 +44,8 @@
     "security:secrets": "node scripts/security.cjs secrets",
     "security:vuln": "node scripts/security.cjs vuln",
     "security:sbom": "node scripts/security.cjs sbom",
-    "advisors": "npx supabase db advisors --linked"
+    "advisors": "npx supabase db advisors --linked",
+    "dev:erp:serve": "node scripts/assert-vercel-development.cjs && npm run dev:serve --prefix erp"
   },
   "devDependencies": {
     "@ast-grep/cli": "0.45.3",

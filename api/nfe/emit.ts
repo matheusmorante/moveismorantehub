@@ -694,8 +694,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (soapErr: any) {
       const diagnosticId = randomUUID();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);
-      const attemptDiagnostic = {diagnosticId, emissionRequestId, ...transportDiagnostic};
-      console.error('[NF-e Emit] Falha de transporte:', {documentId, ...attemptDiagnostic});
+      const attemptDiagnostic = { diagnosticId, emissionRequestId, ...transportDiagnostic };
+      console.error('[NF-e Emit] Falha de transporte:', { documentId, ...attemptDiagnostic });
       // Falha de rede é ambígua: manter reserva pendente evita uma retransmissão duplicada.
       await supabase
         .from('nfe_documents')
@@ -715,7 +715,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         diagnosticId,
         diagnosticStage: 'sefaz-transmission',
         transportDiagnostic,
-        error: 'Transmissão sem resposta confirmada. Consulte a chave original antes de tentar novamente.',
+        error:
+          'Transmissão sem resposta confirmada. Consulte a chave original antes de tentar novamente.',
       });
     }
 

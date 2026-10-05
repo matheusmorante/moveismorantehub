@@ -1,0 +1,127 @@
+{
+  "mode": "working-tree",
+  "exitCode": 1,
+  "count": 20,
+  "findings": [
+    {
+      "rule": "generic-api-key",
+      "file": "docs/audits/fiscal-2026-10-05/evidence/operational-before.json",
+      "line": 16,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "docs/audits/fiscal-2026-10-05/evidence/operational-after.json",
+      "line": 16,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/server/nfe/cancel.cjs",
+      "line": 625,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "erp/src/services/authPasswordRecovery.test.ts",
+      "line": 105,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": ".serena/cache/typescript/document_symbols.pkl",
+      "line": 9240,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": ".serena/cache/typescript/document_symbols.pkl",
+      "line": 16846,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/lintVitalAnalyzeRelease/release.xml",
+      "line": 36,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/release-mergeJavaRes/zip-cache/+01soPqcp5wF8d0cDQffag==",
+      "line": 1,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/release-mergeJavaRes/zip-cache/+01soPqcp5wF8d0cDQffag==",
+      "line": 1,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/lint_vital_report_lint_model/release/generateReleaseLintVitalReportModel/release.xml",
+      "line": 36,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/release-mergeJavaRes/zip-cache/+01soPqcp5wF8d0cDQffag==",
+      "line": 1,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/manifest_merge_blame_file/release/processReleaseMainManifest/manifest-merger-blame-release-report.txt",
+      "line": 249,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/merged_manifest/release/expoReleaseOverrideMaxSdkConflicts/AndroidManifest.xml",
+      "line": 122,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml",
+      "line": 122,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml",
+      "line": 122,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/release-mergeJavaRes/zip-cache/+01soPqcp5wF8d0cDQffag==",
+      "line": 1,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/android/app/build/intermediates/incremental/release-mergeJavaRes/zip-cache/+01soPqcp5wF8d0cDQffag==",
+      "line": 1,
+      "commit": ""
+    },
+    {
+      "rule": "gcp-api-key",
+      "file": "mobile/android/app/build/intermediates/packaged_manifests/release/processReleaseManifestForPackage/AndroidManifest.xml",
+      "line": 122,
+      "commit": ""
+    },
+    {
+      "rule": "private-key",
+      "file": "mobile/google-services-key.json",
+      "line": 5,
+      "commit": ""
+    },
+    {
+      "rule": "generic-api-key",
+      "file": "mobile/src/services/authPasswordRecovery.test.ts",
+      "line": 105,
+      "commit": ""
+    }
+  ]
+}

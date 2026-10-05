@@ -36,11 +36,19 @@ const inferAttributeDataType = (name: string, value?: VariationType['dataType'])
       'cor',
       'estrutura',
       'material da estrutura',
-      'quantidade de gavetas',
-      'quantidade de portas',
     ].includes(normalizedName)
   )
     return 'radio' as const;
+  if (
+    [
+      'quantidade de gavetas',
+      'quantidade de gaveta',
+      'quantidade de portas',
+      'quantidade de porta',
+    ].includes(normalizedName)
+  )
+    return 'integer' as const;
+
   return normalizeAttributeDataType(value);
 };
 

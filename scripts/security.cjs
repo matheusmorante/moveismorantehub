@@ -3,8 +3,11 @@ const fs = require('fs');
 const path = require('path');
 
 const cmd = process.argv[2];
+const securityExitCode = (result) => typeof result.status === 'number' ? result.status : 1;
 
 function findExe(name, wingetDir) {
+  const configured = name === 'gitleaks' ? process.env.MORANTE_GITLEAKS_PATH : undefined;
+  if (configured && fs.existsSync(configured) && fs.statSync(configured).isFile()) return configured;
   // Check PATH first
   const which = process.platform === 'win32' ? 'where' : 'which';
   const probe = spawnSync(which, [name], { encoding: 'utf8', shell: true });
@@ -29,14 +32,18 @@ function findExe(name, wingetDir) {
   return name;
 }
 
-if (cmd === 'secrets') {
+if (require.main === module) {
+if (cmd === 'secrets' || cmd === 'history') {
   const gitleaks = findExe('gitleaks', 'Gitleaks.Gitleaks');
   console.log(`[Security] Executing Gitleaks with: ${gitleaks}`);
-  const res = spawnSync(gitleaks, ['dir', '--no-banner', '-c', '.gitleaks.toml', '.'], {
+  const args = cmd === 'history'
+    ? ['git','--redact','--no-banner','-c',process.env.MORANTE_GITLEAKS_CONFIG || '.gitleaks.history.toml','--log-opts=--all','.']
+    : ['dir','--redact','--no-banner','-c','.gitleaks.toml','.'];
+  const res = spawnSync(gitleaks, args, {
     stdio: 'inherit',
-    shell: true,
+    windowsHide:true,
   });
-  process.exit(res.status || 0);
+  process.exit(securityExitCode(res));
 } else if (cmd === 'vuln') {
   const trivy = findExe('trivy', 'AquaSecurity.Trivy');
   console.log(`[Security] Executing Trivy with: ${trivy}`);
@@ -52,7 +59,7 @@ if (cmd === 'secrets') {
     ['fs', '--scanners', 'vuln,misconfig', '--severity', 'HIGH,CRITICAL', '.'],
     { stdio: 'inherit', shell: true, env }
   );
-  process.exit(res.status || 0);
+  process.exit(securityExitCode(res));
 } else if (cmd === 'sbom') {
   const trivy = findExe('trivy', 'AquaSecurity.Trivy');
   console.log(`[Security] Generating CycloneDX SBOM with: ${trivy}`);
@@ -67,8 +74,10 @@ if (cmd === 'secrets') {
     ['fs', '--format', 'cyclonedx', '--output', 'sbom.json', '.'],
     { stdio: 'inherit', shell: true, env }
   );
-  process.exit(res.status || 0);
+  process.exit(securityExitCode(res));
 } else {
-  console.error(`Unknown security command: ${cmd}. Available: secrets, vuln, sbom`);
+  console.error(`Unknown security command: ${cmd}. Available: secrets, history, vuln, sbom`);
   process.exit(1);
 }
+}
+module.exports = {findExe,securityExitCode};

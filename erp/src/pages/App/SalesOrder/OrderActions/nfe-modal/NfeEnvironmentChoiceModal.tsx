@@ -166,9 +166,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                 Produção
               </span>
               <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-1">
-                {isProdIssued
-                  ? 'Já emitida para este pedido'
-                  : 'Desativado por segurança'}
+                {isProdIssued ? 'Já emitida para este pedido' : 'Desativado por segurança'}
               </span>
             </button>
           </div>

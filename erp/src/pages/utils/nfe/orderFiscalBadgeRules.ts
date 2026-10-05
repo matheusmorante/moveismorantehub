@@ -64,8 +64,7 @@ export const resolveOrderFiscalBadgePair = (
           (document.document_type === 'return' || document.document_type === 'estorno') &&
           isAuthorized(document)
         );
-      if (status === 'cancelled')
-        return isOutbound(document) && document.status === 'cancelada';
+      if (status === 'cancelled') return isOutbound(document) && document.status === 'cancelada';
       if (status === 'issued') return isOutbound(document) && isAuthorized(document);
       return false;
     });

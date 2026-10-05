@@ -1,0 +1,24 @@
+{
+  "name": "existing-attempt-api-reconciliation",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "reconcile-http",
+      "environment": 2,
+      "model": "65",
+      "documentId": "5fdea7e3-75c5-4648-963c-3913a1e2ee0c",
+      "emissionRequestId": "aa1146c0-ea67-47aa-9ec6-8af7e5907dcd",
+      "endpoint": "/api/nfe/consult",
+      "http": 409,
+      "code": "HML_NEW_EMISSION_REQUIRED",
+      "cStat": "217",
+      "state": "not_found",
+      "pending": false,
+      "success": true,
+      "protocolPresent": false,
+      "retransmissionEnabled": false,
+      "emissionTriggered": false
+    }
+  ]
+}

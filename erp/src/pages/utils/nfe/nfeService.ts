@@ -16,15 +16,117 @@ import {
 export { canIssueCce };
 
 const fiscalEmissionRequestIds = new Map<string, string>();
+const fiscalReplacementSources = new Map<string, string>();
+const fiscalSupersedingDocuments = new Map<string, string>();
+const fiscalRequestStorageKey = (requestKey: string) => `nfe-emission-request:${requestKey}`;
+const fiscalReplacementSourceStorageKey = (requestKey: string) =>
+  `nfe-emission-replacement-source:${requestKey}`;
+const fiscalSupersedingStorageKey = (requestKey: string, requestId: string) =>
+  `nfe-emission-supersedes:${requestKey}:${requestId}`;
+
 export const clearFiscalEmissionRequest = (orderId: string, environment: 1 | 2) => {
   const k = `${orderId}:outbound:${environment}`;
+  const requestId = fiscalEmissionRequestIds.get(k);
   fiscalEmissionRequestIds.delete(k);
+  if (requestId) fiscalSupersedingDocuments.delete(fiscalSupersedingStorageKey(k, requestId));
   try {
-    if (typeof window !== 'undefined') window.localStorage.removeItem(`nfe-emission-request:${k}`);
+    if (typeof window !== 'undefined') {
+      const storedRequestId = window.localStorage.getItem(fiscalRequestStorageKey(k));
+      window.localStorage.removeItem(fiscalRequestStorageKey(k));
+      if (requestId || storedRequestId)
+        window.localStorage.removeItem(
+          fiscalSupersedingStorageKey(k, requestId || storedRequestId || '')
+        );
+    }
   } catch {
     /* armazenamento indisponível */
   }
 };
+
+export function setFiscalEmissionReplacementSource(
+  orderId: string,
+  environment: 1 | 2,
+  documentId: string
+) {
+  const requestKey = `${orderId}:outbound:${environment}`;
+  fiscalReplacementSources.set(requestKey, documentId);
+  try {
+    if (typeof window !== 'undefined')
+      window.localStorage.setItem(fiscalReplacementSourceStorageKey(requestKey), documentId);
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
+export function buildFiscalItemSelectionPayload(order: Order) {
+  const productItems = (order.items || []).filter((item) => item.itemType !== 'service');
+  const itemCsosnOverrides = Object.fromEntries(
+    productItems.flatMap((item, index) => {
+      const fiscal = item.fiscal as Record<string, unknown> | undefined;
+      return fiscal?.csosnSource === 'manual' && fiscal.cst
+        ? [[String(index + 1), String(fiscal.cst)]]
+        : [];
+    })
+  );
+  const itemFiscalSelections = parseFiscalItemSelections(
+    Object.fromEntries(
+      productItems.flatMap((item, index) => {
+        const fiscal = item.fiscal;
+        return fiscal
+          ? [
+              [
+                String(index + 1),
+                {
+                  ncm: fiscal.ncm,
+                  cfop: fiscal.cfop,
+                  origem: fiscal.origem,
+                  cest: fiscal.cest ?? '',
+                  csosn: fiscal.cst,
+                },
+              ],
+            ]
+          : [];
+      })
+    )
+  );
+  return { itemCsosnOverrides, itemFiscalSelections };
+}
+
+export async function abandonUntransmittedHmlAttempt(
+  orderId: string,
+  documentId: string,
+  emissionRequestId: string,
+  currentFiscalChoices: ReturnType<typeof buildFiscalItemSelectionPayload>
+): Promise<{ success: true; alreadyAbandoned: boolean } | { success: false; error: string }> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token)
+    return { success: false, error: 'Faça login novamente para encerrar a tentativa fiscal.' };
+
+  const response = await fetch('/api/nfe/abandon-hml-attempt', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${data.session.access_token}`,
+    },
+    body: JSON.stringify({
+      orderId,
+      documentId,
+      emissionRequestId,
+      environment: 2,
+      ...currentFiscalChoices,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success !== true)
+    return {
+      success: false,
+      error:
+        typeof result.error === 'string'
+          ? result.error
+          : 'Não foi possível encerrar a tentativa anterior com segurança.',
+    };
+  return { success: true, alreadyAbandoned: result.alreadyAbandoned === true };
+}
 
 export const FISCAL_NUMBER_PREVIEW_TTL_MS = 30_000;
 const fiscalNumberPreviewCache = new Map<string, { nextNumber: number; timestamp: number }>();
@@ -88,6 +190,7 @@ export async function getNextNfeNumberPreview(
 
 export interface NfeEmissionResult {
   success: boolean;
+  emissionRequestId?: string;
   documentId?: string;
   orderId?: string;
   accessKey?: string;
@@ -104,6 +207,13 @@ export interface NfeEmissionResult {
   pending?: boolean;
   hmlConfirmedNotFound?: boolean;
   hmlNewEmissionRequired?: boolean;
+  hmlCanAbandonTlsFailure?: boolean;
+  fiscalMismatchFields?: Array<{
+    field: string;
+    snapshotValue?: string;
+    currentValue?: string;
+  }>;
+  supersedesDocumentId?: string;
   cStat?: string;
   diagnosticId?: string;
   diagnosticStage?: string;
@@ -114,9 +224,64 @@ export interface NfeEmissionResult {
   diagnosticCategory?: string;
   diagnosticHint?: string;
   retryDocumentId?: string;
+  numberReserved?: boolean;
+  sefazContacted?: boolean;
   sefazMessage?: string;
   validation?: NfeValidationResult;
   numberConflict?: import('../../../../../shared-utils/fiscalNumbering').FiscalNumberConflict;
+  technicalDetails?: {
+    apiCode?: string;
+    httpStatus?: number;
+    transportCode?: string;
+    diagnosticStage?: string;
+    diagnosticId?: string;
+    databaseCode?: string;
+    sefazCode?: string;
+  };
+}
+
+function requiresReconciliation(
+  status: number,
+  result: {
+    pending?: boolean;
+    code?: string;
+    numberReserved?: boolean;
+    sefazContacted?: boolean;
+  }
+): boolean {
+  if (
+    result.pending ||
+    [
+      'HML_TRANSMISSION_UNCERTAIN',
+      'HML_RECONCILIATION_REQUIRED',
+      'SEFAZ_TRANSPORT_FAILED',
+    ].includes(result.code || '')
+  )
+    return true;
+  if (result.numberReserved === false && result.sefazContacted === false) return false;
+  return status >= 500;
+}
+
+/** Resolve only the durable document belonging to this exact intention; never emits or clears it. */
+export async function findFiscalDocumentForRequest(
+  orderId: string,
+  environment: 1 | 2,
+  emissionRequestId: string
+): Promise<string> {
+  if (!/^[0-9a-f-]{36}$/i.test(emissionRequestId))
+    throw new Error('Identificador da tentativa fiscal inválido.');
+  const { data, error } = await supabase
+    .from('nfe_documents')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('ambiente', environment)
+    .eq('emission_request_id', emissionRequestId)
+    .maybeSingle();
+  if (error || !data?.id)
+    throw new Error(
+      'A tentativa ainda não pode ser localizada. Aguarde e consulte novamente; a intenção original foi preservada.'
+    );
+  return data.id;
 }
 
 /**
@@ -159,6 +324,7 @@ export async function emitNfeForOrder(
   }
 
   if (retryDocumentId) {
+    let requestDispatched = false;
     let retryResult: {
       success?: boolean;
       documentId?: string;
@@ -183,6 +349,7 @@ export async function emitNfeForOrder(
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session?.access_token)
         throw new Error('Faça login novamente para retransmitir o documento fiscal.');
+      requestDispatched = true;
       const response = await fetch('/api/nfe/emit', {
         method: 'POST',
         headers: {
@@ -213,7 +380,7 @@ export async function emitNfeForOrder(
       const resultFields = {
         ...retryMetadata,
         xml: typeof retryResult.signedXml === 'string' ? retryResult.signedXml : undefined,
-        pending: Boolean(retryResult.pending),
+        pending: requiresReconciliation(response.status, retryResult),
         cStat: retryResult.cStat,
         sefazMessage: retryResult.xMotivo,
         numberConflict:
@@ -272,19 +439,21 @@ export async function emitNfeForOrder(
       return {
         success: false,
         documentId: retryDocumentId,
-        pending: Boolean(retryResult?.pending),
+        pending: requestDispatched || Boolean(retryResult?.pending),
         error: error instanceof Error ? error.message : 'Falha ao retransmitir documento fiscal.',
       };
     }
   }
 
   if (!retryDocumentId) {
+    let dispatchedRequestId: string | undefined;
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData.session?.access_token)
         throw new Error('Sessão fiscal expirada.');
       const requestKey = `${String(order.id || '')}:outbound:${environment}`;
-      const storageKey = `nfe-emission-request:${requestKey}`;
+      const storageKey = fiscalRequestStorageKey(requestKey);
+      const replacementSourceKey = fiscalReplacementSourceStorageKey(requestKey);
       let storedRequestId: string | null = null;
       try {
         storedRequestId =
@@ -292,10 +461,21 @@ export async function emitNfeForOrder(
       } catch {
         /* storage indisponível */
       }
-      const emissionRequestId =
-        fiscalEmissionRequestIds.get(requestKey) ||
-        (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
-        crypto.randomUUID();
+      let hasReplacementSource = Boolean(fiscalReplacementSources.get(requestKey));
+      if (!hasReplacementSource) {
+        try {
+          hasReplacementSource = Boolean(
+            typeof window !== 'undefined' && window.localStorage.getItem(replacementSourceKey)
+          );
+        } catch {
+          /* sem storage, a fonte pode permanecer em memória */
+        }
+      }
+      const emissionRequestId = hasReplacementSource
+        ? crypto.randomUUID()
+        : fiscalEmissionRequestIds.get(requestKey) ||
+          (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
+          crypto.randomUUID();
       fiscalEmissionRequestIds.set(requestKey, emissionRequestId);
       try {
         if (typeof window !== 'undefined')
@@ -303,39 +483,33 @@ export async function emitNfeForOrder(
       } catch {
         /* storage indisponível */
       }
-      const itemCsosnOverrides = Object.fromEntries(
-        (order.items || [])
-          .filter((item) => item.itemType !== 'service')
-          .flatMap((item, index) => {
-            const fiscal = item.fiscal as Record<string, unknown> | undefined;
-            return fiscal?.csosnSource === 'manual' && fiscal.cst
-              ? [[String(index + 1), String(fiscal.cst)]]
-              : [];
-          })
-      );
-      const itemFiscalSelections = parseFiscalItemSelections(
-        Object.fromEntries(
-          (order.items || [])
-            .filter((item) => item.itemType !== 'service')
-            .flatMap((item, index) => {
-              const fiscal = item.fiscal;
-              return fiscal
-                ? [
-                    [
-                      String(index + 1),
-                      {
-                        ncm: fiscal.ncm,
-                        cfop: fiscal.cfop,
-                        origem: fiscal.origem,
-                        cest: fiscal.cest ?? '',
-                        csosn: fiscal.cst,
-                      },
-                    ],
-                  ]
-                : [];
-            })
-        )
-      );
+      const perRequestSupersedesKey = fiscalSupersedingStorageKey(requestKey, emissionRequestId);
+      let supersedesDocumentId = fiscalSupersedingDocuments.get(perRequestSupersedesKey) || null;
+      try {
+        if (!supersedesDocumentId && typeof window !== 'undefined')
+          supersedesDocumentId = window.localStorage.getItem(perRequestSupersedesKey);
+        if (!supersedesDocumentId) {
+          const replacementSource =
+            fiscalReplacementSources.get(requestKey) ||
+            (typeof window !== 'undefined'
+              ? window.localStorage.getItem(replacementSourceKey)
+              : null);
+          if (replacementSource) {
+            supersedesDocumentId = replacementSource;
+            fiscalReplacementSources.delete(requestKey);
+            if (typeof window !== 'undefined') {
+              window.localStorage.setItem(perRequestSupersedesKey, replacementSource);
+              window.localStorage.removeItem(replacementSourceKey);
+            }
+          }
+        }
+        if (supersedesDocumentId)
+          fiscalSupersedingDocuments.set(perRequestSupersedesKey, supersedesDocumentId);
+      } catch {
+        /* sem armazenamento local, a API ainda valida a linhagem no banco */
+      }
+      const { itemCsosnOverrides, itemFiscalSelections } = buildFiscalItemSelectionPayload(order);
+      dispatchedRequestId = emissionRequestId;
       const response = await fetch('/api/nfe/emit', {
         method: 'POST',
         headers: {
@@ -347,6 +521,7 @@ export async function emitNfeForOrder(
           environment,
           productionConfirmed,
           emissionRequestId,
+          ...(supersedesDocumentId ? { supersedesDocumentId } : {}),
           ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
           ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
           ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
@@ -367,8 +542,11 @@ export async function emitNfeForOrder(
           ? parseFiscalNumberConflict(result.numberConflict)
           : undefined;
       const activeAttemptConflict = result.databaseReason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT';
-      if (activeAttemptConflict && typeof result.emissionRequestId === 'string' &&
-          /^[0-9a-f-]{36}$/i.test(result.emissionRequestId)) {
+      if (
+        activeAttemptConflict &&
+        typeof result.emissionRequestId === 'string' &&
+        /^[0-9a-f-]{36}$/i.test(result.emissionRequestId)
+      ) {
         fiscalEmissionRequestIds.set(requestKey, result.emissionRequestId);
         try {
           if (typeof window !== 'undefined')
@@ -391,7 +569,8 @@ export async function emitNfeForOrder(
         result.success === false &&
         !activeAttemptConflict &&
         result.pending !== true &&
-        ((Boolean(result.cStat) && !['100', '101', '102', '103', '104', '105', '204', '217'].includes(result.cStat)) ||
+        ((Boolean(result.cStat) &&
+          !['100', '101', '102', '103', '104', '105', '204', '217'].includes(result.cStat)) ||
           result.code === 'HML_SEFAZ_REJECTED')
       ) {
         // A confirmed series/IE rejection ends this intention. The next explicit click
@@ -404,6 +583,10 @@ export async function emitNfeForOrder(
         }
       }
       const metadata = {
+        emissionRequestId:
+          typeof result.emissionRequestId === 'string'
+            ? result.emissionRequestId
+            : emissionRequestId,
         documentId: typeof result.documentId === 'string' ? result.documentId : undefined,
         orderId: typeof result.orderId === 'string' ? result.orderId : undefined,
         accessKey: typeof result.accessKey === 'string' ? result.accessKey : undefined,
@@ -415,10 +598,23 @@ export async function emitNfeForOrder(
         protocolNumber:
           typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
         protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : undefined,
-        pending: activeAttemptConflict || Boolean(result.pending),
+        pending: activeAttemptConflict || requiresReconciliation(response.status, result),
         hmlConfirmedNotFound: result.code === 'HML_CONFIRMED_NOT_FOUND',
         hmlNewEmissionRequired: result.code === 'HML_NEW_EMISSION_REQUIRED',
+        hmlCanAbandonTlsFailure: result.hmlCanAbandonTlsFailure === true,
+        fiscalMismatchFields: Array.isArray(result.fiscalMismatchFields)
+          ? result.fiscalMismatchFields.filter(
+              (field: unknown) =>
+                field &&
+                typeof field === 'object' &&
+                typeof (field as { field?: unknown }).field === 'string'
+            )
+          : undefined,
         reservationRecoveryRequired: result.reservationRecoveryRequired === true,
+        numberReserved:
+          typeof result.numberReserved === 'boolean' ? result.numberReserved : undefined,
+        sefazContacted:
+          typeof result.sefazContacted === 'boolean' ? result.sefazContacted : undefined,
         cStat: typeof result.cStat === 'string' ? result.cStat : undefined,
         transportDiagnostic:
           result.transportDiagnostic && typeof result.transportDiagnostic === 'object'
@@ -441,12 +637,26 @@ export async function emitNfeForOrder(
         diagnosticStage:
           typeof result.diagnosticStage === 'string' ? result.diagnosticStage : undefined,
         databaseCode: typeof result.databaseCode === 'string' ? result.databaseCode : undefined,
-        databaseReason: typeof result.databaseReason === 'string' ? result.databaseReason : undefined,
+        databaseReason:
+          typeof result.databaseReason === 'string' ? result.databaseReason : undefined,
         diagnosticCategory:
           typeof result.diagnosticCategory === 'string' ? result.diagnosticCategory : undefined,
         diagnosticHint:
           typeof result.diagnosticHint === 'string' ? result.diagnosticHint : undefined,
         numberConflict,
+        technicalDetails: {
+          ...(typeof result.code === 'string' ? { apiCode: result.code } : {}),
+          httpStatus: response.status,
+          ...(typeof result.transportDiagnostic?.code === 'string'
+            ? { transportCode: result.transportDiagnostic.code }
+            : {}),
+          ...(typeof result.diagnosticStage === 'string'
+            ? { diagnosticStage: result.diagnosticStage }
+            : {}),
+          ...(typeof result.diagnosticId === 'string' ? { diagnosticId: result.diagnosticId } : {}),
+          ...(typeof result.databaseCode === 'string' ? { databaseCode: result.databaseCode } : {}),
+          ...(typeof result.cStat === 'string' ? { sefazCode: result.cStat } : {}),
+        },
       };
       if (response.ok && result.success === true)
         return {
@@ -454,7 +664,12 @@ export async function emitNfeForOrder(
           ...metadata,
           danfeUnavailableReason: 'DANFE HML deve ser gerado do XML fiscal persistido no backend.',
         };
-      const logFn = response.status >= 500 && result.code !== 'HML_TRANSMISSION_UNCERTAIN' && result.code !== 'HML_RECONCILIATION_REQUIRED' ? console.error : console.warn;
+      const logFn =
+        response.status >= 500 &&
+        result.code !== 'HML_TRANSMISSION_UNCERTAIN' &&
+        result.code !== 'HML_RECONCILIATION_REQUIRED'
+          ? console.error
+          : console.warn;
       logFn('[NFe Service] Retorno da API interna de emissão', {
         endpoint: '/api/nfe/emit',
         httpStatus: response.status,
@@ -478,29 +693,42 @@ export async function emitNfeForOrder(
               .filter(Boolean)
               .join('; ')
           : undefined;
-      let errorMessage = blockersDetail ||
-        (typeof result.error === 'string' ? result.error :
-          typeof result.xMotivo === 'string' ? result.xMotivo : 'A SEFAZ não confirmou a emissão fiscal.');
+      let errorMessage =
+        blockersDetail ||
+        (typeof result.error === 'string'
+          ? result.error
+          : typeof result.xMotivo === 'string'
+            ? result.xMotivo
+            : 'A SEFAZ não confirmou a emissão fiscal.');
       if (activeAttemptConflict) {
         errorMessage = result.reservationRecoveryRequired
           ? 'Já existe uma reserva fiscal para este pedido. Retome a reserva existente para preservar a numeração.'
           : 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.';
       } else if (result.code === 'HML_TRANSMISSION_UNCERTAIN') {
-        errorMessage = 'Houve falha de conexão e a SEFAZ não respondeu. Consulte a tentativa para verificar se a nota foi autorizada.';
+        errorMessage =
+          'Houve falha de conexão e a SEFAZ não respondeu. Consulte a tentativa para verificar se a nota foi autorizada.';
       } else if (result.code === 'HML_CONFIRMED_NOT_FOUND') {
-        errorMessage = 'A consulta retornou 217: a nota não consta na SEFAZ. Você pode retransmitir o mesmo documento.';
+        errorMessage =
+          'A consulta retornou 217: a nota não consta na SEFAZ. Você pode retransmitir o mesmo documento.';
       } else if (result.code === 'HML_RECONCILIATION_REQUIRED') {
-        errorMessage = 'Existe uma tentativa anterior sem confirmação da SEFAZ. Consulte a situação antes de emitir novamente.';
+        errorMessage =
+          'Existe uma tentativa anterior sem confirmação da SEFAZ. Consulte a situação antes de emitir novamente.';
       } else if (result.code === 'HML_NEW_EMISSION_REQUIRED') {
-        errorMessage = 'A NFC-e original não consta, mas seu horário de emissão expirou. Gere uma nova tentativa com horário e numeração atuais.';
+        errorMessage =
+          'A NFC-e original não consta, mas seu horário de emissão expirou. Gere uma nova tentativa com horário e numeração atuais.';
       }
       return { success: false, ...metadata, error: errorMessage };
-
     } catch (error) {
       return {
         success: false,
         environment,
-        error: error instanceof Error ? error.message : 'Falha ao solicitar emissão fiscal.',
+        emissionRequestId: dispatchedRequestId,
+        pending: Boolean(dispatchedRequestId),
+        error: dispatchedRequestId
+          ? 'A resposta da emissão não foi confirmada. Consulte a tentativa existente antes de emitir novamente.'
+          : error instanceof Error
+            ? error.message
+            : 'Falha ao solicitar emissão fiscal.',
       };
     }
   }
@@ -517,18 +745,31 @@ export async function printOrderDanfe(order: Order): Promise<void> {
   if (!nfeData) {
     throw new Error('Este pedido ainda não possui NF-e emitida.');
   }
+  if (
+    !/^\d{44}$/.test(nfeData.accessKey || '') ||
+    !/^\d{15}$/.test(nfeData.protocolNumber || '') ||
+    !nfeData.protocolDate ||
+    !nfeData.series ||
+    !nfeData.nfeNumber ||
+    !['55', '65'].includes(nfeData.model) ||
+    ![1, 2].includes(nfeData.environment) ||
+    !['autorizada', 'homologada'].includes(nfeData.status)
+  )
+    throw new Error(
+      'Dados de autorização incompletos. Consulte o documento fiscal antes de imprimir o DANFE.'
+    );
 
   openDanfePrintWindow({
     order,
     settings,
     accessKey: nfeData.accessKey,
     nfeNumber: nfeData.nfeNumber,
-    series: nfeData.series || '1',
-    protocolNumber: nfeData.protocolNumber || '141260000000000',
-    protocolDate: nfeData.protocolDate || new Date().toLocaleString('pt-BR'),
-    model: nfeData.model || '55',
-    environment: nfeData.environment || 2,
-    status: nfeData.status || 'autorizada',
+    series: nfeData.series,
+    protocolNumber: nfeData.protocolNumber,
+    protocolDate: nfeData.protocolDate,
+    model: nfeData.model,
+    environment: nfeData.environment,
+    status: nfeData.status,
   });
 }
 
@@ -630,7 +871,8 @@ export async function processOrderCancellationFiscalEffects(
     : {
         action: 'cancel',
         cStat: typeof result.cStat === 'string' ? result.cStat : undefined,
-        protocolNumber: typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
+        protocolNumber:
+          typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
         protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : undefined,
         xMotivo: typeof result.xMotivo === 'string' ? result.xMotivo : undefined,
         reconciliationRequired: result.reconciliationRequired === true,

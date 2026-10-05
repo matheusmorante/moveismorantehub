@@ -24,7 +24,7 @@
 ## Ambiente local da Vercel
 
 - A política única para sincronização de variáveis, `.env.local`, Development, Preview, secrets, Supabase e ambiente fiscal local está em [`.agents/skills/vercel-development/SKILL.md`](.agents/skills/vercel-development/SKILL.md). Consulte-a antes de alterar scripts ou orientar setup local; skills de domínio devem referenciá-la em vez de duplicar regras de ambiente.
-- O comando diário é `npm run dev`: o lifecycle `predev` atualiza `.env.local` exclusivamente com Vercel Development antes de iniciar o `dev`. Se o pull falhar, o npm não inicia a aplicação.
+- O comando diário é `npm run dev`, que inicia `dev:stack` com Vercel Development via `scripts/run-vercel-env-dev.cjs`. O CLI usa `.vercel` como cwd e recebe o project ID vinculado explicitamente para que `.env.local` não sobreponha as variáveis remotas.
 
 ## Saída e investigação
 

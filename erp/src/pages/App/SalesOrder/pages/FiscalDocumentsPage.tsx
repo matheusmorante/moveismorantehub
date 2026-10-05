@@ -5,6 +5,14 @@ import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { openDanfePrintWindow } from '@/pages/utils/nfe/danfeGenerator';
 import { canIssueCce, processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
+import {
+  getFiscalDocumentStatusLabel,
+  getFiscalIssuePresentation,
+  getFiscalIssueTechnicalDetails,
+  type FiscalIssuePresentation,
+  type FiscalIssueResult,
+  type FiscalIssueTechnicalDetails,
+} from '@/pages/utils/nfe/fiscalIssuePresentation';
 import { validateNfeCce } from '@/pages/utils/nfe/nfeCce';
 import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
@@ -12,10 +20,8 @@ import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 import { updateOrder } from '@/pages/utils/orderMutationService';
 import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
-import {
-  formatCancellationTimeRemaining,
-  getAuthorizedAt,
-} from '@/pages/utils/nfe/nfeEventRules';
+import { FiscalIssueCard } from '@/pages/App/SalesOrder/OrderActions/nfe-modal/FiscalIssueCard';
+import { formatCancellationTimeRemaining, getAuthorizedAt } from '@/pages/utils/nfe/nfeEventRules';
 import NfeOperationDraftModal from './NfeOperationDraftModal';
 
 const FISCAL_DOCUMENTS_PAGE_SIZE = 30;
@@ -28,7 +34,14 @@ export interface NfeDocumentRecord {
   chave_acesso: string;
   modelo: '55' | '65';
   ambiente: 1 | 2;
-  status: 'autorizada' | 'homologada' | 'cancelada' | 'rejeitada' | 'pendente' | 'erro';
+  status:
+    | 'autorizada'
+    | 'homologada'
+    | 'cancelada'
+    | 'rejeitada'
+    | 'pendente'
+    | 'erro'
+    | 'abandoned';
   motivo_status?: string;
   xml_nfe?: string;
   xml_protocolo?: string;
@@ -40,7 +53,32 @@ export interface NfeDocumentRecord {
   updated_at: string;
   document_type?: 'outbound' | 'return' | 'estorno' | string;
   fiscal_ruleset_version?: string;
+  supersedes_document_id?: string | null;
   orderNumber?: number;
+}
+
+type FiscalIssueFeedback = {
+  presentation: FiscalIssuePresentation;
+  technicalDetails?: FiscalIssueTechnicalDetails;
+  document: NfeDocumentRecord;
+};
+
+function makeFiscalIssueFeedback(
+  result: FiscalIssueResult,
+  document: NfeDocumentRecord
+): FiscalIssueFeedback {
+  const context: FiscalIssueResult = {
+    ...result,
+    documentId: result.documentId || document.id,
+    nfeNumber: result.nfeNumber || document.numero_nfe,
+    model: result.model || document.modelo,
+    environment: result.environment || document.ambiente,
+  };
+  return {
+    presentation: getFiscalIssuePresentation(context),
+    technicalDetails: getFiscalIssueTechnicalDetails(context),
+    document,
+  };
 }
 
 type CancellationEligibility = {
@@ -54,7 +92,15 @@ type CancellationEligibility = {
 };
 
 type ParsedFiscalDetails = {
-  items: Array<{ code: string; description: string; quantity: string; unit: string; total: string; ncm: string; cfop: string }>;
+  items: Array<{
+    code: string;
+    description: string;
+    quantity: string;
+    unit: string;
+    total: string;
+    ncm: string;
+    cfop: string;
+  }>;
   totals: Array<{ label: string; value: string }>;
   transport: string[];
   payments: Array<{ method: string; value: string }>;
@@ -159,7 +205,7 @@ export default function FiscalDocumentsPage() {
   const [detailsDocumentId, setDetailsDocumentId] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isConsulting, setIsConsulting] = useState(false);
-  const [consultationFeedback, setConsultationFeedback] = useState<string | null>(null);
+  const [fiscalIssueFeedback, setFiscalIssueFeedback] = useState<FiscalIssueFeedback | null>(null);
   const [retryingHmlDocumentId, setRetryingHmlDocumentId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -196,7 +242,7 @@ export default function FiscalDocumentsPage() {
       let query = supabase
         .from('nfe_documents')
         .select(
-          'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,fiscal_ruleset_version',
+          'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,fiscal_ruleset_version,supersedes_document_id',
           { count: 'exact' }
         );
       if (targetDocumentId) query = query.eq('id', targetDocumentId);
@@ -222,11 +268,8 @@ export default function FiscalDocumentsPage() {
             `destinatario_documento.ilike.%${safeSearch}%`
           );
         }
-        const safeOrderIds = orderIds.filter((id) =>
-          /^[0-9a-f-]{36}$/i.test(id)
-        );
-        if (safeOrderIds.length)
-          alternatives.push(`order_id.in.(${safeOrderIds.join(',')})`);
+        const safeOrderIds = orderIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+        if (safeOrderIds.length) alternatives.push(`order_id.in.(${safeOrderIds.join(',')})`);
         if (alternatives.length) query = query.or(alternatives.join(','));
         else {
           setDocuments([]);
@@ -453,7 +496,12 @@ export default function FiscalDocumentsPage() {
       return;
     }
     const isCancelEvent = eligibility.action === 'cancel';
-    if (isCancelEvent && (!cancelReason || Array.from(cancelReason.trim()).length < 15 || Array.from(cancelReason.trim()).length > 255)) {
+    if (
+      isCancelEvent &&
+      (!cancelReason ||
+        Array.from(cancelReason.trim()).length < 15 ||
+        Array.from(cancelReason.trim()).length > 255)
+    ) {
       toast.error('A justificativa deve ter entre 15 e 255 caracteres.');
       return;
     }
@@ -538,26 +586,42 @@ export default function FiscalDocumentsPage() {
     switch (status) {
       case 'autorizada':
         return (
-          <span className={`${badgeClass} border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300`}>
+          <span
+            className={`${badgeClass} border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300`}
+          >
             Autorizada
           </span>
         );
       case 'cancelada':
         return (
-          <span className={`${badgeClass} border-red-200 bg-red-100 text-red-700 dark:border-red-800 dark:bg-red-950/60 dark:text-red-300`}>
+          <span
+            className={`${badgeClass} border-red-200 bg-red-100 text-red-700 dark:border-red-800 dark:bg-red-950/60 dark:text-red-300`}
+          >
             Cancelada
           </span>
         );
       case 'rejeitada':
         return (
-          <span className={`${badgeClass} border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300`}>
+          <span
+            className={`${badgeClass} border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300`}
+          >
             Rejeitada
+          </span>
+        );
+      case 'abandoned':
+        return (
+          <span
+            className={`${badgeClass} border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-800 dark:bg-violet-950/60 dark:text-violet-300`}
+          >
+            Tentativa encerrada
           </span>
         );
       default:
         return (
-          <span className={`${badgeClass} border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400`}>
-            {status}
+          <span
+            className={`${badgeClass} border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400`}
+          >
+            {getFiscalDocumentStatusLabel(status)}
           </span>
         );
     }
@@ -565,7 +629,7 @@ export default function FiscalDocumentsPage() {
 
   const handleConsultSituation = async (document: NfeDocumentRecord) => {
     if (isConsulting) return;
-    setConsultationFeedback(null);
+    setFiscalIssueFeedback(null);
     setIsConsulting(true);
     try {
       const { data, error } = await supabase.auth.getSession();
@@ -579,16 +643,17 @@ export default function FiscalDocumentsPage() {
         },
         body: JSON.stringify({ documentId: document.id }),
       });
-      const result = await response.json();
+      const result: FiscalIssueResult = await response.json();
       if (result.state === 'not_found' && result.pending === false) {
-        const message = result.error || result.xMotivo || 'SEFAZ confirmou que a nota não consta.';
-        setConsultationFeedback(message);
-        toast.warn(message);
+        setFiscalIssueFeedback(makeFiscalIssueFeedback(result, document));
         await loadDocuments();
         return;
       }
-      if (!response.ok || !result.success)
-        throw new Error(result.error || result.xMotivo || 'Consulta SEFAZ inconclusiva.');
+      if (!response.ok || !result.success) {
+        setFiscalIssueFeedback(makeFiscalIssueFeedback(result, document));
+        await loadDocuments();
+        return;
+      }
       toast.success(
         result.state === 'cancelled'
           ? 'SEFAZ confirmou o cancelamento; documento reconciliado.'
@@ -603,8 +668,7 @@ export default function FiscalDocumentsPage() {
       }
     } catch (error: any) {
       const message = error.message || 'Não foi possível consultar a situação fiscal.';
-      setConsultationFeedback(message);
-      toast.error(message);
+      setFiscalIssueFeedback(makeFiscalIssueFeedback({ error: message }, document));
     } finally {
       setIsConsulting(false);
     }
@@ -620,6 +684,7 @@ export default function FiscalDocumentsPage() {
     )
       return;
 
+    setFiscalIssueFeedback(null);
     setRetryingHmlDocumentId(document.id);
     try {
       const { data, error } = await supabase.auth.getSession();
@@ -633,16 +698,24 @@ export default function FiscalDocumentsPage() {
         },
         body: JSON.stringify({ retryDocumentId: document.id }),
       });
-      const result = await response.json();
-      if (!response.ok || !result.success)
-        throw new Error(result.error || result.xMotivo || 'A tentativa HML continua sem confirmação.');
+      const result: FiscalIssueResult = await response.json();
+      if (!response.ok || !result.success) {
+        setFiscalIssueFeedback(makeFiscalIssueFeedback(result, document));
+        await loadDocuments();
+        return;
+      }
 
       toast.success(
         `NFC-e HML nº ${result.nfeNumber || document.numero_nfe} autorizada pela SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
       );
       await loadDocuments();
     } catch (error: any) {
-      toast.error(error.message || 'Não foi possível retomar a tentativa HML.');
+      setFiscalIssueFeedback(
+        makeFiscalIssueFeedback(
+          { error: error.message || 'Não foi possível retomar a tentativa HML.' },
+          document
+        )
+      );
       await loadDocuments();
     } finally {
       setRetryingHmlDocumentId(null);
@@ -837,11 +910,51 @@ export default function FiscalDocumentsPage() {
         </div>
       </div>
 
-      {consultationFeedback && (
-        <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          <p className="font-bold">Resultado da consulta SEFAZ</p>
-          <p className="mt-1">{consultationFeedback}</p>
-        </div>
+      {fiscalIssueFeedback && (
+        <FiscalIssueCard
+          tone={fiscalIssueFeedback.presentation.tone}
+          title={fiscalIssueFeedback.presentation.title}
+          description={fiscalIssueFeedback.presentation.description}
+          nextStep={fiscalIssueFeedback.presentation.nextStep}
+          technicalDetails={fiscalIssueFeedback.technicalDetails}
+          onClose={() => setFiscalIssueFeedback(null)}
+        >
+          {fiscalIssueFeedback.presentation.action === 'consult' && (
+            <button
+              type="button"
+              onClick={() => void handleConsultSituation(fiscalIssueFeedback.document)}
+              disabled={!canOperateFiscal || isConsulting}
+              className="rounded-xl bg-amber-600 px-4 py-2 font-black text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            >
+              {isConsulting ? 'Consultando a SEFAZ…' : 'Consultar SEFAZ agora'}
+            </button>
+          )}
+          {fiscalIssueFeedback.presentation.action === 'retransmit-same-document' && (
+            <button
+              type="button"
+              onClick={() => void handleRetryHmlDocument(fiscalIssueFeedback.document)}
+              disabled={
+                !canOperateFiscal ||
+                Boolean(retryingHmlDocumentId) ||
+                fiscalIssueFeedback.document.ambiente !== 2 ||
+                !fiscalIssueFeedback.document.fiscal_ruleset_version?.startsWith('HML_')
+              }
+              className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
+            >
+              {retryingHmlDocumentId === fiscalIssueFeedback.document.id
+                ? 'Verificando a mesma tentativa…'
+                : 'Retomar esta tentativa confirmada'}
+            </button>
+          )}
+          {fiscalIssueFeedback.presentation.action === 'configure-certificate' && (
+            <a
+              href="/settings/fiscal"
+              className="inline-flex rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800"
+            >
+              Verificar certificado
+            </a>
+          )}
+        </FiscalIssueCard>
       )}
 
       <form
@@ -867,7 +980,10 @@ export default function FiscalDocumentsPage() {
           <select
             aria-label="Modelo fiscal"
             value={modelFilter}
-            onChange={(event) => { setPageIndex(0); setModelFilter(event.target.value); }}
+            onChange={(event) => {
+              setPageIndex(0);
+              setModelFilter(event.target.value);
+            }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950"
           >
             <option value="all">Todos os modelos</option>
@@ -877,7 +993,10 @@ export default function FiscalDocumentsPage() {
           <select
             aria-label="Status fiscal"
             value={statusFilter}
-            onChange={(event) => { setPageIndex(0); setStatusFilter(event.target.value); }}
+            onChange={(event) => {
+              setPageIndex(0);
+              setStatusFilter(event.target.value);
+            }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950"
           >
             <option value="all">Todos os status</option>
@@ -889,6 +1008,7 @@ export default function FiscalDocumentsPage() {
             <option value="rejeitada">Rejeitadas</option>
             <option value="denegada">Denegadas</option>
             <option value="erro">Erro</option>
+            <option value="abandoned">Encerrada antes da transmissão</option>
           </select>
           <button
             type="submit"
@@ -912,7 +1032,10 @@ export default function FiscalDocumentsPage() {
               <select
                 aria-label="Ambiente fiscal"
                 value={environmentFilter}
-                onChange={(event) => { setPageIndex(0); setEnvironmentFilter(event.target.value); }}
+                onChange={(event) => {
+                  setPageIndex(0);
+                  setEnvironmentFilter(event.target.value);
+                }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               >
                 <option value="all">Produção + Homologação</option>
@@ -925,7 +1048,9 @@ export default function FiscalDocumentsPage() {
               <input
                 aria-label="Série fiscal"
                 value={seriesFilter}
-                onChange={(event) => setSeriesFilter(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={(event) =>
+                  setSeriesFilter(event.target.value.replace(/\D/g, '').slice(0, 4))
+                }
                 onBlur={() => setPageIndex(0)}
                 className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               />
@@ -936,7 +1061,10 @@ export default function FiscalDocumentsPage() {
                 type="date"
                 aria-label="Emissão desde"
                 value={dateFrom}
-                onChange={(event) => { setPageIndex(0); setDateFrom(event.target.value); }}
+                onChange={(event) => {
+                  setPageIndex(0);
+                  setDateFrom(event.target.value);
+                }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               />
             </label>
@@ -947,7 +1075,10 @@ export default function FiscalDocumentsPage() {
                 aria-label="Emissão até"
                 value={dateTo}
                 min={dateFrom || undefined}
-                onChange={(event) => { setPageIndex(0); setDateTo(event.target.value); }}
+                onChange={(event) => {
+                  setPageIndex(0);
+                  setDateTo(event.target.value);
+                }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               />
             </label>
@@ -971,7 +1102,7 @@ export default function FiscalDocumentsPage() {
             </p>
           </div>
         ) : (
-        <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70 text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
@@ -990,52 +1121,205 @@ export default function FiscalDocumentsPage() {
                 {filteredDocs.map((doc) => (
                   <React.Fragment key={doc.id}>
                     <tr className="align-middle transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
-                      <td className="whitespace-nowrap px-3 py-2">{getStatusBadge(doc.status)}</td>
-                      <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">
-                        <span className="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{doc.modelo === '65' ? '65' : '55'}</span>
-                        #{String(doc.numero_nfe).padStart(6, '0')} <span className="font-normal text-slate-500">S{doc.serie}</span>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        {getStatusBadge(doc.status)}
+                        {doc.status === 'abandoned' &&
+                          (() => {
+                            const successor = documents.find(
+                              (candidate) => candidate.supersedes_document_id === doc.id
+                            );
+                            return successor ? (
+                              <span className="mt-1 block whitespace-normal text-[9px] text-slate-500">
+                                Nova tentativa criada: #
+                                {String(successor.numero_nfe).padStart(6, '0')}
+                              </span>
+                            ) : null;
+                          })()}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-600 dark:text-slate-300">{formatToBRDate(doc.created_at)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">
+                        <span className="mr-1 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          {doc.modelo === '65' ? '65' : '55'}
+                        </span>
+                        #{String(doc.numero_nfe).padStart(6, '0')}{' '}
+                        <span className="font-normal text-slate-500">S{doc.serie}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-600 dark:text-slate-300">
+                        {formatToBRDate(doc.created_at)}
+                      </td>
                       <td className="max-w-56 px-3 py-2">
-                        <div className="truncate font-medium text-slate-800 dark:text-slate-100" title={doc.destinatario_nome || ''}>{doc.destinatario_nome || 'Consumidor final'}</div>
-                        <div className="text-[10px] text-slate-500">{doc.destinatario_documento || '—'}</div>
+                        <div
+                          className="truncate font-medium text-slate-800 dark:text-slate-100"
+                          title={doc.destinatario_nome || ''}
+                        >
+                          {doc.destinatario_nome || 'Consumidor final'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {doc.destinatario_documento || '—'}
+                        </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">
                         {doc.order_id ? (
-                          <button type="button" onClick={() => navigate(`/sales-order/edit/${doc.order_id}`)} className="font-semibold text-blue-700 hover:underline dark:text-blue-300" title="Abrir pedido de origem">
-                            #{orderNumbers[doc.order_id] || 'Pedido'} <i className="bi bi-box-arrow-up-right ml-0.5 text-[9px]" />
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/sales-order/edit/${doc.order_id}`)}
+                            className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                            title="Abrir pedido de origem"
+                          >
+                            #{orderNumbers[doc.order_id] || 'Pedido'}{' '}
+                            <i className="bi bi-box-arrow-up-right ml-0.5 text-[9px]" />
                           </button>
-                        ) : <span className="text-slate-400">Sem vínculo</span>}
+                        ) : (
+                          <span className="text-slate-400">Sem vínculo</span>
+                        )}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(doc.valor_total || 0)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">
+                        {formatCurrency(doc.valor_total || 0)}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-2">
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${doc.ambiente === 1 ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' : 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'}`}>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${doc.ambiente === 1 ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' : 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'}`}
+                        >
                           {doc.ambiente === 1 ? 'Produção' : 'Homologação'}
                         </span>
                       </td>
-                      <td className="max-w-64 px-3 py-2 text-[10px] font-normal text-slate-500" title={doc.motivo_status || ''}>
+                      <td
+                        className="max-w-64 px-3 py-2 text-[10px] font-normal text-slate-500"
+                        title={doc.motivo_status || ''}
+                      >
                         <span className="block truncate">{doc.motivo_status || '—'}</span>
-                        {getCancellationDeadlineLabel(doc) && <span className="block truncate text-[9px]">{getCancellationDeadlineLabel(doc)}</span>}
-                        {cancellationEligibility[doc.id]?.action === 'pending' && <span className="block truncate text-[9px] font-semibold text-amber-700 dark:text-amber-300" title={cancellationEligibility[doc.id]?.reason || ''}>Cancelamento em processamento</span>}
-                        {cancellationEligibility[doc.id]?.action === 'reconcile' && <span className="block truncate text-[9px] font-semibold text-amber-700 dark:text-amber-300" title={cancellationEligibility[doc.id]?.reason || ''}>Situação do cancelamento não confirmada · Consultar SEFAZ</span>}
-                        {cancellationEligibility[doc.id] && !cancellationEligibility[doc.id].canProceed && !['pending', 'reconcile'].includes(cancellationEligibility[doc.id].action) && <span className="block truncate text-[9px]" title={cancellationEligibility[doc.id].reason || ''}>{cancellationEligibility[doc.id].reason || 'Cancelamento indisponível'}</span>}
+                        {doc.supersedes_document_id && (
+                          <span
+                            className="block truncate text-[9px]"
+                            title={doc.supersedes_document_id}
+                          >
+                            Substitui tentativa {doc.supersedes_document_id.slice(0, 8)}…
+                          </span>
+                        )}
+                        {getCancellationDeadlineLabel(doc) && (
+                          <span className="block truncate text-[9px]">
+                            {getCancellationDeadlineLabel(doc)}
+                          </span>
+                        )}
+                        {cancellationEligibility[doc.id]?.action === 'pending' && (
+                          <span
+                            className="block truncate text-[9px] font-semibold text-amber-700 dark:text-amber-300"
+                            title={cancellationEligibility[doc.id]?.reason || ''}
+                          >
+                            Cancelamento em processamento
+                          </span>
+                        )}
+                        {cancellationEligibility[doc.id]?.action === 'reconcile' && (
+                          <span
+                            className="block truncate text-[9px] font-semibold text-amber-700 dark:text-amber-300"
+                            title={cancellationEligibility[doc.id]?.reason || ''}
+                          >
+                            Situação do cancelamento não confirmada · Consultar SEFAZ
+                          </span>
+                        )}
+                        {cancellationEligibility[doc.id] &&
+                          !cancellationEligibility[doc.id].canProceed &&
+                          !['pending', 'reconcile'].includes(
+                            cancellationEligibility[doc.id].action
+                          ) && (
+                            <span
+                              className="block truncate text-[9px]"
+                              title={cancellationEligibility[doc.id].reason || ''}
+                            >
+                              {cancellationEligibility[doc.id].reason ||
+                                'Cancelamento indisponível'}
+                            </span>
+                          )}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <details className="relative inline-block text-left">
-                          <summary className="cursor-pointer list-none rounded px-2 py-1 text-lg leading-none text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label={`Ações da NF-e ${doc.numero_nfe}`}>⋯</summary>
+                          <summary
+                            className="cursor-pointer list-none rounded px-2 py-1 text-lg leading-none text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                            aria-label={`Ações da NF-e ${doc.numero_nfe}`}
+                          >
+                            ⋯
+                          </summary>
                           <div className="mt-1 grid min-w-48 gap-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                            <button type="button" onClick={() => void handleToggleDetails(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">{detailsDocumentId === doc.id ? 'Fechar detalhes' : 'Detalhes fiscais'}</button>
-                            <button type="button" onClick={() => void handlePrintDanfe(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">Visualizar / imprimir DANFE</button>
-                            <button type="button" onClick={() => void handleDownloadXml(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">Baixar XML autorizado</button>
-                            {doc.status !== 'cancelada' && <button type="button" onClick={() => void handleConsultSituation(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">Consultar situação na SEFAZ</button>}
-                            {canIssueCce(doc).canIssue && <button type="button" onClick={() => void handleOpenCce(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">Carta de Correção (CC-e)</button>}
-                            {doc.order_id && doc.document_type === 'outbound' && cancellationEligibility[doc.id]?.canProceed && (
-                              <button type="button" onClick={() => handleOpenFiscalTreatment(doc)} className={`rounded px-2 py-1.5 text-left text-[11px] font-semibold ${cancellationEligibility[doc.id]?.action === 'cancel' ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40' : 'text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40'}`}>
-                                {cancellationEligibility[doc.id]?.action === 'cancel' ? 'Cancelar NF-e' : 'Aplicar política fiscal (estorno)'}
+                            <button
+                              type="button"
+                              onClick={() => void handleToggleDetails(doc)}
+                              className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              {detailsDocumentId === doc.id
+                                ? 'Fechar detalhes'
+                                : 'Detalhes fiscais'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handlePrintDanfe(doc)}
+                              className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              Visualizar / imprimir DANFE
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDownloadXml(doc)}
+                              className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                              Baixar XML autorizado
+                            </button>
+                            {doc.status !== 'cancelada' && (
+                              <button
+                                type="button"
+                                onClick={() => void handleConsultSituation(doc)}
+                                className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                Consultar situação na SEFAZ
                               </button>
                             )}
-                            {!doc.order_id && doc.modelo === '55' && doc.document_type === 'outbound' && ['autorizada', 'homologada'].includes(doc.status) && <button type="button" onClick={() => setOperationSourceDoc(doc)} className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800">Preparar operação fiscal vinculada</button>}
-                            {canOperateFiscal && doc.ambiente === 2 && doc.fiscal_ruleset_version?.startsWith('HML_') && ['pendente', 'erro'].includes(doc.status) && <button type="button" onClick={() => void handleRetryHmlDocument(doc)} disabled={Boolean(retryingHmlDocumentId)} className="rounded px-2 py-1.5 text-left text-[11px] text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300 dark:hover:bg-amber-950/40">{retryingHmlDocumentId === doc.id ? 'Verificando…' : 'Verificar e retomar HML'}</button>}
+                            {canIssueCce(doc).canIssue && (
+                              <button
+                                type="button"
+                                onClick={() => void handleOpenCce(doc)}
+                                className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                Carta de Correção (CC-e)
+                              </button>
+                            )}
+                            {doc.order_id &&
+                              doc.document_type === 'outbound' &&
+                              cancellationEligibility[doc.id]?.canProceed && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenFiscalTreatment(doc)}
+                                  className={`rounded px-2 py-1.5 text-left text-[11px] font-semibold ${cancellationEligibility[doc.id]?.action === 'cancel' ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40' : 'text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40'}`}
+                                >
+                                  {cancellationEligibility[doc.id]?.action === 'cancel'
+                                    ? 'Cancelar NF-e'
+                                    : 'Aplicar política fiscal (estorno)'}
+                                </button>
+                              )}
+                            {!doc.order_id &&
+                              doc.modelo === '55' &&
+                              doc.document_type === 'outbound' &&
+                              ['autorizada', 'homologada'].includes(doc.status) && (
+                                <button
+                                  type="button"
+                                  onClick={() => setOperationSourceDoc(doc)}
+                                  className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                  Preparar operação fiscal vinculada
+                                </button>
+                              )}
+                            {canOperateFiscal &&
+                              doc.ambiente === 2 &&
+                              doc.fiscal_ruleset_version?.startsWith('HML_') &&
+                              ['pendente', 'erro'].includes(doc.status) && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRetryHmlDocument(doc)}
+                                  disabled={Boolean(retryingHmlDocumentId)}
+                                  className="rounded px-2 py-1.5 text-left text-[11px] text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                                >
+                                  {retryingHmlDocumentId === doc.id
+                                    ? 'Verificando…'
+                                    : 'Verificar e retomar HML'}
+                                </button>
+                              )}
                           </div>
                         </details>
                       </td>
@@ -1043,34 +1327,183 @@ export default function FiscalDocumentsPage() {
                     {detailsDocumentId === doc.id && (
                       <tr className="bg-slate-50/70 dark:bg-slate-950/30">
                         <td colSpan={9} className="px-4 py-3">
-                          {detailsLoadingId === doc.id ? <p className="text-[10px] text-slate-500">Carregando XML, itens e histórico fiscal…</p> : fiscalDetails[doc.id] ? (
+                          {detailsLoadingId === doc.id ? (
+                            <p className="text-[10px] text-slate-500">
+                              Carregando XML, itens e histórico fiscal…
+                            </p>
+                          ) : fiscalDetails[doc.id] ? (
                             <div className="space-y-1.5 text-[10px]">
-                              <details open className="rounded border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">Resumo e origem</summary>
+                              <details
+                                open
+                                className="rounded border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900"
+                              >
+                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                                  Resumo e origem
+                                </summary>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                  <div><span className="text-slate-500">Chave de acesso</span><div className="break-all font-mono text-slate-800 dark:text-slate-200">{formatAccessKey(doc.chave_acesso || '')}</div></div>
-                                  <div><span className="text-slate-500">Protocolo de autorização</span><div className="font-mono text-slate-800 dark:text-slate-200">{doc.numero_protocolo || 'Não informado'}</div></div>
-                                  <div><span className="text-slate-500">Autorização</span><div className="text-slate-800 dark:text-slate-200">{formatToBRDate(getAuthorizedAt(fiscalDetails[doc.id].document?.xml_protocolo, fiscalDetails[doc.id].document?.created_at || doc.created_at))}</div></div>
-                                  <div><span className="text-slate-500">Último retorno</span><div className="text-slate-800 dark:text-slate-200">{doc.motivo_status || 'Sem observação adicional.'}</div></div>
+                                  <div>
+                                    <span className="text-slate-500">Chave de acesso</span>
+                                    <div className="break-all font-mono text-slate-800 dark:text-slate-200">
+                                      {formatAccessKey(doc.chave_acesso || '')}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Protocolo de autorização</span>
+                                    <div className="font-mono text-slate-800 dark:text-slate-200">
+                                      {doc.numero_protocolo || 'Não informado'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Autorização</span>
+                                    <div className="text-slate-800 dark:text-slate-200">
+                                      {formatToBRDate(
+                                        getAuthorizedAt(
+                                          fiscalDetails[doc.id].document?.xml_protocolo,
+                                          fiscalDetails[doc.id].document?.created_at ||
+                                            doc.created_at
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Último retorno</span>
+                                    <div className="text-slate-800 dark:text-slate-200">
+                                      {doc.motivo_status || 'Sem observação adicional.'}
+                                    </div>
+                                  </div>
                                 </div>
                               </details>
                               <details className="rounded border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">Itens e tributos · {fiscalDetails[doc.id].parsedXml?.items.length || 0} item(ns)</summary>
+                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                                  Itens e tributos ·{' '}
+                                  {fiscalDetails[doc.id].parsedXml?.items.length || 0} item(ns)
+                                </summary>
                                 <div className="mt-2 overflow-x-auto">
-                                  <table className="min-w-full text-left text-[10px]"><thead className="text-slate-500"><tr><th className="px-1 py-1">Item</th><th className="px-1 py-1">NCM / CFOP</th><th className="px-1 py-1 text-right">Qtd.</th><th className="px-1 py-1 text-right">Total</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{(fiscalDetails[doc.id].parsedXml?.items || []).map((item: ParsedFiscalDetails['items'][number], index: number) => <tr key={`${doc.id}-item-${index}`}><td className="px-1 py-1"><span className="font-medium text-slate-800 dark:text-slate-100">{item.description || 'Item'}</span><span className="ml-1 text-slate-500">{item.code}</span></td><td className="px-1 py-1 font-mono text-slate-600 dark:text-slate-300">{item.ncm} / {item.cfop}</td><td className="px-1 py-1 text-right text-slate-600 dark:text-slate-300">{item.quantity} {item.unit}</td><td className="px-1 py-1 text-right font-medium text-slate-800 dark:text-slate-100">{formatCurrency(Number(item.total) || 0)}</td></tr>)}</tbody></table>
-                                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">{(fiscalDetails[doc.id].parsedXml?.totals || []).map((total: ParsedFiscalDetails['totals'][number]) => <span key={`${doc.id}-${total.label}`}><span className="text-slate-500">{total.label}:</span> <strong className="text-slate-700 dark:text-slate-200">{formatCurrency(Number(total.value) || 0)}</strong></span>)}</div>
+                                  <table className="min-w-full text-left text-[10px]">
+                                    <thead className="text-slate-500">
+                                      <tr>
+                                        <th className="px-1 py-1">Item</th>
+                                        <th className="px-1 py-1">NCM / CFOP</th>
+                                        <th className="px-1 py-1 text-right">Qtd.</th>
+                                        <th className="px-1 py-1 text-right">Total</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                      {(fiscalDetails[doc.id].parsedXml?.items || []).map(
+                                        (
+                                          item: ParsedFiscalDetails['items'][number],
+                                          index: number
+                                        ) => (
+                                          <tr key={`${doc.id}-item-${index}`}>
+                                            <td className="px-1 py-1">
+                                              <span className="font-medium text-slate-800 dark:text-slate-100">
+                                                {item.description || 'Item'}
+                                              </span>
+                                              <span className="ml-1 text-slate-500">
+                                                {item.code}
+                                              </span>
+                                            </td>
+                                            <td className="px-1 py-1 font-mono text-slate-600 dark:text-slate-300">
+                                              {item.ncm} / {item.cfop}
+                                            </td>
+                                            <td className="px-1 py-1 text-right text-slate-600 dark:text-slate-300">
+                                              {item.quantity} {item.unit}
+                                            </td>
+                                            <td className="px-1 py-1 text-right font-medium text-slate-800 dark:text-slate-100">
+                                              {formatCurrency(Number(item.total) || 0)}
+                                            </td>
+                                          </tr>
+                                        )
+                                      )}
+                                    </tbody>
+                                  </table>
+                                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                                    {(fiscalDetails[doc.id].parsedXml?.totals || []).map(
+                                      (total: ParsedFiscalDetails['totals'][number]) => (
+                                        <span key={`${doc.id}-${total.label}`}>
+                                          <span className="text-slate-500">{total.label}:</span>{' '}
+                                          <strong className="text-slate-700 dark:text-slate-200">
+                                            {formatCurrency(Number(total.value) || 0)}
+                                          </strong>
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
                                 </div>
                               </details>
                               <details className="rounded border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">Transporte e pagamentos</summary>
-                                <div className="mt-2 grid gap-2 sm:grid-cols-2"><div><span className="text-slate-500">Transporte</span><div className="text-slate-700 dark:text-slate-200">{fiscalDetails[doc.id].parsedXml?.transport.join(' · ') || 'Não informado'}</div></div><div><span className="text-slate-500">Pagamentos</span><div className="text-slate-700 dark:text-slate-200">{fiscalDetails[doc.id].parsedXml?.payments.map((payment: ParsedFiscalDetails['payments'][number]) => `${payment.method}: ${formatCurrency(Number(payment.value) || 0)}`).join(' · ') || 'Não informado'}</div></div></div>
+                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                                  Transporte e pagamentos
+                                </summary>
+                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                  <div>
+                                    <span className="text-slate-500">Transporte</span>
+                                    <div className="text-slate-700 dark:text-slate-200">
+                                      {fiscalDetails[doc.id].parsedXml?.transport.join(' · ') ||
+                                        'Não informado'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-500">Pagamentos</span>
+                                    <div className="text-slate-700 dark:text-slate-200">
+                                      {fiscalDetails[doc.id].parsedXml?.payments
+                                        .map(
+                                          (payment: ParsedFiscalDetails['payments'][number]) =>
+                                            `${payment.method}: ${formatCurrency(Number(payment.value) || 0)}`
+                                        )
+                                        .join(' · ') || 'Não informado'}
+                                    </div>
+                                  </div>
+                                </div>
                               </details>
                               <details className="rounded border border-slate-200 bg-white px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">Histórico de eventos · {fiscalDetails[doc.id].events?.length || 0}</summary>
-                                <div className="mt-2 space-y-1">{fiscalDetails[doc.id].events?.length ? fiscalDetails[doc.id].events.map((event: any, index: number) => <div key={`${doc.id}-event-${index}`} className="grid gap-1 border-t border-slate-100 py-1 text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-[130px_1fr]"><span>{formatToBRDate(event.requested_at)} · {event.event_type}</span><span><strong>{event.status}</strong>{event.cstat ? ` · cStat ${event.cstat}` : ''}{event.attempt_number ? ` · tentativa ${event.attempt_number}` : ''}{event.id ? ` · evento ${String(event.id).slice(0, 8)}` : ''}{event.requested_by ? ` · usuário ${String(event.requested_by).slice(0, 8)}` : ''}{event.protocol_number ? ` · prot. ${event.protocol_number}` : ''}{event.xmotivo ? ` · ${event.xmotivo}` : ''}{event.justification ? ` · ${event.justification}` : ''}</span></div>) : <span className="text-slate-500">Nenhum evento registrado.</span>}</div>
+                                <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                                  Histórico de eventos · {fiscalDetails[doc.id].events?.length || 0}
+                                </summary>
+                                <div className="mt-2 space-y-1">
+                                  {fiscalDetails[doc.id].events?.length ? (
+                                    fiscalDetails[doc.id].events.map(
+                                      (event: any, index: number) => (
+                                        <div
+                                          key={`${doc.id}-event-${index}`}
+                                          className="grid gap-1 border-t border-slate-100 py-1 text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:grid-cols-[130px_1fr]"
+                                        >
+                                          <span>
+                                            {formatToBRDate(event.requested_at)} ·{' '}
+                                            {event.event_type}
+                                          </span>
+                                          <span>
+                                            <strong>{event.status}</strong>
+                                            {event.cstat ? ` · cStat ${event.cstat}` : ''}
+                                            {event.attempt_number
+                                              ? ` · tentativa ${event.attempt_number}`
+                                              : ''}
+                                            {event.id
+                                              ? ` · evento ${String(event.id).slice(0, 8)}`
+                                              : ''}
+                                            {event.requested_by
+                                              ? ` · usuário ${String(event.requested_by).slice(0, 8)}`
+                                              : ''}
+                                            {event.protocol_number
+                                              ? ` · prot. ${event.protocol_number}`
+                                              : ''}
+                                            {event.xmotivo ? ` · ${event.xmotivo}` : ''}
+                                            {event.justification ? ` · ${event.justification}` : ''}
+                                          </span>
+                                        </div>
+                                      )
+                                    )
+                                  ) : (
+                                    <span className="text-slate-500">
+                                      Nenhum evento registrado.
+                                    </span>
+                                  )}
+                                </div>
                               </details>
                             </div>
-                          ) : <p className="text-[10px] text-slate-500">Detalhes indisponíveis.</p>}
+                          ) : (
+                            <p className="text-[10px] text-slate-500">Detalhes indisponíveis.</p>
+                          )}
                         </td>
                       </tr>
                     )}
@@ -1082,10 +1515,27 @@ export default function FiscalDocumentsPage() {
         )}
         {!loading && filteredDocs.length > 0 && (
           <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-[10px] text-slate-500 dark:border-slate-800">
-            <span>{documentCount.toLocaleString('pt-BR')} documento(s) · Página {pageIndex + 1} de {Math.max(1, Math.ceil(documentCount / FISCAL_DOCUMENTS_PAGE_SIZE))}</span>
+            <span>
+              {documentCount.toLocaleString('pt-BR')} documento(s) · Página {pageIndex + 1} de{' '}
+              {Math.max(1, Math.ceil(documentCount / FISCAL_DOCUMENTS_PAGE_SIZE))}
+            </span>
             <div className="flex gap-1">
-              <button type="button" onClick={() => setPageIndex((page) => Math.max(0, page - 1))} disabled={pageIndex === 0} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 dark:border-slate-700">Anterior</button>
-              <button type="button" onClick={() => setPageIndex((page) => page + 1)} disabled={(pageIndex + 1) * FISCAL_DOCUMENTS_PAGE_SIZE >= documentCount} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 dark:border-slate-700">Próxima</button>
+              <button
+                type="button"
+                onClick={() => setPageIndex((page) => Math.max(0, page - 1))}
+                disabled={pageIndex === 0}
+                className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 dark:border-slate-700"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setPageIndex((page) => page + 1)}
+                disabled={(pageIndex + 1) * FISCAL_DOCUMENTS_PAGE_SIZE >= documentCount}
+                className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 dark:border-slate-700"
+              >
+                Próxima
+              </button>
             </div>
           </div>
         )}
@@ -1242,18 +1692,59 @@ export default function FiscalDocumentsPage() {
                   {selectedTreatmentIsCancellation ? 'Cancelar NF-e' : 'Aplicar tratamento fiscal'}
                 </h3>
                 <p className="text-[10px] text-slate-500">
-                  {selectedDoc.modelo === '65' ? 'NFC-e' : 'NF-e'} #{selectedDoc.numero_nfe} · Série {selectedDoc.serie} · {selectedDoc.ambiente === 1 ? 'Produção' : 'Homologação'}
+                  {selectedDoc.modelo === '65' ? 'NFC-e' : 'NF-e'} #{selectedDoc.numero_nfe} · Série{' '}
+                  {selectedDoc.serie} · {selectedDoc.ambiente === 1 ? 'Produção' : 'Homologação'}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg bg-slate-50 p-2 text-[10px] dark:bg-slate-950 sm:grid-cols-3">
-              <div><span className="text-slate-500">Destinatário</span><div className="truncate font-medium text-slate-800 dark:text-slate-200">{selectedDoc.destinatario_nome || 'Consumidor final'}</div></div>
-              <div><span className="text-slate-500">Valor</span><div className="font-medium text-slate-800 dark:text-slate-200">{formatCurrency(selectedDoc.valor_total || 0)}</div></div>
-              <div><span className="text-slate-500">Autorização</span><div className="font-medium text-slate-800 dark:text-slate-200">{selectedCancellationEligibility?.authorizedAt ? formatToBRDate(selectedCancellationEligibility.authorizedAt) : 'Indisponível'}</div></div>
-              <div><span className="text-slate-500">Chave de acesso</span><div className="break-all font-mono text-[9px] text-slate-800 dark:text-slate-200">{formatAccessKey(selectedDoc.chave_acesso || '') || 'Indisponível'}</div></div>
-              <div><span className="text-slate-500">Protocolo</span><div className="truncate font-mono text-slate-800 dark:text-slate-200">{selectedDoc.numero_protocolo || '—'}</div></div>
-              <div><span className="text-slate-500">Pedido</span>{selectedDoc.order_id ? <button type="button" onClick={() => navigate(`/sales-order/edit/${selectedDoc.order_id}`)} className="block font-medium text-blue-700 hover:underline dark:text-blue-300">#{orderNumbers[selectedDoc.order_id] || 'Abrir'}</button> : <div className="text-slate-500">Sem vínculo</div>}</div>
+              <div>
+                <span className="text-slate-500">Destinatário</span>
+                <div className="truncate font-medium text-slate-800 dark:text-slate-200">
+                  {selectedDoc.destinatario_nome || 'Consumidor final'}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Valor</span>
+                <div className="font-medium text-slate-800 dark:text-slate-200">
+                  {formatCurrency(selectedDoc.valor_total || 0)}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Autorização</span>
+                <div className="font-medium text-slate-800 dark:text-slate-200">
+                  {selectedCancellationEligibility?.authorizedAt
+                    ? formatToBRDate(selectedCancellationEligibility.authorizedAt)
+                    : 'Indisponível'}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Chave de acesso</span>
+                <div className="break-all font-mono text-[9px] text-slate-800 dark:text-slate-200">
+                  {formatAccessKey(selectedDoc.chave_acesso || '') || 'Indisponível'}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Protocolo</span>
+                <div className="truncate font-mono text-slate-800 dark:text-slate-200">
+                  {selectedDoc.numero_protocolo || '—'}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Pedido</span>
+                {selectedDoc.order_id ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/sales-order/edit/${selectedDoc.order_id}`)}
+                    className="block font-medium text-blue-700 hover:underline dark:text-blue-300"
+                  >
+                    #{orderNumbers[selectedDoc.order_id] || 'Abrir'}
+                  </button>
+                ) : (
+                  <div className="text-slate-500">Sem vínculo</div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1263,23 +1754,31 @@ export default function FiscalDocumentsPage() {
                   : 'A política central identificou que o prazo normal de cancelamento expirou. O pedido será cancelado pelo fluxo comercial e o sistema abrirá um rascunho de estorno para revisão fiscal; nenhum evento será transmitido nesta etapa.'}
               </p>
 
-              {selectedTreatmentIsCancellation && <div>
-                <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-                  Justificativa do cancelamento · 15–255 caracteres
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(event) => setCancelReason(event.target.value)}
-                  placeholder="Informe por que a operação não ocorreu."
-                  rows={3}
-                  maxLength={255}
-                  className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-red-500 dark:border-slate-800 dark:bg-slate-950"
-                />
-              </div>}
+              {selectedTreatmentIsCancellation && (
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold text-slate-500">
+                    Justificativa do cancelamento · 15–255 caracteres
+                  </label>
+                  <textarea
+                    value={cancelReason}
+                    onChange={(event) => setCancelReason(event.target.value)}
+                    placeholder="Informe por que a operação não ocorreu."
+                    rows={3}
+                    maxLength={255}
+                    className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-red-500 dark:border-slate-800 dark:bg-slate-950"
+                  />
+                </div>
+              )}
               {selectedTreatmentIsCancellation && selectedDoc.ambiente === 1 && (
                 <label className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-[10px] text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
-                  <input type="checkbox" checked={productionCancelConfirmed} onChange={(event) => setProductionCancelConfirmed(event.target.checked)} className="mt-0.5 accent-red-600" />
-                  Confirmo a transmissão em Produção e o possível cancelamento definitivo do documento.
+                  <input
+                    type="checkbox"
+                    checked={productionCancelConfirmed}
+                    onChange={(event) => setProductionCancelConfirmed(event.target.checked)}
+                    className="mt-0.5 accent-red-600"
+                  />
+                  Confirmo a transmissão em Produção e o possível cancelamento definitivo do
+                  documento.
                 </label>
               )}
             </div>
@@ -1314,7 +1813,9 @@ export default function FiscalDocumentsPage() {
                 ) : (
                   <i className="bi bi-x-circle-fill" />
                 )}
-                {selectedTreatmentIsCancellation ? 'Confirmar e solicitar cancelamento' : 'Confirmar e preparar estorno'}
+                {selectedTreatmentIsCancellation
+                  ? 'Confirmar e solicitar cancelamento'
+                  : 'Confirmar e preparar estorno'}
               </button>
             </div>
           </div>

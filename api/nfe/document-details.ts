@@ -34,7 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .eq('id', documentId)
     .maybeSingle();
   if (documentError)
-    return res.status(503).json({ success: false, error: 'Não foi possível carregar os detalhes fiscais.' });
+    return res
+      .status(503)
+      .json({ success: false, error: 'Não foi possível carregar os detalhes fiscais.' });
   if (!document)
     return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
 
@@ -47,7 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .order('requested_at', { ascending: false })
     .limit(30);
   if (eventsError)
-    return res.status(503).json({ success: false, error: 'Não foi possível carregar o histórico fiscal.' });
+    return res
+      .status(503)
+      .json({ success: false, error: 'Não foi possível carregar o histórico fiscal.' });
 
   return res.status(200).json({ success: true, document, events: events || [] });
 }

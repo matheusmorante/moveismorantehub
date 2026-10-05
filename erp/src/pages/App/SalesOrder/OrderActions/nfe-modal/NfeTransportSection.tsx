@@ -134,7 +134,9 @@ export const NfeTransportSection: React.FC<NfeTransportSectionProps> = ({
           <i className="bi bi-truck" />
         </span>
         <div>
-          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Pedido sem transporte</p>
+          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            Pedido sem transporte
+          </p>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
             Modalidade: {resolved.modFreteDescription}
           </p>

@@ -88,9 +88,17 @@ export async function loadHmlNormalSaleInputs(
 ): Promise<void> {
   const items = facts.order.data.items as Array<Record<string, any>>;
   if (!Array.isArray(items)) throw new Error('Itens comerciais ausentes.');
-  const ids = Array.from(new Set(
-    items.map((item) => item.productId).filter((id): id is string => typeof id === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id))
-  ));
+  const ids = Array.from(
+    new Set(
+      items
+        .map((item) => item.productId)
+        .filter(
+          (id): id is string =>
+            typeof id === 'string' &&
+            /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
+        )
+    )
+  );
   const customerId = obj(facts.order.data.customerData).id;
   const [catalog, customer, decision] = await Promise.all([
     ids.length
@@ -213,23 +221,19 @@ export async function createHmlNormalSaleRuleSet(
   )
     throw new Error(
       `${modelDecision.reason} Esta operação exige matriz tributária específica aprovada.`
-  );
+    );
   const shippingData = facts.order.data.shipping ? obj(facts.order.data.shipping) : {};
   if (!['delivery', 'pickup'].includes(String(shippingData.deliveryMethod || '')))
-    throw new Error('Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.');
+    throw new Error(
+      'Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.'
+    );
   const deliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
   const cpfCnpj = normalizeRecipientTaxId(
     String(facts.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
   );
   const personType =
-    customer.personType === 'PF' || customer.personType === 'PJ'
-      ? customer.personType
-      : undefined;
-  const presence = fiscalPresence(
-    modelDecision.model,
-    deliveryMethod,
-    contextData.presence
-  );
+    customer.personType === 'PF' || customer.personType === 'PJ' ? customer.personType : undefined;
+  const presence = fiscalPresence(modelDecision.model, deliveryMethod, contextData.presence);
   const requirements = decideFiscalRecipientRequirements({
     model: modelDecision.model,
     presence,
@@ -238,7 +242,8 @@ export async function createHmlNormalSaleRuleSet(
     recipientTaxId: cpfCnpj,
     operationScope: 'NORMAL_DOMESTIC_SALE',
   });
-  if (!requirements.supported) throw new Error(requirements.message || 'Matriz fiscal não aplicável.');
+  if (!requirements.supported)
+    throw new Error(requirements.message || 'Matriz fiscal não aplicável.');
   const city = requirements.addressRequired
     ? required(address.city, 'Município real do destinatário')
     : '';
@@ -266,7 +271,9 @@ export async function createHmlNormalSaleRuleSet(
   if (recipientAddress?.postalCode && !/^\d{8}$/.test(recipientAddress.postalCode))
     throw new Error('CEP real inválido.');
   if (requirements.documentRequired && !cpfCnpj)
-    throw new Error(`${requirements.documentType} do destinatário é obrigatório para esta operação fiscal.`);
+    throw new Error(
+      `${requirements.documentType} do destinatário é obrigatório para esta operação fiscal.`
+    );
   if (cpfCnpj && !isValidRecipientTaxId(cpfCnpj))
     throw new Error('CPF/CNPJ do destinatário inválido para esta operação fiscal.');
   if (cpfCnpj && !recipientTaxIdMatchesPersonType(cpfCnpj, personType))

@@ -38,8 +38,7 @@ export function buildDestXml(
     throw new Error(requirements.message || 'Documento do destinatário obrigatório.');
   if (
     doc &&
-    (!isValidRecipientTaxId(doc) ||
-      !recipientTaxIdMatchesPersonType(doc, customer?.personType))
+    (!isValidRecipientTaxId(doc) || !recipientTaxIdMatchesPersonType(doc, customer?.personType))
   )
     throw new Error('CPF/CNPJ do destinatário inválido ou incompatível com PF/PJ.');
   if (!doc && model === '65') return '';

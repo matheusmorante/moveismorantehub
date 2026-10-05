@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { AiPreAnalysisManager } from '../../';
-import { AiHybridDispatcher } from '../../';
+import { AiPreAnalysisManager } from '../../orderMapper';
+import { AiHybridDispatcher } from '../../orderMapper';
 
 describe('FLUXO DE VOZ: DEBOUNCE DE PRÉ-ANÁLISE (3 SEGUNDOS) E ENVIO EXPLÍCITO', () => {
   beforeEach(() => {

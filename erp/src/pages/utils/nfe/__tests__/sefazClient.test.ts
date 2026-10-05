@@ -1,10 +1,12 @@
 import https from 'node:https';
-import { getCACertificates } from 'node:tls';
+import { rootCertificates } from 'node:tls';
+import { X509Certificate } from 'node:crypto';
 import forge from 'node-forge';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { extractCertificateAndKey } from '../../../../../../api/nfe/nfeSigner';
 import { sendSoapToSefaz } from '../../../../../../api/nfe/sefazClient';
 import { createSefazHttpsAgent } from '../../../../../../api/nfe/sefazHttpsAgent';
+import { icpBrasilRoots } from '../../../../../../api/nfe/icpBrasilRoots';
 import { sefazTransportDiagnostic } from '../../../../../../api/nfe/sefazTransportDiagnostic';
 
 const mocks = vi.hoisted(() => ({ post: vi.fn() }));
@@ -62,6 +64,25 @@ const params = () => ({
 });
 
 describe('transporte fiscal padrão Node mTLS', () => {
+  it.each([
+    '<consSitNFe><tpAmb>1</tpAmb></consSitNFe>',
+    '<NFe><ide><tpAmb>2</tpAmb><mod>55</mod></ide></NFe>',
+  ])('bloqueia mistura de ambiente/modelo antes da conexão', async (xmlPayload) => {
+    await expect(sendSoapToSefaz({ ...params(), xmlPayload })).rejects.toMatchObject({
+      code: 'SEFAZ_ENVIRONMENT_MODEL_MISMATCH',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+  it('bloqueia XML HML em endpoint de produção', async () => {
+    await expect(
+      sendSoapToSefaz({
+        ...params(),
+        url: 'https://nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
+        xmlPayload: '<NFe><ide><tpAmb>2</tpAmb><mod>65</mod></ide></NFe>',
+      })
+    ).rejects.toMatchObject({ code: 'SEFAZ_ENVIRONMENT_MODEL_MISMATCH' });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
   it('limita também DNS e handshake pelo prazo total sem repetir transmissão', async () => {
     vi.spyOn(AbortSignal, 'timeout').mockReturnValue(AbortSignal.abort());
     mocks.post.mockRejectedValueOnce(
@@ -112,7 +133,7 @@ describe('transporte fiscal padrão Node mTLS', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
-  it('usa A1, confiança Node e SO, TLS 1.2 ou superior e validação habilitada', () => {
+  it('usa A1 e uma política CA portável com a raiz oficial da SEFAZ-PR', () => {
     const agent = createSefazHttpsAgent(certPem, privateKeyPem);
     expect(agent.options).toMatchObject({
       cert: certPem,
@@ -120,9 +141,17 @@ describe('transporte fiscal padrão Node mTLS', () => {
       minVersion: 'TLSv1.2',
       rejectUnauthorized: true,
     });
-    expect(agent.options.ca).toEqual([
-      ...new Set([...getCACertificates('default'), ...getCACertificates('system')]),
+    const fingerprints = (certificates: string[]) =>
+      certificates.map((c) => new X509Certificate(c).fingerprint256);
+    expect(fingerprints(agent.options.ca as string[])).toEqual(
+      fingerprints([...new Set([...rootCertificates, ...icpBrasilRoots])])
+    );
+    expect(fingerprints(icpBrasilRoots)).toEqual([
+      '6E:0B:FF:06:9A:26:99:4C:15:DE:2C:48:88:CC:54:AF:84:88:2E:54:95:B7:FB:F6:6B:E9:CC:FF:EC:74:89:F6',
     ]);
+    const root = new X509Certificate(icpBrasilRoots[0]);
+    expect(root.ca && root.verify(root.publicKey)).toBe(true);
+    expect(Date.parse(root.validTo)).toBeGreaterThan(Date.now());
     expect(agent.options).not.toHaveProperty('maxVersion');
     expect(agent.options).not.toHaveProperty('checkServerIdentity');
     agent.destroy();
@@ -133,6 +162,20 @@ describe('transporte fiscal padrão Node mTLS', () => {
       privateKeyPem,
     });
     expect(() => extractCertificateAndKey(pfx, 'WRONG_PASSWORD')).toThrow();
+  });
+  it.each(['not-base64!', 'senha_do_certificado', 'AAAA===='])(
+    'recusa Base64 inválido sem expor o valor (%s)',
+    (value) => {
+      expect(() => extractCertificateAndKey(value, 'TEST_AUT_PASSWORD')).toThrowError(
+        expect.objectContaining({ code: 'A1_BASE64_INVALID' })
+      );
+    }
+  );
+  it('recusa PFX truncado e Base64 que não contém PKCS#12', () => {
+    expect(() => extractCertificateAndKey(pfx.slice(0, -12), 'TEST_AUT_PASSWORD')).toThrow();
+    expect(() =>
+      extractCertificateAndKey(Buffer.from('not a PFX').toString('base64'), 'TEST_AUT_PASSWORD')
+    ).toThrow();
   });
   it('recusa A1 vencido antes de abrir conexão', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 2 * 86_400_000);

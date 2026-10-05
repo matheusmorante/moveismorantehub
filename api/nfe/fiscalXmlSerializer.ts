@@ -324,8 +324,7 @@ export function serializeFiscalDocument(
       (transporter.cpf ? normalizeRecipientTaxId(transporter.cpf).length !== 11 : false))
   )
     throw new Error('Identificação do transportador incompleta.');
-  const requiresHomeDeliveryTransportGroup =
-    document.model === '65' && operation.presence === '4';
+  const requiresHomeDeliveryTransportGroup = document.model === '65' && operation.presence === '4';
   const transport = `<transp>${tag('modFrete', operation.freightMode)}${
     transporter
       ? '<transporta>' +

@@ -55,7 +55,15 @@ function response() {
     },
     end: vi.fn(),
   };
-  return { res, get statusCode() { return statusCode; }, get body() { return body; } };
+  return {
+    res,
+    get statusCode() {
+      return statusCode;
+    },
+    get body() {
+      return body;
+    },
+  };
 }
 
 describe('API de pré-validação do cancelamento fiscal por documento', () => {
@@ -105,7 +113,14 @@ describe('API de pré-validação do cancelamento fiscal por documento', () => {
             ? [document]
             : table === 'orders'
               ? [{ id: orderId, status: 'scheduled', order_data: {} }]
-              : [{ document_id: documentId, status: 'transmitting', requested_at: new Date().toISOString(), attempt_number: 1 }]
+              : [
+                  {
+                    document_id: documentId,
+                    status: 'transmitting',
+                    requested_at: new Date().toISOString(),
+                    attempt_number: 1,
+                  },
+                ]
         ),
     });
     const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
@@ -139,9 +154,7 @@ describe('API de pré-validação do cancelamento fiscal por documento', () => {
           );
         }
         return query(
-          table === 'orders'
-            ? [{ id: orderId, status: 'scheduled', order_data: {} }]
-            : []
+          table === 'orders' ? [{ id: orderId, status: 'scheduled', order_data: {} }] : []
         );
       },
     });

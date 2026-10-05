@@ -1,6 +1,6 @@
 ---
 name: organizacao-arquivos-diretorios
-description: Diretrizes obrigatórias para organização estruturada de pastas, arquivos e subpastas no Morante Hub, garantindo migração segura sem perda de código, preservação de imports e integridade absoluta do sistema.
+description: Diretrizes obrigatórias para organização estruturada de pastas, arquivos e subpastas no Morante Hub, garantindo migração segura sem perda de código, preservação de imports e integridade absoluta do sistema com reauditoria de arquitetura.
 ---
 
 # Skill: Organização Estruturada de Arquivos e Diretórios (Zero Perda de Código)
@@ -8,76 +8,66 @@ description: Diretrizes obrigatórias para organização estruturada de pastas, 
 ## Quando aplicar esta Skill
 Aplicar sempre que a tarefa envolver:
 - Reorganização quando a árvore de diretórios não expressar claramente os domínios, as responsabilidades ou a propriedade dos arquivos;
-- Separação de arquivos relacionados que estejam dispersos ou agrupados com responsabilidades distintas, quando uma estrutura mais coesa melhorar a localização e manutenção;
-- Criação, fusão ou remoção de subpastas semânticas (`components/`, `modals/`, `services/`, `hooks/`, `utils/`, `types/`, `sections/`) quando isso deixar mais claros os limites e as responsabilidades;
+- Separação de arquivos relacionados que estejam dispersos ou agrupados com responsabilidades distintas;
+- Criação, fusão ou remoção de subpastas semânticas (`components/`, `modals/`, `services/`, `hooks/`, `utils/`, `types/`, `sections/`);
 - Movimentação de arquivos e componentes para novas estruturas de diretório;
-- Limpeza e padronização visual da árvore de pastas do ERP ou Mobile;
-- Criação de barrels (`index.ts`) para compatibilidade retroativa de importações.
-
-## Quando NÃO aplicar
-- Para simples correções pontuais de bugs de lógica em um único arquivo;
-- Para refatoração profunda de regras de negócio internas (consultar `modularizacao_codigo` e `regras-de-negocio-erp`).
-
----
+- Limpeza e padronização visual da árvore de pastas do ERP ou Mobile.
 
 ## 1. Organização guiada por coesão, sem limites por quantidade
-
-- Não use quantidade de arquivos como gatilho autônomo para reorganizar uma pasta, nem imponha um limite de arquivos na raiz de um módulo.
-- Mantenha arquivos diretamente na pasta quando pertencerem claramente ao mesmo módulo e uma subpasta não melhorar a coesão, a descoberta ou a manutenção.
-- Crie subpastas quando representarem responsabilidades ou áreas funcionais reconhecíveis e ajudarem a encontrar, entender e alterar os arquivos em conjunto.
-- Evite tanto pastas que misturem responsabilidades sem relação quanto subpastas artificiais que apenas redistribuam arquivos sem melhorar limites, coesão ou navegação.
-- Decida a estrutura com base em responsabilidade única, coesão, dependências, propriedade e facilidade de descoberta. A quantidade de arquivos, isoladamente, não determina a qualidade da organização.
-
----
+- Mantenha arquivos diretamente na pasta quando pertencerem claramente ao mesmo módulo.
+- Decida a estrutura com base em responsabilidade única, coesão, dependências e facilidade de descoberta. A quantidade de arquivos não determina a qualidade da organização.
 
 ## 2. Princípio Fundamental de Segurança em Movimentações
-
 > [!IMPORTANT]
 > **"NENHUMA INFORMAÇÃO É PERDIDA. NENHUM IMPORT É QUEBRADO. NENHUM CAMINHO CRÍTICO É ALTERADO SEM TESTES."**
+1. Nunca apague ou sobrescreva arquivos sem garantir que o novo destino contém 100% do conteúdo.
+2. Crie Barrels Reexportadores ou atualize todos os consumidores.
+3. Valide a compilação (TypeScript/Vitest).
 
-Ao organizar diretórios e mover arquivos de lugar:
-1. **Nunca apague ou sobrescreva arquivos** sem antes garantir que o novo destino contém 100% do conteúdo original.
-2. **Crie Barrels Reexportadores ou atualize todos os consumidores**: Se outros módulos importam de `Stock/InboundInvoices/InboundInvoiceDetailsModal`, crie um arquivo proxy ou reexportador no caminho anterior ou atualize rigorosamente todos os caminhos relativos de importação em todos os arquivos dependentes.
-3. **Valide a compilação do TypeScript e execute Vitest imediatamente**: O comando de build/teste deve ser executado para comprovar que nenhuma rota ou tela ficou em branco.
+# REGRAS OBRIGATÓRIAS DE AUDITORIA DE ORGANIZAÇÃO
 
----
+A organização de pastas e arquivos também deve seguir critérios objetivos de reauditoria para não encerrar a tarefa prematuramente.
 
-## 3. Padrão Canônico de Subpastas por Módulo
+## 1. AUDITORIA DEVE SER GLOBAL DENTRO DO ESCOPO
+Ao organizar um módulo, faça uma varredura em **todos** os arquivos do escopo e inspecione a localização das responsabilidades. Não limite a análise aos arquivos que o usuário apontou. A tarefa não está concluída enquanto houver arquivos obviamente mal posicionados no módulo auditado.
 
-Ao organizar um diretório extenso (ex: telas em `src/pages/App/...` ou features em `mobile/src/features/...`):
+## 2. SEPARAÇÃO DE RESPONSABILIDADES
+Aplique o padrão canônico apenas quando fizer sentido:
+- `components/`: Componentes visuais secundários da tela.
+- `modals/`: Diálogos modais, overlays de confirmação.
+- `hooks/`: Custom hooks específicos daquele módulo.
+- `services/`: Lógica de cálculo, integrações, Supabase.
+- `utils/`: Funções puras, formatação.
+- `types/`: Interfaces e enums exclusivos.
 
-| Subpasta | O que deve conter | Exemplos |
-|---|---|---|
-| `components/` | Componentes visuais secundários da tela, cards de itens, paginações, headers e tabelas parciais | `InboundInvoicesTable.tsx`, `ReceiptCard.tsx` |
-| `modals/` | Diálogos modais, overlays de confirmação, formulários de criação/edição em modal e seletores popup | `InboundInvoiceDetailsModal.tsx`, `InboundDocumentImportModal.tsx` |
-| `sections/` | Seções extensas da mesma página quando dividida em blocos lógicos | `InboundAdditionalCostsSection.tsx` |
-| `hooks/` | Custom hooks React específicos daquele módulo | `useInboundInvoices.ts`, `useReceipts.ts` |
-| `services/` | Lógica de cálculo, chamadas a APIs, integração com Supabase ou engines utilitárias | `inboundInvoiceService.ts`, `FabricLabelEngine.ts` |
-| `utils/` | Funções puras de formatação, regex, conversores e datas | `inboundDateUtils.ts`, `receiptPeriodUtils.ts` |
-| `types/` | Tipos TypeScript, interfaces e enums exclusivos do módulo | `inboundInvoice.types.ts` |
-| `Raiz do módulo` | Manter o ponto de entrada (`Index.tsx`) e barrels quando necessários. Arquivos específicos também podem ficar na raiz se isso preservar uma organização coesa e clara; mova-os quando uma subpasta semântica melhorar a descoberta ou explicitar uma responsabilidade. | `Index.tsx` |
+**Não crie subpastas genéricas (ex: utils/tudo.ts) nem pastas se não houver responsabilidade concreta correspondente.**
 
----
+## 3. UI NÃO DEVE VIRAR CAMADA DE INFRAESTRUTURA
+Ao organizar as pastas, verifique se existem serviços ou infraestrutura (chamadas diretas ao Supabase, queries) escondidos em pastas de UI (como `components/` ou `hooks/`). Mova-os para `services/` ou `repositories/`.
 
-## 4. Checklist Operacional de Execução Segura
+## 4. DOMÍNIO NÃO DEVE FICAR ESPALHADO NA UI
+Ao reorganizar os diretórios, identifique regras fiscais, status e validações de domínio e centralize-os em subpastas adequadas do domínio.
 
-1. **Mapeamento Prévio de Referências**:
-   - Rodar busca por texto (`grep_search`) pelo nome do arquivo a ser movido em todo o repositório (`erp/src` ou `mobile/src`) para descobrir quem o importa.
-2. **Criação do Novo Arquivo / Movimentação**:
-   - Mover ou copiar o arquivo para a subpasta adequada (`modals/`, `components/`, etc.).
-   - Ajustar os imports relativos dentro do próprio arquivo movido (ex: `import { x } from './utils'` vira `import { x } from '../utils'`).
-3. **Preservação de Retrocompatibilidade (Barrel / Re-export)**:
-   - Na raiz do módulo anterior, caso outros módulos externos importem daquele caminho antigo, reexportar:
-     ```ts
-     export * from './modals/InboundInvoiceDetailsModal';
-     export { default } from './modals/InboundInvoiceDetailsModal';
-     ```
-   - Ou atualizar todos os importadores diretos.
-4. **Verificação de Regressão**:
-   - Rodar `npx vitest` e verificar status da compilação.
-   - Confirmar ausência de erros 404 de Vite no navegador.
+## 5. VERIFICAR ORGANIZAÇÃO GLOBAL
+Durante a organização, analise:
+- Nomes de arquivos e diretórios;
+- Módulos com arquivos em lugares incorretos;
+- Arquivos duplicados e helpers genéricos demais;
+- Imports com caminhos excessivamente profundos ou dependências circulares.
+- Não reorganize por estética, mas sim para melhorar fronteiras arquiteturais.
 
-## Referências e Fonte Canônica de Documentação
+## 6. EVITAR REFATORAÇÃO COSMÉTICA
+Não crie dezenas de arquivos pequenos apenas para diluir um arquivo grande, se isso não reduzir o acoplamento real ou melhorar a arquitetura.
 
-- Critérios de responsabilidade única, SOLID e modularização: `.agents/skills/modularizacao_codigo/SKILL.md`.
-- Escopo de mudanças, validação e preservação do estado do repositório: `AGENTS.md` do projeto.
+## 7. REAUDITORIA OBRIGATÓRIA
+Depois de mover e organizar: **AUDITE NOVAMENTE A ÁRVORE DE DIRETÓRIOS DO ESCOPO.**
+Não faça: `criei as pastas -> testes passaram -> concluído`.
+O correto é: `organização -> correção de imports -> REAUDITORIA -> verificar se existem arquivos que restaram mal posicionados`.
+
+## 8. CRITÉRIO DE SAÍDA E RELATÓRIO FINAL
+Antes de concluir, garanta que:
+- Não existem arquivos visivelmente fora de contexto.
+- Os imports não indicam fronteiras ruins.
+- Os testes relevantes continuam passando.
+
+Ao final, forneça um **relatório honesto** indicando a árvore nova, os problemas resolvidos e os problemas restantes (se houverem). Não declare que "A organização está perfeita" sem evidência da reauditoria.

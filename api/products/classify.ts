@@ -1,4 +1,4 @@
-import { getSupabaseSecretKey } from './supabaseSecretKey';
+import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createProductDbClient } from './serverDb';
 import { withSpan } from '../../src/telemetry/tracer';

@@ -121,7 +121,9 @@ export function validateFiscalDocument(
         (!isValidRecipientTaxId(documentRecipientTaxId) ||
           !recipientTaxIdMatchesPersonType(documentRecipientTaxId, customerPersonType)))
     )
-      throw new Error('Identificação do destinatário diverge do snapshot fiscal ou do cadastro PF/PJ.');
+      throw new Error(
+        'Identificação do destinatário diverge do snapshot fiscal ou do cadastro PF/PJ.'
+      );
     const decision = resolveOrderFiscalModel(
       {
         ...snapshot.order.data,

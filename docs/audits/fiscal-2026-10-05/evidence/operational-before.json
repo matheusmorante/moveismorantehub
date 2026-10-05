@@ -1,0 +1,58 @@
+{
+  "name": "operational-before",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "projectRef": "hkoxhourxwlddgsfdgws",
+      "emissionRequestId": "aa1146c0-ea67-47aa-9ec6-8af7e5907dcd",
+      "documentId": "5fdea7e3-75c5-4648-963c-3913a1e2ee0c",
+      "orderId": "baa795c2-874e-4edb-8717-e8319bce3638",
+      "model": "65",
+      "environment": 2,
+      "number": 617,
+      "series": "1",
+      "status": "pendente",
+      "keyHash": "921a858f9867b2d65da7d4a6497789b7326e59ad5538052d6bcd4b17a1a7b2ba",
+      "xmlHash": "2d372872d1d23617e97a74767d11daa2851888d5b7415616ef0774fc4924705c",
+      "xmlBytes": 6401,
+      "snapshotId": "d69372c9-c155-4eae-ad89-7c3ea4363964",
+      "snapshotHash": "44284683fcbbdb6e13a907e60279917044a3ecbc72b3085445264cd09d281a84",
+      "protocolPresent": false,
+      "historyCount": 4,
+      "updatedAt": "2026-10-05T15:41:45.54591+00:00",
+      "operational": [
+        {
+          "table": "orders",
+          "count": 1,
+          "hash": "3bb6be1cf791a0f0a4599a559b1772a5cba9764c3d82485c3ef131659bea3881"
+        },
+        {
+          "table": "order_items",
+          "count": 1,
+          "hash": "e23052e5ea8237bf1c2f20db0effdb60df18cebb43d250cee190690baaa6ee4b"
+        },
+        {
+          "table": "order_payments",
+          "count": 1,
+          "hash": "a0ca2272324a771e8c5489f2eb8563cd0c9f08db83c5c4c4da1a22fcbedf4161"
+        },
+        {
+          "table": "inventory_moves",
+          "count": 0,
+          "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "table": "accounts_receivable",
+          "count": 0,
+          "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "table": "financial_transactions",
+          "count": 0,
+          "hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      ]
+    }
+  ]
+}

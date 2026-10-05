@@ -412,11 +412,9 @@ async function main() {
   }
 }
 
-if (require.main === module) main().catch((error) => {
-  process.stderr.write(`FAIL ${error.code || 'NFE_HML_E2E'}\n`);
-  // These messages are authored by this runner; arbitrary API/SDK error objects are not logged.
-  if (error.code) process.stderr.write(`${error.message}\n`);
+if (require.main === module) {
+  process.stderr.write('Emissão HML por CLI foi desativada conforme testes-seguros-erp. Use a interface do ERP; npm run test:nfe:hml executa somente probes e consultas.\n');
   process.exitCode = 1;
-});
+}
 module.exports = { makeFixture, assertNormalSaleFixture, makeCpf, createSyntheticRecipient,
   createSyntheticProduct, verifyFixture };

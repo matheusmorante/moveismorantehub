@@ -17,6 +17,7 @@ import { NfePaymentTab } from './nfe-modal/NfePaymentTab';
 import { NfeSuccessCard } from './nfe-modal/NfeSuccessCard';
 import { NfeTransportSection } from './nfe-modal/NfeTransportSection';
 import { useNfeEmission } from './nfe-modal/useNfeEmission';
+import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
@@ -163,6 +164,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handleBatchUpdateItems,
     handleEmit,
     handleReconcile,
+    handleAbandonHmlTlsAttempt,
     handleStartFreshHmlEmission,
     handlePrintDanfe,
     transportResponsible,
@@ -262,7 +264,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
   const isPreparingInitialData = isLoadingFiscalData || isLoadingCustomerType;
   const isLocked = Boolean(
-    emissionResult?.success || emissionResult?.pending || emissionResult?.hmlConfirmedNotFound
+    emissionResult?.success ||
+      emissionResult?.pending ||
+      emissionResult?.hmlConfirmedNotFound ||
+      (emissionResult && getFiscalIssuePresentation(emissionResult).action === 'consult')
   );
 
   const selectedModel =
@@ -454,7 +459,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               isLoadingNfeNumber={isLoadingNfeNumber}
               fiscalPreparationError={fiscalPreparationError}
               onReconcile={handleReconcile}
+              onAbandonHmlTlsAttempt={handleAbandonHmlTlsAttempt}
               onStartFreshHmlEmission={handleStartFreshHmlEmission}
+              onCorrectFiscalData={() => setActiveTab('items')}
+              onClose={onClose}
             />
           </section>
 
@@ -602,8 +610,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
                       <>
                         <i className="bi bi-cloud-arrow-up-fill" />
                         <span>
-                          Emitir {isNfce ? 'NFC-e' : 'NF-e'} em{' '}
-                          {environment === 1 ? 'Produção' : 'Homologação'}
+                          {emissionResult &&
+                          getFiscalIssuePresentation(emissionResult).action === 'retry-safely'
+                            ? 'Tentar novamente'
+                            : `Emitir ${isNfce ? 'NFC-e' : 'NF-e'} em ${environment === 1 ? 'Produção' : 'Homologação'}`}
                         </span>
                       </>
                     )}

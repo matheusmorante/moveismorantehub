@@ -45,14 +45,20 @@ export function evaluateDocumentEligibility(
   if (document.document_type !== 'outbound' || !document.order_id)
     return blocked('A nota não está vinculada a um pedido de venda.', 'none');
   if (!order) return blocked('Pedido de origem não encontrado.', 'none');
-  if (!['55', '65'].includes(String(document.modelo)) || ![1, 2].includes(Number(document.ambiente)))
+  if (
+    !['55', '65'].includes(String(document.modelo)) ||
+    ![1, 2].includes(Number(document.ambiente))
+  )
     return blocked('Modelo ou ambiente fiscal inválido.', 'none');
   if (
     !['autorizada', 'homologada'].includes(String(document.status)) ||
     (document.status === 'homologada' && Number(document.ambiente) !== 2) ||
     (document.status === 'autorizada' && Number(document.ambiente) !== 1)
   )
-    return blocked('Somente uma NF-e autorizada no ambiente correspondente pode receber cancelamento.', 'none');
+    return blocked(
+      'Somente uma NF-e autorizada no ambiente correspondente pode receber cancelamento.',
+      'none'
+    );
   if (!document.numero_protocolo)
     return blocked('A nota não tem protocolo original para referenciar o evento.', 'none');
   if (!/^\d{44}$/.test(String(document.chave_acesso || '')))
@@ -65,10 +71,16 @@ export function evaluateDocumentEligibility(
 
   const orderStatus = String(order.status || '').toLowerCase();
   if (hasGoodsCirculated(order))
-    return blocked('Mercadoria circulou; preserve a NF-e original e use o fluxo de devolução.', 'return');
+    return blocked(
+      'Mercadoria circulou; preserve a NF-e original e use o fluxo de devolução.',
+      'return'
+    );
   const orderType = String(order.order_type || order.order_data?.orderType || 'sale').toLowerCase();
   if (!['sale', 'showroom'].includes(orderType))
-    return blocked('Este documento não está ligado a uma venda elegível para cancelamento direto.', 'none');
+    return blocked(
+      'Este documento não está ligado a uma venda elegível para cancelamento direto.',
+      'none'
+    );
   if (
     !['cancelled', 'cancelado'].includes(orderStatus) &&
     !canCancelOrderDirectly({ ...order, status: orderStatus })
@@ -84,7 +96,10 @@ export function evaluateDocumentEligibility(
     const requestedAt = new Date(priorEvent.requested_at || '').getTime();
     const attemptAge = now - requestedAt;
     if (!Number.isFinite(requestedAt) || attemptAge < 30_000)
-      return blocked('Há uma tentativa de cancelamento em processamento. Aguarde antes de repetir.', 'pending');
+      return blocked(
+        'Há uma tentativa de cancelamento em processamento. Aguarde antes de repetir.',
+        'pending'
+      );
     return blocked(
       'A tentativa anterior não foi confirmada. Consulte a SEFAZ antes de qualquer nova ação.',
       'reconcile'
@@ -134,7 +149,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: documents, error: documentsError } = await db
       .from('nfe_documents')
-      .select('id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_protocolo,numero_protocolo,created_at')
+      .select(
+        'id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_protocolo,numero_protocolo,created_at'
+      )
       .in('id', documentIds);
     if (documentsError)
       return res.status(503).json({ error: 'Não foi possível validar as notas fiscais.' });
@@ -184,7 +201,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
     const latestEvents = new Map<string, any>();
     for (const event of events || []) {
-      if (!latestEvents.has(String(event.document_id))) latestEvents.set(String(event.document_id), event);
+      if (!latestEvents.has(String(event.document_id)))
+        latestEvents.set(String(event.document_id), event);
     }
     const now = Date.now();
     const eligibility = Object.fromEntries(

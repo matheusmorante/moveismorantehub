@@ -1,4 +1,4 @@
-import { CustomerData } from '../../types/order.type';
+import type CustomerData from '../../types/customerData.type';
 
 /**
  * Cria ou vincula cliente ao CRM caso não possua ID e tenha nome válido.

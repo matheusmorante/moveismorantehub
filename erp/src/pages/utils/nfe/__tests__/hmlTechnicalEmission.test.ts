@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   consultAuthorizedHmlTechnical,
   emitHmlTechnical,
+  recoverHmlTechnical,
   retryHmlTechnical,
 } from '../../../../../../api/nfe/emitHmlTechnical';
 import type { FiscalSnapshotCandidate } from '../../../../../../api/nfe/fiscalSnapshot';
@@ -138,10 +139,18 @@ function database() {
                 : document,
           error: null,
         }),
-        eq: function () { return this; },
-        in: function () { return this; },
-        order: function () { return this; },
-        limit: function () { return this; },
+        eq: function () {
+          return this;
+        },
+        in: function () {
+          return this;
+        },
+        order: function () {
+          return this;
+        },
+        limit: function () {
+          return this;
+        },
       }),
     }),
   }));
@@ -161,7 +170,7 @@ function database() {
         error: null,
       };
     }
-    if (name === 'reserve_hml_nfe_outbound') {
+    if (name === 'reserve_hml_nfe_outbound_with_replacement') {
       document = {
         id: 'doc-hml',
         order_id: runId,
@@ -219,6 +228,12 @@ function database() {
     calls,
     rpc,
     from,
+    seedDocument(value: Record<string, unknown>) {
+      document = value;
+    },
+    seedSnapshotSelections(value: Record<string, unknown>) {
+      capturedSelections = value;
+    },
     get document() {
       return document;
     },
@@ -229,7 +244,11 @@ describe('pipeline técnico NF-e 55 HML', () => {
   it('recupera o documento ativo por pedido/ambiente mesmo com outra chave de intenção', async () => {
     const state = database();
     let resolveResponse!: (xml: string) => void;
-    mocks.sendSoapToSefaz.mockReturnValueOnce(new Promise((resolve) => { resolveResponse = resolve; }));
+    mocks.sendSoapToSefaz.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveResponse = resolve;
+      })
+    );
     const first = emitHmlTechnical(state.db, command, candidate, {});
     await vi.waitFor(() => expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1));
     const existingFrom = state.from.getMockImplementation()!;
@@ -242,20 +261,32 @@ describe('pipeline técnico NF-e 55 HML', () => {
         const eq = selected.eq;
         selected.eq = (field: string, value: unknown) => {
           const chain = eq(field, value);
-          if (field === 'emission_request_id') chain.maybeSingle = async () => ({data:null,error:null});
+          if (field === 'emission_request_id')
+            chain.maybeSingle = async () => ({ data: null, error: null });
           return chain;
         };
         return selected;
       };
       return query;
     });
-    const second = await emitHmlTechnical(state.db,
-      {...command,emissionRequestId:'afdeea6c-500c-4f43-9372-7c4bec6db8a4'}, candidate, {});
+    const second = await emitHmlTechnical(
+      state.db,
+      { ...command, emissionRequestId: 'afdeea6c-500c-4f43-9372-7c4bec6db8a4' },
+      candidate,
+      {}
+    );
     expect(second.status).toBe(409);
-    expect(second.body).toMatchObject({pending:true,documentId:'doc-hml',
-      databaseReason:'ALREADY_ACTIVE_FISCAL_ATTEMPT',model:'55',nfeNumber:700});
+    expect(second.body).toMatchObject({
+      pending: true,
+      documentId: 'doc-hml',
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+      model: '55',
+      nfeNumber: 700,
+    });
     expect(state.calls.filter((c) => c.name === 'prepare_nfe_fiscal_snapshot')).toHaveLength(1);
-    expect(state.calls.filter((c) => c.name === 'reserve_hml_nfe_outbound')).toHaveLength(1);
+    expect(
+      state.calls.filter((c) => c.name === 'reserve_hml_nfe_outbound_with_replacement')
+    ).toHaveLength(1);
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
     resolveResponse('<retEnviNFe><cStat>105</cStat></retEnviNFe>');
     await first;
@@ -264,27 +295,40 @@ describe('pipeline técnico NF-e 55 HML', () => {
   it('classifica conflito de snapshot como 409 e identifica a reserva original sem consultar SEFAZ', async () => {
     const state = database();
     const rpc = state.rpc.getMockImplementation()!;
-    state.rpc.mockImplementation(async (name,args) => name === 'prepare_nfe_fiscal_snapshot'
-      ? {data:null,error:{code:'23505',message:'ALREADY_ACTIVE_FISCAL_ATTEMPT'} as any}
-      : rpc(name,args));
-    const result = await emitHmlTechnical(state.db,command,candidate,{});
+    state.rpc.mockImplementation(async (name, args) =>
+      name === 'prepare_nfe_fiscal_snapshot'
+        ? { data: null, error: { code: '23505', message: 'ALREADY_ACTIVE_FISCAL_ATTEMPT' } as any }
+        : rpc(name, args)
+    );
+    const result = await emitHmlTechnical(state.db, command, candidate, {});
     expect(result.status).toBe(409);
-    expect(result.body).toMatchObject({pending:true, databaseReason:'ALREADY_ACTIVE_FISCAL_ATTEMPT',
-      reservationRecoveryRequired:true,nfeNumber:700,model:'55',series:'1'});
+    expect(result.body).toMatchObject({
+      pending: true,
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+      reservationRecoveryRequired: true,
+      nfeNumber: 700,
+      model: '55',
+      series: '1',
+    });
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
-  it.each(['108', '109', '215', '656', '999'])('consulta %s inconclusiva mantém a trava do documento', async (cStat) => {
-    const state = database();
-    mocks.sendSoapToSefaz.mockRejectedValueOnce(new Error('timeout'));
-    await emitHmlTechnical(state.db,command,candidate,{});
-    mocks.sendSoapToSefaz.mockResolvedValueOnce(`<retConsSitNFe><cStat>${cStat}</cStat><xMotivo>Consulta indisponível</xMotivo></retConsSitNFe>`);
-    const result = await retryHmlTechnical(state.db,'doc-hml');
-    expect(result.body).toMatchObject({pending:true,code:'HML_RECONCILIATION_REQUIRED'});
-    expect(state.document?.status).toBe('pendente');
-    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
-    expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toContain('NFeConsultaProtocolo4');
-  });
+  it.each(['108', '109', '215', '656', '999'])(
+    'consulta %s inconclusiva mantém a trava do documento',
+    async (cStat) => {
+      const state = database();
+      mocks.sendSoapToSefaz.mockRejectedValueOnce(new Error('timeout'));
+      await emitHmlTechnical(state.db, command, candidate, {});
+      mocks.sendSoapToSefaz.mockResolvedValueOnce(
+        `<retConsSitNFe><cStat>${cStat}</cStat><xMotivo>Consulta indisponível</xMotivo></retConsSitNFe>`
+      );
+      const result = await retryHmlTechnical(state.db, 'doc-hml');
+      expect(result.body).toMatchObject({ pending: true, code: 'HML_RECONCILIATION_REQUIRED' });
+      expect(state.document?.status).toBe('pendente');
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
+      expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toContain('NFeConsultaProtocolo4');
+    }
+  );
 
   it('registra a causa classificada da falha de reserva sem incluir dados do destinatário', async () => {
     const state = database();
@@ -454,7 +498,9 @@ describe('pipeline técnico NF-e 55 HML', () => {
     );
     expect(result.body).toMatchObject({ code: 'HML_XML_INVALID', sefazContacted: false });
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
-    expect(state.calls.some((call) => call.name === 'reserve_hml_nfe_outbound')).toBe(false);
+    expect(
+      state.calls.some((call) => call.name === 'reserve_hml_nfe_outbound_with_replacement')
+    ).toBe(false);
   });
   it('blocks invalid CSRT configuration before numbering and returns only field names', async () => {
     vi.stubEnv('NFE_CSRT_ID', 'INVALID_TEST_AUT');
@@ -503,7 +549,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     });
     expect(state.calls.map((call) => call.name)).toEqual([
       'prepare_nfe_fiscal_snapshot',
-      'reserve_hml_nfe_outbound',
+      'reserve_hml_nfe_outbound_with_replacement',
       'persist_hml_nfe_result',
       'release_hml_nfe_attempt',
     ]);
@@ -694,7 +740,9 @@ describe('pipeline técnico NF-e 55 HML', () => {
       .mockResolvedValueOnce(
         '<retConsSitNFe><cStat>217</cStat><xMotivo>Não consta</xMotivo></retConsSitNFe>'
       )
-      .mockResolvedValueOnce('<retEnviNFe><cStat>105</cStat><xMotivo>Em processamento</xMotivo></retEnviNFe>');
+      .mockResolvedValueOnce(
+        '<retEnviNFe><cStat>105</cStat><xMotivo>Em processamento</xMotivo></retEnviNFe>'
+      );
     const retried = await retryHmlTechnical(state.db, 'doc-hml');
 
     expect(retried.body).toMatchObject({
@@ -712,31 +760,34 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(state.document?.xml_nfe).toBe(originalXml);
   });
 
-  it.each([true, false])('exige nova emissão para NFC-e vencida após 217 (retransmissão=%s)', async (allowRetransmission) => {
-    const state = database();
-    mocks.sendSoapToSefaz
-      .mockRejectedValueOnce(Object.assign(new Error('timeout sintético'), { code: 'ETIMEDOUT' }))
-      .mockResolvedValueOnce(
-        '<retConsSitNFe><cStat>217</cStat><xMotivo>Não consta</xMotivo></retConsSitNFe>'
-      );
-    await emitHmlTechnical(state.db, command, candidate, {});
-    expect(state.document).not.toBeNull();
-    state.document!.modelo = '65';
-    const originalXml = state.document!.xml_nfe;
+  it.each([true, false])(
+    'exige nova emissão para NFC-e vencida após 217 (retransmissão=%s)',
+    async (allowRetransmission) => {
+      const state = database();
+      mocks.sendSoapToSefaz
+        .mockRejectedValueOnce(Object.assign(new Error('timeout sintético'), { code: 'ETIMEDOUT' }))
+        .mockResolvedValueOnce(
+          '<retConsSitNFe><cStat>217</cStat><xMotivo>Não consta</xMotivo></retConsSitNFe>'
+        );
+      await emitHmlTechnical(state.db, command, candidate, {});
+      expect(state.document).not.toBeNull();
+      state.document!.modelo = '65';
+      const originalXml = state.document!.xml_nfe;
 
-    const result = await retryHmlTechnical(state.db, 'doc-hml', allowRetransmission);
+      const result = await retryHmlTechnical(state.db, 'doc-hml', allowRetransmission);
 
-    expect(result.body).toMatchObject({
-      code: 'HML_NEW_EMISSION_REQUIRED',
-      pending: false,
-      safeNewEmission: true,
-      cStat: '217',
-      model: '65',
-    });
-    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
-    expect(state.document?.xml_nfe).toBe(originalXml);
-    expect(state.document?.numero_nfe).toBe(700);
-  });
+      expect(result.body).toMatchObject({
+        code: 'HML_NEW_EMISSION_REQUIRED',
+        pending: false,
+        safeNewEmission: true,
+        cStat: '217',
+        model: '65',
+      });
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
+      expect(state.document?.xml_nfe).toBe(originalXml);
+      expect(state.document?.numero_nfe).toBe(700);
+    }
+  );
 
   it('impede consulta e retry paralelos enquanto o envio original está em andamento', async () => {
     const state = database();
@@ -881,7 +932,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     const state = database();
     const rpc = state.rpc.getMockImplementation()!;
     state.rpc.mockImplementation(async (name, args) =>
-      name === 'reserve_hml_nfe_outbound'
+      name === 'reserve_hml_nfe_outbound_with_replacement'
         ? { data: null, error: new Error('falha sintética') }
         : rpc(name, args)
     );
@@ -927,6 +978,98 @@ describe('pipeline técnico NF-e 55 HML', () => {
     );
     expect(changed.body.code).toBe('HML_IDEMPOTENCY_MISMATCH');
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it('retorna 409 apontando o NCM divergente e libera abandono somente sem resposta SEFAZ', async () => {
+    const state = database();
+    const snapshotSelections = {
+      '1': { ncm: '94036000', cfop: '5102', origem: '0', cest: '', csosn: '103' },
+    };
+    const currentSelections = {
+      '1': { ncm: '94035000', cfop: '5102', origem: '0', cest: '', csosn: '103' },
+    };
+    state.seedSnapshotSelections(snapshotSelections);
+    state.seedDocument({
+      id: 'doc-hml',
+      order_id: runId,
+      emission_request_id: requestId,
+      ambiente: 2,
+      modelo: '65',
+      status: 'pendente',
+      document_type: 'outbound',
+      fiscal_ruleset_version: 'HML_NORMAL_SALE_V2',
+      fiscal_snapshot_id: 'snapshot-hml',
+      hml_attempt_token: null,
+      hml_attempt_expires_at: null,
+      numero_protocolo: null,
+      xml_protocolo: null,
+      hml_response_history: [
+        {
+          reason: `Resposta da transmissão HML desconhecida: ${JSON.stringify({
+            emissionRequestId: requestId,
+            code: 'SELF_SIGNED_CERT_IN_CHAIN',
+            category: 'TLS_FAILURE',
+            phase: 'tls',
+            environment: 2,
+            model: '65',
+            hostname: 'homologacao.nfce.sefa.pr.gov.br',
+            endpoint: 'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
+          })}`,
+          responseXml: '',
+          protocol: null,
+        },
+      ],
+      supersedes_document_id: null,
+    });
+
+    const result = await recoverHmlTechnical(state.db, {
+      ...command,
+      itemFiscalSelections: currentSelections as any,
+    });
+
+    expect(result?.status).toBe(409);
+    expect(result?.body).toMatchObject({
+      code: 'HML_IDEMPOTENCY_MISMATCH',
+      error: expect.stringContaining('dados fiscais foram alterados'),
+      documentId: 'doc-hml',
+      hmlCanAbandonTlsFailure: true,
+      fiscalMismatchFields: [
+        { field: 'Item 1 · NCM', snapshotValue: '94036000', currentValue: '94035000' },
+      ],
+    });
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('impede que o emissionRequestId formalmente abandonado reenvie o XML antigo', async () => {
+    const state = database();
+    state.seedDocument({
+      id: 'doc-hml',
+      order_id: runId,
+      emission_request_id: requestId,
+      ambiente: 2,
+      modelo: '65',
+      status: 'abandoned',
+      document_type: 'outbound',
+      fiscal_ruleset_version: 'HML_NORMAL_SALE_V2',
+      fiscal_snapshot_id: 'snapshot-hml',
+      hml_attempt_token: null,
+      hml_attempt_expires_at: null,
+      numero_protocolo: null,
+      xml_protocolo: null,
+      hml_response_history: [
+        {
+          abandonmentCode: 'FISCAL_SNAPSHOT_CHANGED_AFTER_PRE_TRANSMISSION_FAILURE',
+          abandonedRequestId: requestId,
+        },
+      ],
+      supersedes_document_id: null,
+    });
+
+    const result = await recoverHmlTechnical(state.db, command);
+
+    expect(result?.status).toBe(409);
+    expect(result?.body.code).toBe('HML_ATTEMPT_FORMALLY_ABANDONED');
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
   it('bloqueia escolha que exige tributação específica antes da reserva e transmissão', async () => {

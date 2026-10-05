@@ -1,0 +1,35 @@
+{
+  "name": "openssl-hml",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "model": "55",
+      "hostname": "homologacao.nfe.sefa.pr.gov.br",
+      "policy": "openssl-verified-v10-mtls",
+      "success": true,
+      "exitCode": 0,
+      "metadata": [
+        "CONNECTION ESTABLISHED",
+        "Protocol version: TLSv1.2",
+        "Ciphersuite: ECDHE-RSA-AES128-SHA256",
+        "Verification: OK",
+        "Verified peername: homologacao.nfe.sefa.pr.gov.br"
+      ]
+    },
+    {
+      "model": "65",
+      "hostname": "homologacao.nfce.sefa.pr.gov.br",
+      "policy": "openssl-verified-v10-mtls",
+      "success": true,
+      "exitCode": 0,
+      "metadata": [
+        "CONNECTION ESTABLISHED",
+        "Protocol version: TLSv1.2",
+        "Ciphersuite: ECDHE-RSA-AES128-SHA256",
+        "Verification: OK",
+        "Verified peername: homologacao.nfce.sefa.pr.gov.br"
+      ]
+    }
+  ]
+}

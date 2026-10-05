@@ -96,7 +96,10 @@ function database(
         error: null,
       }),
       then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
-        Promise.resolve({ data: table === 'nfe_document_events' ? options.priorEvents || [] : [], error: null }).then(resolve, reject),
+        Promise.resolve({
+          data: table === 'nfe_document_events' ? options.priorEvents || [] : [],
+          error: null,
+        }).then(resolve, reject),
     };
     return query;
   });

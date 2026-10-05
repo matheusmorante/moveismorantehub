@@ -16,10 +16,15 @@ export const NfeSuccessCard: React.FC<NfeSuccessCardProps> = ({ result, onPrintD
         <i className="bi bi-check-circle-fill text-lg" />
         <h4 className="text-xs font-black uppercase tracking-wider">
           {result.environment === 2
-            ? 'Documento recebido em homologação · sem valor fiscal'
-            : 'Nota fiscal autorizada em produção'}
+            ? 'Nota recebida em homologação · sem valor fiscal'
+            : 'Nota autorizada'}
         </h4>
       </div>
+      <p className="text-xs leading-relaxed text-emerald-800 dark:text-emerald-200">
+        {result.environment === 2
+          ? 'A SEFAZ aceitou este documento de teste. Ele não tem valor fiscal.'
+          : 'A SEFAZ aprovou esta nota.'}
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
         <div>

@@ -105,9 +105,12 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
       recipientTaxId: document,
       operationScope: normalSale ? 'NORMAL_DOMESTIC_SALE' : 'SPECIAL_OR_FOREIGN_OPERATION',
     });
-    if (!requirements.supported) errors.push(requirements.message || 'Operação exige matriz fiscal própria.');
+    if (!requirements.supported)
+      errors.push(requirements.message || 'Operação exige matriz fiscal própria.');
     else if (requirements.documentRequired && !document)
-      errors.push(requirements.message || 'Documento do destinatário obrigatório para esta operação.');
+      errors.push(
+        requirements.message || 'Documento do destinatário obrigatório para esta operação.'
+      );
     if (
       document &&
       (!isValidRecipientTaxId(document) ||

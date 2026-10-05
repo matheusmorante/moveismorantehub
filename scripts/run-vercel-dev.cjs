@@ -1,7 +1,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '..');
-require('dotenv').config({ path: path.join(projectRoot, '.env.local'), override: false });
+require('./assert-vercel-development.cjs').assertVercelDevelopment();
 
 const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const child = spawn(executable, ['-y', 'vercel', 'dev', '--listen', '3000', '--yes'], {

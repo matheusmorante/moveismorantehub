@@ -63,7 +63,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...result.body,
         state: result.body.success
           ? 'authorized'
-          : ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(String(result.body.code))
+          : ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(
+                String(result.body.code)
+              )
             ? 'not_found'
             : 'unknown',
       });
@@ -192,7 +194,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: any) {
     const diagnosticId = randomUUID();
     const transportDiagnostic = sefazTransportDiagnostic(err);
-    console.error('[NF-e Consult] Falha de transporte:', {documentId, diagnosticId, ...transportDiagnostic});
+    console.error('[NF-e Consult] Falha de transporte:', {
+      documentId,
+      diagnosticId,
+      ...transportDiagnostic,
+    });
     return res.status(502).json({
       success: false,
       pending: true,

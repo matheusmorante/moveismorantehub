@@ -1,13 +1,163 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  print: vi.fn(),
+  maybeSingle: vi.fn(),
+  from: vi.fn(),
+}));
 
 vi.mock('../../supabaseConfig', () => ({
-  supabase: { auth: { getSession: mocks.getSession } },
+  supabase: { auth: { getSession: mocks.getSession }, from: mocks.from },
 }));
+vi.mock('../danfeGenerator', () => ({ openDanfePrintWindow: mocks.print }));
 vi.mock('../../settingsService', () => ({ getSettings: vi.fn().mockResolvedValue({}) }));
 
 describe('emissão NF-e no ERP', () => {
+  it.each([400, 409, 422, 500, 502, 503])(
+    'trata HTTP %s sem repetir o POST ou trocar a intenção',
+    async (status) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => ({ error: 'TEST_AUT_HTTP_FAILURE' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { emitNfeForOrder } = await import('../nfeService');
+      const result = await emitNfeForOrder({ id: `TEST_AUT_http-${status}` } as any, 2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(result.pending).toBe(status >= 500);
+      expect(result.emissionRequestId).toBe(
+        JSON.parse(fetchMock.mock.calls[0][1].body).emissionRequestId
+      );
+    }
+  );
+  it('mantém tentativa incerta quando a resposta se perde após o envio', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('TEST_AUT_CONNECTION_LOST'));
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    const result = await emitNfeForOrder({ id: 'TEST_AUT_lost-response' } as any, 2);
+    expect(result).toMatchObject({
+      success: false,
+      pending: true,
+      emissionRequestId: expect.any(String),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('não marca falha comprovadamente anterior à reserva/envio como transmissão incerta', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({
+          code: 'HML_CERTIFICATE_INVALID',
+          numberReserved: false,
+          sefazContacted: false,
+        }),
+      })
+    );
+    const { emitNfeForOrder } = await import('../nfeService');
+    expect((await emitNfeForOrder({ id: 'TEST_AUT_invalid-certificate' } as any, 2)).pending).toBe(
+      false
+    );
+  });
+  it('mantém o documento original quando a resposta do retry se perde', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('TEST_AUT_CONNECTION_LOST')));
+    const { emitNfeForOrder } = await import('../nfeService');
+    expect(
+      await emitNfeForOrder({ id: 'TEST_AUT_retry-loss' } as any, 2, false, 'original-doc')
+    ).toMatchObject({ success: false, pending: true, documentId: 'original-doc' });
+  });
+  it('dois cliques simultâneos usam a mesma intenção', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 502, json: async () => ({ pending: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    await Promise.all([
+      emitNfeForOrder({ id: 'TEST_AUT_double-click' } as any, 2),
+      emitNfeForOrder({ id: 'TEST_AUT_double-click' } as any, 2),
+    ]);
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body));
+    expect(bodies[0].emissionRequestId).toBe(bodies[1].emissionRequestId);
+  });
+  it('vincula a tentativa abandonada ao novo request do mesmo pedido e não transfere o vínculo', async () => {
+    const memory = new Map<string, string>();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => memory.get(key) ?? null,
+        setItem: (key: string, value: string) => memory.set(key, value),
+        removeItem: (key: string) => memory.delete(key),
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'TEST_AUT_CONTROLLED' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder, setFiscalEmissionReplacementSource } = await import('../nfeService');
+    const order = { id: 'TEST_AUT_hml-replacement-source' } as any;
+    const staleRequestId = '4f6d123e-9c93-4c17-9a27-a08c4f909f31';
+    memory.set(`nfe-emission-request:${order.id}:outbound:2`, staleRequestId);
+    setFiscalEmissionReplacementSource(order.id, 2, 'old-abandoned-document');
+
+    await emitNfeForOrder(order, 2);
+    await emitNfeForOrder(order, 2);
+    await emitNfeForOrder({ id: 'TEST_AUT_other-order' } as any, 2);
+
+    const requests = fetchMock.mock.calls.map((call) =>
+      JSON.parse(String((call as unknown as [string, RequestInit])[1].body))
+    );
+    expect(requests[0].supersedesDocumentId).toBe('old-abandoned-document');
+    expect(requests[0].emissionRequestId).not.toBe(staleRequestId);
+    expect(requests[1].supersedesDocumentId).toBe('old-abandoned-document');
+    expect(requests[1].emissionRequestId).toBe(requests[0].emissionRequestId);
+    expect(requests[2].supersedesDocumentId).toBeUndefined();
+  });
+  it('não inventa protocolo ou data ao imprimir DANFE incompleto', async () => {
+    const { printOrderDanfe } = await import('../nfeService');
+    await expect(
+      printOrderDanfe({ nfeData: { accessKey: '1'.repeat(44) } } as any)
+    ).rejects.toThrow('Dados de autorização incompletos');
+    expect(mocks.print).not.toHaveBeenCalled();
+  });
+  it('resolve documento somente pela intenção, pedido e ambiente originais', async () => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: mocks.maybeSingle,
+    };
+    mocks.from.mockReturnValue(chain);
+    mocks.maybeSingle.mockResolvedValue({ data: { id: 'durable-document' }, error: null });
+    const { findFiscalDocumentForRequest } = await import('../nfeService');
+    expect(
+      await findFiscalDocumentForRequest(
+        'TEST_AUT_lookup',
+        2,
+        'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd'
+      )
+    ).toBe('durable-document');
+    expect(chain.eq.mock.calls).toEqual([
+      ['order_id', 'TEST_AUT_lookup'],
+      ['ambiente', 2],
+      ['emission_request_id', 'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd'],
+    ]);
+  });
+  it('ausência de documento não autoriza uma nova intenção', async () => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: mocks.maybeSingle,
+    };
+    mocks.from.mockReturnValue(chain);
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    const { findFiscalDocumentForRequest } = await import('../nfeService');
+    await expect(
+      findFiscalDocumentForRequest('TEST_AUT_lookup', 2, 'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd')
+    ).rejects.toThrow('intenção original foi preservada');
+  });
   beforeEach(() => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'operator-token' } },
@@ -142,41 +292,83 @@ describe('emissão NF-e no ERP', () => {
 
   it('mantém a intenção no conflito ativo e direciona a consulta ao documento existente', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      ok: false, status: 409,
-      json: async () => ({ success: false, code: 'HML_SNAPSHOT_RESERVATION_FAILED',
-        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', databaseCode: '23505',
-        documentId: 'active-document', model: '65', nfeNumber: 611,
+      ok: false,
+      status: 409,
+      json: async () => ({
+        success: false,
+        code: 'HML_SNAPSHOT_RESERVATION_FAILED',
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+        databaseCode: '23505',
+        documentId: 'active-document',
+        model: '65',
+        nfeNumber: 611,
         emissionRequestId: '2b0631bb-fa0b-4b20-965a-fcc3dc1cb07d',
-        sefazContacted: false, numberReserved: false }),
+        sefazContacted: false,
+        numberReserved: false,
+      }),
     });
     vi.stubGlobal('fetch', fetchMock);
     const { emitNfeForOrder } = await import('../nfeService');
     const order = { id: 'TEST_AUT_active-conflict' } as any;
     const result = await emitNfeForOrder(order, 2);
-    expect(result).toMatchObject({ pending: true, documentId: 'active-document',
-      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', model: '65',
-      error: 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.' });
+    expect(result).toMatchObject({
+      pending: true,
+      documentId: 'active-document',
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+      model: '65',
+      error:
+        'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.',
+    });
     await emitNfeForOrder(order, 2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId)
-      .toBe('2b0631bb-fa0b-4b20-965a-fcc3dc1cb07d');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId).toBe(
+      '2b0631bb-fa0b-4b20-965a-fcc3dc1cb07d'
+    );
   });
 
   it('preserva a intenção e a reserva após falha anterior ao envio, mesmo com força de nova intenção', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 422,
-      json: async () => ({ success: false, numberReserved: true, sefazContacted: false, code: 'HML_XML_INVALID' }) });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({
+        success: false,
+        numberReserved: true,
+        sefazContacted: false,
+        code: 'HML_XML_INVALID',
+      }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     const { emitNfeForOrder } = await import('../nfeService');
     const order = { id: 'TEST_AUT_reserved-pre-send' } as any;
     await emitNfeForOrder(order, 2);
-    await emitNfeForOrder(order, 2, false, undefined, undefined, [], undefined, undefined,
-      undefined, undefined, undefined, undefined, undefined, undefined, undefined, true);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId)
-      .toBe(JSON.parse(fetchMock.mock.calls[0][1].body).emissionRequestId);
+    await emitNfeForOrder(
+      order,
+      2,
+      false,
+      undefined,
+      undefined,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true
+    );
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).emissionRequestId).toBe(
+      JSON.parse(fetchMock.mock.calls[0][1].body).emissionRequestId
+    );
   });
 
   it('limpa a chave correta apenas após encerramento explícito e preserva 217 para o retry original', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 409,
-      json: async () => ({ success: false, code: 'HML_CONFIRMED_NOT_FOUND', cStat: '217' }) });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ success: false, code: 'HML_CONFIRMED_NOT_FOUND', cStat: '217' }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     const { emitNfeForOrder, clearFiscalEmissionRequest } = await import('../nfeService');
     const order = { id: 'TEST_AUT_explicit-clear' } as any;

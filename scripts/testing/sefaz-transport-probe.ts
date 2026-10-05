@@ -2,12 +2,10 @@
 import https from 'node:https';
 import type { TLSSocket } from 'node:tls';
 import { performance } from 'node:perf_hooks';
-import dotenv from 'dotenv';
 import { extractCertificateAndKey } from '../../api/nfe/nfeSigner';
 import { createSefazHttpsAgent } from '../../api/nfe/sefazHttpsAgent';
 import { sefazTransportDiagnostic, type SefazTransportContext } from '../../api/nfe/sefazTransportDiagnostic';
 
-dotenv.config({path: '.env.local', quiet: true});
 const model = process.argv[2] === '55' ? '55' : '65';
 const segment = model === '65' ? 'nfce' : 'nfe';
 const url = new URL(`https://homologacao.${segment}.sefa.pr.gov.br/${segment}/NFeAutorizacao4?wsdl`);

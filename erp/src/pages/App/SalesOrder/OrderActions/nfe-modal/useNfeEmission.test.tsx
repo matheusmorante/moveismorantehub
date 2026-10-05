@@ -23,6 +23,10 @@ const mocks = vi.hoisted(() => ({
   nextNumber: vi.fn(),
   getFullProduct: vi.fn(),
   getSession: vi.fn(),
+  findDocument: vi.fn(),
+  abandonAttempt: vi.fn(),
+  setReplacementSource: vi.fn(),
+  buildFiscalChoices: vi.fn(),
 }));
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'administrator' } }),
@@ -32,10 +36,14 @@ vi.mock('@/pages/utils/nfe/csosnConfigurationService', () => ({
 }));
 vi.mock('@/pages/utils/nfe/nfeService', () => ({
   emitNfeForOrder: mocks.emit,
+  findFiscalDocumentForRequest: mocks.findDocument,
   getNextNfeNumberPreview: mocks.nextNumber,
   getCachedFiscalNumberPreview: vi.fn(() => null),
   updateFiscalNumberPreviewCache: vi.fn(),
   clearFiscalEmissionRequest: vi.fn(),
+  abandonUntransmittedHmlAttempt: mocks.abandonAttempt,
+  setFiscalEmissionReplacementSource: mocks.setReplacementSource,
+  buildFiscalItemSelectionPayload: mocks.buildFiscalChoices,
   printOrderDanfe: vi.fn(),
 }));
 vi.mock('@/pages/utils/settingsService', () => ({
@@ -85,6 +93,13 @@ describe('preenchimento dos itens da NF-e', () => {
       data: { session: { access_token: 'synthetic-test-token' } },
       error: null,
     });
+    mocks.abandonAttempt.mockResolvedValue({ success: true, alreadyAbandoned: false });
+    mocks.buildFiscalChoices.mockReturnValue({
+      itemCsosnOverrides: {},
+      itemFiscalSelections: {
+        '1': { ncm: '94035000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
+      },
+    });
     mocks.prepare.mockResolvedValue([
       { itemNumber: 1, csosn: '103', source: 'default' },
       { itemNumber: 2, csosn: '500', source: 'saved' },
@@ -104,6 +119,227 @@ describe('preenchimento dos itens da NF-e', () => {
       { quantity: 1, description: 'ITEM B', fiscal: { cst: '500', ncm: '94036000', origem: '0' } },
     ],
   };
+  it('localiza a intenção com resposta perdida e consulta sem outra emissão', async () => {
+    mocks.emit.mockResolvedValue({
+      success: false,
+      pending: true,
+      emissionRequestId: 'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd',
+      environment: 2,
+    });
+    mocks.findDocument.mockResolvedValue('durable-document');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        success: false,
+        pending: false,
+        state: 'not_found',
+        code: 'HML_CONFIRMED_NOT_FOUND',
+        cStat: '217',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => {
+      await result.current.handleEmit();
+    });
+    await act(async () => {
+      await result.current.handleReconcile();
+    });
+    expect(mocks.findDocument).toHaveBeenCalledWith(
+      order.id,
+      2,
+      'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd'
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ documentId: 'durable-document' });
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    expect(result.current.emissionResult).toMatchObject({
+      pending: false,
+      hmlConfirmedNotFound: true,
+      documentId: 'durable-document',
+    });
+  });
+  it('preserva a tentativa TLS, depois da ação explícita inicia uma nova emissão vinculada', async () => {
+    const requestId = 'd81628e1-7874-42cf-9ae2-fcfd551903e3';
+    mocks.emit
+      .mockResolvedValueOnce({
+        success: false,
+        pending: false,
+        emissionRequestId: requestId,
+        documentId: 'hml-document-616',
+        orderId: order.id,
+        environment: 2,
+        model: '65',
+        nfeNumber: 616,
+        hmlCanAbandonTlsFailure: true,
+        fiscalMismatchFields: [
+          {
+            field: 'Item 1 · NCM',
+            snapshotValue: '94036000',
+            currentValue: '94035000',
+          },
+        ],
+        technicalDetails: {
+          apiCode: 'HML_IDEMPOTENCY_MISMATCH',
+          httpStatus: 409,
+          diagnosticStage: 'snapshot-comparison',
+        },
+        error:
+          'A tentativa fiscal existente não pode ser reutilizada porque os dados fiscais foram alterados após a criação do snapshot.',
+      })
+      .mockResolvedValueOnce({ success: false, pending: true, documentId: 'hml-document-new' });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    const mismatch = await screen.findByTestId('nfe-fiscal-mismatch-fields');
+    expect(mismatch.textContent).toContain('Item 1 · NCM');
+    expect(mismatch.textContent).toContain('Antes: 94036000 · Agora: 94035000');
+    expect(screen.getByTestId('fiscal-issue-card').className).toContain('border-amber-300');
+    const technicalDetails = screen.getByTestId('fiscal-technical-details') as HTMLDetailsElement;
+    expect(technicalDetails.open).toBe(false);
+    const issueCard = screen.getByTestId('fiscal-issue-card');
+    const userFacingText = [...issueCard.childNodes]
+      .filter((node) => node !== technicalDetails)
+      .map((node) => node.textContent || '')
+      .join(' ');
+    expect(userFacingText).not.toMatch(/HML_IDEMPOTENCY_MISMATCH|\b409\b/);
+    expect(technicalDetails.querySelector('dd')?.textContent).toBe('HML_IDEMPOTENCY_MISMATCH');
+    fireEvent.click(screen.getByText('Ver detalhes técnicos'));
+    expect(screen.getByText('HML_IDEMPOTENCY_MISMATCH')).toBeTruthy();
+    expect(screen.getByText('409')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('nfe-start-fresh-hml-emission'));
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.abandonAttempt).toHaveBeenCalledWith(order.id, 'hml-document-616', requestId, {
+      itemCsosnOverrides: {},
+      itemFiscalSelections: {
+        '1': { ncm: '94035000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
+      },
+    });
+    expect(mocks.setReplacementSource).toHaveBeenCalledWith(order.id, 2, 'hml-document-616');
+    expect(mocks.emit.mock.calls[1][15]).toBe(true);
+  });
+
+  it('mostra o campo CSOSN real que mudou e mantém os dois valores legíveis', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: false,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-csosn',
+      emissionRequestId: 'hml-request-csosn',
+      hmlCanAbandonTlsFailure: true,
+      fiscalMismatchFields: [
+        {
+          field: 'Item 1 · CSOSN',
+          snapshotValue: '103',
+          currentValue: '500',
+        },
+      ],
+      technicalDetails: { apiCode: 'HML_IDEMPOTENCY_MISMATCH' },
+      error: 'A tentativa existente contém dados fiscais anteriores.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    const mismatch = await screen.findByTestId('nfe-fiscal-mismatch-fields');
+    expect(mismatch.textContent).toContain('Item 1 · CSOSN');
+    expect(mismatch.textContent).toContain('Antes: 103 · Agora: 500');
+    expect(screen.getByText('Os dados fiscais deste pedido mudaram')).toBeTruthy();
+  });
+
+  it('traduz a rejeição de NCM e mantém o código técnico recolhido', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: false,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-rejected',
+      cStat: '778',
+      sefazMessage: '778: Informado NCM inexistente [nItem: 1]',
+      technicalDetails: { apiCode: 'HML_SEFAZ_REJECTED', httpStatus: 422, sefazCode: '778' },
+      error: 'A SEFAZ rejeitou a nota.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(await screen.findByText('Não foi possível autorizar a nota')).toBeTruthy();
+    expect(screen.getByText(/O NCM informado para um dos produtos não existe/)).toBeTruthy();
+    expect((screen.getByTestId('fiscal-technical-details') as HTMLDetailsElement).open).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Consultar SEFAZ agora' })).toBeNull();
+  });
+
+  it('mantém transmissão incerta bloqueada e oferece apenas consultar a SEFAZ', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: true,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-uncertain',
+      emissionRequestId: 'hml-request-uncertain',
+      technicalDetails: {
+        apiCode: 'HML_TRANSMISSION_UNCERTAIN',
+        httpStatus: 502,
+        transportCode: 'SELF_SIGNED_CERT_IN_CHAIN',
+        diagnosticStage: 'sefaz-transmission',
+        diagnosticId: 'diagnostic-uncertain',
+      },
+      error: 'A resposta da emissão não foi confirmada.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(
+      await screen.findByText('Estamos confirmando o que aconteceu com esta nota')
+    ).toBeTruthy();
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    expect(screen.queryByTestId('nfe-start-fresh-hml-emission')).toBeNull();
+    expect(screen.queryByTestId('nfe-retry-same-document')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Consultar SEFAZ agora' })).toBeTruthy();
+    expect(screen.getByTestId('fiscal-issue-card').querySelector('h2')?.textContent).not.toContain(
+      'HML_TRANSMISSION_UNCERTAIN'
+    );
+  });
+
+  it('mostra confirmação simples depois de a SEFAZ receber a NFC-e em homologação', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: true,
+      environment: 2,
+      model: '65',
+      nfeNumber: 615,
+      series: '1',
+      protocolNumber: 'synthetic-protocol',
+      accessKey: '41261000000000000000650010000006151000006150',
+      xml: '<NFe />',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(await screen.findByText('Nota recebida em homologação · sem valor fiscal')).toBeTruthy();
+    expect(
+      screen.getByText('A SEFAZ aceitou este documento de teste. Ele não tem valor fiscal.')
+    ).toBeTruthy();
+  });
+
   it('mostra o número da nota em campo numérico e permite edição manual', async () => {
     mocks.nextNumber.mockResolvedValue(112);
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
@@ -187,11 +423,12 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Consultar SEFAZ Agora' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Consultar SEFAZ agora/i }));
     const retrySameDocument = await screen.findByRole('button', {
       name: 'Retransmitir a mesma NFC-e',
     });
     expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    expect(screen.getByTestId('fiscal-issue-card').className).toContain('border-blue-300');
 
     fireEvent.click(retrySameDocument);
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
@@ -200,24 +437,43 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('consulta 217 com XML vencido exige clique explícito e nova reserva automática', async () => {
-    mocks.emit.mockResolvedValueOnce({
-      success: false, pending: true, documentId: 'hml-old', environment: 2,
-      model: '65', nfeNumber: 614, error: 'Transmissão incerta.',
-    }).mockResolvedValueOnce({success: false, pending: true, documentId: 'hml-new'});
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: false, json: async () => ({
-      success: false, pending: false, state: 'not_found', cStat: '217',
-      code: 'HML_NEW_EMISSION_REQUIRED', safeNewEmission: true,
-      error: 'XML vencido; é necessária uma nova emissão.',
-    })}));
+    mocks.emit
+      .mockResolvedValueOnce({
+        success: false,
+        pending: true,
+        documentId: 'hml-old',
+        environment: 2,
+        model: '65',
+        nfeNumber: 614,
+        error: 'Transmissão incerta.',
+      })
+      .mockResolvedValueOnce({ success: false, pending: true, documentId: 'hml-new' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          success: false,
+          pending: false,
+          state: 'not_found',
+          cStat: '217',
+          code: 'HML_NEW_EMISSION_REQUIRED',
+          safeNewEmission: true,
+          error: 'XML vencido; é necessária uma nova emissão.',
+        }),
+      })
+    );
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
-    const number = await screen.findByRole('spinbutton', {name: 'Número da nota'});
-    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
-    fireEvent.change(number, {target: {value: '615'}});
+    const number = await screen.findByRole('spinbutton', { name: 'Número da nota' });
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.change(number, { target: { value: '615' } });
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
-    fireEvent.click(await screen.findByRole('button', {name: 'Consultar SEFAZ Agora'}));
+    fireEvent.click(await screen.findByRole('button', { name: /Consultar SEFAZ agora/i }));
     const fresh = await screen.findByTestId('nfe-start-fresh-hml-emission');
     expect(mocks.emit).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', {name: 'Retransmitir a mesma NFC-e'})).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retransmitir a mesma NFC-e' })).toBeNull();
     fireEvent.click(fresh);
     fireEvent.click(fresh);
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
@@ -227,17 +483,28 @@ describe('preenchimento dos itens da NF-e', () => {
 
   it('retoma o 217 retornado pela emissão com o número original, mesmo após edição manual', async () => {
     mocks.nextNumber.mockResolvedValue(614);
-    mocks.emit.mockResolvedValueOnce({
-      success: false, pending: false, hmlConfirmedNotFound: true,
-      documentId: 'hml-document-613', environment: 2, model: '65',
-      nfeNumber: 613, series: '1', cStat: '217', error: 'NF-e não consta na SEFAZ.',
-    }).mockResolvedValueOnce({success: false, pending: true, documentId: 'hml-document-613'});
+    mocks.emit
+      .mockResolvedValueOnce({
+        success: false,
+        pending: false,
+        hmlConfirmedNotFound: true,
+        documentId: 'hml-document-613',
+        environment: 2,
+        model: '65',
+        nfeNumber: 613,
+        series: '1',
+        cStat: '217',
+        error: 'NF-e não consta na SEFAZ.',
+      })
+      .mockResolvedValueOnce({ success: false, pending: true, documentId: 'hml-document-613' });
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
-    const number = await screen.findByRole('spinbutton', {name: 'Número da nota'});
-    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
-    fireEvent.change(number, {target: {value: '615'}});
+    const number = await screen.findByRole('spinbutton', { name: 'Número da nota' });
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.change(number, { target: { value: '615' } });
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
-    const retry = await screen.findByRole('button', {name: 'Retransmitir a mesma NFC-e'});
+    const retry = await screen.findByRole('button', { name: 'Retransmitir a mesma NFC-e' });
     expect((number as HTMLInputElement).value).toBe('613');
     expect((number as HTMLInputElement).readOnly).toBe(true);
     expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
@@ -249,34 +516,67 @@ describe('preenchimento dos itens da NF-e', () => {
 
   it('duplo clique e conflito ativo mantêm uma emissão e oferecem consulta sem nova transmissão', async () => {
     let resolveEmission!: (result: unknown) => void;
-    mocks.emit.mockReturnValue(new Promise((resolve) => { resolveEmission = resolve; }));
+    mocks.emit.mockReturnValue(
+      new Promise((resolve) => {
+        resolveEmission = resolve;
+      })
+    );
     const onSuccess = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
-      success: true, state: 'authorized', protocolNumber: 'synthetic-protocol',
-    }) });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        state: 'authorized',
+        protocolNumber: 'synthetic-protocol',
+      }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} onSuccess={onSuccess} />);
-    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
     const emit = screen.getByTestId('nfe-emit-button');
     fireEvent.click(emit);
     fireEvent.click(emit);
     expect(mocks.emit).toHaveBeenCalledTimes(1);
-    await act(async () => resolveEmission({ success: false, pending: true,
-      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', documentId: 'existing-hml-document',
-      model: '65', nfeNumber: 611, error: 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.' }));
+    await act(async () =>
+      resolveEmission({
+        success: false,
+        pending: true,
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+        documentId: 'existing-hml-document',
+        model: '65',
+        nfeNumber: 611,
+        error:
+          'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.',
+      })
+    );
     expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
-    fireEvent.click(await screen.findByRole('button', { name: 'Consultar tentativa em andamento' }));
+    expect(screen.getByTestId('fiscal-issue-card').className).toContain('border-amber-300');
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Consultar tentativa em andamento' })
+    );
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({documentId:'existing-hml-document'});
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      documentId: 'existing-hml-document',
+    });
     expect(mocks.emit).toHaveBeenCalledTimes(1);
   });
 
   it('retoma uma reserva sem documento pelo fluxo de emissão original', async () => {
-    mocks.emit.mockResolvedValueOnce({ success: false, pending: true,
-      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', reservationRecoveryRequired: true,
-      error: 'Retome a reserva existente.' }).mockResolvedValueOnce({success:false,error:'TEST_AUT_RESUMED'});
+    mocks.emit
+      .mockResolvedValueOnce({
+        success: false,
+        pending: true,
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+        reservationRecoveryRequired: true,
+        error: 'Retome a reserva existente.',
+      })
+      .mockResolvedValueOnce({ success: false, error: 'TEST_AUT_RESUMED' });
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
-    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     fireEvent.click(await screen.findByRole('button', { name: 'Retomar reserva existente' }));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
@@ -285,25 +585,185 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('consulta inconclusiva mantém a emissão bloqueada e rejeição persistida libera correção', async () => {
-    mocks.emit.mockResolvedValue({success:false,pending:true,documentId:'existing-attempt',
-      databaseReason:'ALREADY_ACTIVE_FISCAL_ATTEMPT',error:'Tentativa em andamento.'});
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ok:false,json:async()=>({success:false,pending:true,
-        code:'HML_RECONCILIATION_REQUIRED',error:'Consulta indisponível'})})
-      .mockResolvedValueOnce({ok:false,json:async()=>({success:false,pending:false,
-        code:'HML_SEFAZ_REJECTED',cStat:'753',error:'Rejeição persistida da emissão'})});
-    vi.stubGlobal('fetch',fetchMock);
+    mocks.emit.mockResolvedValue({
+      success: false,
+      pending: true,
+      documentId: 'existing-attempt',
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+      error: 'Tentativa em andamento.',
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          pending: true,
+          code: 'HML_RECONCILIATION_REQUIRED',
+          error: 'Consulta indisponível',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          pending: false,
+          code: 'HML_SEFAZ_REJECTED',
+          cStat: '753',
+          error: 'Rejeição persistida da emissão',
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
-    await waitFor(()=>expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
-    const consult = await screen.findByRole('button',{name:'Consultar tentativa em andamento'});
+    const consult = await screen.findByRole('button', { name: 'Consultar tentativa em andamento' });
     fireEvent.click(consult);
-    await waitFor(()=>expect(mocks.toast).toHaveBeenCalledWith('Consulta indisponível'));
+    expect(
+      await screen.findByText('Estamos confirmando o que aconteceu com esta nota')
+    ).toBeTruthy();
+    expect(mocks.toast).not.toHaveBeenCalled();
     expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
     expect(mocks.emit).toHaveBeenCalledTimes(1);
     fireEvent.click(consult);
-    await waitFor(()=>expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
     expect(mocks.emit).toHaveBeenCalledTimes(1);
+    const rejectionCard = screen.getByTestId('fiscal-issue-card');
+    expect(rejectionCard.textContent).toContain('Não foi possível autorizar a nota');
+    expect(rejectionCard.className).toContain('border-rose-300');
+    const rejectionDetails = rejectionCard.querySelector('details') as HTMLDetailsElement;
+    expect(rejectionDetails.open).toBe(false);
+    const rejectionText = [...rejectionCard.childNodes]
+      .filter((node) => node !== rejectionDetails)
+      .map((node) => node.textContent || '')
+      .join(' ');
+    expect(rejectionText).not.toMatch(/HML_SEFAZ_REJECTED|\b753\b/);
+    expect(rejectionDetails.textContent).toContain('HML_SEFAZ_REJECTED');
+    expect(rejectionDetails.textContent).toContain('753');
+  });
+
+  it('mostra somente consulta para uma transmissão incerta', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: true,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-uncertain',
+      emissionRequestId: 'hml-request-uncertain',
+      technicalDetails: {
+        apiCode: 'HML_TRANSMISSION_UNCERTAIN',
+        httpStatus: 502,
+        transportCode: 'SELF_SIGNED_CERT_IN_CHAIN',
+        diagnosticStage: 'sefaz-transmission',
+        diagnosticId: 'diagnostic-uncertain',
+      },
+      error: 'A resposta da emissão não foi confirmada.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    expect(
+      await screen.findByText('Estamos confirmando o que aconteceu com esta nota')
+    ).toBeTruthy();
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    expect(screen.queryByTestId('nfe-start-fresh-hml-emission')).toBeNull();
+    expect(screen.queryByTestId('nfe-retry-same-document')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Consultar SEFAZ agora' })).toBeTruthy();
+    expect(screen.getByTestId('fiscal-issue-card').querySelector('h2')?.textContent).not.toContain(
+      'HML_TRANSMISSION_UNCERTAIN'
+    );
+  });
+
+  it('mostra CSOSN e valores anterior/atual sem inventar outro campo', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: false,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-csosn',
+      emissionRequestId: 'hml-request-csosn',
+      hmlCanAbandonTlsFailure: true,
+      fiscalMismatchFields: [
+        {
+          field: 'Item 1 · CSOSN',
+          snapshotValue: '103',
+          currentValue: '500',
+        },
+      ],
+      technicalDetails: { apiCode: 'HML_IDEMPOTENCY_MISMATCH' },
+      error: 'A tentativa existente contém dados fiscais anteriores.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    const mismatch = await screen.findByTestId('nfe-fiscal-mismatch-fields');
+    expect(mismatch.textContent).toContain('Item 1 · CSOSN');
+    expect(mismatch.textContent).toContain('Antes: 103 · Agora: 500');
+    expect(mismatch.textContent).not.toContain('NCM');
+  });
+
+  it('traduz rejeição de NCM sem mostrar o código na mensagem principal', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: false,
+      environment: 2,
+      model: '65',
+      documentId: 'hml-document-rejected-ncm',
+      cStat: '778',
+      sefazMessage: '778: Informado NCM inexistente [nItem: 1]',
+      technicalDetails: { apiCode: 'HML_SEFAZ_REJECTED', httpStatus: 422, sefazCode: '778' },
+      error: 'A SEFAZ rejeitou a nota.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    const card = await screen.findByTestId('fiscal-issue-card');
+    expect(await screen.findByText('Não foi possível autorizar a nota')).toBeTruthy();
+    expect(card.textContent).toContain('O NCM informado para um dos produtos não existe');
+    const details = card.querySelector('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(
+      [...card.childNodes]
+        .filter((node) => node !== details)
+        .map((node) => node.textContent)
+        .join(' ')
+    ).not.toMatch(/HML_SEFAZ_REJECTED|\b778\b|HTTP 422/);
+  });
+
+  it('mostra sucesso explícito para um documento aceito em homologação', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: true,
+      environment: 2,
+      model: '65',
+      nfeNumber: 615,
+      series: '1',
+      protocolNumber: 'synthetic-protocol',
+      accessKey: '41261000000000000000650010000006151000006150',
+      xml: '<NFe />',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(await screen.findByText('Nota recebida em homologação · sem valor fiscal')).toBeTruthy();
+    expect(
+      screen.getByText('A SEFAZ aceitou este documento de teste. Ele não tem valor fiscal.')
+    ).toBeTruthy();
   });
 
   it('mantém o modal cinza durante o carregamento e deixa CPF opcional na NFC-e comum', async () => {
@@ -336,7 +796,9 @@ describe('preenchimento dos itens da NF-e', () => {
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(screen.getByLabelText('CPF')).toBeTruthy();
-    expect(screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')).toBeTruthy();
+    expect(
+      screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')
+    ).toBeTruthy();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][6]).toBe('');
@@ -496,7 +958,9 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(screen.getByLabelText('CPF')).toBeTruthy();
     expect(screen.getByText('Identificação não exigida')).toBeTruthy();
-    expect(screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')).toBeTruthy();
+    expect(
+      screen.getByText('Documento opcional nesta NFC-e; se informado, será validado.')
+    ).toBeTruthy();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.emit.mock.calls[0][6]).toBe('');
@@ -876,14 +1340,7 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('no modal de formulário, não exibe os botões de seleção de ambiente no cabeçalho e inicializa com o ambiente escolhido', async () => {
-    render(
-      <NfeEmissionModal
-        isOpen
-        order={order}
-        initialEnvironment={2}
-        onClose={vi.fn()}
-      />
-    );
+    render(<NfeEmissionModal isOpen order={order} initialEnvironment={2} onClose={vi.fn()} />);
 
     // O cabeçalho não deve mais conter os seletores radio de ambiente
     expect(screen.queryByRole('radiogroup', { name: 'Ambiente de emissão' })).toBeNull();

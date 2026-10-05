@@ -1,11 +1,12 @@
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 import https from 'node:https';
-import { getCACertificates } from 'node:tls';
+import { rootCertificates } from 'node:tls';
+import { icpBrasilRoots } from './icpBrasilRoots';
 
-// Keep the Node defaults and Windows/host trust for fiscal endpoints only.
-const trustedSefazAuthorities = [
-  ...new Set([...getCACertificates('default'), ...getCACertificates('system')]),
-];
+// One portable trust policy: Node's bundled roots plus the verified SEFAZ-PR ICP root.
+// Explicit `ca` replaces default/system/NODE_EXTRA_CA_CERTS trust for this Agent.
+// It is intentional: fiscal TLS must work identically on Windows and Vercel.
+const trustedSefazAuthorities = [...new Set([...rootCertificates, ...icpBrasilRoots])];
 
 export function validateSefazClientCertificate(certPem: string, privateKeyPem: string): void {
   const certificate = new X509Certificate(certPem);
@@ -20,7 +21,7 @@ export function validateSefazClientCertificate(certPem: string, privateKeyPem: s
     });
 }
 
-/** Fiscal clients use Node's default TLS trust, hostname validation and A1 mTLS. */
+/** Fiscal clients share strict hostname validation, portable trust and A1 mTLS. */
 export function createSefazHttpsAgent(certPem: string, privateKeyPem: string): https.Agent {
   validateSefazClientCertificate(certPem, privateKeyPem);
   return new https.Agent({

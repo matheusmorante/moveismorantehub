@@ -1,0 +1,19 @@
+# History must include environment files, scratch files, backups and test sources.
+# Allow only derived output and keys whose purpose is explicitly public.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated output and explicitly public Supabase anon / SEFAZ HML values"
+paths = [
+  '''(?i)node_modules/''',
+  '''(?i)(^|/)(dist|build|coverage)/'''
+]
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6cGRmbWlobndjcmdreWFnd2tkIiwicm9sZSI6ImFub24i''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4aGNhY3ZtZGxmZnB5ZHB0dnBsIiwicm9sZSI6ImFub24i''',
+  '''morante_marketing_campaigns_v1''',
+  '''XBMSLQTB4VWHAPSUJLG14Q4YDYZRQLSUQRMF'''
+]

@@ -1,3 +1,4 @@
+import type { Variation } from '../types/product.type';
 export interface TechnicalFieldDefinition {
   id: string;
   name: string; // Ex: "Cor", "Quantidade de portas"

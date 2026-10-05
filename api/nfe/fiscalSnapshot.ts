@@ -5,10 +5,7 @@ import {
   type FiscalItemSelections,
 } from '../../shared-utils/fiscalItemSelections';
 import type { FiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
-import {
-  isValidRecipientTaxId,
-  normalizeRecipientTaxId,
-} from '../../shared-utils/recipientTaxId';
+import { isValidRecipientTaxId, normalizeRecipientTaxId } from '../../shared-utils/recipientTaxId';
 
 export type FiscalJsonValue =
   | string
@@ -291,6 +288,7 @@ export type FiscalEmissionCommand = {
   orderId: string;
   environment: 1 | 2;
   emissionRequestId: string;
+  supersedesDocumentId?: string;
   productionConfirmed?: boolean;
   requestedNumber?: number;
   itemCsosnOverrides?: Record<string, string>;
@@ -348,6 +346,7 @@ export function parseFiscalEmissionCommand(
     'orderId',
     'environment',
     'emissionRequestId',
+    'supersedesDocumentId',
     'productionConfirmed',
     'requestedNumber',
     'itemCsosnOverrides',
@@ -369,10 +368,14 @@ export function parseFiscalEmissionCommand(
   const environment = Number(body.environment);
   const emissionRequestId =
     typeof body.emissionRequestId === 'string' ? body.emissionRequestId : '';
+  const supersedesDocumentId =
+    typeof body.supersedesDocumentId === 'string' ? body.supersedesDocumentId : undefined;
   if (
     !orderId ||
     ![1, 2].includes(environment) ||
     !UUID_PATTERN.test(emissionRequestId) ||
+    (supersedesDocumentId !== undefined && !UUID_PATTERN.test(supersedesDocumentId)) ||
+    (supersedesDocumentId !== undefined && environment !== 2) ||
     (body.productionConfirmed !== undefined && typeof body.productionConfirmed !== 'boolean')
   )
     return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
@@ -472,6 +475,7 @@ export function parseFiscalEmissionCommand(
       orderId,
       environment: environment as 1 | 2,
       emissionRequestId,
+      ...(supersedesDocumentId ? { supersedesDocumentId } : {}),
       ...(body.requestedNumber === undefined
         ? {}
         : { requestedNumber: body.requestedNumber as number }),

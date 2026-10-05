@@ -132,9 +132,23 @@ export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegib
   }
 
   const isService = data.itemType === 'service';
+  const getDim = (prop: 'width' | 'height' | 'depth', names: string[]) => {
+    if (isPositiveNumber(data[prop])) return true;
+    if (data.technicalValues) {
+      for (const name of names) {
+        const val = String(data.technicalValues[name] || '').replace(',', '.');
+        const num = Number(val);
+        if (!isNaN(num) && num > 0) return true;
+      }
+    }
+    return false;
+  };
+
   const hasValidDimensions =
     isService ||
-    (isPositiveNumber(data.width) && isPositiveNumber(data.height) && isPositiveNumber(data.depth));
+    (getDim('width', ['Largura']) &&
+      getDim('height', ['Altura']) &&
+      getDim('depth', ['Profundidade', 'Comprimento']));
 
   if (!isService && !hasValidDimensions) {
     errors.push(

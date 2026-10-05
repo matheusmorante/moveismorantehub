@@ -28,7 +28,7 @@ vi.mock('../../../../mobile/src/services/supabaseClient', () => ({
   },
 }));
 
-import { processFinancialInput, extractMultipleFinancialFacts } from '../../';
+import { processFinancialInput, extractMultipleFinancialFacts } from '../../orderMapper';
 
 describe('Bateria de Regressão — Distinção Fato Financeiro vs Movimentação Realizada (unrealizedFactsAndBinding.test.ts)', () => {
   it('TESTE A — "Tenho uma conta de luz de 200 e uma conta de internet de 100." -> Rascunhos preservados, isRealized: false', () => {

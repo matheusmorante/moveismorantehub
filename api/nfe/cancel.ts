@@ -96,10 +96,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Somente documento autorizado pode receber evento de cancelamento.',
       });
     if (
-        !['55', '65'].includes(String(doc.modelo)) ||
-        ![1, 2].includes(Number(doc.ambiente)) ||
-        doc.status !== (Number(doc.ambiente) === 2 ? 'homologada' : 'autorizada') ||
-        !/^\d{44}$/.test(String(doc.chave_acesso || ''))
+      !['55', '65'].includes(String(doc.modelo)) ||
+      ![1, 2].includes(Number(doc.ambiente)) ||
+      doc.status !== (Number(doc.ambiente) === 2 ? 'homologada' : 'autorizada') ||
+      !/^\d{44}$/.test(String(doc.chave_acesso || ''))
     ) {
       return res.status(409).json({
         success: false,
@@ -114,7 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!/^\d{15}$/.test(String(doc.numero_protocolo || '')) || !doc.xml_nfe)
       return res.status(409).json({
         success: false,
-        error: 'A nota não contém XML autorizado e protocolo original válidos para referenciar o evento.',
+        error:
+          'A nota não contém XML autorizado e protocolo original válidos para referenciar o evento.',
       });
 
     if (!doc.order_id)
@@ -138,7 +139,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       commercialOrderStatus = String(order?.status || '').toLowerCase();
       physicalCirculationConfirmed = hasGoodsCirculated(order);
-      const orderType = String(order?.order_type || order?.order_data?.orderType || 'sale').toLowerCase();
+      const orderType = String(
+        order?.order_type || order?.order_data?.orderType || 'sale'
+      ).toLowerCase();
       if (!['sale', 'showroom'].includes(orderType))
         return res.status(409).json({
           success: false,

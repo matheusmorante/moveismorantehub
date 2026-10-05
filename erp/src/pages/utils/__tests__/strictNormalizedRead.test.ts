@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapOrderFromDatabase, OrderDatabaseRow } from '../../';
+import { mapOrderFromDatabase, OrderDatabaseRow } from '../../orderMapper';
 
 describe('Auditoria de Leitura Normalizada Estrita (Zero Dependência de order_data)', () => {
   it('deve mapear pedido perfeitamente sem campo order_data (order_data = null)', () => {

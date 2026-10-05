@@ -67,6 +67,7 @@ export type FiscalDatabase = {
           hml_attempt_token: string | null;
           hml_attempt_expires_at: string | null;
           hml_response_history: Record<string, unknown>[];
+          supersedes_document_id: string | null;
           hml_correction_of_document_id?: string | null;
           created_at: string;
           updated_at: string;
@@ -304,6 +305,29 @@ export type FiscalDatabase = {
           p_decision_trace: Record<string, unknown>[];
         };
         Returns: string;
+      };
+      reserve_hml_nfe_outbound_with_replacement: {
+        Args: {
+          p_attempt_token: string;
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_access_key: string;
+          p_signed_xml: string;
+          p_number: number;
+          p_series: string;
+          p_decision_trace: Record<string, unknown>[];
+          p_supersedes_document_id: string | null;
+        };
+        Returns: string;
+      };
+      abandon_untransmitted_hml_attempt: {
+        Args: {
+          p_document_id: string;
+          p_order_id: string;
+          p_emission_request_id: string;
+          p_actor_id: string;
+        };
+        Returns: Record<string, unknown>;
       };
       persist_hml_nfe_result: {
         Args: {

@@ -83,9 +83,9 @@ describe('política fiscal de varejo no Paraná', () => {
     expect(fiscalPresence('65', 'delivery', '1')).toBe('4');
     expect(fiscalPresence('65', 'pickup')).toBe('1');
     expect(fiscalPresence('65', 'pickup', '4')).toBe('1');
-    expect(
-      fiscalRecipientRequirements('65', fiscalPresence('65', 'pickup', '4'), 9999.99)
-    ).toEqual({ documentRequired: false, addressRequired: false });
+    expect(fiscalRecipientRequirements('65', fiscalPresence('65', 'pickup', '4'), 9999.99)).toEqual(
+      { documentRequired: false, addressRequired: false }
+    );
     expect(fiscalRecipientRequirements('65', '4', 100)).toEqual({
       documentRequired: true,
       addressRequired: true,

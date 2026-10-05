@@ -46,7 +46,7 @@
         "zod": "^4.5.4"
     },
     "scripts": {
-        "dev": "vite",
+        "dev": "node ../scripts/run-vercel-env-dev.cjs erp",
         "dev:test": "vite --mode local-test",
         "start": "vite",
         "build": "npm run build:fiscal && vite build",
@@ -67,7 +67,8 @@
         "test:e2e": "playwright test",
         "test:e2e:stock": "playwright test --config=playwright.stock.config.ts",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "storybook build"
+        "build-storybook": "storybook build",
+        "dev:serve": "vite"
     },
     "browserslist": {
         "production": [
