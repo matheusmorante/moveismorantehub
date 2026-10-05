@@ -7,7 +7,7 @@ import ProductImage from '@/components/ProductImage';
 export interface VariationRowProps {
   readonly v: Variation;
   readonly variationIndex?: number;
-  readonly updateVariation?: (id: string, field: keyof Variation, value: unknown) => void;
+  readonly updateVariation?: (id: string, field: keyof Variation, value: Variation[keyof Variation]) => void;
   readonly removeVariation?: (id: string) => void;
   readonly isCombo?: boolean;
   readonly onEditCombo?: (id: string) => void;
@@ -94,6 +94,14 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Nome da Variação
                 </span>
+                {v.status === 'draft' && (
+                  <span
+                    className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                    title="Preencha os campos obrigatórios e clique em Cadastrar para cadastrar esta variação."
+                  >
+                    Rascunho
+                  </span>
+                )}
               </div>
               <input
                 value={v.name || v.title || 'Variação'}

@@ -2,7 +2,8 @@ import Product from '../../types/product.type';
 import { mapToDB } from './productToDbMapper';
 import { mapDbVariations, createDefaultVariation } from './productVariationMapper';
 import { extractProductImages, extractProductDimensions } from './productDimensionsExtractor';
-import { getProductKind, isSalvadoProduct } from '../productKindRules';
+import { getProductKind, isNonConventionalProduct } from '../productKindRules';
+import { restoreProductDraft } from './productDraftSnapshot';
 
 export { mapToDB };
 
@@ -49,7 +50,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
 
   const productKind = getProductKind({ productKind: data.product_kind });
 
-  return {
+  const product: Product = {
     productKind,
     id: String(data.id),
     sku: data.sku || parentCode,
@@ -82,7 +83,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
     stock: Number(data.stock || 0),
     minStock: Number(data.min_stock || 0),
     unit: data.unit || 'UN',
-    active: isSalvadoProduct({ productKind })
+    active: isNonConventionalProduct({ productKind })
       ? false
       : finalVariations.length > 0
         ? finalVariations.some((v) => v.active)
@@ -105,7 +106,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
     ecommerceTemplate: data.ecommerce_template || '',
     hasVariations:
       data.item_type === 'product' || !data.item_type ? true : Boolean(data.has_variations),
-    variations: isSalvadoProduct({ productKind })
+    variations: isNonConventionalProduct({ productKind })
       ? finalVariations.map((v) => ({ ...v, active: false }))
       : finalVariations,
     itemType: data.item_type || 'product',
@@ -178,5 +179,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
     whatsappAutoSync: data.whatsapp_auto_sync ?? false,
     lastWhatsappSync: data.last_whatsapp_sync,
     technicalValues: data.technical_specs?.technicalValues || {},
+    technicalSpecs: data.technical_specs || {},
   };
+  return restoreProductDraft(product);
 };

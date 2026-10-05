@@ -4,7 +4,7 @@ import { resolveUniqueSlug } from '../uniqueSlug';
 import { isDefaultVariation, normalizeVariationSku } from '../productVariationDefaults';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { mapToDB } from './productMapper';
-import { isSalvadoProduct } from '../productKindRules';
+import { isNonConventionalProduct } from '../productKindRules';
 import { TABLE_NAME, generateUniqueCode } from './productSkuService';
 
 export const ensureUuidFormat = (product: Partial<Product>): string => {
@@ -56,7 +56,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
     }
 
     // Sincronizar active com base nas variações quando existirem
-    if (isSalvadoProduct(product)) {
+    if (isNonConventionalProduct(product)) {
       dbData.active = false;
     } else if (Array.isArray(product.variations) && product.variations.length > 0) {
       const hasActiveVariation = product.variations.some((v) => v.active !== false);
@@ -184,7 +184,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
           v.sku = resolvedSku;
 
           const effectiveImages = isDefaultVariation(v, index)
-            ? (product.images || v.images || []).slice(0, MAX_VARIATION_IMAGES)
+            ? (v.images ?? product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
             : v.images || [];
           return {
             ...(v.id ? { id: v.id } : {}),
@@ -220,7 +220,7 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
             use_parent_description: v.syncDescription !== false,
             use_parent_name: true,
             status: v.status || product.status || 'hidden',
-            active: isSalvadoProduct(product)
+            active: isNonConventionalProduct(product)
               ? false
               : v.active !== undefined
                 ? Boolean(v.active)

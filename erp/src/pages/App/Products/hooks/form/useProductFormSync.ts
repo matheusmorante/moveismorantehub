@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import Product from '@/pages/types/product.type';
 import { computeVariationName } from '@/pages/utils/productVariationDefaults';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 
 interface UseProductFormSyncParams {
   readonly formData: Partial<Product>;
@@ -14,6 +15,7 @@ interface UseProductFormSyncParams {
  * 3. Agregação dos valores das variações filhas de volta para o produto pai (estoque total e custo médio).
  */
 export function useProductFormSync({ formData, setFormData }: UseProductFormSyncParams): void {
+  const isDraft = isProductDraft(formData);
   // 1. Cálculo do preço final de compra
   useEffect(() => {
     let final = formData.costPrice || 0;
@@ -80,7 +82,7 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
         computeVariationName(formData.name || formData.description || '', v.attributes || []) ||
         'Variação';
 
-      if (newV.name !== variationName) {
+      if (newV.name !== variationName && (!isDraft || !newV.name || newV.name === 'Variação')) {
         newV.name = variationName;
         updated = true;
       }
@@ -107,6 +109,7 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
       setFormData((prev) => ({ ...prev, variations: nextVariations }));
     }
   }, [
+    isDraft,
     formData.name,
     formData.description,
     formData.unitPrice,

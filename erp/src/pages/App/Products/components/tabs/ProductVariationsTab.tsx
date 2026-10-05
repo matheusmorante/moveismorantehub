@@ -2,6 +2,7 @@ import React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
 import { VariationRow as DefaultVariationRow } from '../VariationRow';
+import type { VariationRowProps } from '../VariationRow';
 
 interface ProductVariationsTabProps {
   readonly formData?: Partial<Product>;
@@ -10,19 +11,7 @@ interface ProductVariationsTabProps {
   // Aceita tanto addVariation (legado) quanto onAddVariation (ProductFormModal)
   readonly addVariation?: () => void;
   readonly onAddVariation?: () => void;
-  readonly VariationRow?: React.ComponentType<{
-    readonly v: Variation;
-    readonly variationIndex: number;
-    readonly updateVariation?: (
-      id: string,
-      field: keyof Variation,
-      value: Variation[keyof Variation]
-    ) => void;
-    readonly removeVariation?: (id: string) => void;
-    readonly setFormData?: React.Dispatch<React.SetStateAction<Partial<Product>>>;
-    readonly isCombo?: boolean;
-    readonly onEdit?: (id: string) => void;
-  }>;
+  readonly VariationRow?: React.ComponentType<VariationRowProps>;
   readonly updateVariation?: (
     id: string,
     field: keyof Variation,
@@ -59,7 +48,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
   updateVariation,
   removeVariation,
   onRemoveVariation,
-  setFormData,
   isCombo = false,
   onEdit,
   onEditVariation,
@@ -143,7 +131,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                   variationIndex={index}
                   updateVariation={updateVariation}
                   removeVariation={handleRemove}
-                  setFormData={setFormData}
                   isCombo={isCombo}
                   onEdit={handleEdit}
                   parentPrice={parentPrice}

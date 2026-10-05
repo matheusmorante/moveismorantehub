@@ -84,7 +84,7 @@ describe('productLegibilityRules (Domínio Puro)', () => {
     expect(result.isLegible).toBe(false);
     expect(result.checks.origin).toBe(false);
     expect(result.errors).toContain(
-      'Origem do estoque deve ser Convencional (produtos com origem Salvados não podem ser ativados no ERP).'
+      'Origem do estoque deve ser Convencional (produtos com origem diferente de Convencional não podem ser ativados no ERP).'
     );
   });
 

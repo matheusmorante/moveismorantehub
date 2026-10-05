@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Product, { ProductKind } from '../../pages/types/product.type';
-import { getProductKind, isSalvadoProduct } from '../../pages/utils/productKindRules';
+import { getProductKind, isNonConventionalProduct } from '../../pages/utils/productKindRules';
 import {
   fetchAllProductSearchResults,
   getVariationDisplayName,
@@ -109,7 +109,7 @@ export function useProductAutocomplete({
           }
 
           const variations = p.variations || [];
-          const isSalvado = isSalvadoProduct(p);
+          const isNonConventional = isNonConventionalProduct(p);
           const parentIsSelectable = allowedProductKinds
             ? isSalvado || p.active !== false
             : includeDeactivated || p.active !== false;

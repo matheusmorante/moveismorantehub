@@ -13,7 +13,7 @@ import {
   matchCategoryByRules,
   rankCategoryCandidates,
 } from '@/pages/utils/categoryResolutionService';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface ProductGeneralTabProps {
   readonly onOpenCategorySearch: () => void;
@@ -176,7 +176,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 Selecione a origem do estoque.
               </span>
             )}
-            {isSalvadoProduct(formData) && (
+            {isNonConventionalProduct(formData) && (
               <span className="text-[10px] text-slate-500">
                 O produto e suas variações serão desativados no ERP.
               </span>

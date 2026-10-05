@@ -1,25 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
 import {
   saveVariation,
+  saveProduct,
   generateVariationSku,
   parseVariationImages,
 } from '@/pages/utils/productService';
 import {
   computeVariationName,
   getVariationAttributeValuesInNameOrder,
-  hasDuplicateVariationAttributeCombination,
 } from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
-import {
-  getEffectiveVariationTechnicalValues,
-  getMissingRequiredCharacteristics,
-} from '@/pages/utils/technicalValuesService';
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId } from './variationForm.types';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { useVariationDraftAutoSave } from './useVariationDraftAutoSave';
+import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../utils/variationRegistrationRules';
 
 interface UseVariationFormOptions {
   isOpen: boolean;
@@ -29,6 +28,8 @@ interface UseVariationFormOptions {
   variation: Variation | null;
   onSuccess?: () => void;
   onSave?: (updatedVariation: Variation) => void;
+  onDraftChange?: (updatedVariation: Variation) => void;
+  onDraftSave?: (updatedVariation: Variation) => Promise<boolean>;
 }
 
 export function useVariationForm({
@@ -39,6 +40,8 @@ export function useVariationForm({
   variation,
   onSuccess,
   onSave,
+  onDraftChange,
+  onDraftSave,
 }: UseVariationFormOptions) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<VariationTabId>('identificacao');
@@ -55,6 +58,48 @@ export function useVariationForm({
   const [formData, setFormData] = useState<Variation | null>(null);
   const [allParentImages, setAllParentImages] = useState<string[]>([]);
   const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(false);
+  const isDraft = isProductDraft(parentProduct);
+  const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>((update) => {
+    setFormData((previous) => {
+      const next = typeof update === 'function' ? update(previous) : update;
+      if (!next || next === previous) return next;
+      return isDraft ? { ...next, status: 'draft', active: false } : next;
+    });
+  }, [isDraft]);
+  const savedParentVersion = useRef(parentProduct.updatedAt);
+  useEffect(() => {
+    savedParentVersion.current = parentProduct.updatedAt;
+  }, [parentProduct.id, parentProduct.updatedAt]);
+
+  const draftAutoSave = useVariationDraftAutoSave({
+    isOpen,
+    isDraft,
+    variation: formData,
+    onChange: onDraftChange,
+    save: async (updatedVariation) => {
+      if (onDraftSave) return onDraftSave(updatedVariation);
+      if (onSave) throw new Error('O formulário pai não configurou o salvamento do rascunho.');
+      const next: Product = {
+        ...parentProduct,
+        id: parentProduct.parentId || parentId || parentProduct.id,
+        updatedAt: savedParentVersion.current,
+        isDraft: true,
+        active: false,
+        status: 'draft',
+        variations: (parentProduct.variations || []).some((item) => item.id === updatedVariation.id)
+          ? parentProduct.variations!.map((item) => item.id === updatedVariation.id ? updatedVariation : item)
+          : [...(parentProduct.variations || []), updatedVariation],
+      };
+      await saveProduct(next);
+      savedParentVersion.current = next.updatedAt;
+      return true;
+    },
+  });
+
+  const handleClose = async () => {
+    if (isDraft && !(await draftAutoSave.flush())) return;
+    onClose();
+  };
 
   const {
     varDiscountPercent,
@@ -67,7 +112,7 @@ export function useVariationForm({
     handleDiscountPercentChange,
     handleDiscountFixedChange,
     handlePromoPriceFieldChange,
-  } = useVariationPricing({ formData, setFormData, parentProduct });
+  } = useVariationPricing({ formData, setFormData: updateFormData, parentProduct });
 
   useEffect(() => {
     if (formData && !diferenciarTitulo) {
@@ -132,7 +177,7 @@ export function useVariationForm({
         next.fiscal = parentProduct.fiscal ? { ...parentProduct.fiscal } : undefined;
         changed = true;
       }
-      return changed ? next : previous;
+      return changed ? { ...next, ...(isDraft ? { status: 'draft' as const, active: false } : {}) } : previous;
     });
   }, [
     parentProduct.unitPrice,
@@ -144,6 +189,7 @@ export function useVariationForm({
     parentProduct.depth,
     parentProduct.weight,
     parentProduct.fiscal,
+    isDraft,
   ]);
 
   const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
@@ -255,7 +301,8 @@ export function useVariationForm({
           stock: 0,
           unitPrice: parentProduct.unitPrice || 0,
           costPrice: parentProduct.costPrice || 0,
-          active: true,
+          active: false,
+          status: 'draft',
           attributes: [],
           images: [],
           syncUnitPrice: true,
@@ -288,11 +335,11 @@ export function useVariationForm({
   }, [variation?.id, isOpen]);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
-    setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+    updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
   const updateCost = (fields: Partial<Variation>) => {
-    setFormData((prev) => {
+    updateFormData((prev) => {
       if (!prev) return null;
       const next = { ...prev, ...fields, syncCostPrice: false };
       const cost = next.costPrice || 0;
@@ -314,7 +361,7 @@ export function useVariationForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData) return;
+    if (!formData || loading) return;
 
     const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : [])
       .map((attr) => ({
@@ -334,7 +381,7 @@ export function useVariationForm({
       variationName = parentPrefix || 'Variação';
     }
 
-    const finalVariation = {
+    const finalVariation: Variation = {
       ...formData,
       attributes: cleanAttributes,
       name: toTitleCase(variationName),
@@ -344,92 +391,46 @@ export function useVariationForm({
           ? formData.marketplaceTitle || formData.title || variationName
           : variationName
       ),
-      syncFiscal: true,
     };
 
-    if (hasDuplicateVariationAttributeCombination(finalVariation, parentProduct.variations || [])) {
-      toast.error('Já existe outra variação com a mesma combinação de atributos e valores.');
-      setActiveTab('identificacao');
+    const issue = getVariationRegistrationIssue(parentProduct, finalVariation);
+    if (issue) {
+      toast.error(issue.message);
+      setActiveTab(issue.tab);
       return;
     }
-
-    // Validar dimensões obrigatórias da variação (> 0)
-
-    const getDim = (
-      prop: 'width' | 'height' | 'depth',
-      sync: boolean | undefined,
-      techNames: string[]
-    ) => {
-      const parentVal = Number(parentProduct[prop] || 0);
-      const varVal = Number(formData[prop] || 0);
-      let val = sync ? parentVal : varVal;
-      if (val <= 0) {
-        for (const name of techNames) {
-          const techVal = String(effectiveTechnicalValues[name] || '').replace(',', '.');
-          const parsed = Number(techVal);
-          if (!isNaN(parsed) && parsed > 0) {
-            val = parsed;
-            break;
-          }
-        }
-      }
-      return val;
-    };
-
-    const effectiveWidth = getDim('width', finalVariation.syncWidth, ['Largura']);
-    const effectiveHeight = getDim('height', finalVariation.syncHeight, ['Altura']);
-    const effectiveDepth = getDim('depth', finalVariation.syncDepth, [
-      'Profundidade',
-      'Comprimento',
-    ]);
-
-    if (effectiveWidth <= 0 || effectiveHeight <= 0 || effectiveDepth <= 0) {
-      const missingDims: string[] = [];
-      if (effectiveWidth <= 0) missingDims.push('Largura');
-      if (effectiveHeight <= 0) missingDims.push('Altura');
-      if (effectiveDepth <= 0) missingDims.push('Profundidade');
-      toast.warn(
-        `Informe valores maiores que zero para as dimensões obrigatórias: ${missingDims.join(', ')}.`
-      );
-      setActiveTab('tecnico');
-      return;
-    }
-
-    const effectiveTechnicalValues = getEffectiveVariationTechnicalValues(
-      parentProduct.technicalValues || {},
-      { ...finalVariation, attributes: cleanAttributes }
-    );
-    const missingRequiredCharacteristics =
-      getMissingRequiredCharacteristics(effectiveTechnicalValues);
-    if (missingRequiredCharacteristics.length > 0) {
-      toast.error(
-        `Preencha as características obrigatórias da variação: ${missingRequiredCharacteristics.join(', ')}.`
-      );
-      setActiveTab('tecnico');
-      return;
-    }
+    Object.assign(finalVariation, resolveVariationDimensions(parentProduct, finalVariation));
 
     if (finalVariation.syncDescription) {
       finalVariation.description = parentProduct.description || '';
-    }
-    if (finalVariation.syncWidth) {
-      finalVariation.width = parentProduct.width || 0;
-    }
-    if (finalVariation.syncHeight) {
-      finalVariation.height = parentProduct.height || 0;
-    }
-    if (finalVariation.syncDepth) {
-      finalVariation.depth = parentProduct.depth || 0;
     }
     if (finalVariation.syncWeight) {
       finalVariation.weight = parentProduct.weight || 0;
     }
     if (finalVariation.syncUnitPrice) {
       finalVariation.unitPrice = parentProduct.unitPrice || 0;
-      finalVariation.promoPrice = parentProduct.promoPrice || 0;
+      if (finalVariation.syncPromoPrice !== false) finalVariation.promoPrice = parentProduct.promoPrice || 0;
     }
     if (finalVariation.syncCostPrice) {
       finalVariation.costPrice = parentProduct.costPrice || 0;
+    }
+    finalVariation.status = finalVariation.status === 'published' ? 'published' : 'hidden';
+    finalVariation.active = isDraft ? false : formData.status === 'draft'
+      ? parentProduct.active !== false : formData.active;
+    finalVariation.sku ||= generateVariationSku(parentProduct.code || '000000', parentProduct.variations || []);
+
+    if (isDraft) {
+      setLoading(true);
+      try {
+        if (!(await draftAutoSave.flush(finalVariation))) return;
+        setFormData(finalVariation);
+        onSave?.(finalVariation);
+        onSuccess?.();
+        onClose();
+      } finally {
+        setLoading(false);
+      }
+      return;
     }
 
     if (onSave) {
@@ -461,11 +462,14 @@ export function useVariationForm({
   };
 
   return {
+    isDraft,
+    autoSaveStatus: draftAutoSave.status,
+    handleClose,
     loading,
     activeTab,
     setActiveTab,
     formData,
-    setFormData,
+    setFormData: updateFormData,
     allParentImages,
     diferenciarTitulo,
     setDiferenciarTitulo,

@@ -1,6 +1,7 @@
 import Product from '../../types/product.type';
+import { removeInitialStockFields } from './productDraftSnapshot';
 import { normalizeSlug } from '../uniqueSlug';
-import { getProductKind, isSalvadoProduct } from '../productKindRules';
+import { getProductKind, isNonConventionalProduct } from '../productKindRules';
 
 /**
  * Converte um objeto Product (domínio) para os campos da tabela 'products' do Supabase
@@ -52,8 +53,8 @@ export const mapToDB = (product: Partial<Product>) => {
   if (product.stock !== undefined) data.stock = product.stock;
   if (product.minStock !== undefined) data.min_stock = product.minStock;
   if (product.unit !== undefined) data.unit = product.unit;
-  if (product.active !== undefined || isSalvadoProduct(product)) {
-    data.active = isSalvadoProduct(product) ? false : product.active;
+  if (product.active !== undefined || isNonConventionalProduct(product)) {
+    data.active = isNonConventionalProduct(product) ? false : product.active;
   }
   if (product.productKind !== undefined) data.product_kind = getProductKind(product);
   if (product.isDraft !== undefined || (product as any).is_draft !== undefined) {
@@ -169,11 +170,13 @@ export const mapToDB = (product: Partial<Product>) => {
   if (product.opportunityId !== undefined) data.opportunity_id = product.opportunityId || null;
 
   // Persistência de Especificações Técnicas na coluna jsonb 'technical_specs'
-  if (product.technicalValues !== undefined) {
-    const existingSpecs = (product as any).technical_specs || {};
+  if (product.technicalValues !== undefined || product.technicalSpecs || product.variations) {
+    const existingSpecs = product.technicalSpecs || (product as any).technical_specs || {};
     data.technical_specs = {
       ...existingSpecs,
-      technicalValues: product.technicalValues,
+      ...(product.technicalValues !== undefined ? { technicalValues: product.technicalValues } : {}),
+      ...(product.variations ? { variationDetails: product.variations.map(removeInitialStockFields) } : {}),
+      ...(product.isDraft === false ? { draftProduct: null } : {}),
     };
   }
 

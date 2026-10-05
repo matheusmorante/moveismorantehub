@@ -1,6 +1,7 @@
 import { Variation } from '../../types/product.type';
 import { parseVariationImages } from './productImageHelpers';
 import { toTitleCase } from '../textUtils';
+import { getVariationDetails } from './productDraftSnapshot';
 
 /**
  * Converte um atributo cru de variação em lista estruturada
@@ -51,6 +52,7 @@ export const mapDbVariations = (
   parentCode: string
 ): Variation[] => {
   return variationRecords.map((v: any, vIdx: number) => {
+    const details = getVariationDetails(data, String(v.id));
     const varImages = parseVariationImages(v.image_url, v.images);
     const suffix = String(vIdx + 1).padStart(2, '0');
     const expectedPrefix = parentCode ? `${parentCode}-` : '';
@@ -73,6 +75,7 @@ export const mapDbVariations = (
 
     if (v.product_id) {
       return {
+        ...details,
         id: String(v.id),
         mergedToVariationId: v.merged_to_variation_id || undefined,
         sku: resolvedSku,
@@ -82,11 +85,13 @@ export const mapDbVariations = (
         promoPrice: v.use_parent_promo_price
           ? Number(data.promo_price || 0)
           : Number(v.promo_price || 0),
-        costPrice: Number(data.cost_price || 0),
+        costPrice: details.syncCostPrice === false
+          ? Number(v.cost_price ?? details.costPrice ?? 0)
+          : Number(data.cost_price || 0),
         active:
           v.active !== undefined && v.active !== null ? Boolean(v.active) : Boolean(data.active),
         status: (v.status || data.status || 'hidden') as 'draft' | 'published' | 'hidden',
-        condition: data.condition || 'novo',
+        condition: details.condition || data.condition || 'novo',
         attributes: attributesList,
         images: varImages,
         comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
@@ -94,14 +99,14 @@ export const mapDbVariations = (
         syncPromoPrice: v.use_parent_promo_price !== false,
         syncDescription: v.use_parent_description !== false,
         description: v.description || '',
-        syncWidth: v.use_parent_dimensions !== false,
-        syncHeight: v.use_parent_dimensions !== false,
-        syncDepth: v.use_parent_dimensions !== false,
-        syncWeight: v.use_parent_dimensions !== false,
+        syncWidth: details.syncWidth ?? v.use_parent_dimensions !== false,
+        syncHeight: details.syncHeight ?? v.use_parent_dimensions !== false,
+        syncDepth: details.syncDepth ?? v.use_parent_dimensions !== false,
+        syncWeight: details.syncWeight ?? v.use_parent_dimensions !== false,
         width: v.width ? Number(v.width) : undefined,
         depth: v.depth ? Number(v.depth) : undefined,
         height: v.height ? Number(v.height) : undefined,
-        weight: v.weight ? Number(v.weight) : undefined,
+        weight: v.weight ? Number(v.weight) : details.weight,
       };
     }
     return {

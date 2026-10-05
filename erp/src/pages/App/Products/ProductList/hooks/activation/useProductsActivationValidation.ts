@@ -1,5 +1,5 @@
 import Product from '@/pages/types/product.type';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 export interface ErpActivationValidationResult {
   readonly isValid: boolean;
@@ -32,7 +32,7 @@ export const validateErpActivationRequirements = (
     products.find((product) =>
       product.variations?.some((variation) => String(variation.id) === String(id))
     );
-  if (isSalvadoProduct(targetProduct || variationParent)) {
+  if (isNonConventionalProduct(targetProduct || variationParent)) {
     return {
       isValid: false,
       errorMessage:

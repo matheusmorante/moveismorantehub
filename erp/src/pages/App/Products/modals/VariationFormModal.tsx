@@ -19,6 +19,8 @@ interface VariationFormModalProps {
   readonly variation: Variation | null;
   readonly onSuccess?: () => void;
   readonly onSave?: (updatedVariation: Variation) => void;
+  readonly onDraftChange?: (updatedVariation: Variation) => void;
+  readonly onDraftSave?: (updatedVariation: Variation) => Promise<boolean>;
 }
 
 interface TabDefinition {
@@ -45,18 +47,7 @@ const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
 };
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
-  const { isOpen, onClose, parentProduct, variation } = props;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const { isOpen, parentProduct, variation } = props;
 
   const {
     loading,
@@ -85,7 +76,23 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     handleChange,
     updateCost,
     handleSubmit,
+    handleClose,
+    isDraft,
+    autoSaveStatus,
   } = useVariationForm(props);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, handleClose]);
 
   if (!isOpen || !formData) return null;
 
@@ -108,7 +115,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         type="button"
         aria-label="Fechar modal"
         className="fixed inset-0 bg-slate-900/75 backdrop-blur-md cursor-default"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       <div
@@ -138,7 +145,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Fechar"
               className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer"
             >
@@ -391,16 +398,24 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         </div>
 
         {/* Footer Controls */}
+        {isDraft && (
+          <p role="status" className={`px-4 sm:px-6 py-2 text-xs ${autoSaveStatus === 'error' ? 'text-red-600' : 'text-slate-500'}`}>
+            {autoSaveStatus === 'saving' ? 'Salvando rascunho...' :
+              autoSaveStatus === 'saved' ? 'Alterações salvas automaticamente.' :
+              autoSaveStatus === 'error' ? 'Não foi possível salvar. Tente novamente antes de fechar.' :
+              'As alterações desta variação são salvas automaticamente no rascunho.'}
+          </p>
+        )}
         <div
           className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-5 sm:px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer min-h-[44px]"
           >
-            Cancelar
+            {isDraft ? 'Fechar' : 'Cancelar'}
           </button>
           <button
             type="button"
@@ -408,7 +423,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
             disabled={loading}
             className="px-6 sm:px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
-            {loading ? 'Salvando...' : 'Concluir'}
+            {loading ? 'Salvando...' : autoSaveStatus === 'error' ? 'Salvar novamente' : variation ? 'Salvar Alterações' : 'Cadastrar'}
           </button>
         </div>
 

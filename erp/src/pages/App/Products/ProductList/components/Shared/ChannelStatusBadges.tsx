@@ -9,7 +9,7 @@ export interface ChannelStatusBadgesProps {
   readonly onToggleCatalog?: (e: React.MouseEvent) => void;
   readonly canManageCatalog?: boolean;
   readonly isParent?: boolean;
-  readonly isSalvado?: boolean;
+  readonly isNonConventional?: boolean;
   readonly size?: 'sm' | 'xs';
   readonly disabled?: boolean;
   readonly isDraft?: boolean;
@@ -28,7 +28,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   onToggleCatalog,
   canManageCatalog = true,
   isParent = false,
-  isSalvado = false,
+  isNonConventional = false,
   size = 'sm',
   disabled = false,
   isDraft = false,
@@ -38,7 +38,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 }) => {
   const [showPopover, setShowPopover] = useState(false);
   const [showDisabledPopover, setShowDisabledPopover] = useState(false);
-  const [showSalvadoPopover, setShowSalvadoPopover] = useState(false);
+  const [showNonConventionalPopover, setShowNonConventionalPopover] = useState(false);
   const erpBadgeAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,26 +92,26 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
         /* No pai: Somente visualização com popover explicativo no hover */
         <div
           ref={erpBadgeAnchorRef}
-          className={`relative inline-flex items-center ${isSalvado ? 'cursor-not-allowed' : 'cursor-help'}`}
-          onMouseEnter={() => (isSalvado ? setShowSalvadoPopover(true) : setShowPopover(true))}
+          className={`relative inline-flex items-center ${isNonConventional ? 'cursor-not-allowed' : 'cursor-help'}`}
+          onMouseEnter={() => (isNonConventional ? setShowNonConventionalPopover(true) : setShowPopover(true))}
           onMouseLeave={() => {
             setShowPopover(false);
-            setShowSalvadoPopover(false);
+            setShowNonConventionalPopover(false);
           }}
           title={
-            isSalvado
-              ? 'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+            isNonConventional
+              ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
               : undefined
           }
           aria-label={
-            isSalvado
-              ? 'Status ERP: Desativado (Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.)'
+            isNonConventional
+              ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
               : 'Status ERP derivado das variações'
           }
         >
           <div
             className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isSalvado
+              isNonConventional
                 ? 'border-slate-300 dark:border-slate-700 opacity-50 bg-slate-200/80 dark:bg-slate-800/80 grayscale'
                 : isERPActive
                   ? 'border-emerald-200/80 dark:border-emerald-800/50'
@@ -121,7 +121,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Tag Fixa ERP */}
             <span
               className={`${
-                isSalvado
+                isNonConventional
                   ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
                   : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
               } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
@@ -132,7 +132,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Status Somente Leitura ERP */}
             <span
               className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isSalvado
+                isNonConventional
                   ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
                   : isERPActive
                     ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
@@ -141,7 +141,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             >
               <span
                 className={`${dotSize} rounded-full shrink-0 ${
-                  isSalvado
+                  isNonConventional
                     ? 'bg-slate-400 dark:bg-slate-600'
                     : isERPActive
                       ? 'bg-emerald-500'
@@ -195,13 +195,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           className="relative inline-flex items-center"
           onMouseEnter={() => {
             if (isSalvado) {
-              setShowSalvadoPopover(true);
+              setShowNonConventionalPopover(true);
             } else if (disabled) {
               setShowDisabledPopover(true);
             }
           }}
           onMouseLeave={() => {
-            setShowSalvadoPopover(false);
+            setShowNonConventionalPopover(false);
             setShowDisabledPopover(false);
           }}
         >
@@ -210,13 +210,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             onClick={handleERPClick}
             disabled={isERPDisabled}
             aria-label={
-              isSalvado
-                ? 'Status ERP: Desativado (Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.)'
+              isNonConventional
+                ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
                 : `Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`
             }
             title={
-              isSalvado
-                ? 'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+              isNonConventional
+                ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
                 : disabled
                   ? undefined
                   : isDraft
@@ -226,7 +226,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                       : 'Clique para ativar esta variação no ERP'
             }
             className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isSalvado
+              isNonConventional
                 ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
                 : disabled
                   ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
@@ -238,7 +238,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Tag Fixa ERP */}
             <span
               className={`${
-                isSalvado
+                isNonConventional
                   ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
                   : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
               } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
@@ -249,7 +249,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Status Interativo ERP */}
             <span
               className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isSalvado
+                isNonConventional
                   ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
                   : disabled
                     ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
@@ -260,7 +260,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             >
               <span
                 className={`${dotSize} rounded-full shrink-0 ${
-                  isSalvado
+                  isNonConventional
                     ? 'bg-slate-400 dark:bg-slate-600'
                     : isERPActive
                       ? 'bg-emerald-500'
@@ -343,12 +343,12 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
         </DropdownPortal>
       )}
 
-      {showSalvadoPopover && (
+      {showNonConventionalPopover && (
         <DropdownPortal
-          isOpen={showSalvadoPopover}
+          isOpen={showNonConventionalPopover}
           anchorRef={erpBadgeAnchorRef}
           className="min-w-[240px] max-w-[280px] pointer-events-none"
-          onClose={() => setShowSalvadoPopover(false)}
+          onClose={() => setShowNonConventionalPopover(false)}
         >
           <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
             <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">

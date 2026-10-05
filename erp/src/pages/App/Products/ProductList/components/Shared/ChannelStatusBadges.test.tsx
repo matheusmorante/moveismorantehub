@@ -17,7 +17,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
         <ChannelStatusBadges
           active={false}
           isParent={true}
-          isSalvado={true}
+          isNonConventional={true}
           onToggleActive={handleToggleActive}
         />
       );
@@ -38,7 +38,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
       const labelElement = container.querySelector('[title*="apenas no catálogo digital"]');
       expect(labelElement).not.toBeNull();
       expect(labelElement?.getAttribute('title')).toContain(
-        'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+        'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
       );
     });
   });
@@ -53,7 +53,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           active={false}
           catalogStatus="published"
           isParent={false}
-          isSalvado={true}
+          isNonConventional={true}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />
@@ -70,7 +70,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
       expect(erpButton.className).toContain('cursor-not-allowed');
       expect(erpButton.className).toContain('grayscale');
       expect(erpButton.getAttribute('title')).toContain(
-        'Produtos de origem de estoque salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+        'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
       );
 
       // 2. Clique no botão ERP não deve disparar o callback
@@ -101,7 +101,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           active={false}
           catalogStatus="hidden"
           isParent={false}
-          isSalvado={false}
+          isNonConventional={false}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />

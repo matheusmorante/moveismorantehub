@@ -78,7 +78,7 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
   const isNormalOrigin = data.productKind === 'normal' || !data.productKind;
   if (!isNormalOrigin) {
     errors.push(
-      'Origem do estoque deve ser Convencional (produtos com origem Salvados não podem ser ativados no ERP).'
+      'Origem do estoque deve ser Convencional (produtos com origem diferente de Convencional não podem ser ativados no ERP).'
     );
   }
 

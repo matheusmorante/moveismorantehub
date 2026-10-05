@@ -1,12 +1,10 @@
+import { getEnteredProductName } from './rules/productDraftRules';
 import { useCallback } from 'react';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { checkERPLegibility, checkEcomLegibility } from '../../utils/productLegibilityRules';
 import { toast } from 'react-toastify';
-import {
-  getEffectiveVariationTechnicalValues,
-  getMissingRequiredCharacteristics,
-} from '@/pages/utils/technicalValuesService';
+import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../utils/variationRegistrationRules';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 
 interface SubmitProps {
@@ -48,7 +46,7 @@ export const useProductFormSubmit = ({
 
       if (!actualSaveAsDraft) {
         const errors: Record<string, boolean> = {};
-        const enteredName = draft.getEnteredProductName(formData);
+        const enteredName = getEnteredProductName(formData);
         if (!enteredName) errors.name = true;
         const validProductKinds = ['normal', 'salvado', 'usado'];
         if (
@@ -65,29 +63,13 @@ export const useProductFormSubmit = ({
         if (!formData.categoryIds || formData.categoryIds.length === 0) errors.categoryIds = true;
         if (!formData.mainSupplierId && !formData.supplierId) errors.mainSupplierId = true;
 
-        const variationMissingCharacteristics = (formData.variations || [])
+        const invalidVariation = (formData.variations || [])
           .map((variation) => ({
             variation,
-            missing: getMissingRequiredCharacteristics(
-              getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
-            ),
+            issue: getVariationRegistrationIssue(formData, variation),
           }))
-          .find(({ missing }) => missing.length > 0);
-        if (variationMissingCharacteristics) errors.variationCharacteristics = true;
-
-        // Validação de Preço de Venda (no produto pai ou em alguma variação)
-        const hasParentPrice =
-          formData.unitPrice !== undefined &&
-          formData.unitPrice !== null &&
-          !isNaN(Number(formData.unitPrice)) &&
-          Number(formData.unitPrice) > 0;
-        const hasVariationWithPrice = (formData.variations || []).some(
-          (v: any) =>
-            v.unitPrice !== undefined &&
-            v.unitPrice !== null &&
-            !isNaN(Number(v.unitPrice)) &&
-            Number(v.unitPrice) > 0
-        );
+          .find(({ issue }) => issue !== null);
+        if (invalidVariation) errors.variationRegistration = true;
 
         if (Object.keys(errors).length > 0) {
           setValidationErrors(errors);
@@ -95,7 +77,7 @@ export const useProductFormSubmit = ({
             setActiveTab('geral');
           } else if (errors.unitPrice || errors.mainSupplierId) {
             setActiveTab('estoque');
-          } else if (errors.variations || errors.variationCharacteristics) {
+          } else if (errors.variations || errors.variationRegistration) {
             setActiveTab('variacoes');
           }
 
@@ -107,13 +89,11 @@ export const useProductFormSubmit = ({
             toast.error('Selecione a origem do estoque do produto.');
           } else if (errors.variations) {
             toast.error('Adicione pelo menos uma variação ao produto.');
-          } else if (errors.variationCharacteristics && variationMissingCharacteristics) {
-            variations.setEditingVariationId(variationMissingCharacteristics.variation.id);
-            toast.error(
-              `Preencha as características obrigatórias da variação: ${variationMissingCharacteristics.missing.join(', ')}.`
-            );
           } else if (errors.mainSupplierId) {
             toast.error('Selecione um fornecedor.');
+          } else if (errors.variationRegistration && invalidVariation?.issue) {
+            variations.setEditingVariationId(invalidVariation.variation.id);
+            toast.error(invalidVariation.issue.message);
           } else {
             toast.error('Preencha todos os campos obrigatórios.');
           }
@@ -121,7 +101,7 @@ export const useProductFormSubmit = ({
         }
         setValidationErrors({});
       } else {
-        const enteredName = draft.getEnteredProductName(formData);
+        const enteredName = getEnteredProductName(formData);
         if (!enteredName) return false;
       }
 
@@ -133,7 +113,7 @@ export const useProductFormSubmit = ({
 
       setLoading(true);
       try {
-        const enteredName = draft.getEnteredProductName(formData);
+        const enteredName = getEnteredProductName(formData);
 
         let targetCatalogStatus: 'draft' | 'published' | 'hidden' = 'hidden';
         if (actualSaveAsDraft) {
@@ -146,7 +126,13 @@ export const useProductFormSubmit = ({
 
         // Ao concluir um rascunho, o canal ERP inicia ativo para o produto e variações
         const isCompletingDraft = !actualSaveAsDraft && !isRegisteredProduct;
-        const normalizedData = normalizeProductForSave(formData, {
+        const normalizedData = normalizeProductForSave({
+          ...formData,
+          variations: actualSaveAsDraft ? formData.variations : formData.variations?.map((variation) => ({
+            ...variation,
+            ...resolveVariationDimensions(formData, variation),
+          })),
+        }, {
           isDraft: actualSaveAsDraft,
           isCompletingDraft,
           catalogStatus: targetCatalogStatus,

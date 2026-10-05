@@ -21,17 +21,19 @@ export function useProductFormDraft(
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const queuedDataRef = useRef<Partial<Product> | null>(null);
   const savedDraftIdRef = useRef<string | null>(null);
+  const savedVersionRef = useRef<string | undefined>(formData.updatedAt);
   const wasOpenRef = useRef(isOpen);
 
   useEffect(() => {
     savedDraftIdRef.current = formData.id ? String(formData.id) : null;
+    savedVersionRef.current = formData.updatedAt;
     if (isOpen && !wasOpenRef.current) setAutoSaveStatus('idle');
     if (!isOpen) {
       queuedDataRef.current = null;
       setAutoSaveStatus('idle');
     }
     wasOpenRef.current = isOpen;
-  }, [formData.id, isOpen]);
+  }, [formData.id, formData.updatedAt, isOpen]);
 
   const autoSaveDraft = useCallback(
     (data: Partial<Product>): Promise<boolean> => {
@@ -57,6 +59,7 @@ export function useProductFormDraft(
             const normalizedData = {
               ...nextData,
               id: nextData.id || savedDraftIdRef.current || undefined,
+              updatedAt: savedVersionRef.current || nextData.updatedAt,
               name: draftTitle,
               title: nextData.title || draftTitle,
               isDraft: true,
@@ -66,10 +69,12 @@ export function useProductFormDraft(
 
             const savedId = await saveProduct(normalizedData);
             savedDraftIdRef.current = savedId;
+            savedVersionRef.current = normalizedData.updatedAt;
             const savedSnapshot = { ...normalizedData, id: savedId };
             setFormData((prev) => ({
               ...prev,
               id: savedId,
+              updatedAt: normalizedData.updatedAt,
               ...(prev.name === nextData.name ? { name: draftTitle } : {}),
               ...(prev.title === nextData.title ? { title: normalizedData.title } : {}),
               isDraft: true,

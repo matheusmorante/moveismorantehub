@@ -12,7 +12,7 @@ import { CardThumbnail } from './CardThumbnail';
 import { CardPriceStock } from './CardPriceStock';
 import { ProductCardVariationList } from '../Variations/ProductCardVariationList';
 import { ProductCardHeader } from './ProductCardHeader';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface ProductCardProps {
   readonly product: Product;
@@ -64,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const isParent = product.isParent;
   const isVariation = product.isVariation || !!product.parentId;
   const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft);
-  const isSalvado = isSalvadoProduct(product);
+  const isNonConventional = isNonConventionalProduct(product);
   const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
 
   const { oppName, supplierNames } = useProductMetadata(product);

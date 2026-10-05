@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
 import { updateProduct } from '@/pages/utils/productService';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface SiblingVariationRow {
   readonly active?: boolean | null;
@@ -21,7 +21,7 @@ export const syncParentActiveInDb = async (parentId: string): Promise<void> => {
     .eq('id', parentId)
     .maybeSingle();
   if (parentError) throw parentError;
-  if (isSalvadoProduct({ productKind: parent?.product_kind })) {
+  if (isNonConventionalProduct({ productKind: parent?.product_kind })) {
     const { error } = await supabase.from('products').update({ active: false }).eq('id', parentId);
     if (error) throw error;
     return;
@@ -61,7 +61,7 @@ export const persistProductActiveState = async (
       .eq('id', parentId)
       .maybeSingle();
     if (error) throw error;
-    if (isSalvadoProduct({ productKind: parent?.product_kind })) {
+    if (isNonConventionalProduct({ productKind: parent?.product_kind })) {
       throw new Error(
         'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
       );

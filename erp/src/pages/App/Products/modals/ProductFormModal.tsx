@@ -77,6 +77,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
+    handleDraftVariationChange,
+    handleDraftVariationSave,
     handleConvertProduct,
     scheduleDraftAutoSave,
     variationsInUse,
@@ -293,6 +295,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                 ) || null
               }
               onSave={handleSaveVariation}
+              onDraftChange={handleDraftVariationChange}
+              onDraftSave={handleDraftVariationSave}
             />
           )}
 

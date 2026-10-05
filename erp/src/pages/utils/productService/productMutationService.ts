@@ -1,12 +1,13 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../../types/product.type';
-import { saveInventoryMove } from '../inventoryService';
+import { isProductDraft } from './productDraftSnapshot';
+import { persistProductDraft } from './productDraftPersistence';
 import { ensureDefaultVariation } from '../productVariationDefaults';
 import { validateProductImageLimits } from './productImageHelpers';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { mapToDB, mapFromDB } from './productMapper';
-import { isSalvadoProduct } from '../productKindRules';
+import { isNonConventionalProduct } from '../productKindRules';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
 import { formatProductTextData } from './productValidation';
 import {
@@ -34,6 +35,18 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
   if (!product.code || product.code === '000000') {
     product.code = generateUniqueCode(resolvedId, product.itemType);
+  }
+
+  if (isProductDraft(product)) {
+    product.id = resolvedId;
+    await persistProductDraft(product);
+    const drafts = getLocalProducts();
+    const index = drafts.findIndex((draft) => draft.id === resolvedId);
+    if (index === -1) drafts.push(product);
+    else drafts[index] = product;
+    saveLocalProducts(drafts);
+    notifySubscribers();
+    return resolvedId;
   }
 
   const skusToValidate: string[] = [];
@@ -101,66 +114,6 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
   // Sincronizar com Supabase e aguardar conclusão
   await syncProductToSupabase(newProduct);
 
-  if (product.launchInitialStock && Number(product.stock) > 0) {
-    saveInventoryMove(
-      {
-        productId: resolvedId,
-        variationId: product.variations?.[0]?.id,
-        productDescription: product.description || 'Estoque Inicial',
-        type: 'entry',
-        quantity: Number(product.stock),
-        unitCost: product.finalPurchasePrice || product.costPrice || 0,
-        date: new Date().toISOString(),
-        label: 'ESTOQUE INICIAL',
-        observation: 'Lançamento automático de estoque inicial no cadastro do produto.',
-      },
-      0
-    ).catch(console.error);
-  }
-
-  if (product.initialStockEntries?.length) {
-    for (const entry of product.initialStockEntries) {
-      if (entry.quantity > 0) {
-        saveInventoryMove(
-          {
-            productId: resolvedId,
-            variationId: product.variations?.[0]?.id,
-            productDescription: product.description || 'Estoque Inicial',
-            type: 'entry',
-            quantity: entry.quantity,
-            unitCost: entry.finalUnitCost || entry.unitCost,
-            date: new Date().toISOString(),
-            label: 'ESTOQUE INICIAL',
-            observation:
-              'Lançamento automático de estoque inicial no cadastro do produto (lote múltiplo).',
-          },
-          0
-        ).catch(console.error);
-      }
-    }
-  }
-
-  if (product.variations?.length) {
-    for (const v of product.variations) {
-      if (v.launchInitialStock && Number(v.initialStock) > 0) {
-        saveInventoryMove(
-          {
-            productId: resolvedId,
-            variationId: v.id,
-            productDescription: `${product.description} (${v.name})`,
-            type: 'entry',
-            quantity: Number(v.initialStock),
-            unitCost: v.finalPurchasePrice || v.initialCost || v.costPrice || 0,
-            date: new Date().toISOString(),
-            label: 'ESTOQUE INICIAL',
-            observation: `Lançamento automático de estoque inicial no cadastro da variação: ${v.name}.`,
-          },
-          0
-        ).catch(console.error);
-      }
-    }
-  }
-
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('product-updated', { detail: { productId: resolvedId } }));
   }
@@ -201,6 +154,15 @@ export const updateProduct = async (
 
   const products = getLocalProducts();
   const index = products.findIndex((p) => String(p.id) === String(resolvedId));
+  if (isProductDraft(productToUpdate) || (index !== -1 && isProductDraft(products[index]) && productToUpdate.isDraft !== false)) {
+    const draft = { ...products[index], ...productToUpdate, id: resolvedId } as Product;
+    await persistProductDraft(draft);
+    if (index === -1) products.push(draft);
+    else products[index] = draft;
+    saveLocalProducts(products);
+    notifySubscribers();
+    return;
+  }
   if (index === -1) {
     const dbUpdate = mapToDB({ ...productToUpdate, id: resolvedId });
     delete dbUpdate.id;
@@ -316,7 +278,7 @@ export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
     );
     const localSalvadoIds = new Set(
-      products.filter(isSalvadoProduct).map((product) => String(product.id))
+      products.filter(isNonConventionalProduct).map((product) => String(product.id))
     );
     let salvadoIds = localSalvadoIds;
     if (validUuids.length > 0) {

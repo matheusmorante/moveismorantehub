@@ -52,10 +52,6 @@ export type Variation = {
   ipiType?: 'fixed' | 'percentage' | 'none';
   finalPurchasePrice?: number;
   minStock?: number;
-  launchInitialStock?: boolean;
-  initialStock?: number;
-  initialCost?: number;
-  initialStockEntries?: InitialStockEntry[];
   comboItems?: ComboItem[];
   // Intelligence Fields
   leadTime?: number;
@@ -189,6 +185,8 @@ export type Product = {
   // Additional Fields (Dynamic blocks)
   extraFields?: { id: string; label: string; value: string; includeInTitle?: boolean }[];
   technicalValues?: Record<string, any>;
+
+  technicalSpecs?: Record<string, unknown>;
 
   // Supplier Details
   supplierId?: string;

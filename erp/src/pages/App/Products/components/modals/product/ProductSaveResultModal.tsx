@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Product from '../../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
-import { isSalvadoProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 export interface ProductErpChecks {
   readonly description?: boolean;
@@ -76,8 +76,8 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   const handleToggleErp = async () => {
     if (updatingErp) return;
     const newActive = !isERPActive;
-    if (newActive && isSalvadoProduct(currentProduct)) {
-      toast.warning('Produtos do tipo Salvado permanecem desativados no ERP.');
+    if (newActive && isNonConventionalProduct(currentProduct)) {
+      toast.warning('Produtos de origem diferente de Convencional não podem ser ativados no ERP.');
       return;
     }
     setUpdatingErp(true);
@@ -262,7 +262,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
             <button
               type="button"
               onClick={handleToggleErp}
-              disabled={updatingErp || (!isERPActive && isSalvadoProduct(currentProduct))}
+              disabled={updatingErp || (!isERPActive && isNonConventionalProduct(currentProduct))}
               className={`w-full mt-3 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs ${
                 isERPActive
                   ? 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-950/40 dark:text-slate-200 dark:hover:text-red-400'

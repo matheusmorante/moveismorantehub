@@ -7,8 +7,8 @@ export const getProductKind = (value?: { productKind?: unknown } | null): Produc
   return 'normal';
 };
 
-export const isSalvadoProduct = (value?: { productKind?: unknown } | null): boolean =>
-  getProductKind(value) === 'salvado';
+export const isNonConventionalProduct = (value?: { productKind?: unknown } | null): boolean =>
+  getProductKind(value) !== 'normal';
 
 export const normalizeProductForSave = (
   formData: Partial<Product>,
@@ -19,8 +19,8 @@ export const normalizeProductForSave = (
     name: string;
   }
 ): Product => {
-  const isSalvado = isSalvadoProduct(formData);
-  const forceInactive = options.isDraft || isSalvado;
+  const isNonConventional = isNonConventionalProduct(formData);
+  const forceInactive = options.isDraft || isNonConventional;
 
   const parseTech = (names: string[], currentVal: unknown) => {
     if (typeof currentVal === 'number' && currentVal > 0) return currentVal;
@@ -49,9 +49,9 @@ export const normalizeProductForSave = (
       ...variation,
       active: forceInactive ? false : options.isCompletingDraft ? true : variation.active,
       status: options.isDraft
-        ? 'draft'
+        ? variation.status || 'draft'
         : options.catalogStatus === 'published'
-          ? variation.status || 'published'
+          ? variation.status === 'draft' ? 'hidden' : variation.status || 'published'
           : 'hidden',
     })),
   } as Product;

@@ -111,6 +111,13 @@ export function useProductFormModal({
       autoSaveDraft(latestFormDataRef.current);
     }, 500);
   }, [autoSaveDraft, isDraftProduct]);
+  useEffect(() => {
+    if (!isOpen || !isDraftProduct || !initialFormDataRef.current) return;
+    const initial = JSON.parse(initialFormDataRef.current) as Partial<Product>;
+    if (JSON.stringify(formData.variations) !== JSON.stringify(initial.variations)) {
+      scheduleDraftAutoSave();
+    }
+  }, [formData.variations, isOpen, isDraftProduct, scheduleDraftAutoSave]);
   const images = useProductFormImages(formData, setFormData, setLoading, scheduleDraftAutoSave);
 
   useProductFormSync({ formData, setFormData });
@@ -294,17 +301,6 @@ export function useProductFormModal({
           return;
         }
         if (variations.editingVariationId) {
-          const pendingVariationId = variations.pendingNewVariationIdRef.current;
-          if (pendingVariationId) {
-            setFormData((prev) => ({
-              ...prev,
-              variations: prev.variations?.filter(
-                (v) => v.id !== pendingVariationId && String(v.id) !== String(pendingVariationId)
-              ),
-            }));
-            variations.pendingNewVariationIdRef.current = null;
-          }
-          variations.setEditingVariationId(null);
           return;
         }
         handleCloseWithAutoSave();
@@ -378,6 +374,29 @@ export function useProductFormModal({
     [variations, setFormData]
   );
 
+  const confirmDraftVariation = variations.confirmDraftVariation;
+  const handleDraftVariationChange = useCallback((updatedVariation: Variation) => {
+    if (!isDraftProduct) return;
+    confirmDraftVariation();
+    const current = latestFormDataRef.current;
+    const next = {
+      ...current,
+      variations: current.variations?.map((item) =>
+        item.id === updatedVariation.id ? updatedVariation : item
+      ),
+    };
+    latestFormDataRef.current = next;
+    hasChanged.current = true;
+    setFormData(next);
+  }, [isDraftProduct, confirmDraftVariation]);
+
+  const handleDraftVariationSave = useCallback((updatedVariation: Variation) => {
+    handleDraftVariationChange(updatedVariation);
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = null;
+    return autoSaveDraft(latestFormDataRef.current);
+  }, [handleDraftVariationChange, autoSaveDraft]);
+
   const handleConvertProduct = useCallback(
     (updated: Partial<Product>) => {
       setFormData(updated);
@@ -433,6 +452,8 @@ export function useProductFormModal({
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
+    handleDraftVariationChange,
+    handleDraftVariationSave,
     handleConvertProduct,
     handleNextStep,
     isLastStep,

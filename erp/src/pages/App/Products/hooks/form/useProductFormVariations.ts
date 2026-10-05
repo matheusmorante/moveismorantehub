@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { generateVariationSku, checkProductHasMoves } from '@/pages/utils/productService';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 
 export function useProductFormVariations(
   formData: Partial<Product>,
@@ -11,6 +12,9 @@ export function useProductFormVariations(
   const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
   const pendingNewVariationIdRef = useRef<string | null>(null);
+  const confirmDraftVariation = useCallback(() => {
+    pendingNewVariationIdRef.current = null;
+  }, []);
 
   const handleSaveVariation = (updatedVar: Variation) => {
     const isDuplicate = (formData.variations || []).some(
@@ -35,7 +39,9 @@ export function useProductFormVariations(
   ) => {
     setFormData((prev: Partial<Product>) => ({
       ...prev,
-      variations: prev.variations?.map((v) => (v.id === id ? { ...v, [field]: value } : v)),
+      variations: prev.variations?.map((v) => (v.id === id ? {
+        ...v, [field]: value, ...(isProductDraft(prev) ? { status: 'draft' as const, active: false } : {}),
+      } : v)),
     }));
   };
 
@@ -52,8 +58,8 @@ export function useProductFormVariations(
       costPrice: formData.costPrice || 0,
       stock: 0,
       images: [],
-      active: true,
-      status: formData.status === 'draft' ? 'draft' : 'hidden',
+      active: false,
+      status: 'draft',
       syncUnitPrice: true,
       syncPromoPrice: true,
       syncCostPrice: true,
@@ -154,7 +160,8 @@ export function useProductFormVariations(
         syncCostPrice: true,
         syncDescription: true,
         images: [],
-        active: true,
+        active: false,
+        status: 'draft',
         attributes: attributes.map((attr) => ({
           name: toTitleCase(attr.name),
           value: toTitleCase(String(combo[attr.name].value)),
@@ -224,6 +231,7 @@ export function useProductFormVariations(
     editingVariationId,
     setEditingVariationId,
     pendingNewVariationIdRef,
+    confirmDraftVariation,
     handleSaveVariation,
     updateVariation,
     addVariation,
