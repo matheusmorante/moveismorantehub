@@ -202,7 +202,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         );
       }
 
-      if (orders.length === 0 && !(filters?.showTestOrders === false && totalItems > 0)) {
+      if (orders.length === 0 && !(!filters?.showTestOrders && totalItems > 0)) {
         return (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-950 rounded-full flex items-center justify-center">

@@ -149,7 +149,7 @@ const SalesOrder = () => {
   }, [window.location.search]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showTestOrders, setShowTestOrders] = useState(true);
+  const [showTestOrders, setShowTestOrders] = useState(false);
   // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);

@@ -249,10 +249,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
         if ('error' in returnFiscalContext)
           return res.status(409).json({ success: false, error: returnFiscalContext.error });
-        returnFormRules = getFiscalFormRules('return', {
-          scope: 'internal',
-          returnMethod: returnFiscalContext.context.returnOrder.returnMethod || undefined,
-        });
+        returnFormRules = getFiscalFormRules(
+          'return',
+          returnFiscalContext.context.operationContext
+        );
         returnXmlDefaults = getFiscalFormXmlDefaults(returnFormRules);
         if (
           !returnXmlDefaults ||
@@ -646,6 +646,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         returnMethod:
           draft.operation_kind === 'return' && returnFiscalContext && 'context' in returnFiscalContext
             ? returnFiscalContext.context.returnOrder.returnMethod || undefined
+            : undefined,
+        returnScenario:
+          draft.operation_kind === 'return' && returnFiscalContext && 'context' in returnFiscalContext
+            ? returnFiscalContext.context.operationContext
             : undefined,
         environment,
         originalEnvironment: environment,

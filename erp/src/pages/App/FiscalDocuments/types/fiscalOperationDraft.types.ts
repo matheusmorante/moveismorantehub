@@ -1,3 +1,5 @@
+import type { FiscalReturnMethod } from '../../../../../../shared-utils/fiscalOperationContext';
+
 export interface SourceDocument {
   id: string;
   order_id: string | null;
@@ -94,7 +96,16 @@ export interface DraftPayload {
   returnOrder?: {
     id: string;
     orderIndex: number | null;
-    returnMethod: 'store_delivery' | 'store_collection' | null;
+    returnMethod: FiscalReturnMethod | null;
+    operationContext?: {
+      issuerUf: string;
+      recipientUf: string;
+      scope: 'internal' | 'interstate' | 'foreign';
+      returnMethod: FiscalReturnMethod;
+      recipientFiscalStatus: 'taxpayer' | 'non_taxpayer';
+      isFinalConsumer: boolean;
+      taxRegime: string;
+    } | null;
   } | null;
   lines: DraftLine[];
   reviewTemplate: Pick<

@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const orderData = asRecord(returnOrder.order_data);
-    const returnMethod = resolveFiscalReturnMethod(orderData, returnOrder.status);
+    const returnMethod = resolveFiscalReturnMethod(orderData);
     const linkedSaleOrderId = String(returnOrder.linked_order_id || orderData.linkedOrderId || '');
     if (!uuid.test(linkedSaleOrderId)) {
       return res.status(200).json({

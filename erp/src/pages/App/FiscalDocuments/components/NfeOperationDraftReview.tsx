@@ -58,8 +58,9 @@ export function NfeOperationDraftReview({
 }: NfeOperationDraftReviewProps) {
   const isReturn = payload.draft.operation_kind === 'return';
   const formRules = getFiscalFormRules(isReturn ? 'return' : 'estorno', {
-    scope: 'internal',
-    returnMethod: payload.returnOrder?.returnMethod || undefined,
+    ...(payload.returnOrder?.operationContext || {
+      returnMethod: payload.returnOrder?.returnMethod || undefined,
+    }),
   });
   const formXmlDefaults = getFiscalFormXmlDefaults(formRules);
   const isFieldVisible = (field: string) =>
@@ -67,6 +68,11 @@ export function NfeOperationDraftReview({
   const isFieldReadOnly = (field: string) => formRules.readOnlyFields.includes(field);
   return (
     <>
+      {isReturn && formRules.availability !== 'READY' && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          <b>{formRules.blockCategory}</b>: {formRules.blockReason}
+        </div>
+      )}
       <section className="grid gap-3 sm:grid-cols-3">
         {isFieldVisible('operation') && (
         <div className="rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">
@@ -163,9 +169,9 @@ export function NfeOperationDraftReview({
                   {reviewedLines[index]?.product_xml}
                 </pre>
               </details>
-              {formRules.taxReviewMode === 'zero_amounts_only' ? (
+              {formRules.taxReviewMode === 'source_zero_only_until_matrix' ? (
                 <div className="space-y-1 text-[10px] font-bold">
-                  <span>Classificação tributária original sem bases/valores tributários (somente leitura)</span>
+                  <span>Classificação tributária original (somente leitura; a matriz atual do ERP cobre apenas cenários sem bases/valores tributários)</span>
                   <pre className="max-h-36 overflow-auto rounded-lg border border-slate-300 bg-slate-50 p-2 font-mono text-[9px] dark:border-slate-700 dark:bg-slate-950">
                     {reviewedLines[index]?.taxes_xml}
                   </pre>
@@ -290,8 +296,8 @@ export function NfeOperationDraftReview({
               checked={review.item_taxes_confirmed}
               onChange={(event) => onReviewChange('item_taxes_confirmed', event.target.checked)}
             />
-            {formRules.taxReviewMode === 'zero_amounts_only'
-              ? 'Revisei a classificação fiscal e confirmei que os valores tributários suportados estão zerados.'
+            {formRules.taxReviewMode === 'source_zero_only_until_matrix'
+              ? 'Revisei os dados tributários originais; esta matriz do ERP cobre somente cenários sem bases ou valores tributários e nenhum valor foi zerado para emitir.'
               : 'Revisei a classificação fiscal e os tributos proporcionais da operação.'}
           </label>
           <label className="flex items-start gap-2">

@@ -159,14 +159,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         fiscalReturnContext = sourceContext.context;
       }
       const returnFormRules = fiscalReturnContext
-        ? getFiscalFormRules('return', {
-            scope: 'internal',
-            returnMethod: fiscalReturnContext.returnOrder.returnMethod || undefined,
-          })
+        ? getFiscalFormRules('return', fiscalReturnContext.operationContext)
         : null;
       const returnXmlDefaults = returnFormRules
         ? getFiscalFormXmlDefaults(returnFormRules)
         : null;
+      if (draft.operation_kind === 'return' && !returnXmlDefaults) {
+        return res.status(409).json({
+          error: returnFormRules?.blockReason || 'UNSUPPORTED_BY_ERP: contexto fiscal da devolução incompleto.',
+        });
+      }
       if (draft.operation_kind === 'return' && (!fiscalReturnContext || !returnXmlDefaults)) {
         return res.status(409).json({
           error: 'O cenário da devolução não possui opções fiscais aprovadas para revisão.',
@@ -195,14 +197,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               id: fiscalReturnContext.returnOrder.id,
               orderIndex: fiscalReturnContext.returnOrder.order_index,
               returnMethod: fiscalReturnContext.returnOrder.returnMethod,
+              operationContext: {
+                issuerUf: fiscalReturnContext.operationContext.issuerUf,
+                recipientUf: fiscalReturnContext.operationContext.recipientUf,
+                scope: fiscalReturnContext.operationContext.scope,
+                returnMethod: fiscalReturnContext.operationContext.returnMethod,
+                recipientFiscalStatus: fiscalReturnContext.operationContext.recipientFiscalStatus,
+                isFinalConsumer: fiscalReturnContext.operationContext.isFinalConsumer,
+                taxRegime: fiscalReturnContext.operationContext.taxRegime,
+              },
             }
           : null,
         lines: reviewedLines,
         reviewTemplate: {
           recipient_xml: extractFiscalBlock(originalXml, 'dest'),
           totals_xml: extractFiscalBlock(originalXml, 'total'),
-          transport_xml: returnXmlDefaults?.transportXml || '<transp><modFrete>9</modFrete></transp>',
-          payment_xml: returnXmlDefaults?.paymentXml || '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
+          transport_xml: returnXmlDefaults?.transportXml || '',
+          payment_xml: returnXmlDefaults?.paymentXml || '',
         },
       });
     }
@@ -248,10 +259,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
         if ('error' in sourceContext)
           return res.status(409).json({ error: sourceContext.error });
-        const returnFormRules = getFiscalFormRules('return', {
-          scope: 'internal',
-          returnMethod: sourceContext.context.returnOrder.returnMethod || undefined,
-        });
+        const returnFormRules = getFiscalFormRules(
+          'return',
+          sourceContext.context.operationContext
+        );
         const returnXmlDefaults = getFiscalFormXmlDefaults(returnFormRules);
         if (
           !returnXmlDefaults ||
@@ -334,7 +345,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           );
           if (!allowedCfops.some((option) => option.value === line.cfop)) {
             return res.status(409).json({
-              error: `CFOP ${line.cfop} não é permitido para a origem, tributação e cenário interno do item devolvido.`,
+              error: `CFOP ${line.cfop} não é permitido para a origem, tributação e escopo do item devolvido.`,
             });
           }
           const expectedProduct = buildReturnProductXml({

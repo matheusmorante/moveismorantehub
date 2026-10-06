@@ -49,7 +49,16 @@ const sourceKey = generateNfeAccessKey({
 
 const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => ({
   kind,
-  returnMethod: kind === 'return' ? 'store_delivery' : undefined,
+  returnMethod: kind === 'return' ? 'CLIENT_DELIVERED' : undefined,
+  returnScenario: kind === 'return' ? {
+    scope: 'internal',
+    issuerUf: 'PR',
+    recipientUf: 'PR',
+    returnMethod: 'CLIENT_DELIVERED',
+    recipientFiscalStatus: 'non_taxpayer',
+    isFinalConsumer: true,
+    taxRegime: '1',
+  } : undefined,
   environment: 1,
   originalEnvironment: 1,
   originalStatus: 'autorizada',
@@ -67,7 +76,7 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
     '<dest><CPF>12345678901</CPF><xNome>Cliente</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>',
   totalsXml:
     '<total><ICMSTot><vProd>100.00</vProd><vDesc>10.00</vDesc><vNF>90.00</vNF></ICMSTot></total>',
-  transportXml: '<transp><modFrete>9</modFrete></transp>',
+  transportXml: '<transp><modFrete>4</modFrete></transp>',
   paymentXml: '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
   reason: 'Operacao nao realizada e prazo de cancelamento vencido.',
   lines: [

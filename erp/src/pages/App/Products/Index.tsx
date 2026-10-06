@@ -29,7 +29,7 @@ interface ProductsProps {
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const [filters, setFilters] = React.useState<Partial<ProductFiltersData>>({});
-  const [showTestProducts, setShowTestProducts] = React.useState(true);
+  const [showTestProducts, setShowTestProducts] = React.useState(false);
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
   const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);

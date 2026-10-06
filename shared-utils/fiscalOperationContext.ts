@@ -8,13 +8,25 @@ import {
 } from './fiscalCfopModel';
 
 export type FiscalOperationContext = 'normal_sale' | 'return' | 'estorno';
+export type FiscalReturnMethod = 'CLIENT_DELIVERED' | 'COMPANY_PICKUP';
+export type FiscalRuleCategory =
+  | 'SEFAZ_REQUIRED'
+  | 'FISCAL_RULE'
+  | 'PROJECT_POLICY'
+  | 'UNSUPPORTED_BY_ERP'
+  | 'TEMPORARY_BLOCK';
 
 export interface FiscalFormScenario {
   scope?: FiscalCfopScope;
+  issuerUf?: string;
+  recipientUf?: string;
   merchandiseOrigin?: FiscalCfopMerchandiseOrigin;
   isSt?: boolean;
   itemType?: FiscalCfopItemType;
-  returnMethod?: 'store_delivery' | 'store_collection';
+  returnMethod?: FiscalReturnMethod;
+  recipientFiscalStatus?: 'taxpayer' | 'non_taxpayer' | 'unknown';
+  isFinalConsumer?: boolean;
+  taxRegime?: string;
 }
 
 export interface FiscalFormRules {
@@ -30,7 +42,10 @@ export interface FiscalFormRules {
   allowedTransportModes: readonly { value: string; label: string }[];
   natureOptions: readonly { value: string; label: string }[];
   fixedValues: Readonly<Record<string, string | number>>;
-  taxReviewMode: 'normal' | 'proportional_original_only' | 'zero_amounts_only' | 'not_applicable';
+  availability: 'READY' | 'UNSUPPORTED_BY_ERP' | 'TEMPORARY_BLOCK';
+  blockCategory?: FiscalRuleCategory;
+  blockReason?: string;
+  taxReviewMode: 'normal' | 'proportional_original_only' | 'source_zero_only_until_matrix' | 'not_applicable';
 }
 
 export interface FiscalFormXmlDefaults {
@@ -42,6 +57,7 @@ export interface FiscalFormXmlDefaults {
 /** Builds fixed XML blocks from the same policy consumed by the UI and server validators. */
 export function getFiscalFormXmlDefaults(rules: FiscalFormRules): FiscalFormXmlDefaults | null {
   if (rules.context !== 'return') return null;
+  if (rules.availability !== 'READY') return null;
   const natureOfOperation = rules.natureOptions[0]?.value || '';
   const tPag = String(rules.fixedValues.tPag || '');
   const vPag = String(rules.fixedValues.vPag || '');
@@ -57,7 +73,7 @@ export function getFiscalFormXmlDefaults(rules: FiscalFormRules): FiscalFormXmlD
 }
 
 export const RETURN_TAX_MATRIX_REQUIRED_MESSAGE =
-  'A tributação da NF-e original contém bases ou valores diferentes de zero; a matriz fiscal de devolução correspondente ainda não foi aprovada.';
+  'Este cenário de devolução ainda não tem matriz tributária aprovada no ERP. A emissão permanece bloqueada sem alterar ou zerar os dados tributários da NF-e original.';
 
 function hasNonZeroTaxAmount(xml: string, excludeCommercialTotals = false): boolean {
   const commercialTotals = new Set(['vProd', 'vFrete', 'vSeg', 'vDesc', 'vOutro', 'vNF']);
@@ -92,15 +108,16 @@ export function isSourceTaxedWithSt(taxesXml: string, originalCfop: string): boo
 
 export function getReturnCfopOptionsForSourceItem(
   originalCfop: string,
-  taxesXml: string
+  taxesXml: string,
+  scope?: FiscalCfopScope
 ): ReturnType<typeof listActiveCfopOptions> {
   const sourceCfop = getCfopDefinition(originalCfop);
   if (!sourceCfop || sourceCfop.direction !== 'outbound' || sourceCfop.itemType !== 'product')
     return [];
+  if (scope && sourceCfop.scope !== scope) return [];
   return getFiscalFormRules('return', {
-    scope: 'internal',
+    scope: scope || sourceCfop.scope,
     itemType: 'product',
-    returnMethod: 'store_delivery',
     merchandiseOrigin: sourceCfop.merchandiseOrigin,
     isSt: isSourceTaxedWithSt(taxesXml, originalCfop),
   }).allowedCfops;
@@ -124,8 +141,86 @@ export function suggestReturnCfopForSourceItem(
 }
 
 const PAYMENT_WITHOUT_PAYMENT = [{ value: '90', label: 'Sem pagamento' }] as const;
-const NO_ADDITIONAL_TRANSPORT = [{ value: '9', label: 'Sem transporte fiscal adicional' }] as const;
+const RETURN_TRANSPORT_BY_METHOD: Readonly<
+  Record<FiscalReturnMethod, { value: string; label: string }>
+> = {
+  CLIENT_DELIVERED: {
+    value: '4',
+    label: 'Transporte próprio por conta do destinatário (cliente trouxe à loja)',
+  },
+  COMPANY_PICKUP: {
+    value: '3',
+    label: 'Transporte próprio por conta do emitente (coleta da empresa)',
+  },
+};
 const RETURN_NATURE = [{ value: 'Devolução de mercadoria', label: 'Devolução de mercadoria' }] as const;
+
+function scenarioScope(scenario: FiscalFormScenario): FiscalCfopScope | null {
+  if (scenario.issuerUf !== undefined || scenario.recipientUf !== undefined) {
+    const issuerUf = String(scenario.issuerUf || '').trim().toUpperCase();
+    const recipientUf = String(scenario.recipientUf || '').trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(issuerUf) || !/^[A-Z]{2}$/.test(recipientUf)) return null;
+    if (recipientUf === 'EX') return 'foreign';
+    return issuerUf === recipientUf ? 'internal' : 'interstate';
+  }
+  return scenario.scope || null;
+}
+
+function returnAvailability(
+  scope: FiscalCfopScope | null,
+  scenario: FiscalFormScenario
+): Pick<FiscalFormRules, 'availability' | 'blockCategory' | 'blockReason'> {
+  if (!scenario.returnMethod) {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'O método de retorno não está persistido no pedido de devolução.',
+    };
+  }
+  if (!scope) {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'Não foi possível determinar as UFs e o escopo fiscal da devolução.',
+    };
+  }
+  if (scope === 'interstate') {
+    return {
+      availability: 'TEMPORARY_BLOCK',
+      blockCategory: 'TEMPORARY_BLOCK',
+      blockReason: 'A matriz fiscal de devolução interestadual ainda não foi aprovada e testada no ERP.',
+    };
+  }
+  if (scope === 'foreign') {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'O fluxo de devolução para o exterior ainda não está implementado no ERP.',
+    };
+  }
+  if (scenario.recipientFiscalStatus === 'taxpayer') {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'O ERP ainda não implementa a matriz de devolução para destinatário contribuinte do ICMS.',
+    };
+  }
+  if (scenario.recipientFiscalStatus === 'unknown') {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'A condição do destinatário na NF-e original não está determinada pelo ERP.',
+    };
+  }
+  if (scenario.isFinalConsumer === false) {
+    return {
+      availability: 'UNSUPPORTED_BY_ERP',
+      blockCategory: 'UNSUPPORTED_BY_ERP',
+      blockReason: 'O ERP ainda não implementa a matriz de devolução para destinatário que não seja consumidor final.',
+    };
+  }
+  return { availability: 'READY' };
+}
 
 /** Shared UI and server policy. Unsupported fiscal scenarios intentionally expose no choices. */
 export function getFiscalFormRules(
@@ -133,8 +228,11 @@ export function getFiscalFormRules(
   scenario: FiscalFormScenario = {}
 ): FiscalFormRules {
   if (context === 'return') {
-    const hasSupportedReturnTransport = scenario.returnMethod === 'store_delivery';
-    const supportedInternalScenario = scenario.scope === 'internal' && hasSupportedReturnTransport;
+    const scope = scenarioScope(scenario);
+    const transport = scenario.returnMethod
+      ? RETURN_TRANSPORT_BY_METHOD[scenario.returnMethod]
+      : null;
+    const availability = returnAvailability(scope, scenario);
     return {
       context,
       visibleFields: [
@@ -194,10 +292,10 @@ export function getFiscalFormRules(
       ],
       allowedModels: ['55'],
       allowedFinalidades: [4],
-      allowedCfops: supportedInternalScenario
+      allowedCfops: scope
         ? listActiveCfopOptions({
             direction: 'inbound',
-            scope: 'internal',
+            scope,
             model: '55',
             itemType: scenario.itemType || 'product',
             operationType: 'customer_return',
@@ -206,20 +304,21 @@ export function getFiscalFormRules(
           })
         : [],
       allowedPaymentOptions: PAYMENT_WITHOUT_PAYMENT,
-      allowedTransportModes: hasSupportedReturnTransport ? NO_ADDITIONAL_TRANSPORT : [],
+      allowedTransportModes: transport ? [transport] : [],
       natureOptions: RETURN_NATURE,
       fixedValues: {
         finalidade: 4,
         tpNF: 0,
-        idDest: 1,
+        ...(scope ? { idDest: scope === 'internal' ? 1 : scope === 'interstate' ? 2 : 3 } : {}),
         indFinal: 1,
         indIEDest: 9,
         indPres: 0,
         tPag: '90',
         vPag: '0.00',
-        ...(hasSupportedReturnTransport ? { modFrete: '9' } : {}),
+        ...(transport ? { modFrete: transport.value } : {}),
       },
-      taxReviewMode: 'zero_amounts_only',
+      ...availability,
+      taxReviewMode: 'source_zero_only_until_matrix',
     };
   }
 
@@ -254,6 +353,7 @@ export function getFiscalFormRules(
       allowedTransportModes: [],
       natureOptions: [],
       fixedValues: { finalidade: 3, tpNF: 0 },
+      availability: 'READY',
       taxReviewMode: 'proportional_original_only',
     };
   }
@@ -271,6 +371,7 @@ export function getFiscalFormRules(
     allowedTransportModes: [],
     natureOptions: [],
     fixedValues: { finalidade: 1 },
+    availability: 'READY',
     taxReviewMode: 'normal',
   };
 }

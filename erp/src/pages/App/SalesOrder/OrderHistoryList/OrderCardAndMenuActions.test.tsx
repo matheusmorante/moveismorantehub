@@ -2,6 +2,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import OrderHistoryCard from './OrderHistoryCard';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 
@@ -64,15 +65,17 @@ describe('OrderCardAndMenuActions', () => {
   it('renderiza o botão de editar e os três pontinhos no card com as mesmas dimensões (w-8 h-8)', () => {
     const onEditMock = vi.fn();
     const { container } = render(
-      <OrderHistoryCard
-        order={baseOrder}
-        onEdit={onEditMock}
-        onDelete={vi.fn()}
-        onRestore={vi.fn()}
-        onPermanentDelete={vi.fn()}
-        onAction={vi.fn()}
-        onStatusUpdate={vi.fn()}
-      />
+      <MemoryRouter>
+        <OrderHistoryCard
+          order={baseOrder}
+          onEdit={onEditMock}
+          onDelete={vi.fn()}
+          onRestore={vi.fn()}
+          onPermanentDelete={vi.fn()}
+          onAction={vi.fn()}
+          onStatusUpdate={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
     const editBtn = screen.getByTitle('Editar pedido');
@@ -93,34 +96,38 @@ describe('OrderCardAndMenuActions', () => {
 
   it('exibe o rótulo NFH no card apenas quando houver nota fiscal de homologação emitida', () => {
     const { rerender } = render(
-      <OrderHistoryCard
-        order={baseOrder}
-        fiscalBadgeStatus="not_issued"
-        fiscalHmlBadgeStatus="not_issued"
-        onEdit={vi.fn()}
-        onDelete={vi.fn()}
-        onRestore={vi.fn()}
-        onPermanentDelete={vi.fn()}
-        onAction={vi.fn()}
-        onStatusUpdate={vi.fn()}
-      />
+      <MemoryRouter>
+        <OrderHistoryCard
+          order={baseOrder}
+          fiscalBadgeStatus="not_issued"
+          fiscalHmlBadgeStatus="not_issued"
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRestore={vi.fn()}
+          onPermanentDelete={vi.fn()}
+          onAction={vi.fn()}
+          onStatusUpdate={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
     expect(screen.queryByText('NFH')).toBeNull();
 
     rerender(
-      <OrderHistoryCard
-        order={baseOrder}
-        fiscalBadgeStatus="not_issued"
-        fiscalHmlBadgeStatus="issued"
-        onEdit={vi.fn()}
-        onDelete={vi.fn()}
-        onRestore={vi.fn()}
-        onPermanentDelete={vi.fn()}
-        onAction={vi.fn()}
-        onStatusUpdate={vi.fn()}
-      />
+      <MemoryRouter>
+        <OrderHistoryCard
+          order={baseOrder}
+          fiscalBadgeStatus="not_issued"
+          fiscalHmlBadgeStatus="issued"
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRestore={vi.fn()}
+          onPermanentDelete={vi.fn()}
+          onAction={vi.fn()}
+          onStatusUpdate={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();

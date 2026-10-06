@@ -95,7 +95,7 @@ export const useOrderHistory = (filters?: any) => {
     return sortOrders(
       orders.filter(
         (order) =>
-          (filters?.showTestOrders !== false || !isTestOrder(order)) &&
+          (Boolean(filters?.showTestOrders) || !isTestOrder(order)) &&
           filterOrder(order, filters)
       ),
       filters

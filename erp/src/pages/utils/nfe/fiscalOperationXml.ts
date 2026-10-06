@@ -7,6 +7,8 @@ import {
   getFiscalFormXmlDefaults,
   getFiscalFormRules,
   validateReturnTaxScenario,
+  type FiscalFormScenario,
+  type FiscalReturnMethod,
 } from '../../../../../shared-utils/fiscalOperationContext';
 
 type FiscalEnvironment = 1 | 2;
@@ -34,7 +36,8 @@ export interface ReviewedFiscalOperationLine {
 
 export interface ReviewedFiscalOperationXmlInput {
   kind: FiscalOperationKind;
-  returnMethod?: 'store_delivery' | 'store_collection';
+  returnMethod?: FiscalReturnMethod;
+  returnScenario?: FiscalFormScenario;
   environment: FiscalEnvironment;
   originalEnvironment: FiscalEnvironment;
   originalStatus: 'autorizada' | 'homologada';
@@ -198,8 +201,7 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
     throw new Error('Destinatário/remetente fiscal precisa ser conferido e identificado.');
   }
   const returnRules = getFiscalFormRules('return', {
-    scope: 'internal',
-    returnMethod: input.returnMethod,
+    ...(input.returnScenario || { returnMethod: input.returnMethod }),
   });
   const returnXmlDefaults = getFiscalFormXmlDefaults(returnRules);
   if (input.kind === 'return') {

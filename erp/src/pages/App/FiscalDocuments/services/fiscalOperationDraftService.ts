@@ -23,6 +23,23 @@ function isNullableNumber(value: unknown): value is number | null {
   return value === null || (typeof value === 'number' && Number.isFinite(value));
 }
 
+function isFiscalReturnMethod(value: unknown): value is 'CLIENT_DELIVERED' | 'COMPANY_PICKUP' {
+  return value === 'CLIENT_DELIVERED' || value === 'COMPANY_PICKUP';
+}
+
+function isReturnOperationContext(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.issuerUf === 'string' &&
+    typeof value.recipientUf === 'string' &&
+    ['internal', 'interstate', 'foreign'].includes(String(value.scope)) &&
+    isFiscalReturnMethod(value.returnMethod) &&
+    ['taxpayer', 'non_taxpayer'].includes(String(value.recipientFiscalStatus)) &&
+    typeof value.isFinalConsumer === 'boolean' &&
+    typeof value.taxRegime === 'string'
+  );
+}
+
 function isReviewData(value: unknown): value is Partial<ReviewData> {
   if (!isRecord(value)) return false;
 
@@ -61,9 +78,10 @@ function isDraftPayload(value: unknown): value is DraftPayload {
         typeof value.returnOrder.id !== 'string' ||
         !(value.returnOrder.orderIndex === null ||
           (typeof value.returnOrder.orderIndex === 'number' && Number.isFinite(value.returnOrder.orderIndex))) ||
-        !(value.returnOrder.returnMethod === null ||
-          value.returnOrder.returnMethod === 'store_delivery' ||
-          value.returnOrder.returnMethod === 'store_collection'))) ||
+        !isFiscalReturnMethod(value.returnOrder.returnMethod) ||
+        !isReturnOperationContext(value.returnOrder.operationContext) ||
+        (isRecord(value.returnOrder.operationContext) &&
+          value.returnOrder.operationContext.returnMethod !== value.returnOrder.returnMethod))) ||
     typeof source.id !== 'string' ||
     !isNullableString(source.order_id) ||
     (source.modelo !== '55' && source.modelo !== '65') ||

@@ -199,6 +199,39 @@ const initialScenarios: InterstateOutboundFiscalMatrixRule[] = [
   draft('INTERSTATE-PJ-NONTAXPAYER-FINAL-ST', 'PJ', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída interestadual; não copiar consulta de outra UF']),
   draft('INTERSTATE-PF-NONTAXPAYER-FINAL-NO-ST', 'PF', 'non_taxpayer', true, false, ['6108'], ['Validar DIFAL/FCP e responsabilidade do remetente']),
   draft('INTERSTATE-PF-NONTAXPAYER-FINAL-ST', 'PF', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída interestadual; não copiar consulta de outra UF']),
+  {
+    ...draft('INTERSTATE-PJ-TAXPAYER-FINAL-NO-ST-SC-MOCK', 'PJ', 'taxpayer', true, false, ['6102'], []),
+    status: 'APPROVED',
+    criteria: {
+      ...commonCriteria,
+      recipientPersonType: 'PJ',
+      recipientIeStatus: 'taxpayer',
+      finalConsumer: true,
+      hasSt: false,
+      destinationUf: 'SC',
+    },
+    priority: 10,
+    pendingReview: [],
+    treatment: {
+      cfop: '6102',
+      csosn: '102',
+      icms: { xmlGroup: 'ICMSSN102', framework: '1', ratePercent: 0, baseMethod: '0', reductionPercent: 0 },
+      st: { responsibility: 'none', applicable: false, agreementOrProtocol: 'NA', baseMethod: '0', ratePercent: 0 },
+      difal: { applicable: false, responsibility: 'none', internalRatePercent: 0, interstateRatePercent: 0, destinationSharePercent: 0 },
+      fcp: { applicable: false, ratePercent: 0 },
+      fcpSt: { applicable: false, ratePercent: 0 },
+    },
+    approvedBy: 'User_Request_004268',
+    approvedAt: '2023-01-01T00:00:00.000Z',
+    effectiveFrom: '2023-01-01T00:00:00.000Z',
+    xmlEvidence: 'HML-SC-MOCK',
+    testEvidence: 'HML-SC-MOCK',
+    reviewedWildcards: ['environment', 'model', 'issuerRegime', 'issuerUf', 'destinationScope', 'operationType', 'purpose', 'merchandiseOrigin', 'productOrigin', 'ncm', 'cest'],
+    candidateCfops: ['6102'],
+    normativeScope: 'DESTINATION_STATE',
+    sourceReferences: ['https://mock-sc-rule'],
+    normativeSources: [{ id: 'SC-MOCK', scope: 'DESTINATION_STATE', destinationUf: 'SC', url: 'https://mock-sc-rule' }]
+  }
 ];
 
 // Preserve scenario suffixes; enumerate independent PF/PJ × IE × finality × ST axes.

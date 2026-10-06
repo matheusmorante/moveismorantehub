@@ -3,9 +3,12 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import {
+  getFiscalFormRules,
   getReturnCfopOptionsForSourceItem,
   validateReturnTaxScenario,
+  type FiscalReturnMethod,
 } from '../../shared-utils/fiscalOperationContext';
+import type { FiscalCfopScope } from '../../shared-utils/fiscalCfopModel';
 import { originalItemCfop } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 
 export const MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE =
@@ -26,18 +29,39 @@ export interface OriginalOutboundNfeProof {
   xml_nfe: string | null;
 }
 
-export type FiscalReturnMethod = 'store_delivery' | 'store_collection';
-
 export function resolveFiscalReturnMethod(
-  orderData: Record<string, unknown>,
-  status: string
+  orderData: Record<string, unknown>
 ): FiscalReturnMethod | null {
-  const persistedMethod = String(orderData.returnMethod || '').toLowerCase();
-  if (persistedMethod === 'store_delivery' || persistedMethod === 'store_collection')
-    return persistedMethod;
-  // Legacy fulfilled returns represented goods brought to the store; scheduled returns were collections.
-  if (status === 'fulfilled') return 'store_delivery';
+  const persistedMethod = String(orderData.returnMethod || '').trim().toLowerCase();
+  if (['client_delivered', 'client-delivered', 'store_delivery'].includes(persistedMethod))
+    return 'CLIENT_DELIVERED';
+  if (['company_pickup', 'company-pickup', 'store_collection'].includes(persistedMethod))
+    return 'COMPANY_PICKUP';
   return null;
+}
+
+export interface FiscalReturnOperationContext {
+  operation: 'return';
+  purpose: 4;
+  model: '55';
+  direction: 'inbound';
+  issuerUf: string;
+  recipientUf: string;
+  scope: FiscalCfopScope;
+  returnMethod: FiscalReturnMethod;
+  transportMode: '3' | '4';
+  recipientFiscalStatus: 'taxpayer' | 'non_taxpayer';
+  isFinalConsumer: true;
+  taxRegime: string;
+  originalInvoice: {
+    id: string;
+    accessKey: string;
+    environment: number;
+    model: string;
+    series: string;
+    number: number;
+    protocol: string;
+  };
 }
 
 export interface ReturnFiscalSourceContext {
@@ -74,6 +98,7 @@ export interface ReturnFiscalSourceContext {
     product_xml: string;
     taxes_xml: string;
   }>;
+  operationContext: FiscalReturnOperationContext;
 }
 
 function xmlBlock(xml: string, name: string): string {
@@ -145,7 +170,7 @@ export function validateAuthorizedOutboundNfe(
   return null;
 }
 
-/** Current ERP return-entry flow is limited to same-state returns by non-ICMS taxpayers. */
+/** Resolves ERP capability for the scenario; unsupported cases are not fiscal prohibitions. */
 export function validateSupportedReturnEntryScenario(
   sourceInvoiceXml: string,
   companyUf: string,
@@ -158,20 +183,22 @@ export function validateSupportedReturnEntryScenario(
   const originalIsFinalConsumer = readXmlTag(invoiceIde, 'indFinal') === '1';
   const normalizedCompanyUf = companyUf.trim().toUpperCase();
   if (!destination || !destinationUf || !normalizedCompanyUf) {
-    return 'Não foi possível determinar a UF e a condição fiscal do destinatário original.';
+    return 'UNSUPPORTED_BY_ERP: não foi possível determinar a UF e a condição fiscal do destinatário original.';
   }
-  if (destinationUf !== normalizedCompanyUf) {
-    return 'Devolução interestadual bloqueada: a matriz fiscal interestadual ainda não foi aprovada.';
-  }
-  if (taxpayerIndicator !== '9') {
-    return 'Esta devolução exige NF-e emitida pelo destinatário contribuinte do ICMS; o ERP só emite entrada para destinatário não contribuinte neste fluxo.';
-  }
-  if (!originalIsFinalConsumer) {
-    return 'Devolução bloqueada: o tratamento fiscal de destinatário não consumidor final ainda não está aprovado para emissão pelo ERP.';
-  }
-  if (returnMethod !== 'store_delivery') {
-    return 'Devolução por coleta bloqueada: a modalidade e os dados fiscais do transporte de retorno ainda não foram aprovados.';
-  }
+  const recipientFiscalStatus = taxpayerIndicator === '9'
+    ? 'non_taxpayer'
+    : ['1', '2'].includes(taxpayerIndicator)
+      ? 'taxpayer'
+      : 'unknown';
+  const rules = getFiscalFormRules('return', {
+    issuerUf: normalizedCompanyUf,
+    recipientUf: destinationUf,
+    returnMethod: returnMethod || undefined,
+    recipientFiscalStatus,
+    isFinalConsumer: originalIsFinalConsumer,
+  });
+  if (rules.availability !== 'READY')
+    return `${rules.blockCategory}: ${rules.blockReason}`;
   return null;
 }
 
@@ -212,7 +239,7 @@ export async function loadReturnFiscalSourceContext(
   const orderData = returnOrder.order_data && typeof returnOrder.order_data === 'object'
     ? (returnOrder.order_data as Record<string, unknown>)
     : {};
-  const returnMethod = resolveFiscalReturnMethod(orderData, returnOrder.status);
+  const returnMethod = resolveFiscalReturnMethod(orderData);
   const linkedSaleOrderId = String(returnOrder.linked_order_id || orderData.linkedOrderId || '');
   const authorizationError = validateAuthorizedOutboundNfe(
     source,
@@ -229,6 +256,7 @@ export async function loadReturnFiscalSourceContext(
     : settingsData;
   const companyUf = String(fiscalDefaults.companyUF || '');
   const companyCnpj = String(fiscalDefaults.companyCnpj || '').replace(/\D/g, '');
+  const taxRegime = String(fiscalDefaults.companyCRT || '');
   if (companyCnpj.length !== 14) {
     return { error: 'CNPJ do estabelecimento ausente na configuração fiscal do servidor.' };
   }
@@ -241,6 +269,31 @@ export async function loadReturnFiscalSourceContext(
     returnMethod
   );
   if (scenarioError) return { error: scenarioError };
+  const originalDestinationUf = readXmlTag(xmlBlock(source.xml_nfe || '', 'dest'), 'UF').toUpperCase();
+  const originalRecipientTaxpayerIndicator = readXmlTag(
+    xmlBlock(source.xml_nfe || '', 'dest'),
+    'indIEDest'
+  );
+  const fiscalRules = getFiscalFormRules('return', {
+    issuerUf: companyUf,
+    recipientUf: originalDestinationUf,
+    returnMethod: returnMethod || undefined,
+    recipientFiscalStatus: originalRecipientTaxpayerIndicator === '9' ? 'non_taxpayer' : 'taxpayer',
+    isFinalConsumer: readXmlTag(
+      xmlBlock(xmlBlock(source.xml_nfe || '', 'infNFe'), 'ide'),
+      'indFinal'
+    ) === '1',
+  });
+  if (fiscalRules.availability !== 'READY' || !returnMethod) {
+    return { error: `${fiscalRules.blockCategory}: ${fiscalRules.blockReason}` };
+  }
+  const scope = originalDestinationUf === companyUf.trim().toUpperCase()
+    ? 'internal'
+    : 'interstate';
+  const returnTransportMode = String(fiscalRules.fixedValues.modFrete || '');
+  if (scope === 'foreign' || !['3', '4'].includes(returnTransportMode)) {
+    return { error: 'UNSUPPORTED_BY_ERP: não foi possível resolver o transporte da devolução.' };
+  }
 
   const [{ data: allocations, error: allocationsError }, { data: lines, error: linesError }] =
     await Promise.all([
@@ -286,7 +339,8 @@ export async function loadReturnFiscalSourceContext(
       originalLine &&
       !getReturnCfopOptionsForSourceItem(
         originalItemCfop(originalLine.product_xml) || '',
-        originalLine.taxes_xml
+        originalLine.taxes_xml,
+        scope
       ).length
     ) {
       return { error: `Não há CFOP de devolução aprovado para o item original ${allocation.original_item_number}.` };
@@ -301,6 +355,29 @@ export async function loadReturnFiscalSourceContext(
     context: {
       source,
       returnOrder: { ...returnOrder, returnMethod },
+      operationContext: {
+        operation: 'return',
+        purpose: 4,
+        model: '55',
+        direction: 'inbound',
+        issuerUf: companyUf.trim().toUpperCase(),
+        recipientUf: originalDestinationUf,
+        scope: scope as FiscalCfopScope,
+        returnMethod,
+        transportMode: returnTransportMode as '3' | '4',
+        recipientFiscalStatus: originalRecipientTaxpayerIndicator === '9' ? 'non_taxpayer' : 'taxpayer',
+        isFinalConsumer: true,
+        taxRegime,
+        originalInvoice: {
+          id: source.id,
+          accessKey: source.chave_acesso,
+          environment: Number(source.ambiente),
+          model: source.modelo,
+          series: String(source.serie),
+          number: Number(source.numero_nfe),
+          protocol: String(source.numero_protocolo || ''),
+        },
+      },
       allocations: allocations.map((allocation) => ({
         ...allocation,
         quantity: Number(allocation.quantity),

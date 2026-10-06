@@ -134,7 +134,7 @@ export const useProducts = (filters?: any) => {
             !product.mergedToVariationId
           );
         })
-        .filter((product) => filters?.showTestProducts !== false || !isTestProduct(product)),
+        .filter((product) => Boolean(filters?.showTestProducts) || !isTestProduct(product)),
     [serverProducts, filters?.includeMergedVariations, filters?.showTestProducts]
   );
 

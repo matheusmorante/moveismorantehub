@@ -333,11 +333,6 @@ export async function createHmlNormalSaleRuleSet(
       throw new Error(
         'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decisão Fiscal Interestadual de Saída não contém regra APPROVED utilizável; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
       );
-    // Approval data alone cannot activate transmission until this ruleset maps every tax field
-    // into the NF-e document and its serializer with focused coverage.
-    throw new Error(
-      'Operação interestadual não está coberta pela matriz executável HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_EXECUTION_NOT_READY). A reserva de número permanece bloqueada.'
-    );
   }
 
   // Share the existing issuer/CRT/environment/contribution approval gates after the
@@ -436,10 +431,6 @@ export async function createHmlNormalSaleRuleSet(
       });
       if (snapshotScope.destination === null)
         throw new Error(snapshotScope.reason || 'Local físico da operação fiscal não identificado.');
-      if (snapshotScope.scope !== 'internal')
-        throw new Error(
-          'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2. O CFOP 6102 identifica a operação, mas não define a tributação; é necessária uma matriz interestadual aprovada.'
-        );
       const recipientCpfCnpj = normalizeRecipientTaxId(
         String(snapshot.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
       );
@@ -472,8 +463,8 @@ export async function createHmlNormalSaleRuleSet(
       const freight = money(shipping.value ?? 0, 'Frete comercial');
       const persistedInputs = obj(snapshot.fiscalInputs);
       const catalog = obj(persistedInputs.products);
-      const expectedCfop = '5102';
-      const allowedSavedCfops = ['5102'];
+      const expectedCfop = snapshotScope.scope === 'internal' ? '5102' : '6102';
+      const allowedSavedCfops = ['5102', '6102'];
       const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
         const selected = selections[String(index + 1)];
         const saved = (item as any).fiscal || {};

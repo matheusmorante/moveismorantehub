@@ -76,7 +76,7 @@ function createDatabase() {
         nature_of_operation: 'Devolução de mercadoria',
         recipient_xml: sourceDestination,
         totals_xml: '<total/>',
-        transport_xml: '<transp><modFrete>9</modFrete></transp>',
+        transport_xml: '<transp><modFrete>4</modFrete></transp>',
         payment_xml: '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
         reason: '',
       },
@@ -132,6 +132,7 @@ function createDatabase() {
       data: {
         companyCnpj: '44512248000107',
         companyUF: 'PR',
+        companyCRT: '1',
         companyCMun: '4105805',
         nfeSerie: '1',
         nfeNextNumber: 700,
@@ -147,7 +148,7 @@ function createDatabase() {
       status: 'fulfilled',
       deleted: false,
       linked_order_id: '44444444-4444-4444-8444-444444444444',
-      order_data: {},
+      order_data: { returnMethod: 'store_delivery' },
     },
     returnAllocations: [
       {
@@ -439,6 +440,51 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
 
     expect(res.statusCode).toBe(409);
     expect(res.body.error).toMatch(/campos estruturais/i);
+    expect(state.rpcCalls).toEqual([]);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('rejeita transporte divergente do método persistido antes de reservar número', async () => {
+    const { db, state } = createDatabase();
+    state.returnOrder.order_data = { returnMethod: 'store_collection' };
+    state.draft.review_data.transport_xml = '<transp><modFrete>9</modFrete></transp>';
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/divergem do cenário fiscal/);
+    expect(state.rpcCalls).toEqual([]);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia pedido sem método de retorno persistido antes de reservar número', async () => {
+    const { db, state } = createDatabase();
+    state.returnOrder.order_data = {};
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/método de retorno não está persistido/);
     expect(state.rpcCalls).toEqual([]);
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
