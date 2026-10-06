@@ -16,6 +16,7 @@ import {
   getBilledCapacityByOrderLine,
   type AvailableInvoiceLine,
 } from '../../../utils/nfe/invoiceLineSnapshot';
+import { findAuthorizedFiscalDocument } from '../../../utils/nfe/findAuthorizedFiscalDocument';
 
 type Props = {
   readonly order: Order;
