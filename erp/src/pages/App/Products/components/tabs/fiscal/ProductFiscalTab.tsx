@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Product from '../../../../../types/product.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import ConfirmModal from '@/components/shared/ConfirmModal';
 import {
   CEST_OPTIONS,
   CFOP_OPTIONS,
@@ -28,6 +29,30 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
   onRejectNcmSuggestion,
 }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [pendingCsosn, setPendingCsosn] = useState<string | null>(null);
+  const [isCsosnConfirmationOpen, setIsCsosnConfirmationOpen] = useState(false);
+  const currentCsosn = formData.fiscal?.cst || '103';
+
+  const updateFiscalCst = (value: string) => {
+    const isSt = ['201', '202', '500'].includes(value);
+    setFormData((prev) => ({
+      ...prev,
+      fiscal: {
+        ...prev.fiscal!,
+        cst: value,
+        cest: isSt ? prev.fiscal?.cest || '' : '',
+      },
+    }));
+  };
+
+  const closeCsosnConfirmation = () => {
+    setIsCsosnConfirmationOpen(false);
+    setPendingCsosn(null);
+  };
+
+  const confirmCsosnChange = () => {
+    if (pendingCsosn !== null) updateFiscalCst(pendingCsosn);
+  };
 
   // Fechar modal com tecla Escape
   useEffect(() => {
@@ -187,18 +212,24 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                 : 'CST / CSOSN ICMS (Simples Nacional)'}
             </label>
             <select
-              value={formData.fiscal?.cst || '103'}
+              aria-label={formData.itemType === 'service' ? 'CST/CSOSN ISSQN' : 'CSOSN do produto'}
+              value={pendingCsosn ?? currentCsosn}
               onChange={(e) => {
-                const val = e.target.value;
-                const isSt = ['201', '202', '500'].includes(val);
-                setFormData((prev) => ({
-                  ...prev,
-                  fiscal: {
-                    ...prev.fiscal!,
-                    cst: val,
-                    cest: isSt ? prev.fiscal?.cest || '' : '',
-                  },
-                }));
+                const value = e.target.value;
+                if (formData.itemType === 'service') {
+                  updateFiscalCst(value);
+                  return;
+                }
+                setPendingCsosn(value === currentCsosn ? null : value);
+              }}
+              onBlur={() => {
+                if (
+                  formData.itemType !== 'service' &&
+                  pendingCsosn !== null &&
+                  !isCsosnConfirmationOpen
+                ) {
+                  setIsCsosnConfirmationOpen(true);
+                }
               }}
               className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
             >
@@ -326,6 +357,17 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isCsosnConfirmationOpen && pendingCsosn !== null}
+        onClose={closeCsosnConfirmation}
+        onConfirm={confirmCsosnChange}
+        title="Confirmar alteração de CSOSN?"
+        message={`Tem certeza de que deseja alterar o CSOSN de ${currentCsosn} para ${pendingCsosn}? Essa classificação pode mudar a tributação da operação.`}
+        confirmLabel="Sim, alterar"
+        cancelLabel="Não, manter atual"
+        type="warning"
+      />
 
       {/* Modal de Informação sobre NCM por IA */}
       {isInfoModalOpen && (

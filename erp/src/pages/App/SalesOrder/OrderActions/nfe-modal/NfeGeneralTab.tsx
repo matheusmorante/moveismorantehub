@@ -130,7 +130,7 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
                     ? String(emissionResult.nfeNumber)
                     : numberPreview
                 }
-                readOnly={isLocked || isSubmitting}
+                readOnly={isLocked || isSubmitting || isLoadingNfeNumber}
                 onChange={(e) => onNumberPreviewChange(e.target.value.replace(/\D/g, ''))}
                 placeholder="Consultando..."
                 className="mt-1 w-full rounded-none border-0 border-b-2 border-slate-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500"
@@ -144,6 +144,15 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
             >
               {numberPreviewContext}
             </span>
+            {isLoadingNfeNumber && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400"
+              >
+                Atualizando a prévia no banco. O número definitivo é reservado ao emitir.
+              </p>
+            )}
             {nfeNumberError && (
               <p
                 role="status"

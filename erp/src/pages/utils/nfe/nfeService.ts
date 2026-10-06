@@ -131,6 +131,13 @@ export async function abandonUntransmittedHmlAttempt(
 
 export const FISCAL_NUMBER_PREVIEW_TTL_MS = 30_000;
 const fiscalNumberPreviewCache = new Map<string, { nextNumber: number; timestamp: number }>();
+const fiscalNumberPreviewRequests = new Map<string, Promise<number>>();
+
+function cacheFiscalNumberPreview(cacheKey: string, nextNumber: number) {
+  const cached = fiscalNumberPreviewCache.get(cacheKey);
+  if (cached && nextNumber < cached.nextNumber) return;
+  fiscalNumberPreviewCache.set(cacheKey, { nextNumber, timestamp: Date.now() });
+}
 
 export function updateFiscalNumberPreviewCache(
   model: '55' | '65',
@@ -139,7 +146,7 @@ export function updateFiscalNumberPreviewCache(
   nextNumber: number
 ) {
   const cacheKey = `${environment}:${model}:${series}`;
-  fiscalNumberPreviewCache.set(cacheKey, { nextNumber, timestamp: Date.now() });
+  cacheFiscalNumberPreview(cacheKey, nextNumber);
 }
 
 export function getCachedFiscalNumberPreview(
@@ -168,25 +175,40 @@ export async function getNextNfeNumberPreview(
     return cached.nextNumber;
   }
 
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token)
-    throw new Error('Faça login novamente para consultar a numeração fiscal.');
-  const query = new URLSearchParams({
-    model,
-    environment: String(environment),
-    series,
-    minimumNumber: String(minimumNumber),
-  });
-  const response = await fetch(`/api/nfe/reserve-number?${query}`, {
-    headers: { Authorization: `Bearer ${data.session.access_token}` },
-    cache: 'no-store',
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || !Number.isInteger(result.nextNumber))
-    throw new Error(result.error || 'Não foi possível consultar a numeração fiscal.');
+  const requestKey = `${cacheKey}:${minimumNumber}`;
+  const existingRequest = fiscalNumberPreviewRequests.get(requestKey);
+  if (existingRequest) return existingRequest;
 
-  fiscalNumberPreviewCache.set(cacheKey, { nextNumber: result.nextNumber, timestamp: Date.now() });
-  return result.nextNumber;
+  const request = (async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.access_token)
+      throw new Error('Faça login novamente para consultar a numeração fiscal.');
+    const query = new URLSearchParams({
+      model,
+      environment: String(environment),
+      series,
+      minimumNumber: String(minimumNumber),
+    });
+    const response = await fetch(`/api/nfe/reserve-number?${query}`, {
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+      cache: 'no-store',
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !Number.isInteger(result.nextNumber))
+      throw new Error(result.error || 'Não foi possível consultar a numeração fiscal.');
+
+    cacheFiscalNumberPreview(cacheKey, result.nextNumber);
+    return result.nextNumber;
+  })();
+  fiscalNumberPreviewRequests.set(requestKey, request);
+
+  try {
+    return await request;
+  } finally {
+    if (fiscalNumberPreviewRequests.get(requestKey) === request) {
+      fiscalNumberPreviewRequests.delete(requestKey);
+    }
+  }
 }
 
 export interface NfeEmissionResult {

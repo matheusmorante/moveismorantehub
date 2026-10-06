@@ -20,7 +20,6 @@ export interface NfeFiscalIssueModalProps {
   canOperateFiscal: boolean;
   isSubmitting: boolean;
   isLoadingFiscalData: boolean;
-  isLoadingNfeNumber: boolean;
   fiscalPreparationError: string | null;
   onReconcile?: () => void;
   onAbandonHmlTlsAttempt?: () => void;
@@ -40,7 +39,6 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
   canOperateFiscal,
   isSubmitting,
   isLoadingFiscalData,
-  isLoadingNfeNumber,
   fiscalPreparationError,
   onReconcile,
   onAbandonHmlTlsAttempt,
@@ -155,7 +153,6 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                     !canOperateFiscal ||
                     isSubmitting ||
                     isLoadingFiscalData ||
-                    isLoadingNfeNumber ||
                     Boolean(fiscalPreparationError)
                   }
                   className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
@@ -176,7 +173,6 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                     !canOperateFiscal ||
                     isSubmitting ||
                     isLoadingFiscalData ||
-                    isLoadingNfeNumber ||
                     Boolean(fiscalPreparationError)
                   }
                   className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
@@ -214,7 +210,6 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                       !canOperateFiscal ||
                       isSubmitting ||
                       isLoadingFiscalData ||
-                      isLoadingNfeNumber ||
                       Boolean(emissionResult.pending) ||
                       Boolean(fiscalPreparationError) ||
                       (environment === 1 && !productionConfirmed) ||

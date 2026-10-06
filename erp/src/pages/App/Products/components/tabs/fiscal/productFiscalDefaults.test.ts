@@ -28,4 +28,8 @@ describe('createInitialProductFiscalInfo', () => {
       })
     ).toMatchObject({ ncm: '94036000', cfop: '5933', cst: '500', origem: '1' });
   });
+
+  it('usa CSOSN 103 como valor inicial de produto, mesmo se outro código vier dos padrões gerais', () => {
+    expect(createInitialProductFiscalInfo('product', { cst: '500' }).cst).toBe('103');
+  });
 });

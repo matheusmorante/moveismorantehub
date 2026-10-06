@@ -1,61 +1,94 @@
-# NF-e de devolução: regras do formulário e limites fiscais
+# NF-e de devolução: regras do formulário, transporte e limites de suporte
 
-## Escopo habilitado
+## Escopo implementado
 
-O formulário de devolução usa uma política central definida em `shared-utils/fiscalOperationContext.ts` (`getFiscalFormRules`). A mesma política fornece valores fixos de XML; o cliente a usa para montar a revisão e as rotas `api/nfe/operation-drafts.ts` e `api/nfe/transmit-operation-draft.ts` a usam antes de salvar e transmitir.
+O formulário e as validações usam a política central `getFiscalFormRules(operationContext)` em `shared-utils/fiscalOperationContext.ts`. O backend recompõe o contexto a partir do pedido de devolução, da NF-e original, das configurações fiscais do estabelecimento e das alocações de itens. Valores informados pelo navegador não são autoridade para método de retorno, destinatário, pagamento, CFOP, tributos ou transporte.
 
-O cenário atualmente habilitado é restrito: NF-e modelo 55 original válida e autorizada, mesmo pedido e ambiente, operação interna PR→PR, destinatário original consumidor final não contribuinte e retorno físico registrado como entregue à loja (`store_delivery`). O CFOP é determinado por item original. Nenhum cenário interestadual está habilitado.
+O pedido persiste hoje `store_delivery` (cliente já levou a mercadoria à loja) ou `store_collection` (coleta própria da empresa). O backend normaliza esses valores para `CLIENT_DELIVERED` e `COMPANY_PICKUP` no contexto fiscal. O método não é pedido novamente no modal. Se ele não estiver persistido, a emissão fica bloqueada como `UNSUPPORTED_BY_ERP`; o status `fulfilled` não é usado para inventá-lo.
 
-O sistema não presume uma matriz tributária de devolução. Só permite preparar e transmitir quando as bases e os valores tributários da linha original e os totais ICMS relevantes são zero. Se houver tributação não zerada, a devolução permanece bloqueada até existir matriz fiscal aprovada e testada para esse cenário. A classificação original é mostrada sem edição; não se transforma isso em autorização para qualquer CST/CSOSN.
+O escopo atualmente emitível continua limitado a NF-e modelo 55, com NF-e de saída original autorizada, mesmo pedido e ambiente, retorno físico concluído, destinatário original não contribuinte e consumidor final, operação interna, e dados tributários de origem sem bases/valores não zerados. Isso descreve a capacidade atual do ERP; não declara proibições gerais da SEFAZ ou da legislação.
+
+## Categorias usadas
+
+| Categoria | Significado |
+|---|---|
+| `SEFAZ_REQUIRED` | Campo ou combinação exigidos por schema/regra objetiva de validação vigente. |
+| `FISCAL_RULE` | Consequência da natureza da operação ou regra tributária aplicável. |
+| `PROJECT_POLICY` | Decisão explícita do fluxo deste ERP. |
+| `UNSUPPORTED_BY_ERP` | Cenário possível em tese, mas sem implementação segura neste produto. |
+| `TEMPORARY_BLOCK` | Bloqueio até aprovação da matriz, atualização de catálogo ou evidência/teste exigido. |
+
+`UNSUPPORTED_BY_ERP` e `TEMPORARY_BLOCK` nunca significam que a operação seja fiscalmente proibida.
+
+## Matriz de regras e capacidade
+
+| Regra/cenário | Status | Origem | Motivo | Implementado? |
+|---|---|---|---|---|
+| `finNFe=4` e CFOP classificado como devolução por item | `SEFAZ_REQUIRED` | MOC/Anexo I, regra 327 | A validação 327 só aceita CFOP de devolução em documento com finalidade de devolução. | Sim; finalidade fixa e CFOP filtrado por tipo, escopo, origem e ST. |
+| CFOP interno/interestadual da devolução | `SEFAZ_REQUIRED` + `FISCAL_RULE` | Tabela oficial CFOP e operação de origem | Escopo vem das UFs e da NF-e original; entrada interna usa a família `1xxx`, interestadual a `2xxx`. | Parcial; opções saem do catálogo semântico do ERP. Ausência de correspondência bloqueia sem escolher CFOP genérico. |
+| Sincronização do catálogo local com a Tabela CFOP oficial vigente | `TEMPORARY_BLOCK` | Projeto | O catálogo é versionado no código e não é importado/atualizado automaticamente pelo Portal Nacional. A publicação oficial consultada é de 04/09/2026. | Parcial; manter revisão do catálogo e bloquear códigos sem classificação. |
+| Método `CLIENT_DELIVERED` | `PROJECT_POLICY` | Pedido de devolução e códigos oficiais de modalidade | O pedido indica que o cliente trouxe a mercadoria. O ERP interpreta o cliente, que é o destinatário no documento de entrada, como responsável por transporte próprio: `modFrete=4`. | Sim, valor fixo e validado novamente no servidor. Se houve transportador contratado/terceiro, o pedido atual não descreve esse fato; esse cenário não deve usar esta regra. |
+| Método `COMPANY_PICKUP` | `PROJECT_POLICY` | Pedido de devolução e códigos oficiais de modalidade | O pedido indica coleta própria da empresa emitente: `modFrete=3`. | Sim, valor fixo e validado novamente no servidor. Coleta por transportador contratado não está coberta pelo método atual. |
+| `modFrete=9` | `FISCAL_RULE` | MOC/Notas Técnicas | Significa sem ocorrência de transporte. Não é padrão de devolução e não é usado para nenhum dos dois métodos persistidos acima, pois ambos descrevem deslocamento físico. | Sim; payload `9` diverge do contexto e é rejeitado antes da reserva de número. |
+| Transportador terceiro, veículos e dados adicionais de transporte | `UNSUPPORTED_BY_ERP` | Projeto | O pedido atual não persiste contratação de transportador nem dados suficientes para distinguir esse caso de transporte próprio. | Não; não oferecer seleção fiscal livre no modal. |
+| Devolução interestadual | `TEMPORARY_BLOCK` | Projeto | Devolução interestadual é uma operação possível. A transmissão fica bloqueada até matriz por cenário tributário e validação de origem, contribuinte/consumidor, ST e destino. | Parcial; o domínio resolve o escopo e filtra CFOP de entrada compatível (ex.: venda original `6102` → opção de devolução `2202`), mas o servidor não permite preparar/transmitir sem a matriz aprovada. |
+| Bases ou valores tributários originais diferentes de zero | `UNSUPPORTED_BY_ERP` | Projeto, pendente de matriz fiscal | Uma devolução pode precisar refletir tributos da operação original. O ERP ainda não aprovou a reprodução por regime, ICMS, ST, IPI, FCP, IBS/CBS, IS e cenário. | Bloqueado. O backend examina os grupos tributários por item e os grupos de totais; não troca bases, alíquotas ou valores por zero para fazer a nota passar. |
+| Destinatário contribuinte ou não consumidor final | `UNSUPPORTED_BY_ERP` | Projeto, pendente de matriz fiscal | O fluxo aprovado do ERP cobre somente destinatário não contribuinte e consumidor final. | Não; backend rejeita antes da reserva. |
+| Pagamento `tPag=90` e `vPag=0` | `PROJECT_POLICY` | Domínio do ERP, compatível com as validações de pagamento | A NF-e de devolução deste fluxo não representa pagamento/reembolso. A validação 904 rejeita `tPag=90` com `vPag` diferente de zero; a regra 865 também contém exceções para `finNFe=4` e `tPag=90`. | Sim; fixo no modal e validado antes da transmissão. Reembolso permanece no pedido/comercial. |
+| Modelo 55 | `PROJECT_POLICY` | Escopo do produto | O ERP implementa devolução pela NF-e modelo 55 neste fluxo. Isso não é uma conclusão geral de que toda devolução deva usar exclusivamente modelo 55. | Sim; modelo 65 não aparece nem é aceito pela API. |
+| Referência e vínculo à NF-e original | `FISCAL_RULE` + `PROJECT_POLICY` | Leiaute/regra vigente e integridade do fluxo | O original deve estar autorizado, ser de saída, corresponder ao pedido e ambiente e sustentar itens/quantidades devolvidos. Não se aceita chave livre nem escolha arbitrária quando houver ambiguidade. | Sim; chave, autorização, protocolo, CNPJ, ambiente, modelo, itens, alocações e saldo já devolvido são revalidados no servidor. |
+| Retorno físico antes da emissão fiscal | `PROJECT_POLICY` | Regra operacional documentada do ERP | Criar a devolução não prova que a mercadoria retornou. A coleta deve ser confirmada como Coletada; entrega à loja, como Recebida. | Sim; a API exige devolução atendida e não gera movimento comercial, estoque ou financeiro. |
+
+## Contexto logístico e `modFrete`
+
+O contexto usado pelo formulário contém a operação, finalidade, modelo, UF do emitente, UF do destinatário original, escopo, regime tributário, condição fiscal do destinatário, método persistido, modalidade resolvida e referência da NF-e original. O cliente envia revisões; o servidor recarrega esses fatos e rejeita divergências antes de reservar número e antes da transmissão.
+
+| Método persistido | Movimento registrado | Modalidade resolvida | Dados adicionais atuais | Situação |
+|---|---|---|---|---|
+| `store_delivery` → `CLIENT_DELIVERED` | Cliente trouxe a mercadoria ao estabelecimento; o retorno físico já foi concluído. | `4` — transporte próprio por conta do destinatário, sob a semântica operacional do pedido. | Sem transportador terceiro/veículo informado pelo pedido. Se a realidade diferir, a regra não cobre o caso. | Suportado no cenário interno aprovado; transmissão continua sujeita à matriz tributária. |
+| `store_collection` → `COMPANY_PICKUP` | A empresa fez a coleta no endereço do cliente; retorno físico confirmado. | `3` — transporte próprio por conta do emitente. | Sem transportador terceiro/veículo informado pelo pedido. | Suportado no cenário interno aprovado; transmissão continua sujeita à matriz tributária. |
+| método ausente/desconhecido | Movimento não demonstrado pelo registro fiscal. | Nenhum valor presumido. | O status `fulfilled` sozinho não determina quem transportou. | Bloqueado como `UNSUPPORTED_BY_ERP`. |
+| transportador terceiro | Movimento pode ter ocorrido, mas o pedido não registra contratante/transportador. | `0`, `1` ou `2` não são escolhidos automaticamente. | O modal não cria um segundo campo logístico independente. | Bloqueado até o dado ser registrado e validado na origem. |
+
+Os códigos `3` e `4` seguem as definições oficiais “transporte próprio por conta do remetente” e “transporte próprio por conta do destinatário”. A NT 2021.004 também valida que, quando CPF/CNPJ do transportador é informado, ele corresponda ao emitente no modo 3 ou ao destinatário no modo 4; a regra citada não se aplica quando esse documento não é informado. A aplicação desses papéis a cada método é uma regra do produto baseada nos atores registrados no pedido. `9` só é apropriado quando realmente não há ocorrência de transporte; não equivale a “devolução”.
 
 ## Auditoria dos campos e controles
 
-“Venda normal” abaixo descreve o modal de emissão de saída em `SalesOrder/OrderActions/nfe-modal`. “Devolução” descreve o fluxo fiscal iniciado na devolução comercial, usando o seletor de NF-e original e o modal de rascunho fiscal. Valores fiscais gerados, como a referência da origem, não são seleções do usuário.
+“Venda normal” descreve o modal de emissão de saída. “Devolução” descreve a preparação fiscal depois do retorno físico confirmado.
 
-| Campo / controle | Venda normal | Devolução | Visibilidade e opções na devolução | Editável? |
+| Campo/controle | Venda normal | Devolução | Regra na devolução | Editável? |
 |---|---|---|---|---|
-| Pedido / operação de origem | Pedido de venda aberto no modal de saída. | Pedido de devolução atendido, ligado à venda. O identificador fica fixo; itens/quantidades vêm das alocações fiscais. | Mostra o pedido vinculado e os itens alocados; não oferece outro pedido. | Não |
-| NF-e de origem | Não há referência obrigatória a uma NF-e de saída anterior. | Seletor mostra somente documentos de saída autorizados que correspondem às alocações; chave, modelo, série, número e ambiente são conferidos no servidor. Ambiguidade sem correspondência de itens bloqueia a escolha. | A seleção é limitada às notas apresentadas pelo servidor. A nota original precisa ser modelo 55 e autorização válida. | Seleção entre origens elegíveis; metadados não editáveis |
-| Ambiente fiscal | O usuário escolhe Homologação ou Produção antes de abrir o modal; Produção permanece desativada no seletor atual. | Herdado do documento original, exibido no modal e fixo no rascunho. Documento, rascunho e transmissão precisam continuar no mesmo ambiente. | Não oferece troca de ambiente. | Não |
-| Modelo fiscal | Não há select no modal principal; é resolvido pelo contexto da venda/entrega entre os modelos suportados. | Apenas NF-e modelo 55. | Não mostra NFC-e 65 nem outro modelo. | Não |
-| Finalidade fiscal | O modal normal mostra “Uso / consumo próprio” ou “Revenda”; isso alimenta a classificação da venda e não é uma seleção de finalidade fiscal de devolução. | `finNFe=4` fixo (devolução); `tpNF=0` fixo (entrada). | Não mostra Normal, Complementar ou Ajuste. | Não |
-| Número, série e chave da nova nota | Número em prévia; a reserva válida é feita no servidor. Série vem da configuração fiscal. | Gerados pelo fluxo fiscal e pela sequência do ambiente da origem. O rascunho não aceita número, série ou chave digitados livremente. | Sem campo para escolher número/série/chave. | Não |
-| Indicadores de destinatário/operação | Indicadores derivam do destinatário, modelo e operação comercial. | `idDest=1`, `indFinal=1`, `indIEDest=9` e `indPres=0`, somente no cenário interno aprovado. | Cenários interestaduais, destinatário contribuinte ou não final são bloqueados; não há seletor para substituí-los. | Não |
-| Identificação do destinatário | CPF/CNPJ pode ser preenchido/editado; os demais dados são carregados do cadastro do cliente e sujeitos às validações da emissão normal. | Copiada do destinatário da NF-e original; a devolução não permite escolher outro CPF/CNPJ. | Exibida em somente leitura; inconsistências no documento de origem bloqueiam a preparação. | Não |
-| Item / produto | Itens do pedido. Os dados fiscais podem ser expandidos para edição conforme as regras da emissão normal. | Somente itens e quantidades ligados às alocações aprovadas contra os itens faturados na NF-e original. | Produto, NCM, descrição, unidade, preço e quantidades de origem não podem ser substituídos por outro item. | Não; CFOP tem controle separado |
-| CFOP por item | Busca por código/descrição e select de CFOP; o catálogo e o validador consideram o escopo da venda. Códigos incompatíveis com operação interestadual ficam bloqueados. | Select limitado aos CFOPs de devolução permitidos pela direção, cenário interno, origem da mercadoria e ST do item original. | 5102/6102 de venda não aparecem como opções de devolução; 6933 não é usado para venda de mercadoria. CFOP sem regra aprovada deixa o item bloqueado. Exemplos cobertos: 5102 sem ST→1202; 5101 sem ST→1201; 5405/ST de mercadoria de terceiros→1411. | Sim, somente entre opções do item; servidor valida novamente |
-| NCM | Pesquisa/seleção de NCM no item da venda. | Preservado do XML do item original. | Sem catálogo ou edição livre. | Não |
-| CST/CSOSN | Select da emissão normal apresenta as opções do regime no componente; a classificação final passa pelas validações fiscais da venda. | Não apresenta o catálogo indiscriminado. Usa a classificação original compatível e a exibe em somente leitura no único caso sem bases/valores tributários habilitado. | Qualquer base ou valor tributário diferente de zero bloqueia; não há escolha manual de CSOSN/CST para contornar a ausência da matriz. | Não |
-| Origem da mercadoria / CEST | Selects disponíveis no painel fiscal do item normal; exigência de CEST depende do produto/regra aplicável. | Preservados do item fiscal original, sem edição. | O CFOP candidato também considera origem e ST. Combinações sem regra correspondente bloqueiam. | Não |
-| Tributos do item | Revisáveis segundo o fluxo normal de emissão e suas regras. | XML fiscal derivado do item original e da quantidade devolvida; classificação aparece somente para leitura. | Apenas bases e valores zerados são aceitos hoje. ICMS/DIFAL/FCP, ST ou outro valor não são presumidos. | Não |
-| Natureza da operação | Não há select de natureza no modal normal; é preenchida pela preparação fiscal de venda. | Uma única opção fixa: “Devolução de mercadoria”. | Select desabilitado com somente essa opção. “Venda de mercadoria” não é oferecida. | Não |
-| Documento fiscal referenciado | Não há referência a uma origem anterior. | Referência automática à chave de acesso da NF-e original. | Não permite pesquisar nem escolher arbitrariamente outra chave. | Não |
-| Item original referenciado | Não aplicável na venda original. | Cada item devolvido é vinculado ao `nItem` original conforme a alocação comercial/fiscal; o XML grava a referência de chave e item. | Referência automática; não há campo para digitar o número de item. | Não |
-| Transporte | Modalidade depende de entrega/retirada, modelo e responsável: própria empresa, destinatário ou transportadora; identificação de terceiro só aparece quando aplicável. | Modalidade 9, sem transporte fiscal adicional, fixa no único método de retorno suportado. | Não copia a modalidade da venda original. Retorno por coleta fica bloqueado até haver regra aprovada de transporte para esse cenário. | Não |
-| Pagamento fiscal | Aba mostra os pagamentos comerciais registrados no pedido e reconcilia valores; não oferece um novo select de meio de pagamento fiscal. | `tPag=90`, “Sem pagamento”, e `vPag=0,00`, fixos. | PIX, dinheiro, cartão, boleto e pagamentos da venda não aparecem como opções. | Não |
-| Totais | Calculados/revisados no fluxo da nota de saída. | Totais comerciais são recalculados para os itens/quantidades da devolução. Totais tributários só são aceitos quando a condição de bases/valores zerados é satisfeita. | Exibição somente leitura; o usuário não altera os totais fiscais no rascunho de devolução. | Não |
-| Observação fiscal | O modal de venda não expõe campo de observação fiscal livre. | `infCpl` gerada automaticamente informa a chave da NF-e e que itens/quantidades estão identificados por item. | Texto de devolução aparece somente nesse contexto e não pode ser editado. | Não |
-| Justificativa de estorno | Não existe na venda normal. | Não aparece na devolução; pertence ao fluxo separado de estorno fiscal. | Oculta no modo de devolução. | Não aplicável |
-| Confirmações de revisão | Confirmações e validações próprias da emissão normal. | Confirmação de classificação/valores tributários zerados e confirmação de totais/referências; em Produção, confirmação adicional de transmissão. | Só confirmações pertinentes ao rascunho; não habilitam cenário fiscal bloqueado. | Sim, confirmação explícita |
+| Pedido/operação de origem | Pedido de venda. | Pedido de devolução vinculado à venda. | ID, venda de origem e itens/quantidades alocados são carregados do servidor. | Não |
+| NF-e original | Não é referência necessária à venda inicial. | Documento de saída original autorizado. | Chave, modelo, série, número, ambiente, protocolo, itens e vínculo são verificados no servidor. Ambiguidade bloqueia. | Não selecionar chave livre |
+| Ambiente | Escolhido pelo fluxo normal e sujeito às permissões do ambiente. | Herdado da NF-e original. | Documento, rascunho e transmissão devem usar o mesmo ambiente. | Não |
+| Modelo | Resolvido pelo fluxo de saída. | Modelo 55 no escopo atual. | Modelo 65 não é opção do fluxo. | Não |
+| Finalidade/tipo da operação | Finalidade e tipo aplicáveis à venda. | `finNFe=4`, `tpNF=0`. | Fixos; Normal, Complementar e Ajuste não são oferecidos. | Não |
+| UF e indicadores de destino | Derivados do emitente/destinatário e da operação. | UFs são lidas do documento original e da configuração fiscal. | `idDest` acompanha o escopo; interestadual permanece bloqueado por matriz pendente. | Não |
+| Destinatário | Carregado/editável conforme regra da venda. | Copiado do destinatário da NF-e original. | Sem troca de CPF/CNPJ ou endereço no rascunho. | Não |
+| Itens e quantidades | Vêm do pedido de venda. | Vinculados ao `nItem` original por alocação aprovada. | Sem substituição do produto; limite devolvível e devoluções anteriores revalidados. | Não |
+| CFOP por item | Opções da venda normal. | CFOP com `operationType=customer_return`, direção de entrada, escopo e atributos do item original. | Catálogo filtra por UF, origem de mercadoria e ST. `6933` de serviço não entra para mercadoria. | Somente dentro das opções; servidor confere novamente |
+| NCM/origem/CEST/classificação | Campos da emissão normal conforme cadastro e cenário. | Derivados do XML fiscal original e somente leitura. | Não há escolha de CST/CSOSN independente para contornar a matriz. | Não |
+| Tributos do item/totais | Revisados pela matriz de saída. | Recalculados proporcionalmente para itens/quantidades quando o cenário suportado tem valores zerados. | Qualquer base/valor original não zerado bloqueia; nenhum imposto é zerado silenciosamente. | Não |
+| Natureza da operação | Definida pelo fluxo de venda. | “Devolução de mercadoria”, fixa. | Não oferece “Venda de mercadoria”. | Não |
+| Transporte | Depende da venda original. | Vem do método persistido no pedido: modo 4 ou 3. | Não copia a modalidade da venda original; não há select independente no modal. | Não |
+| Pagamento fiscal | Apresenta o tratamento fiscal dos pagamentos da venda. | `tPag=90`, `vPag=0,00`. | PIX, dinheiro, cartão, boleto e reembolso não são opções deste documento. | Não |
+| Observações/referência de item | Texto conforme emissão normal. | Referência da chave e dos itens originais gerada pelo fluxo. | Sem edição de chave/item de origem. | Não |
+| Confirmações | Confirmações da emissão normal. | Confirmação da revisão e, em Produção, da transmissão. | Confirmações não liberam cenário sem matriz ou divergente do pedido. | Sim, confirmações explícitas |
 
-## Regra central e validação no servidor
+## Validações do servidor
 
-`getFiscalFormRules(context, scenario)` informa campos visíveis, ocultos, somente leitura e obrigatórios; modelos, finalidades, CFOPs, pagamentos, transporte, natureza e valores fixos. `getFiscalFormXmlDefaults` gera os blocos fixos de natureza, pagamento e transporte a partir da mesma política.
+Antes de preparar ou salvar revisão, o backend recarrega o pedido, método logístico, NF-e original, ambiente, autorização, alocações e itens. Antes de reservar número ou transmitir, recompõe o mesmo `operationContext`, determina novamente a modalidade, natureza, pagamento, destinatário e opções de CFOP e compara com a revisão persistida. Payload direto com outra modalidade, chave, destinatário, item, pagamento, CFOP ou tributo é rejeitado.
 
-O modal usa a configuração para exibir os controles e valores permitidos. As rotas de criação/revisão e transmissão recarregam o documento de origem, o pedido, as alocações e o ambiente; conferem modelo/finalidade, natureza, destinatário, pagamento, transporte, CFOP por item, produto, tributos e vínculos. Uma requisição direta com valor incompatível é rejeitada antes da reserva/transmissão. Uma tentativa SEFAZ já iniciada e incerta segue para reconciliação da mesma chave; não é retransmitida como nova nota.
-
-A ação também depende da existência de NF-e de saída autorizada vinculada ao mesmo pedido. Tentativa, erro, rejeição, denegação, reserva ou número sem autorização não atendem a condição. Se não houver documento válido, a interface e o servidor bloqueiam com a mensagem: “Não é possível emitir NF-e de devolução porque este pedido não possui NF-e de saída autorizada.”
-
-## Cenários ainda sem matriz aprovada
-
-Não habilitar emissão interestadual PR→SC ou PR→qualquer outra UF. Antes de aprovar essa extensão, o responsável fiscal precisa definir, por cenário: PJ contribuinte; PJ não contribuinte; pessoa física/consumidor final não contribuinte; CSOSN/CST e demais grupos tributários; DIFAL/FCP; CFOP; origem; mercadoria com/sem ST; transporte; modelo; e referências de documento/item. Até lá, as opções não são expostas e o servidor bloqueia qualquer tentativa.
-
-Também não estão habilitados retorno por coleta, destinatário contribuinte/não final, bases/valores tributários diferentes de zero e combinações de origem/ST sem CFOP catalogado. Criar a devolução comercial/logística e confirmar o retorno físico continua sendo um fluxo separado; a emissão fiscal não cria movimento de estoque, financeiro ou status comercial.
+Uma tentativa de transmissão incerta continua no fluxo idempotente de reconciliação da mesma chave; não se cria outra nota automaticamente. Nenhuma emissão real foi executada nesta revisão.
 
 ## Fontes fiscais consultadas
 
-- [Portal Nacional NF-e — NT 2025.002-RTC](https://www.nfe.fazenda.gov.br/Portal/exibirArquivo.aspx?conteudo=pD4YrecPV6s%3D): referência de item/documento e leiaute de NF-e; a aplicabilidade da versão vigente deve ser conferida antes de cada evolução do XML.
-- [SEFA/PR — FAQ sobre devolução por não contribuinte](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/43): orientação estadual consultada para devoluções. O fluxo do produto também segue a política operacional registrada em `AGENTS.md`; antes de alterar o momento fiscal em relação ao retorno físico, revisar essa orientação com o responsável fiscal.
+- [Portal Nacional NF-e — MOC 7.0, Anexo I e regras de validação](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=J+I+v4eN00E%3D) — finalidade de devolução/CFOP e leiaute.
+- [Portal Nacional NF-e — NT 2018.005](https://www.nfe.fazenda.gov.br/PORTal/exibirArquivo.aspx?conteudo=vZguLua3oPM%3D) — modalidades `0`, `1`, `2`, `3`, `4` e `9`.
+- [Portal Nacional NF-e — NT 2021.004](https://www.nfe.fazenda.gov.br/PORTal/exibirArquivo.aspx?conteudo=mCodklBEULU%3D) — regra para transporte próprio por conta do emitente em NF-e de entrada.
+- [Portal Nacional NF-e — NT 2020.004](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=trSXReoZPuY%3D) — validações de pagamento 865 e 904.
+- [Portal Nacional NF-e — documentos diversos e Tabela CFOP vigente](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=%2FNJarYc9nus%3D) — publicação consultada em 04/09/2026.
+- [SEFA/PR — FAQ sobre devolução por não contribuinte](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/43).
 - [RICMS/PR — Decreto nº 7.871/2017](https://www.fazenda.pr.gov.br/sites/default/arquivos_restritos/files/documento/2020-06/106201707871.pdf).
 
-Estas fontes dão contexto para revisão; não constituem aprovação da matriz tributária que ainda falta. Nenhuma transmissão SEFAZ foi executada nesta implementação.
+As fontes sustentam a semântica dos campos e validações citadas; a política do ERP e a matriz tributária continuam sendo responsabilidade do sistema e de aprovação fiscal. A existência de CFOP no catálogo, isoladamente, não aprova uma combinação tributária.

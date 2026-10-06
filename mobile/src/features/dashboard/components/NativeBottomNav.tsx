@@ -30,6 +30,7 @@ export interface NavItemConfig {
   icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
   url: string;
   visible?: boolean;
+  disabled?: boolean;
 }
 
 interface Props {
@@ -38,6 +39,7 @@ interface Props {
   canSeeReports: boolean;
   canSeeProducts?: boolean;
   canSeeFinance?: boolean;
+  isAdmin?: boolean;
   handleTabChange: (tab: string, url: string) => void;
   WEB_URL: string;
   customTabs?: NavItemConfig[];
@@ -49,6 +51,7 @@ export const NativeBottomNav: React.FC<Props> = ({
   canSeeReports,
   canSeeProducts,
   canSeeFinance = true,
+  isAdmin = false,
   handleTabChange,
   WEB_URL,
   customTabs,
@@ -80,6 +83,7 @@ export const NativeBottomNav: React.FC<Props> = ({
       icon: Sparkles,
       url: `${WEB_URL}/agent`,
       visible: true,
+      disabled: !isAdmin,
     },
     {
       key: 'pedidos',
@@ -153,14 +157,24 @@ export const NativeBottomNav: React.FC<Props> = ({
           const IconComponent = tab.icon;
           const active = isTabActive(tab.key);
           const isAgent = tab.key === 'agente';
+          const isDisabled = tab.disabled;
           const activeColor = isAgent ? '#eab308' : '#2563eb';
           const inactiveColor = isAgent ? '#eab308' : '#94a3b8';
           return (
             <TouchableOpacity
               key={tab.key}
               testID={`bottom-tab-${tab.key}`}
-              style={[styles.navItem, active && styles.navItemActive]}
-              onPress={() => handleTabChange(tab.key, tab.url)}
+              style={[
+                styles.navItem,
+                active && styles.navItemActive,
+                isDisabled && { opacity: 0.4 },
+              ]}
+              disabled={isDisabled}
+              onPress={() => {
+                if (!isDisabled) {
+                  handleTabChange(tab.key, tab.url);
+                }
+              }}
               accessibilityLabel={isAgent ? 'Assistente' : tab.label}
             >
               {isAgent ? (

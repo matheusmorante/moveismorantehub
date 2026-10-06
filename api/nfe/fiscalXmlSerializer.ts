@@ -36,6 +36,13 @@ const escapeXml = (value: string | number) =>
 const tag = (name: string, value: string | number) => `<${name}>${escapeXml(value)}</${name}>`;
 const money = (value: number) => value.toFixed(2);
 const decimal = (value: number, scale: number) => value.toFixed(scale);
+const dateOnly = (value: string, field: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} inválida.`);
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value)
+    throw new Error(`${field} inválida.`);
+  return value;
+};
 function percent(value: number): string {
   if (
     !Number.isFinite(value) ||
@@ -325,8 +332,18 @@ export function serializeFiscalDocument(
       requireCode(payment.methodCode, /^\d{2}$/, 'Meio de pagamento');
       if (document.model === '65' && ['03', '04', '17'].includes(payment.methodCode) && !payment.card)
         throw new Error('Dados de integração do cartão/PIX ausentes para NFC-e.');
+      const paymentDescription = payment.description?.trim();
+      if (
+        payment.methodCode === '99' &&
+        (!paymentDescription || paymentDescription.length < 2 || paymentDescription.length > 60)
+      )
+        throw new Error('Descreva o meio de pagamento classificado como Outros (2 a 60 caracteres).');
       return (
-        `<detPag>${tag('tPag', payment.methodCode)}${tag('vPag', money(payment.amount))}` +
+        `<detPag>${payment.paymentIndicator ? tag('indPag', requireCode(payment.paymentIndicator, /^[01]$/, 'Indicador do pagamento')) : ''}` +
+        `${tag('tPag', payment.methodCode)}` +
+        `${payment.methodCode === '99' ? tag('xPag', paymentDescription!) : ''}` +
+        `${tag('vPag', money(payment.amount))}` +
+        `${payment.paymentDate ? tag('dPag', dateOnly(payment.paymentDate, 'Data real do pagamento')) : ''}` +
         `${
           payment.card
             ? '<card>' +
@@ -347,6 +364,35 @@ export function serializeFiscalDocument(
       );
     })
     .join('')}${t.change ? tag('vTroco', money(t.change)) : ''}</pag>`;
+  const billing =
+    document.model === '55' && document.billingInstallments?.length
+      ? `<cobr>${document.billingInstallments
+          .map((installment) => {
+            if (!/^\d{1,60}$/.test(installment.number))
+              throw new Error('Número da duplicata inválido.');
+            if (!Number.isFinite(installment.amount) || installment.amount <= 0)
+              throw new Error('Valor da duplicata inválido.');
+            return (
+              `<dup>${tag('nDup', installment.number)}` +
+              `${installment.dueDate ? tag('dVenc', dateOnly(installment.dueDate, 'Data de vencimento')) : ''}` +
+              `${tag('vDup', money(installment.amount))}</dup>`
+            );
+          })
+          .join('')}</cobr>`
+      : '';
+  if (billing) {
+    const billingCents = document.billingInstallments!.reduce(
+      (sum, installment) => sum + Math.round(installment.amount * 100),
+      0
+    );
+    const deferredCents = document.payments.reduce(
+      (sum, payment) =>
+        sum + (payment.paymentIndicator === '1' ? Math.round(payment.amount * 100) : 0),
+      0
+    );
+    if (billingCents !== deferredCents)
+      throw new Error('As duplicatas não correspondem aos valores informados a prazo.');
+  }
   const transporter = operation.transporter;
   if (
     transporter &&
@@ -380,6 +426,6 @@ export function serializeFiscalDocument(
   return (
     `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe">` +
     `<infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}` +
-    `${transport}${payments}</infNFe>${supplement}</NFe>`
+    `${transport}${billing}${payments}</infNFe>${supplement}</NFe>`
   );
 }

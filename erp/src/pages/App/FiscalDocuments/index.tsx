@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
+import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
 import { FiscalIssueCard } from '@/pages/App/shared/components/FiscalIssueCard';
 import type { NfeDocumentRecord } from './types/fiscalDocuments.types';
 
@@ -22,6 +23,11 @@ import { IssuedFiscalDocumentDetailsModal } from './modals/IssuedFiscalDocumentD
 export default function FiscalDocumentsPage() {
   const { profile } = useAuth();
   const canOperateFiscal = hasFiscalOperationRole(profile);
+
+  React.useEffect(() => {
+    if (!canOperateFiscal) return;
+    void prefetchNfeNumberPreviews();
+  }, [canOperateFiscal]);
 
   const [operationSourceDoc, setOperationSourceDoc] = useState<NfeDocumentRecord | null>(null);
   const [automaticDraftId, setAutomaticDraftId] = useState<string | null>(null);

@@ -174,7 +174,8 @@ export function validateAuthorizedOutboundNfe(
 export function validateSupportedReturnEntryScenario(
   sourceInvoiceXml: string,
   companyUf: string,
-  returnMethod: FiscalReturnMethod | null
+  returnMethod: FiscalReturnMethod | null,
+  companyTaxRegime: string
 ): string | null {
   const destination = xmlBlock(sourceInvoiceXml, 'dest');
   const destinationUf = readXmlTag(destination, 'UF').toUpperCase();
@@ -184,6 +185,10 @@ export function validateSupportedReturnEntryScenario(
   const normalizedCompanyUf = companyUf.trim().toUpperCase();
   if (!destination || !destinationUf || !normalizedCompanyUf) {
     return 'UNSUPPORTED_BY_ERP: não foi possível determinar a UF e a condição fiscal do destinatário original.';
+  }
+  const originalTaxRegime = readXmlTag(xmlBlock(sourceInvoiceXml, 'emit'), 'CRT');
+  if (!companyTaxRegime || !originalTaxRegime || companyTaxRegime !== originalTaxRegime) {
+    return 'UNSUPPORTED_BY_ERP: o regime tributário atual não confere com o regime gravado na NF-e original.';
   }
   const recipientFiscalStatus = taxpayerIndicator === '9'
     ? 'non_taxpayer'
@@ -266,7 +271,8 @@ export async function loadReturnFiscalSourceContext(
   const scenarioError = validateSupportedReturnEntryScenario(
     source.xml_nfe || '',
     companyUf,
-    returnMethod
+    returnMethod,
+    taxRegime
   );
   if (scenarioError) return { error: scenarioError };
   const originalDestinationUf = readXmlTag(xmlBlock(source.xml_nfe || '', 'dest'), 'UF').toUpperCase();
@@ -291,7 +297,7 @@ export async function loadReturnFiscalSourceContext(
     ? 'internal'
     : 'interstate';
   const returnTransportMode = String(fiscalRules.fixedValues.modFrete || '');
-  if (scope === 'foreign' || !['3', '4'].includes(returnTransportMode)) {
+  if (!['3', '4'].includes(returnTransportMode)) {
     return { error: 'UNSUPPORTED_BY_ERP: não foi possível resolver o transporte da devolução.' };
   }
 

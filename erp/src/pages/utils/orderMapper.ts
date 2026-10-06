@@ -1,5 +1,6 @@
 import Order, { OrderType } from '../types/order.type';
 import { capitalizeOrder } from './formatters';
+import { isPaidOrderPayment } from '../../../../shared-utils/orderPaymentState';
 
 export interface OrderDatabaseRow {
   id: string;
@@ -103,7 +104,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
       const fee = Number(payment.fee || 0);
       const feeAmount = payment.feeType === 'percentage' ? (amount * fee) / 100 : fee;
       return {
-        paid: totals.paid + amount + feeAmount,
+        paid: totals.paid + (isPaidOrderPayment(payment.status) ? amount + feeAmount : 0),
         fee: totals.fee + feeAmount,
       };
     },
@@ -125,8 +126,8 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         ? Number(row.total_discount)
         : (legacySummary.totalFixedDiscount ?? 0),
     itemsTotalValue: totalAmount,
-    totalAmountPaid: legacySummary.totalAmountPaid ?? paymentTotals.paid,
-    amountRemaining: legacySummary.amountRemaining ?? Math.max(0, totalAmount - paymentTotals.paid),
+    totalAmountPaid: paymentTotals.paid,
+    amountRemaining: Math.max(0, totalAmount - paymentTotals.paid),
     totalPaymentsFee: legacySummary.totalPaymentsFee ?? paymentTotals.fee,
   };
 

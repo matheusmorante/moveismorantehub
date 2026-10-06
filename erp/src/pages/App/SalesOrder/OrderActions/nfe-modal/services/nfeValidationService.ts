@@ -29,7 +29,6 @@ export interface ValidationParams {
   nfeItems: NfeItemWithFiscal[];
   isLoadingFiscalData: boolean;
   fiscalPreparationError: string | null;
-  isLoadingNfeNumber: boolean;
   manualNumber?: number;
 }
 
@@ -49,7 +48,6 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
     nfeItems,
     isLoadingFiscalData,
     fiscalPreparationError,
-    isLoadingNfeNumber,
     manualNumber,
   } = params;
 
@@ -138,14 +136,6 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
       valid: false,
       recipientTaxIdError: null,
       toastError: 'A emissão está bloqueada até que a preparação fiscal seja concluída.',
-    };
-  }
-
-  if (isLoadingNfeNumber) {
-    return {
-      valid: false,
-      recipientTaxIdError: null,
-      toastError: 'Aguarde a consulta do próximo número fiscal.',
     };
   }
 

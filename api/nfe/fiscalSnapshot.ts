@@ -244,6 +244,9 @@ export type DeterminedFiscalItem = {
 export type DeterminedPayment = {
   methodCode: string;
   amount: number;
+  paymentIndicator?: '0' | '1';
+  description?: string;
+  paymentDate?: string;
   installments?: number;
   card?: {
     integrationType: '1' | '2';
@@ -252,6 +255,12 @@ export type DeterminedPayment = {
     authorization?: string;
   };
   decision: FiscalDecisionTrace;
+};
+
+export type DeterminedBillingInstallment = {
+  number: string;
+  dueDate?: string;
+  amount: number;
 };
 
 /** Complete server-resolved content accepted by the XML serializer. */
@@ -266,6 +275,7 @@ export type FiscalDocument = {
   operation: DeterminedFiscalOperation;
   items: ReadonlyArray<DeterminedFiscalItem>;
   payments: ReadonlyArray<DeterminedPayment>;
+  billingInstallments?: ReadonlyArray<DeterminedBillingInstallment>;
   totals: ReconciledFiscalTotals;
   decisions: ReadonlyArray<FiscalDecisionTrace>;
 };

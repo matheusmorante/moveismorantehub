@@ -43,7 +43,6 @@ export interface UseNfeEmissionActionsProps {
   nfeItems: NfeItemWithFiscal[];
   isLoadingFiscalData: boolean;
   fiscalPreparationError: string | null;
-  isLoadingNfeNumber: boolean;
   nfeNumberSequence: { model: '55' | '65'; series: string | null; environment: 1 | 2 };
   manualNumberInput: string | null;
   recipientTaxId: string;
@@ -67,7 +66,6 @@ export function useNfeEmissionActions({
   nfeItems,
   isLoadingFiscalData,
   fiscalPreparationError,
-  isLoadingNfeNumber,
   nfeNumberSequence,
   manualNumberInput,
   recipientTaxId,
@@ -119,7 +117,6 @@ export function useNfeEmissionActions({
       nfeItems,
       isLoadingFiscalData,
       fiscalPreparationError,
-      isLoadingNfeNumber,
       manualNumber,
     });
 

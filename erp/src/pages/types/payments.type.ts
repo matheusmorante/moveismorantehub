@@ -12,6 +12,9 @@ export type Payment = {
   fee: number;
   feeType: FeeType;
   status: string;
+  installments?: number;
+  dueDate?: string;
+  paymentDate?: string;
 };
 
 export type PaymentsSummary = {

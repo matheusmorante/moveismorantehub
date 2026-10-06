@@ -76,7 +76,15 @@ export const RETURN_TAX_MATRIX_REQUIRED_MESSAGE =
   'Este cenário de devolução ainda não tem matriz tributária aprovada no ERP. A emissão permanece bloqueada sem alterar ou zerar os dados tributários da NF-e original.';
 
 function hasNonZeroTaxAmount(xml: string, excludeCommercialTotals = false): boolean {
-  const commercialTotals = new Set(['vProd', 'vFrete', 'vSeg', 'vDesc', 'vOutro', 'vNF']);
+  const commercialTotals = new Set([
+    'vProd',
+    'vFrete',
+    'vSeg',
+    'vDesc',
+    'vOutro',
+    'vNF',
+    'vNFTot',
+  ]);
   const valuePattern = /<(?:[\w.-]+:)?(v[a-z][\w.-]*|q(?:bc|selo)[\w.-]*)\b[^>]*>\s*([+-]?(?:\d+)(?:\.\d+)?)\s*<\/(?:[\w.-]+:)?\1>/gi;
   for (const match of xml.matchAll(valuePattern)) {
     if (excludeCommercialTotals && commercialTotals.has(match[1])) continue;
@@ -93,7 +101,7 @@ export function validateReturnTaxScenario(
 ): string | null {
   if (hasNonZeroTaxAmount(sourceTaxesXml)) return RETURN_TAX_MATRIX_REQUIRED_MESSAGE;
   const totals = sourceInvoiceXml.match(
-    /<(?:[\w.-]+:)?ICMSTot\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?ICMSTot>/i
+    /<(?:[\w.-]+:)?total\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?total>/i
   )?.[0];
   if (totals && hasNonZeroTaxAmount(totals, true)) return RETURN_TAX_MATRIX_REQUIRED_MESSAGE;
   return null;

@@ -9,7 +9,6 @@ export interface NfeEmissionFooterProps {
   canOperateFiscal: boolean;
   isSubmitting: boolean;
   isLoadingFiscalData: boolean;
-  isLoadingNfeNumber: boolean;
   isLoadingCustomerType: boolean;
   fiscalPreparationError: string | null;
   emissionResult: NfeEmissionResult | null;
@@ -27,7 +26,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   canOperateFiscal,
   isSubmitting,
   isLoadingFiscalData,
-  isLoadingNfeNumber,
   isLoadingCustomerType,
   fiscalPreparationError,
   emissionResult,
@@ -46,7 +44,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     !canOperateFiscal ||
     isSubmitting ||
     isLoadingFiscalData ||
-    isLoadingNfeNumber ||
     isLoadingCustomerType ||
     Boolean(fiscalPreparationError);
 

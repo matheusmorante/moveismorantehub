@@ -134,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const fiscalSettings = getCompanyFiscalSettings(settingsRow?.data);
     const companyUf = String(fiscalSettings.companyUF || '');
+    const companyTaxRegime = String(fiscalSettings.companyCRT || '');
     const companyCnpj = String(fiscalSettings.companyCnpj || '').replace(/\D/g, '');
     const sourceById = new Map((sourceDocuments || []).map((source) => [source.id, source]));
     const lineByDocumentAndNumber = new Map(
@@ -165,7 +166,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         blockReason = validateSupportedReturnEntryScenario(
           source.xml_nfe || '',
           companyUf,
-          returnMethod
+          returnMethod,
+          companyTaxRegime
         );
       }
 

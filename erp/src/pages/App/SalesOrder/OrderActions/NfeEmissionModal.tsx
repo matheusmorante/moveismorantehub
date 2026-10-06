@@ -141,12 +141,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   if (!isOpen || !order) return null;
 
   const isPreparingInitialData = isLoadingFiscalData || isLoadingCustomerType;
-  const isPreparingNfe = isPreparingInitialData || isLoadingNfeNumber;
+  const isPreparingNfe = isPreparingInitialData;
   const preparationMessage = isLoadingFiscalData
     ? 'Carregando dados do cliente e dos produtos…'
-    : isLoadingCustomerType
-      ? 'Confirmando os dados fiscais do cliente…'
-      : 'Consultando a prévia da numeração fiscal…';
+    : 'Confirmando os dados fiscais do cliente…';
   const isLocked = Boolean(
     emissionResult?.success ||
       emissionResult?.pending ||
@@ -162,7 +160,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       : selectedModel === '55'
         ? 'NF-e · modelo 55 necessária'
         : 'Modelo fiscal a definir';
-  const numberPreviewContext = `Série ${nfeNumberSequence.series ?? '—'} · ${environment === 2 ? 'Homologação' : 'Produção'}`;
+  const numberPreviewContext = `Prévia informativa · Série ${nfeNumberSequence.series ?? '—'} · ${environment === 2 ? 'Homologação' : 'Produção'}`;
 
   const itemsTotal = (nfeItems.length ? nfeItems : order.items || [])
     .filter((it) => it.itemType !== 'service')
@@ -196,7 +194,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Emitir nota fiscal de saída"
-      aria-busy={isPreparingNfe}
+      aria-busy={isPreparingInitialData}
       className="fixed inset-0 z-[999999] flex h-full min-h-0 w-full flex-col overflow-hidden overscroll-none bg-white dark:bg-slate-900 animate-in fade-in duration-150"
     >
       <NfeEmissionHeader
@@ -282,7 +280,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         canOperateFiscal={canOperateFiscal}
         isSubmitting={isSubmitting}
         isLoadingFiscalData={isLoadingFiscalData}
-        isLoadingNfeNumber={isLoadingNfeNumber}
         isLoadingCustomerType={isLoadingCustomerType}
         fiscalPreparationError={fiscalPreparationError}
         emissionResult={emissionResult}
@@ -316,7 +313,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         canOperateFiscal={canOperateFiscal}
         isSubmitting={isSubmitting}
         isLoadingFiscalData={isLoadingFiscalData}
-        isLoadingNfeNumber={isLoadingNfeNumber}
         fiscalPreparationError={fiscalPreparationError}
         onReconcile={() => {
           setIsFiscalIssueModalOpen(false);

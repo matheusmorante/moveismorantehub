@@ -1,6 +1,7 @@
 import { Item, ItemsSummary } from '../types/items.type';
 import { Payment, PaymentsSummary } from '../types/payments.type';
 import Shipping from '../types/Shipping.type';
+import { isPaidOrderPayment } from '../../../../shared-utils/orderPaymentState';
 
 export const calcItemTotalValue = (item: Item): number => {
   const fixedDiscount = getFixedDiscount(item);
@@ -44,6 +45,13 @@ export const calcPaymentsTotalValue = (payments: Payment[]): number => {
   }, 0);
 };
 
+const calcPaidPaymentsTotalValue = (payments: Payment[]): number => {
+  if (!payments || !Array.isArray(payments)) return 0;
+  return payments.reduce((acc, payment) => {
+    return isPaidOrderPayment(payment.status) ? acc + calcPaymentTotalValue(payment) : acc;
+  }, 0);
+};
+
 const calcPaymentsTotalFee = (payments: Payment[]): number => {
   if (!payments || !Array.isArray(payments)) return 0;
   return payments.reduce((acc, payment) => {
@@ -59,7 +67,7 @@ export const calcPaymentsSummary = (
   const totalPaymentsFee = calcPaymentsTotalFee(payments);
 
   const totalOrderValue = itemsSummary.itemsTotalValue + shippingValue + totalPaymentsFee;
-  const totalAmountPaid = calcPaymentsTotalValue(payments);
+  const totalAmountPaid = calcPaidPaymentsTotalValue(payments);
   const rawRemaining = totalOrderValue - totalAmountPaid;
   const amountRemaining = rawRemaining > 0 ? Number(rawRemaining.toFixed(2)) : 0;
   const change = rawRemaining < 0 ? Number(Math.abs(rawRemaining).toFixed(2)) : 0;

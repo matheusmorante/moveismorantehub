@@ -16,6 +16,7 @@ import {
 
 const orderId = '11111111-1111-4111-8111-111111111111';
 const companyCnpj = '44512248000107';
+const companyTaxRegime = '1';
 const originalProtocol = '141260000123456';
 const accessKey = generateNfeAccessKey({
   ufCode: '41',
@@ -41,12 +42,12 @@ function authorizedSource() {
     serie: '1',
     numero_protocolo: originalProtocol,
     xml_protocolo: `<protNFe><infProt><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${accessKey}</chNFe><nProt>${originalProtocol}</nProt></infProt></protNFe>`,
-    xml_nfe: `<NFe><infNFe Id="NFe${accessKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>700</nNF></ide><emit><CNPJ>${companyCnpj}</CNPJ></emit></infNFe></NFe>`,
+    xml_nfe: `<NFe><infNFe Id="NFe${accessKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>700</nNF></ide><emit><CNPJ>${companyCnpj}</CNPJ><CRT>${companyTaxRegime}</CRT></emit></infNFe></NFe>`,
   };
 }
 
 const sameStateNonTaxpayerFinalConsumer =
-  '<NFe><infNFe><ide><indFinal>1</indFinal></ide><dest><UF>PR</UF><indIEDest>9</indIEDest></dest></infNFe></NFe>';
+  '<NFe><infNFe><ide><indFinal>1</indFinal></ide><emit><CRT>1</CRT></emit><dest><UF>PR</UF><indIEDest>9</indIEDest></dest></infNFe></NFe>';
 
 describe('regras fiscais centralizadas da NF-e de devolução', () => {
   it('aceita somente NF-e 55 autorizada, protocolada, íntegra e vinculada ao mesmo pedido', () => {
@@ -70,30 +71,34 @@ describe('regras fiscais centralizadas da NF-e de devolução', () => {
   });
 
   it('distingue bloqueios de capacidade do ERP e não infere método logístico pelo status', () => {
-    expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'CLIENT_DELIVERED')).toBeNull();
-    expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'COMPANY_PICKUP')).toBeNull();
+    expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'CLIENT_DELIVERED', companyTaxRegime)).toBeNull();
+    expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'COMPANY_PICKUP', companyTaxRegime)).toBeNull();
     expect(resolveFiscalReturnMethod({ returnMethod: 'store_delivery' })).toBe('CLIENT_DELIVERED');
     expect(resolveFiscalReturnMethod({ returnMethod: 'store_collection' })).toBe('COMPANY_PICKUP');
     expect(resolveFiscalReturnMethod({})).toBeNull();
     expect(validateSupportedReturnEntryScenario(
       sameStateNonTaxpayerFinalConsumer.replace('<UF>PR</UF>', '<UF>SC</UF>'),
       'PR',
-      'CLIENT_DELIVERED'
+      'CLIENT_DELIVERED',
+      companyTaxRegime
     )).toMatch(/TEMPORARY_BLOCK.*interestadual/);
     expect(validateSupportedReturnEntryScenario(
       sameStateNonTaxpayerFinalConsumer.replace('<indIEDest>9</indIEDest>', '<indIEDest>1</indIEDest>'),
       'PR',
-      'CLIENT_DELIVERED'
+      'CLIENT_DELIVERED',
+      companyTaxRegime
     )).toMatch(/UNSUPPORTED_BY_ERP.*contribuinte do ICMS/);
     expect(validateSupportedReturnEntryScenario(
       sameStateNonTaxpayerFinalConsumer.replace('<indFinal>1</indFinal>', '<indFinal>0</indFinal>'),
       'PR',
-      'CLIENT_DELIVERED'
+      'CLIENT_DELIVERED',
+      companyTaxRegime
     )).toMatch(/UNSUPPORTED_BY_ERP.*consumidor final/);
     expect(validateSupportedReturnEntryScenario(
       sameStateNonTaxpayerFinalConsumer,
       'PR',
-      null
+      null,
+      companyTaxRegime
     )).toMatch(/UNSUPPORTED_BY_ERP.*método de retorno/);
   });
 
@@ -165,6 +170,14 @@ describe('regras fiscais centralizadas da NF-e de devolução', () => {
     expect(validateReturnTaxScenario(
       '<NFe><total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vProd>100.00</vProd><vNF>100.00</vNF></ICMSTot></total></NFe>',
       '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>'
+    )).toBeNull();
+    expect(validateReturnTaxScenario(
+      '<NFe><total><ICMSTot><vProd>100.00</vProd><vNF>100.00</vNF></ICMSTot><IBSCBSTot><vIBS>2.00</vIBS></IBSCBSTot></total></NFe>',
+      '<imposto><ICMS><ICMSSN102/></ICMS></imposto>'
+    )).toBe(RETURN_TAX_MATRIX_REQUIRED_MESSAGE);
+    expect(validateReturnTaxScenario(
+      '<NFe><total><vNFTot>100.00</vNFTot></total></NFe>',
+      '<imposto><ICMS><ICMSSN102/></ICMS></imposto>'
     )).toBeNull();
   });
 });

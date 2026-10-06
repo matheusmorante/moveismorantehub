@@ -192,6 +192,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         canSeeReports={canSeeReports}
         canSeeProducts={canSeeProducts}
         canSeeFinance={canSeeFinance}
+        isAdmin={isAdmin}
         handleTabChange={handleTabChange}
         WEB_URL={WEB_URL}
       />

@@ -19,6 +19,9 @@ import { canGenerateReturn } from '../../utils/returnPolicy';
 import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
 import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
+import { useAuth } from '@/context/AuthContext';
+import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
+import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
 import type { NfeEmissionResult } from '../../utils/nfe/nfeService';
 import { IssuedFiscalDocumentDetailsModal } from '../FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal';
 import NfeOperationDraftModal from '../FiscalDocuments/modals/NfeOperationDraftModal';
@@ -63,6 +66,8 @@ const SalesOrder = () => {
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
   const isBudgetRoute = location.pathname === '/budgets';
   const isAssistanceRoute = location.pathname === '/assistance-orders';
   const isReturnRoute = location.pathname === '/returns';
@@ -70,6 +75,11 @@ const SalesOrder = () => {
     location.pathname === '/sales-order' ||
     (!isBudgetRoute && !isAssistanceRoute && !isReturnRoute);
   const showOrderFilters = !isReturnRoute && !isSalesOrderRoute;
+
+  React.useEffect(() => {
+    if (location.pathname !== '/sales-order' || !canOperateFiscal) return;
+    void prefetchNfeNumberPreviews();
+  }, [canOperateFiscal, location.pathname]);
 
   const [filters, setFilters] = useState<Filters>({
     dateRange: { start: '', end: '' },

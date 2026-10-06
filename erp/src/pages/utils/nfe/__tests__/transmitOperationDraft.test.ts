@@ -98,7 +98,7 @@ function createDatabase() {
       serie: '1',
       numero_protocolo: '141260000654321',
       xml_protocolo: `<protNFe><infProt><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${sourceKey}</chNFe><nProt>141260000654321</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe>`,
-      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ></emit>${sourceDestination}</infNFe></NFe>`,
+      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ><CRT>1</CRT></emit>${sourceDestination}</infNFe></NFe>`,
     },
     lines: [
       {
@@ -148,7 +148,7 @@ function createDatabase() {
       status: 'fulfilled',
       deleted: false,
       linked_order_id: '44444444-4444-4444-8444-444444444444',
-      order_data: { returnMethod: 'store_delivery' },
+      order_data: { returnMethod: 'store_delivery' } as { returnMethod?: string },
     },
     returnAllocations: [
       {

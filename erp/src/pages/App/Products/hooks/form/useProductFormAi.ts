@@ -154,7 +154,7 @@ export function useProductFormAi(
           ...(prev.fiscal || {}),
           cest: fiscalData.cest,
           cfop: fiscalData.cfop,
-          cst: fiscalData.cst,
+          cst: prev.itemType === 'service' ? fiscalData.cst : prev.fiscal?.cst || '103',
           icmsPercent: fiscalData.icmsPercent,
           origem: fiscalData.origem,
           pisCst: fiscalData.pisCst,
@@ -163,7 +163,7 @@ export function useProductFormAi(
       }));
 
       toast.success(
-        `Dados fiscais sugeridos pela IA. Revise CFOP ${fiscalData.cfop} e CSOSN ${fiscalData.cst} antes de salvar.`
+        `Dados fiscais sugeridos pela IA. Revise CFOP ${fiscalData.cfop} antes de salvar.`
       );
     } catch (error: any) {
       console.error(error);

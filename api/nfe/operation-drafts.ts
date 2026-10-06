@@ -8,7 +8,6 @@ import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fisca
 import {
   originalItemCfop,
   suggestEstornoCfop,
-  suggestReturnCfop,
   type FiscalCfopConfiguration,
 } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 import { normalizeReviewedFiscalBlock } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
@@ -212,8 +211,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         reviewTemplate: {
           recipient_xml: extractFiscalBlock(originalXml, 'dest'),
           totals_xml: extractFiscalBlock(originalXml, 'total'),
-          transport_xml: returnXmlDefaults?.transportXml || '',
-          payment_xml: returnXmlDefaults?.paymentXml || '',
+          transport_xml:
+            returnXmlDefaults?.transportXml ||
+            (draft.operation_kind === 'return' ? '' : '<transp><modFrete>9</modFrete></transp>'),
+          payment_xml:
+            returnXmlDefaults?.paymentXml ||
+            (draft.operation_kind === 'return'
+              ? ''
+              : '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>'),
         },
       });
     }
