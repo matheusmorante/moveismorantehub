@@ -206,8 +206,13 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
 
   // Cliente e Snapshots
   const rawCustomer = rawLegacy.customerData || {};
+  const rawDoc = String(rawCustomer.cpfCnpj || rawCustomer.document || '').replace(/\D/g, '');
+  const inferredPersonType =
+    rawCustomer.personType ||
+    (rawDoc.length === 14 ? 'PJ' : rawDoc.length === 11 ? 'PF' : undefined);
   const customerData = {
     ...rawCustomer,
+    personType: inferredPersonType,
     id: row.customer_id || rawCustomer.id || rawLegacy.customerId || '',
     fullName: row.customer_name || rawCustomer.fullName || '',
     phone: row.customer_phone || rawCustomer.phone || '',

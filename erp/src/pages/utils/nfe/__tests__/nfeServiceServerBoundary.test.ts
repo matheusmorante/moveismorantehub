@@ -290,6 +290,41 @@ describe('emissão NF-e no ERP', () => {
     );
   });
 
+  it('classifica rejeição SEFAZ pelo cStat quando a resposta não traz código da API', async () => {
+    const rejectionLog = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: false,
+          pending: false,
+          cStat: '391',
+          xMotivo: '391: Dados do pagamento com cartão não informados.',
+        }),
+      })
+    );
+    const { emitNfeForOrder } = await import('../nfeService');
+
+    const result = await emitNfeForOrder({ id: 'TEST_AUT_sefaz-rejection' } as any, 2);
+
+    expect(result).toMatchObject({
+      success: false,
+      cStat: '391',
+      sefazMessage: '391: Dados do pagamento com cartão não informados.',
+    });
+    expect(rejectionLog).toHaveBeenCalledWith(
+      '[NFe Service] Retorno da API interna de emissão',
+      expect.objectContaining({
+        httpStatus: 200,
+        resultClassification: 'SEFAZ_REJECTION',
+        sefazCode: '391',
+      })
+    );
+    expect(rejectionLog.mock.calls[0][1]).not.toHaveProperty('apiCode');
+  });
+
   it('mantém a intenção no conflito ativo e direciona a consulta ao documento existente', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

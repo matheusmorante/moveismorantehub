@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getApplicableProductTechnicalFields,
+  getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
+  getPersistableProductTechnicalValues,
+  getProductCharacteristicAttributes,
+  groupProductTechnicalFields,
+  hasTechnicalValue,
   isRequiredCharacteristicName,
+  upsertProductCharacteristicAttribute,
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
@@ -32,5 +39,96 @@ describe('productCharacteristics', () => {
       }
     );
     expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual(['Material da estrutura']);
+  });
+
+  it('combina características legadas do produto pai com os valores técnicos atuais', () => {
+    expect(
+      getEffectiveProductTechnicalValues({
+        attributes: [{ name: 'Cor', value: 'Azul' }],
+        technicalValues: { Cor: 'Vermelho', 'Material da Estrutura': 'Madeira' },
+      })
+    ).toEqual({ cor: 'Vermelho', 'material da estrutura': 'Madeira' });
+  });
+
+  it('prepara valores técnicos para salvar sem perder atributos legados nem os nomes originais', () => {
+    expect(
+      getPersistableProductTechnicalValues({
+        attributes: [
+          { name: 'Cor', value: 'Azul' },
+          { name: 'Altura', value: 120 },
+        ],
+        technical_specs: { technicalValues: { cor: 'Verde', Largura: '80' } },
+        technicalValues: { Cor: 'Preto', Profundidade: '50' },
+      })
+    ).toEqual({
+      Altura: 120,
+      Largura: '80',
+      Cor: 'Preto',
+      Profundidade: '50',
+    });
+  });
+
+  it('preserva showName ao editar uma característica já oculta do nome', () => {
+    const updated = upsertProductCharacteristicAttribute(
+      [{ name: 'Cor', value: 'Azul', showName: false }],
+      'Cor',
+      'Verde'
+    );
+
+    expect(updated).toEqual([{ name: 'Cor', value: 'Verde', showName: false }]);
+    expect(
+      getProductCharacteristicAttributes(JSON.stringify(updated)).map(({ name, showName }) => ({
+        name,
+        showName,
+      }))
+    ).toEqual([{ name: 'Cor', showName: false }]);
+  });
+
+  it('exibe características obrigatórias, já preenchidas e ligadas à categoria atual', () => {
+    const fields = [
+      { name: 'Cor' },
+      { name: 'Material da estrutura' },
+      { name: 'Campo global extra', is_globally_required: true },
+      { name: 'Da categoria', categoryIds: ['category-1'] },
+      { name: 'De outra categoria', categoryIds: ['category-2'] },
+      { name: 'Legado preenchido' },
+    ];
+
+    expect(
+      getApplicableProductTechnicalFields(fields, ['category-1'], {
+        'Legado preenchido': 'valor',
+      }).map(({ name }) => name)
+    ).toEqual(['Cor', 'Material da estrutura', 'Da categoria', 'Legado preenchido']);
+  });
+
+  it('mantém Profundidade e Comprimento exclusivos e prioriza a opção preenchida', () => {
+    const fields = [
+      { name: 'Comprimento', categoryIds: ['category-1'] },
+      { name: 'Profundidade', categoryIds: ['category-1'] },
+    ];
+
+    expect(
+      getApplicableProductTechnicalFields(fields, ['category-1']).map(({ name }) => name)
+    ).toEqual(['Profundidade']);
+    expect(
+      getApplicableProductTechnicalFields(fields, ['category-1'], { comprimento: '80' }).map(
+        ({ name }) => name
+      )
+    ).toEqual(['Comprimento']);
+    expect(hasTechnicalValue({ Comprimento: '' }, 'comprimento')).toBe(true);
+  });
+
+  it('ordena dimensões com a mesma sequência do ERP', () => {
+    const fields = ['Peso', 'Comprimento', 'Altura', 'Profundidade', 'Largura'].map((name) => ({
+      name,
+    }));
+
+    expect(groupProductTechnicalFields(fields)[0].fields.map(({ name }) => name)).toEqual([
+      'Altura',
+      'Largura',
+      'Profundidade',
+      'Comprimento',
+      'Peso',
+    ]);
   });
 });

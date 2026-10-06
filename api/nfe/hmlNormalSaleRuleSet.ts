@@ -364,11 +364,13 @@ export async function createHmlNormalSaleRuleSet(
           throw new Error(
             'CSOSN ou CFOP escolhido exige matriz fiscal específica; nenhuma escolha foi substituída.'
           );
+        const isSupportedContributionCst = (cst?: string) =>
+          !cst || cst === contribution.pis.cst || cst === '49' || cst === '99';
         if (
-          (saved.pisCst && saved.pisCst !== contribution.pis.cst) ||
-          (saved.cofinsCst && saved.cofinsCst !== contribution.cofins.cst) ||
-          (productFiscal.pisCst && productFiscal.pisCst !== contribution.pis.cst) ||
-          (productFiscal.cofinsCst && productFiscal.cofinsCst !== contribution.cofins.cst)
+          !isSupportedContributionCst(saved.pisCst) ||
+          !isSupportedContributionCst(saved.cofinsCst) ||
+          !isSupportedContributionCst(productFiscal.pisCst) ||
+          !isSupportedContributionCst(productFiscal.cofinsCst)
         )
           throw new Error('Exceção de PIS/COFINS exige regra específica.');
         return {
@@ -476,19 +478,21 @@ export async function createHmlNormalSaleRuleSet(
         if (!code) throw new Error('Meio de pagamento exige mapeamento fiscal específico.');
         const card =
           payment.fiscalCard ||
-          (snapshot.emissionRequest.cardNotIntegrated && ['03', '04'].includes(code)
+          ((snapshot.emissionRequest.cardNotIntegrated || (modelDecision.model === '65' && code === '17')) &&
+          ['03', '04', '17'].includes(code)
             ? { integrationType: '2' }
             : undefined);
         if (
           modelDecision.model === '65' &&
-          ['03', '04'].includes(code) &&
+          ['03', '04', '17'].includes(code) &&
           (!card ||
             !['1', '2'].includes(card.integrationType) ||
             (card.integrationType === '1' &&
+              ['03', '04'].includes(code) &&
               (!/^\d{14}$/.test(card.acquirerCnpj || '') || !card.authorization)))
         )
           throw new Error(
-            'Informe a integração e os dados fiscais reais do pagamento com cartão para NFC-e.'
+            'Informe a integração e os dados fiscais reais do pagamento com cartão/PIX para NFC-e.'
           );
         return {
           methodCode: code,

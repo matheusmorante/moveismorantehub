@@ -316,9 +316,10 @@ describe('preenchimento dos itens da NF-e', () => {
     );
   });
 
-  it('mostra confirmação simples depois de a SEFAZ receber a NFC-e em homologação', async () => {
+  it('fecha o modal de emissão ao receber a NFC-e em homologação e entrega o resultado ao chamador', async () => {
     mocks.emit.mockResolvedValueOnce({
       success: true,
+      documentId: 'fiscal-document-615',
       environment: 2,
       model: '65',
       nfeNumber: 615,
@@ -327,17 +328,23 @@ describe('preenchimento dos itens da NF-e', () => {
       accessKey: '41261000000000000000650010000006151000006150',
       xml: '<NFe />',
     });
-    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    const onClose = vi.fn();
+    const onSuccess = vi.fn();
+    render(<NfeEmissionModal isOpen order={order} onClose={onClose} onSuccess={onSuccess} />);
 
     await waitFor(() =>
       expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
     );
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
 
-    expect(await screen.findByText('Nota recebida em homologação · sem valor fiscal')).toBeTruthy();
-    expect(
-      screen.getByText('A SEFAZ aceitou este documento de teste. Ele não tem valor fiscal.')
-    ).toBeTruthy();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      documentId: 'fiscal-document-615',
+      model: '65',
+      environment: 2,
+    }));
+    expect(screen.queryByText('Nota recebida em homologação · sem valor fiscal')).toBeNull();
   });
 
   it('mostra o número da nota em campo numérico e permite edição manual', async () => {
@@ -743,9 +750,36 @@ describe('preenchimento dos itens da NF-e', () => {
     ).not.toMatch(/HML_SEFAZ_REJECTED|\b778\b|HTTP 422/);
   });
 
-  it('mostra sucesso explícito para um documento aceito em homologação', async () => {
+  it('mostra toast para rejeição SEFAZ retornada sem código de erro da API', async () => {
+    mocks.emit.mockResolvedValueOnce({
+      success: false,
+      pending: false,
+      environment: 2,
+      model: '65',
+      cStat: '391',
+      sefazMessage: '391: Dados do pagamento com cartão não informados.',
+      technicalDetails: { httpStatus: 200, sefazCode: '391' },
+      error: 'Dados do pagamento com cartão não informados.',
+    });
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+
+    expect(await screen.findByText('Não foi possível autorizar a nota')).toBeTruthy();
+    await waitFor(() =>
+      expect(mocks.toast).toHaveBeenCalledWith(
+        expect.stringContaining('Dados do pagamento com cartão não informados')
+      )
+    );
+    expect(mocks.toast.mock.calls[0][0]).not.toContain('UNKNOWN');
+  });
+
+  it('não renderiza o card de sucesso fiscal na tela de emissão', async () => {
     mocks.emit.mockResolvedValueOnce({
       success: true,
+      documentId: 'fiscal-document-615',
       environment: 2,
       model: '65',
       nfeNumber: 615,
@@ -754,16 +788,14 @@ describe('preenchimento dos itens da NF-e', () => {
       accessKey: '41261000000000000000650010000006151000006150',
       xml: '<NFe />',
     });
-    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} onSuccess={vi.fn()} />);
     await waitFor(() =>
       expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
     );
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
 
-    expect(await screen.findByText('Nota recebida em homologação · sem valor fiscal')).toBeTruthy();
-    expect(
-      screen.getByText('A SEFAZ aceitou este documento de teste. Ele não tem valor fiscal.')
-    ).toBeTruthy();
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Nota recebida em homologação · sem valor fiscal')).toBeNull();
   });
 
   it('mantém o modal cinza durante o carregamento e deixa CPF opcional na NFC-e comum', async () => {
@@ -1382,5 +1414,42 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getByText('Selecione o ambiente fiscal', { exact: false })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Homologação/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Produção/i })).toBeTruthy();
+  });
+
+  it('não re-executa a busca e enriquecimento de produtos quando apenas os dados do cliente mudam', async () => {
+    mocks.getFullProduct.mockClear();
+    mocks.getFullProduct.mockResolvedValue({ fiscal: { ncm: '94035000' } });
+
+    const registeredOrder: any = {
+      ...order,
+      id: 'stable-deps-order',
+      items: [{ ...order.items[0], productId: 'stable-prod-1' }],
+      customerData: { ...order.customerData, personType: 'PF' },
+    };
+
+    const { result, rerender } = renderHook(
+      ({ orderProp }) => useNfeEmission(orderProp),
+      { initialProps: { orderProp: registeredOrder } }
+    );
+
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    const initialCallCount = mocks.getFullProduct.mock.calls.length;
+    expect(initialCallCount).toBeGreaterThanOrEqual(1);
+
+    // Re-render simulando atualização de dados do cliente (ex: personType alterado de PF para PJ)
+    rerender({
+      orderProp: {
+        ...registeredOrder,
+        customerData: {
+          ...registeredOrder.customerData,
+          personType: 'PJ',
+          fullName: 'Novo Nome do Cliente',
+        },
+      },
+    });
+
+    // O contador de chamadas de produto DEVE PERMANECER IDÊNTICO (não pode re-executar busca de produto!)
+    expect(mocks.getFullProduct.mock.calls.length).toBe(initialCallCount);
+    expect(result.current.isLoadingFiscalData).toBe(false);
   });
 });

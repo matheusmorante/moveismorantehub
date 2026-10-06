@@ -1,13 +1,14 @@
 import { supabase } from '../../../services/supabaseClient';
-import {
-  getNextSequentialProductCode,
-  generateVariationSku,
-  parseLocalizedPrice,
-} from './mobileProductHelpers';
+import { getPersistableProductTechnicalValues } from '../domain/productCharacteristics';
 import {
   ensureAtLeastOneOperationalVariation,
   resolveProductVariationName,
 } from '../domain/productVariationName';
+import {
+  generateVariationSku,
+  getNextSequentialProductCode,
+  parseLocalizedPrice,
+} from './mobileProductHelpers';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')
@@ -33,6 +34,34 @@ const createOperationId = () =>
 const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+/** Impede a remoção de variações que já tenham estoque movimentado ou venda vinculada. */
+export const checkMobileProductVariationHasMoves = async (
+  productId: string,
+  variationId: string
+): Promise<boolean> => {
+  const realProductId = String(productId).split('_')[0];
+  if (!isUuid(realProductId) || !isUuid(variationId)) return false;
+
+  const [movesResult, orderItemsResult] = await Promise.all([
+    supabase
+      .from('inventory_moves')
+      .select('id')
+      .eq('product_id', realProductId)
+      .eq('variation_id', variationId)
+      .limit(1),
+    supabase
+      .from('order_items')
+      .select('id')
+      .eq('product_id', realProductId)
+      .eq('variation_id', variationId)
+      .limit(1),
+  ]);
+
+  if (movesResult.error) throw movesResult.error;
+  if (orderItemsResult.error) throw orderItemsResult.error;
+  return Boolean(movesResult.data?.length || orderItemsResult.data?.length);
+};
 
 export const toggleMobileProductCatalog = async (
   productId: string,
@@ -71,9 +100,9 @@ export const toggleMobileProductActive = async (
       .select('product_kind')
       .eq('id', productId)
       .maybeSingle();
-    if (prod?.product_kind === 'salvado') {
+    if (prod?.product_kind && prod.product_kind !== 'normal') {
       throw new Error(
-        'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Convencional).'
+        'Produtos com origem diferente de Convencional permanecem desativados no ERP.'
       );
     }
   }
@@ -137,7 +166,7 @@ export const saveMobileProduct = async (productData: any) => {
     productData.productKind === 'usado' ||
     productData.condition === 'usado' ||
     productData.product_kind === 'usado';
-  const forceInactive = Boolean(productData.isDraft) || isSalvado;
+  const forceInactive = Boolean(productData.isDraft) || isSalvado || isUsado;
 
   const variationRows = ensureAtLeastOneOperationalVariation(productData, productCode).map(
     (variation: any) => ({
@@ -186,8 +215,7 @@ export const saveMobileProduct = async (productData: any) => {
     depth_use_length: Boolean(productData.depthUseLength),
     technical_specs: {
       ...(productData.technical_specs || {}),
-      technicalValues:
-        productData.technicalValues || productData.technical_specs?.technicalValues || {},
+      technicalValues: getPersistableProductTechnicalValues(productData),
     },
     fiscal: productData.fiscal || {},
     combo_items: normalizeComboItems(productData.comboItems),
@@ -207,7 +235,7 @@ export const saveMobileProduct = async (productData: any) => {
         : productData.mainSupplierId || productData.supplierId
           ? [productData.mainSupplierId || productData.supplierId]
           : [],
-    has_variations: productData.itemType === 'service' ? false : true,
+    has_variations: productData.itemType !== 'service',
     updated_at: new Date().toISOString(),
   };
 
@@ -218,10 +246,19 @@ export const saveMobileProduct = async (productData: any) => {
 
   if (savedProductId && variationsToSave.length > 0) {
     const parentCode = (payload.code || '000000').trim();
+    const requestedSkus = [
+      ...new Set(
+        variationsToSave.map(
+          (variation: any, index: number) =>
+            normalizeVariationSku(variation.sku) || generateVariationSku(parentCode, index)
+        )
+      ),
+    ];
     const { data: existingVariations, error: existingVariationsError } = await supabase
       .from('product_variations')
-      .select('id, sku')
-      .neq('product_id', savedProductId);
+      .select('sku')
+      .neq('product_id', savedProductId)
+      .in('sku', requestedSkus);
     if (existingVariationsError) throw existingVariationsError;
     const usedSkus = new Set(
       (existingVariations || [])
@@ -256,14 +293,18 @@ export const saveMobileProduct = async (productData: any) => {
         } while (usedSkus.has(resolvedSku) && attempt < 10);
       }
       usedSkus.add(resolvedSku);
+      const variationName = String(v.name || '').trim();
+      const parentName = String(payload.name || '').trim();
+      const shouldDeriveVariationName =
+        !variationName ||
+        (!productData.isDraft &&
+          variationName.toLocaleLowerCase('pt-BR') === parentName.toLocaleLowerCase('pt-BR'));
       const varPayload: any = {
         product_id: savedProductId,
         name: resolveProductVariationName({
-          name: v.name,
+          name: shouldDeriveVariationName ? undefined : variationName,
           productName: payload.name,
-          attributes: Object.fromEntries(
-            variationAttributes.map((attribute: any) => [attribute.name, attribute.value])
-          ),
+          attributes: variationAttributes,
         }),
         sku: resolvedSku,
         price: v.syncUnitPrice !== false ? payload.unit_price : parseLocalizedPrice(v.price),

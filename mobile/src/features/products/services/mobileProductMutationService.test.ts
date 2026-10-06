@@ -12,14 +12,22 @@ vi.mock('../../../services/supabaseClient', () => ({
   },
 }));
 
-import { saveMobileProduct } from './mobileProductMutationService';
+import {
+  checkMobileProductVariationHasMoves,
+  saveMobileProduct,
+} from './mobileProductMutationService';
+
+let query: any;
 
 describe('saveMobileProduct', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const query: any = {
+    query = {
       select: vi.fn(() => query),
-      neq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      eq: vi.fn(() => query),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      neq: vi.fn(() => query),
+      in: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
     mocks.from.mockReturnValue(query);
     mocks.rpc.mockResolvedValue({ data: 'saved-product-id', error: null });
@@ -29,7 +37,7 @@ describe('saveMobileProduct', () => {
     const savedId = await saveMobileProduct({
       clientProductId: '123e4567-e89b-42d3-a456-426614174000',
       operationId: '123e4567-e89b-42d3-a456-426614174001',
-      code: 'PROD-01',
+      code: 'PROD',
       name: 'Produto de teste',
       itemType: 'product',
       productKind: 'normal',
@@ -40,12 +48,18 @@ describe('saveMobileProduct', () => {
       ipiPercent: '5,25',
       finalPurchasePrice: '1.078,00',
       minStock: '2,5',
+      attributes: [{ name: 'Cor', value: 'Azul' }],
+      technical_specs: { technicalValues: { Altura: '180' } },
+      technicalValues: { Cor: 'Verde' },
       variations: [
         {
-          id: 'new_PROD-01-01',
+          id: 'new_PROD-01',
           name: 'Produto de teste',
-          sku: 'PROD-01-01',
-          attributes: { Cor: 'Azul' },
+          sku: 'PROD-01',
+          attributes: [
+            { name: 'Cor', value: 'Azul', showName: false },
+            { name: 'Tamanho', value: 'M' },
+          ],
           syncUnitPrice: true,
           syncPromoPrice: true,
           comboItems: [],
@@ -59,6 +73,7 @@ describe('saveMobileProduct', () => {
     expect(savedId).toBe('saved-product-id');
     expect(mocks.from).toHaveBeenCalledTimes(1);
     expect(mocks.from).toHaveBeenCalledWith('product_variations');
+    expect(query.in).toHaveBeenCalledWith('sku', ['PROD-01']);
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     const [rpcName, parameters] = mocks.rpc.mock.calls[0];
     expect(rpcName).toBe('save_mobile_product_transaction');
@@ -75,10 +90,29 @@ describe('saveMobileProduct', () => {
         ipi_percent: 5.25,
         final_purchase_price: 1078,
         min_stock: 2.5,
+        technical_specs: {
+          technicalValues: { Altura: '180', Cor: 'Verde' },
+        },
       },
     });
     expect(parameters.p_product).not.toHaveProperty('weight');
     expect(parameters.p_variations[0]).not.toHaveProperty('stock');
     expect(parameters.p_variations[0].combo_items).toEqual([]);
+    expect(parameters.p_variations[0].name).toBe('Produto de teste M');
+  });
+
+  it('bloqueia a remoção local quando uma variação já aparece no histórico de vendas', async () => {
+    query.limit
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [{ id: 'order-item-id' }], error: null });
+
+    await expect(
+      checkMobileProductVariationHasMoves(
+        '123e4567-e89b-42d3-a456-426614174000',
+        '123e4567-e89b-42d3-a456-426614174002'
+      )
+    ).resolves.toBe(true);
+    expect(mocks.from).toHaveBeenCalledWith('inventory_moves');
+    expect(mocks.from).toHaveBeenCalledWith('order_items');
   });
 });

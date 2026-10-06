@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../utils/supabaseConfig';
 import { subscribeToInventoryMoves } from '../../../utils/inventoryService';
+import { isHmlFiscalTestProduct } from '../../../utils/hmlTestData';
 
 export interface LowStockItem {
   productId: string;
@@ -36,14 +37,18 @@ export const useDashboardStock = (): StockData => {
         // Inclui produtos legados (item_type NULL) e produtos físicos
         const { data, error } = await supabase
           .from('products')
-          .select('id, description, stock, min_stock, has_variations, active, deleted_at')
+          .select(
+            'id, description, stock, min_stock, has_variations, active, deleted_at, observations'
+          )
           .is('deleted_at', null)
           .eq('active', true)
           .or('item_type.eq.product,item_type.is.null');
 
         if (error) throw error;
 
-        const products = data || [];
+        const products = (data || []).filter(
+          (product) => !isHmlFiscalTestProduct(product.observations)
+        );
 
         // Buscar variações ativas de produtos com variações
         const productIdsWithVariations = products.filter((p) => p.has_variations).map((p) => p.id);

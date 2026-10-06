@@ -73,6 +73,7 @@ interface OrderFiscalBadgeProps {
   readonly reversed?: boolean;
   readonly variant?: 'production' | 'homologation';
   readonly documentId?: string;
+  readonly onOpenDocument?: (documentId: string, environment: 1 | 2) => void;
 }
 
 export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
@@ -80,6 +81,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
   reversed = false,
   variant = 'production',
   documentId,
+  onOpenDocument,
 }) => {
   const navigate = useNavigate();
   const resolvedStatus = reversed ? 'reversed' : status;
@@ -114,6 +116,10 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
         className={`${className} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
         onClick={(event) => {
           event.stopPropagation();
+          if (onOpenDocument) {
+            onOpenDocument(documentId, variant === 'homologation' ? 2 : 1);
+            return;
+          }
           navigate(`/fiscal-documents?documentId=${encodeURIComponent(documentId)}`);
         }}
       >

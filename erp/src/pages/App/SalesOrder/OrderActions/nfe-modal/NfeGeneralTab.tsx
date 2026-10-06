@@ -7,16 +7,17 @@ import {
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import { NfeOrderSummary } from './NfeOrderSummary';
-import { FiscalIssueCard, type FiscalIssueTechnicalDetails } from './FiscalIssueCard';
+import {
+  FiscalIssueCard,
+  type FiscalIssueTechnicalDetails,
+} from '@/pages/App/shared/components/FiscalIssueCard';
 
 interface NfeGeneralTabProps {
   environment: 1 | 2;
   productionConfirmed: boolean;
-  onProductionConfirmedChange: (confirmed: boolean) => void;
   order: Order;
   finalConsumer: boolean;
   onFinalConsumerChange: (isFinalConsumer: boolean) => void;
-  modelLabel: string;
   modelReason?: string;
   numberPreview: string;
   onNumberPreviewChange: (num: string) => void;
@@ -46,11 +47,9 @@ function getIssueCopy(result: NfeEmissionResult) {
 export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   environment,
   productionConfirmed,
-  onProductionConfirmedChange,
   order,
   finalConsumer,
   onFinalConsumerChange,
-  modelLabel,
   modelReason,
   numberPreview,
   onNumberPreviewChange,

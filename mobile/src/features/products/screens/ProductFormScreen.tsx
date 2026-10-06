@@ -1,4 +1,19 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Grid3X3,
+  Images,
+  Info,
+  Lock,
+  Package,
+  Receipt,
+  Save,
+  X,
+} from 'lucide-react-native';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,37 +28,33 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../../services/supabaseClient';
 import {
-  X,
-  Save,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Lock,
-  Images,
-  Info,
-  FileText,
-  Package,
-  Grid3X3,
-  Receipt,
-} from 'lucide-react-native';
+  getEffectiveProductTechnicalValues,
+  getEffectiveVariationTechnicalValues,
+  getMissingRequiredCharacteristics,
+  getPersistableProductTechnicalValues,
+  getProductCharacteristicAttributes,
+  getTechnicalValue,
+  hasTechnicalValue,
+} from '../domain/productCharacteristics';
+import {
+  getMobileEffectiveVariationPrice,
+  getMobileVariationRegistrationIssue,
+  isMobileEcommerceLegible,
+} from '../domain/productRegistrationRules';
+import { prepareMobileProductSaveState } from '../domain/productSaveState';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
+import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
+import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
+import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
 import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
 import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
-import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
-import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
-import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
 import {
   getNextSequentialProductCode,
   parseLocalizedPrice,
 } from '../services/mobileProductHelpers';
-import { supabase } from '../../../services/supabaseClient';
-import {
-  getEffectiveVariationTechnicalValues,
-  getMissingRequiredCharacteristics,
-  REQUIRED_CHARACTERISTIC_NAMES,
-} from '../domain/productCharacteristics';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -191,7 +202,10 @@ export const ProductFormScreen: React.FC<Props> = ({
   ).some(
     (variation: any) =>
       getMissingRequiredCharacteristics(
-        getEffectiveVariationTechnicalValues(formData.technicalValues || {}, variation)
+        getEffectiveVariationTechnicalValues(
+          getEffectiveProductTechnicalValues(formData),
+          variation
+        )
       ).length > 0
   );
 
@@ -241,10 +255,7 @@ export const ProductFormScreen: React.FC<Props> = ({
             .filter(Boolean)
         : [];
       const rawVariations = Array.isArray(product.allVariations) ? product.allVariations : [];
-      const technicalValues = {
-        ...(product.technical_specs?.technicalValues || {}),
-        ...(product.technicalValues || {}),
-      };
+      const technicalValues = getPersistableProductTechnicalValues(product);
       for (const [attribute, value] of [
         ['Altura', product.height],
         ['Largura', product.width],
@@ -258,7 +269,8 @@ export const ProductFormScreen: React.FC<Props> = ({
           value !== null &&
           value !== undefined &&
           String(value).trim() &&
-          !technicalValues[attribute]
+          (!hasTechnicalValue(technicalValues, attribute) ||
+            !String(getTechnicalValue(technicalValues, attribute) ?? '').trim())
         ) {
           technicalValues[attribute] = value;
         }
@@ -334,13 +346,10 @@ export const ProductFormScreen: React.FC<Props> = ({
               (variation.title && variation.title !== variation.name) ||
               (variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
           ),
-          attributes: Array.isArray(variation.attributes)
-            ? Object.fromEntries(
-                variation.attributes
-                  .filter((attribute: any) => attribute?.name)
-                  .map((attribute: any) => [attribute.name, attribute.value])
-              )
-            : variation.attributes || {},
+          attributes: (() => {
+            const normalizedAttributes = getProductCharacteristicAttributes(variation.attributes);
+            return normalizedAttributes.length ? normalizedAttributes : variation.attributes || {};
+          })(),
           price: variation.price ?? variation.unit_price ?? '',
           costPrice: variation.costPrice ?? variation.cost_price ?? '',
           promoPrice: variation.promoPrice ?? variation.promo_price ?? '',
@@ -470,7 +479,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   // Validação antes de salvar
   const validate = useCallback(
     (requestedDraft: boolean): boolean => {
-      const isDraft = requestedDraft && !product?.id;
+      const isDraft = requestedDraft;
       if (!formData.name?.trim() || formData.name.trim().length < 2) {
         Alert.alert('Campo Obrigatório', 'Informe o nome do produto (mínimo 2 caracteres).', [
           { text: 'OK', onPress: () => setActiveTab('geral') },
@@ -478,6 +487,15 @@ export const ProductFormScreen: React.FC<Props> = ({
         return false;
       }
       if (!isDraft) {
+        if (
+          formData.itemType !== 'service' &&
+          !['normal', 'salvado', 'usado'].includes(formData.productKind || '')
+        ) {
+          Alert.alert('Origem do estoque', 'Selecione a origem do estoque do produto.', [
+            { text: 'OK', onPress: () => setActiveTab('geral') },
+          ]);
+          return false;
+        }
         if (formData.itemType === 'composition') {
           const componentCount = (
             Array.isArray(formData.variations) ? formData.variations : []
@@ -499,7 +517,6 @@ export const ProductFormScreen: React.FC<Props> = ({
         if (
           formData.itemType !== 'service' &&
           !(Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) &&
-          !formData.category &&
           !formData.categoryId
         ) {
           Alert.alert('Campo Obrigatório', 'Selecione a categoria do produto.', [
@@ -550,23 +567,30 @@ export const ProductFormScreen: React.FC<Props> = ({
   const handleSubmit = useCallback(
     async (isDraft: boolean) => {
       if (!validate(isDraft)) return;
-      const saveAsDraft = isDraft && !product?.id;
+      const saveAsDraft = isDraft;
       if (!saveAsDraft) {
-        const technicalValues = formData.technicalValues || {};
         const variations = Array.isArray(formData.variations) ? formData.variations : [];
-        const incompleteVariation = variations.find(
-          (variation: any) =>
-            getMissingRequiredCharacteristics(
-              getEffectiveVariationTechnicalValues(technicalValues, variation)
-            ).length
-        );
-        if (incompleteVariation) {
-          Alert.alert(
-            'Variações incompletas',
-            `Cada variação precisa ter ${REQUIRED_CHARACTERISTIC_NAMES.join(' e ')}. Preencha na aba Características da variação ou no produto pai.`,
-            [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
-          );
+        const invalidVariation = variations
+          .map((variation: any) => ({
+            variation,
+            issue: getMobileVariationRegistrationIssue(formData, variation, variations),
+          }))
+          .find(({ issue }) => issue !== null);
+        if (invalidVariation?.issue) {
+          Alert.alert('Variação inválida', invalidVariation.issue.message, [
+            { text: 'OK', onPress: () => setActiveTab('variacoes') },
+          ]);
           setActiveTab('variacoes');
+          return;
+        }
+        if (
+          (product?.status || formData.status) === 'published' &&
+          !isMobileEcommerceLegible(formData)
+        ) {
+          Alert.alert(
+            'Catálogo publicado',
+            'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.'
+          );
           return;
         }
       }
@@ -581,32 +605,24 @@ export const ProductFormScreen: React.FC<Props> = ({
         }
         const isSalvado = formData.productKind === 'salvado' || formData.condition === 'salvado';
         const isUsado = formData.productKind === 'usado' || formData.condition === 'usado';
-        const forceInactive = saveAsDraft || isSalvado;
+        const saveState = prepareMobileProductSaveState(product, formData, saveAsDraft);
+        const operationId = saveOperationIdRef.current || createUuid();
+        saveOperationIdRef.current = operationId;
 
         await onSave({
           ...formData,
           code: productCode,
-          operationId: saveOperationIdRef.current || (saveOperationIdRef.current = createUuid()),
+          operationId,
           clientProductId: product?.id || clientProductIdRef.current,
           productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
           condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
-          isDraft: saveAsDraft,
-          active: forceInactive ? false : product ? formData.active !== false : true,
-          status: saveAsDraft ? 'draft' : product?.status === 'published' ? 'published' : 'hidden',
+          isDraft: saveState.isDraft,
+          active: saveState.active,
+          status: saveState.status,
           hasVariations:
             formData.itemType !== 'composition' ||
             Boolean(Array.isArray(formData.variations) && formData.variations.length > 0),
-          variations: (Array.isArray(formData.variations) ? formData.variations : []).map(
-            (variation: any) => ({
-              ...variation,
-              active: forceInactive ? false : product ? variation.active !== false : true,
-              status: saveAsDraft
-                ? 'draft'
-                : product?.status === 'published'
-                  ? variation.status || 'published'
-                  : 'hidden',
-            })
-          ),
+          variations: saveState.variations,
         });
         dirtyRef.current = false;
         onClose();
@@ -680,7 +696,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   const hasValidCategories = Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0;
   const hasValidSupplier = Boolean(formData.mainSupplierId);
   const hasValidPrice = formData.hasVariations
-    ? varCount > 0
+    ? varCount > 0 &&
+      Array.isArray(formData.variations) &&
+      formData.variations.some(
+        (variation: any) => getMobileEffectiveVariationPrice(formData, variation) > 0
+      )
     : parseLocalizedPrice(formData.unitPrice) > 0;
   const erpReady = hasValidName && hasValidCategories && hasValidSupplier && hasValidPrice;
   const catalogPublished = formData.status === 'published';

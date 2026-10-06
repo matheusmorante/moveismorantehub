@@ -22,6 +22,7 @@ import {
   getDefinitiveOrderValue,
   isDashboardSaleOrder,
 } from './dashboardRevenue';
+import { isHmlFiscalTestOrder } from '../../utils/hmlTestData';
 
 export type Period =
   | 'custom'
@@ -233,10 +234,10 @@ export const useDashboardData = (
         // Mesclagem por id único para manter integridade total
         const orderMap = new Map<string, Order>();
         for (const o of periodOrders) {
-          if (o && o.id) orderMap.set(String(o.id), o);
+          if (o && o.id && !isHmlFiscalTestOrder(o)) orderMap.set(String(o.id), o);
         }
         for (const o of scheduledOrders) {
-          if (o && o.id && !orderMap.has(String(o.id))) {
+          if (o && o.id && !isHmlFiscalTestOrder(o) && !orderMap.has(String(o.id))) {
             orderMap.set(String(o.id), o);
           }
         }

@@ -1,0 +1,357 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - link "Brasil" [ref=e5] [cursor=pointer]:
+      - /url: https://gov.br
+    - navigation:
+      - list [ref=e6]:
+        - listitem
+        - listitem [ref=e7]:
+          - link "Simplifique!" [ref=e8] [cursor=pointer]:
+            - /url: http://www.gov.br/economia/pt-br/canais_atendimento/ouvidoria/simplifique
+        - listitem [ref=e9]:
+          - link "Comunica BR" [ref=e10] [cursor=pointer]:
+            - /url: https://www.gov.br/secom/pt-br/acesso-a-informacao/comunicabr/
+        - listitem [ref=e11]:
+          - link "Participe" [ref=e12] [cursor=pointer]:
+            - /url: https://www.gov.br/pt-br/participacao-social/
+        - listitem [ref=e13]:
+          - link "Acesso à informação" [ref=e14] [cursor=pointer]:
+            - /url: http://www.gov.br/acessoainformacao/
+        - listitem [ref=e15]:
+          - link "Legislação" [ref=e16] [cursor=pointer]:
+            - /url: http://www.planalto.gov.br/legislacao
+        - listitem [ref=e17]:
+          - link "Canais" [ref=e18] [cursor=pointer]:
+            - /url: https://gov.br/pt-br/canais-do-executivo-federal
+    - link [ref=e20] [cursor=pointer]:
+      - /url: "#"
+  - generic [ref=e22]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - link "Conheça a NF-e" [ref=e26] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=6H4uVlIEaKs=
+          - link "Serviços" [ref=e27] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=esCrSQFUvGg=
+          - link "Legislação" [ref=e28] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=ndIjl+iEFdE=
+          - link "Documentos" [ref=e29] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=04BIflQt1aY=
+          - link "Downloads" [ref=e30] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=BMPFMBoln3w=
+          - link "Área Restrita" [ref=e31] [cursor=pointer]:
+            - /url: https://hom.nfe.fazenda.gov.br/arearestrita/inicial/autenticacao.aspx
+          - link "Documentos e outros" [ref=e32] [cursor=pointer]:
+            - /url: https://hom.nfe.fazenda.gov.br/arearestrita/inicial/listaSubMenu.aspx?Id=UORZ3ynALMA=
+          - link "Outros DF-e" [ref=e33] [cursor=pointer]:
+            - /url: listaSubMenu.aspx?Id=VOYEgBgD3iU=
+        - generic [ref=e34] [cursor=pointer]
+        - link [ref=e36] [cursor=pointer]:
+          - /url: principal.aspx
+          - img "Link para a página inicial do Portal da NF-e" [ref=e37]
+        - list [ref=e39]:
+          - listitem [ref=e40]:
+            - link "Serviços" [ref=e41] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=esCrSQFUvGg=
+          - listitem [ref=e42]:
+            - link "Legislação" [ref=e43] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=ndIjl+iEFdE=
+          - listitem [ref=e44]:
+            - link "Documentos" [ref=e45] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=04BIflQt1aY=
+          - listitem [ref=e46]:
+            - link "Downloads" [ref=e47] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=BMPFMBoln3w=
+          - listitem [ref=e48]:
+            - link "Outros DF-e" [ref=e49] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=VOYEgBgD3iU=
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - heading "Estatísticas da NF-e" [level=1] [ref=e52]
+          - text: NF-e Autorizadas
+          - generic [ref=e53]: 366,588 milhões
+          - text: Número de Emissores
+          - generic [ref=e54]: 38,81 mil
+          - link "... saiba mais" [ref=e55] [cursor=pointer]:
+            - /url: ../infoEstatisticas.aspx
+        - generic [ref=e57]:
+          - textbox [ref=e58]
+          - button "Submit" [ref=e59] [cursor=pointer]
+        - paragraph [ref=e61]:
+          - link "Área Restrita do Fisco" [ref=e62] [cursor=pointer]:
+            - /url: https://hom.nfe.fazenda.gov.br/arearestrita/inicial/autenticacao.aspx
+        - paragraph [ref=e64]:
+          - link "Central de Atendimento" [ref=e65] [cursor=pointer]:
+            - /url: https://www.serpro.gov.br/menu/suporte/central-de-atendimento-serpro-nfe-cte
+        - paragraph [ref=e67]:
+          - link "Perguntas Frequentes" [ref=e68] [cursor=pointer]:
+            - /url: ../perguntasFrequentes.aspx?tipoConteudo=3Ow1nfTBzIo=
+        - paragraph [ref=e70]: Portais e Secretarias
+        - generic [ref=e71]:
+          - paragraph [ref=e72]:
+            - text: Portais Estaduais da NF-e
+            - combobox [ref=e73]:
+              - option "Selecione" [selected]
+              - option "Acre"
+              - option "Alagoas"
+              - option "Amazonas"
+              - option "Bahia"
+              - option "Ceará"
+              - option "Distrito Federal"
+              - option "Espirito Santo"
+              - option "Goiás"
+              - option "Maranhão"
+              - option "Mato Grosso"
+              - option "Mato Grosso do Sul"
+              - option "Minas Gerais"
+              - option "Pará"
+              - option "Paraíba"
+              - option "Paraná"
+              - option "Pernambuco"
+              - option "Piauí"
+              - option "Rio de Janeiro"
+              - option "Rio Grande do Norte"
+              - option "Rio Grande do Sul"
+              - option "Rondônia"
+              - option "Roraima"
+              - option "Santa Catarina"
+              - option "São Paulo"
+              - option "Sergipe"
+              - option "Tocantins"
+          - paragraph [ref=e74]:
+            - text: Secretarias de Fazenda
+            - combobox [ref=e75]:
+              - option "Selecione" [selected]
+              - option "Acre"
+              - option "Alagoas"
+              - option "Amapá"
+              - option "Amazonas"
+              - option "Bahia"
+              - option "Ceará"
+              - option "Distrito Federal"
+              - option "Espirito Santo"
+              - option "Goiás"
+              - option "Maranhão"
+              - option "Mato Grosso"
+              - option "Mato Grosso do Sul"
+              - option "Minas Gerais"
+              - option "Pará"
+              - option "Paraíba"
+              - option "Paraná"
+              - option "Pernambuco"
+              - option "Piauí"
+              - option "Rio de Janeiro"
+              - option "Rio Grande do Norte"
+              - option "Rio Grande do Sul"
+              - option "Rondônia"
+              - option "Roraima"
+              - option "Santa Catarina"
+              - option "São Paulo"
+              - option "Sergipe"
+              - option "Tocantins"
+          - img "Linha divisória" [ref=e76]
+          - table [ref=e78]:
+            - rowgroup [ref=e79]:
+              - row [ref=e80]:
+                - cell [ref=e81]:
+                  - button "Manifesto Eletrônico de Documentos Fiscais" [ref=e82] [cursor=pointer]
+              - row [ref=e83]:
+                - cell [ref=e84]:
+                  - button "Conhecimento de Transporte Eletrônico" [ref=e85] [cursor=pointer]
+              - row [ref=e86]:
+                - cell [ref=e87]:
+                  - button "Sistema Público de Escrituração Fiscal" [ref=e88] [cursor=pointer]
+              - row [ref=e89]:
+                - cell [ref=e90]:
+                  - button "Superintendência da Zona Franca de Manaus" [ref=e91] [cursor=pointer]
+              - row [ref=e92]:
+                - cell [ref=e93]:
+                  - button "Portal Nacional do Bilhete de Passagem Eletrônico" [ref=e94] [cursor=pointer]
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]: "Você está aqui:"
+          - generic [ref=e98]:
+            - link "Página Principal" [ref=e99] [cursor=pointer]:
+              - /url: ../principal.aspx
+            - text: ">"
+            - link "Documentos" [ref=e100] [cursor=pointer]:
+              - /url: listaSubMenu.aspx?Id=04BIflQt1aY=
+            - text: "> Diversos"
+        - generic [ref=e101]:
+          - img "Link que permite reduzir o tamanho da fonte" [ref=e102]
+          - img "Link que permite aumentar o tamanho da fonte" [ref=e103]
+        - generic [ref=e104]:
+          - generic [ref=e105]: Diversos
+          - generic [ref=e106]: Selecione no menu Serviços a consulta desejada.
+          - generic [ref=e109]:
+            - paragraph [ref=e110]: Vigentes
+            - generic [ref=e111]:
+              - paragraph [ref=e112]: Tabela de CNPJs alfa cadastrados no CCC de homologaçãoTabela contendo CNPJ alfanuméricos simulados para testes das empresas
+              - paragraph [ref=e113]: Tabela de Código de Crédito Presumido do IBS e CBS - Publicada em 23/06/2026Tabela de código de crédito presumido do IBS e CBS (cCredPres) - Referente ao IT 2025.002.v.1.60
+              - paragraph [ref=e114]: Tabela de Alíquotas da CBS - Publicada em 12/05/2026Divulga tabela de alíquotas da CBS
+              - paragraph [ref=e115]: Tabela de Código de Índice de Biocombustível do IBS e CBS - Publicada em 24/04/2026Tabela de códigos de índice de biocombustível do IBS e CBS
+              - paragraph [ref=e116]: Tabela de Meios de pagamento - Publicada em 06/03/2026Tabela de códigos de meios de pagamento
+              - paragraph [ref=e117]:
+                - text: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 05/12/2025Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.08" [ref=e118] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=QurUUUf8Q1A=
+              - paragraph [ref=e119]: Tabela de NCM e respectiva uTrib (Comércio Exterior) - Vigente a partir de 01/02/2026 - Publicada em 24/11/2025Tabela de NCM com unidade tributária de comércio exterior
+              - paragraph [ref=e120]: Tabela de Código de Crédito Presumido do IBS e CBS - Publicada em 04/07/2025Tabela de código de crédito presumido do IBS e CBS
+              - paragraph [ref=e121]: Tabela de Código de Classificação Tributária do IBS e CBS - Publicada em 18/06/2025Tabela de códigos de classificação tributária, indicadores de CST e crédito presumido do IBS e CBS
+              - paragraph [ref=e122]: Tabela de Alíquotas de FCP por UF (atualizada em 25/02/2025)Tabela contendo as alíquotas por UF do Fundo de Combate à Pobreza (FCP)
+              - paragraph [ref=e123]: Tabela de Municípios - Publicada em 18/02/2025Tabela de códigos/nomes de municípios por Unidade Federativa
+              - paragraph [ref=e124]:
+                - text: Tabela de código de combustíveis sujeitos à tributação monofásica de ICMS - Vigente a partir de 09/12/2024 - Publicada em 06/12/2024Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.04" [ref=e125] [cursor=pointer]:
+                  - /url: https://https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=PJO0usPAAuE=
+              - paragraph [ref=e126]:
+                - text: Tabela de Código de Produtos da ANP - Vigente a partir de 29/11/2024 - Publicada em 18/11/2024Tabela de códigos de produtos da ANP -
+                - link "Vide Informe Técnico 2023.001 v.1.10" [ref=e127] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=e2WH33Ck/48=
+              - paragraph [ref=e128]: Tabela de Meios de Pagamento - Vigente a partir de 01/07/2024 - Publicada em 11/04/2024Tabela dos códigos de meios de pagamento
+              - paragraph [ref=e129]: Tabela de CFOP - Vigência 24-04-2023Tabela de CFOP atualizada com novos CFOP decorrentes do Ajuste SINIEF 10/2021
+              - paragraph [ref=e130]: Tabela de NCM e respectiva uTrib(Comércio Exterior) - Vigente a partir de 01/01/2023 - Publicada em 05/09/2022 - Republicada em 19/09/2022Tabela de NCM com unidade tributária de Comércio Exterior - Vide NT 2016.003 v.3.30
+              - paragraph [ref=e131]: Tabela cBenef x CST - Relacionada à Nota Técnica 2019.001
+              - paragraph [ref=e132]: Distrito Federal (Atualizada em 31/10/2025)
+              - paragraph [ref=e133]:
+                - link "https://ww1.receita.fazenda.df.gov.br/legislacao/visualizar-legislacao?txtNumero=4&txtAno=2023&txtTipo=734&txtParte=.&identificacao=Ato Declaratório - Assuntos Econômicos nº 4/2023" [ref=e134] [cursor=pointer]:
+                  - /url: https://ww1.receita.fazenda.df.gov.br/legislacao/visualizar-legislacao?txtNumero=2&txtAno=2025&txtTipo=734&txtParte=.
+              - paragraph [ref=e135]
+              - paragraph [ref=e136]: Estado de Goiás
+              - paragraph [ref=e137]:
+                - link "https://www.economia.go.gov.br/files/Documentos_Fiscais/IN.docx" [ref=e138] [cursor=pointer]:
+                  - /url: https://www.economia.go.gov.br/files/Documentos_Fiscais/IN.docx
+              - paragraph [ref=e139]
+              - paragraph [ref=e140]: Estado do Espírito Santo
+              - paragraph [ref=e141]:
+                - link "https://sefaz.es.gov.br/codigos-de-beneficios-fiscais-cbenef" [ref=e142] [cursor=pointer]:
+                  - /url: https://sefaz.es.gov.br/codigos-de-beneficios-fiscais-cbenef
+              - paragraph [ref=e143]
+              - paragraph [ref=e144]: Estado do Paraná
+              - paragraph [ref=e145]:
+                - link "https://sped.fazenda.pr.gov.br/NFe/Pagina/CODIGO-DE-BENEFICIO-FISCAL" [ref=e146] [cursor=pointer]:
+                  - /url: https://sped.fazenda.pr.gov.br/NFe/Pagina/CODIGO-DE-BENEFICIO-FISCAL
+              - paragraph [ref=e147]
+              - paragraph [ref=e148]: Estado do Rio Grande do Sul
+              - paragraph [ref=e149]:
+                - link "https://atendimento.receita.rs.gov.br/nf-e-nota-fiscal-eletronica" [ref=e150] [cursor=pointer]:
+                  - /url: https://atendimento.receita.rs.gov.br/nf-e-nota-fiscal-eletronica
+              - paragraph [ref=e151]
+              - paragraph [ref=e152]: Estado do Rio de Janeiro
+              - paragraph [ref=e153]:
+                - link "http://www.fazenda.rj.gov.br/dfe" [ref=e154] [cursor=pointer]:
+                  - /url: http://www.fazenda.rj.gov.br/dfe
+              - paragraph [ref=e155]
+              - paragraph [ref=e156]: Estado de Santa Catarina
+              - paragraph [ref=e157]:
+                - link "https://www.sef.sc.gov.br/servicos/servico/88/SPED_Fiscal" [ref=e158] [cursor=pointer]:
+                  - /url: https://www.sef.sc.gov.br/servicos/servico/88/SPED_Fiscal
+              - paragraph [ref=e159]
+              - paragraph [ref=e160]: Estado de São Paulo
+              - paragraph [ref=e161]:
+                - link "https://portal.fazenda.sp.gov.br/servicos/nfe/Paginas/cBenef.aspx" [ref=e162] [cursor=pointer]:
+                  - /url: "https://portal.fazenda.sp.gov.br/servicos/nfe/Paginas/cBenef.aspx "
+              - paragraph [ref=e163]
+              - paragraph [ref=e164]: "Obs: Os demais Estados não utilizam a tabela cBenef."
+              - paragraph
+              - paragraph [ref=e165]: Tabela de País - Relacionada a NT 2018.003. v1.00
+              - paragraph [ref=e166]: Tabela Unidades de Medida Comercial 05.07.2016Tabela Padrão de Unidades de Medidas Comerciais
+              - paragraph [ref=e167]: Classificação NCM do Portal SiscomexAcesso aos serviços de classificação de Mercadoria do Portal Único Siscomex.
+          - generic [ref=e168]:
+            - paragraph [ref=e169]: Vigência Expirada
+            - generic [ref=e170]:
+              - paragraph [ref=e171]: Tabela de Código de Crédito Presumido do IBS e CBS - Publicada em 15/12/2025Tabela de código de crédito presumido do IBS e CBS (cCredPres)
+              - paragraph [ref=e172]: Tabela de Código de Classificação Tributária do IBS/CBS - Publicada em 15/04/2026Tabela de códigos de classificação tributária e indicadores de CST do IBS e CBS (cClassTrib)
+              - paragraph [ref=e173]: Tabela de Código de Índice de Biocombustível do IBS e CBS - Publicada em 18/06/2025Tabela de códigos de índice de biocombustível do IBS e CBS
+              - paragraph [ref=e174]: Tabela de Código de Classificação Tributária do IBS e CBS - Publicada em 03/10/2025Tabela de códigos de classificação tributária e indicadores de CST do IBS e CBS (cClassTrib)
+              - paragraph [ref=e175]: Tabela de Código de Crédito Presumido do IBS e CBS - Publicada em 07/10/2025Tabela de código de crédito presumido do IBS e CBS (cCredPres)
+              - paragraph [ref=e176]: Tabela de NCM e respectiva uTrib (Comércio Exterior) - Vigente a partir de 01/10/2025 - Publicada em 31/07/2025Tabela de NCM com unidade tributária de comércio exterior
+              - paragraph [ref=e177]: Tabela de NCM e respectiva uTrib (Comércio Exterior) - Vigente a partir de 02/01/2025 - Publicada em 18/12/2024Tabela de NCM com unidade tributária de comércio exterior
+              - paragraph [ref=e178]: Tabela de Indicadores de CST do IBS e CBS - Publicada em 19/05/2025Tabela de indicadores de CST do IBS e CBS
+              - paragraph [ref=e179]: Tabela de Código de Classificação Tributária do IBS/CBS - Publicada em 28/01/2026Tabela de códigos de classificação tributária e indicadores de CST do IBS e CBS (cClassTrib)
+              - paragraph [ref=e180]: Tabela de Código de Classificação Tributária do IBS/CBS - Publicada em 15/12/2025Tabela de códigos de classificação tributária e indicadores de CST do IBS e CBS (cClassTrib)
+              - paragraph [ref=e181]: Tabela de Código de Classificação Tributária do IBS/CBS - Publicada em 24/11/2025Tabela de códigos de classificação tributária e indicadores de CST do IBS e CBS (cClassTrib)
+              - paragraph [ref=e182]: Tabela de Código de Classificação Tributária do IBS e CBS - Publicada em 19/05/2025Tabela de códigos de classificação tributária do IBS e CBS
+              - paragraph [ref=e183]: Tabela de Código de Classificação Tributária do IBS e CBS - Publicada em 06/05/2025Tabela de Código de Classificação Tributária do IBS e CBS
+              - paragraph [ref=e184]:
+                - text: Tabela de Código de Classificação Tributária do IBS e da CBS - Publicada em 07/12/2024Tabela de Código de Classificação Tributária do IBS e da CBS -
+                - link "Vide Informe Técnico 2024.001 - v. 1.00" [ref=e185] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=XBgqrMtxPVY=
+              - paragraph [ref=e186]: "DTB 2014 MunicípioDivisão Territorial Brasileira: Código e Nome UF, Código e Nome Município"
+              - paragraph [ref=e187]: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 27/05/24Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Vide Nota Técnica 2023.001 v.1.51
+              - paragraph [ref=e188]: Tabela de Meios de pagamento - Publicada em 29/09/2025Tabela de códigos de meios de pagamento
+              - paragraph [ref=e189]: Tabela de Meios de Pagamento - Vigente a partir de 01/07/2024 - Publicada em 07/06/2024Tabela dos códigos de meios de pagamento
+              - paragraph [ref=e190]:
+                - text: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 04/11/2025Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.07" [ref=e191] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=4TTWW00lVUc=
+              - paragraph [ref=e192]:
+                - text: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 29/09/2025Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.06" [ref=e193] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=TupjnFxb1ws=
+              - paragraph [ref=e194]:
+                - text: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 14/01/25Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.05" [ref=e195] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=8Jb bFd3mdM=
+              - paragraph [ref=e196]:
+                - text: Tabela de código de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 06/12/2024Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS -
+                - link "Vide Informe Técnico 2023.003 v.1.04" [ref=e197] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=PJO0usPAAuE=
+              - paragraph [ref=e198]: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 28/02/2024Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Vide Nota Técnica 2023.001 v.1.50
+              - paragraph [ref=e199]: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 19/04/2023Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Vide Nota Técnica 2023.001 v.1.20
+              - paragraph [ref=e200]: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 23/02/2024Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Vide Nota Técnica 2023.001 v1.50
+              - paragraph [ref=e201]: Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Publicada em 28/12/2023Tabela de códigos de combustíveis sujeitos à tributação monofásica de ICMS - Vide Nota Técnica 2023.001 v1.50
+              - paragraph [ref=e202]: Tabela de Alíquotas de FCP por UF (atualizada em 30/01/2024)Tabela contendo as alíquotas por UF do Fundo de Combate à Pobreza (FCP)
+              - paragraph [ref=e203]: Tabela de Alíquotas de FCP por UF (atualizada em 28/12/2023)Tabela contendo as alíquotas por UF do Fundo de Combate à Pobreza (FCP)
+              - paragraph [ref=e204]: Tabela de Alíquotas de FCP por UF (atualizada em 03/05/2023)Tabela de Alíquotas de FCP por UF (atualizada em 03/05/2023)
+              - paragraph [ref=e205]: Tabela de Alíquotas de FCP por UF (atualizada em 30/03/2023)Tabela contendo as alíquotas por UF do Fundo de Combate à Pobreza (FCP)
+              - paragraph [ref=e206]: Tabela de NCM e respectiva uTrib (Comércio Exterior) - Vigente a partir de 02/10/2024 - Publicada em 01/10/2024Tabela de NCM com unidade tributária de comércio exterior
+              - paragraph [ref=e207]: Tabela de NCM e respectiva uTrib (Comércio Exterior) - Vigente a partir de 01/04/2024, 01/07/2024 e 01/08/2024 - Publicada em 07/03/2024Tabela de NCM com unidade tributária de comércio exterior
+              - paragraph [ref=e208]: Tabela de NCM e respectiva uTrib(Comércio Exterior) - Vigente a partir de 01/04/2024 - Publicada em 09/01/2024Tabela de NCM com unidade tributária de Comércio Exterior - Vide NT 2016.003 v.3.70
+              - paragraph [ref=e209]:
+                - text: Tabela de NCM e respectiva uTrib(Comércio Exterior) - Vigente a partir de 01/11/2023 ou 01/01/2024 - Publicada em 30/10/2023Tabela de NCM com unidade tributária de Comércio Exterior -
+                - link "Vide NT 2016.003 v.3.62" [ref=e210] [cursor=pointer]:
+                  - /url: https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=IwSVzZ/ibco=
+              - paragraph [ref=e211]: Tabela de NCM e respectiva uTrib(Comércio Exterior) - Vigente a partir de 01/11/2023 - Publicada em 18/08/2023Tabela de NCM com unidade tributária de Comércio Exterior - Vide NT 2016.003 v.3.60
+              - paragraph [ref=e212]: Tabela de NCM e respectiva uTrib(Comércio Exterior) - Vigente a partir de 01/04/2023 - Publicada em 03/02/2023Tabela de NCM com unidade tributária de Comércio Exterior - Vide NT 2016.003 v.3.50
+              - paragraph [ref=e213]:
+                - text: Tabela de NCM e respectiva Utrib (Comércio Exterior) - Vigência 01/04/2021 - Publicada em 19/02/2021Tabela NCM com unidade tributária de Comércio Exterior - Vide
+                - link "NT 2016.003 v.1.90" [ref=e214] [cursor=pointer]:
+                  - /url: " http://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=NtVp8v3IW6Q="
+              - paragraph [ref=e215]: Tabela de NCM e respectiva UTrib(comércio exterior) - Vigência 01/07/2020 - Publicada em 01/06/2020Tabela NCM com UTrib de Comércio Exterior - Vigência a partir de 01/07/2020. Vide NT 2016.003 v.1.70.
+              - paragraph [ref=e216]: Tabela NCM e respectiva Utrib (comércio exterior) - Vigência 01/01/2020 - Publicada em 11/11/2019Tabela de NCM, com Utrib de comércio exterior, vigência a partir de 01/01/2020. Vide NT 2016.003 v1.60.
+              - paragraph [ref=e217]: Tabela NCM e respectiva Utrib (comércio exterior) - Vigência 01/01/2019 - Publicada em 09/11/2018Tabela NCM, com Utrib de comércio exterior, Vigência a partir de 01/01/2019. Vide NT 2016.001. v.1.50
+              - paragraph [ref=e218]: Tabela de Meios de Pagamento - Publicada em 16/03/2021Tabela dos códigos de meios de pagamento
+              - paragraph [ref=e219]: Tabela de CFOP - Vigência 01-set-2018Tabela de CFOP alterada, com novos CFOP vigentes a partir de 01-set-2018
+              - paragraph [ref=e220]: Consumo Indevido do Ambiente de Autorização Aplicação Cliente / Consumo Indevido do Ambiente de Autorização
+          - paragraph [ref=e222]: NCM 8 Dígitos (atualizada em 25/08/2016)Nomenclatura Comum do Mercosul 8 Dígitos
+    - generic [ref=e225]:
+      - generic [ref=e226]:
+        - link "Conheça a NF-e" [ref=e227] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=6H4uVlIEaKs=
+        - link "Serviços" [ref=e228] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=esCrSQFUvGg=
+        - link "Legislação" [ref=e229] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=ndIjl+iEFdE=
+        - link "Documentos" [ref=e230] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=04BIflQt1aY=
+        - link "Downloads" [ref=e231] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=BMPFMBoln3w=
+        - link "Área Restrita" [ref=e232] [cursor=pointer]:
+          - /url: https://hom.nfe.fazenda.gov.br/arearestrita/inicial/autenticacao.aspx
+        - link "Documentos e outros" [ref=e233] [cursor=pointer]:
+          - /url: https://hom.nfe.fazenda.gov.br/arearestrita/inicial/listaSubMenu.aspx?Id=UORZ3ynALMA=
+        - link "Outros DF-e" [ref=e234] [cursor=pointer]:
+          - /url: listaSubMenu.aspx?Id=VOYEgBgD3iU=
+        - text: Portal da NF-e 2026 - Nota Fiscal Eletrônica v2.9.9.0
+      - link "Receita Federal" [ref=e236] [cursor=pointer]:
+        - /url: //www.receita.fazenda.gov.br
+    - generic [ref=e237]: Ambiente de Homologação
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - list
+  - generic [ref=e238]:
+    - img "Acessível com VLibras" [ref=e239]
+    - button "Conteúdo acessível em Libras usando o VLibras Widget com opções dos Avatares Ícaro, Hosana ou Guga." [ref=e240] [cursor=pointer]

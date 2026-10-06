@@ -10,9 +10,9 @@ if (!fs.existsSync(vercelConfigPath)) {
   process.exit(1);
 }
 
-const { projectId } = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8'));
-if (!projectId) {
-  process.stderr.write('Vercel project ID is missing from .vercel/project.json.\n');
+const { projectId, orgId } = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8'));
+if (!projectId || !orgId) {
+  process.stderr.write('Vercel project or organization ID is missing from .vercel/project.json.\n');
   process.exit(1);
 }
 
@@ -27,10 +27,8 @@ const args = [
   'run',
   '-e',
   'development',
-  '--project',
-  projectId,
   '--cwd',
-  vercelEnvCwd,
+  `"${vercelEnvCwd}"`,
   '--',
   'npm',
   '--prefix',
@@ -43,6 +41,8 @@ for (const key of Object.keys(env)) {
   if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
 }
 env.MORANTE_ENV_SOURCE = 'vercel-development';
+env.VERCEL_PROJECT_ID = projectId;
+env.VERCEL_ORG_ID = orgId;
 
 const child = spawn(executable, args, {
   cwd: projectRoot,

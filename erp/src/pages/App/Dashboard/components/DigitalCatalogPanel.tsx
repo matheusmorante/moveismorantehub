@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { isHmlFiscalTestProduct } from '../../../utils/hmlTestData';
 
 export default function DigitalCatalogPanel() {
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,7 @@ export default function DigitalCatalogPanel() {
         const [productsRes, categoriesRes, analyticsRes] = await Promise.all([
           supabase
             .from('products')
-            .select('id, status, product_variations(id, status)')
+            .select('id, status, observations, product_variations(id, status)')
             .is('deleted_at', null),
           supabase.from('categories').select('id', { count: 'exact' }),
           supabase
@@ -33,20 +34,22 @@ export default function DigitalCatalogPanel() {
         let draftCount = 0;
 
         if (productsRes.data) {
-          productsRes.data.forEach((p: any) => {
-            const variations = p.product_variations || [];
-            if (variations.length === 0) {
-              totalProductsCount += 1;
-              if (p.status === 'published') publishedCount += 1;
-              else draftCount += 1;
-            } else {
-              totalProductsCount += variations.length;
-              variations.forEach((v: any) => {
-                if (v.status === 'published') publishedCount += 1;
+          productsRes.data
+            .filter((p: any) => !isHmlFiscalTestProduct(p.observations))
+            .forEach((p: any) => {
+              const variations = p.product_variations || [];
+              if (variations.length === 0) {
+                totalProductsCount += 1;
+                if (p.status === 'published') publishedCount += 1;
                 else draftCount += 1;
-              });
-            }
-          });
+              } else {
+                totalProductsCount += variations.length;
+                variations.forEach((v: any) => {
+                  if (v.status === 'published') publishedCount += 1;
+                  else draftCount += 1;
+                });
+              }
+            });
         }
 
         setStats({

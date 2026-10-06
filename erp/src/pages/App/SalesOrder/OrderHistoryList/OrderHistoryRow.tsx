@@ -44,6 +44,7 @@ interface OrderHistoryRowProps {
     updatedAssistanceItems?: readonly AssistanceItem[]
   ) => void;
   onViewDetails?: (order: Order) => void;
+  onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
   isHighlighted?: boolean;
   id?: string;
   onFilterByOrderId?: (id: string) => void;
@@ -72,6 +73,7 @@ const OrderHistoryRow = ({
   id,
   onFilterByOrderId,
   onViewDetails,
+  onViewFiscalDocument,
   onShowPostSaleActions,
 }: OrderHistoryRowProps) => {
   const settings = getSettings();
@@ -164,17 +166,6 @@ const OrderHistoryRow = ({
                 <span className="font-mono text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                   {formatOrderCode(order)}
                 </span>
-                <OrderFiscalBadge
-                  status={fiscalBadgeStatus}
-                  documentId={fiscalDocumentId}
-                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
-                />
-                <OrderFiscalBadge
-                  variant="homologation"
-                  status={fiscalHmlBadgeStatus}
-                  documentId={fiscalHmlDocumentId}
-                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
-                />
               </div>
               {order.linkedOrderId && (
                 <button
@@ -251,6 +242,19 @@ const OrderHistoryRow = ({
                 {toTitleCase(order.customerData?.fullName || 'Não informado')}
               </span>
               <div className="flex flex-wrap items-center gap-1">
+                <OrderFiscalBadge
+                  status={fiscalBadgeStatus}
+                  documentId={fiscalDocumentId}
+                  onOpenDocument={onViewFiscalDocument}
+                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
+                <OrderFiscalBadge
+                  variant="homologation"
+                  status={fiscalHmlBadgeStatus}
+                  documentId={fiscalHmlDocumentId}
+                  onOpenDocument={onViewFiscalDocument}
+                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}

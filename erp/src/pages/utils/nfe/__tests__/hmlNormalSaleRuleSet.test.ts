@@ -300,7 +300,29 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
       recipient: { cpfCnpj: '' },
       operation: { presence: '1' },
     });
+    expect(result.document.payments[0]).toMatchObject({
+      methodCode: '17',
+      amount: 569,
+      card: { integrationType: '2' },
+    });
     expect(result.document.totals.invoice).toBe(569);
+    const accessKey = generateNfeAccessKey({
+      ufCode: '41',
+      yearMonth: '2610',
+      cnpj: '12345678000195',
+      model: '65',
+      series: '1',
+      number: 620,
+      emissionType: '1',
+      randomCode: '12345678',
+    }).accessKey;
+    const xml = serializeFiscalDocument(facts, result.document, rules, {
+      accessKey,
+      series: 1,
+      number: 620,
+      issuedAt: '2026-10-05T18:55:03-03:00',
+    });
+    expect(xml).toContain('<detPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
   });
   it('valida o documento opcional informado e não aceita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();
@@ -542,4 +564,21 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     );
     await expect(validateNfeAgainstOfficialSchema(signed)).resolves.toBeUndefined();
   });
+  it('permite produtos do catálogo e do pedido com CST de PIS/COFINS 49 (saída Simples Nacional)', async () => {
+    const facts = makeFacts();
+    (facts.fiscalInputs!.products as any)['P-1'].pisCst = '49';
+    (facts.fiscalInputs!.products as any)['P-1'].cofinsCst = '49';
+    (facts.order.data.items as any)[0].fiscal = { pisCst: '49', cofinsCst: '49' };
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.items[0].taxes).toContainEqual(
+      expect.objectContaining({ group: 'PIS', code: '99' })
+    );
+    expect(result.document.items[0].taxes).toContainEqual(
+      expect.objectContaining({ group: 'COFINS', code: '99' })
+    );
+  });
 });
+

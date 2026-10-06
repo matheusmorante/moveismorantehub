@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import OrderHistoryRow from './OrderHistoryRow';
 
 afterEach(() => {
@@ -15,31 +16,33 @@ describe('OrderHistoryRow', () => {
     const order = { id: 'cancelled-order', status: 'cancelled', orderType: 'sale' } as any;
     const noop = vi.fn();
     const { container } = render(
-      <table>
-        <tbody>
-          <OrderHistoryRow
-            order={order}
-            onEdit={noop}
-            onDelete={noop}
-            onRestore={noop}
-            onPermanentDelete={noop}
-            onAction={noop}
-            onStatusUpdate={noop}
-            visibilitySettings={{
-              id: true,
-              orderDate: true,
-              deliveryDate: true,
-              customer: true,
-              totalValue: true,
-              status: true,
-              orderType: true,
-              labels: true,
-              actions: true,
-            }}
-            orderedColumnKeys={['id']}
-          />
-        </tbody>
-      </table>
+      <MemoryRouter>
+        <table>
+          <tbody>
+            <OrderHistoryRow
+              order={order}
+              onEdit={noop}
+              onDelete={noop}
+              onRestore={noop}
+              onPermanentDelete={noop}
+              onAction={noop}
+              onStatusUpdate={noop}
+              visibilitySettings={{
+                id: true,
+                orderDate: true,
+                deliveryDate: true,
+                customer: true,
+                totalValue: true,
+                status: true,
+                orderType: true,
+                labels: true,
+                actions: true,
+              }}
+              orderedColumnKeys={['id']}
+            />
+          </tbody>
+        </table>
+      </MemoryRouter>
     );
 
     const row = container.querySelector('tr');
@@ -64,54 +67,77 @@ describe('OrderHistoryRow', () => {
     const order = { id: 'order-1', status: 'fulfilled', orderType: 'sale' } as any;
     const noop = vi.fn();
     render(
-      <table>
-        <tbody>
-          <OrderHistoryRow
-            order={order}
-            fiscalBadgeStatus="issued"
-            fiscalHmlBadgeStatus="not_issued"
-            onEdit={noop}
-            onDelete={noop}
-            onRestore={noop}
-            onPermanentDelete={noop}
-            onAction={noop}
-            onStatusUpdate={noop}
-            visibilitySettings={mockVisibilitySettings}
-            orderedColumnKeys={['id']}
-          />
-        </tbody>
-      </table>
+      <MemoryRouter>
+        <table>
+          <tbody>
+            <OrderHistoryRow
+              order={order}
+              fiscalBadgeStatus="issued"
+              fiscalHmlBadgeStatus="not_issued"
+              onEdit={noop}
+              onDelete={noop}
+              onRestore={noop}
+              onPermanentDelete={noop}
+              onAction={noop}
+              onStatusUpdate={noop}
+              visibilitySettings={mockVisibilitySettings}
+              orderedColumnKeys={['id', 'customer']}
+            />
+          </tbody>
+        </table>
+      </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
     expect(screen.queryByText('NFH')).toBeNull();
+    const row = screen.getByText('NF').closest('tr');
+    expect(screen.getByText('NF').closest('td')).toBe(row?.children[1]);
+    expect(row?.children[0].textContent).not.toContain('NF');
   });
 
   it('exibe rótulo NFH quando homologação estiver emitida/autorizada', () => {
     const order = { id: 'order-1', status: 'fulfilled', orderType: 'sale' } as any;
     const noop = vi.fn();
+    const onViewFiscalDocument = vi.fn();
     render(
-      <table>
-        <tbody>
-          <OrderHistoryRow
-            order={order}
-            fiscalBadgeStatus="not_issued"
-            fiscalHmlBadgeStatus="issued"
-            onEdit={noop}
-            onDelete={noop}
-            onRestore={noop}
-            onPermanentDelete={noop}
-            onAction={noop}
-            onStatusUpdate={noop}
-            visibilitySettings={mockVisibilitySettings}
-            orderedColumnKeys={['id']}
-          />
-        </tbody>
-      </table>
+      <MemoryRouter>
+        <table>
+          <tbody>
+            <OrderHistoryRow
+              order={order}
+              fiscalBadgeStatus="issued"
+              fiscalHmlBadgeStatus="issued"
+              fiscalDocumentId="production-document-1"
+              fiscalHmlDocumentId="hml-document-1"
+              onViewFiscalDocument={onViewFiscalDocument}
+              onEdit={noop}
+              onDelete={noop}
+              onRestore={noop}
+              onPermanentDelete={noop}
+              onAction={noop}
+              onStatusUpdate={noop}
+              visibilitySettings={mockVisibilitySettings}
+              orderedColumnKeys={['id', 'customer']}
+            />
+          </tbody>
+        </table>
+      </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
     expect(screen.getByText('NFH')).toBeTruthy();
-    expect(screen.getByTitle('Nota fiscal de homologação emitida')).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name: 'Nota fiscal de homologação emitida · Abrir documento fiscal',
+      })
+    ).toBeTruthy();
+    const row = screen.getByText('NFH').closest('tr');
+    expect(screen.getByText('NFH').closest('td')).toBe(row?.children[1]);
+    expect(row?.children[0].textContent).not.toContain('NFH');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nota fiscal de homologação emitida · Abrir documento fiscal' }));
+    expect(onViewFiscalDocument).toHaveBeenCalledWith('hml-document-1', 2);
+    fireEvent.click(screen.getByRole('button', { name: 'Nota fiscal emitida · Abrir documento fiscal' }));
+    expect(onViewFiscalDocument).toHaveBeenCalledWith('production-document-1', 1);
   });
 });

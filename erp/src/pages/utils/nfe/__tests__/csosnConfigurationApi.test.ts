@@ -18,10 +18,11 @@ function database() {
     companyCRT: '1',
     fiscalDefaults: { cst: '102', ncm: '94036000', cfop: '5102', pisCst: '99', cofinsCst: '99' },
   };
+  const productId = '00000000-0000-0000-0000-000000000001';
   const items: Record<string, unknown>[] = [
     {},
     { fiscal: { cst: '500', origem: '2' } },
-    { productId: 'product-1' },
+    { productId },
   ];
   let role = 'administrator';
   let writeFails = false;
@@ -47,7 +48,7 @@ function database() {
       }),
       in: async () => ({
         error: null,
-        data: table === 'products' ? [{ id: 'product-1', fiscal: { cst: '201' } }] : [],
+        data: table === 'products' ? [{ id: productId, fiscal: { cst: '201' } }] : [],
       }),
     }),
   }));

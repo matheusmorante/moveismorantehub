@@ -25,6 +25,7 @@ export interface OrderHistoryTableProps {
     reconciliationMode?: boolean
   ) => void;
   readonly onViewDetails?: (order: Order) => void;
+  readonly onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
   readonly onPermanentDelete: (id: string) => void;
@@ -59,6 +60,7 @@ const OrderHistoryTable = ({
   fiscalBadgeStatusByOrderId,
   onEdit,
   onViewDetails,
+  onViewFiscalDocument,
   onDelete,
   onRestore,
   onPermanentDelete,
@@ -207,6 +209,7 @@ const OrderHistoryTable = ({
                     fiscalHmlDocumentId={hmlDocumentId}
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
+                    onViewFiscalDocument={onViewFiscalDocument}
                     onDelete={onDelete}
                     onRestore={onRestore}
                     onPermanentDelete={onPermanentDelete}
@@ -258,6 +261,7 @@ const OrderHistoryTable = ({
                   fiscalHmlDocumentId={hmlDocumentId}
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
+                  onViewFiscalDocument={onViewFiscalDocument}
                   onDelete={onDelete}
                   onRestore={onRestore}
                   onPermanentDelete={onPermanentDelete}

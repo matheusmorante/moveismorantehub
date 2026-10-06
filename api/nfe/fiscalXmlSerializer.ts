@@ -291,8 +291,8 @@ export function serializeFiscalDocument(
   const payments = `<pag>${document.payments
     .map((payment) => {
       requireCode(payment.methodCode, /^\d{2}$/, 'Meio de pagamento');
-      if (document.model === '65' && ['03', '04'].includes(payment.methodCode) && !payment.card)
-        throw new Error('Dados de integração do cartão ausentes para NFC-e.');
+      if (document.model === '65' && ['03', '04', '17'].includes(payment.methodCode) && !payment.card)
+        throw new Error('Dados de integração do cartão/PIX ausentes para NFC-e.');
       return (
         `<detPag>${tag('tPag', payment.methodCode)}${tag('vPag', money(payment.amount))}` +
         `${

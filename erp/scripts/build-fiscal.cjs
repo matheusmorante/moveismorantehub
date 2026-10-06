@@ -4,7 +4,7 @@ const { mkdir, writeFile } = require('node:fs/promises');
 
 const root = resolve(__dirname, '../..');
 const outdir = resolve(root, 'erp/server/nfe');
-const routes = ['emit', 'consult', 'item-defaults', 'cancel', 'return-capacity',
+const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
   'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number'];
 
 async function main() {

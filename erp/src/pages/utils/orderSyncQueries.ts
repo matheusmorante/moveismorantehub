@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from './formatters';
 import { getOrderIndex } from './orderCode';
 import { mapOrderFromDatabase } from './orderMapper';
+import { isHmlFiscalTestOrder } from './hmlTestData';
 
 const TABLE_NAME = 'orders';
 
@@ -395,7 +396,15 @@ const DASHBOARD_ORDERS_COLUMNS = `
     id, order_number, order_index, status, order_type, customer_id, customer_name,
     total_amount, marketing_origin, scheduled_date, delivery_method, delivery_status,
     deleted, deleted_at, created_at, updated_at,
+    is_test:order_data->>is_test, test_environment:order_data->>test_environment,
+    test_run_id:order_data->>testRunId,
     order_items(id, order_id, product_id, variation_id, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
+`;
+
+const RECENT_DASHBOARD_ORDERS_COLUMNS = `
+    id, order_number, order_index, status, order_type, customer_name, total_amount, created_at,
+    is_test:order_data->>is_test, test_environment:order_data->>test_environment,
+    test_run_id:order_data->>testRunId
 `;
 
 /** Fonte C: Busca leve de apenas 5 pedidos recentes para o card da interface */
@@ -403,9 +412,7 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => 
   try {
     const { data, error } = await supabase
       .from(TABLE_NAME)
-      .select(
-        'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at'
-      )
+      .select(RECENT_DASHBOARD_ORDERS_COLUMNS)
       .in('status', ['scheduled', 'fulfilled'])
       .or('deleted.is.null,deleted.eq.false')
       .order('created_at', { ascending: false })
@@ -416,7 +423,7 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => 
       return [];
     }
 
-    return (data || []).map(
+    return (data || []).filter((row) => !isHmlFiscalTestOrder(row)).map(
       (r) =>
         ({
           id: String(r.id),
@@ -452,7 +459,7 @@ export const fetchGeoMapOrders = async (limit: number = 50): Promise<Order[]> =>
       return [];
     }
 
-    return (data || []).map(
+    return (data || []).filter((row) => !isHmlFiscalTestOrder(row.order_data)).map(
       (r) =>
         ({
           id: String(r.id),
@@ -499,13 +506,16 @@ export const fetchAllOrdersForDashboard = async (
       from += pageSize;
     }
 
-    return rows.filter(isValidOrderRow).map((row: any) => {
-      try {
-        return mapOrderFromDatabase(row);
-      } catch (_e) {
-        return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
-      }
-    });
+    return rows
+      .filter(isValidOrderRow)
+      .filter((row: any) => !isHmlFiscalTestOrder(row))
+      .map((row: any) => {
+        try {
+          return mapOrderFromDatabase(row);
+        } catch (_e) {
+          return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
+        }
+      });
   } catch (error) {
     console.error('[OrdersSync] Erro ao buscar dados do dashboard:', error);
     return [];

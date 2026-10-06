@@ -46,6 +46,7 @@ interface OrderHistoryCardProps {
     updatedAssistanceItems?: readonly AssistanceItem[]
   ) => void;
   readonly onViewDetails?: (order: Order) => void;
+  readonly onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
   readonly onShowPostSaleActions?: (order: Order) => void;
 }
 
@@ -68,6 +69,7 @@ const OrderHistoryCard = ({
   id,
   onFilterByOrderId,
   onViewDetails,
+  onViewFiscalDocument,
   onShowPostSaleActions,
 }: OrderHistoryCardProps) => {
   const settings = getSettings();
@@ -204,12 +206,14 @@ const OrderHistoryCard = ({
           <OrderFiscalBadge
             status={fiscalBadgeStatus}
             documentId={fiscalDocumentId}
+            onOpenDocument={onViewFiscalDocument}
             reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <OrderFiscalBadge
             variant="homologation"
             status={fiscalHmlBadgeStatus}
             documentId={fiscalHmlDocumentId}
+            onOpenDocument={onViewFiscalDocument}
             reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <div

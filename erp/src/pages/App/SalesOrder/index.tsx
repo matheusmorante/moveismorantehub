@@ -18,6 +18,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { canGenerateReturn } from '../../utils/returnPolicy';
 import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
 import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
+import type { NfeEmissionResult } from '../../utils/nfe/nfeService';
+import { IssuedFiscalDocumentDetailsModal } from '../FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal';
 
 const SalesOrder = () => {
   const [orderModalType, setOrderModalType] = useState<
@@ -33,6 +35,14 @@ const SalesOrder = () => {
   const [nfeChoiceOrder, setNfeChoiceOrder] = useState<Order | null>(null);
   const [chosenNfeEnvironment, setChosenNfeEnvironment] = useState<1 | 2>(1);
   const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
+  const [issuedFiscalDocument, setIssuedFiscalDocument] = useState<{
+    result: NfeEmissionResult;
+    order: Order;
+  } | null>(null);
+  const [fiscalDocumentToView, setFiscalDocumentToView] = useState<{
+    documentId: string;
+    environment: 1 | 2;
+  } | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -415,6 +425,9 @@ const SalesOrder = () => {
                     setEditingOrder(order);
                   }}
                   onViewDetails={setDetailsOrder}
+                  onViewFiscalDocument={(documentId, environment) =>
+                    setFiscalDocumentToView({ documentId, environment })
+                  }
                   filters={activeFilters}
                   visibilitySettings={visibilitySettings}
                   onToggleColumn={toggleVisibility}
@@ -487,6 +500,9 @@ const SalesOrder = () => {
                   ref={trashListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
                   onAction={handleOrderAction}
+                  onViewFiscalDocument={(documentId, environment) =>
+                    setFiscalDocumentToView({ documentId, environment })
+                  }
                 />
               </div>
             </div>
@@ -546,6 +562,9 @@ const SalesOrder = () => {
                   ref={draftsListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
                   onAction={handleOrderAction}
+                  onViewFiscalDocument={(documentId, environment) =>
+                    setFiscalDocumentToView({ documentId, environment })
+                  }
                 />
               </div>
             </div>
@@ -732,9 +751,27 @@ const SalesOrder = () => {
           order={nfeModalOrder}
           initialEnvironment={chosenNfeEnvironment}
           onClose={() => setNfeModalOrder(null)}
-          onSuccess={() => {
+          onSuccess={(result) => {
+            const emittedOrder = nfeModalOrder;
+            setNfeModalOrder(null);
             orderListRef.current?.refresh();
+            if (emittedOrder) setIssuedFiscalDocument({ result, order: emittedOrder });
           }}
+        />
+      )}
+      {issuedFiscalDocument && (
+        <IssuedFiscalDocumentDetailsModal
+          emissionResult={issuedFiscalDocument.result}
+          order={issuedFiscalDocument.order}
+          onClose={() => setIssuedFiscalDocument(null)}
+        />
+      )}
+      {fiscalDocumentToView && (
+        <IssuedFiscalDocumentDetailsModal
+          documentId={fiscalDocumentToView.documentId}
+          initialEnvironment={fiscalDocumentToView.environment}
+          fullScreen={fiscalDocumentToView.environment === 1}
+          onClose={() => setFiscalDocumentToView(null)}
         />
       )}
     </div>

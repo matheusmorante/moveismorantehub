@@ -213,4 +213,39 @@ describe('mapeamento do estado físico de entrega do pedido', () => {
     });
     expect(hasGoodsCirculated(order)).toBe(true);
   });
+
+  it('infere personType PF para CPF (11 dígitos) e PJ para CNPJ (14 dígitos) no customerData', () => {
+    const pfOrder = mapOrderFromDatabase({
+      id: 'pf-order',
+      order_data: {
+        customerData: {
+          fullName: 'Consumidor Final',
+          cpfCnpj: '123.456.789-01',
+        },
+      },
+    });
+    expect(pfOrder.customerData.personType).toBe('PF');
+
+    const pjOrder = mapOrderFromDatabase({
+      id: 'pj-order',
+      order_data: {
+        customerData: {
+          fullName: 'Empresa Teste LTDA',
+          cpfCnpj: '12.345.678/0001-90',
+        },
+      },
+    });
+    expect(pjOrder.customerData.personType).toBe('PJ');
+
+    const explicitOrder = mapOrderFromDatabase({
+      id: 'explicit-order',
+      order_data: {
+        customerData: {
+          fullName: 'Pessoa com Tipo',
+          personType: 'PJ',
+        },
+      },
+    });
+    expect(explicitOrder.customerData.personType).toBe('PJ');
+  });
 });

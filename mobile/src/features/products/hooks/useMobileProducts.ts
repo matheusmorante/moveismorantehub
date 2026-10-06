@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
-  toggleMobileProductCatalog,
-  toggleMobileProductActive,
   deleteMobileProduct,
   saveMobileProduct,
+  toggleMobileProductActive,
+  toggleMobileProductCatalog,
 } from '../services/mobileProductMutationService';
 
 const ITEMS_PER_PAGE = 15;
@@ -216,15 +217,15 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
       return;
     }
     if (!currentActive && targetProd) {
+      const productKind = targetProd.productKind || targetProd.product_kind;
       if (
-        targetProd.productKind === 'salvado' ||
-        targetProd.product_kind === 'salvado' ||
-        targetProd.condition === 'salvado' ||
+        ['salvado', 'usado'].includes(productKind) ||
+        ['salvado', 'usado'].includes(targetProd.condition) ||
         targetProd.is_salvado
       ) {
         Alert.alert(
           'Produto Desativado no ERP',
-          'Produtos com origem do estoque Salvados permanecem desativados no ERP (exige origem Convencional).'
+          'Produtos com origem diferente de Convencional permanecem desativados no ERP.'
         );
         return;
       }
@@ -257,8 +258,11 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
         if (Math.max(componentCount, Array.isArray(fallbackItems) ? fallbackItems.length : 0) < 2)
           missing.push('pelo menos 2 componentes');
       } else if (
-        variations.length === 0 &&
-        Number(targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price ?? 0) <= 0
+        variations.length > 0
+          ? !variations.some(
+              (variation: any) => getMobileEffectiveVariationPrice(targetProd, variation) > 0
+            )
+          : Number(targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price ?? 0) <= 0
       ) {
         missing.push('preço de venda');
       }

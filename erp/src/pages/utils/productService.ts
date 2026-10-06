@@ -35,3 +35,4 @@ export * from './productService/productDimensionsExtractor';
 export * from './productService/productFilterBuilder';
 export * from './productService/productToDbMapper';
 export * from './productService/productVariationMapper';
+export * from './productService/productFiscalDataService';

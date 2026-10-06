@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Modal,
   Image as RNImage,
   ScrollView,
@@ -23,8 +24,10 @@ import {
   Check,
   Camera,
   Pencil,
+  Trash2,
 } from 'lucide-react-native';
 import { generateVariationSku, parseLocalizedPrice } from '../../services/mobileProductHelpers';
+import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
@@ -49,7 +52,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
     const parentCode = (formData.code || '000000').trim();
     const resolvedSku = generateVariationSku(parentCode, variations);
     const parentName = String(formData.name || '').trim();
-    const name = `${parentName || 'Produto'} Variação ${variations.length + 1}`.trim();
+    const name = parentName || 'Produto';
 
     const v = {
       name,
@@ -66,8 +69,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
       height: formData.height || '',
       depth: formData.depth || '',
       weight: formData.weight || '',
-      status: 'hidden',
-      active: true,
+      status: 'draft',
+      active: false,
       syncUnitPrice: true,
       syncPromoPrice: true,
       syncCostPrice: true,
@@ -90,6 +93,54 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
     }));
     setExpanded(variations.length);
     setActiveVariationTab('identificacao');
+  };
+
+  const handleRemove = async (index: number) => {
+    if (index === 0) {
+      Alert.alert('Variação principal', 'A primeira variação é obrigatória e não pode ser removida.');
+      return;
+    }
+
+    const variation = variations[index];
+    if (formData.id && variation?.id) {
+      try {
+        const hasMoves = await checkMobileProductVariationHasMoves(formData.id, variation.id);
+        if (hasMoves) {
+          Alert.alert(
+            'Variação com histórico',
+            'Esta variação possui movimentações de estoque ou pedidos vinculados e não pode ser removida.'
+          );
+          return;
+        }
+      } catch {
+        Alert.alert(
+          'Não foi possível verificar o histórico',
+          'A variação não foi removida. Tente novamente quando a conexão estiver disponível.'
+        );
+        return;
+      }
+    }
+
+    Alert.alert(
+      'Remover variação?',
+      `A variação “${variation?.name || variation?.sku || 'Variação'}” será removida ao salvar o produto.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: () => {
+            setFormData((previous) => ({
+              ...previous,
+              variations: (previous.variations || []).filter((_: any, currentIndex: number) => currentIndex !== index),
+              hasVariations: true,
+            }));
+            if (expanded === index) setExpanded(null);
+            else if (expanded !== null && expanded > index) setExpanded(expanded - 1);
+          },
+        },
+      ]
+    );
   };
 
   const updateVar = (idx: number, field: string, val: any) => {
@@ -184,9 +235,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
         </TouchableOpacity>
       </View>
 
-      <>
-        {/* Lista de Variações */}
-        {variations.length === 0 ? (
+      {/* Lista de Variações */}
+      {variations.length === 0 ? (
           <View style={[styles.emptyBox, dark && styles.darkCard]}>
             <Text style={styles.emptyText}>Nenhuma variação ainda. Adicione acima.</Text>
           </View>
@@ -257,7 +307,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
               updateVar(idx, 'promoPrice', Number(Math.max(0, regularPrice - fixed).toFixed(2)));
             };
             return (
-              <View key={idx} style={[styles.varItem, dark && styles.darkCard]}>
+              <View
+                key={v.id || v.sku || `${v.name || 'variacao'}-${idx}`}
+                style={[styles.varItem, dark && styles.darkCard]}
+              >
                 {/* Header da variação */}
                 <View style={styles.varHeader}>
                   <TouchableOpacity
@@ -300,14 +353,33 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                       R$ {finalPrice.toFixed(2).replace('.', ',')}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={openVariation}
-                    style={[styles.editVariationButton, dark && styles.darkEditVariationButton]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Editar características da variação ${v.name || v.sku}`}
-                  >
-                    <Pencil size={16} color={dark ? '#cbd5e1' : '#64748b'} />
-                  </TouchableOpacity>
+                  <View style={styles.varHeaderActions}>
+                    <TouchableOpacity
+                      onPress={openVariation}
+                      style={[styles.editVariationButton, dark && styles.darkEditVariationButton]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar características da variação ${v.name || v.sku}`}
+                    >
+                      <Pencil size={16} color={dark ? '#cbd5e1' : '#64748b'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => void handleRemove(idx)}
+                      disabled={idx === 0}
+                      style={[
+                        styles.editVariationButton,
+                        dark && styles.darkEditVariationButton,
+                        idx === 0 && styles.removeVariationDisabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        idx === 0
+                          ? 'A variação principal não pode ser removida'
+                          : `Remover variação ${v.name || v.sku}`
+                      }
+                    >
+                      <Trash2 size={16} color={idx === 0 ? '#94a3b8' : '#dc2626'} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {/* Modal de edição da variação, equivalente ao ERP */}
@@ -785,8 +857,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
               </View>
             );
           })
-        )}
-      </>
+      )}
     </View>
   );
 };
@@ -1009,6 +1080,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563eb',
   },
   varHeader: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 },
+  varHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   variationThumbnail: {
     width: 52,
     height: 52,
@@ -1058,6 +1130,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
   },
   darkEditVariationButton: { backgroundColor: '#334155' },
+  removeVariationDisabled: { opacity: 0.45 },
   variationModalRoot: { flex: 1, backgroundColor: '#ffffff' },
   darkModalRoot: { backgroundColor: '#0f172a' },
   varEdit: {

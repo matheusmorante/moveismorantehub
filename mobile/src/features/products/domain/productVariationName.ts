@@ -1,5 +1,7 @@
+import { getProductCharacteristicAttributes } from './productCharacteristics';
+
 export interface ProductVariationNameInput {
-  attributes?: Record<string, unknown> | null;
+  attributes?: unknown;
   name?: string | null;
   productName?: string | null;
 }
@@ -16,13 +18,15 @@ export const resolveProductVariationName = ({
   const explicitName = name?.trim();
   if (explicitName) return explicitName;
 
-  const attributeLabel = Object.entries(attributes || {})
-    .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
-    .map(([key, value]) => `${key}: ${String(value).trim()}`)
-    .join(' · ');
+  const attributeValues = getProductCharacteristicAttributes(attributes)
+    .filter(({ showName, value }) => showName && String(value).trim())
+    .map(({ value }) => String(value).trim());
+  const legacyText =
+    attributeValues.length === 0 && typeof attributes === 'string' ? attributes.trim() : '';
 
   const parentName = productName?.trim() || 'Variação';
-  return attributeLabel ? `${parentName} — ${attributeLabel}` : parentName;
+  const variationSuffix = [...attributeValues, legacyText].filter(Boolean).join(' ');
+  return variationSuffix ? `${parentName} ${variationSuffix}` : parentName;
 };
 
 /**

@@ -17,6 +17,7 @@ type OrderHistoryListProps = {
     reconciliationMode?: boolean
   ) => void;
   onViewDetails?: (order: Order) => void;
+  onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
   onShowPostSaleActions?: (order: Order) => void;
   filters?: any;
   visibilitySettings: VisibilitySettings;
@@ -37,6 +38,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     {
       onEdit,
       onViewDetails,
+      onViewFiscalDocument,
       onShowPostSaleActions,
       filters,
       visibilitySettings,
@@ -222,6 +224,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
             fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
             onEdit={onEdit}
             onViewDetails={onViewDetails}
+            onViewFiscalDocument={onViewFiscalDocument}
             onShowPostSaleActions={onShowPostSaleActions}
             onDelete={handleDelete}
             onRestore={handleRestore}

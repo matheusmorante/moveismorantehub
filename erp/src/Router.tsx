@@ -61,7 +61,7 @@ const SalesOrderReportViewBling = lazy(
 import BlingStock from './pages/App/Stock/BlingStock';
 import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
 import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
-import FiscalDocumentsPage from './pages/App/SalesOrder/FiscalDocumentsPage';
+import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">

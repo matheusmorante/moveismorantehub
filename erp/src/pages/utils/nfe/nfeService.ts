@@ -670,10 +670,19 @@ export async function emitNfeForOrder(
         result.code !== 'HML_RECONCILIATION_REQUIRED'
           ? console.error
           : console.warn;
+      const resultClassification =
+        result.success === false && metadata.cStat && !metadata.pending
+          ? 'SEFAZ_REJECTION'
+          : metadata.pending
+            ? 'FISCAL_ATTEMPT_PENDING'
+            : 'FISCAL_API_FAILURE';
       logFn('[NFe Service] Retorno da API interna de emissão', {
         endpoint: '/api/nfe/emit',
         httpStatus: response.status,
-        apiCode: typeof result.code === 'string' ? result.code : 'UNKNOWN',
+        ...(typeof result.code === 'string'
+          ? { apiCode: result.code }
+          : { resultClassification }),
+        ...(typeof metadata.cStat === 'string' ? { sefazCode: metadata.cStat } : {}),
         diagnosticId: metadata.diagnosticId,
         diagnosticStage: metadata.diagnosticStage,
         databaseCode: metadata.databaseCode,

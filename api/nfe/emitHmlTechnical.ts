@@ -665,7 +665,7 @@ async function transmitAndPersist(
       { pending: true, ...metadata }
     );
   return {
-    status: numberConflict ? 409 : 200,
+    status: numberConflict ? 409 : status === 'erro' ? 422 : 200,
     body: {
       success: authorized,
       pending: status === 'pendente',
@@ -675,7 +675,12 @@ async function transmitAndPersist(
             error: `A numeração ${nfeNumber} já está sendo usada. Escolha o número sugerido ou informe outro.`,
             numberConflict,
           }
-        : {}),
+        : status === 'erro'
+          ? {
+              code: 'HML_SEFAZ_REJECTED',
+              error: `${parsed.cStat ? parsed.cStat + ': ' : ''}${parsed.xMotivo || 'Rejeição da SEFAZ.'}`,
+            }
+          : {}),
       ...metadata,
       signedXml,
       sefazResponseXml: responseXml,
