@@ -18,6 +18,9 @@ import { draftKey } from '../types/nfeEmission.types';
 export interface UseNfeItemEnrichmentProps {
   order: Order | null;
   environment: 1 | 2;
+  finalConsumer?: boolean;
+  recipientTaxId?: string;
+  model?: '55' | '65';
   manualFiscalFields: React.MutableRefObject<Map<string, Record<number, Partial<NfeItemFiscal>>>>;
 }
 
@@ -35,6 +38,9 @@ class MissingFiscalProductsError extends Error {
 export function useNfeItemEnrichment({
   order,
   environment,
+  finalConsumer,
+  recipientTaxId,
+  model,
   manualFiscalFields,
 }: UseNfeItemEnrichmentProps) {
   const [nfeItems, setNfeItems] = useState<NfeItemWithFiscal[]>([]);
@@ -49,25 +55,14 @@ export function useNfeItemEnrichment({
     promise: Promise<Map<string, ProductFiscalData>>;
   } | null>(null);
 
-  const itemsSignature = (order?.items || [])
-    .filter((item) => item.itemType !== 'service')
-    .map(
-      (item) =>
-        `${item.orderItemId || ''}:${item.productId || ''}:${item.variationId || ''}:${item.fiscal?.ncm || ''}:${item.fiscal?.cfop || ''}:${item.fiscal?.cst || ''}:${item.quantity || ''}`
-    )
-    .join('|');
-  const orderCustomerData = order?.customerData as unknown as
-    | Record<string, unknown>
-    | undefined;
-  const operationLocationSignature = order
-    ? [
-        order.shipping?.deliveryMethod || '',
-        order.shipping?.useCustomerAddress === false ? 'custom' : 'customer',
-        JSON.stringify(order.shipping?.deliveryAddress || null),
-        JSON.stringify((order.shipping as Record<string, unknown> | undefined)?.pickupAddress || null),
-        JSON.stringify(orderCustomerData?.fullAddress || orderCustomerData?.address || null),
-      ].join('|')
-    : '';
+  // The full source item covers NCM/CEST/origin/source/ST/quantity/value and future
+  // tax characteristics; identification and physical addresses are independent axes.
+  const fiscalDependencySignature = JSON.stringify([
+    environment, model, finalConsumer, recipientTaxId, getSettings().companyUF,
+    order?.orderType, order?.fiscalContext, order?.customerData, order?.shipping,
+    (order?.items || []).filter((item) => item.itemType !== 'service'),
+  ]);
+  const previousDependenciesRef = useRef<{ key: string; signature: string } | null>(null);
   const previousCfopScopeRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -81,6 +76,23 @@ export function useNfeItemEnrichment({
     }
 
     const settings = getSettings();
+    const dependencyKey = `${currentOrder.id}:${environment}`;
+    const dependenciesChanged = previousDependenciesRef.current?.key === dependencyKey &&
+      previousDependenciesRef.current.signature !== fiscalDependencySignature;
+    previousDependenciesRef.current = { key: dependencyKey, signature: fiscalDependencySignature };
+    if (dependenciesChanged) {
+      fiscalLookupRef.current = null;
+      const key = draftKey(currentOrder, environment);
+      const choices = manualFiscalFields.current.get(key);
+      if (choices) manualFiscalFields.current.set(key, Object.fromEntries(
+        Object.entries(choices).map(([index, fields]) => {
+          const classification = { ...fields };
+          delete classification.cfop;
+          delete classification.cst;
+          return [index, classification];
+        })
+      ));
+    }
     const defaultFiscal = settings.fiscalDefaults || {};
     const shipping = (currentOrder.shipping as Record<string, unknown> | undefined) || {};
     const customerData = (currentOrder.customerData as Record<string, unknown> | undefined) || {};
@@ -118,7 +130,7 @@ export function useNfeItemEnrichment({
     let invalidatedCfop = false;
     const fallbackItems: NfeItemWithFiscal[] = productItems.map((item) => {
       const savedFiscal = item.fiscal;
-      const savedCfop = compatibleCfop(savedFiscal?.cfop);
+      const savedCfop = dependenciesChanged ? '' : compatibleCfop(savedFiscal?.cfop);
       if (savedFiscal?.cfop && !savedCfop) invalidatedCfop = true;
       return {
         ...item,
@@ -127,7 +139,8 @@ export function useNfeItemEnrichment({
           ncm: savedFiscal?.ncm || '',
           cest: savedFiscal?.cest || '',
           cfop: savedCfop || suggestedInitialCfop,
-          cst: savedFiscal?.cst || defaultFiscal.cst || '103',
+          cst: operationScope.destination !== '1' ? '' :
+            (!dependenciesChanged && savedFiscal?.cst) || defaultFiscal.cst || '103',
           origem: savedFiscal?.origem || defaultFiscal.origem || '0',
         },
       };
@@ -179,7 +192,7 @@ export function useNfeItemEnrichment({
         );
 
         const csosnPromise =
-          environment === 2
+          environment === 2 && operationScope.destination === '1'
             ? withNfeEmissionStage('csosn_prepare', () =>
                 prepareHmlItemCsosns(String(currentOrder.id))
               ).then(
@@ -228,7 +241,9 @@ export function useNfeItemEnrichment({
         const enrichedList: NfeItemWithFiscal[] = [];
         for (const [index, { item, catalogFiscal }] of catalogResults.entries()) {
           const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
-          if (environment === 2 && !preparedCsosn && !preparationError) {
+          if (environment === 2 && operationScope.destination !== '1') {
+            preparationError = 'HML_INTERSTATE_MATRIX_NOT_APPROVED: não existe tratamento interestadual aprovado para estes itens.';
+          } else if (environment === 2 && !preparedCsosn && !preparationError) {
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           }
           const savedFiscal = item.fiscal;
@@ -238,15 +253,16 @@ export function useNfeItemEnrichment({
               ncm: catalogFiscal?.ncm || savedFiscal?.ncm || fallbackItems[index].fiscal.ncm,
               cest: savedFiscal?.cest || catalogFiscal?.cest || fallbackItems[index].fiscal.cest,
               cfop:
-                compatibleCfop(savedFiscal?.cfop) ||
-                compatibleCfop(catalogFiscal?.cfop) ||
+                (!dependenciesChanged ? compatibleCfop(savedFiscal?.cfop) : '') ||
+                (!dependenciesChanged ? compatibleCfop(catalogFiscal?.cfop) : '') ||
                 (operationScope.destination === '1' &&
                 environment === 2 &&
                 preparedCsosn?.cfop === '5102'
                   ? '5102'
                   : '') ||
                 fallbackItems[index].fiscal.cfop,
-              cst: preparedCsosn?.csosn || savedFiscal?.cst || catalogFiscal?.cst || '103',
+              cst: operationScope.destination !== '1' ? '' :
+                preparedCsosn?.csosn || (!dependenciesChanged && savedFiscal?.cst) || catalogFiscal?.cst || '103',
               csosnSource: preparedCsosn?.source,
               origem:
                 savedFiscal?.origem || catalogFiscal?.origem || fallbackItems[index].fiscal.origem,
@@ -261,6 +277,10 @@ export function useNfeItemEnrichment({
               ...manual,
               ...(manual.cst !== undefined ? { csosnSource: 'manual' } : {}),
             };
+          }
+          if (operationScope.destination !== '1') {
+            enrichedList[index].fiscal.cst = '';
+            enrichedList[index].fiscal.csosnSource = undefined;
           }
           if (
             enrichedList[index].fiscal.cfop &&
@@ -298,15 +318,19 @@ export function useNfeItemEnrichment({
     return () => {
       isMounted = false;
     };
-  }, [orderId, itemsSignature, operationLocationSignature, environment, manualFiscalFields]);
+  }, [orderId, fiscalDependencySignature, environment, manualFiscalFields]);
 
   const handleUpdateItemFiscal = (index: number, updates: Partial<NfeItemFiscal>) => {
+    const classificationChanged = (['ncm', 'cest', 'origem'] as const).some(
+      (field) => updates[field] !== undefined && updates[field] !== nfeItems[index]?.fiscal[field]
+    );
+    const resolvedUpdates = classificationChanged ? { ...updates, cfop: '', cst: '', csosnSource: undefined } : updates;
     if (order) {
       const key = draftKey(order, environment);
       const existing = manualFiscalFields.current.get(key) || {};
       manualFiscalFields.current.set(key, {
         ...existing,
-        [index]: { ...existing[index], ...updates },
+        [index]: { ...existing[index], ...resolvedUpdates },
       });
     }
     setNfeItems((prev) =>
@@ -316,8 +340,8 @@ export function useNfeItemEnrichment({
           ...item,
           fiscal: {
             ...item.fiscal,
-            ...updates,
-            ...(updates.cst !== undefined ? { csosnSource: 'manual' } : {}),
+            ...resolvedUpdates,
+            ...(!classificationChanged && updates.cst !== undefined ? { csosnSource: 'manual' } : {}),
           },
         };
       })
@@ -328,6 +352,10 @@ export function useNfeItemEnrichment({
     const key = order ? draftKey(order, environment) : '';
     const choices = { ...manualFiscalFields.current.get(key) };
     const resolved = updated.map((item, index) => {
+      const classificationChanged = (['ncm', 'cest', 'origem'] as const).some(
+        (field) => item.fiscal[field] !== nfeItems[index]?.fiscal[field]
+      );
+      if (classificationChanged) item = { ...item, fiscal: { ...item.fiscal, cfop: '', cst: '', csosnSource: undefined } };
       const changed = item.fiscal.cst !== nfeItems[index]?.fiscal.cst;
       const changedFields = Object.fromEntries(
         (['ncm', 'cfop', 'origem', 'cest', 'cst'] as const)
@@ -337,7 +365,7 @@ export function useNfeItemEnrichment({
       choices[index] = { ...choices[index], ...changedFields };
       return {
         ...item,
-        fiscal: { ...item.fiscal, ...(changed ? { csosnSource: 'manual' as const } : {}) },
+        fiscal: { ...item.fiscal, ...(!classificationChanged && changed ? { csosnSource: 'manual' as const } : {}) },
       };
     });
     if (order) manualFiscalFields.current.set(key, choices);

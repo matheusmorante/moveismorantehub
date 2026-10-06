@@ -493,10 +493,11 @@ describe('matriz fiscal interestadual server-side', () => {
     treatment: {
       cfop: '6102',
       csosn: '102',
-      icms: { framework: 'TEST', ratePercent: 0, baseMethod: 'TEST', reductionPercent: 0 },
-      st: { applicable: false, agreementOrProtocol: 'not_applicable', baseMethod: 'none', ratePercent: 0 },
-      difal: { applicable: false, internalRatePercent: 0, interstateRatePercent: 0, destinationSharePercent: 0 },
+      icms: { xmlGroup: 'ICMSSN102', framework: 'TEST', ratePercent: 0, baseMethod: 'TEST', reductionPercent: 0 },
+      st: { responsibility: 'none', applicable: false, agreementOrProtocol: 'not_applicable', baseMethod: 'none', ratePercent: 0 },
+      difal: { responsibility: 'none', applicable: false, internalRatePercent: 0, interstateRatePercent: 0, destinationSharePercent: 0 },
       fcp: { applicable: false, ratePercent: 0 },
+      fcpSt: { applicable: false, ratePercent: 0 },
     },
     candidateCfops: [],
     pendingReview: [],
@@ -504,11 +505,15 @@ describe('matriz fiscal interestadual server-side', () => {
     approvedBy: 'TEST_ONLY',
     approvedAt: '2026-10-01T00:00:00Z',
     effectiveFrom: '2026-10-01T00:00:00Z',
+    xmlEvidence: 'TEST_ONLY: synthetic serializer coverage, not fiscal approval',
+    testEvidence: 'TEST_ONLY: selector fixture',
   });
 
-  it('mantém todos os dez cenários iniciais em DRAFT, sem tratamento tributário presumido', () => {
-    expect(INTERSTATE_FISCAL_MATRIX_RULES).toHaveLength(10);
-    expect(INTERSTATE_FISCAL_MATRIX_RULES.every((rule) => rule.status === 'DRAFT')).toBe(true);
+  it('preserva os dez IDs e expande para 24 combinações independentes, sem aprovar tributos', () => {
+    expect(INTERSTATE_FISCAL_MATRIX_RULES).toHaveLength(24);
+    expect(INTERSTATE_FISCAL_MATRIX_RULES.filter((rule) => rule.status === 'DRAFT')).toHaveLength(20);
+    expect(INTERSTATE_FISCAL_MATRIX_RULES.filter((rule) => rule.status === 'BLOCKED')).toHaveLength(4);
+    expect(INTERSTATE_FISCAL_MATRIX_RULES.slice(0, 10).every((rule) => rule.status === 'DRAFT')).toBe(true);
     expect(
       INTERSTATE_FISCAL_MATRIX_RULES.every(
         (rule) => rule.treatment.cfop === null && rule.treatment.csosn === null
@@ -553,5 +558,72 @@ describe('matriz fiscal interestadual server-side', () => {
       status: 'invalid_approved_rule',
       code: 'HML_INTERSTATE_MATRIX_INVALID',
     });
+  });
+
+  it('mantém isento/PF e consumidor final como dimensões independentes', () => {
+    const result = resolveInterstateFiscalMatrix({ ...facts, recipientPersonType: 'PF', recipientIeStatus: 'exempt', finalConsumer: false });
+    expect(result).toMatchObject({ status: 'not_approved', missingFacts: [], matchingDraftRuleIds: ['PR-SC-PF-EXEMPT-NONFINAL-NO-ST'] });
+  });
+
+  it('bloqueia não contribuinte não final pela RV 696 sem corrigir os fatos', () => {
+    const input = { ...facts, recipientIeStatus: 'non_taxpayer' as const, finalConsumer: false };
+    expect(resolveInterstateFiscalMatrix(input, [completeRule()])).toMatchObject({ status: 'not_approved', reason: expect.stringContaining('696') });
+    expect(input.finalConsumer).toBe(false);
+  });
+
+  const genericRule = (): InterstateFiscalMatrixRule => {
+    const rule = completeRule('GENERIC-TEST');
+    delete rule.criteria.ncm;
+    delete rule.criteria.cest;
+    delete rule.criteria.effectiveAt;
+    rule.reviewedWildcards = ['ncm', 'cest'];
+    return rule;
+  };
+
+  it('seleciona NCM específico sobre genérico, devolvendo ID, motivo e fontes', () => {
+    const generic = genericRule();
+    generic.priority = 999;
+    const specific = completeRule('NCM-TEST');
+    expect(resolveInterstateFiscalMatrix(facts, [generic, specific])).toMatchObject({ status: 'approved', ruleId: 'NCM-TEST', reason: expect.any(String), sources: ['TEST_ONLY'] });
+    expect(resolveInterstateFiscalMatrix(facts, [specific, generic])).toMatchObject({ status: 'approved', ruleId: 'NCM-TEST' });
+  });
+
+  it.each([
+    { effectiveFrom: '2026-10-07T00:00:00Z' },
+    { effectiveUntil: '2026-10-06T11:59:59Z' },
+  ])('ignora regra específica fora da vigência antes de selecionar a genérica: %j', (validity) => {
+    const specific = { ...completeRule('OUTSIDE-TEST'), ...validity };
+    expect(resolveInterstateFiscalMatrix(facts, [specific, genericRule()])).toMatchObject({ status: 'approved', ruleId: 'GENERIC-TEST' });
+    expect(resolveInterstateFiscalMatrix(facts, [specific])).toMatchObject({ status: 'not_approved', code: 'HML_INTERSTATE_MATRIX_NOT_APPROVED' });
+  });
+
+  it('inclui ambos os instantes exatos da vigência e rejeita intervalos invertidos', () => {
+    const rule = completeRule();
+    delete rule.criteria.effectiveAt;
+    rule.effectiveUntil = facts.effectiveAt;
+    expect(resolveInterstateFiscalMatrix({ ...facts, effectiveAt: rule.effectiveFrom }, [rule])).toMatchObject({ status: 'approved' });
+    expect(resolveInterstateFiscalMatrix(facts, [rule])).toMatchObject({ status: 'approved' });
+    rule.effectiveUntil = '2026-09-01T00:00:00Z';
+    expect(hasApprovedInterstateRoute(facts, [rule])).toBe(false);
+  });
+
+  it('empates genéricos bloqueiam e wildcard não revisado não amplia aprovação', () => {
+    const generic = genericRule();
+    expect(resolveInterstateFiscalMatrix(facts, [generic, { ...generic, id: 'TIE' }])).toMatchObject({ status: 'ambiguous', ruleIds: ['GENERIC-TEST', 'TIE'] });
+    generic.reviewedWildcards = [];
+    expect(resolveInterstateFiscalMatrix(facts, [generic])).toMatchObject({ status: 'invalid_approved_rule' });
+  });
+
+  it.each(['fcpSt', 'st', 'difal'] as const)('não converte incidência desconhecida de %s em falso', (tax) => {
+    const rule = completeRule();
+    rule.treatment[tax].applicable = null;
+    expect(resolveInterstateFiscalMatrix(facts, [rule])).toMatchObject({ status: 'invalid_approved_rule' });
+    expect(hasApprovedInterstateRoute(facts, [rule])).toBe(false);
+  });
+
+  it('exige evidência de XML e testes antes de considerar APPROVED utilizável', () => {
+    const rule = completeRule();
+    delete rule.xmlEvidence;
+    expect(resolveInterstateFiscalMatrix(facts, [rule])).toMatchObject({ status: 'invalid_approved_rule' });
   });
 });

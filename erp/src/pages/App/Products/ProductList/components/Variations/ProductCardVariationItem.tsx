@@ -3,7 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
@@ -110,6 +110,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               catalogStatus={v.status}
               isParent={false}
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
+              isSalvado={getProductKind(product) === 'salvado'}
               canManageCatalog={canManageCatalog}
               isDraft={isDraft}
               onToggleActive={(e) => {

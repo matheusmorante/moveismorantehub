@@ -10,6 +10,7 @@ export interface ChannelStatusBadgesProps {
   readonly canManageCatalog?: boolean;
   readonly isParent?: boolean;
   readonly isNonConventional?: boolean;
+  readonly isSalvado?: boolean;
   readonly size?: 'sm' | 'xs';
   readonly disabled?: boolean;
   readonly isDraft?: boolean;
@@ -29,6 +30,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   canManageCatalog = true,
   isParent = false,
   isNonConventional = false,
+  isSalvado = false,
   size = 'sm',
   disabled = false,
   isDraft = false,
@@ -43,8 +45,8 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isCatalogPublished = !isDraft && catalogStatus === 'published';
-  const isERPActive = !isDraft && !isSalvado && active !== false;
-  const isERPDisabled = disabled || isSalvado;
+  const isERPActive = !isDraft && !isNonConventional && active !== false;
+  const isERPDisabled = disabled || isNonConventional;
 
   const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
   const py = size === 'xs' ? 'py-0.5' : 'py-1';
@@ -54,9 +56,11 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const handleERPClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isSalvado) {
+    if (isNonConventional) {
       toast.warning(
-        'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+        isSalvado
+          ? 'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+          : 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
       );
       return;
     }
@@ -194,7 +198,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           ref={!isParent ? erpBadgeAnchorRef : undefined}
           className="relative inline-flex items-center"
           onMouseEnter={() => {
-            if (isSalvado) {
+            if (isNonConventional) {
               setShowNonConventionalPopover(true);
             } else if (disabled) {
               setShowDisabledPopover(true);
@@ -353,11 +357,22 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
             <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
               <i className="bi bi-info-circle-fill text-[12px]" />
-              <span>Origem do Estoque: Salvados</span>
+              <span>
+                {isSalvado ? 'Origem do Estoque: Salvados' : 'Origem do Estoque: Não Convencional'}
+              </span>
             </div>
             <p className="text-slate-200 leading-snug">
-              Produtos de origem de estoque <strong>Salvados</strong> não podem ser ativados no ERP,
-              apenas no catálogo digital.
+              {isSalvado ? (
+                <>
+                  Produtos de origem de estoque <strong>Salvados</strong> não podem ser ativados no
+                  ERP, apenas no catálogo digital.
+                </>
+              ) : (
+                <>
+                  Produtos de origem de estoque diferente de <strong>Convencional</strong> não podem
+                  ser ativados no ERP, apenas no catálogo digital.
+                </>
+              )}
             </p>
           </div>
         </DropdownPortal>

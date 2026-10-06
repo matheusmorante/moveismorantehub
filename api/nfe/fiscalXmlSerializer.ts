@@ -89,6 +89,12 @@ function taxXml(taxes: ReadonlyArray<DeterminedTaxGroup>, origin: string): strin
   const cofins = taxes.find((tax) => tax.group === 'COFINS');
   if (!icms || !pis || !cofins || taxes.some((tax) => tax.group === 'IPI'))
     throw new Error('Grupos tributários ausentes ou ainda não suportados pelo serializer.');
+  // An approved classification must not silently drop ST/FCP/credit values while
+  // serializing one of the small set of ICMS groups currently implemented.
+  const supportedIcmsFields = icms.codeSystem === 'CST' && icms.code === '00'
+    ? ['modBC', 'vBC', 'pICMS', 'vICMS'] : ['vICMS'];
+  if (Object.keys(icms.values).some((field) => !supportedIcmsFields.includes(field)))
+    throw new Error('INTERSTATE_TAX_TREATMENT_NOT_IMPLEMENTED: campos ICMS/ST/FCP/crédito sem serialização suportada.');
   let icmsGroup: string;
   if (icms.codeSystem === 'CSOSN' && ZERO_OWN_ICMS_CSOSNS.includes(icms.code)) {
     if (taxAmount(icms, 'vICMS') !== 0) throw new Error('ICMSSN102 não destaca ICMS próprio.');

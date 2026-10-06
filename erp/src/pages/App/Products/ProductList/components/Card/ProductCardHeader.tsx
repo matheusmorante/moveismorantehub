@@ -1,6 +1,6 @@
 import React from 'react';
 import Product from '../../../../../types/product.type';
-import { isNonConventionalProduct } from '../../../../../utils/productKindRules';
+import { getProductKind, isNonConventionalProduct } from '../../../../../utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { ProductCardActions } from './ProductCardActions';
 
@@ -89,6 +89,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           catalogStatus={product.status}
           isParent={isParent}
           isNonConventional={isNonConventionalProduct(product)}
+          isSalvado={getProductKind(product) === 'salvado'}
           canManageCatalog={canManageCatalog}
           isDraft={isDraft}
           activeVariationsCount={

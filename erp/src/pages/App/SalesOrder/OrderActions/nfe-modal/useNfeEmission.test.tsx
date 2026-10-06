@@ -49,7 +49,7 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
   printOrderDanfe: vi.fn(),
 }));
 vi.mock('@/pages/utils/settingsService', () => ({
-  getSettings: () => ({ fiscalDefaults: { cst: '103' } }),
+  getSettings: () => ({ companyUF: 'PR', fiscalDefaults: { cst: '103' } }),
 }));
 vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.getFullProduct }));
 vi.mock('@/pages/utils/productService/productFiscalDataService', () => ({
@@ -83,7 +83,7 @@ vi.mock('./NcmSelect', () => ({
   ),
 }));
 vi.mock('react-toastify', () => ({
-  toast: { error: mocks.toast, success: vi.fn(), warning: vi.fn() },
+  toast: { error: mocks.toast, success: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
 describe('preenchimento dos itens da NF-e', () => {
   afterEach(() => {
@@ -129,6 +129,52 @@ describe('preenchimento dos itens da NF-e', () => {
       { quantity: 1, description: 'ITEM B', fiscal: { cst: '500', ncm: '94036000', origem: '0' } },
     ],
   };
+  it.each([
+    ['CEST', (value: any) => { value.items[0].fiscal.cest = '0100100'; }],
+    ['origem', (value: any) => { value.items[0].fiscal.origem = '1'; }],
+    ['NCM', (value: any) => { value.items[0].fiscal.ncm = '94035000'; }],
+    ['IE', (value: any) => { value.customerData.ie = '123456789'; }],
+    ['CPF/CNPJ', (value: any) => { value.customerData.cpfCnpj = '98765432100'; }],
+    ['indIEDest', (value: any) => { value.fiscalContext = { recipientIeIndicator: '1' }; }],
+    ['indFinal', (value: any) => { value.fiscalContext = { finalConsumer: false }; }],
+    ['finalidade', (value: any) => { value.fiscalContext = { purpose: '2' }; }],
+    ['endereço', (value: any) => { value.shipping.pickupAddress = { state: 'PR', street: 'Nova rua' }; }],
+    ['quantidade', (value: any) => { value.items[0].quantity = 2; }],
+    ['ST', (value: any) => { value.items[0].fiscal.hasSt = true; }],
+    ['terceiros/própria', (value: any) => { value.items[0].merchandiseOrigin = 'own_production'; }],
+  ])('invalida CFOP/CSOSN manual e prepara novamente ao alterar %s', async (_label, mutate) => {
+    const manualFiscalFields = { current: new Map() };
+    const initial = structuredClone(order);
+    const { result, rerender } = renderHook(({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }), { initialProps: { source: initial } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.handleUpdateItemFiscal(0, { cfop: '5102', cst: '102' }));
+    expect(result.current.nfeItems[0].fiscal.cst).toBe('102');
+    const changed = structuredClone(initial);
+    mutate(changed);
+    rerender({ source: changed });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    expect(result.current.nfeItems[0].fiscal.cst).toBe('103');
+    expect(mocks.prepare).toHaveBeenCalledTimes(2);
+  });
+
+  it('edição manual de classificação remove CFOP/CSOSN anteriores', async () => {
+    const manualFiscalFields = { current: new Map() };
+    const { result } = renderHook(() => useNfeItemEnrichment({ order, environment: 2, manualFiscalFields }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94035000' }));
+    expect(result.current.nfeItems[0].fiscal).toMatchObject({ ncm: '94035000', cfop: '', cst: '' });
+  });
+
+  it('mudança para SC elimina tributação interna e mantém o bloqueio interestadual', async () => {
+    const manualFiscalFields = { current: new Map() };
+    const { result, rerender } = renderHook(({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }), { initialProps: { source: order } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    rerender({ source: { ...order, shipping: { deliveryMethod: 'delivery', useCustomerAddress: false, deliveryAddress: { state: 'SC' } } } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    expect(result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '', cst: '' });
+    expect(result.current.fiscalPreparationError).toContain('HML_INTERSTATE_MATRIX_NOT_APPROVED');
+    expect(mocks.prepare).toHaveBeenCalledTimes(1);
+  });
   it('bloqueia a transmissão e identifica o item ausente da consulta fiscal em lote', async () => {
     const productIds = Array.from(
       { length: 10 },

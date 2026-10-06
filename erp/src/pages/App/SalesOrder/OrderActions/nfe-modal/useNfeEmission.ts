@@ -43,6 +43,17 @@ export function useNfeEmission(
 
   const manualFiscalFields = useRef(fiscalDrafts);
 
+  const modelDecision = order
+    ? resolveOrderFiscalModel(order, { issuerUf: getSettings().companyUF, finalConsumer })
+    : null;
+  const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';
+  const {
+    recipientTaxId,
+    setRecipientTaxId,
+    recipientTaxIdError,
+    setRecipientTaxIdError,
+  } = useNfeRecipientTaxId({ order, currentModel });
+
   // 1. Itens e Enriquecimento Fiscal
   const {
     nfeItems,
@@ -50,15 +61,7 @@ export function useNfeEmission(
     fiscalPreparationError,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
-  } = useNfeItemEnrichment({ order, environment, manualFiscalFields });
-
-  const modelDecision = order
-    ? resolveOrderFiscalModel(
-        { ...order, items: nfeItems.length ? nfeItems : order.items },
-        { issuerUf: getSettings().companyUF, finalConsumer }
-      )
-    : null;
-  const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';
+  } = useNfeItemEnrichment({ order, environment, manualFiscalFields, finalConsumer, recipientTaxId, model: currentModel });
 
   // 2. Transporte
   const {
@@ -88,14 +91,6 @@ export function useNfeEmission(
     setNumberPreviewState,
     setManualNumberInput,
   } = useNfeSequencePreview({ orderId: order?.id, currentModel, environment });
-
-  // 4. Identificação do Destinatário
-  const {
-    recipientTaxId,
-    setRecipientTaxId,
-    recipientTaxIdError,
-    setRecipientTaxIdError,
-  } = useNfeRecipientTaxId({ order, currentModel });
 
   // 5. Ações e Mutações de Emissão
   const {
