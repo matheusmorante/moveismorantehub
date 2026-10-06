@@ -4,6 +4,7 @@ import { buttons } from '../OrderActions/orderActionsConfig';
 import PostSaleActionMenuButton, { isPostSaleAction } from './PostSaleActionMenuButton';
 import UndoFulfillmentButton from './UndoFulfillmentButton';
 import CancelScheduledSaleButton from './CancelScheduledSaleButton';
+import { ReturnNfeActionMenuButton } from './ReturnNfeActionMenuButton';
 import { canGenerateReturn } from '@/pages/utils/returnPolicy';
 
 interface OrderMenuActiveActionsProps {
@@ -108,6 +109,12 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
       <PostSaleActionMenuButton
         order={order}
         onOpen={onShowPostSaleActions}
+        onCloseMenu={onCloseMenu}
+      />
+
+      <ReturnNfeActionMenuButton
+        order={order}
+        onAction={onAction}
         onCloseMenu={onCloseMenu}
       />
 

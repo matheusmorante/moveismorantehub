@@ -701,6 +701,18 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     expect(result).toMatchObject({ status: 'not_approved', missingFacts: expect.arrayContaining(['destinationScope', 'purpose']) });
   });
 
+  it('aceita fontes sintéticas de origem/par somente com seus vínculos explícitos', () => {
+    const origin = anyDestinationRule();
+    origin.normativeScope = 'ORIGIN_STATE';
+    origin.normativeSources = [{ id: 'PR-TEST', scope: 'ORIGIN_STATE', issuerUf: 'PR', url: 'TEST_ONLY' }];
+    expect(resolveInterstateOutboundFiscalMatrix({ ...facts, destinationUf: 'SP' }, [origin])).toMatchObject({ status: 'approved' });
+    const pair = genericRule();
+    pair.normativeScope = 'ORIGIN_DESTINATION_PAIR';
+    pair.normativeSources = [{ id: 'PAIR-TEST', scope: 'ORIGIN_DESTINATION_PAIR', issuerUf: 'PR', destinationUf: 'SC', url: 'TEST_ONLY' }];
+    expect(resolveInterstateOutboundFiscalMatrix(facts, [pair])).toMatchObject({ status: 'approved' });
+    expect(resolveInterstateOutboundFiscalMatrix({ ...facts, destinationUf: 'RS' }, [pair])).toMatchObject({ status: 'not_approved' });
+  });
+
   it('seleciona NCM específico sobre genérico, devolvendo ID, motivo e fontes', () => {
     const generic = genericRule();
     generic.priority = 999;

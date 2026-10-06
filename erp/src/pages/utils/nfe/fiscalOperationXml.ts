@@ -2,6 +2,12 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import type { AppSettings } from '../settingsService';
 import { calculateMod11CheckDigit } from './nfeAccessKey';
 import { buildEmitXml, buildIdeXml, escapeXml } from './xml/xmlEmitterBlock';
+import {
+  getReturnCfopOptionsForSourceItem,
+  getFiscalFormXmlDefaults,
+  getFiscalFormRules,
+  validateReturnTaxScenario,
+} from '../../../../../shared-utils/fiscalOperationContext';
 
 type FiscalEnvironment = 1 | 2;
 type FiscalOperationKind = 'estorno' | 'return';
@@ -11,6 +17,8 @@ export interface ReviewedFiscalOperationLine {
   originalProductCode?: string;
   originalDescription?: string;
   originalNcm?: string;
+  originalCfop?: string;
+  originalTaxesXml?: string;
   originalUnitValue?: number;
   billedQuantity: number;
   originalGrossValue: number;
@@ -26,6 +34,7 @@ export interface ReviewedFiscalOperationLine {
 
 export interface ReviewedFiscalOperationXmlInput {
   kind: FiscalOperationKind;
+  returnMethod?: 'store_delivery' | 'store_collection';
   environment: FiscalEnvironment;
   originalEnvironment: FiscalEnvironment;
   originalStatus: 'autorizada' | 'homologada';
@@ -111,7 +120,10 @@ function blockXml(xml: string, expected: string): string {
   return new XMLSerializer().serializeToString(parseBlock(xml, expected));
 }
 
-export function normalizeReviewedFiscalBlock(xml: string, expected: 'prod' | 'imposto'): string {
+export function normalizeReviewedFiscalBlock(
+  xml: string,
+  expected: 'prod' | 'imposto' | 'dest' | 'total' | 'transp' | 'pag'
+): string {
   return blockXml(xml, expected);
 }
 
@@ -185,6 +197,28 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
   ) {
     throw new Error('Destinatário/remetente fiscal precisa ser conferido e identificado.');
   }
+  const returnRules = getFiscalFormRules('return', {
+    scope: 'internal',
+    returnMethod: input.returnMethod,
+  });
+  const returnXmlDefaults = getFiscalFormXmlDefaults(returnRules);
+  if (input.kind === 'return') {
+    const recipientAddress = Array.from(recipient.childNodes).find(
+      (node) => node.nodeType === 1 && (node as Element).localName === 'enderDest'
+    ) as Element | undefined;
+    const recipientUf = recipientAddress ? directText(recipientAddress, 'UF').toUpperCase() : '';
+    if (
+      !returnRules.allowedModels.includes('55') ||
+      !returnXmlDefaults ||
+      !returnRules.allowedTransportModes.length ||
+      input.natureOfOperation !== returnXmlDefaults.natureOfOperation ||
+      !returnRules.allowedModels.includes(input.originalAccessKey.slice(20, 22) as '55' | '65') ||
+      recipientUf !== String(settings.companyUF).toUpperCase() ||
+      directText(recipient, 'indIEDest') !== String(returnRules.fixedValues.indIEDest)
+    ) {
+      throw new Error('Cenário de devolução incompatível com as regras fiscais habilitadas.');
+    }
+  }
 
   let grossTotal = 0;
   let discountTotal = 0;
@@ -205,6 +239,17 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
         throw new Error(
           `Item ${index + 1}: origem, quantidade ou CFOP interno de entrada inválido.`
         );
+      }
+      if (input.kind === 'return') {
+        const taxScenarioError = validateReturnTaxScenario('', line.originalTaxesXml || '');
+        if (taxScenarioError) throw new Error(taxScenarioError);
+        const allowedCfops = getReturnCfopOptionsForSourceItem(
+          line.originalCfop || '',
+          line.originalTaxesXml || ''
+        );
+        if (!allowedCfops.some((option) => option.value === line.cfop)) {
+          throw new Error(`Item ${index + 1}: CFOP incompatível com a devolução e a tributação original.`);
+        }
       }
       const proportionalGross =
         Math.round((line.originalGrossValue * 100 * line.quantity) / line.billedQuantity) / 100;
@@ -292,6 +337,25 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
   decimal(directText(icmsTotal, 'vNF'), 'vNF');
   const transport = blockXml(input.transportXml, 'transp');
   const payment = blockXml(input.paymentXml, 'pag');
+  if (input.kind === 'return') {
+    if (!returnXmlDefaults) {
+      throw new Error('Não há blocos fiscais aprovados para o retorno desta devolução.');
+    }
+    const fixedPayment = normalizeReviewedFiscalBlock(
+      returnXmlDefaults.paymentXml,
+      'pag'
+    );
+    const fixedTransport = normalizeReviewedFiscalBlock(
+      returnXmlDefaults.transportXml,
+      'transp'
+    );
+    if (
+      normalizeReviewedFiscalBlock(input.paymentXml, 'pag') !== fixedPayment ||
+      normalizeReviewedFiscalBlock(input.transportXml, 'transp') !== fixedTransport
+    ) {
+      throw new Error('Pagamento e transporte fiscal não correspondem ao contexto da devolução.');
+    }
+  }
   const information =
     input.kind === 'estorno'
       ? `<infAdic><infAdFisco>${escapeXml(`${input.reason!.trim()} Nota Fiscal emitida de acordo com inciso VII do caput do art. 298 do RICMS`)}</infAdFisco></infAdic>`

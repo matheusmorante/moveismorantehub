@@ -375,6 +375,7 @@ export const getApplicableTechnicalFields = (
   const manualSet = new Set(manuallyAddedFieldNames);
 
   let applicable = allFields.filter((field) => {
+    if (/^reclin[aá]vel$/i.test(field.name.trim())) return false;
     // Uma especificação global obrigatória sempre aparece, independentemente da categoria.
     if (field.isRequired) return true;
 
@@ -443,5 +444,9 @@ export const getAvailableAdditionalFields = (
   currentlyVisibleFields: readonly TechnicalFieldDefinition[]
 ): TechnicalFieldDefinition[] => {
   const visibleNames = new Set(currentlyVisibleFields.map((f) => f.name.toLowerCase().trim()));
-  return allFields.filter((f) => !visibleNames.has(f.name.toLowerCase().trim()));
+  return allFields.filter(
+    (f) =>
+      !visibleNames.has(f.name.toLowerCase().trim()) &&
+      !/^reclin[aá]vel$/i.test(f.name.trim())
+  );
 };

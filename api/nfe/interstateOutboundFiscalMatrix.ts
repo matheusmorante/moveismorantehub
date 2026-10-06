@@ -357,7 +357,7 @@ const approvalIsComplete = (rule: InterstateOutboundFiscalMatrixRule): boolean =
         .filter((key) => key !== 'effectiveAt')
         .every((key) => (key === 'destinationUf' && rule.criteria.destinationUf == null)
           ? rule.reviewedWildcards?.includes(key)
-          : Object.prototype.hasOwnProperty.call(rule.criteria, key) || rule.reviewedWildcards?.includes(key)) &&
+          : Object.hasOwn(rule.criteria, key) || rule.reviewedWildcards?.includes(key)) &&
       Boolean(rule.xmlEvidence?.trim()) && Boolean(rule.testEvidence?.trim()) &&
       rule.sourceReferences.length > 0 &&
       rule.sourceReferences.every((source) => Boolean(source.trim())) &&

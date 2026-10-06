@@ -240,6 +240,7 @@ export default function FiscalDocumentsPage() {
       <NfeOperationDraftModal
         sourceDocument={operationSourceDoc}
         initialDraftId={automaticDraftId}
+        mode="estorno"
         onClose={() => {
           setOperationSourceDoc(null);
           setAutomaticDraftId(null);

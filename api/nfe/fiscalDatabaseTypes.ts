@@ -16,7 +16,10 @@ export type FiscalDatabase = {
         order_type: string;
         status: string;
         deleted: boolean;
+        items: unknown;
         order_data: Record<string, unknown> | null;
+        order_index: number | null;
+        linked_order_id: string | null;
         version: number;
         updated_at: string;
         delivery_status: string | null;
@@ -59,6 +62,8 @@ export type FiscalDatabase = {
           xml_protocolo: string | null;
           numero_protocolo: string | null;
           document_type: string;
+          original_document_id: string | null;
+          related_return_order_id: string | null;
           finalidade: number;
           emission_request_id: string | null;
           fiscal_snapshot_id: string | null;
@@ -116,6 +121,16 @@ export type FiscalDatabase = {
         product_xml: string;
         taxes_xml: string;
       }>;
+      nfe_return_item_allocations: FiscalTable<{
+        id: string;
+        return_order_id: string;
+        return_item_index: number;
+        original_document_id: string;
+        original_item_number: number;
+        quantity: number;
+        fiscal_return_document_id: string | null;
+        created_at: string;
+      }>;
       nfe_operation_drafts: FiscalTable<{
         id: string;
         operation_kind: 'estorno' | 'return';
@@ -153,6 +168,12 @@ export type FiscalDatabase = {
         reviewed_cfop: string | null;
         reviewed_product_xml: string | null;
         reviewed_taxes_xml: string | null;
+      }>;
+      nfe_operation_draft_allocations: FiscalTable<{
+        id: string;
+        draft_line_id: string;
+        allocation_id: string;
+        created_at: string;
       }>;
     };
     Views: Record<string, never>;

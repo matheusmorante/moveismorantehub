@@ -21,15 +21,19 @@ import {
 interface UseNfeOperationDraftParams {
   sourceDocument: SourceDocument | null;
   initialDraftId?: string | null;
+  mode?: 'estorno' | 'return';
+  returnOrderId?: string | null;
   onAuthorized: () => void;
 }
 
 export function useNfeOperationDraft({
   sourceDocument,
   initialDraftId,
+  mode,
+  returnOrderId: fixedReturnOrderId,
   onAuthorized,
 }: UseNfeOperationDraftParams) {
-  const [kind, setKind] = useState<'return' | 'estorno'>('return');
+  const [kind, setKind] = useState<'return' | 'estorno'>(mode || 'return');
   const [returnOrders, setReturnOrders] = useState<ReturnOrderOption[]>([]);
   const [returnOrderId, setReturnOrderId] = useState('');
   const [reason, setReason] = useState('');
@@ -49,7 +53,12 @@ export function useNfeOperationDraft({
   const [retryAllowed, setRetryAllowed] = useState(false);
 
   useEffect(() => {
-    if (!sourceDocument) return;
+    if (mode) setKind(mode);
+    if (fixedReturnOrderId) setReturnOrderId(fixedReturnOrderId);
+  }, [mode, fixedReturnOrderId]);
+
+  useEffect(() => {
+    if (!sourceDocument || fixedReturnOrderId || mode) return;
     let active = true;
     setLoadingReturns(true);
     void fetchLinkedReturnOrders(sourceDocument.order_id)
@@ -68,7 +77,7 @@ export function useNfeOperationDraft({
     return () => {
       active = false;
     };
-  }, [sourceDocument]);
+  }, [sourceDocument, fixedReturnOrderId, mode]);
 
   const applyDraft = useCallback((data: DraftPayload) => {
     const reviewState = buildFiscalOperationDraftReviewState(data);
@@ -110,7 +119,7 @@ export function useNfeOperationDraft({
       const created = await createFiscalOperationDraft({
         kind,
         originalDocumentId: sourceDocument.id,
-        returnOrderId: kind === 'return' ? returnOrderId : null,
+        returnOrderId: kind === 'return' ? fixedReturnOrderId || returnOrderId : null,
         environment: sourceDocument.ambiente,
         reason: review?.reason || reason,
         operationDidNotOccur,
@@ -211,7 +220,7 @@ export function useNfeOperationDraft({
 
   const canPrepare =
     kind === 'return'
-      ? Boolean(returnOrderId)
+      ? Boolean(fixedReturnOrderId || returnOrderId)
       : operationDidNotOccur && goodsDidNotCirculate && reason.trim().length >= 15;
   return {
     kind,

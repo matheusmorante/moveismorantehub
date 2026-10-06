@@ -3,6 +3,7 @@ import type { Product } from '@/pages/types/product.type';
 import type { Person } from '../../../../types/person.type';
 import { ProductSupplierField } from './ProductSupplierField';
 import { ProductPricingFields } from './ProductPricingFields';
+import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle';
 import { syncVariationsWithParent } from '../../utils/variationParentSync';
 
 interface ProductInventoryTabProps {
@@ -94,6 +95,43 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     });
   };
 
+  const isOwnProduction =
+    formData.merchandiseOrigin === 'own_production' ||
+    formData.isOwnProduction === true ||
+    formData.fiscal?.merchandiseOrigin === 'own_production';
+
+  const handleToggleOrigin = (ownProduction: boolean) => {
+    const newOrigin: 'third_party' | 'own_production' = ownProduction
+      ? 'own_production'
+      : 'third_party';
+
+    if (ownProduction && setValidationErrors) {
+      setValidationErrors((previous) => {
+        const next = { ...previous };
+        delete next.mainSupplierId;
+        return next;
+      });
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      merchandiseOrigin: newOrigin,
+      isOwnProduction: ownProduction,
+      fiscal: {
+        ...prev.fiscal,
+        merchandiseOrigin: newOrigin,
+        cfop:
+          ownProduction
+            ? prev.fiscal?.cfop === '5102'
+              ? '5101'
+              : prev.fiscal?.cfop
+            : prev.fiscal?.cfop === '5101'
+              ? '5102'
+              : prev.fiscal?.cfop,
+      },
+    }));
+  };
+
   const minStockValue =
     formData.minStock === null ||
     formData.minStock === undefined ||
@@ -102,15 +140,38 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
       : formData.minStock;
 
   return (
-    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Fornecedor e Estoque Mínimo - Sempre Visíveis */}
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Botão de Ligar / Desligar: Adquirido de Terceiros vs Fabricação Própria */}
+      <ProductManufacturingTypeToggle
+        isOwnProduction={isOwnProduction}
+        onChange={handleToggleOrigin}
+      />
+
+      {/* Fornecedor e Estoque Mínimo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <ProductSupplierField
-          formData={formData}
-          suppliers={suppliers}
-          onChange={updateCost}
-          hasError={validationErrors.mainSupplierId}
-        />
+        {isOwnProduction ? (
+          <div
+            id="field-main-supplier"
+            className="relative flex flex-col justify-center gap-1.5 rounded-2xl p-4 md:col-span-2 border border-emerald-200/80 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-955/20 text-emerald-900 dark:text-emerald-200"
+          >
+            <div className="flex items-center gap-2">
+              <i className="bi bi-patch-check-fill text-emerald-600 dark:text-emerald-400 text-lg" aria-hidden="true" />
+              <span className="text-xs font-black uppercase tracking-wider">
+                Fabricação Própria (Móveis Morante)
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+              Produto de produção própria do estabelecimento. A seleção de fornecedor externo é dispensada.
+            </p>
+          </div>
+        ) : (
+          <ProductSupplierField
+            formData={formData}
+            suppliers={suppliers}
+            onChange={updateCost}
+            hasError={validationErrors.mainSupplierId}
+          />
+        )}
 
         {!formData.hasVariations && (
           <div className="flex flex-col gap-2 p-2 rounded-2xl">

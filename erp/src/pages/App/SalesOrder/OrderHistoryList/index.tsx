@@ -202,7 +202,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         );
       }
 
-      if (orders.length === 0) {
+      if (orders.length === 0 && !(filters?.showTestOrders === false && totalItems > 0)) {
         return (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-950 rounded-full flex items-center justify-center">
@@ -219,35 +219,41 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
       return (
         <div className="flex flex-col gap-4 flex-1">
-          <OrderHistoryTable
-            orders={orders}
-            fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
-            onEdit={onEdit}
-            onViewDetails={onViewDetails}
-            onViewFiscalDocument={onViewFiscalDocument}
-            onShowPostSaleActions={onShowPostSaleActions}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-            onPermanentDelete={handlePermanentDelete}
-            onAction={onAction}
-            onStatusUpdate={handleStatusUpdate}
-            visibilitySettings={visibilitySettings}
-            onToggleColumn={onToggleColumn}
-            showTrash={filters?.showTrash}
-            filters={filters}
-            onSort={onSort}
-            selectedOrders={selectedOrders}
-            onToggleSelection={toggleSelection}
-            onSelectAll={selectAll}
-            onClearSelection={clearSelection}
-            onBulkTrash={handleBulkTrash}
-            onBulkRestore={handleBulkRestore}
-            onBulkPermanentDelete={handleBulkPermanentDelete}
-            onBlingUpdate={handleBlingUpdate}
-            onStockCheckUpdate={handleStockCheckUpdate}
-            highlightOrderId={highlightOrderId}
-            onFilterByOrderId={onFilterByOrderId}
-          />
+          {orders.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-10 text-center text-xs font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900">
+              Nenhum pedido para exibir nesta página. Use a paginação para continuar.
+            </div>
+          ) : (
+            <OrderHistoryTable
+              orders={orders}
+              fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
+              onEdit={onEdit}
+              onViewDetails={onViewDetails}
+              onViewFiscalDocument={onViewFiscalDocument}
+              onShowPostSaleActions={onShowPostSaleActions}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onPermanentDelete={handlePermanentDelete}
+              onAction={onAction}
+              onStatusUpdate={handleStatusUpdate}
+              visibilitySettings={visibilitySettings}
+              onToggleColumn={onToggleColumn}
+              showTrash={filters?.showTrash}
+              filters={filters}
+              onSort={onSort}
+              selectedOrders={selectedOrders}
+              onToggleSelection={toggleSelection}
+              onSelectAll={selectAll}
+              onClearSelection={clearSelection}
+              onBulkTrash={handleBulkTrash}
+              onBulkRestore={handleBulkRestore}
+              onBulkPermanentDelete={handleBulkPermanentDelete}
+              onBlingUpdate={handleBlingUpdate}
+              onStockCheckUpdate={handleStockCheckUpdate}
+              highlightOrderId={highlightOrderId}
+              onFilterByOrderId={onFilterByOrderId}
+            />
+          )}
 
           {/* Controles de Paginação (Lá em baixo, para tabela e cards) */}
           <OrderPagination

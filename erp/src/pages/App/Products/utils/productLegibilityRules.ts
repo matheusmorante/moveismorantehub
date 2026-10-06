@@ -46,7 +46,11 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
     errors.push('Pelo menos uma categoria deve ser selecionada.');
   }
 
-  const hasValidSupplier = Boolean(data.mainSupplierId);
+  const isOwnProduction =
+    data.merchandiseOrigin === 'own_production' ||
+    data.isOwnProduction === true ||
+    data.fiscal?.merchandiseOrigin === 'own_production';
+  const hasValidSupplier = isOwnProduction || Boolean(data.mainSupplierId || data.supplierId);
   if (!hasValidSupplier) {
     errors.push('Selecione pelo menos um fornecedor.');
   }

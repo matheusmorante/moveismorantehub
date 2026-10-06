@@ -15,6 +15,30 @@ export interface ReturnOrderOption {
   order_data: Record<string, unknown> | null;
 }
 
+export interface ReturnFiscalSourceEligibility {
+  source: SourceDocument | null;
+  state: 'ready' | 'draft' | 'rejected' | 'pending' | 'authorized' | 'cancelled' | 'blocked';
+  blockReason: string | null;
+  draftId: string | null;
+  returnDocumentId: string | null;
+  allocatedItems: Array<{
+    returnItemIndex: number;
+    originalItemNumber: number;
+    quantity: number;
+    productCode: string;
+  }>;
+}
+
+export interface ReturnFiscalEligibility {
+  eligible: boolean;
+  returnOrderId: string;
+  returnOrderIndex?: number | null;
+  linkedSaleOrderId?: string;
+  hasAuthorizedOriginal: boolean;
+  reason: string | null;
+  sources: ReturnFiscalSourceEligibility[];
+}
+
 export interface DraftLine {
   id: string;
   fiscal_item_number: number;
@@ -30,6 +54,7 @@ export interface DraftLine {
   originalProductXml: string;
   originalTaxesXml: string;
   suggestedCfop: string | null;
+  allowedCfops?: Array<{ value: string; label: string }>;
   reviewed_cfop?: string | null;
   reviewed_product_xml?: string | null;
   reviewed_taxes_xml?: string | null;
@@ -66,6 +91,11 @@ export interface DraftPayload {
   };
   lastSefazResult?: { cStat: string; xMotivo: string } | null;
   source: SourceDocument;
+  returnOrder?: {
+    id: string;
+    orderIndex: number | null;
+    returnMethod: 'store_delivery' | 'store_collection' | null;
+  } | null;
   lines: DraftLine[];
   reviewTemplate: Pick<
     ReviewData,
@@ -76,6 +106,9 @@ export interface DraftPayload {
 export interface NfeOperationDraftModalProps {
   sourceDocument: SourceDocument | null;
   initialDraftId?: string | null;
+  mode?: 'estorno' | 'return';
+  returnOrderId?: string | null;
+  returnOrderIndex?: number | null;
   onClose: () => void;
   onAuthorized: () => void;
 }

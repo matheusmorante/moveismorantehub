@@ -70,11 +70,12 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
 
   if (!saveResult || !currentProduct) return null;
 
-  const isERPActive = currentProduct.active !== false;
+  const isNonConventional = isNonConventionalProduct(currentProduct);
+  const isERPActive = !isNonConventional && currentProduct.active !== false;
   const isCatalogPublished = currentProduct.status === 'published';
 
   const handleToggleErp = async () => {
-    if (updatingErp) return;
+    if (updatingErp || isNonConventional) return;
     const newActive = !isERPActive;
     if (newActive && isNonConventionalProduct(currentProduct)) {
       toast.warning('Produtos de origem diferente de Convencional não podem ser ativados no ERP.');
@@ -188,12 +189,14 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 </div>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                    isERPActive
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                      : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                    isNonConventional
+                      ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                      : isERPActive
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                        : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                   }`}
                 >
-                  {isERPActive ? 'Ativo' : 'Inativo'}
+                  {isNonConventional ? 'Desativado' : isERPActive ? 'Ativo' : 'Inativo'}
                 </span>
               </div>
 
@@ -257,23 +260,57 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                   <span className="text-[11px]">Origem do Estoque Convencional</span>
                 </li>
               </ul>
+              {isNonConventional && (
+                <div className="mt-3 p-2.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px] font-bold flex items-center gap-2">
+                  <i className="bi bi-slash-circle text-slate-400 text-xs shrink-0" aria-hidden="true" />
+                  <span>
+                    Produtos de origem <strong>Salvados</strong> ou <strong>Usados</strong> não podem ser ativados no ERP, apenas no Catálogo Digital.
+                  </span>
+                </div>
+              )}
             </div>
 
             <button
               type="button"
-              onClick={handleToggleErp}
-              disabled={updatingErp || (!isERPActive && isNonConventionalProduct(currentProduct))}
-              className={`w-full mt-3 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs ${
-                isERPActive
-                  ? 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-950/40 dark:text-slate-200 dark:hover:text-red-400'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+              onClick={isNonConventional ? undefined : handleToggleErp}
+              disabled={updatingErp || isNonConventional}
+              title={
+                isNonConventional
+                  ? 'Produtos de origem de estoque Salvados ou Usados não podem ser ativados no ERP, apenas no catálogo digital.'
+                  : undefined
+              }
+              aria-label={
+                isNonConventional
+                  ? 'Ativar no ERP: Desativado para produtos com origem Salvados ou Usados'
+                  : isERPActive
+                    ? 'Desativar no ERP'
+                    : 'Ativar no ERP'
+              }
+              className={`w-full mt-3 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 select-none ${
+                isNonConventional
+                  ? 'border border-slate-300 dark:border-slate-700 bg-slate-200/80 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed grayscale shadow-none'
+                  : isERPActive
+                    ? 'bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-950/40 dark:text-slate-200 dark:hover:text-red-400 shadow-xs'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20 shadow-xs'
               }`}
             >
               <i
-                className={`bi ${isERPActive ? 'bi-pause-circle-fill' : 'bi-play-circle-fill'}`}
+                className={`bi ${
+                  isNonConventional
+                    ? 'bi-slash-circle'
+                    : isERPActive
+                      ? 'bi-pause-circle-fill'
+                      : 'bi-play-circle-fill'
+                }`}
                 aria-hidden="true"
               />
-              {updatingErp ? 'Atualizando...' : isERPActive ? 'Desativar no ERP' : 'Ativar no ERP'}
+              {updatingErp
+                ? 'Atualizando...'
+                : isNonConventional
+                  ? 'Ativar no ERP'
+                  : isERPActive
+                    ? 'Desativar no ERP'
+                    : 'Ativar no ERP'}
             </button>
           </div>
 

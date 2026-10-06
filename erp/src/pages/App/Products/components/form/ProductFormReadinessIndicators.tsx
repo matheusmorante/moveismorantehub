@@ -110,7 +110,11 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
                       : 'text-slate-500 dark:text-slate-400 font-bold'
                   }
                 >
-                  Pelo menos 1 Fornecedor
+                  {formData.merchandiseOrigin === 'own_production' ||
+                  formData.isOwnProduction === true ||
+                  formData.fiscal?.merchandiseOrigin === 'own_production'
+                    ? 'Fabricação Própria (Dispensado)'
+                    : 'Pelo menos 1 Fornecedor'}
                 </span>
               </div>
               <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>

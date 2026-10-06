@@ -49,6 +49,7 @@ const sourceKey = generateNfeAccessKey({
 
 const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => ({
   kind,
+  returnMethod: kind === 'return' ? 'store_delivery' : undefined,
   environment: 1,
   originalEnvironment: 1,
   originalStatus: 'autorizada',
@@ -61,8 +62,9 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
   series: '1',
   issuedAt,
   settings,
-  natureOfOperation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolucao de mercadoria',
-  recipientXml: '<dest><CPF>12345678901</CPF><xNome>Cliente</xNome></dest>',
+  natureOfOperation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
+  recipientXml:
+    '<dest><CPF>12345678901</CPF><xNome>Cliente</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>',
   totalsXml:
     '<total><ICMSTot><vProd>100.00</vProd><vDesc>10.00</vDesc><vNF>90.00</vNF></ICMSTot></total>',
   transportXml: '<transp><modFrete>9</modFrete></transp>',
@@ -78,6 +80,9 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
       grossValue: 100,
       discountValue: 10,
       cfop: '1202',
+      originalCfop: '5102',
+      originalTaxesXml:
+        '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>',
       productXml: `<prod><cProd>A</cProd><xProd>Colchao</xProd><NCM>94042900</NCM><CFOP>1202</CFOP><qCom>${kind === 'estorno' ? '4.0000' : '1.0000'}</qCom><vProd>100.00</vProd><vDesc>10.00</vDesc></prod>`,
       taxesXml:
         '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>',
@@ -129,11 +134,11 @@ describe('prévia estrutural do XML fiscal revisado', () => {
     expect(() => buildReviewedFiscalOperationXml(draft)).toThrow(/CFOP/);
   });
 
-  it('aceita CFOP de entrada interestadual confirmado por item', () => {
+  it('bloqueia CFOP interestadual sem matriz aprovada mesmo se informado no item', () => {
     const interstate = input('return');
     interstate.lines[0].cfop = '2202';
     interstate.lines[0].productXml = interstate.lines[0].productXml.replace('1202', '2202');
-    expect(buildReviewedFiscalOperationXml(interstate)).toContain('<CFOP>2202</CFOP>');
+    expect(() => buildReviewedFiscalOperationXml(interstate)).toThrow(/CFOP/);
   });
 
   it('bloqueia valor, quantidade e XML não revisados', () => {

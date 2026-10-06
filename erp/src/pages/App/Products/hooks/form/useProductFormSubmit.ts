@@ -62,7 +62,11 @@ export const useProductFormSubmit = ({
           formData.variations.length > 0;
         if (!hasVars) errors.variations = true;
         if (!formData.categoryIds || formData.categoryIds.length === 0) errors.categoryIds = true;
-        if (!formData.mainSupplierId && !formData.supplierId) errors.mainSupplierId = true;
+        const isOwnProduction =
+          formData.merchandiseOrigin === 'own_production' ||
+          formData.isOwnProduction === true ||
+          formData.fiscal?.merchandiseOrigin === 'own_production';
+        if (!isOwnProduction && !formData.mainSupplierId && !formData.supplierId) errors.mainSupplierId = true;
 
         const invalidVariation = (formData.variations || [])
           .map((variation) => ({

@@ -36,7 +36,7 @@ export function buildFiscalOperationDraftReviewState(
     const cfop =
       line.reviewed_cfop ||
       line.suggestedCfop ||
-      (data.draft.operation_kind === 'return' ? '1202' : '');
+      '';
     let productXml = line.reviewed_product_xml || line.originalProductXml;
 
     if (cfop && !line.reviewed_product_xml) {

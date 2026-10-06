@@ -146,6 +146,19 @@ Esta refatoração não cria/reverte estoque, financeiro, reservas comerciais ou
 
 **Nenhum XML de nova regra fiscal aprovada:** APPROVED continua zero. O contrato contexto → regra sintética → resolução → XML permanece testado, sem emissão. Grupos tributários não implementados e campos não serializados são rejeitados, inclusive valores zero; não houve generalização de impostos de SC.
 
-<!-- MATRIX_VALIDATION -->
+| Validação focada | Resultado |
+| --- | --- |
+| `fiscalCfopMatrix.test.ts` | 50 testes aprovados |
+| `hmlTechnicalEmission.test.ts` | 45 testes aprovados |
+| `fiscalCoreSerializer.test.ts` | 9 testes aprovados |
+| **Total** | **104 testes aprovados** |
+
+A rodada dos três módulos passou com 103 casos. Após acrescentar a prova positiva de fontes de origem/par e substituir o acesso de propriedade pela forma recomendada pelo lint, o módulo completo da matriz foi repetido: 50/50 aprovados. Os outros módulos não mudaram depois de aprovados. Os testes usam mocks/fixtures locais; não há emissão via CLI, acesso real ao banco ou SOAP real.
+
+Cobertura nova: PR→PR interno; PR→SC/SP/RS na mesma base; todos os outros 26 destinos brasileiros em fixture sintética; entrega personalizada e retirada efetiva; rejeição de exterior/UF inválida/mesma UF; override SC restrito a SC; prioridade produto/NCM sobre destino; empate de destino null/omitido; finalidade/escopo obrigatórios; fontes NATIONAL/ORIGIN_STATE/DESTINATION_STATE/ORIGIN_DESTINATION_PAIR/PRODUCT_SPECIFIC e rejeição de uso fora de seus critérios. PR→SC/SP/RS sem APPROVED bloqueia antes da RPC numerada e do SOAP.
+
+TypeScript da matriz e API fiscal passou; a API foi verificada com `--ignoreDeprecations 6.0 --rootDir . --module ESNext --moduleResolution Bundler` para acomodar o TypeScript instalado e os imports compartilhados, sem modificar configuração. ESLint dos testes ERP e Biome dos módulos API passaram. `git diff --check` passou. Não foi executada compilação integral do ERP nesta refatoração de domínio.
+
+Reauditoria do escopo: consumidores/imports atualizados; não há identidade PR-SC ou fontes SC na matriz-base do código, nem seletores separados por destino. Catálogo, validação de escopo/fontes e seleção permanecem responsabilidades relacionadas à decisão fiscal server-side; a UI não recebeu acesso ao banco ou regra tributária. A integração HML continua sendo a fronteira de execução. Dívida pendente: completar tratamentos fiscais e mapear grupos XML antes de permitir transmissão; isso não foi substituído por esta mudança estrutural.
 
 A próxima aprovação exige fatos e tratamento concretos, inclusive as normas do destino pertinentes, e implementação/testes do XML correspondente. Generalizar o escopo geográfico não transforma pendências em decisões tributárias.

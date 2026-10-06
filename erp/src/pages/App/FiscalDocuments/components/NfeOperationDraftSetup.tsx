@@ -5,6 +5,9 @@ import type {
 
 interface NfeOperationDraftSetupProps {
   kind: 'return' | 'estorno';
+  mode?: 'estorno' | 'return';
+  fixedReturnOrderId?: string | null;
+  fixedReturnOrderIndex?: number | null;
   onKindChange: (kind: 'return' | 'estorno') => void;
   returnOrders: ReturnOrderOption[];
   returnOrderId: string;
@@ -23,6 +26,9 @@ interface NfeOperationDraftSetupProps {
 
 export function NfeOperationDraftSetup({
   kind,
+  mode,
+  fixedReturnOrderId,
+  fixedReturnOrderIndex,
   onKindChange,
   returnOrders,
   returnOrderId,
@@ -40,7 +46,7 @@ export function NfeOperationDraftSetup({
 }: NfeOperationDraftSetupProps) {
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      {!mode && <div className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => onKindChange('return')}
@@ -71,10 +77,14 @@ export function NfeOperationDraftSetup({
             Operação não realizada e sem circulação; não movimenta estoque.
           </span>
         </button>
-      </div>
+      </div>}
 
       {kind === 'return' ? (
-        <label className="block space-y-2 text-xs font-bold">
+        fixedReturnOrderId ? (
+          <div className="rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-700">
+            Devolução vinculada ao pedido <strong>{fixedReturnOrderIndex ? `#${fixedReturnOrderIndex}` : 'confirmado'}</strong>. A emissão está limitada aos itens fiscais previamente alocados.
+          </div>
+        ) : <label className="block space-y-2 text-xs font-bold">
           <span>Devolução comercial atendida</span>
           <select
             value={returnOrderId}
@@ -129,8 +139,7 @@ export function NfeOperationDraftSetup({
       )}
 
       <div className="rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-700">
-        Ambiente fixado ao da NF-e original. Estorno usa <code>finNFe=3</code>,{' '}
-        <code>tpNF=0</code>; devolução usa <code>finNFe=4</code>, <code>tpNF=0</code>.
+        Ambiente fixado ao da NF-e original. {kind === 'return' ? <>A finalidade é <code>finNFe=4</code> e a operação está classificada como entrada, no cenário fiscal validado pelo servidor.</> : <>O estorno usa <code>finNFe=3</code> e não movimenta estoque.</>}
       </div>
       <button
         type="button"

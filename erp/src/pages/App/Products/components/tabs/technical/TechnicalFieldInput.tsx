@@ -19,40 +19,74 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   onChange,
 }) => {
   let type = field.dataType || 'list';
-  if (/quantidade de (portas?|gavetas?)/i.test(field.name)) {
+  if (/^(marca|modelo)$/i.test(field.name.trim())) {
+    type = 'text_short';
+  } else if (
+    /quantidade de (portas?|gavetas?)/i.test(field.name) ||
+    /lugar(es)?/i.test(field.name)
+  ) {
     type = 'integer';
   }
   const maxLength = 120;
-  if (type === 'text_short' || type === 'text')
+  if (type === 'text_short' || type === 'text') {
+    const isMarca = /^marca$/i.test(field.name.trim());
+    const isModelo = /^modelo$/i.test(field.name.trim());
+    const placeholder = isMarca
+      ? 'Digite a marca'
+      : isModelo
+        ? 'Digite o modelo'
+        : undefined;
+
     return (
       <input
+        type="text"
         value={value ?? ''}
         maxLength={maxLength}
+        placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600"
+        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"
       />
     );
-  if (type === 'integer' || type === 'number')
+  }
+  if (type === 'integer' || type === 'number') {
+    const isLugares = /lugar(es)?/i.test(field.name);
     return (
       <input
         type="number"
         step="1"
+        min="0"
         placeholder={
-          /porta|gaveta/i.test(field.name)
-            ? 'Insira a quantidade de portas'
-            : 'Insira um número inteiro'
+          isLugares
+            ? 'Digite o número de quantidades'
+            : /porta|gaveta/i.test(field.name)
+              ? 'Insira a quantidade de portas'
+              : 'Insira um número inteiro'
         }
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => {
-          let val = e.target.value === '' ? '' : Number(e.target.value);
-          if (typeof val === 'number' && val > 50) val = 50;
+          if (e.target.value === '') {
+            onChange('');
+            return;
+          }
+          const parsed = parseInt(e.target.value, 10);
+          if (Number.isNaN(parsed)) {
+            onChange('');
+            return;
+          }
+          let val = Math.max(0, parsed);
+          if (isLugares) {
+            if (val > 100) val = 100;
+          } else if (val > 50) {
+            val = 50;
+          }
           onChange(val);
         }}
-        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600"
+        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"
       />
     );
+  }
   if (type === 'decimal' || type === 'measure')
     return <DecimalInput value={value} disabled={disabled} onChange={onChange} />;
   const isSmallList = field.options && field.options.length > 0 && field.options.length < 5;

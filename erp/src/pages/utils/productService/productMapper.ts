@@ -48,7 +48,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
       ? createDefaultVariation(data, parentCode, rawName, productImages)
       : mappedVariations;
 
-  const productKind = getProductKind({ productKind: data.product_kind });
+  const productKind = getProductKind({ productKind: data.product_kind, product_kind: data.product_kind, condition: data.condition, is_salvado: data.is_salvado });
 
   const product: Product = {
     productKind,
@@ -115,9 +115,12 @@ export const mapFromDB = (data: any, index?: number): Product => {
       ncm: data.fiscal?.ncm || '',
       cest: data.fiscal?.cest || '',
       ncmDescription: data.fiscal?.ncmDescription || '',
-      cfop: data.fiscal?.cfop || '5102',
+      cfop: data.fiscal?.cfop || (data.fiscal?.merchandiseOrigin === 'own_production' ? '5101' : '5102'),
       icmsPercent: Number(data.fiscal?.icmsPercent || 0),
+      merchandiseOrigin: data.fiscal?.merchandiseOrigin || 'third_party',
     },
+    merchandiseOrigin: (data.fiscal?.merchandiseOrigin as 'third_party' | 'own_production') || 'third_party',
+    isOwnProduction: data.fiscal?.merchandiseOrigin === 'own_production',
     notificationConfig: data.notification_config || {},
     isCombo: data.is_combo || false,
     comboItems: data.combo_items || [],

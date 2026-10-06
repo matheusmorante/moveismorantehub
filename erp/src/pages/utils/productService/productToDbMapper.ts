@@ -97,7 +97,17 @@ export const mapToDB = (product: Partial<Product>) => {
   }
   if (product.variations !== undefined) data.variations = product.variations;
   if (product.itemType !== undefined) data.item_type = product.itemType;
-  if (product.fiscal !== undefined) data.fiscal = product.fiscal;
+  if (product.fiscal !== undefined || product.merchandiseOrigin !== undefined || product.isOwnProduction !== undefined) {
+    const origin =
+      product.merchandiseOrigin ||
+      (product.isOwnProduction ? 'own_production' : undefined) ||
+      product.fiscal?.merchandiseOrigin ||
+      'third_party';
+    data.fiscal = {
+      ...(product.fiscal || {}),
+      merchandiseOrigin: origin,
+    };
+  }
   if (product.notificationConfig !== undefined)
     data.notification_config = product.notificationConfig;
   if (product.isCombo !== undefined) data.is_combo = product.isCombo;

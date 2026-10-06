@@ -18,8 +18,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { canGenerateReturn } from '../../utils/returnPolicy';
 import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
 import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
+import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import type { NfeEmissionResult } from '../../utils/nfe/nfeService';
 import { IssuedFiscalDocumentDetailsModal } from '../FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal';
+import NfeOperationDraftModal from '../FiscalDocuments/modals/NfeOperationDraftModal';
+import { ReturnFiscalSourcePickerModal } from '../FiscalDocuments/modals/ReturnFiscalSourcePickerModal';
+import { fetchReturnFiscalEligibility } from '../FiscalDocuments/services/fiscalOperationDraftService';
+import type {
+  ReturnFiscalEligibility,
+  SourceDocument,
+} from '../FiscalDocuments/types/fiscalOperationDraft.types';
 
 const SalesOrder = () => {
   const [orderModalType, setOrderModalType] = useState<
@@ -43,6 +51,14 @@ const SalesOrder = () => {
   const [fiscalDocumentToView, setFiscalDocumentToView] = useState<{
     documentId: string;
     environment: 1 | 2;
+  } | null>(null);
+  const [returnFiscalEligibility, setReturnFiscalEligibility] =
+    useState<ReturnFiscalEligibility | null>(null);
+  const [returnFiscalSelection, setReturnFiscalSelection] = useState<{
+    source: SourceDocument;
+    draftId: string | null;
+    returnOrderId: string;
+    returnOrderIndex: number | null;
   } | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
   const location = useLocation();
@@ -133,6 +149,7 @@ const SalesOrder = () => {
   }, [window.location.search]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showTestOrders, setShowTestOrders] = useState(true);
   // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
@@ -185,16 +202,16 @@ const SalesOrder = () => {
   };
 
   const activeFilters = React.useMemo(
-    () => ({ ...filters, showTrash: false, isDraft: false }),
-    [filters]
+    () => ({ ...filters, showTrash: false, isDraft: false, showTestOrders }),
+    [filters, showTestOrders]
   );
   const trashFilters = React.useMemo(
-    () => ({ ...filters, showTrash: true, isDraft: false }),
-    [filters]
+    () => ({ ...filters, showTrash: true, isDraft: false, showTestOrders }),
+    [filters, showTestOrders]
   );
   const draftFilters = React.useMemo(
-    () => ({ ...filters, showTrash: false, isDraft: true }),
-    [filters]
+    () => ({ ...filters, showTrash: false, isDraft: true, showTestOrders }),
+    [filters, showTestOrders]
   );
 
   const handleOrderAction = (key: string, order: Order) => {
@@ -224,6 +241,21 @@ const SalesOrder = () => {
       navigate(`/sales-order/new?type=sale&duplicate=true`);
     } else if (key === 'issueNfe' || key === 'ISSUE_NFE') {
       setNfeChoiceOrder(order);
+    } else if (key === 'openReturnNfe' && order.orderType === 'return' && order.id) {
+      void fetchReturnFiscalEligibility(order.id)
+        .then((eligibility) => setReturnFiscalEligibility(eligibility))
+        .catch((cause) => {
+          setReturnFiscalEligibility({
+            eligible: false,
+            returnOrderId: order.id || '',
+            hasAuthorizedOriginal: false,
+            reason:
+              cause instanceof Error
+                ? cause.message
+                : 'Não foi possível verificar a elegibilidade fiscal da devolução.',
+            sources: [],
+          });
+        });
     }
   };
 
@@ -273,6 +305,8 @@ const SalesOrder = () => {
 
             {/* Action Buttons Group (lá no final do lado direito) */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
+              <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
+
               {/* Visualizacao Dropdown */}
               {!isReturnRoute && !isSalesOrderRoute && (
                 <div className="relative hidden lg:block">
@@ -779,6 +813,39 @@ const SalesOrder = () => {
           initialEnvironment={fiscalDocumentToView.environment}
           fullScreen={fiscalDocumentToView.environment === 1}
           onClose={() => setFiscalDocumentToView(null)}
+        />
+      )}
+      {returnFiscalEligibility && !returnFiscalSelection && (
+        <ReturnFiscalSourcePickerModal
+          eligibility={returnFiscalEligibility}
+          onClose={() => setReturnFiscalEligibility(null)}
+          onSelect={(source, draftId) => {
+            setReturnFiscalSelection({
+              source,
+              draftId,
+              returnOrderId: returnFiscalEligibility.returnOrderId,
+              returnOrderIndex: returnFiscalEligibility.returnOrderIndex ?? null,
+            });
+            setReturnFiscalEligibility(null);
+          }}
+          onView={(documentId, environment) => {
+            setFiscalDocumentToView({ documentId, environment });
+            setReturnFiscalEligibility(null);
+          }}
+        />
+      )}
+      {returnFiscalSelection && (
+        <NfeOperationDraftModal
+          sourceDocument={returnFiscalSelection.source}
+          initialDraftId={returnFiscalSelection.draftId}
+          mode="return"
+          returnOrderId={returnFiscalSelection.returnOrderId}
+          returnOrderIndex={returnFiscalSelection.returnOrderIndex}
+          onClose={() => setReturnFiscalSelection(null)}
+          onAuthorized={() => {
+            setReturnFiscalSelection(null);
+            orderListRef.current?.refresh();
+          }}
         />
       )}
     </div>

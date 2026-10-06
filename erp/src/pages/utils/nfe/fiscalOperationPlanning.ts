@@ -2,9 +2,9 @@ import type { AuthorizedInvoiceLineSnapshot } from './invoiceLineSnapshot';
 import {
   originalItemCfop,
   suggestEstornoCfop,
-  suggestReturnCfop,
   type FiscalCfopConfiguration,
 } from './fiscalCfopResolution';
+import { suggestReturnCfopForSourceItem } from '../../../../../shared-utils/fiscalOperationContext';
 
 export type FiscalSourceDocument = {
   id: string;
@@ -96,7 +96,7 @@ function draftLine(
     suggestedCfop:
       kind === 'estorno'
         ? suggestEstornoCfop(originalCfop, cfopConfig)
-        : suggestReturnCfop(cfopConfig),
+        : suggestReturnCfopForSourceItem(originalCfop || '', line.taxesXml, cfopConfig?.returnCfop),
     reviewedCfop: null,
     reviewedTaxesXml: null,
     returnItemIndexes,

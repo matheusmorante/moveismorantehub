@@ -8,6 +8,7 @@ import { updateProductActivationState } from '../../utils/activation/productActi
 import { updateProductCatalogState } from '../../utils/catalog/productCatalogState';
 import { validateErpActivationRequirements } from '../activation/useProductsActivationValidation';
 import { persistProductActiveState } from '../activation/useProductsActivePersistence';
+import { isTestProduct } from '@/pages/utils/hmlTestData';
 import {
   resolveCatalogEntities,
   validateCatalogPublication,
@@ -109,6 +110,7 @@ export const useProducts = (filters?: any) => {
     filters?.itemType,
     filters?.excludeItemType,
     filters?.showTrash,
+    filters?.showTestProducts,
   ]);
 
   const serverTransformed = useMemo(
@@ -131,8 +133,9 @@ export const useProducts = (filters?: any) => {
             !product.isVariation ||
             !product.mergedToVariationId
           );
-        }),
-    [serverProducts, filters?.includeMergedVariations]
+        })
+        .filter((product) => filters?.showTestProducts !== false || !isTestProduct(product)),
+    [serverProducts, filters?.includeMergedVariations, filters?.showTestProducts]
   );
 
   const totalItems = serverTotal;

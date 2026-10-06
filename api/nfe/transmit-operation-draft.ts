@@ -3,7 +3,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { AppSettings } from '../../erp/src/pages/utils/settingsService';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
-import { buildReviewedFiscalOperationXml } from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
+import {
+  buildReviewedFiscalOperationXml,
+  normalizeReviewedFiscalBlock,
+} from '../../erp/src/pages/utils/nfe/fiscalOperationXml';
+import {
+  buildProportionalReturnTaxesXml,
+  buildReturnProductXml,
+} from '../../erp/src/pages/utils/nfe/fiscalOperationReview';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
@@ -23,6 +30,16 @@ import {
 import { resolveNfeSequenceSettings } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { embeddedNfeXml } from './xmlEnvelope';
+import {
+  loadReturnFiscalSourceContext,
+  validateAuthorizedOutboundNfe,
+} from './returnFiscalRules';
+import {
+  getFiscalFormRules,
+  getFiscalFormXmlDefaults,
+  getReturnCfopOptionsForSourceItem,
+} from '../../shared-utils/fiscalOperationContext';
+import { originalItemCfop } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey = getSupabaseSecretKey() || '';
@@ -65,6 +82,11 @@ function brazilTimestamp(now = new Date()): string {
 
 function readTag(xml: string, tag: string): string | null {
   return xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([^<]*)</${tag}>`, 'i'))?.[1]?.trim() || null;
+}
+
+function extractXmlBlock(xml: string, tag: string): string {
+  const prefix = '(?:[\\w.-]+:)?';
+  return xml.match(new RegExp(`<${prefix}${tag}\\b[^>]*>[\\s\\S]*?<\\/${prefix}${tag}>`, 'i'))?.[0] || '';
 }
 
 function asFiscalSettings(value: unknown): Record<string, unknown> {
@@ -172,13 +194,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: source, error: sourceError } = await db
       .from('nfe_documents')
-      .select('id,order_id,status,ambiente,modelo,chave_acesso,numero_protocolo,xml_protocolo')
+      .select('id,order_id,document_type,status,ambiente,modelo,chave_acesso,numero_protocolo,xml_protocolo,xml_nfe,numero_nfe,serie')
       .eq('id', draft.original_document_id)
       .maybeSingle();
-    if (sourceError || !source || source.modelo !== '55') {
+    const returnModelOptions = getFiscalFormRules('return').allowedModels;
+    const sourceModelAllowed = source && (draft.operation_kind === 'return'
+      ? returnModelOptions.includes(String(source.modelo) as '55' | '65')
+      : source.modelo === '55');
+    if (sourceError || !source || source.document_type !== 'outbound' || !sourceModelAllowed) {
       return res.status(409).json({
         success: false,
-        error: 'Documento original incompatível com esta operação fiscal.',
+        error:
+          draft.operation_kind === 'return'
+            ? 'Não é possível emitir NF-e de devolução porque este pedido não possui NF-e de saída autorizada.'
+            : 'Documento original incompatível com esta operação fiscal.',
       });
     }
     if (
@@ -189,7 +218,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ) {
       return res
         .status(409)
-        .json({ success: false, error: 'A autorização original não confere com o rascunho.' });
+        .json({
+          success: false,
+          error:
+            draft.operation_kind === 'return'
+              ? 'Não é possível emitir NF-e de devolução porque este pedido não possui NF-e de saída autorizada.'
+              : 'A autorização original não confere com o rascunho.',
+        });
+    }
+    const isStoredAttempt = draft.status === 'transmitting' || draft.status === 'unknown';
+    let returnFiscalContext: Awaited<ReturnType<typeof loadReturnFiscalSourceContext>> | null = null;
+    let returnFormRules: ReturnType<typeof getFiscalFormRules> | null = null;
+    let returnXmlDefaults: ReturnType<typeof getFiscalFormXmlDefaults> = null;
+    if (!isStoredAttempt) {
+      const sourceAuthorizationError = validateAuthorizedOutboundNfe(
+        source,
+        String(source.order_id || ''),
+        environment
+      );
+      if (sourceAuthorizationError)
+        return res.status(409).json({ success: false, error: sourceAuthorizationError });
+      if (draft.operation_kind === 'return') {
+        if (!draft.return_order_id)
+          return res.status(409).json({ success: false, error: 'Devolução comercial ausente no rascunho.' });
+        returnFiscalContext = await loadReturnFiscalSourceContext(
+          db,
+          draft.original_document_id,
+          draft.return_order_id,
+          environment
+        );
+        if ('error' in returnFiscalContext)
+          return res.status(409).json({ success: false, error: returnFiscalContext.error });
+        returnFormRules = getFiscalFormRules('return', {
+          scope: 'internal',
+          returnMethod: returnFiscalContext.context.returnOrder.returnMethod || undefined,
+        });
+        returnXmlDefaults = getFiscalFormXmlDefaults(returnFormRules);
+        if (
+          !returnXmlDefaults ||
+          !returnFormRules.allowedModels.includes(String(source.modelo) as '55' | '65') ||
+          !returnFormRules.allowedFinalidades.includes(Number(draft.finalidade))
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'Modelo, finalidade ou opções fiscais incompatíveis com a devolução.',
+          });
+        }
+      }
     }
 
     const { data: lines, error: linesError } = await db
@@ -214,7 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: originalLines, error: originalLinesError } = await db
       .from('nfe_document_items')
       .select(
-        'id,item_number,billed_quantity,gross_value,discount_value,product_code,description,unit_value,product_xml,taxes_xml'
+        'id,document_id,item_number,billed_quantity,gross_value,discount_value,product_code,description,unit_value,product_xml,taxes_xml'
       )
       .in('id', originalIds);
     if (originalLinesError || !originalLines || originalLines.length !== lines.length) {
@@ -223,7 +298,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Não foi possível carregar todos os itens da NF-e original.',
       });
     }
+    if (originalLines.some((line) => line.document_id !== source.id)) {
+      return res.status(409).json({ success: false, error: 'Item fiscal vinculado a outro documento original.' });
+    }
     const originalById = new Map(originalLines.map((line) => [line.id, line]));
+
+    if (draft.operation_kind === 'return' && returnFiscalContext && 'context' in returnFiscalContext) {
+      if (!returnFormRules || !returnXmlDefaults) {
+        return res.status(409).json({
+          success: false,
+          error: 'O cenário da devolução não possui opções fiscais aprovadas.',
+        });
+      }
+      const allocationRows = returnFiscalContext.context.allocations;
+      const sourceLineByNumber = new Map(originalLines.map((line) => [line.item_number, line]));
+      const draftLineByOriginalId = new Map(lines.map((line) => [line.original_document_item_id, line]));
+      const allocationsByNumber = new Map<number, typeof allocationRows>();
+      for (const allocation of allocationRows) {
+        const grouped = allocationsByNumber.get(allocation.original_item_number) || [];
+        grouped.push(allocation);
+        allocationsByNumber.set(allocation.original_item_number, grouped);
+      }
+      const { data: allocationLinks, error: allocationLinksError } = await db
+        .from('nfe_operation_draft_allocations')
+        .select('draft_line_id,allocation_id')
+        .in('draft_line_id', lines.map((line) => line.id));
+      if (allocationLinksError)
+        return res.status(409).json({ success: false, error: 'Não foi possível validar a alocação dos itens da devolução.' });
+      for (const [originalItemNumber, allocations] of allocationsByNumber) {
+        const originalLine = sourceLineByNumber.get(originalItemNumber);
+        const draftLine = originalLine && draftLineByOriginalId.get(originalLine.id);
+        const linksForLine = draftLine
+          ? (allocationLinks || []).filter((link) => link.draft_line_id === draftLine.id)
+          : [];
+        const expectedAllocationIds = allocations.map((allocation) => allocation.id).sort();
+        const linkedAllocationIds = linksForLine.map((link) => link.allocation_id).sort();
+        const expectedQuantity = allocations.reduce((sum, allocation) => sum + allocation.quantity, 0);
+        if (
+          !draftLine ||
+          Math.abs(Number(draftLine.quantity) - expectedQuantity) > 0.00005 ||
+          JSON.stringify(expectedAllocationIds) !== JSON.stringify(linkedAllocationIds)
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'Os itens e quantidades do rascunho não correspondem às alocações persistidas da devolução.',
+          });
+        }
+      }
+      if (allocationsByNumber.size !== lines.length) {
+        return res.status(409).json({
+          success: false,
+          error: 'O rascunho contém item sem alocação fiscal correspondente à devolução.',
+        });
+      }
+    }
 
     const { data: settingsRow, error: settingsError } = await db
       .from('settings')
@@ -388,6 +516,82 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const review = draft.review_data as Record<string, unknown>;
+    if (draft.operation_kind === 'return') {
+      if (!draft.return_order_id || !returnFiscalContext || !('context' in returnFiscalContext)) {
+        return res.status(409).json({
+          success: false,
+          error: 'A NF-e de devolução não possui vínculo fiscal elegível com a devolução comercial.',
+        });
+      }
+      if (!returnFormRules || !returnXmlDefaults) {
+        return res.status(409).json({
+          success: false,
+          error: 'O cenário da devolução não possui opções fiscais aprovadas.',
+        });
+      }
+      const fixedRecipient = normalizeReviewedFiscalBlock(
+        extractXmlBlock(String(source.xml_nfe || ''), 'dest'),
+        'dest'
+      );
+      const submittedRecipient = normalizeReviewedFiscalBlock(String(review.recipient_xml || ''), 'dest');
+      const fixedPayment = normalizeReviewedFiscalBlock(
+        returnXmlDefaults.paymentXml,
+        'pag'
+      );
+      const submittedPayment = normalizeReviewedFiscalBlock(String(review.payment_xml || ''), 'pag');
+      const fixedTransport = normalizeReviewedFiscalBlock(
+        returnXmlDefaults.transportXml,
+        'transp'
+      );
+      const submittedTransport = normalizeReviewedFiscalBlock(String(review.transport_xml || ''), 'transp');
+      if (
+        fixedRecipient !== submittedRecipient ||
+        fixedPayment !== submittedPayment ||
+        fixedTransport !== submittedTransport ||
+        String(review.nature_of_operation || '').trim() !== returnXmlDefaults.natureOfOperation
+      ) {
+        return res.status(409).json({
+          success: false,
+          error: 'Os campos estruturais da NF-e de devolução divergem do cenário fiscal permitido.',
+        });
+      }
+      for (const line of lines) {
+        const original = originalById.get(line.original_document_item_id);
+        if (!original) return res.status(409).json({ success: false, error: 'Item original ausente.' });
+        const originalCfop = originalItemCfop(original.product_xml);
+        const allowedCfops = getReturnCfopOptionsForSourceItem(originalCfop || '', original.taxes_xml);
+        if (!allowedCfops.some((option) => option.value === line.reviewed_cfop)) {
+          return res.status(409).json({
+            success: false,
+            error: `CFOP ${line.reviewed_cfop} não é permitido para o item original e o cenário de devolução.`,
+          });
+        }
+        const expectedProduct = buildReturnProductXml({
+          originalProductXml: original.product_xml,
+          quantity: Number(line.quantity),
+          originalQuantity: Number(original.billed_quantity),
+          grossValue: Number(line.gross_value),
+          discountValue: Number(line.discount_value),
+          cfop: String(line.reviewed_cfop),
+        });
+        const expectedTaxes = buildProportionalReturnTaxesXml(
+          original.taxes_xml,
+          Number(line.quantity),
+          Number(original.billed_quantity)
+        );
+        if (
+          normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), 'prod') !==
+            normalizeReviewedFiscalBlock(expectedProduct, 'prod') ||
+          normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), 'imposto') !==
+            normalizeReviewedFiscalBlock(expectedTaxes, 'imposto')
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'Item ou tributação fiscal diverge da quantidade e referência originais da devolução.',
+          });
+        }
+      }
+    }
     let accessKey = draft.access_key;
     let signedXml = draft.signed_xml;
     let nfeNumber: number;
@@ -439,6 +643,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const originalById = new Map(originalLines.map((line) => [line.id, line]));
       const baseXml = buildReviewedFiscalOperationXml({
         kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
+        returnMethod:
+          draft.operation_kind === 'return' && returnFiscalContext && 'context' in returnFiscalContext
+            ? returnFiscalContext.context.returnOrder.returnMethod || undefined
+            : undefined,
         environment,
         originalEnvironment: environment,
         originalStatus: environment === 1 ? 'autorizada' : 'homologada',
@@ -466,6 +674,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             originalProductCode: original.product_code,
             originalDescription: original.description,
             originalNcm: readTag(String(original.product_xml), 'NCM') || undefined,
+            originalCfop: originalItemCfop(original.product_xml) || undefined,
+            originalTaxesXml: original.taxes_xml,
             originalUnitValue: Number(original.unit_value),
             billedQuantity: Number(original.billed_quantity),
             originalGrossValue: Number(original.gross_value),

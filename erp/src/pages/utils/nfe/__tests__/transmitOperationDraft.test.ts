@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateNfeAccessKey } from '../nfeAccessKey';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -25,18 +26,30 @@ vi.mock('../../../../../../api/nfe/nfeSigner', () => ({
 vi.mock('../../../../../../api/nfe/sefazClient', () => ({
   sendSoapToSefaz: mocks.sendSoapToSefaz,
 }));
-vi.mock('../fiscalOperationXml', () => ({
+vi.mock('../fiscalOperationXml', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../fiscalOperationXml')>()),
   buildReviewedFiscalOperationXml: mocks.buildReviewedFiscalOperationXml,
 }));
 vi.mock('../invoiceLineSnapshot', () => ({
   parseAuthorizedInvoiceLines: mocks.parseAuthorizedInvoiceLines,
 }));
 
-const sourceKey = '1'.repeat(44);
+const sourceKey = generateNfeAccessKey({
+  ufCode: '41',
+  yearMonth: '2609',
+  cnpj: '44512248000107',
+  model: '55',
+  series: '1',
+  number: 699,
+  emissionType: '1',
+  randomCode: '87654321',
+}).accessKey;
 const reviewedProduct =
-  '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>1202</CFOP><qCom>1.0000</qCom><vProd>100.00</vProd></prod>';
+  '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>1202</CFOP><qCom>1.0000</qCom><qTrib>1.0000</qTrib><vUnCom>100.0000</vUnCom><vProd>100.00</vProd></prod>';
 const reviewedTaxes =
   '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>';
+const sourceDestination =
+  '<dest><CPF>12345678901</CPF><xNome>Cliente Teste</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>';
 const authReply =
   '<retEnviNFe><cStat>104</cStat><xMotivo>Lote processado</xMotivo><protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>141260000123456</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe></retEnviNFe>';
 const rejectedReply =
@@ -60,10 +73,11 @@ function createDatabase() {
       reason: null,
       nature_of_operation: 'Devolução de mercadoria',
       review_data: {
-        recipient_xml: '<dest/>',
+        nature_of_operation: 'Devolução de mercadoria',
+        recipient_xml: sourceDestination,
         totals_xml: '<total/>',
-        transport_xml: '<transp/>',
-        payment_xml: '<pag/>',
+        transport_xml: '<transp><modFrete>9</modFrete></transp>',
+        payment_xml: '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
         reason: '',
       },
       reviewed_at: '2026-09-26T12:00:00.000Z',
@@ -75,12 +89,16 @@ function createDatabase() {
     source: {
       id: '22222222-2222-4222-8222-222222222222',
       order_id: '44444444-4444-4444-8444-444444444444',
+      document_type: 'outbound',
       status: 'autorizada',
       ambiente: 1,
       modelo: '55',
       chave_acesso: sourceKey,
+      numero_nfe: 699,
+      serie: '1',
       numero_protocolo: '141260000654321',
-      xml_protocolo: '<dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto>',
+      xml_protocolo: `<protNFe><infProt><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${sourceKey}</chNFe><nProt>141260000654321</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe>`,
+      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ></emit>${sourceDestination}</infNFe></NFe>`,
     },
     lines: [
       {
@@ -98,6 +116,7 @@ function createDatabase() {
     originalLines: [
       {
         id: '66666666-6666-4666-8666-666666666666',
+        document_id: '22222222-2222-4222-8222-222222222222',
         item_number: 2,
         billed_quantity: 2,
         gross_value: 200,
@@ -105,13 +124,14 @@ function createDatabase() {
         product_code: 'SKU-1',
         description: 'Cadeira',
         unit_value: 100,
-        product_xml: '<prod><NCM>94017900</NCM></prod>',
+        product_xml: '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>5102</CFOP><qCom>2.0000</qCom><qTrib>2.0000</qTrib><vUnCom>100.0000</vUnCom><vProd>200.00</vProd></prod>',
         taxes_xml: reviewedTaxes,
       },
     ],
     settings: {
       data: {
         companyCnpj: '44512248000107',
+        companyUF: 'PR',
         companyCMun: '4105805',
         nfeSerie: '1',
         nfeNextNumber: 700,
@@ -120,6 +140,32 @@ function createDatabase() {
       },
     },
     profile: { role: 'seller', roles: ['seller'] },
+    returnOrder: {
+      id: '33333333-3333-4333-8333-333333333333',
+      order_index: 123,
+      order_type: 'return',
+      status: 'fulfilled',
+      deleted: false,
+      linked_order_id: '44444444-4444-4444-8444-444444444444',
+      order_data: {},
+    },
+    returnAllocations: [
+      {
+        id: '88888888-8888-4888-8888-888888888888',
+        return_order_id: '33333333-3333-4333-8333-333333333333',
+        return_item_index: 0,
+        original_document_id: '22222222-2222-4222-8222-222222222222',
+        original_item_number: 2,
+        quantity: 1,
+        fiscal_return_document_id: null,
+      },
+    ],
+    draftAllocationLinks: [
+      {
+        draft_line_id: '55555555-5555-4555-8555-555555555555',
+        allocation_id: '88888888-8888-4888-8888-888888888888',
+      },
+    ],
     rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
   };
 
@@ -139,9 +185,15 @@ function createDatabase() {
               ? state.originalLines
               : table === 'settings'
                 ? state.settings
-                : table === 'profiles'
+        : table === 'profiles'
                   ? state.profile
-                  : null;
+                  : table === 'orders'
+                    ? state.returnOrder
+                    : table === 'nfe_return_item_allocations'
+                      ? state.returnAllocations
+                      : table === 'nfe_operation_draft_allocations'
+                        ? state.draftAllocationLinks
+                        : null;
     const queryResult = () => {
       if (!patch) return { data: resultForTable(), error: null };
       if (
@@ -169,6 +221,7 @@ function createDatabase() {
         if (column === 'status') statusIn = values;
         return builder;
       },
+      is: () => builder,
       order: () => builder,
       maybeSingle: async () => queryResult(),
       then: (resolve: (value: unknown) => void, reject: (error: unknown) => void) => {
@@ -364,6 +417,51 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     );
 
     expect(res.statusCode).toBe(409);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('rejeita pagamento da venda em devolução antes de reservar número ou transmitir', async () => {
+    const { db, state } = createDatabase();
+    state.draft.review_data.payment_xml =
+      '<pag><detPag><tPag>01</tPag><vPag>100.00</vPag></detPag></pag>';
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/campos estruturais/i);
+    expect(state.rpcCalls).toEqual([]);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('rejeita CFOP incompatível com o item original antes da transmissão', async () => {
+    const { db, state } = createDatabase();
+    state.lines[0].reviewed_cfop = '6102';
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/CFOP .* não é permitido/i);
+    expect(state.rpcCalls).toEqual([]);
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 

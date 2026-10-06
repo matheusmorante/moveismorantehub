@@ -84,6 +84,7 @@ export type FiscalInfo = {
   icmsPercent?: number;
   codigoServico?: string; // Para serviços LC 116/03
   issPercent?: number; // Aliquota ISS Municipal
+  merchandiseOrigin?: 'third_party' | 'own_production' | 'not_applicable';
 };
 
 export type ComboItem = {
@@ -187,6 +188,10 @@ export type Product = {
   technicalValues?: Record<string, any>;
 
   technicalSpecs?: Record<string, unknown>;
+
+  // Production / Origin
+  merchandiseOrigin?: 'third_party' | 'own_production';
+  isOwnProduction?: boolean;
 
   // Supplier Details
   supplierId?: string;

@@ -215,5 +215,24 @@ describe('technicalValuesService', () => {
 
       expect(availableNames).toEqual(['Quantidade de portas', 'Quantidade de gavetas']);
     });
+
+    it('nunca inclui a característica Reclinável nos campos aplicáveis nem nos adicionais', () => {
+      const fieldsWithReclinavel = [
+        ...mockAllFields,
+        {
+          id: 'rec-1',
+          name: 'Reclinável',
+          dataType: 'radio' as const,
+          options: [{ id: '1', value: 'Sim' }],
+          categoryIds: [catMesas],
+        },
+      ];
+
+      const applicable = getApplicableTechnicalFields(fieldsWithReclinavel, [catMesas], { Reclinável: 'Sim' }, []);
+      expect(applicable.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
+
+      const available = getAvailableAdditionalFields(fieldsWithReclinavel, []);
+      expect(available.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
+    });
   });
 });

@@ -15,6 +15,7 @@ import { createOrderHistoryOperations } from './useOrderHistoryOperations';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
+import { isTestOrder } from '@/pages/utils/hmlTestData';
 
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
@@ -92,7 +93,11 @@ export const useOrderHistory = (filters?: any) => {
 
   const filteredOrders = useMemo(() => {
     return sortOrders(
-      orders.filter((order) => filterOrder(order, filters)),
+      orders.filter(
+        (order) =>
+          (filters?.showTestOrders !== false || !isTestOrder(order)) &&
+          filterOrder(order, filters)
+      ),
       filters
     );
   }, [orders, filters]);

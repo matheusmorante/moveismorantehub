@@ -104,4 +104,29 @@ describe('productLegibilityRules (Domínio Puro)', () => {
     expect(result.checks.images).toBe(false);
     expect(result.checks.dimensions).toBe(false);
   });
+
+  it('deve aprovar produto de fabricação própria sem necessidade de fornecedor', () => {
+    const product: Partial<Product> = {
+      name: 'Mesa Própria',
+      categoryIds: ['cat-123'],
+      unitPrice: 500,
+      merchandiseOrigin: 'own_production',
+    };
+    const result = checkERPLegibility(product);
+    expect(result.checks.supplier).toBe(true);
+    expect(result.isLegible).toBe(true);
+  });
+
+  it('deve reprovar produto adquirido de terceiros se não tiver fornecedor', () => {
+    const product: Partial<Product> = {
+      name: 'Cadeira Terceiros',
+      categoryIds: ['cat-123'],
+      unitPrice: 200,
+      merchandiseOrigin: 'third_party',
+    };
+    const result = checkERPLegibility(product);
+    expect(result.checks.supplier).toBe(false);
+    expect(result.isLegible).toBe(false);
+    expect(result.errors).toContain('Selecione pelo menos um fornecedor.');
+  });
 });

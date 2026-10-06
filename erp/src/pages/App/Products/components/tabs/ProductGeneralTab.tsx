@@ -147,14 +147,16 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                           : 'novo',
                   };
 
-                  if (productKind === 'salvado') {
+                  if (productKind === 'salvado' || productKind === 'usado') {
                     next.active = false;
                     next.variations = (prev.variations || []).map((variation) => ({
                       ...variation,
                       active: false,
                     }));
-                    if (salvadoOpp) {
+                    if (productKind === 'salvado' && salvadoOpp) {
                       next.opportunityId = salvadoOpp.id;
+                    } else if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
+                      next.opportunityId = null;
                     }
                   } else {
                     if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {

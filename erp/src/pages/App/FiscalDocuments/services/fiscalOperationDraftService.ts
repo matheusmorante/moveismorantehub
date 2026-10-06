@@ -4,6 +4,7 @@ import type {
   OperationDraftTransmissionResult,
   ReviewData,
   ReviewedLine,
+  ReturnFiscalEligibility,
   ReturnOrderOption,
 } from '../types/fiscalOperationDraft.types';
 
@@ -55,6 +56,14 @@ function isDraftPayload(value: unknown): value is DraftPayload {
     (draft.review_data !== undefined &&
       draft.review_data !== null &&
       !isReviewData(draft.review_data)) ||
+    (draft.operation_kind === 'return' &&
+      (!isRecord(value.returnOrder) ||
+        typeof value.returnOrder.id !== 'string' ||
+        !(value.returnOrder.orderIndex === null ||
+          (typeof value.returnOrder.orderIndex === 'number' && Number.isFinite(value.returnOrder.orderIndex))) ||
+        !(value.returnOrder.returnMethod === null ||
+          value.returnOrder.returnMethod === 'store_delivery' ||
+          value.returnOrder.returnMethod === 'store_collection'))) ||
     typeof source.id !== 'string' ||
     !isNullableString(source.order_id) ||
     (source.modelo !== '55' && source.modelo !== '65') ||
@@ -89,6 +98,14 @@ function isDraftPayload(value: unknown): value is DraftPayload {
       typeof line.originalProductXml === 'string' &&
       typeof line.originalTaxesXml === 'string' &&
       isNullableString(line.suggestedCfop) &&
+      (line.allowedCfops === undefined ||
+        (Array.isArray(line.allowedCfops) &&
+          line.allowedCfops.every(
+            (option) =>
+              isRecord(option) &&
+              typeof option.value === 'string' &&
+              typeof option.label === 'string'
+          ))) &&
       (line.originalItemNumber === undefined || typeof line.originalItemNumber === 'number') &&
       (line.reviewed_cfop === undefined || isNullableString(line.reviewed_cfop)) &&
       (line.reviewed_product_xml === undefined ||
@@ -181,6 +198,88 @@ function parseTransmissionResult(
 export async function loadFiscalOperationDraft(draftId: string): Promise<DraftPayload> {
   const path = '/api/nfe/operation-drafts?id=' + encodeURIComponent(draftId);
   return requestFiscalApi(path, 'GET', undefined, parseDraftPayload);
+}
+
+function parseReturnFiscalEligibility(payload: Record<string, unknown>): ReturnFiscalEligibility {
+  if (
+    typeof payload.eligible !== 'boolean' ||
+    typeof payload.returnOrderId !== 'string' ||
+    typeof payload.hasAuthorizedOriginal !== 'boolean' ||
+    !(payload.reason === null || typeof payload.reason === 'string') ||
+    !Array.isArray(payload.sources)
+  ) {
+    throw new Error('A elegibilidade fiscal da devolução retornou dados inválidos.');
+  }
+  const sources = payload.sources.map((candidate) => {
+    if (!isRecord(candidate) || !isRecord(candidate.source) && candidate.source !== null) {
+      throw new Error('A elegibilidade fiscal retornou uma NF-e original inválida.');
+    }
+    const state = String(candidate.state);
+    if (
+      !['ready', 'draft', 'rejected', 'pending', 'authorized', 'cancelled', 'blocked'].includes(state) ||
+      !(candidate.blockReason === null || typeof candidate.blockReason === 'string') ||
+      !(candidate.draftId === null || typeof candidate.draftId === 'string') ||
+      !(candidate.returnDocumentId === null || typeof candidate.returnDocumentId === 'string') ||
+      !Array.isArray(candidate.allocatedItems)
+    ) {
+      throw new Error('A elegibilidade fiscal retornou um estado inválido.');
+    }
+    const source = candidate.source;
+    if (
+      source &&
+      (typeof source.id !== 'string' ||
+        !(source.order_id === null || typeof source.order_id === 'string') ||
+        (source.modelo !== '55' && source.modelo !== '65') ||
+        (source.ambiente !== 1 && source.ambiente !== 2) ||
+        typeof source.numero_nfe !== 'number' ||
+        typeof source.serie !== 'string' ||
+        typeof source.chave_acesso !== 'string')
+    ) {
+      throw new Error('A elegibilidade fiscal retornou dados inconsistentes da NF-e original.');
+    }
+    const allocatedItems = candidate.allocatedItems.map((item) => {
+      if (
+        !isRecord(item) ||
+        typeof item.returnItemIndex !== 'number' ||
+        typeof item.originalItemNumber !== 'number' ||
+        typeof item.quantity !== 'number' ||
+        typeof item.productCode !== 'string'
+      ) {
+        throw new Error('A elegibilidade fiscal retornou alocação de itens inválida.');
+      }
+      return {
+        returnItemIndex: item.returnItemIndex,
+        originalItemNumber: item.originalItemNumber,
+        quantity: item.quantity,
+        productCode: item.productCode,
+      };
+    });
+    return {
+      source: source as ReturnFiscalEligibility['sources'][number]['source'],
+      state: state as ReturnFiscalEligibility['sources'][number]['state'],
+      blockReason: candidate.blockReason as string | null,
+      draftId: candidate.draftId as string | null,
+      returnDocumentId: candidate.returnDocumentId as string | null,
+      allocatedItems,
+    };
+  });
+  return {
+    eligible: payload.eligible,
+    returnOrderId: payload.returnOrderId,
+    returnOrderIndex: isNullableNumber(payload.returnOrderIndex) ? payload.returnOrderIndex : undefined,
+    linkedSaleOrderId:
+      typeof payload.linkedSaleOrderId === 'string' ? payload.linkedSaleOrderId : undefined,
+    hasAuthorizedOriginal: payload.hasAuthorizedOriginal,
+    reason: payload.reason as string | null,
+    sources,
+  };
+}
+
+export async function fetchReturnFiscalEligibility(
+  returnOrderId: string
+): Promise<ReturnFiscalEligibility> {
+  const path = '/api/nfe/return-fiscal-eligibility?returnOrderId=' + encodeURIComponent(returnOrderId);
+  return requestFiscalApi(path, 'GET', undefined, parseReturnFiscalEligibility);
 }
 
 export async function createFiscalOperationDraft(

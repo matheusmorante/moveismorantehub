@@ -6,6 +6,7 @@ import ProductFormModal from './modals/ProductFormModal';
 import VariationFormModal from './modals/VariationFormModal';
 import PriceHistoryModal from './modals/PriceHistoryModal';
 import StockLaunchModal from '../Stock/components/StockLaunchModal';
+import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { supabase } from '../../utils/supabaseConfig';
 import { calculateVariationCatalogStats } from './ProductList/utils/catalog/registeredVariationCount';
 import { resolveProductVariation } from './utils/resolveProductVariation';
@@ -28,6 +29,7 @@ interface ProductsProps {
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const [filters, setFilters] = React.useState<Partial<ProductFiltersData>>({});
+  const [showTestProducts, setShowTestProducts] = React.useState(true);
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
   const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);
@@ -127,8 +129,9 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
       showTrash: false,
       activeOnly: filters.activeOnly,
       isDraft: filters.isDraft,
+      showTestProducts,
     }),
-    [filters]
+    [filters, showTestProducts]
   );
   const currentTitle = filters.isDraft
     ? mode === 'composition'
@@ -158,6 +161,8 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 />
               </div>
+
+              <ShowTestDataToggle checked={showTestProducts} onChange={setShowTestProducts} />
 
               <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>
                 <div className="relative">

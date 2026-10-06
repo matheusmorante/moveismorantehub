@@ -67,6 +67,8 @@ export function getVariationRegistrationIssue(
     promoPrice: variation.syncPromoPrice !== false && variation.syncUnitPrice !== false
       ? parent.promoPrice : variation.promoPrice,
     mainSupplierId: parent.mainSupplierId || parent.supplierId,
+    merchandiseOrigin: parent.merchandiseOrigin || parent.fiscal?.merchandiseOrigin,
+    isOwnProduction: parent.isOwnProduction ?? (parent.merchandiseOrigin === 'own_production' || parent.fiscal?.merchandiseOrigin === 'own_production'),
     productKind: 'normal',
   });
   if (!eligibility.isLegible) {

@@ -88,4 +88,28 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({ isDraft: true, status: 'draft',
       variations: [expect.objectContaining({ status: 'draft', active: false }), expect.objectContaining({ status: 'hidden', active: false })] }));
   });
+
+  it('permite concluir produto de fabricação própria sem informar fornecedor', async () => {
+    const ownProdProduct: Product = {
+      ...complete,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'own_production',
+    };
+    const { result } = renderSubmit(ownProdProduct);
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalled();
+  });
+
+  it('bloqueia produto adquirido de terceiros quando fornecedor não for informado', async () => {
+    const thirdPartyProduct: Product = {
+      ...complete,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'third_party',
+    };
+    const { result, setActiveTab } = renderSubmit(thirdPartyProduct);
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
+    expect(setActiveTab).toHaveBeenCalledWith('estoque');
+  });
 });

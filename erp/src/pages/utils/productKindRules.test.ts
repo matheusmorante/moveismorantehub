@@ -32,7 +32,7 @@ const save = (data: Partial<Product>) =>
 
 describe('tipo único Normal/Salvado para produtos e composições', () => {
   it('cria composição Normal com o padrão e segue ativação ERP normal', () => {
-    const initial = getInitialProductFormData();
+    const initial = { ...getInitialProductFormData(), productKind: 'normal' as const };
     const result = save({ ...composition, ...initial, itemType: 'composition', active: true });
 
     expect(initial.productKind).toBe('normal');
@@ -158,7 +158,7 @@ describe('tipo único Normal/Salvado para produtos e composições', () => {
     expect(dbData.status).toBe('hidden');
   });
 
-  it('produto simples ou composição Usados: preserva productKind usado e segue ativação normal', () => {
+  it('produto simples ou composição Usados: preserva productKind usado e força inativo no ERP sem ocultar do catálogo', () => {
     const usadoProduct: Partial<Product> = {
       ...getInitialProductFormData(),
       name: 'Sofá Usado',
@@ -175,10 +175,10 @@ describe('tipo único Normal/Salvado para produtos e composições', () => {
     });
 
     expect(result.productKind).toBe('usado');
-    expect(result.active).toBe(true);
+    expect(result.active).toBe(false);
 
     const dbData = mapToDB(result);
     expect(dbData.product_kind).toBe('usado');
-    expect(dbData.active).toBe(true);
+    expect(dbData.active).toBe(false);
   });
 });

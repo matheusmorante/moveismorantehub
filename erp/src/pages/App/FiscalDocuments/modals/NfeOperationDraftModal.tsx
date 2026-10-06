@@ -6,6 +6,9 @@ import { NfeOperationDraftReview } from '../components/NfeOperationDraftReview';
 export default function NfeOperationDraftModal({
   sourceDocument,
   initialDraftId,
+  mode,
+  returnOrderId: initialReturnOrderId,
+  returnOrderIndex,
   onClose,
   onAuthorized,
 }: NfeOperationDraftModalProps) {
@@ -40,7 +43,7 @@ export default function NfeOperationDraftModal({
     saveFiscalReview,
     transmitOrReconcile,
     canPrepare,
-  } = useNfeOperationDraft({ sourceDocument, initialDraftId, onAuthorized });
+  } = useNfeOperationDraft({ sourceDocument, initialDraftId, mode, returnOrderId: initialReturnOrderId, onAuthorized });
 
   if (!sourceDocument) return null;
   const isProduction = sourceDocument.ambiente === 1;
@@ -58,7 +61,7 @@ export default function NfeOperationDraftModal({
               id="nfe-operation-title"
               className="text-base font-black text-slate-900 dark:text-white"
             >
-              Estorno ou devolução fiscal
+              {mode === 'return' ? 'Emitir NF-e de devolução' : mode === 'estorno' ? 'Preparar estorno fiscal' : 'Estorno ou devolução fiscal'}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               NF-e #{sourceDocument.numero_nfe} · {sourceDocument.chave_acesso} ·{' '}
@@ -79,6 +82,9 @@ export default function NfeOperationDraftModal({
           {!payload && (
             <NfeOperationDraftSetup
               kind={kind}
+              mode={mode}
+              fixedReturnOrderId={initialReturnOrderId}
+              fixedReturnOrderIndex={returnOrderIndex}
               onKindChange={setKind}
               returnOrders={returnOrders}
               returnOrderId={returnOrderId}

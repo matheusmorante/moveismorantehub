@@ -94,7 +94,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
         if (!isMounted) return;
 
-        const mapped: TechnicalFieldDefinition[] = (attrData || []).map((attr: any) => {
+        const mapped: TechnicalFieldDefinition[] = (attrData || [])
+          .filter((attr: any) => !/^reclin[aá]vel$/i.test(String(attr.name).trim()))
+          .map((attr: any) => {
           const opts = (valData || [])
             .filter((v: any) => v.attribute_id === attr.id)
             .map((v: any) => ({ id: v.id, value: v.value }))

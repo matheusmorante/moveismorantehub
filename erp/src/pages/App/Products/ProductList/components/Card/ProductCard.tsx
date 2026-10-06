@@ -66,7 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft);
   const isSalvado = getProductKind(product) === 'salvado';
   const isNonConventional = isNonConventionalProduct(product);
-  const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
+  const canManageCatalog = !isDraft && (product.active !== false || isNonConventional);
 
   const { oppName, supplierNames } = useProductMetadata(product);
   const variationName = isVariation ? getVariationDisplayName(product) : '';

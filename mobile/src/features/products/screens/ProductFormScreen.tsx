@@ -524,7 +524,11 @@ export const ProductFormScreen: React.FC<Props> = ({
           ]);
           return false;
         }
-        if (!formData.mainSupplierId && !formData.supplierId) {
+        const isOwnProduction =
+          formData.merchandiseOrigin === 'own_production' ||
+          (formData as any).isOwnProduction === true ||
+          formData.fiscal?.merchandiseOrigin === 'own_production';
+        if (!isOwnProduction && !formData.mainSupplierId && !formData.supplierId) {
           Alert.alert(
             'Campo Obrigatório',
             'Selecione o fornecedor principal na aba Estoque e Precificação.',
@@ -694,7 +698,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   const photoCount = Array.isArray(formData.images) ? formData.images.length : 0;
   const hasValidName = String(formData.name || '').trim().length >= 2;
   const hasValidCategories = Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0;
-  const hasValidSupplier = Boolean(formData.mainSupplierId);
+  const isOwnProduction =
+    formData.merchandiseOrigin === 'own_production' ||
+    (formData as any).isOwnProduction === true ||
+    formData.fiscal?.merchandiseOrigin === 'own_production';
+  const hasValidSupplier = isOwnProduction || Boolean(formData.mainSupplierId);
   const hasValidPrice = formData.hasVariations
     ? varCount > 0 &&
       Array.isArray(formData.variations) &&

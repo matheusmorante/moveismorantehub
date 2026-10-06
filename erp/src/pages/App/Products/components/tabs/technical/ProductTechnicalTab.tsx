@@ -117,7 +117,9 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
         if (!isMounted) return;
 
-        const mapped: TechnicalFieldDefinition[] = (attrData || []).map((attr: any) => {
+        const mapped: TechnicalFieldDefinition[] = (attrData || [])
+          .filter((attr: any) => !/^reclin[aá]vel$/i.test(String(attr.name).trim()))
+          .map((attr: any) => {
           const opts = (valData || [])
             .filter((v: any) => v.attribute_id === attr.id)
             .map((v: any) => ({ id: v.id, value: v.value }))
@@ -206,10 +208,14 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
       } else {
         currentTech[fieldName] = value;
       }
-      return {
+      const next: Partial<Product> = {
         ...prev,
         technicalValues: currentTech,
       };
+      if (/^marca$/i.test(fieldName.trim())) {
+        next.brand = typeof value === 'string' ? value : String(value || '');
+      }
+      return next;
     });
   };
 
@@ -290,7 +296,9 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                 </h4>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
                   {group.fields.map((field) => {
-                    const rawValue = formData.technicalValues?.[field.name];
+                    const rawValue =
+                      formData.technicalValues?.[field.name] ??
+                      (/^marca$/i.test(field.name.trim()) ? formData.brand : undefined);
                     const hasSelectedValue =
                       rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                     const isManual = manualFieldNames.includes(field.name);
