@@ -16,11 +16,14 @@ export interface OrderFiscalBadgeStatuses {
   homologationDocumentId?: string;
 }
 
-const isAuthorized = (document: FiscalDocumentStatusRow): boolean =>
+export const isAuthorizedFiscalDocument = (document: FiscalDocumentStatusRow): boolean =>
   document.status === 'autorizada' || document.status === 'homologada';
 
-const isOutbound = (document: FiscalDocumentStatusRow): boolean =>
+export const isOutboundFiscalDocument = (document: FiscalDocumentStatusRow): boolean =>
   (document.document_type || 'outbound') === 'outbound';
+
+const isAuthorized = isAuthorizedFiscalDocument;
+const isOutbound = isOutboundFiscalDocument;
 
 export const resolveOrderFiscalBadgeStatus = (
   documents: readonly FiscalDocumentStatusRow[]
