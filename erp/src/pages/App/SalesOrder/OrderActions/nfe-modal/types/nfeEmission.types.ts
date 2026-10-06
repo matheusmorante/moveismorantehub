@@ -18,6 +18,7 @@ export interface NfeEmissionModalProps {
   isOpen: boolean;
   order: Order | null;
   initialEnvironment?: 1 | 2;
+  emissionOpenedAt?: number;
   onClose: () => void;
   onSuccess?: (result: NfeEmissionResult) => void;
 }

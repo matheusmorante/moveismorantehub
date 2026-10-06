@@ -25,6 +25,16 @@ const makeFacts = (): FiscalSnapshotCandidate => ({
     updatedAt: '2026-09-30T12:00:00Z',
     data: {
       shipping: { value: 30, deliveryMethod: 'pickup' },
+      customerData: {
+        fullAddress: JSON.stringify({
+          street: 'RUA TESTE',
+          number: '10',
+          neighborhood: 'CENTRO',
+          city: 'Curitiba',
+          state: 'PR',
+          cep: '80010000',
+        }),
+      },
       items: [
         {
           productId: 'P-1',

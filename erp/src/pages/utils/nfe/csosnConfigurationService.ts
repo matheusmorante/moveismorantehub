@@ -8,7 +8,13 @@ export type HmlCsosnConfiguration = {
   productionApproved: false;
   version: string;
 };
-export type PreparedItemCsosn = { itemNumber: number; csosn: string; source: string };
+export type PreparedItemCsosn = {
+  itemNumber: number;
+  csosn: string;
+  source: string;
+  cfop?: string;
+  cfopSource?: string;
+};
 
 async function request(method: 'GET' | 'POST' | 'PATCH', body?: Record<string, unknown>) {
   const { data, error } = await supabase.auth.getSession();

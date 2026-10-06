@@ -7,7 +7,7 @@ import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';
 import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
-import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 export interface ProductRowProps {
   readonly product: Product;
@@ -70,6 +70,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   });
 
   const isDraft = Boolean(product.isDraft) || Boolean((product as { is_draft?: boolean }).is_draft);
+  const isSalvado = getProductKind(product) === 'salvado';
   const isNonConventional = isNonConventionalProduct(product);
   const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
   const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);

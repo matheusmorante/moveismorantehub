@@ -1091,4 +1091,128 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(state.calls).toHaveLength(0);
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
+
+  it('bloqueia venda PR→SC sem regra APPROVED antes da RPC de snapshot numerado', async () => {
+    const interstateOrderId = 'f119b598-fcaa-4212-a48f-76149b2a3c82';
+    const interstateRequestId = '5a88242a-a67f-4e6b-9fc9-dd60d13e9c10';
+    const selected = {
+      '1': { ncm: '94035000', cfop: '6102', origem: '0', cest: '', csosn: '102' },
+    };
+    const interstateCandidate: FiscalSnapshotCandidate = {
+      ...candidate,
+      order: {
+        ...candidate.order,
+        id: interstateOrderId,
+        type: 'sale',
+        status: 'fulfilled',
+        deleted: false,
+        data: {
+          shipping: {
+            deliveryMethod: 'delivery',
+            useCustomerAddress: true,
+            deliveryAddress: { city: 'Joinville', state: 'SC', zipCode: '89201000' },
+            value: 0,
+          },
+          customerData: { id: 'customer-sc-1' },
+          items: [
+            {
+              description: 'Mesa teste',
+              productId: null,
+              quantity: 1,
+              unitPrice: 1200,
+              unitDiscount: 0,
+              discountType: 'fixed',
+              itemType: 'product',
+              fiscal: { ncm: '94035000', cfop: '5102' },
+            },
+          ],
+          payments: [{ method: 'pix', amount: 1200 }],
+        },
+      },
+      emissionRequest: {
+        id: interstateRequestId,
+        environment: 2,
+        finalConsumer: true,
+        recipientTaxId: '12345678000195',
+        itemFiscalSelections: selected,
+      },
+    };
+    const decisionData = {
+      scope: { model: '55', operation: 'normal_sale', issuerCrt: '1' },
+      pis: { cst: '99', base: 0, rate: 0, value: 0 },
+      cofins: { cst: '99', base: 0, rate: 0, value: 0 },
+      confirmedAt: '2026-09-01T00:00:00Z',
+      confirmedBy: 'TEST_AUT_MATRIX',
+      productionApproved: false,
+    };
+    const from = vi.fn((table: string) => {
+      const filters: Record<string, unknown> = {};
+      const query: any = {
+        select: () => query,
+        eq: (field: string, value: unknown) => {
+          filters[field] = value;
+          return query;
+        },
+        maybeSingle: async () => {
+          if (table === 'nfe_documents') return { data: null, error: null };
+          if (table === 'people')
+            return {
+              data: {
+                id: 'customer-sc-1',
+                full_name: 'Cliente teste SC',
+                cpf_cnpj: '12345678000195',
+                address: { city: 'Joinville', state: 'SC', zipCode: '89201000' },
+                rg_ie: '251040852',
+                person_type_pf_pj: 'PJ',
+                deleted: false,
+              },
+              error: null,
+            };
+          if (table === 'settings')
+            return {
+              data: {
+                data:
+                  filters.id === HML_CSOSN_SETTINGS_ID
+                    ? initialHmlCsosnConfiguration()
+                    : decisionData,
+              },
+              error: null,
+            };
+          return { data: null, error: null };
+        },
+        in: () =>
+          table === 'ncms'
+            ? Promise.resolve({
+                data: [{ code: '94035000', active: true, is_active: true, start_date: null, end_date: null }],
+                error: null,
+              })
+            : query,
+        order: () => query,
+        limit: () => query,
+      };
+      return query;
+    });
+    const rpc = vi.fn(async () => ({ data: null, error: new Error('RPC não esperada') }));
+
+    const result = await emitHmlTechnical(
+      { from, rpc } as any,
+      {
+        orderId: interstateOrderId,
+        environment: 2,
+        emissionRequestId: interstateRequestId,
+        itemFiscalSelections: selected,
+      } as any,
+      interstateCandidate,
+      {}
+    );
+
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({
+      code: 'HML_INTERSTATE_MATRIX_NOT_APPROVED',
+      numberReserved: false,
+      sefazContacted: false,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
 });

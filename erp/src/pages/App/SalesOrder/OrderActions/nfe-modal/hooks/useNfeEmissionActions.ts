@@ -35,7 +35,7 @@ export interface UseNfeEmissionActionsProps {
   order: Order | null;
   environment: 1 | 2;
   canOperateFiscal: boolean;
-  modelDecision: ReturnType<typeof resolveOrderFiscalModel>;
+  modelDecision: ReturnType<typeof resolveOrderFiscalModel> | null;
   currentModel: '55' | '65';
   deliveryMethod: DeliveryMethod;
   finalConsumer: boolean;

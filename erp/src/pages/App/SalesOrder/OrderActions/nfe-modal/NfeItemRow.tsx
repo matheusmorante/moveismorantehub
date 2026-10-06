@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { NcmSelect } from './NcmSelect';
 import { composeServiceFiscalValues } from '@/pages/utils/nfe/serviceFiscalComposition';
 import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
 import {
-  CFOP_OPTIONS,
   CSOSN_OPTIONS,
   ORIGEM_OPTIONS,
   CEST_OPTIONS,
 } from '@/pages/utils/nfe/fiscalConstants';
 
+export interface NfeItemCfopOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
 interface Props {
   item: NfeItemWithFiscal;
   itemIndex: number;
+  cfopOptions?: readonly NfeItemCfopOption[];
+  cfopContextMessage?: string;
   fieldError?: { field: 'ncm' | 'cfop' | 'cst' | 'origem'; message: string } | null;
   onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
   onUpdateFiscalBlur?: () => void;
@@ -23,12 +30,15 @@ interface Props {
 export const NfeItemRow: React.FC<Props> = ({
   item,
   itemIndex,
+  cfopOptions = [],
+  cfopContextMessage,
   fieldError,
   onUpdateFiscal,
   onClearFieldError,
   onUpdateFiscalBlur,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [cfopSearch, setCfopSearch] = useState('');
   const values = composeServiceFiscalValues([item]).products[0];
   const itemTotal = (values.vProdCents - values.vDescCents) / 100;
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
@@ -38,6 +48,28 @@ export const NfeItemRow: React.FC<Props> = ({
   const hasCfopError = fieldError?.field === 'cfop';
   const hasCstError = fieldError?.field === 'cst';
   const hasOrigemError = fieldError?.field === 'origem';
+  const visibleCfopOptions = useMemo(() => {
+    const search = cfopSearch.trim().toLocaleLowerCase('pt-BR');
+    const selectedCfop = item.fiscal?.cfop || '';
+    const options =
+      selectedCfop && !cfopOptions.some((option) => option.value === selectedCfop)
+        ? [
+            {
+              value: selectedCfop,
+              label: `${selectedCfop} — incompatível com a operação atual`,
+              disabled: true,
+            },
+            ...cfopOptions,
+          ]
+        : cfopOptions;
+    return search
+      ? options.filter(
+          (option) =>
+            option.value === selectedCfop ||
+            option.label.toLocaleLowerCase('pt-BR').includes(search)
+        )
+      : options;
+  }, [cfopOptions, cfopSearch, item.fiscal?.cfop]);
 
   // Se o erro estiver dentro da sanfona (CFOP, CSOSN, Origem), abre automaticamente
   React.useEffect(() => {
@@ -154,6 +186,14 @@ export const NfeItemRow: React.FC<Props> = ({
                 *
               </span>
             </label>
+            <input
+              type="search"
+              aria-label="Buscar CFOP por código ou descrição"
+              value={cfopSearch}
+              onChange={(e) => setCfopSearch(e.target.value)}
+              placeholder="Buscar código ou descrição"
+              className="mb-1 w-full rounded-none border-0 border-b border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            />
             <select
               id={`nfe-item-cfop-${itemIndex}`}
               aria-label="CFOP"
@@ -169,12 +209,17 @@ export const NfeItemRow: React.FC<Props> = ({
               }`}
             >
               <option value="">Selecione o CFOP</option>
-              {CFOP_OPTIONS.map((cf) => (
-                <option key={cf.value} value={cf.value}>
+              {visibleCfopOptions.map((cf) => (
+                <option key={cf.value} value={cf.value} disabled={cf.disabled}>
                   {cf.label}
                 </option>
               ))}
             </select>
+            {cfopContextMessage && (
+              <p className="mt-1 text-[10px] leading-4 text-slate-500 dark:text-slate-400">
+                {cfopContextMessage}
+              </p>
+            )}
           </div>
           <div>
             <label
@@ -191,10 +236,17 @@ export const NfeItemRow: React.FC<Props> = ({
             <select
               id={`nfe-item-csosn-${itemIndex}`}
               aria-label="CSOSN"
-              disabled
               value={item.fiscal?.cst || '103'}
-              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 cursor-not-allowed"
-              title="CSOSN 103 fixado por padrão conforme regime tributário da empresa"
+              onChange={(e) => {
+                if (hasCstError && onClearFieldError) onClearFieldError();
+                onUpdateFiscal('cst', e.target.value);
+              }}
+              className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none ${
+                hasCstError
+                  ? 'border-rose-500 bg-rose-50/50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100 focus:border-rose-600'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-500'
+              }`}
+              title="Editar CSOSN do item"
             >
               {CSOSN_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -203,7 +255,7 @@ export const NfeItemRow: React.FC<Props> = ({
               ))}
             </select>
             <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-              Padrão 103 (Isenção do ICMS no Simples Nacional) fixo para este ambiente.
+              Sem produto cadastrado: padrão 103. Com produto cadastrado: usa o CSOSN do cadastro.
             </p>
           </div>
           <div>

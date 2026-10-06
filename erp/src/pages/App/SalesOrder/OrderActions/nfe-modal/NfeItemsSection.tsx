@@ -1,7 +1,14 @@
 import React from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
-import { NfeItemRow } from './NfeItemRow';
+import {
+  getCfopDefinition,
+  listActiveCfopOptions,
+  resolveFiscalCfopOrderScope,
+  type FiscalCfopOperationType,
+} from '../../../../../../../shared-utils/fiscalCfopModel';
+import { getSettings } from '@/pages/utils/settingsService';
+import { NfeItemRow, type NfeItemCfopOption } from './NfeItemRow';
 
 export interface NfeItemFiscal {
   ncm: string;
@@ -20,6 +27,8 @@ export interface NfeItemWithFiscal extends Item {
 
 interface Props {
   order: Order;
+  environment: 1 | 2;
+  fiscalModel: '55' | '65';
   items: NfeItemWithFiscal[];
   activeError?: {
     itemIndex?: number;
@@ -33,6 +42,9 @@ interface Props {
 }
 
 export const NfeItemsSection: React.FC<Props> = ({
+  order,
+  environment,
+  fiscalModel,
   items,
   activeError,
   onClearFieldError,
@@ -41,6 +53,78 @@ export const NfeItemsSection: React.FC<Props> = ({
 }) => {
   // Contadores informativos
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
+  const shipping = (order.shipping as Record<string, unknown> | undefined) || {};
+  const customerData = (order.customerData as Record<string, unknown> | undefined) || {};
+  const operationScope = resolveFiscalCfopOrderScope({
+    issuerUf: getSettings().companyUF,
+    deliveryMethod: String(shipping.deliveryMethod || ''),
+    shipping,
+    customerAddress: customerData.fullAddress || customerData.address,
+  });
+  const cfopContextMessage =
+    operationScope.scope === 'interstate'
+      ? `Operação interestadual · ${operationScope.issuerUf} → ${operationScope.operationUf}. O CFOP 6102 está classificado, mas a matriz tributária não foi aprovada; emissão bloqueada.`
+      : operationScope.scope === 'internal' &&
+          operationScope.locationSource === 'issuer_pickup_location'
+        ? `Retirada no estabelecimento emitente (${operationScope.operationUf}); o endereço cadastral do cliente não define o CFOP.`
+        : operationScope.scope === 'internal'
+          ? `Operação interna · ${operationScope.issuerUf} → ${operationScope.operationUf}.`
+          : operationScope.reason || 'Não foi possível determinar o local físico da operação.';
+  const matrixWarning =
+    environment === 1
+      ? 'Matriz de CFOP de Produção não disponível para este fluxo.'
+      : operationScope.scope === 'interstate'
+        ? 'Matriz tributária interestadual pendente de aprovação.'
+        : operationScope.scope === 'foreign'
+          ? 'Operação com exterior sem matriz fiscal aprovada.'
+        : undefined;
+
+  const cfopOptionsForItem = (item: NfeItemWithFiscal): NfeItemCfopOption[] => {
+    if (!operationScope.scope) return [];
+    const existingDefinition = getCfopDefinition(item.fiscal?.cfop || '');
+    const merchandiseOrigin =
+      existingDefinition?.merchandiseOrigin === 'own_production'
+        ? 'own_production'
+        : 'third_party';
+    const isSt = item.fiscal?.cst === '500' || Boolean(existingDefinition?.isSt);
+    const itemType = item.itemType === 'service' ? 'service' : 'product';
+    const operationTypes: FiscalCfopOperationType[] =
+      itemType === 'service'
+        ? ['service']
+        : operationScope.scope === 'interstate'
+          ? ['sale', 'sale_to_non_taxpayer']
+          : ['sale'];
+    return operationTypes.flatMap((operationType) => listActiveCfopOptions({
+      direction: 'outbound',
+      scope: operationScope.scope || undefined,
+      model: fiscalModel,
+      itemType,
+      operationType,
+      merchandiseOrigin,
+      isSt,
+    })).map((option) => {
+      const approvedInCurrentMatrix =
+        environment === 2 &&
+        operationScope.scope === 'internal' &&
+        option.value === '5102' &&
+        merchandiseOrigin === 'third_party' &&
+        !isSt;
+      const pendingReason =
+        operationScope.scope === 'interstate' &&
+        option.operationType === 'sale_to_non_taxpayer'
+          ? ' — venda a não contribuinte; matriz pendente'
+          : option.stApplicability === 'scenario_dependent'
+            ? ' — ST depende do cenário; matriz pendente'
+            : ' — matriz fiscal não aprovada';
+      return {
+        value: option.value,
+        label: approvedInCurrentMatrix
+          ? option.label
+          : `${option.label}${pendingReason}`,
+        disabled: !approvedInCurrentMatrix,
+      };
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -64,6 +148,15 @@ export const NfeItemsSection: React.FC<Props> = ({
         </div>
       </div>
 
+      <div
+        role="status"
+        aria-live="polite"
+        className={`rounded-lg border px-3 py-2 text-xs ${matrixWarning ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
+      >
+        <span>{cfopContextMessage}</span>
+        {matrixWarning && <span className="ml-1 font-semibold">{matrixWarning}</span>}
+      </div>
+
       {/* Lista dos Itens da Venda */}
       <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
         {items.map((item, index) => {
@@ -76,6 +169,8 @@ export const NfeItemsSection: React.FC<Props> = ({
               key={`${item.productId || 'item'}_${index}`}
               item={item}
               itemIndex={index}
+              cfopOptions={cfopOptionsForItem(item)}
+              cfopContextMessage={cfopContextMessage}
               fieldError={itemFieldError}
               onClearFieldError={onClearFieldError}
               onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}

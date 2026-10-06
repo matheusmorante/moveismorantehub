@@ -29,7 +29,13 @@ describe('productFiscalDataService', () => {
 
     const mockIn = vi.fn().mockResolvedValue({
       data: [
-        { id: p1, fiscal: { ncm: '94036000', cfop: '5102', cst: '102', origem: '0' } },
+        {
+          id: p1,
+          fiscal: { ncm: '94036000', cfop: '5102', cst: '102', origem: '0' },
+          variation_details: [
+            { id: 'variation-p1', fiscal: { ncm: '94039000', cfop: '5102' } },
+          ],
+        },
         { id: p2, fiscal: { ncm: '94035000', cfop: '5405', cst: '500', origem: '0' } },
       ],
       error: null,
@@ -42,7 +48,9 @@ describe('productFiscalDataService', () => {
 
     expect(supabase.from).toHaveBeenCalledTimes(1);
     expect(supabase.from).toHaveBeenCalledWith('products');
-    expect(mockSelect).toHaveBeenCalledWith('id, fiscal');
+    expect(mockSelect).toHaveBeenCalledWith(
+      'id, fiscal, variation_details:technical_specs->variationDetails'
+    );
     expect(mockIn).toHaveBeenCalledWith('id', [p1, p2]);
 
     expect(result.size).toBe(2);
@@ -53,6 +61,17 @@ describe('productFiscalDataService', () => {
       cfop: '5102',
       cst: '102',
       origem: '0',
+      variations: {
+        'variation-p1': {
+          ncm: '94039000',
+          cest: undefined,
+          cfop: '5102',
+          cst: undefined,
+          origem: undefined,
+          pisCst: undefined,
+          cofinsCst: undefined,
+        },
+      },
     });
     expect(result.get(p2)).toEqual({
       id: p2,
@@ -61,6 +80,7 @@ describe('productFiscalDataService', () => {
       cfop: '5405',
       cst: '500',
       origem: '0',
+      variations: {},
     });
   });
 
@@ -83,5 +103,30 @@ describe('productFiscalDataService', () => {
     const secondResult = await getProductsFiscalData([p1]);
     expect(secondResult.get(p1)?.ncm).toBe('94031000');
     expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('consulta dados atuais no Supabase quando o cache é desativado', async () => {
+    const productId = '44444444-4444-4444-8444-444444444444';
+    const mockIn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ id: productId, fiscal: { ncm: '94031000' } }],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: productId, fiscal: { ncm: '94032000' } }],
+        error: null,
+      });
+    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
+    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+
+    await getProductsFiscalData([productId]);
+    const refreshed = await getProductsFiscalData([productId], { useCache: false });
+
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+    expect(mockSelect).toHaveBeenCalledWith(
+      'id, fiscal, variation_details:technical_specs->variationDetails'
+    );
+    expect(refreshed.get(productId)?.ncm).toBe('94032000');
   });
 });

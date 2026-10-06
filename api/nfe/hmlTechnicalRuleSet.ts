@@ -134,7 +134,6 @@ export function createHmlTechnicalRuleSet(
         environment: 2,
         issuerCrt: String(facts.issuerProfile.companyCRT),
         manual: facts.emissionRequest.itemCsosnOverrides?.['1'],
-        saved: typeof fiscal.cst === 'string' ? fiscal.cst : undefined,
       });
       if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn))
         throw new Error(

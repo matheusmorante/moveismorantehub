@@ -1,4 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { getLocalProducts } from './productLocalCache';
 
 export interface ProductFiscalData {
   id: string;
@@ -26,9 +27,11 @@ export const clearFiscalDataMemoryCache = () => {
  * e gravações síncronas de localStorage na thread principal.
  */
 export const getProductsFiscalData = async (
-  productIds: string[]
+  productIds: string[],
+  options: { useCache?: boolean } = {}
 ): Promise<Map<string, ProductFiscalData>> => {
   const result = new Map<string, ProductFiscalData>();
+  const useCache = options.useCache !== false;
   const isUUID = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
@@ -36,7 +39,7 @@ export const getProductsFiscalData = async (
   const idsToFetch: string[] = [];
 
   for (const id of uniqueIds) {
-    const cached = fiscalMemoryCache.get(id);
+    const cached = useCache ? fiscalMemoryCache.get(id) : undefined;
     if (cached) {
       result.set(id, cached);
     } else if (isUUID(id)) {
@@ -48,48 +51,77 @@ export const getProductsFiscalData = async (
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, fiscal, product_variations(id, fiscal)')
+        .select('id, fiscal, variation_details:technical_specs->variationDetails')
         .in('id', idsToFetch);
 
+      if (error && !useCache) {
+        throw new Error('Não foi possível consultar os dados fiscais atuais do catálogo.');
+      }
       if (!error && Array.isArray(data)) {
         for (const row of data) {
-          const fiscalObj = (row.fiscal || {}) as Record<string, unknown>;
+          const variationDetails = row.variation_details as
+            | Array<{ id?: string; fiscal?: unknown }>
+            | null;
           const variationsRecord: Record<string, Partial<ProductFiscalData>> = {};
 
-          if (Array.isArray(row.product_variations)) {
-            for (const v of row.product_variations) {
-              const vFiscal = (v.fiscal || {}) as Record<string, unknown>;
-              variationsRecord[String(v.id)] = {
-                ncm: typeof vFiscal.ncm === 'string' ? vFiscal.ncm : undefined,
-                cest: typeof vFiscal.cest === 'string' ? vFiscal.cest : undefined,
-                cfop: typeof vFiscal.cfop === 'string' ? vFiscal.cfop : undefined,
-                cst: typeof vFiscal.cst === 'string' ? vFiscal.cst : undefined,
-                origem: typeof vFiscal.origem === 'string' ? vFiscal.origem : undefined,
-                pisCst: typeof vFiscal.pisCst === 'string' ? vFiscal.pisCst : undefined,
-                cofinsCst: typeof vFiscal.cofinsCst === 'string' ? vFiscal.cofinsCst : undefined,
-              };
+          if (Array.isArray(variationDetails)) {
+            for (const variation of variationDetails) {
+              if (variation.id) {
+                variationsRecord[String(variation.id)] = mapFiscalFields(variation.fiscal);
+              }
             }
           }
 
           const fiscalItem: ProductFiscalData = {
             id: String(row.id),
-            ncm: typeof fiscalObj.ncm === 'string' ? fiscalObj.ncm : undefined,
-            cest: typeof fiscalObj.cest === 'string' ? fiscalObj.cest : undefined,
-            cfop: typeof fiscalObj.cfop === 'string' ? fiscalObj.cfop : undefined,
-            cst: typeof fiscalObj.cst === 'string' ? fiscalObj.cst : undefined,
-            origem: typeof fiscalObj.origem === 'string' ? fiscalObj.origem : undefined,
-            pisCst: typeof fiscalObj.pisCst === 'string' ? fiscalObj.pisCst : undefined,
-            cofinsCst: typeof fiscalObj.cofinsCst === 'string' ? fiscalObj.cofinsCst : undefined,
+            ...mapFiscalFields(row.fiscal),
             variations: variationsRecord,
           };
-          fiscalMemoryCache.set(fiscalItem.id, fiscalItem);
+          if (useCache) fiscalMemoryCache.set(fiscalItem.id, fiscalItem);
           result.set(fiscalItem.id, fiscalItem);
         }
       }
     } catch (err) {
+      if (!useCache) {
+        throw new Error('Não foi possível consultar os dados fiscais atuais do catálogo.', {
+          cause: err,
+        });
+      }
       console.warn('[productFiscalDataService] Falha ao consultar catálogo fiscal em lote:', err);
+    }
+  }
+
+  // Callers that allow caching retain the offline fallback; emission reads stay database-only.
+  const missingIds = uniqueIds.filter((id) => !result.has(id));
+  if (useCache && typeof localStorage !== 'undefined' && missingIds.length > 0) {
+    const localProducts = getLocalProducts();
+    for (const id of missingIds) {
+      const product = localProducts.find((candidate) => String(candidate.id) === id);
+      if (!product) continue;
+      const variations: Record<string, Partial<ProductFiscalData>> = {};
+      for (const variation of product.variations || []) {
+        variations[String(variation.id)] = mapFiscalFields(variation.fiscal);
+      }
+      result.set(id, {
+        id,
+        ...mapFiscalFields(product.fiscal),
+        variations,
+      });
     }
   }
 
   return result;
 };
+
+function mapFiscalFields(value: unknown): Omit<ProductFiscalData, 'id' | 'variations'> {
+  const fiscal = (value || {}) as Record<string, unknown>;
+  return {
+    ncm: typeof fiscal.ncm === 'string' ? fiscal.ncm : undefined,
+    cest: typeof fiscal.cest === 'string' ? fiscal.cest : undefined,
+    cfop: typeof fiscal.cfop === 'string' ? fiscal.cfop : undefined,
+    cst: typeof fiscal.cst === 'string' ? fiscal.cst : undefined,
+    origem: typeof fiscal.origem === 'string' ? fiscal.origem : undefined,
+    pisCst: typeof fiscal.pisCst === 'string' ? fiscal.pisCst : undefined,
+    cofinsCst: typeof fiscal.cofinsCst === 'string' ? fiscal.cofinsCst : undefined,
+  };
+}

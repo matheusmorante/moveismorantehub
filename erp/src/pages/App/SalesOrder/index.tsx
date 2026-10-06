@@ -35,6 +35,7 @@ const SalesOrder = () => {
   const [nfeChoiceOrder, setNfeChoiceOrder] = useState<Order | null>(null);
   const [chosenNfeEnvironment, setChosenNfeEnvironment] = useState<1 | 2>(1);
   const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
+  const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = useState<number | undefined>();
   const [issuedFiscalDocument, setIssuedFiscalDocument] = useState<{
     result: NfeEmissionResult;
     order: Order;
@@ -740,6 +741,7 @@ const SalesOrder = () => {
             const current = nfeChoiceOrder;
             setNfeChoiceOrder(null);
             setChosenNfeEnvironment(env);
+            setNfeEmissionOpenedAt(performance.now());
             setNfeModalOrder(current);
           }}
         />
@@ -750,10 +752,15 @@ const SalesOrder = () => {
           isOpen={Boolean(nfeModalOrder)}
           order={nfeModalOrder}
           initialEnvironment={chosenNfeEnvironment}
-          onClose={() => setNfeModalOrder(null)}
+          emissionOpenedAt={nfeEmissionOpenedAt}
+          onClose={() => {
+            setNfeModalOrder(null);
+            setNfeEmissionOpenedAt(undefined);
+          }}
           onSuccess={(result) => {
             const emittedOrder = nfeModalOrder;
             setNfeModalOrder(null);
+            setNfeEmissionOpenedAt(undefined);
             orderListRef.current?.refresh();
             if (emittedOrder) setIssuedFiscalDocument({ result, order: emittedOrder });
           }}

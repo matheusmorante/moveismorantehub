@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
+import { withNfeEmissionStage } from './nfeEmissionPerformance';
 import { randomUUID } from 'node:crypto';
 import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
@@ -684,13 +685,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let sefazResponseXml: string;
     try {
       transmissionStarted = true;
-      sefazResponseXml = await sendSoapToSefaz({
-        url: sefazUrl,
-        action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
-        xmlPayload: enviNfeXml,
-        certPem,
-        privateKeyPem,
-      });
+      sefazResponseXml = await withNfeEmissionStage(
+        'sefaz_transmission',
+        () =>
+          sendSoapToSefaz({
+            url: sefazUrl,
+            action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
+            xmlPayload: enviNfeXml,
+            certPem,
+            privateKeyPem,
+          }),
+        { environment: selectedEnvironment, model }
+      );
     } catch (soapErr: any) {
       const diagnosticId = randomUUID();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);

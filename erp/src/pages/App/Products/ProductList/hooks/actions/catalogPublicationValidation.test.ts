@@ -10,6 +10,10 @@ import {
   createDefaultVariation,
 } from '@/pages/utils/productService/productVariationMapper';
 import Product from '@/pages/types/product.type';
+import {
+  HML_FISCAL_TEST_ORDER_MARKER,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '@/pages/utils/hmlTestData';
 
 describe('Validação de Publicação no Catálogo Digital', () => {
   it('bloqueia publicação de produto em rascunho', () => {
@@ -70,6 +74,27 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     const result = validateCatalogPublication(validProduct as Product);
     expect(result.isValid).toBe(true);
     expect(result.errorMessage).toBeUndefined();
+  });
+
+  it('bloqueia publicação de produto fiscal de teste mesmo quando atende aos requisitos do catálogo', () => {
+    const testProduct: Partial<Product> = {
+      id: 'prod-test',
+      code: 'NFEHML26P1',
+      name: 'Produto de Teste Fiscal',
+      description: 'Item sintético de homologação',
+      observations: `Fixture ${HML_FISCAL_TEST_ORDER_MARKER}`,
+      isDraft: false,
+      status: 'hidden',
+      unitPrice: 150,
+      images: ['https://example.com/teste.jpg'],
+      categoryIds: ['cat-1'],
+      width: 50,
+      height: 50,
+      depth: 50,
+    };
+
+    const result = validateCatalogPublication(testProduct as Product);
+    expect(result).toEqual({ isValid: false, errorMessage: TEST_PRODUCT_CATALOG_PUBLICATION_ERROR });
   });
 });
 

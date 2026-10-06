@@ -1,5 +1,6 @@
 import Order from '../types/order.type';
 import { resolveOrderFiscalModel } from '../../../../shared-utils/fiscalDocumentModel';
+import { getSettings } from './settingsService';
 
 export type SuggestedFiscalDocument = 'NFE' | 'NFCE' | 'UNDETERMINED';
 
@@ -13,6 +14,7 @@ type FiscalOrderContext =
  */
 export const getSuggestedFiscalDocument = (order: FiscalOrderContext): SuggestedFiscalDocument => {
   const decision = resolveOrderFiscalModel(order, {
+    issuerUf: getSettings().companyUF,
     finalConsumer: (order as Order).fiscalContext?.finalConsumer ?? true,
   });
   return decision.status === 'blocked' ? 'UNDETERMINED' : decision.model === '65' ? 'NFCE' : 'NFE';

@@ -7,6 +7,7 @@ import type {
 import { validateFiscalDocument, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fiscalIcmsGroups';
 import { decideFiscalRecipientRequirements } from '../../shared-utils/fiscalDocumentModel';
+import { validateItemCfopMatch } from '../../shared-utils/fiscalCfopModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
@@ -177,14 +178,21 @@ export function serializeFiscalDocument(
   if (zoneOffset !== identity.issuedAt.slice(-6))
     throw new Error('Offset de emissão não corresponde ao fuso de São Paulo.');
   const operation = document.operation;
+  const destination = operation.destination;
   if (
     operation.direction !== 'outbound' ||
-    operation.destination !== '1' ||
+    (destination !== '1' && destination !== '2') ||
     operation.purpose !== '1' ||
     !/^[0-9]$/.test(operation.presence) ||
     !/^[012349]$/.test(operation.freightMode)
   )
     throw new Error('Operação fiscal não suportada pelo serializer.');
+  if (document.model === '65' && operation.destination !== '1')
+    throw new Error('NFC-e não permite operação interestadual.');
+  if (document.ruleSetVersion === 'HML_NORMAL_SALE_V2' && operation.destination !== '1')
+    throw new Error(
+      'HML_NORMAL_SALE_V2 não gera XML interestadual sem uma matriz tributária aprovada.'
+    );
   if (
     document.model === '65' &&
     (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===
@@ -192,8 +200,18 @@ export function serializeFiscalDocument(
     operation.presence !== '4'
   )
     throw new Error('NFC-e com entrega em domicílio exige indPres=4.');
-  if (document.recipient.address && document.recipient.address.uf !== 'PR')
-    throw new Error('NF-e interestadual ou exterior exige serializer fiscal próprio.');
+  if (document.model === '65' && document.recipient.address && document.recipient.address.uf !== 'PR')
+    throw new Error('NFC-e não permite destinatário fora do estado.');
+  if (operation.destination === '1' && document.recipient.address && document.recipient.address.uf !== 'PR') {
+    const isPickup =
+      (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===
+      'pickup';
+    if (!isPickup) {
+      throw new Error('Operação interna (idDest=1) com entrega fora do estado é incoerente.');
+    }
+  }
+  if (operation.destination === '2' && document.recipient.address && document.recipient.address.uf === 'PR')
+    throw new Error('Operação interestadual (idDest=2) exige destinatário com UF diferente de PR.');
   const recipientDoc = normalizeRecipientTaxId(document.recipient.cpfCnpj);
   const requirements = decideFiscalRecipientRequirements({
     model: document.model,
@@ -255,9 +273,17 @@ export function serializeFiscalDocument(
       const p = item.product;
       const c = item.classification;
       requireCode(c.ncm, /^\d{8}$/, `NCM do item ${item.itemNumber}`);
-      requireCode(c.cfop, /^[567]\d{3}$/, `CFOP do item ${item.itemNumber}`);
-      if (!c.cfop.startsWith('5'))
-        throw new Error(`CFOP do item ${item.itemNumber} não corresponde ao destino.`);
+      requireCode(c.cfop, /^\d{4}$/, `CFOP do item ${item.itemNumber}`);
+      const cfopMatch = validateItemCfopMatch({
+        cfop: c.cfop,
+        destination,
+        model: document.model,
+        direction: operation.direction,
+        itemType: 'product',
+        operationType: 'sale',
+      });
+      if (!cfopMatch.valid)
+        throw new Error(`CFOP do item ${item.itemNumber} inválido: ${cfopMatch.reason}`);
       requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
       const product =
         `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +

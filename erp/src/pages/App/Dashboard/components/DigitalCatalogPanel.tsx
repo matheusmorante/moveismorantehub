@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { isHmlFiscalTestProduct } from '../../../utils/hmlTestData';
+import { isTestProduct } from '../../../utils/hmlTestData';
 
 export default function DigitalCatalogPanel() {
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export default function DigitalCatalogPanel() {
 
         if (productsRes.data) {
           productsRes.data
-            .filter((p: any) => !isHmlFiscalTestProduct(p.observations))
+            .filter((p: any) => !isTestProduct(p))
             .forEach((p: any) => {
               const variations = p.product_variations || [];
               if (variations.length === 0) {

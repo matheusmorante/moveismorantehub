@@ -70,9 +70,8 @@ export function resolveItemCsosn(input: {
   issuerCrt: string;
   specificRule?: string;
   manual?: string;
-  saved?: string;
   catalog?: string;
-}): { csosn: string; source: 'specific_rule' | 'manual' | 'saved' | 'catalog' | 'default' } {
+}): { csosn: string; source: 'specific_rule' | 'manual' | 'catalog' | 'default' } {
   parseHmlCsosnConfiguration(input.configuration);
   if (input.environment !== 2)
     throw new Error('O padrão CSOSN de homologação não está aprovado para produção.');
@@ -81,7 +80,6 @@ export function resolveItemCsosn(input: {
   const choices = [
     ['specific_rule', input.specificRule],
     ['manual', input.manual],
-    ['saved', input.saved],
     ['catalog', input.catalog],
     ['default', input.configuration.csosn],
   ] as const;

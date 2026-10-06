@@ -1,9 +1,12 @@
 import React from 'react';
 import type Order from '@/pages/types/order.type';
 import { fetchPersonById } from '@/pages/utils/personService';
+import { withNfeEmissionStage } from '../../../../../../../../src/telemetry/nfeEmissionPerformance';
 import { recipientTaxIdKind } from '../../../../../../../../shared-utils/recipientTaxId';
 
 export function useNfeCustomerPersonType(order: Order | null) {
+  const orderId = order?.id;
+  const customerId = order?.customerData?.id;
   const initialPersonType = React.useMemo<'PF' | 'PJ' | undefined>(() => {
     if (order?.customerData?.personType) return order.customerData.personType;
     const doc = order?.customerData?.cpfCnpj || order?.customerData?.document || '';
@@ -29,23 +32,39 @@ export function useNfeCustomerPersonType(order: Order | null) {
 
   React.useEffect(() => {
     let active = true;
+    if (orderId == null) {
+      setIsLoadingCustomerType(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const loadPersonType = async () => {
-      if (initialPersonType || !order?.customerData?.id) {
-        setIsLoadingCustomerType(false);
-        return;
-      }
-      setIsLoadingCustomerType(true);
-      const person = await fetchPersonById(order.customerData.id);
-      if (active) {
-        if (person?.personType) setCustomerPersonType(person.personType);
-        setIsLoadingCustomerType(false);
+      const needsLookup = !initialPersonType && Boolean(customerId);
+      setIsLoadingCustomerType(needsLookup);
+      try {
+        const resolvedType = await withNfeEmissionStage(
+          'customer_resolution',
+          async () => {
+            if (initialPersonType) return initialPersonType;
+            if (!customerId) return undefined;
+            const person = await fetchPersonById(customerId);
+            return person?.personType;
+          },
+          { source: initialPersonType ? 'order_snapshot' : customerId ? 'customer_lookup' : 'missing' }
+        );
+        if (active) setCustomerPersonType(resolvedType || initialPersonType);
+      } catch {
+        if (active) setCustomerPersonType(initialPersonType);
+      } finally {
+        if (active) setIsLoadingCustomerType(false);
       }
     };
     void loadPersonType();
     return () => {
       active = false;
     };
-  }, [order?.id, order?.customerData?.id, initialPersonType]);
+  }, [orderId, customerId, initialPersonType]);
 
   const emissionOrder = React.useMemo(() => {
     if (!order) return null;

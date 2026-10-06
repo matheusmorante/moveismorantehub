@@ -19,7 +19,7 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
     ncm: '94036000',
     cest: '',
     cfop: '5102',
-    cst: '',
+    cst: '103',
     icmsPercent: 0,
     origem: '0',
     pisCst: '99',

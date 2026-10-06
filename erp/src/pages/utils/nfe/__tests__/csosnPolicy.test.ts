@@ -23,14 +23,14 @@ describe('padrão CSOSN decidido no backend', () => {
       source: 'specific_rule',
     });
   });
-  it('preserva escolha manual e código persistido do item ou produto', () => {
-    expect(resolveItemCsosn({ ...input, manual: '102', saved: '103' })).toEqual({
+  it('preserva escolha manual e usa o código fiscal atual do produto cadastrado', () => {
+    expect(resolveItemCsosn({ ...input, manual: '102', catalog: '103' })).toEqual({
       csosn: '102',
       source: 'manual',
     });
-    expect(resolveItemCsosn({ ...input, saved: '500', catalog: '103' })).toEqual({
+    expect(resolveItemCsosn({ ...input, catalog: '500' })).toEqual({
       csosn: '500',
-      source: 'saved',
+      source: 'catalog',
     });
     expect(resolveItemCsosn({ ...input, catalog: '201' })).toEqual({
       csosn: '201',

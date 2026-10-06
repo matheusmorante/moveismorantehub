@@ -10,6 +10,7 @@ import type {
   NfeSequencePreviewState,
   NfeSequenceSettingsState,
 } from '../types/nfeEmission.types';
+import { withNfeEmissionStage } from '../../../../../../../../src/telemetry/nfeEmissionPerformance';
 
 export interface UseNfeSequencePreviewProps {
   orderId: string | number | undefined;
@@ -128,7 +129,11 @@ export function useNfeSequencePreview({
       setIsResolvingNfeNumber(true);
     }
 
-    getNextNfeNumberPreview(model, environment, sequence.series, sequence.minimumNumber)
+    withNfeEmissionStage(
+      'sequence_preview',
+      () => getNextNfeNumberPreview(model, environment, sequence.series, sequence.minimumNumber),
+      { model, environment }
+    )
       .then((number) => {
         if (active) {
           setNumberPreviewState({

@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bulkRestoreProducts } from './productMutationService';
+import { bulkRestoreProducts, saveProduct, updateProduct } from './productMutationService';
 import { activateProduct, deactivateProduct } from './productDependencyCheck';
+import {
+  HML_FISCAL_TEST_ORDER_MARKER,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '../hmlTestData';
+import type Product from '../../types/product.type';
 
 const mockDb = vi.hoisted(() => ({
   from: vi.fn(),
   productKind: 'normal',
   databaseProducts: [] as any[],
+  productObservations: undefined as string | undefined,
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('./productLocalCache', () => ({
@@ -21,6 +27,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     updates.length = 0;
     mockDb.productKind = 'normal';
     mockDb.databaseProducts = [];
+    mockDb.productObservations = undefined;
     mockDb.from.mockImplementation((table: string) => {
       const chain: any = {
         update: vi.fn((val: any) => {
@@ -41,7 +48,10 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         select: vi.fn(() => chain),
         single: vi.fn(async () => ({ data: { id: 'test' }, error: null })),
         maybeSingle: vi.fn(async () => ({
-          data: { product_kind: mockDb.productKind },
+          data: {
+            product_kind: mockDb.productKind,
+            observations: mockDb.productObservations,
+          },
           error: null,
         })),
         then: (resolve: (val: any) => any) =>
@@ -106,5 +116,27 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         (update) => update.table === 'product_variations' && update.value.active === true
       )
     ).toBe(false);
+  });
+
+  it('saveProduct recusa produto de teste com status publicado antes de persistir', async () => {
+    const testProduct = {
+      description: 'Item sintético',
+      observations: `Fixture ${HML_FISCAL_TEST_ORDER_MARKER}`,
+      status: 'published',
+      variations: [{ status: 'hidden' }],
+    } as Product;
+
+    await expect(saveProduct(testProduct)).rejects.toThrow(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
+    expect(updates).toEqual([]);
+  });
+
+  it('updateProduct recusa publicação parcial quando o registro no banco está marcado como teste', async () => {
+    const uuid = 'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078';
+    mockDb.productObservations = `Fixture ${HML_FISCAL_TEST_ORDER_MARKER}`;
+
+    await expect(updateProduct(uuid, { status: 'published' })).rejects.toThrow(
+      TEST_PRODUCT_CATALOG_PUBLICATION_ERROR
+    );
+    expect(updates).toEqual([]);
   });
 });

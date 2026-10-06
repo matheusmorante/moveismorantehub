@@ -28,7 +28,7 @@ describe('política fiscal de varejo no Paraná', () => {
             shipping: { deliveryMethod, deliveryAddress: { state: 'PR' } },
             customerData: { cpfCnpj: document, fullAddress: { state: 'PR' } },
             fiscalContext: { finalConsumer: true },
-          })
+          }, { issuerUf: 'PR', finalConsumer: true })
         ).toMatchObject({
           status: 'ready',
           model: '65',
@@ -74,9 +74,35 @@ describe('política fiscal de varejo no Paraná', () => {
     expect(
       resolveOrderFiscalModel(
         { shipping: { deliveryMethod: 'pickup' }, customerData: { fullAddress: { state: 'SP' } } },
+        { issuerUf: 'PR', finalConsumer: true }
+      )
+    ).toMatchObject({
+      status: 'ready',
+      model: '65',
+      reasonCode: 'RETAIL_FINAL_CONSUMER_IN_STATE',
+    });
+    expect(
+      resolveOrderFiscalModel(
+        {
+          shipping: {
+            deliveryMethod: 'delivery',
+            useCustomerAddress: false,
+            deliveryAddress: { state: 'SC' },
+          },
+          customerData: { fullAddress: { state: 'PR' } },
+        },
+        { issuerUf: 'PR', finalConsumer: true }
+      )
+    ).toMatchObject({ status: 'ready', model: '55', reasonCode: 'INTERSTATE_OPERATION' });
+    expect(
+      resolveOrderFiscalModel(
+        {
+          shipping: { deliveryMethod: 'pickup' },
+          customerData: { fullAddress: { state: 'SP' } },
+        },
         { finalConsumer: true }
       )
-    ).toMatchObject({ model: '55', reasonCode: 'INTERSTATE_OPERATION' });
+    ).toMatchObject({ status: 'blocked' });
   });
   it('logística define presença e identificação, preservando o modelo', () => {
     expect(fiscalPresence('65', 'delivery')).toBe('4');

@@ -5,6 +5,7 @@ import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { resolveOrderFiscalModel } from '../../../../../../../shared-utils/fiscalDocumentModel';
+import { getSettings } from '@/pages/utils/settingsService';
 import type { DeliveryMethod } from '../../../../../../../shared-utils/fiscalTransportModel';
 import {
   clearFiscalEmissionDrafts,
@@ -54,7 +55,7 @@ export function useNfeEmission(
   const modelDecision = order
     ? resolveOrderFiscalModel(
         { ...order, items: nfeItems.length ? nfeItems : order.items },
-        { finalConsumer }
+        { issuerUf: getSettings().companyUF, finalConsumer }
       )
     : null;
   const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';

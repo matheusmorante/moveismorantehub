@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
+import { CSOSN_OPTIONS } from './productFiscalOptions';
 
 describe('createInitialProductFiscalInfo', () => {
   it('usa os padrões oficiais para produto', () => {
     expect(createInitialProductFiscalInfo('product')).toEqual({
       ncm: '',
       cest: '',
-      cst: '102',
+      cst: '103',
       cfop: '5102',
       origem: '0',
       icmsPercent: 0,
@@ -14,6 +15,7 @@ describe('createInitialProductFiscalInfo', () => {
       cofinsCst: '99',
       codigoServico: '',
     });
+    expect(CSOSN_OPTIONS.some((option) => option.value === '103')).toBe(true);
   });
 
   it('preserva padrões configurados, exceto CFOP de serviço', () => {

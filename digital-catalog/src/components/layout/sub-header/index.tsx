@@ -1,25 +1,68 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-import { Flame, Tag, ChevronDown } from 'lucide-react';
+import { Flame, Tag, ChevronDown, Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { useSubHeaderData } from './use-sub-header-data';
 import { slugifyCategory } from '@/lib/slug-utils';
 
+const subscribeToHydration = () => () => {};
+const getHydratedSnapshot = () => true;
+const getServerHydratedSnapshot = () => false;
+
 export function SubHeader() {
-  const { environments, getCategoriesForEnv } = useSubHeaderData();
+  const { environments, getCategoriesForEnv, isLoaded } = useSubHeaderData();
   const searchParams = useSearchParams();
   const activeEnvId = searchParams.get('ambientes') || searchParams.get('envs');
   const activeCatId = searchParams.get('categorias') || searchParams.get('cats');
   const activeType = searchParams.get('type');
-  const [mounted, setMounted] = useState(false);
+  const currentSearch = searchParams.toString();
+  const mounted = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerHydratedSnapshot
+  );
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [useMenu, setUseMenu] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const nav = navRef.current;
+    if (!mounted || !isLoaded || !nav) return;
+
+    const measureRows = () => {
+      const rowTops = new Set(
+        Array.from(nav.children).map((child) => Math.round(child.getBoundingClientRect().top))
+      );
+      setUseMenu(rowTops.size > 2 || nav.scrollWidth > nav.clientWidth + 1);
+    };
+
+    const frame = window.requestAnimationFrame(measureRows);
+    const observer =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measureRows) : null;
+    if (observer) {
+      observer.observe(nav);
+    } else {
+      window.addEventListener('resize', measureRows);
+    }
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (observer) observer.disconnect();
+      else window.removeEventListener('resize', measureRows);
+    };
+  }, [currentSearch, isLoaded, mounted]);
 
   if (!mounted) return null;
 
@@ -36,14 +79,22 @@ export function SubHeader() {
 
   return (
     <div className="hidden lg:block w-full bg-primary border-b border-primary/80 shadow-md relative z-40">
-      <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24">
-        <nav className="flex flex-wrap items-center overflow-visible min-w-0">
+      <div className="container mx-auto px-4 sm:px-8 md:px-12 lg:px-16 xl:px-24 relative min-h-9">
+        <nav
+          ref={navRef}
+          aria-label="Navegação do catálogo"
+          className={`flex flex-wrap items-center gap-y-0 overflow-visible min-w-0 ${
+            useMenu
+              ? 'invisible absolute left-4 right-4 top-0 pointer-events-none sm:left-8 sm:right-8 md:left-12 md:right-12 lg:left-16 lg:right-16 xl:left-24 xl:right-24'
+              : ''
+          }`}
+        >
           {/* Oportunidade de Salvados */}
           {(() => {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
             const isSalvadosActive = activeType === 'salvados' || activeType === SALVADOS_OPP_ID;
             const salvadosClass = [
-              'flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5',
+              'flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 leading-tight',
               'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2',
               isSalvadosActive
                 ? 'border-orange-500 text-orange-400 bg-white/10'
@@ -61,7 +112,7 @@ export function SubHeader() {
           {(() => {
             const isMegaLiquidacaoActive = activeType === 'liquidacao';
             const liquidacaoClass = [
-              'flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5',
+              'flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 leading-tight',
               'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2',
               isMegaLiquidacaoActive
                 ? 'border-amber-300 text-amber-200 bg-white/10'
@@ -91,7 +142,7 @@ export function SubHeader() {
             const isOpen = activeDropdown === env.id;
 
             const buttonClass = [
-              'flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5',
+              'flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 leading-tight',
               'text-xs sm:text-sm font-bold uppercase tracking-wide whitespace-nowrap cursor-pointer',
               'text-white/90 hover:text-white border-b-2 transition-all group',
               isActive || isOpen
@@ -102,7 +153,7 @@ export function SubHeader() {
             return (
               <div
                 key={env.id}
-                className="relative h-full flex items-center"
+                className="relative flex items-center"
                 onMouseEnter={() => handleMouseEnter(env.id)}
                 onMouseLeave={handleMouseLeave}
               >
@@ -153,6 +204,88 @@ export function SubHeader() {
             );
           })}
         </nav>
+        {useMenu && (
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Abrir menu de navegação do catálogo"
+                className="h-9 w-10 text-white hover:bg-white/10 hover:text-white"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[88vw] max-w-sm border-r-0 p-0">
+              <div className="flex h-full flex-col bg-white">
+                <SheetHeader className="border-b bg-gray-50/50 px-6 py-5">
+                  <SheetTitle className="font-black text-primary">Navegar pelo catálogo</SheetTitle>
+                  <SheetDescription>Escolha uma oferta ou ambiente.</SheetDescription>
+                </SheetHeader>
+                <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                  <nav aria-label="Ofertas">
+                    <div className="space-y-2">
+                      <Link
+                        href="/?type=salvados"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2.5 text-sm font-black text-orange-600"
+                      >
+                        <Flame className="h-4 w-4 fill-current" />
+                        QUEIMA DOS SALVADOS
+                      </Link>
+                      <Link
+                        href="/?type=liquidacao"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-black text-amber-700"
+                      >
+                        <Tag className="h-4 w-4" />
+                        MEGA LIQUIDAÇÃO
+                      </Link>
+                    </div>
+                  </nav>
+                  {environments.length > 0 && (
+                    <nav aria-label="Ambientes e categorias" className="space-y-4">
+                      {environments.map((env) => {
+                        const envSlug = env.slug || slugifyCategory(env) || env.id;
+                        const envCats = getCategoriesForEnv(env.id);
+                        return (
+                          <section key={env.id} className="border-t border-gray-100 pt-3">
+                            <h2 className="mb-2 px-1 text-xs font-black uppercase tracking-wide text-gray-500">
+                              {env.name}
+                            </h2>
+                            <div className="space-y-1">
+                              <Link
+                                href={`/?ambientes=${envSlug}`}
+                                onClick={() => setMenuOpen(false)}
+                                className="block rounded-lg px-2.5 py-2 text-sm font-bold text-gray-800 hover:bg-primary/5 hover:text-primary"
+                              >
+                                Ver todos
+                              </Link>
+                              {envCats.map((cat) => {
+                                const catSlug = cat.slug || slugifyCategory(cat) || cat.id;
+                                return (
+                                  <Link
+                                    key={cat.id}
+                                    href={`/?categorias=${catSlug}`}
+                                    onClick={() => setMenuOpen(false)}
+                                    className="block rounded-lg px-2.5 py-2 text-sm font-medium capitalize text-gray-600 hover:bg-primary/5 hover:text-primary"
+                                  >
+                                    {cat.name}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </nav>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
     </div>
   );

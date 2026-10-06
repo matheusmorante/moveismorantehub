@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../utils/supabaseConfig';
 import { subscribeToInventoryMoves } from '../../../utils/inventoryService';
-import { isHmlFiscalTestProduct } from '../../../utils/hmlTestData';
+import { isTestProduct } from '../../../utils/hmlTestData';
 
 export interface LowStockItem {
   productId: string;
@@ -47,7 +47,7 @@ export const useDashboardStock = (): StockData => {
         if (error) throw error;
 
         const products = (data || []).filter(
-          (product) => !isHmlFiscalTestProduct(product.observations)
+          (product) => !isTestProduct(product)
         );
 
         // Buscar variações ativas de produtos com variações

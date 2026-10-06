@@ -23,6 +23,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const [nfeChoiceOrder, setNfeChoiceOrder] = React.useState<Order | null>(null);
   const [chosenEnvironment, setChosenEnvironment] = React.useState<1 | 2>(1);
   const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
+  const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = React.useState<number | undefined>();
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
 
   React.useEffect(() => {
@@ -200,6 +201,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               const currentOrder = nfeChoiceOrder;
               setNfeChoiceOrder(null);
               setChosenEnvironment(env);
+              setNfeEmissionOpenedAt(performance.now());
               setNfeEmissionOrder(currentOrder);
             }}
           />
@@ -207,7 +209,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             isOpen={Boolean(nfeEmissionOrder)}
             order={nfeEmissionOrder}
             initialEnvironment={chosenEnvironment}
-            onClose={() => setNfeEmissionOrder(null)}
+            emissionOpenedAt={nfeEmissionOpenedAt}
+            onClose={() => {
+              setNfeEmissionOrder(null);
+              setNfeEmissionOpenedAt(undefined);
+            }}
           />
         </div>
 

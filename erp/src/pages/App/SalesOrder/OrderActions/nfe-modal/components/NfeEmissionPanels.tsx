@@ -194,6 +194,8 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
           {!emissionResult?.success && (
             <NfeItemsSection
               order={order}
+              environment={environment}
+              fiscalModel={selectedModel || '55'}
               items={nfeItems}
               activeError={fiscalFieldError}
               onClearFieldError={clearFiscalFieldError}

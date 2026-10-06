@@ -12,6 +12,11 @@ import {
 } from './csosnPolicy';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { getResponsibleTechnicianConfigurationIssues } from './responsibleTechnician';
+import {
+  determineSaleCfop,
+  getCfopDefinition,
+  resolveFiscalCfopOrderScope,
+} from '../../shared-utils/fiscalCfopModel';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -120,19 +125,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(
         'Não foi possível conferir exceções fiscais do cadastro: ' + products.error.message
       );
+    const shipping =
+      (order.order_data?.shipping as Record<string, unknown> | undefined) || {};
+    const customerData =
+      (order.order_data?.customerData as Record<string, unknown> | undefined) || {};
+    const operationScope = resolveFiscalCfopOrderScope({
+      issuerUf: typeof app.data.companyUF === 'string' ? app.data.companyUF : '',
+      deliveryMethod: String(shipping.deliveryMethod || ''),
+      shipping,
+      customerAddress: customerData.fullAddress || customerData.address,
+    });
+    if (operationScope.destination === null)
+      throw new Error(operationScope.reason || 'Local físico da operação fiscal não identificado.');
+    if (operationScope.scope === 'foreign')
+      throw new Error('Operação com exterior exige matriz fiscal específica aprovada.');
+    const destination = operationScope.destination;
+    const isInterstate = operationScope.scope === 'interstate';
+
     const resolved = items.map((item, index) => {
-      const fiscal = item.fiscal as Record<string, unknown> | undefined;
       const product = products.data?.find((row) => row.id === item.productId);
-      const catalog = product?.fiscal?.cst;
+      const catalogCst = product?.fiscal?.cst;
+      const catalogCfop = product?.fiscal?.cfop;
+      const itemFiscal = (item.fiscal as Record<string, unknown> | undefined) || {};
+      const savedCfop = typeof itemFiscal.cfop === 'string' ? itemFiscal.cfop : undefined;
+      const sourceCfop = savedCfop || (typeof catalogCfop === 'string' ? catalogCfop : undefined);
+      const sourceDefinition = getCfopDefinition(sourceCfop || '');
+      if (sourceCfop && !sourceDefinition)
+        throw new Error(`CFOP ${sourceCfop} não classificado; revise a origem fiscal antes de preparar os itens.`);
+      if (sourceDefinition && sourceDefinition.operationType !== 'sale')
+        throw new Error(`CFOP ${sourceCfop} exige tratamento fiscal específico e não pode ser convertido em venda padrão.`);
+      const cfop = determineSaleCfop({
+        destination,
+        itemType: 'product',
+        isSt:
+          catalogCst === '500' ||
+          itemFiscal.cst === '500' ||
+          sourceDefinition?.stApplicability === 'required',
+        isOwnProduction: sourceDefinition?.merchandiseOrigin === 'own_production',
+      });
       return {
         itemNumber: index + 1,
         ...resolveItemCsosn({
           configuration,
           environment: 2,
           issuerCrt: String(app.data!.companyCRT || ''),
-          saved: typeof fiscal?.cst === 'string' ? fiscal.cst : undefined,
-          catalog: typeof catalog === 'string' ? catalog : undefined,
+          catalog: typeof catalogCst === 'string' ? catalogCst : undefined,
         }),
+        cfop,
+        cfopSource: isInterstate ? 'INTERSTATE_RULE' : 'INTERNAL_RULE',
       };
     });
     return res.status(200).json({ success: true, configuration, items: resolved });

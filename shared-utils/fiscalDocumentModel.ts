@@ -1,4 +1,5 @@
 import { recipientTaxIdKind } from './recipientTaxId';
+import { resolveFiscalCfopOrderScope } from './fiscalCfopModel';
 
 /** Paraná retail policy. Logistics and recipient PF/PJ never select a model alone. */
 export const FISCAL_MODEL_POLICY_VERSION = 'PR_RETAIL_2026_10';
@@ -82,8 +83,12 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 const object = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 export function getFiscalRecipientAddress(order: unknown): Record<string, unknown> {
   const data = object(order); const shipping = object(data.shipping); const customer = object(data.customerData);
-  const raw = shipping.deliveryMethod === 'delivery' ? shipping.deliveryAddress || customer.fullAddress || customer.address
-    : customer.fullAddress || customer.address;
+  const customerAddress = customer.fullAddress || customer.address;
+  const raw = shipping.deliveryMethod === 'delivery'
+    ? shipping.useCustomerAddress === false
+      ? shipping.deliveryAddress
+      : customerAddress || shipping.deliveryAddress
+    : customerAddress;
   if (typeof raw === 'string') { try { return object(JSON.parse(raw)); } catch { return {}; } }
   return object(raw);
 }
@@ -91,14 +96,18 @@ export function getFiscalRecipientAddress(order: unknown): Record<string, unknow
 export function resolveOrderFiscalModel(order: unknown, options: {issuerUf?: string; finalConsumer?: boolean; recipientAddress?: unknown} = {}): FiscalModelDecision {
   const data = object(order); const context = object(data.fiscalContext); const shipping = object(data.shipping);
   const address = options.recipientAddress ? object(options.recipientAddress) : getFiscalRecipientAddress(data);
-  const issuerUf = options.issuerUf ?? 'PR';
-  const recipientUf = String(address.state || address.uf || (shipping.deliveryMethod === 'pickup' ? issuerUf : '')).toUpperCase();
-  const items = Array.isArray(data.items) ? data.items : [];
+  const issuerUf = String(options.issuerUf || '').trim().toUpperCase();
+  const operationScope = resolveFiscalCfopOrderScope({
+    issuerUf,
+    deliveryMethod: String(shipping.deliveryMethod || ''),
+    shipping,
+    customerAddress: address,
+  });
+  const recipientUf = operationScope.operationUf || '';
   return resolveFiscalDocumentModel({ issuerUf, recipientUf,
     finalConsumer:options.finalConsumer ?? (typeof context.finalConsumer === 'boolean' ? context.finalConsumer : undefined),
     operationType:String(context.operationType || data.orderType || 'sale'), purpose:context.purpose as string | undefined,
     total:object(data.paymentsSummary).totalOrderValue as number | undefined,
-    cfops:items.filter((item) => object(item).itemType !== 'service').map((item) => String(object(object(item).fiscal).cfop || '')),
     requiresTaxCredit:context.requiresTaxCredit === true, publicAdministrationRequirement:context.publicAdministrationRequirement === true,
     otherFiscalRequirement:context.otherFiscalRequirement === true || context.recipientIeIndicator === '1',
   });

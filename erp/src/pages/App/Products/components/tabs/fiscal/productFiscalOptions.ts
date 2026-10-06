@@ -1,5 +1,13 @@
+import { listActiveCfopOptions } from '../../../../../../../../shared-utils/fiscalCfopModel';
+
+export interface FiscalOption {
+  value: string;
+  label: string;
+}
+
 export const CSOSN_OPTIONS: readonly FiscalOption[] = [
   { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito (Venda padrão)' },
+  { value: '103', label: '103 - Isenção do ICMS no Simples Nacional para faixa de receita bruta' },
   {
     value: '500',
     label: '500 - Simples Nacional - ICMS Cobrado Anteriormente por ST (Substituído)',
@@ -12,12 +20,9 @@ export const CSOSN_OPTIONS: readonly FiscalOption[] = [
   { value: '900', label: '900 - Simples Nacional - Outros' },
 ];
 
-export const CFOP_OPTIONS: readonly FiscalOption[] = [
-  { value: '5102', label: '5102 - Venda de mercadoria adquirida/recebida de terceiros' },
-  { value: '5405', label: '5405 - Venda de mercadoria sujeita a ST (Substituído)' },
-  { value: '5101', label: '5101 - Venda de produção do estabelecimento' },
-  { value: '5403', label: '5403 - Venda de produção do estabelecimento sujeita a ST' },
-];
+export const CFOP_OPTIONS: readonly FiscalOption[] = listActiveCfopOptions({
+  direction: 'outbound',
+});
 
 export const PIS_COFINS_OPTIONS: readonly FiscalOption[] = [
   { value: '49', label: '49 - Outras Operações de Saída' },

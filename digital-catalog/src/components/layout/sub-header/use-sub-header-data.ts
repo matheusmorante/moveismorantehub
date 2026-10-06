@@ -8,18 +8,23 @@ export function useSubHeaderData() {
   const [environments, setEnvironments] = useState<Category[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const [catRes, relRes] = await Promise.all([
-        supabase.from('categories').select('id, name, slug, type').order('name'),
-        supabase.from('category_relationships').select('parent_id, child_id'),
-      ]);
-      if (catRes.data) {
-        setEnvironments(catRes.data.filter((c: Category) => c.type === 'environment'));
-        setCategories(catRes.data.filter((c: Category) => c.type === 'category'));
+      try {
+        const [catRes, relRes] = await Promise.all([
+          supabase.from('categories').select('id, name, slug, type').order('name'),
+          supabase.from('category_relationships').select('parent_id, child_id'),
+        ]);
+        if (catRes.data) {
+          setEnvironments(catRes.data.filter((c: Category) => c.type === 'environment'));
+          setCategories(catRes.data.filter((c: Category) => c.type === 'category'));
+        }
+        if (relRes.data) setRelationships(relRes.data);
+      } finally {
+        setIsLoaded(true);
       }
-      if (relRes.data) setRelationships(relRes.data);
     }
     load();
   }, []);
@@ -29,5 +34,5 @@ export function useSubHeaderData() {
     return categories.filter((c) => linkedIds.includes(c.id));
   }
 
-  return { environments, getCategoriesForEnv };
+  return { environments, getCategoriesForEnv, isLoaded };
 }

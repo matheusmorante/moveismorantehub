@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
+import { HML_FISCAL_TEST_ORDER_MARKER } from '@/pages/utils/hmlTestData';
 import { useProductFormSubmit } from './useProductFormSubmit';
 
 const mocks = vi.hoisted(() => ({ saveProduct: vi.fn(async (product: Product) => product.id) }));
@@ -18,11 +19,11 @@ const complete: Product = {
     active: false, status: 'draft', attributes: [], syncUnitPrice: true }],
 };
 
-function renderSubmit(formData: Product) {
+function renderSubmit(formData: Product, isRegisteredProduct = false) {
   const variations = { setEditingVariationId: vi.fn() };
   const setActiveTab = vi.fn();
   const hook = renderHook(() => useProductFormSubmit({
-    formData, setFormData: vi.fn(), product: formData, isRegisteredProduct: false,
+    formData, setFormData: vi.fn(), product: formData, isRegisteredProduct,
     setValidationErrors: vi.fn(), setActiveTab, variations, draft: {},
     setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: { current: true }, onClose: vi.fn(),
   }));
@@ -49,6 +50,27 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
     expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({ isDraft: false, status: 'hidden',
       variations: [expect.objectContaining({ status: 'hidden', active: true })] }));
+  });
+  it('força o canal Catálogo Digital para oculto ao salvar produto marcado como teste', async () => {
+    const testProduct: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      observations: `Fixture ${HML_FISCAL_TEST_ORDER_MARKER}`,
+      title: 'Produto Teste Fiscal',
+      ecommerceDescription: 'Item sintético para homologação',
+      hasVariations: true,
+      images: ['https://example.com/teste.jpg'],
+      variations: [{ ...complete.variations![0], status: 'published' }],
+    };
+    const { result } = renderSubmit(testProduct, true);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
+
+    expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'hidden',
+      variations: [expect.objectContaining({ status: 'hidden' })],
+    }));
   });
   it('persiste as dimensões técnicas da variação que validou durante a conclusão do pai', async () => {
     const { result } = renderSubmit({ ...complete, width: 0, height: 0, depth: 0,

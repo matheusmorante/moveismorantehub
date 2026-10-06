@@ -8,23 +8,29 @@ export interface FiscalOption {
   label: string;
 }
 
-export const CFOP_OPTIONS: FiscalOption[] = [
-  {
-    value: '1202',
-    label: '1.202 - Devolução de venda de mercadoria adquirida ou recebida de terceiros',
-  },
-  {
-    value: '1949',
-    label:
-      '1.949 - Outra entrada de mercadoria ou prestação de serviço não especificada (revisão fiscal)',
-  },
-  { value: '5102', label: '5102 - Venda de mercadoria adquirida/recebida de terceiros' },
-  { value: '5405', label: '5405 - Venda de mercadoria sujeita a ST (Substituído)' },
-  { value: '5101', label: '5101 - Venda de produção do estabelecimento' },
-  { value: '5403', label: '5403 - Venda de produção do estabelecimento sujeita a ST' },
-  { value: '5933', label: '5933 - Prestação de serviço dentro do Estado' },
-  { value: '6933', label: '6933 - Prestação de serviço para fora do Estado' },
-];
+import {
+  CANONICAL_CFOPS,
+  listActiveCfopOptions,
+  getCfopDefinition,
+  isCfopActive,
+  isCfopValid,
+  validateItemCfopMatch,
+  determineSaleCfop,
+  type FiscalCfopDefinition,
+} from '../../../../../shared-utils/fiscalCfopModel';
+
+export {
+  CANONICAL_CFOPS,
+  listActiveCfopOptions,
+  getCfopDefinition,
+  isCfopActive,
+  isCfopValid,
+  validateItemCfopMatch,
+  determineSaleCfop,
+  type FiscalCfopDefinition,
+};
+
+export const CFOP_OPTIONS: FiscalOption[] = listActiveCfopOptions();
 
 export const CSOSN_OPTIONS: FiscalOption[] = [
   { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito' },

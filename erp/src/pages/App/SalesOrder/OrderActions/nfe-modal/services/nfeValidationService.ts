@@ -13,6 +13,11 @@ import {
   isValidRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../../../../../../../shared-utils/recipientTaxId';
+import {
+  resolveFiscalCfopOrderScope,
+  validateItemCfopMatch,
+} from '../../../../../../../../shared-utils/fiscalCfopModel';
+import { getSettings } from '@/pages/utils/settingsService';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import type { FiscalFieldError } from '../types/nfeEmission.types';
 
@@ -182,13 +187,79 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
       };
     }
 
-    if (!item.fiscal?.cfop?.trim()) {
+    const shipping = (order.shipping as Record<string, unknown> | undefined) || {};
+    const customerData = (order.customerData as Record<string, unknown> | undefined) || {};
+    const operationScope = resolveFiscalCfopOrderScope({
+      issuerUf: getSettings().companyUF,
+      deliveryMethod,
+      shipping,
+      customerAddress: customerData.fullAddress || customerData.address,
+    });
+    if (!operationScope.destination || operationScope.destination === '3') {
+      const fieldErr: FiscalFieldError = {
+        tab: 'items',
+        fieldId: `nfe-item-cfop-${index}`,
+        itemIndex: index,
+        itemField: 'cfop',
+        message: operationScope.reason || 'Local físico da operação fiscal não identificado.',
+      };
+      return {
+        valid: false,
+        recipientTaxIdError: null,
+        fiscalFieldError: fieldErr,
+        toastError: fieldErr.message,
+      };
+    }
+    if (operationScope.scope === 'interstate') {
+      const fieldErr: FiscalFieldError = {
+        tab: 'items',
+        fieldId: `nfe-item-cfop-${index}`,
+        itemIndex: index,
+        itemField: 'cfop',
+        message:
+          `Operação interestadual ${operationScope.issuerUf} → ${operationScope.operationUf}: ` +
+          'não existe matriz tributária aprovada; a emissão permanece bloqueada.',
+      };
+      return {
+        valid: false,
+        recipientTaxIdError: null,
+        fiscalFieldError: fieldErr,
+        toastError: fieldErr.message,
+      };
+    }
+
+    const cfopTrimmed = item.fiscal?.cfop?.trim() || '';
+    if (!cfopTrimmed) {
       const fieldErr: FiscalFieldError = {
         tab: 'items',
         fieldId: `nfe-item-cfop-${index}`,
         itemIndex: index,
         itemField: 'cfop',
         message: `Selecione o CFOP do produto ${itemLabel}.`,
+      };
+      return {
+        valid: false,
+        recipientTaxIdError: null,
+        fiscalFieldError: fieldErr,
+        toastError: fieldErr.message,
+      };
+    }
+
+    const cfopMatch = validateItemCfopMatch({
+      cfop: cfopTrimmed,
+      destination: operationScope.destination,
+      model: currentModel,
+      direction: 'outbound',
+      itemType: item.itemType === 'service' ? 'service' : 'product',
+      operationType: 'sale',
+    });
+    if (!cfopMatch.valid) {
+      const fieldErr: FiscalFieldError = {
+        tab: 'items',
+        fieldId: `nfe-item-cfop-${index}`,
+        itemIndex: index,
+        itemField: 'cfop',
+        message: `${cfopMatch.reason} (Produto ${itemLabel})`,
       };
       return {
         valid: false,

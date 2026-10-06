@@ -12,6 +12,7 @@ import {
   isFiscalNumber,
   parseFiscalNumberConflict,
 } from '../../../../../shared-utils/fiscalNumbering';
+import { withNfeEmissionStage } from '../../../../../src/telemetry/nfeEmissionPerformance';
 
 export { canIssueCce };
 
@@ -508,33 +509,41 @@ export async function emitNfeForOrder(
       } catch {
         /* sem armazenamento local, a API ainda valida a linhagem no banco */
       }
-      const { itemCsosnOverrides, itemFiscalSelections } = buildFiscalItemSelectionPayload(order);
       dispatchedRequestId = emissionRequestId;
+      const requestBody = await withNfeEmissionStage(
+        'payload_prepare',
+        () => {
+          const { itemCsosnOverrides, itemFiscalSelections } =
+            buildFiscalItemSelectionPayload(order);
+          return JSON.stringify({
+            orderId: String(order.id || ''),
+            environment,
+            productionConfirmed,
+            emissionRequestId,
+            ...(supersedesDocumentId ? { supersedesDocumentId } : {}),
+            ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
+            ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
+            ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
+            finalConsumer: finalConsumer ?? order.fiscalContext?.finalConsumer ?? true,
+            ...(deliveryByIssuer === undefined ? {} : { deliveryByIssuer }),
+            ...(transporter ? { transporter } : {}),
+            ...(freightMode ? { freightMode } : {}),
+            ...(hasTransport === undefined ? {} : { hasTransport }),
+            ...(transportResponsible === undefined ? {} : { transportResponsible }),
+            ...(freightContractResponsible === undefined ? {} : { freightContractResponsible }),
+            ...(cardNotIntegrated === undefined ? {} : { cardNotIntegrated }),
+            ...(requestedNumber === undefined ? {} : { requestedNumber }),
+          });
+        },
+        { environment }
+      );
       const response = await fetch('/api/nfe/emit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sessionData.session.access_token}`,
         },
-        body: JSON.stringify({
-          orderId: String(order.id || ''),
-          environment,
-          productionConfirmed,
-          emissionRequestId,
-          ...(supersedesDocumentId ? { supersedesDocumentId } : {}),
-          ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
-          ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
-          ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
-          finalConsumer: finalConsumer ?? order.fiscalContext?.finalConsumer ?? true,
-          ...(deliveryByIssuer === undefined ? {} : { deliveryByIssuer }),
-          ...(transporter ? { transporter } : {}),
-          ...(freightMode ? { freightMode } : {}),
-          ...(hasTransport === undefined ? {} : { hasTransport }),
-          ...(transportResponsible === undefined ? {} : { transportResponsible }),
-          ...(freightContractResponsible === undefined ? {} : { freightContractResponsible }),
-          ...(cardNotIntegrated === undefined ? {} : { cardNotIntegrated }),
-          ...(requestedNumber === undefined ? {} : { requestedNumber }),
-        }),
+        body: requestBody,
       });
       const result = await response.json().catch(() => ({}));
       const numberConflict =
@@ -682,6 +691,9 @@ export async function emitNfeForOrder(
         ...(typeof result.code === 'string'
           ? { apiCode: result.code }
           : { resultClassification }),
+        ...(typeof result.error === 'string'
+          ? { apiMessage: result.error.replace(/[\r\n\t]+/g, ' ').slice(0, 300) }
+          : {}),
         ...(typeof metadata.cStat === 'string' ? { sefazCode: metadata.cStat } : {}),
         diagnosticId: metadata.diagnosticId,
         diagnosticStage: metadata.diagnosticStage,

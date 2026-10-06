@@ -14,7 +14,7 @@ describe('NfeItemRow', () => {
       itemType: 'product',
       quantity: 1,
       unitPrice: 100,
-      fiscal: { ncm: '', cfop: '5102', cst: '102', origem: '0' },
+      fiscal: { ncm: '', cfop: '5102', cst: '103', origem: '0' },
       isUnregistered,
     }) as any;
 
@@ -43,5 +43,39 @@ describe('NfeItemRow', () => {
 
     expect(screen.queryByRole('button', { name: 'Produto não cadastrado no ERP' })).toBeNull();
     expect(screen.getByText('Cadastrado no ERP')).toBeTruthy();
+  });
+
+  it('deixa editar o CSOSN do item', () => {
+    const onUpdateFiscal = vi.fn();
+    render(
+      <NfeItemRow item={createItem(false)} itemIndex={0} onUpdateFiscal={onUpdateFiscal} />
+    );
+    fireEvent.click(screen.getByTitle('Ver / editar CFOP, CSOSN, Origem e CEST'));
+
+    const csosn = screen.getByRole('combobox', { name: 'CSOSN' }) as HTMLSelectElement;
+    expect(csosn.disabled).toBe(false);
+    expect(csosn.value).toBe('103');
+
+    fireEvent.change(csosn, { target: { value: '102' } });
+    expect(onUpdateFiscal).toHaveBeenCalledWith('cst', '102');
+  });
+
+  it('exibe CFOP candidato interestadual, mas impede sua seleção enquanto a matriz está pendente', () => {
+    render(
+      <NfeItemRow
+        item={createItem(false)}
+        itemIndex={0}
+        cfopContextMessage="Operação PR → SC; matriz tributária pendente."
+        cfopOptions={[
+          { value: '6102', label: '6102 — venda interestadual; matriz pendente', disabled: true },
+        ]}
+        onUpdateFiscal={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByTitle('Ver / editar CFOP, CSOSN, Origem e CEST'));
+
+    const cfopOption = screen.getByRole('option', { name: /6102 — venda interestadual/ });
+    expect(cfopOption).toHaveProperty('disabled', true);
+    expect(screen.getByText('Operação PR → SC; matriz tributária pendente.')).toBeTruthy();
   });
 });

@@ -17,6 +17,7 @@ export interface NfeEmissionFooterProps {
   onClose: () => void;
   onEmit: (productionConfirmed: boolean, isRetry: boolean) => void;
   onPrintDanfe: () => void;
+  onTransmissionEnabled?: () => void;
 }
 
 export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
@@ -34,6 +35,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   onClose,
   onEmit,
   onPrintDanfe,
+  onTransmissionEnabled,
 }) => {
   const formattedTotal = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -47,6 +49,10 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     isLoadingNfeNumber ||
     isLoadingCustomerType ||
     Boolean(fiscalPreparationError);
+
+  React.useLayoutEffect(() => {
+    if (!isEmitDisabled) onTransmissionEnabled?.();
+  }, [isEmitDisabled, onTransmissionEnabled]);
 
   const isSpecialHmlConflictState = Boolean(
     emissionResult?.numberConflict ||

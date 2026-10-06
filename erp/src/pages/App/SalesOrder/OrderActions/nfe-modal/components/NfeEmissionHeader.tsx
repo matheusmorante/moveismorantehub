@@ -1,11 +1,15 @@
-import React from 'react';
+import type React from 'react';
 import type Order from '@/pages/types/order.type';
+import type { FiscalIssueTone } from '@/pages/utils/nfe/fiscalIssuePresentation';
 
 export interface NfeEmissionHeaderProps {
   order: Order;
   modelLabel: string;
   environment: 1 | 2;
   onClose: () => void;
+  hasFiscalIssue?: boolean;
+  fiscalIssueTone?: FiscalIssueTone;
+  onOpenFiscalIssue?: () => void;
 }
 
 export const NfeEmissionHeader: React.FC<NfeEmissionHeaderProps> = ({
@@ -13,6 +17,9 @@ export const NfeEmissionHeader: React.FC<NfeEmissionHeaderProps> = ({
   modelLabel,
   environment,
   onClose,
+  hasFiscalIssue,
+  fiscalIssueTone,
+  onOpenFiscalIssue,
 }) => {
   return (
     <header className="flex shrink-0 flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-2">
@@ -33,6 +40,36 @@ export const NfeEmissionHeader: React.FC<NfeEmissionHeaderProps> = ({
       </div>
 
       <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3">
+        {hasFiscalIssue && onOpenFiscalIssue && (
+          <button
+            type="button"
+            data-testid="nfe-fiscal-issue-trigger"
+            onClick={onOpenFiscalIssue}
+            aria-label="Ver alerta da nota fiscal"
+            title="Clique para ver os detalhes do aviso ou erro da nota fiscal"
+            className={`group relative flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 animate-in fade-in duration-150 ${
+              fiscalIssueTone === 'error'
+                ? 'border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 focus:ring-rose-400 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
+                : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 focus:ring-amber-400 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200'
+            }`}
+          >
+            <i className="bi bi-exclamation-triangle-fill text-sm" />
+            <span className="font-bold">Aviso fiscal</span>
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
+                  fiscalIssueTone === 'error' ? 'bg-rose-400' : 'bg-amber-400'
+                }`}
+              />
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${
+                  fiscalIssueTone === 'error' ? 'bg-rose-500' : 'bg-amber-500'
+                }`}
+              />
+            </span>
+          </button>
+        )}
+
         <span
           className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider select-none ${
             environment === 2

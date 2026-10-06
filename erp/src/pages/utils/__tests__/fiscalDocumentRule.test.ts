@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+vi.mock('../settingsService', () => ({ getSettings: () => ({ companyUF: 'PR' }) }));
 import { getSuggestedFiscalDocument, getSuggestedFiscalDocumentLabel } from '../fiscalDocumentRule';
 
 describe('fiscal document suggestion', () => {

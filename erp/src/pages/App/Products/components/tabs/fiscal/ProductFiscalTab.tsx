@@ -187,7 +187,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                 : 'CST / CSOSN ICMS (Simples Nacional)'}
             </label>
             <select
-              value={formData.fiscal?.cst || '102'}
+              value={formData.fiscal?.cst || '103'}
               onChange={(e) => {
                 const val = e.target.value;
                 const isSt = ['201', '202', '500'].includes(val);

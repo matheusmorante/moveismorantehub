@@ -1,18 +1,23 @@
 import React from 'react';
+import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import {
   decideFiscalRecipientRequirements,
   fiscalPresence,
 } from '../../../../../../shared-utils/fiscalDocumentModel';
-import { useNfeEmission } from './nfe-modal/useNfeEmission';
-import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
-import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
-import { NfeEmissionHeader } from './nfe-modal/components/NfeEmissionHeader';
-import { NfeEmissionTabBar } from './nfe-modal/components/NfeEmissionTabBar';
-import { NfeEmissionPanels } from './nfe-modal/components/NfeEmissionPanels';
+import {
+  recordNfeEmissionReadiness,
+  withNfeEmissionStage,
+} from '../../../../../../src/telemetry/nfeEmissionPerformance';
 import { NfeEmissionFooter } from './nfe-modal/components/NfeEmissionFooter';
+import { NfeEmissionHeader } from './nfe-modal/components/NfeEmissionHeader';
+import { NfeEmissionPanels } from './nfe-modal/components/NfeEmissionPanels';
+import { NfeEmissionTabBar } from './nfe-modal/components/NfeEmissionTabBar';
+import { NfeFiscalIssueModal } from './nfe-modal/components/NfeFiscalIssueModal';
 import { useNfeCustomerPersonType } from './nfe-modal/hooks/useNfeCustomerPersonType';
 import { useNfeEmissionModalState } from './nfe-modal/hooks/useNfeEmissionModalState';
-import type { NfeTabId, NfeEmissionModalProps } from './nfe-modal/types/nfeEmission.types';
+import type { NfeEmissionModalProps, NfeTabId } from './nfe-modal/types/nfeEmission.types';
+import { useNfeEmission } from './nfe-modal/useNfeEmission';
 
 export type { NfeTabId };
 
@@ -20,10 +25,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   isOpen,
   order,
   initialEnvironment,
+  emissionOpenedAt,
   onClose,
   onSuccess,
 }) => {
-  const { customerPersonType, isLoadingCustomerType, emissionOrder } = useNfeCustomerPersonType(order);
+  const orderId = order?.id;
+  const emissionStartedAtRef = React.useRef<number | null>(null);
+  const readinessRecordedForRef = React.useRef<number | null>(null);
+  const { customerPersonType, isLoadingCustomerType, emissionOrder } =
+    useNfeCustomerPersonType(order);
 
   const {
     finalConsumer,
@@ -86,9 +96,57 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     emissionResult,
   });
 
+  const [isFiscalIssueModalOpen, setIsFiscalIssueModalOpen] = React.useState(false);
+
+  const handleTransmissionEnabled = React.useCallback(() => {
+    const startedAt = emissionStartedAtRef.current;
+    if (startedAt === null || readinessRecordedForRef.current === startedAt) return;
+
+    readinessRecordedForRef.current = startedAt;
+    recordNfeEmissionReadiness(startedAt, { environment });
+  }, [environment]);
+
+  React.useLayoutEffect(() => {
+    if (!isOpen || orderId == null) {
+      emissionStartedAtRef.current = null;
+      readinessRecordedForRef.current = null;
+      return;
+    }
+
+    const startedAt =
+      emissionOpenedAt ?? (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    emissionStartedAtRef.current = startedAt;
+    readinessRecordedForRef.current = null;
+
+    let frameId: number | undefined;
+    let finishTiming: (() => void) | undefined;
+    const visibleFrame = new Promise<void>((resolve) => {
+      finishTiming = resolve;
+      if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+        frameId = window.requestAnimationFrame(() => resolve());
+      } else {
+        resolve();
+      }
+    });
+    void withNfeEmissionStage('modal_open', () => visibleFrame);
+
+    return () => {
+      if (frameId !== undefined && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(frameId);
+      }
+      finishTiming?.();
+    };
+  }, [isOpen, orderId, emissionOpenedAt]);
+
   if (!isOpen || !order) return null;
 
   const isPreparingInitialData = isLoadingFiscalData || isLoadingCustomerType;
+  const isPreparingNfe = isPreparingInitialData || isLoadingNfeNumber;
+  const preparationMessage = isLoadingFiscalData
+    ? 'Carregando dados do cliente e dos produtos…'
+    : isLoadingCustomerType
+      ? 'Confirmando os dados fiscais do cliente…'
+      : 'Consultando a prévia da numeração fiscal…';
   const isLocked = Boolean(
     emissionResult?.success ||
       emissionResult?.pending ||
@@ -130,13 +188,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const isIdentityOptional =
     recipientRequirements.supported && !recipientRequirements.documentRequired;
   const isNfce = selectedModel === '65';
+  const issueCopy = emissionResult ? getFiscalIssuePresentation(emissionResult) : null;
+  const hasFiscalIssue = Boolean(emissionResult && !emissionResult.success && issueCopy);
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Emitir nota fiscal de saída"
-      aria-busy={isPreparingInitialData}
+      aria-busy={isPreparingNfe}
       className="fixed inset-0 z-[999999] flex h-full min-h-0 w-full flex-col overflow-hidden overscroll-none bg-white dark:bg-slate-900 animate-in fade-in duration-150"
     >
       <NfeEmissionHeader
@@ -144,9 +204,23 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         modelLabel={modelLabel}
         environment={environment}
         onClose={onClose}
+        hasFiscalIssue={hasFiscalIssue}
+        fiscalIssueTone={issueCopy?.tone}
+        onOpenFiscalIssue={() => setIsFiscalIssueModalOpen(true)}
       />
 
       <NfeEmissionTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {isPreparingNfe && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200 sm:mx-6"
+        >
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+          <span>{preparationMessage}</span>
+        </div>
+      )}
 
       <NfeEmissionPanels
         activeTab={activeTab}
@@ -216,18 +290,51 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         onClose={onClose}
         onEmit={handleEmit}
         onPrintDanfe={handlePrintDanfe}
+        onTransmissionEnabled={handleTransmissionEnabled}
       />
 
-      {isPreparingInitialData && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-slate-300/85 text-slate-700 backdrop-blur-[1px] dark:bg-slate-950/80 dark:text-slate-100"
-        >
-          <span className="h-10 w-10 animate-spin rounded-full border-4 border-slate-500/30 border-t-blue-600 dark:border-slate-500/40 dark:border-t-blue-400" />
-          <span className="text-sm font-semibold">Carregando dados do cliente e dos produtos…</span>
-        </div>
-      )}
+      <NfeFiscalIssueModal
+        isOpen={isFiscalIssueModalOpen && hasFiscalIssue}
+        onClose={() => setIsFiscalIssueModalOpen(false)}
+        emissionResult={emissionResult}
+        environment={environment}
+        productionConfirmed={productionConfirmed}
+        retryNumber={retryNumber}
+        onRetryNumberChange={setRetryNumber}
+        onRetry={() => {
+          setIsFiscalIssueModalOpen(false);
+          if (emissionResult?.hmlConfirmedNotFound) {
+            handleEmit(productionConfirmed, true);
+          } else {
+            handleEmit(
+              productionConfirmed,
+              false,
+              /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
+            );
+          }
+        }}
+        canOperateFiscal={canOperateFiscal}
+        isSubmitting={isSubmitting}
+        isLoadingFiscalData={isLoadingFiscalData}
+        isLoadingNfeNumber={isLoadingNfeNumber}
+        fiscalPreparationError={fiscalPreparationError}
+        onReconcile={() => {
+          setIsFiscalIssueModalOpen(false);
+          void handleReconcile();
+        }}
+        onAbandonHmlTlsAttempt={() => {
+          setIsFiscalIssueModalOpen(false);
+          void handleAbandonHmlTlsAttempt();
+        }}
+        onStartFreshHmlEmission={() => {
+          setIsFiscalIssueModalOpen(false);
+          void handleStartFreshHmlEmission();
+        }}
+        onCorrectFiscalData={() => {
+          setIsFiscalIssueModalOpen(false);
+          setActiveTab('items');
+        }}
+      />
     </div>
   );
 };

@@ -5,6 +5,10 @@ import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { updateProduct } from '@/pages/utils/productService';
 import { updateProductCatalogState } from '../../utils/catalog/productCatalogState';
 import { checkEcomLegibility } from '../../../utils/productLegibilityRules';
+import {
+  isTestProduct,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '@/pages/utils/hmlTestData';
 
 /**
  * Resolve os objetos de variação e produto pai para ações de catálogo
@@ -110,6 +114,14 @@ export const validateCatalogPublication = (
   variation?: any,
   isVariation?: boolean
 ): { isValid: boolean; errorMessage?: string } => {
+  const catalogProduct = {
+    ...parentProduct,
+    variations: isVariation && variation ? [variation] : parentProduct?.variations,
+  };
+  if (isTestProduct(catalogProduct)) {
+    return { isValid: false, errorMessage: TEST_PRODUCT_CATALOG_PUBLICATION_ERROR };
+  }
+
   const isDraft =
     Boolean(parentProduct?.is_draft) ||
     parentProduct?.status === 'draft' ||
@@ -178,6 +190,13 @@ export const persistCatalogStatus = async (
   serverProducts: Product[] = []
 ): Promise<void> => {
   const isVariation = Boolean(variation);
+  const catalogProduct = {
+    ...parentProduct,
+    variations: isVariation && variation ? [variation] : parentProduct?.variations,
+  };
+  if (newStatus === 'published' && isTestProduct(catalogProduct)) {
+    throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
+  }
 
   if (isVariation && variation) {
     if (

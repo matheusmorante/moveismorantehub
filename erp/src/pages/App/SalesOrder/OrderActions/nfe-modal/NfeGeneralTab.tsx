@@ -1,16 +1,8 @@
 import type React from 'react';
 import type Order from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
-import {
-  getFiscalIssuePresentation,
-  getFiscalIssueTechnicalDetails,
-  safeFiscalIssueMessage,
-} from '@/pages/utils/nfe/fiscalIssuePresentation';
+import { safeFiscalIssueMessage } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import { NfeOrderSummary } from './NfeOrderSummary';
-import {
-  FiscalIssueCard,
-  type FiscalIssueTechnicalDetails,
-} from '@/pages/App/shared/components/FiscalIssueCard';
 
 interface NfeGeneralTabProps {
   environment: 1 | 2;
@@ -40,10 +32,6 @@ interface NfeGeneralTabProps {
   onClose?: () => void;
 }
 
-function getIssueCopy(result: NfeEmissionResult) {
-  return getFiscalIssuePresentation(result);
-}
-
 export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   environment,
   productionConfirmed,
@@ -71,11 +59,6 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   onCorrectFiscalData,
   onClose,
 }) => {
-  const issueCopy = emissionResult && !emissionResult.success ? getIssueCopy(emissionResult) : null;
-  const technicalDetails: FiscalIssueTechnicalDetails | undefined = emissionResult
-    ? getFiscalIssueTechnicalDetails(emissionResult)
-    : undefined;
-
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       {/* Aviso de Ambiente Homologação */}
@@ -191,187 +174,6 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
             )}
           </p>
         </div>
-      )}
-
-      {emissionResult && !emissionResult.success && issueCopy && (
-        <FiscalIssueCard
-          tone={issueCopy.tone}
-          title={issueCopy.title}
-          description={issueCopy.description}
-          nextStep={issueCopy.nextStep}
-          technicalDetails={technicalDetails}
-          onClose={onClose}
-        >
-          {emissionResult.fiscalMismatchFields?.length ? (
-            <div data-testid="nfe-fiscal-mismatch-fields">
-              <p className="font-bold">Encontramos esta alteração:</p>
-              <ul className="mt-1 list-disc space-y-1 pl-5">
-                {emissionResult.fiscalMismatchFields.map((mismatch) => (
-                  <li key={mismatch.field}>
-                    <strong>{mismatch.field}</strong>
-                    {mismatch.snapshotValue !== undefined &&
-                      mismatch.currentValue !== undefined && (
-                        <span className="mt-0.5 block">
-                          Antes: {mismatch.snapshotValue || '(vazio)'} · Agora:{' '}
-                          {mismatch.currentValue || '(vazio)'}
-                        </span>
-                      )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {issueCopy.action === 'configure-certificate' && (
-            <a
-              href="/settings/fiscal"
-              className="inline-flex rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800"
-            >
-              Verificar certificado
-            </a>
-          )}
-          {environment === 2 &&
-            issueCopy.action === 'start-fresh-hml' &&
-            emissionResult.hmlCanAbandonTlsFailure &&
-            onAbandonHmlTlsAttempt && (
-              <button
-                type="button"
-                data-testid="nfe-start-fresh-hml-emission"
-                onClick={onAbandonHmlTlsAttempt}
-                disabled={
-                  !canOperateFiscal ||
-                  isSubmitting ||
-                  isLoadingFiscalData ||
-                  isLoadingNfeNumber ||
-                  Boolean(fiscalPreparationError)
-                }
-                className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Iniciando nova tentativa…' : 'Iniciar nova tentativa fiscal'}
-              </button>
-            )}
-          {environment === 2 &&
-            issueCopy.action === 'start-fresh-hml' &&
-            emissionResult.hmlNewEmissionRequired &&
-            onStartFreshHmlEmission && (
-              <button
-                type="button"
-                data-testid="nfe-start-fresh-hml-emission"
-                onClick={onStartFreshHmlEmission}
-                disabled={
-                  !canOperateFiscal ||
-                  isSubmitting ||
-                  isLoadingFiscalData ||
-                  isLoadingNfeNumber ||
-                  Boolean(fiscalPreparationError)
-                }
-                className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Preparando nova tentativa…' : 'Iniciar nova tentativa fiscal'}
-              </button>
-            )}
-          {emissionResult.numberConflict && (
-            <div className="rounded-xl border border-rose-300 bg-white/70 p-3 dark:border-rose-800 dark:bg-slate-950/50">
-              <p className="font-bold">
-                Número {emissionResult.numberConflict.previousNumber} já está sendo usado.
-                {emissionResult.numberConflict.nextNumber
-                  ? ` Número sugerido: ${emissionResult.numberConflict.previousNumber} → ${emissionResult.numberConflict.nextNumber}.`
-                  : ' Digite outro número para continuar.'}
-              </p>
-              <label className="mt-2 flex max-w-xs flex-col gap-1 font-semibold">
-                Novo número da nota
-                <input
-                  aria-label="Novo número da nota fiscal"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={retryNumber}
-                  onChange={(event) => onRetryNumberChange?.(event.target.value)}
-                  disabled={isSubmitting || Boolean(emissionResult.pending)}
-                  placeholder="Informe outro número"
-                  className="rounded-none border-0 border-b-2 border-rose-300 bg-white px-3 py-2 font-mono text-slate-900 outline-none focus:border-rose-600 dark:border-rose-800 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </label>
-              {onRetry && (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  disabled={
-                    !canOperateFiscal ||
-                    isSubmitting ||
-                    isLoadingFiscalData ||
-                    isLoadingNfeNumber ||
-                    Boolean(emissionResult.pending) ||
-                    Boolean(fiscalPreparationError) ||
-                    (environment === 1 && !productionConfirmed) ||
-                    !/^\d{1,9}$/.test(retryNumber)
-                  }
-                  className="mt-3 rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Enviando…' : 'Tentar novamente'}
-                </button>
-              )}
-            </div>
-          )}
-          {emissionResult.validation?.errors.map((error) => (
-            <p key={error} className="mt-1">
-              • {safeFiscalIssueMessage(error, 'Há dados fiscais que precisam de correção.')}
-            </p>
-          ))}
-          {issueCopy.action === 'correct-fiscal-data' && onCorrectFiscalData && (
-            <button
-              type="button"
-              onClick={onCorrectFiscalData}
-              disabled={!canOperateFiscal || isSubmitting}
-              className="rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
-            >
-              Corrigir dados fiscais
-            </button>
-          )}
-          {issueCopy.action === 'consult' &&
-            (emissionResult.documentId ||
-              emissionResult.emissionRequestId ||
-              emissionResult.reservationRecoveryRequired) &&
-            onReconcile && (
-              <button
-                type="button"
-                onClick={onReconcile}
-                disabled={!canOperateFiscal || isSubmitting}
-                className="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black transition-all"
-              >
-                {isSubmitting
-                  ? emissionResult.reservationRecoveryRequired
-                    ? 'Retomando reserva…'
-                    : 'Consultando a SEFAZ…'
-                  : emissionResult.reservationRecoveryRequired
-                    ? 'Retomar reserva existente'
-                    : emissionResult.databaseReason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
-                      ? 'Consultar tentativa em andamento'
-                      : 'Consultar SEFAZ agora'}
-              </button>
-            )}
-          {environment === 2 &&
-            issueCopy.action === 'retransmit-same-document' &&
-            emissionResult.hmlConfirmedNotFound &&
-            !emissionResult.pending &&
-            emissionResult.documentId &&
-            onRetry && (
-              <button
-                type="button"
-                data-testid="nfe-retry-same-document"
-                onClick={onRetry}
-                disabled={
-                  !canOperateFiscal ||
-                  isSubmitting ||
-                  isLoadingFiscalData ||
-                  Boolean(fiscalPreparationError)
-                }
-                className="rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
-              >
-                {isSubmitting
-                  ? 'Retransmitindo…'
-                  : `Retransmitir a mesma ${emissionResult.model === '55' ? 'NF-e' : 'NFC-e'}`}
-              </button>
-            )}
-        </FiscalIssueCard>
       )}
 
       {emissionResult?.validation?.warnings?.length ? (

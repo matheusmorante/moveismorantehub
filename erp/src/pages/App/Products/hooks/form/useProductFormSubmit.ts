@@ -6,6 +6,7 @@ import { checkERPLegibility, checkEcomLegibility } from '../../utils/productLegi
 import { toast } from 'react-toastify';
 import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../utils/variationRegistrationRules';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
+import { isTestProduct } from '@/pages/utils/hmlTestData';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -114,11 +115,17 @@ export const useProductFormSubmit = ({
       setLoading(true);
       try {
         const enteredName = getEnteredProductName(formData);
+        const isCatalogTestProduct = isTestProduct(product) || isTestProduct(formData);
 
         let targetCatalogStatus: 'draft' | 'published' | 'hidden' = 'hidden';
         if (actualSaveAsDraft) {
           targetCatalogStatus = 'draft';
-        } else if (isRegisteredProduct && product?.status === 'published' && ecomVal.isLegible) {
+        } else if (
+          !isCatalogTestProduct &&
+          isRegisteredProduct &&
+          product?.status === 'published' &&
+          ecomVal.isLegible
+        ) {
           targetCatalogStatus = 'published';
         } else {
           targetCatalogStatus = 'hidden';

@@ -20,9 +20,8 @@ function database() {
   };
   const productId = '00000000-0000-0000-0000-000000000001';
   const items: Record<string, unknown>[] = [
-    {},
-    { fiscal: { cst: '500', origem: '2' } },
-    { productId },
+    { fiscal: { cst: '102' } },
+    { productId, fiscal: { cst: '102' } },
   ];
   let role = 'administrator';
   let writeFails = false;
@@ -48,7 +47,7 @@ function database() {
       }),
       in: async () => ({
         error: null,
-        data: table === 'products' ? [{ id: productId, fiscal: { cst: '201' } }] : [],
+        data: table === 'products' ? [{ id: productId, fiscal: { cst: '500' } }] : [],
       }),
     }),
   }));
@@ -109,15 +108,14 @@ describe('configuração e preparação CSOSN server-side', () => {
       })
     );
   });
-  it('prepara itens sem substituir exceções do item ou produto', async () => {
+  it('usa 103 em item de teste e o CSOSN atual do produto cadastrado', async () => {
     const state = database();
     mocks.createClient.mockReturnValue(state.db);
     const before = structuredClone(state.items);
     const result = await call('POST', { environment: 2, orderId: 'synthetic' });
     expect(result.value.items).toEqual([
       { itemNumber: 1, csosn: '103', source: 'default' },
-      { itemNumber: 2, csosn: '500', source: 'saved' },
-      { itemNumber: 3, csosn: '201', source: 'catalog' },
+      { itemNumber: 2, csosn: '500', source: 'catalog' },
     ]);
     expect(state.items).toEqual(before);
     expect(state.upsert).not.toHaveBeenCalled();

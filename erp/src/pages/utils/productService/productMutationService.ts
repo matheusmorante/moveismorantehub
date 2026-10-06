@@ -8,6 +8,11 @@ import { getLocalProducts, saveLocalProducts, notifySubscribers } from './produc
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { mapToDB, mapFromDB } from './productMapper';
 import { isNonConventionalProduct } from '../productKindRules';
+import {
+  isTestProduct,
+  isTestProductCatalogPublicationBlocked,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '../hmlTestData';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
 import { formatProductTextData } from './productValidation';
 import {
@@ -23,6 +28,9 @@ import {
 } from './productDependencyCheck';
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
+  if (isTestProductCatalogPublicationBlocked(product)) {
+    throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
+  }
   validateProductImageLimits(product);
   formatProductTextData(product);
   Object.assign(product, ensureDefaultVariation(product));
@@ -154,6 +162,35 @@ export const updateProduct = async (
 
   const products = getLocalProducts();
   const index = products.findIndex((p) => String(p.id) === String(resolvedId));
+  const requestsCatalogPublication =
+    productToUpdate.status === 'published' ||
+    productToUpdate.variations?.some((variation) => variation.status === 'published');
+  if (requestsCatalogPublication) {
+    const { data: databaseProduct, error } = await supabase
+      .from(TABLE_NAME)
+      .select('code, observations, product_variations(sku, name)')
+      .eq('id', resolvedId)
+      .maybeSingle();
+    if (error) throw error;
+
+    const existingProduct = index === -1 ? undefined : products[index];
+    const publicationCandidate = {
+      ...databaseProduct,
+      ...existingProduct,
+      ...productToUpdate,
+      variations: [
+        ...(databaseProduct?.product_variations ?? []),
+        ...(existingProduct?.variations ?? []),
+        ...(productToUpdate.variations ?? []),
+      ],
+    };
+    if (
+      [databaseProduct, existingProduct, productToUpdate, publicationCandidate].some(isTestProduct)
+    ) {
+      throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
+    }
+  }
+
   if (isProductDraft(productToUpdate) || (index !== -1 && isProductDraft(products[index]) && productToUpdate.isDraft !== false)) {
     const draft = { ...products[index], ...productToUpdate, id: resolvedId } as Product;
     await persistProductDraft(draft);

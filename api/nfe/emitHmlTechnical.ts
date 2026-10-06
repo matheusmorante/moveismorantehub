@@ -25,6 +25,7 @@ import {
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { validateUnsignedNfeStructure, validateNfeAgainstOfficialSchema } from './schemaValidator';
 import { sendSoapToSefaz } from './sefazClient';
+import { withNfeEmissionStage } from './nfeEmissionPerformance';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { loadHmlCsosnConfiguration, parseHmlCsosnConfiguration } from './csosnPolicy';
 import { assertXmlFiscalSelections } from './fiscalSelectionIntegrity';
@@ -581,13 +582,18 @@ async function transmitAndPersist(
   let responseXml: string;
   try {
     const envelope = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${nfeNumber}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
-    responseXml = await sendSoapToSefaz({
-      url: hmlEndpoint(metadata.model, 'NFeAutorizacao4'),
-      action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
-      xmlPayload: envelope,
-      certPem: cert.certPem,
-      privateKeyPem: cert.privateKeyPem,
-    });
+    responseXml = await withNfeEmissionStage(
+      'sefaz_transmission',
+      () =>
+        sendSoapToSefaz({
+          url: hmlEndpoint(metadata.model, 'NFeAutorizacao4'),
+          action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
+          xmlPayload: envelope,
+          certPem: cert.certPem,
+          privateKeyPem: cert.privateKeyPem,
+        }),
+      { environment: 2, model: String(metadata.model || '') }
+    );
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
     const diagnosticId = randomUUID();
@@ -1177,10 +1183,28 @@ export async function emitHmlTechnical(
         numberReserved: false,
         sefazContacted: false,
       });
-    return failure(422, 'HML_RULESET_NOT_APPLICABLE', message, {
-      numberReserved: false,
-      sefazContacted: false,
-    });
+    const interstateMatrixUnavailable = message.includes(
+      'não está coberta pela matriz HML_NORMAL_SALE_V2'
+    );
+    const interstateMatrixExecutionNotReady = message.includes(
+      'HML_INTERSTATE_MATRIX_EXECUTION_NOT_READY'
+    );
+    return failure(
+      422,
+      interstateMatrixExecutionNotReady
+        ? 'HML_INTERSTATE_MATRIX_EXECUTION_NOT_READY'
+        : interstateMatrixUnavailable
+          ? 'HML_INTERSTATE_MATRIX_NOT_APPROVED'
+          : 'HML_RULESET_NOT_APPLICABLE',
+      message,
+      {
+        ...(interstateMatrixUnavailable || interstateMatrixExecutionNotReady
+          ? { requiredScope: 'approved_interstate_matrix' }
+          : {}),
+        numberReserved: false,
+        sefazContacted: false,
+      }
+    );
   }
   const preflight = resolveFiscalDocument(candidate, rules);
   if (preflight.status !== 'ready')

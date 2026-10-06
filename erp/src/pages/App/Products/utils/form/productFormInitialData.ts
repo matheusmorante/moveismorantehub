@@ -31,7 +31,7 @@ export function getInitialProductFormData(): Partial<Product> {
     isCombo: false,
     comboItems: [],
     categoryIds: [],
-    fiscal: { ncm: '', cest: '', ncmDescription: '', cfop: '5102', cst: '102', icmsPercent: 0 },
+    fiscal: { ncm: '', cest: '', ncmDescription: '', cfop: '5102', cst: '103', icmsPercent: 0 },
     launchInitialStock: false,
     line: '',
     brand: '',

@@ -12,7 +12,7 @@ export function createInitialProductFiscalInfo(
   return {
     ncm: defaults?.ncm || '',
     cest: defaults?.cest || '',
-    cst: defaults?.cst || '102',
+    cst: defaults?.cst || '103',
     cfop: itemType === 'service' ? '5933' : defaults?.cfop || '5102',
     origem: defaults?.origem || '0',
     icmsPercent: defaults?.icmsPercent || 0,

@@ -29,6 +29,13 @@ import {
   type DeliveryMethod,
   type TransportResponsible,
 } from '../../shared-utils/fiscalTransportModel';
+import { resolveFiscalCfopOrderScope } from '../../shared-utils/fiscalCfopModel';
+import {
+  hasApprovedInterstateRoute,
+  resolveInterstateFiscalMatrix,
+  type InterstateFiscalMatrixFacts,
+  type InterstateRecipientIeStatus,
+} from './interstateTaxMatrix';
 
 export const HML_NORMAL_SALE_RULESET_VERSION = 'HML_NORMAL_SALE_V2';
 const obj = (value: unknown): Record<string, any> => {
@@ -45,29 +52,38 @@ const normalize = (value: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase();
-let municipalities: Promise<Array<{ id: number; nome: string }>> | undefined;
-async function municipalityCode(city: string): Promise<string> {
-  municipalities ||= fetch(
-    'https://servicodados.ibge.gov.br/api/v1/localidades/estados/41/municipios',
-    { signal: AbortSignal.timeout(10000) }
-  )
-    .then(async (response) => {
-      if (!response.ok) throw new Error('Consulta oficial IBGE indisponível.');
-      const data = await response.json();
-      if (
-        !Array.isArray(data) ||
-        data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== 'string')
-      )
-        throw new Error('Resposta oficial IBGE inválida.');
-      return data as Array<{ id: number; nome: string }>;
-    })
-    .catch((error) => {
-      municipalities = undefined;
-      throw error;
-    });
-  const match = (await municipalities!).find((item) => normalize(item.nome) === normalize(city));
+const municipalitiesByUf = new Map<string, Promise<Array<{ id: number; nome: string }>>>();
+async function municipalityCode(city: string, uf = 'PR', existingCode?: string): Promise<string> {
+  if (existingCode && /^\d{7}$/.test(String(existingCode))) {
+    return String(existingCode);
+  }
+  const normUf = uf.toUpperCase();
+  let promise = municipalitiesByUf.get(normUf);
+  if (!promise) {
+    promise = fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${normUf}/municipios`,
+      { signal: AbortSignal.timeout(10000) }
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Consulta oficial IBGE indisponível para UF ${normUf}.`);
+        const data = await response.json();
+        if (
+          !Array.isArray(data) ||
+          data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== 'string')
+        )
+          throw new Error('Resposta oficial IBGE inválida.');
+        return data as Array<{ id: number; nome: string }>;
+      })
+      .catch((error) => {
+        municipalitiesByUf.delete(normUf);
+        throw error;
+      });
+    municipalitiesByUf.set(normUf, promise);
+  }
+  const list = await promise;
+  const match = list.find((item) => normalize(item.nome) === normalize(city));
   if (!match)
-    throw new Error('Município do destinatário não encontrado na fonte oficial IBGE do PR.');
+    throw new Error(`Município do destinatário não encontrado na fonte oficial IBGE de ${normUf}.`);
   return String(match.id);
 }
 const money = (value: unknown, field: string, positive = false): number => {
@@ -175,28 +191,40 @@ export async function createHmlNormalSaleRuleSet(
   configuration: HmlCsosnConfiguration
 ) {
   const inputs = obj(facts.fiscalInputs);
-  const contribution = obj(inputs.contributionDecision);
-  // Share the existing issuer/CRT/environment/contribution approval gates.
-  const context = createHmlTechnicalRuleSet(facts, contribution, configuration);
   const customer = obj(inputs.customer);
+  const orderData = facts.order.data;
+  const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
+  const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
+  if (!['delivery', 'pickup'].includes(String(shippingData.deliveryMethod || '')))
+    throw new Error('Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.');
   const address = getFiscalRecipientAddress({
-    ...facts.order.data,
-    customerData: { ...obj(facts.order.data.customerData || {}), fullAddress: customer.address },
+    ...orderData,
+    customerData: { ...obj(orderData.customerData || {}), fullAddress: customer.address },
   });
-  const contextData = facts.order.data.fiscalContext ? obj(facts.order.data.fiscalContext) : {};
-  const initialComposition = composeServiceFiscalValues(facts.order.data.items as any);
+  const operationScope = resolveFiscalCfopOrderScope({
+    issuerUf: String(facts.issuerProfile.companyUF || ''),
+    deliveryMethod: String(shippingData.deliveryMethod || ''),
+    shipping: shippingData,
+    customerAddress: customer.address,
+  });
+  if (operationScope.destination === null)
+    throw new Error(operationScope.reason || 'Local físico da operação fiscal não identificado.');
+  if (operationScope.scope === 'foreign')
+    throw new Error('Operação com exterior exige matriz fiscal específica aprovada.');
+
+  const initialComposition = composeServiceFiscalValues(orderData.items as any);
   const modelTotal =
     initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
     initialComposition.vOutroCents +
     money(
-      facts.order.data.shipping ? (obj(facts.order.data.shipping).value ?? 0) : 0,
+      shippingData.value ?? 0,
       'Frete comercial'
     );
   const decisionOrder = {
-    ...facts.order.data,
+    ...orderData,
     orderType: facts.order.type,
     paymentsSummary: { totalOrderValue: modelTotal / 100 },
-    items: (facts.order.data.items as Array<Record<string, any>>)
+    items: (orderData.items as Array<Record<string, any>>)
       .filter((item) => item.itemType !== 'service')
       .map((item, index) => ({
         ...item,
@@ -216,18 +244,100 @@ export async function createHmlNormalSaleRuleSet(
   if (modelDecision.status !== 'ready') throw new Error(modelDecision.reason);
   if (
     modelDecision.reasons.some(
-      (reason) => !['RETAIL_FINAL_CONSUMER_IN_STATE', 'RESALE', 'VALUE_LIMIT'].includes(reason)
+      (reason) =>
+        !['RETAIL_FINAL_CONSUMER_IN_STATE', 'INTERSTATE_OPERATION', 'RESALE', 'VALUE_LIMIT'].includes(
+          reason
+        )
     )
   )
     throw new Error(
       `${modelDecision.reason} Esta operação exige matriz tributária específica aprovada.`
     );
-  const shippingData = facts.order.data.shipping ? obj(facts.order.data.shipping) : {};
-  if (!['delivery', 'pickup'].includes(String(shippingData.deliveryMethod || '')))
-    throw new Error(
-      'Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.'
-    );
   const deliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  if (operationScope.scope === 'interstate') {
+    if (modelDecision.model !== '55')
+      throw new Error('NFC-e modelo 65 não pode ser usada em operação interestadual.');
+    const routeFacts = {
+      environment: facts.emissionRequest.environment,
+      model: modelDecision.model,
+      issuerRegime: String(facts.issuerProfile.companyCRT || ''),
+      issuerUf: operationScope.issuerUf || '',
+      destinationUf: operationScope.operationUf || '',
+      operationType: 'sale' as const,
+    };
+    if (!hasApprovedInterstateRoute(routeFacts))
+      throw new Error(
+        'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). Os cenários PR→SC permanecem em DRAFT; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
+      );
+    const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
+    const productCatalog = obj(inputs.products);
+    const ieIndicator = contextData.recipientIeIndicator;
+    const recipientIeStatus: InterstateRecipientIeStatus | undefined =
+      ieIndicator === '1'
+        ? 'taxpayer'
+        : ieIndicator === '2'
+          ? 'exempt'
+          : ieIndicator === '9'
+            ? 'non_taxpayer'
+            : undefined;
+    const explicitBoolean = (...values: unknown[]): boolean | undefined =>
+      values.find((value): value is boolean => typeof value === 'boolean');
+    const merchandiseOrigin = (item: Record<string, any>, fiscal: Record<string, any>) => {
+      const source = item.merchandiseOrigin ?? fiscal.merchandiseOrigin;
+      if (source === 'third_party' || source === 'own_production') return source;
+      const isOwnProduction = explicitBoolean(item.isOwnProduction, fiscal.isOwnProduction);
+      return isOwnProduction === undefined ? undefined : isOwnProduction ? 'own_production' : 'third_party';
+    };
+    const matrixResults = initialComposition.products.map(({ item }, index) => {
+      const selected = selections[String(index + 1)];
+      const itemRecord = item as Record<string, any>;
+      const itemFiscal = itemRecord.fiscal && typeof itemRecord.fiscal === 'object'
+        ? itemRecord.fiscal as Record<string, any>
+        : {};
+      const productFiscalRaw = itemRecord.productId ? productCatalog[itemRecord.productId] : undefined;
+      const productFiscal = productFiscalRaw && typeof productFiscalRaw === 'object'
+        ? productFiscalRaw as Record<string, any>
+        : {};
+      const matrixFacts: Partial<InterstateFiscalMatrixFacts> = {
+        environment: facts.emissionRequest.environment,
+        model: modelDecision.model,
+        issuerRegime: String(facts.issuerProfile.companyCRT || ''),
+        issuerUf: operationScope.issuerUf || '',
+        destinationUf: operationScope.operationUf || '',
+        operationType: 'sale',
+        recipientPersonType:
+          customer.personType === 'PF' || customer.personType === 'PJ'
+            ? customer.personType
+            : undefined,
+        recipientIeStatus,
+        finalConsumer:
+          typeof facts.emissionRequest.finalConsumer === 'boolean'
+            ? facts.emissionRequest.finalConsumer
+            : undefined,
+        merchandiseOrigin: merchandiseOrigin(itemRecord, productFiscal),
+        productOrigin: selected?.origem,
+        ncm: selected?.ncm,
+        cest: selected?.cest,
+        hasSt: explicitBoolean(itemFiscal.hasSt, itemFiscal.isSt, productFiscal.hasSt, productFiscal.isSt),
+        effectiveAt: facts.capturedAt,
+      };
+      return resolveInterstateFiscalMatrix(matrixFacts);
+    });
+    if (!matrixResults.length || matrixResults.some((result) => result.status !== 'approved'))
+      throw new Error(
+        `Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). Os cenários PR→SC permanecem em DRAFT; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.`
+      );
+    // Approval data alone cannot activate transmission until this ruleset maps every tax field
+    // into the NF-e document and its serializer with focused coverage.
+    throw new Error(
+      'Operação interestadual não está coberta pela matriz executável HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_EXECUTION_NOT_READY). A reserva de número permanece bloqueada.'
+    );
+  }
+
+  // Share the existing issuer/CRT/environment/contribution approval gates after the
+  // operation location has been resolved and every interstate path has failed closed.
+  const contribution = obj(inputs.contributionDecision);
+  const context = createHmlTechnicalRuleSet(facts, contribution, configuration);
   const cpfCnpj = normalizeRecipientTaxId(
     String(facts.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
   );
@@ -247,12 +357,18 @@ export async function createHmlNormalSaleRuleSet(
   const city = requirements.addressRequired
     ? required(address.city, 'Município real do destinatário')
     : '';
+  const issuerUf = String(facts.issuerProfile.companyUF || '').toUpperCase();
   const uf = requirements.addressRequired
-    ? required(address.state || address.uf, 'UF real do destinatário')
-    : 'PR';
-  if (uf !== 'PR') throw new Error('Operação interestadual exige matriz fiscal específica.');
+    ? required(address.state || address.uf, 'UF real do destinatário').toUpperCase()
+    : issuerUf;
+  if (operationScope.destination === '2' && modelDecision.model === '65')
+    throw new Error('NFC-e não permite operação interestadual; utilize NF-e modelo 55.');
   const code = requirements.addressRequired
-    ? await municipalityCode(city)
+    ? await municipalityCode(
+        city,
+        uf,
+        (address.cityCode || address.ibge || address.municipalityCode) as string | undefined
+      )
     : String(facts.issuerProfile.companyCMun || '');
   const recipientAddress: FiscalAddress | undefined = requirements.addressRequired
     ? {
@@ -303,6 +419,21 @@ export async function createHmlNormalSaleRuleSet(
       )
         throw new Error('Pedido real não elegível para homologação.');
       const data = snapshot.order.data;
+      const snapshotShipping = data.shipping ? obj(data.shipping) : {};
+      const snapshotCustomer = data.customerData ? obj(data.customerData) : {};
+      const snapshotScope = resolveFiscalCfopOrderScope({
+        issuerUf: String(snapshot.issuerProfile.companyUF || ''),
+        deliveryMethod: String(snapshotShipping.deliveryMethod || ''),
+        shipping: snapshotShipping,
+        customerAddress:
+          snapshotCustomer.fullAddress || snapshotCustomer.address || undefined,
+      });
+      if (snapshotScope.destination === null)
+        throw new Error(snapshotScope.reason || 'Local físico da operação fiscal não identificado.');
+      if (snapshotScope.scope !== 'internal')
+        throw new Error(
+          'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2. O CFOP 6102 identifica a operação, mas não define a tributação; é necessária uma matriz interestadual aprovada.'
+        );
       const recipientCpfCnpj = normalizeRecipientTaxId(
         String(snapshot.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
       );
@@ -335,13 +466,15 @@ export async function createHmlNormalSaleRuleSet(
       const freight = money(shipping.value ?? 0, 'Frete comercial');
       const persistedInputs = obj(snapshot.fiscalInputs);
       const catalog = obj(persistedInputs.products);
+      const expectedCfop = '5102';
+      const allowedSavedCfops = ['5102'];
       const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
         const selected = selections[String(index + 1)];
         const saved = (item as any).fiscal || {};
         const productFiscal = catalog[item.productId || ''] || {};
         for (const fiscal of [saved, productFiscal]) {
           if (
-            (fiscal.cfop && fiscal.cfop !== '5102') ||
+            (fiscal.cfop && !allowedSavedCfops.includes(fiscal.cfop)) ||
             ['icmsPercent', 'pisPercent', 'cofinsPercent', 'ipiPercent'].some(
               (field) => Number(fiscal[field] || 0) !== 0
             )
@@ -355,14 +488,17 @@ export async function createHmlNormalSaleRuleSet(
           environment: 2,
           issuerCrt: '1',
           manual: snapshot.emissionRequest.itemCsosnOverrides?.[String(index + 1)],
-          saved: saved.cst,
           catalog: productFiscal.cst,
         });
         if (selected.csosn !== csosn.csosn)
           throw new Error('CSOSN confirmado diverge da escolha fiscal preparada.');
-        if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn) || selected.cfop !== '5102')
+        if (selected.cfop === '6933' || selected.cfop === '5933')
           throw new Error(
-            'CSOSN ou CFOP escolhido exige matriz fiscal específica; nenhuma escolha foi substituída.'
+            `CFOP ${selected.cfop} pertence a prestação de serviço (ISSQN) e não pode ser aplicado a venda de mercadoria.`
+          );
+        if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn) || selected.cfop !== expectedCfop)
+          throw new Error(
+            `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${expectedCfop} para operação interna); nenhuma escolha foi substituída.`
           );
         const isSupportedContributionCst = (cst?: string) =>
           !cst || cst === contribution.pis.cst || cst === '49' || cst === '99';
