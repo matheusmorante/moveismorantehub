@@ -1,3 +1,5 @@
+import { isTestOrder } from './hmlTestData';
+
 const normalizeStatus = (value: unknown): string =>
   String(value || '')
     .trim()
@@ -21,5 +23,5 @@ export const shouldShowOrderInSchedule = (order: any): boolean => {
   if (!order) return false;
   const data = order.order_data || {};
   const deleted = order.deleted || order.is_deleted || data.deleted;
-  return !deleted && !isCancelledScheduleOrder(order);
+  return !deleted && !isCancelledScheduleOrder(order) && !isTestOrder(order);
 };

@@ -593,6 +593,9 @@ const BRAZILIAN_UFS = new Set([
   'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]);
 
+export const isBrazilianFiscalUf = (uf: unknown): uf is string =>
+  typeof uf === 'string' && BRAZILIAN_UFS.has(uf);
+
 function addressUf(value: unknown): string | null {
   let address = value;
   if (typeof address === 'string') {

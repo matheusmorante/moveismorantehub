@@ -28,11 +28,10 @@ vi.mock('react-toastify', () => ({
 
 import Order from '@/pages/types/order.type';
 import { DanfeData } from '../../nfe/danfeGenerator';
-import * as printAgentClient from '../printAgentClient';
 import * as printFallbackHandler from '../printFallbackHandler';
 import { printSalesOrder, printReceipt, printDanfe, printConventional } from '../printService';
 
-describe('printService (ERP Windows Direct Print & Fallback)', () => {
+describe('printService (impressão pelo navegador)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -73,8 +72,7 @@ describe('printService (ERP Windows Direct Print & Fallback)', () => {
     expect(result.message).toContain('Atendente');
   });
 
-  it('deve acionar fallback automaticamente por padrão quando o agente local estiver offline', async () => {
-    vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
+  it('deve abrir o pedido na janela de impressão do navegador', async () => {
     const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
       success: true,
       status: 'fallback_browser',
@@ -87,16 +85,6 @@ describe('printService (ERP Windows Direct Print & Fallback)', () => {
     expect(result.status).toBe('fallback_browser');
   });
 
-  it('deve respeitar autoFallback: false quando explicitamente configurado e não abrir abas', async () => {
-    vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
-    const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback');
-
-    const result = await printSalesOrder(mockOrder, { autoFallback: false });
-    expect(result.success).toBe(false);
-    expect(result.status).toBe('error');
-    expect(fallbackSpy).not.toHaveBeenCalled();
-  });
-
   it('deve rejeitar impressão de recibo se o cliente for anônimo ou inválido', async () => {
     const orderNoCustomer = { ...mockOrder, customerData: { fullName: 'Ao Consumidor' } as any };
     const result = await printReceipt(orderNoCustomer);
@@ -104,8 +92,7 @@ describe('printService (ERP Windows Direct Print & Fallback)', () => {
     expect(result.message).toContain('Cliente não informado');
   });
 
-  it('deve acionar fallback automaticamente no recibo quando o agente local estiver offline', async () => {
-    vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
+  it('deve abrir o recibo na janela de impressão do navegador', async () => {
     const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
       success: true,
       status: 'fallback_browser',
@@ -118,8 +105,7 @@ describe('printService (ERP Windows Direct Print & Fallback)', () => {
     expect(result.status).toBe('fallback_browser');
   });
 
-  it('deve acionar fallback automaticamente no DANFE quando o agente local estiver offline', async () => {
-    vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({ isOnline: false });
+  it('deve abrir o DANFE na janela de impressão do navegador', async () => {
     const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
       success: true,
       status: 'fallback_browser',
@@ -142,23 +128,6 @@ describe('printService (ERP Windows Direct Print & Fallback)', () => {
     expect(fallbackSpy).toHaveBeenCalledWith('danfe', mockOrder, expect.any(String));
     expect(result.success).toBe(true);
     expect(result.status).toBe('fallback_browser');
-  });
-
-  it('deve enviar para o agente local e retornar sent_to_spooler quando o agente responder com sucesso', async () => {
-    vi.spyOn(printAgentClient, 'checkPrintAgentHealth').mockResolvedValue({
-      isOnline: true,
-      version: '1.0.0',
-    });
-    vi.spyOn(printAgentClient, 'sendDirectPrintJob').mockResolvedValue({
-      success: true,
-      status: 'sent_to_spooler',
-      printer: 'EPSON L3250 Series',
-    });
-
-    const result = await printReceipt(mockOrder);
-    expect(result.success).toBe(true);
-    expect(result.status).toBe('sent_to_spooler');
-    expect(result.printer).toBe('EPSON L3250 Series');
   });
 
   it('deve permitir impressão convencional explicitamente quando acionada', () => {

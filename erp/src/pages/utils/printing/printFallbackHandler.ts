@@ -1,6 +1,6 @@
-import Order from '@/pages/types/order.type';
+import type Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
-import { PrintDocumentType, PrintJobResult } from './print.types';
+import type { PrintDocumentType, PrintJobResult } from './print.types';
 
 /**
  * Executa o fallback padrão do navegador abrindo a visualização/impressão tradicional.
@@ -10,7 +10,7 @@ export const executePrintFallback = (
   order?: Order,
   html?: string
 ): PrintJobResult => {
-  toast.info('Agente de impressão local não detectado. Utilizando janela de impressão padrão.');
+  toast.info('Selecione a impressora na janela de impressão do navegador.');
 
   try {
     if (type === 'sales_order' && order) {

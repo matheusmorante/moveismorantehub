@@ -1,19 +1,23 @@
 /**
- * Server-side interstate fiscal matrix. CFOP candidates below are research labels
+ * Interstate Outbound Fiscal Matrix. CFOP candidates below are research labels
  * only; DRAFT/BLOCKED records never supply an emission decision or tax treatment.
- * Normative findings and product-dependent branches: docs/fiscal/matriz-interestadual-pr-sc.md.
+ * Normative findings: docs/fiscal/matriz-saida-interestadual.md; destination findings: overrides/sc.md.
  */
+import { isBrazilianFiscalUf } from '../../shared-utils/fiscalCfopModel';
+
 export type InterstateMatrixStatus = 'DRAFT' | 'APPROVED' | 'BLOCKED' | 'DEPRECATED';
 export type InterstateRecipientIeStatus = 'taxpayer' | 'exempt' | 'non_taxpayer';
 export type InterstateMerchandiseOrigin = 'third_party' | 'own_production';
 
-export type InterstateFiscalMatrixFacts = {
+export type InterstateOutboundFiscalMatrixFacts = {
   environment: 1 | 2;
   model: '55' | '65';
   issuerRegime: string;
   issuerUf: string;
   destinationUf: string;
+  destinationScope: 'INTERSTATE';
   operationType: 'sale';
+  purpose: '1' | '2' | '3' | '4';
   recipientPersonType: 'PF' | 'PJ';
   recipientIeStatus: InterstateRecipientIeStatus;
   finalConsumer: boolean;
@@ -25,6 +29,39 @@ export type InterstateFiscalMatrixFacts = {
   productId?: string;
   effectiveAt: string;
 };
+
+export type InterstateOutboundNormativeScope =
+  | 'NATIONAL' | 'ORIGIN_STATE' | 'DESTINATION_STATE'
+  | 'ORIGIN_DESTINATION_PAIR' | 'PRODUCT_SPECIFIC';
+
+export type InterstateOutboundNormativeSource = {
+  id: string;
+  scope: InterstateOutboundNormativeScope;
+  url: string;
+  issuerUf?: string;
+  destinationUf?: string;
+  productId?: string;
+  ncm?: string;
+  cest?: string;
+};
+
+export type InterstateOutboundFiscalMatrixCriteria =
+  Omit<Partial<InterstateOutboundFiscalMatrixFacts>, 'destinationUf'> & {
+    /** null/omitted means any Brazilian destination DIFFERENT from the issuer. */
+    destinationUf?: string | null;
+  };
+
+export const INTERSTATE_OUTBOUND_GENERAL_SOURCES: readonly InterstateOutboundNormativeSource[] = [
+  { id: 'N1', scope: 'NATIONAL', url: 'https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf' },
+  { id: 'N2', scope: 'NATIONAL', url: 'https://www.confaz.fazenda.gov.br/legislacao/ajustes/sinief/cfop_cvsn_1-6.24' },
+  { id: 'N3', scope: 'NATIONAL', url: 'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm' },
+  { id: 'N4', scope: 'NATIONAL', url: 'https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18' },
+  { id: 'N5-LC', scope: 'NATIONAL', url: 'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp190.htm' },
+  { id: 'N5-CV', scope: 'NATIONAL', url: 'https://www.confaz.fazenda.gov.br/legislacao/convenios/2021/CV236_21' },
+  { id: 'PR1', scope: 'ORIGIN_STATE', issuerUf: 'PR', url: 'https://www.sefanet.pr.gov.br/dados/SEFADOCUMENTOS/102202405144.pdf' },
+  { id: 'PR2', scope: 'ORIGIN_STATE', issuerUf: 'PR', url: 'https://www.fazenda.pr.gov.br/Pagina/ICMS-Substituicao-tributaria' },
+  { id: 'PR3', scope: 'ORIGIN_STATE', issuerUf: 'PR', url: 'https://www.legislacao.pr.gov.br/legislacao/pesquisarAto.do?action=exibir&codAto=278020&codTipoAto=1&tipoVisualizacao=compilado' },
+];
 
 export type InterstateTaxTreatment = {
   cfop: string | null;
@@ -57,22 +94,24 @@ export type InterstateTaxTreatment = {
   fcpSt: { applicable: boolean | null; ratePercent: number | null };
 };
 
-export type InterstateFiscalMatrixRule = {
+export type InterstateOutboundFiscalMatrixRule = {
   id: string;
   status: InterstateMatrixStatus;
-  criteria: Partial<InterstateFiscalMatrixFacts>;
+  criteria: InterstateOutboundFiscalMatrixCriteria;
+  normativeScope: InterstateOutboundNormativeScope;
   priority: number;
   treatment: InterstateTaxTreatment;
   /** CFOP candidates are informational and are never copied into treatment. */
   candidateCfops: string[];
   pendingReview: string[];
   sourceReferences: string[];
+  normativeSources: readonly InterstateOutboundNormativeSource[];
   approvedBy?: string;
   approvedAt?: string;
   effectiveFrom?: string;
   effectiveUntil?: string;
   /** An omitted criterion is a wildcard only after explicit review of that axis. */
-  reviewedWildcards?: Array<keyof InterstateFiscalMatrixFacts>;
+  reviewedWildcards?: Array<keyof InterstateOutboundFiscalMatrixFacts>;
   xmlEvidence?: string;
   testEvidence?: string;
 };
@@ -98,8 +137,10 @@ const commonCriteria = {
   model: '55' as const,
   issuerRegime: '1',
   issuerUf: 'PR',
-  destinationUf: 'SC',
+  destinationScope: 'INTERSTATE' as const,
+  destinationUf: null,
   operationType: 'sale' as const,
+  purpose: '1' as const,
   merchandiseOrigin: 'third_party' as const,
 };
 
@@ -111,8 +152,9 @@ const draft = (
   hasSt: boolean,
   candidateCfops: string[],
   pendingReview: string[]
-): InterstateFiscalMatrixRule => ({
+): InterstateOutboundFiscalMatrixRule => ({
   id,
+  normativeScope: 'ORIGIN_STATE',
   status: recipientIeStatus === 'non_taxpayer' && !finalConsumer ? 'BLOCKED' : 'DRAFT',
   criteria: {
     ...commonCriteria,
@@ -127,7 +169,7 @@ const draft = (
   pendingReview: [
     'NCM/CEST e origem fiscal do produto',
     'CSOSN e grupos/valores de ICMS',
-    'ST: sujeição, responsabilidade e acordo/protocolo PR-SC',
+    'ST: sujeição, responsabilidade e acordo/protocolo vigente entre origem e destino',
     'DIFAL: incidência, responsável, base, alíquotas e partilha',
     'FCP: incidência, base, alíquota e recolhimento',
     'FCP-ST: incidência, base, alíquota e recolhimento',
@@ -138,36 +180,29 @@ const draft = (
       : []),
     ...pendingReview,
   ],
-  sourceReferences: [
-    'https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf',
-    'https://www.confaz.fazenda.gov.br/legislacao/ajustes/sinief/cfop_cvsn_1-6.24',
-    'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm',
-    'https://www.sefanet.pr.gov.br/dados/SEFADOCUMENTOS/102202405144.pdf',
-    'https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18',
-    'https://legislacao.sef.sc.gov.br/html/regulamentos/icms/ricms_01_00.htm',
-    'https://legislacao.sef.sc.gov.br/html/regulamentos/icms/ricms_01_03.htm',
-  ],
+  sourceReferences: INTERSTATE_OUTBOUND_GENERAL_SOURCES.map((source) => source.url),
+  normativeSources: INTERSTATE_OUTBOUND_GENERAL_SOURCES,
 });
 
 /**
- * PR → SC scenario inventory: 20 DRAFT and four combinations BLOCKED by E16a-40.
+ * General outbound inventory: 20 DRAFT and four combinations BLOCKED by E16a-40.
  * Source references record research; they do not constitute approval of tax outputs.
  */
-const initialScenarios: InterstateFiscalMatrixRule[] = [
-  draft('PR-SC-PJ-TAXPAYER-NONFINAL-NO-ST', 'PJ', 'taxpayer', false, false, ['6102'], []),
-  draft('PR-SC-PJ-TAXPAYER-NONFINAL-ST', 'PJ', 'taxpayer', false, true, [], ['CFOP conforme papel de substituto/substituído']),
-  draft('PR-SC-PJ-TAXPAYER-FINAL-NO-ST', 'PJ', 'taxpayer', true, false, ['6102'], []),
-  draft('PR-SC-PJ-TAXPAYER-FINAL-ST', 'PJ', 'taxpayer', true, true, [], ['CFOP conforme papel de substituto/substituído']),
-  draft('PR-SC-PJ-EXEMPT-FINAL-NO-ST', 'PJ', 'exempt', true, false, ['6102'], ['Isento de IE continua contribuinte; confirmar enquadramento em SC']),
-  draft('PR-SC-PJ-EXEMPT-FINAL-ST', 'PJ', 'exempt', true, true, [], ['CFOP conforme condição de IE isenta e tratamento de ST']),
-  draft('PR-SC-PJ-NONTAXPAYER-FINAL-NO-ST', 'PJ', 'non_taxpayer', true, false, ['6108'], ['Validar DIFAL/FCP e responsabilidade do remetente']),
-  draft('PR-SC-PJ-NONTAXPAYER-FINAL-ST', 'PJ', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída PR-SC; não copiar consulta de outra UF']),
-  draft('PR-SC-PF-NONTAXPAYER-FINAL-NO-ST', 'PF', 'non_taxpayer', true, false, ['6108'], ['Validar DIFAL/FCP e responsabilidade do remetente']),
-  draft('PR-SC-PF-NONTAXPAYER-FINAL-ST', 'PF', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída PR-SC; não copiar consulta de outra UF']),
+const initialScenarios: InterstateOutboundFiscalMatrixRule[] = [
+  draft('INTERSTATE-PJ-TAXPAYER-NONFINAL-NO-ST', 'PJ', 'taxpayer', false, false, ['6102'], []),
+  draft('INTERSTATE-PJ-TAXPAYER-NONFINAL-ST', 'PJ', 'taxpayer', false, true, [], ['CFOP conforme papel de substituto/substituído']),
+  draft('INTERSTATE-PJ-TAXPAYER-FINAL-NO-ST', 'PJ', 'taxpayer', true, false, ['6102'], []),
+  draft('INTERSTATE-PJ-TAXPAYER-FINAL-ST', 'PJ', 'taxpayer', true, true, [], ['CFOP conforme papel de substituto/substituído']),
+  draft('INTERSTATE-PJ-EXEMPT-FINAL-NO-ST', 'PJ', 'exempt', true, false, ['6102'], ['Isento de IE continua contribuinte; confirmar enquadramento na UF fiscal de destino']),
+  draft('INTERSTATE-PJ-EXEMPT-FINAL-ST', 'PJ', 'exempt', true, true, [], ['CFOP conforme condição de IE isenta e tratamento de ST']),
+  draft('INTERSTATE-PJ-NONTAXPAYER-FINAL-NO-ST', 'PJ', 'non_taxpayer', true, false, ['6108'], ['Validar DIFAL/FCP e responsabilidade do remetente']),
+  draft('INTERSTATE-PJ-NONTAXPAYER-FINAL-ST', 'PJ', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída interestadual; não copiar consulta de outra UF']),
+  draft('INTERSTATE-PF-NONTAXPAYER-FINAL-NO-ST', 'PF', 'non_taxpayer', true, false, ['6108'], ['Validar DIFAL/FCP e responsabilidade do remetente']),
+  draft('INTERSTATE-PF-NONTAXPAYER-FINAL-ST', 'PF', 'non_taxpayer', true, true, ['6108', '6404'], ['Distinguir retenção anterior no PR e tratamento da saída interestadual; não copiar consulta de outra UF']),
 ];
 
-// Preserve the ten original IDs; enumerate independent PF/PJ × IE × finality × ST axes.
-const addedScenarios: InterstateFiscalMatrixRule[] = [];
+// Preserve scenario suffixes; enumerate independent PF/PJ × IE × finality × ST axes.
+const addedScenarios: InterstateOutboundFiscalMatrixRule[] = [];
 for (const person of ['PJ', 'PF'] as const) {
   for (const ie of ['taxpayer', 'exempt', 'non_taxpayer'] as const) {
     for (const final of [false, true]) {
@@ -177,7 +212,7 @@ for (const person of ['PJ', 'PF'] as const) {
           rule.criteria.hasSt === st)) continue;
         const ieLabel = ie === 'non_taxpayer' ? 'NONTAXPAYER' : ie.toUpperCase();
         addedScenarios.push(draft(
-          `PR-SC-${person}-${ieLabel}-${final ? 'FINAL' : 'NONFINAL'}-${st ? 'ST' : 'NO-ST'}`,
+          `INTERSTATE-${person}-${ieLabel}-${final ? 'FINAL' : 'NONFINAL'}-${st ? 'ST' : 'NO-ST'}`,
           person, ie, final, st,
           ie === 'non_taxpayer' && !final ? [] : st ? [] : [ie === 'non_taxpayer' ? '6108' : '6102'],
           []
@@ -186,17 +221,19 @@ for (const person of ['PJ', 'PF'] as const) {
     }
   }
 }
-export const INTERSTATE_FISCAL_MATRIX_RULES: readonly InterstateFiscalMatrixRule[] = [
+export const INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES: readonly InterstateOutboundFiscalMatrixRule[] = [
   ...initialScenarios, ...addedScenarios,
 ];
 
-const requiredFacts: Array<keyof InterstateFiscalMatrixFacts> = [
+const requiredFacts: Array<keyof InterstateOutboundFiscalMatrixFacts> = [
   'environment',
   'model',
   'issuerRegime',
   'issuerUf',
   'destinationUf',
+  'destinationScope',
   'operationType',
+  'purpose',
   'recipientPersonType',
   'recipientIeStatus',
   'finalConsumer',
@@ -208,24 +245,26 @@ const requiredFacts: Array<keyof InterstateFiscalMatrixFacts> = [
   'effectiveAt',
 ];
 
-const isMissing = (value: unknown, key?: keyof InterstateFiscalMatrixFacts): boolean =>
+const isMissing = (value: unknown, key?: keyof InterstateOutboundFiscalMatrixFacts): boolean =>
   value === undefined || value === null || (value === '' && key !== 'cest');
 const matchesKnownCriteria = (
-  facts: Partial<InterstateFiscalMatrixFacts>,
-  criteria: Partial<InterstateFiscalMatrixFacts>
+  facts: Partial<InterstateOutboundFiscalMatrixFacts>,
+  criteria: InterstateOutboundFiscalMatrixCriteria
 ): boolean =>
   Object.entries(criteria).every(([key, expected]) => {
-    const actual = facts[key as keyof InterstateFiscalMatrixFacts];
-    return isMissing(actual, key as keyof InterstateFiscalMatrixFacts) || actual === expected;
+    if (key === 'destinationUf' && expected == null) return true;
+    const actual = facts[key as keyof InterstateOutboundFiscalMatrixFacts];
+    return isMissing(actual, key as keyof InterstateOutboundFiscalMatrixFacts) || actual === expected;
   });
 
 const matchesCompleteCriteria = (
-  facts: InterstateFiscalMatrixFacts,
-  criteria: Partial<InterstateFiscalMatrixFacts>
+  facts: InterstateOutboundFiscalMatrixFacts,
+  criteria: InterstateOutboundFiscalMatrixCriteria
 ): boolean =>
   Object.entries(criteria).every(([key, expected]) => {
-    const actual = facts[key as keyof InterstateFiscalMatrixFacts];
-    return !isMissing(actual, key as keyof InterstateFiscalMatrixFacts) && actual === expected;
+    if (key === 'destinationUf' && expected == null) return true;
+    const actual = facts[key as keyof InterstateOutboundFiscalMatrixFacts];
+    return !isMissing(actual, key as keyof InterstateOutboundFiscalMatrixFacts) && actual === expected;
   });
 
 const validPercent = (value: number | null): boolean =>
@@ -235,7 +274,9 @@ const treatmentIsComplete = (treatment: InterstateTaxTreatment): boolean =>
   treatment.cfop !== null &&
   /^6\d{3}$/.test(treatment.cfop) &&
   treatment.csosn !== null &&
-  /^\d{3}$/.test(treatment.csosn) &&
+  ({ '101': 'ICMSSN101', '102': 'ICMSSN102', '103': 'ICMSSN102', '201': 'ICMSSN201',
+    '202': 'ICMSSN202', '203': 'ICMSSN202', '300': 'ICMSSN102', '400': 'ICMSSN102',
+    '500': 'ICMSSN500', '900': 'ICMSSN900' } as Record<string, string>)[treatment.csosn] === treatment.icms.xmlGroup &&
   Boolean(treatment.icms.framework?.trim()) &&
   Boolean(treatment.icms.xmlGroup?.trim()) &&
   validPercent(treatment.icms.ratePercent) &&
@@ -259,9 +300,53 @@ const treatmentIsComplete = (treatment: InterstateTaxTreatment): boolean =>
   (treatment.fcp.applicable || treatment.fcp.ratePercent === 0) &&
   (treatment.fcpSt.applicable || treatment.fcpSt.ratePercent === 0);
 
-const approvalIsComplete = (rule: InterstateFiscalMatrixRule): boolean =>
+const scopeMatchesCriteria = (
+  scope: InterstateOutboundNormativeScope,
+  criteria: InterstateOutboundFiscalMatrixCriteria
+): boolean => {
+  switch (scope) {
+    case 'NATIONAL': return true;
+    case 'ORIGIN_STATE': return isBrazilianFiscalUf(criteria.issuerUf);
+    case 'DESTINATION_STATE': return isBrazilianFiscalUf(criteria.destinationUf);
+    case 'ORIGIN_DESTINATION_PAIR':
+      return isBrazilianFiscalUf(criteria.issuerUf) && isBrazilianFiscalUf(criteria.destinationUf);
+    case 'PRODUCT_SPECIFIC':
+      return Boolean(criteria.productId || criteria.ncm || criteria.cest);
+    default: return false;
+  }
+};
+
+/** A destination/product source cannot support an unrestricted approval. */
+const normativeSourcesAreScoped = (rule: InterstateOutboundFiscalMatrixRule): boolean =>
+  scopeMatchesCriteria(rule.normativeScope, rule.criteria) &&
+  Array.isArray(rule.normativeSources) &&
+  rule.normativeSources.length > 0 &&
+  rule.sourceReferences.every((url) => rule.normativeSources.some((source) => source.url === url)) &&
+  rule.normativeSources.every((source) => {
+    if (!source || typeof source.id !== 'string' || !source.id.trim() ||
+      typeof source.url !== 'string' || !source.url.trim() || !rule.sourceReferences.includes(source.url) ||
+      !scopeMatchesCriteria(source.scope, rule.criteria)) return false;
+    if ((source.scope === 'ORIGIN_STATE' || source.scope === 'ORIGIN_DESTINATION_PAIR') &&
+      !isBrazilianFiscalUf(source.issuerUf)) return false;
+    if ((source.scope === 'DESTINATION_STATE' || source.scope === 'ORIGIN_DESTINATION_PAIR') &&
+      !isBrazilianFiscalUf(source.destinationUf)) return false;
+    if (source.scope === 'PRODUCT_SPECIFIC' && !(source.productId || source.ncm || source.cest)) return false;
+    // Additional geography on a product source also restricts its use.
+    return (['issuerUf', 'destinationUf', 'productId', 'ncm', 'cest'] as const)
+      .every((key) => source[key] === undefined ||
+        (!isMissing(source[key], key) && source[key] === rule.criteria[key]));
+  });
+
+const isInterstateOutboundRoute = (
+  facts: Pick<Partial<InterstateOutboundFiscalMatrixFacts>, 'issuerUf' | 'destinationUf' | 'destinationScope'>
+): boolean => facts.destinationScope === 'INTERSTATE' &&
+  isBrazilianFiscalUf(facts.issuerUf) && isBrazilianFiscalUf(facts.destinationUf) &&
+  facts.issuerUf !== facts.destinationUf;
+
+const approvalIsComplete = (rule: InterstateOutboundFiscalMatrixRule): boolean =>
   Boolean(
     rule.approvedBy?.trim() &&
+      rule.criteria.destinationScope === 'INTERSTATE' &&
       rule.approvedAt &&
       Number.isFinite(Date.parse(rule.approvedAt)) &&
       rule.effectiveFrom &&
@@ -270,22 +355,25 @@ const approvalIsComplete = (rule: InterstateFiscalMatrixRule): boolean =>
         Date.parse(rule.effectiveUntil) >= Date.parse(rule.effectiveFrom))) &&
       requiredFacts
         .filter((key) => key !== 'effectiveAt')
-        .every((key) => Object.prototype.hasOwnProperty.call(rule.criteria, key) ||
-          rule.reviewedWildcards?.includes(key)) &&
+        .every((key) => (key === 'destinationUf' && rule.criteria.destinationUf == null)
+          ? rule.reviewedWildcards?.includes(key)
+          : Object.prototype.hasOwnProperty.call(rule.criteria, key) || rule.reviewedWildcards?.includes(key)) &&
       Boolean(rule.xmlEvidence?.trim()) && Boolean(rule.testEvidence?.trim()) &&
       rule.sourceReferences.length > 0 &&
       rule.sourceReferences.every((source) => Boolean(source.trim())) &&
+      normativeSourcesAreScoped(rule) &&
       rule.pendingReview.length === 0 &&
       treatmentIsComplete(rule.treatment)
   );
 
-export type InterstateFiscalMatrixResolution =
-  | { status: 'approved'; rule: InterstateFiscalMatrixRule; ruleId: string; reason: string; sources: string[] }
+export type InterstateOutboundFiscalMatrixResolution =
+  | { status: 'approved'; rule: InterstateOutboundFiscalMatrixRule; ruleId: string; reason: string;
+      sources: string[]; normativeSources: InterstateOutboundNormativeSource[] }
   | {
       status: 'not_approved';
       code: 'HML_INTERSTATE_MATRIX_NOT_APPROVED';
       matchingDraftRuleIds: string[];
-      missingFacts: Array<keyof InterstateFiscalMatrixFacts>;
+      missingFacts: Array<keyof InterstateOutboundFiscalMatrixFacts>;
       matchingBlockedRuleIds: string[];
       reason: string;
     }
@@ -293,27 +381,40 @@ export type InterstateFiscalMatrixResolution =
   | { status: 'invalid_approved_rule'; code: 'HML_INTERSTATE_MATRIX_INVALID'; ruleIds: string[] };
 
 /** Fast route-level gate so an absent route matrix blocks even before item detail parsing. */
-export function hasApprovedInterstateRoute(
+export function hasApprovedInterstateOutboundRoute(
   facts: Pick<
-    InterstateFiscalMatrixFacts,
-    'environment' | 'model' | 'issuerRegime' | 'issuerUf' | 'destinationUf' | 'operationType'
-  >,
-  rules: readonly InterstateFiscalMatrixRule[] = INTERSTATE_FISCAL_MATRIX_RULES
+    InterstateOutboundFiscalMatrixFacts,
+    'environment' | 'model' | 'issuerRegime' | 'issuerUf' | 'destinationUf' | 'destinationScope' | 'operationType' | 'purpose'
+  > & Pick<Partial<InterstateOutboundFiscalMatrixFacts>, 'effectiveAt'>,
+  rules: readonly InterstateOutboundFiscalMatrixRule[] = INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES
 ): boolean {
+  const effectiveAt = Date.parse(String(facts.effectiveAt || ''));
+  if (!isInterstateOutboundRoute(facts)) return false;
   return rules.some(
     (rule) =>
       rule.status === 'APPROVED' && approvalIsComplete(rule) &&
-      (['environment', 'model', 'issuerRegime', 'issuerUf', 'destinationUf', 'operationType'] as const)
-        .every((key) => rule.criteria[key] === facts[key] || rule.reviewedWildcards?.includes(key))
+      Number.isFinite(effectiveAt) && Date.parse(rule.effectiveFrom || '') <= effectiveAt &&
+      (!rule.effectiveUntil || Date.parse(rule.effectiveUntil) >= effectiveAt) &&
+      (['environment', 'model', 'issuerRegime', 'issuerUf', 'destinationUf', 'destinationScope', 'operationType', 'purpose'] as const)
+        .every((key) => rule.criteria[key] === facts[key] ||
+          (rule.criteria[key] == null && rule.reviewedWildcards?.includes(key)))
   );
 }
 
 /** Resolves only complete APPROVED rules; DRAFT data never supplies tax results. */
-export function resolveInterstateFiscalMatrix(
-  facts: Partial<InterstateFiscalMatrixFacts>,
-  rules: readonly InterstateFiscalMatrixRule[] = INTERSTATE_FISCAL_MATRIX_RULES
-): InterstateFiscalMatrixResolution {
+export function resolveInterstateOutboundFiscalMatrix(
+  facts: Partial<InterstateOutboundFiscalMatrixFacts>,
+  rules: readonly InterstateOutboundFiscalMatrixRule[] = INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES
+): InterstateOutboundFiscalMatrixResolution {
   const missingFacts = requiredFacts.filter((key) => isMissing(facts[key], key));
+  for (const [key, valid] of [
+    ['issuerUf', isBrazilianFiscalUf(facts.issuerUf)],
+    ['destinationUf', isBrazilianFiscalUf(facts.destinationUf)],
+    ['purpose', typeof facts.purpose === 'string' && /^[1-4]$/.test(facts.purpose)],
+    ['ncm', typeof facts.ncm === 'string' && /^\d{8}$/.test(facts.ncm)],
+    ['cest', typeof facts.cest === 'string' && (facts.cest === '' || /^\d{7}$/.test(facts.cest))],
+    ['productOrigin', typeof facts.productOrigin === 'string' && /^[0-8]$/.test(facts.productOrigin)],
+  ] as const) if (!valid && !missingFacts.includes(key)) missingFacts.push(key);
   if (facts.effectiveAt && !Number.isFinite(Date.parse(facts.effectiveAt)) && !missingFacts.includes('effectiveAt'))
     missingFacts.push('effectiveAt');
   const matchingDraftRuleIds = rules
@@ -322,11 +423,13 @@ export function resolveInterstateFiscalMatrix(
   const matchingBlockedRuleIds = rules
     .filter((rule) => rule.status === 'BLOCKED' && matchesKnownCriteria(facts, rule.criteria))
     .map((rule) => rule.id);
-  const notApproved = (reason: string): InterstateFiscalMatrixResolution => ({
+  const notApproved = (reason: string): InterstateOutboundFiscalMatrixResolution => ({
     status: 'not_approved', code: 'HML_INTERSTATE_MATRIX_NOT_APPROVED',
     matchingDraftRuleIds, matchingBlockedRuleIds, missingFacts, reason,
   });
   if (missingFacts.length) return notApproved('Fatos fiscais obrigatórios ausentes ou data inválida.');
+  if (!isInterstateOutboundRoute(facts))
+    return notApproved('A matriz de saída interestadual exige UFs brasileiras distintas e destinationScope=INTERSTATE.');
   if (facts.recipientIeStatus === 'non_taxpayer' && facts.finalConsumer === false)
     return notApproved('MOC E16a-40: indIEDest=9 e indFinal=0 em venda de saída (rejeição 696).');
   const effectiveAt = Date.parse(String(facts.effectiveAt));
@@ -339,7 +442,7 @@ export function resolveInterstateFiscalMatrix(
         Date.parse(rule.effectiveFrom || '') <= effectiveAt) &&
       (!rule.effectiveUntil || !Number.isFinite(Date.parse(rule.effectiveUntil)) ||
         Date.parse(rule.effectiveUntil) >= effectiveAt) &&
-      matchesCompleteCriteria(facts as InterstateFiscalMatrixFacts, rule.criteria)
+      matchesCompleteCriteria(facts as InterstateOutboundFiscalMatrixFacts, rule.criteria)
   );
   if (matchingApproved.length) {
     const invalid = matchingApproved.filter((rule) => !approvalIsComplete(rule));
@@ -350,10 +453,10 @@ export function resolveInterstateFiscalMatrix(
         ruleIds: invalid.map((rule) => rule.id),
       };
     // Lexicographic tiers, never the incidental number/order of object keys.
-    const specificity = (rule: InterstateFiscalMatrixRule): number[] => [
+    const specificity = (rule: InterstateOutboundFiscalMatrixRule): number[] => [
       ...(['productId', 'ncm', 'cest', 'destinationUf', 'hasSt', 'recipientIeStatus',
         'recipientPersonType', 'finalConsumer', 'productOrigin', 'merchandiseOrigin'] as const)
-        .map((key) => Object.prototype.hasOwnProperty.call(rule.criteria, key) ? 1 : 0),
+        .map((key) => !isMissing(rule.criteria[key], key) ? 1 : 0),
       rule.priority,
     ];
     const compare = (a: number[], b: number[]) => {
@@ -383,7 +486,7 @@ export function resolveInterstateFiscalMatrix(
       };
     return { status: 'approved', rule: best.rule, ruleId: best.rule.id,
       reason: `Regra vigente de maior especificidade (${best.specificity.join(',')}); sem empate.`,
-      sources: [...best.rule.sourceReferences] };
+      sources: [...best.rule.sourceReferences], normativeSources: [...best.rule.normativeSources] };
   }
   return notApproved('Nenhuma regra APPROVED completa e vigente corresponde aos fatos.');
 }

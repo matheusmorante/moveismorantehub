@@ -302,7 +302,7 @@ export default function Settings(): any {
 
             <SettingsSection
               id="impressao"
-              title="Impressão Direta (Windows)"
+              title="Impressão pelo navegador"
               icon="bi-printer-fill"
               isVisible={isVisible('impressao')}
               isSearching={!!search.trim()}

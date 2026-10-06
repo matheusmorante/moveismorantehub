@@ -172,6 +172,13 @@ const identity = {
 };
 
 describe('Fiscal Core e serializer de NF-e 55', () => {
+  it.each(['vICMSST', 'vFCP', 'vFCPST', 'vCredICMSSN'])('recusa %s sem implementação em vez de omitir o imposto do XML', (field) => {
+    const resolved = resolveFiscalDocument(snapshot, rules);
+    if (resolved.status !== 'ready') throw new Error('Fixture inválida');
+    const document = structuredClone(resolved.document);
+    document.items[0].taxes[0].values[field] = 0;
+    expect(() => serializeFiscalDocument(snapshot, document, rules, identity)).toThrow('INTERSTATE_TAX_TREATMENT_NOT_IMPLEMENTED');
+  });
   it('serializa somente documento resolvido e valida no XSD oficial fixado', async () => {
     const resolved = resolveFiscalDocument(snapshot, rules);
     expect(resolved.status).toBe('ready');
@@ -247,7 +254,7 @@ describe('Fiscal Core e serializer de NF-e 55', () => {
         rules,
         identity
       )
-    ).toThrow('Operação fiscal não suportada');
+    ).toThrow('Operação interestadual');
     expect(() =>
       serializeFiscalDocument(snapshot, resolved.document, rules, {
         ...identity,

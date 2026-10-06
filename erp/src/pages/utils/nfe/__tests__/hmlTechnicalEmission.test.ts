@@ -1092,7 +1092,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
-  it('bloqueia venda PR→SC sem regra APPROVED antes da RPC de snapshot numerado', async () => {
+  it.each(['SC', 'SP', 'RS'])('bloqueia venda PR→%s sem regra APPROVED antes da RPC de snapshot numerado', async (destinationUf) => {
     const interstateOrderId = 'f119b598-fcaa-4212-a48f-76149b2a3c82';
     const interstateRequestId = '5a88242a-a67f-4e6b-9fc9-dd60d13e9c10';
     const selected = {
@@ -1110,7 +1110,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
           shipping: {
             deliveryMethod: 'delivery',
             useCustomerAddress: true,
-            deliveryAddress: { city: 'Joinville', state: 'SC', zipCode: '89201000' },
+            deliveryAddress: { city: 'Município teste', state: destinationUf, zipCode: '89201000' },
             value: 0,
           },
           customerData: { id: 'customer-sc-1' },
@@ -1161,7 +1161,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
                 id: 'customer-sc-1',
                 full_name: 'Cliente teste SC',
                 cpf_cnpj: '12345678000195',
-                address: { city: 'Joinville', state: 'SC', zipCode: '89201000' },
+                address: { city: 'Município teste', state: destinationUf, zipCode: '89201000' },
                 rg_ie: '251040852',
                 person_type_pf_pj: 'PJ',
                 deleted: false,

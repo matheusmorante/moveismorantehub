@@ -31,11 +31,11 @@ import {
 } from '../../shared-utils/fiscalTransportModel';
 import { resolveFiscalCfopOrderScope } from '../../shared-utils/fiscalCfopModel';
 import {
-  hasApprovedInterstateRoute,
-  resolveInterstateFiscalMatrix,
-  type InterstateFiscalMatrixFacts,
+  hasApprovedInterstateOutboundRoute,
+  resolveInterstateOutboundFiscalMatrix,
+  type InterstateOutboundFiscalMatrixFacts,
   type InterstateRecipientIeStatus,
-} from './interstateTaxMatrix';
+} from './interstateOutboundFiscalMatrix';
 
 export const HML_NORMAL_SALE_RULESET_VERSION = 'HML_NORMAL_SALE_V2';
 const obj = (value: unknown): Record<string, any> => {
@@ -263,11 +263,14 @@ export async function createHmlNormalSaleRuleSet(
       issuerRegime: String(facts.issuerProfile.companyCRT || ''),
       issuerUf: operationScope.issuerUf || '',
       destinationUf: operationScope.operationUf || '',
+      destinationScope: 'INTERSTATE' as const,
       operationType: 'sale' as const,
+      purpose: '1' as const,
+      effectiveAt: facts.capturedAt,
     };
-    if (!hasApprovedInterstateRoute(routeFacts))
+    if (!hasApprovedInterstateOutboundRoute(routeFacts))
       throw new Error(
-        'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). Os cenários PR→SC permanecem em DRAFT; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
+        'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decisão Fiscal Interestadual de Saída não contém regra APPROVED utilizável; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
       );
     const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
     const productCatalog = obj(inputs.products);
@@ -298,13 +301,15 @@ export async function createHmlNormalSaleRuleSet(
       const productFiscal = productFiscalRaw && typeof productFiscalRaw === 'object'
         ? productFiscalRaw as Record<string, any>
         : {};
-      const matrixFacts: Partial<InterstateFiscalMatrixFacts> = {
+      const matrixFacts: Partial<InterstateOutboundFiscalMatrixFacts> = {
         environment: facts.emissionRequest.environment,
         model: modelDecision.model,
         issuerRegime: String(facts.issuerProfile.companyCRT || ''),
         issuerUf: operationScope.issuerUf || '',
         destinationUf: operationScope.operationUf || '',
+        destinationScope: 'INTERSTATE',
         operationType: 'sale',
+        purpose: '1',
         recipientPersonType:
           customer.personType === 'PF' || customer.personType === 'PJ'
             ? customer.personType
@@ -319,13 +324,14 @@ export async function createHmlNormalSaleRuleSet(
         ncm: selected?.ncm,
         cest: selected?.cest,
         hasSt: explicitBoolean(itemFiscal.hasSt, itemFiscal.isSt, productFiscal.hasSt, productFiscal.isSt),
+        productId: typeof itemRecord.productId === 'string' ? itemRecord.productId : undefined,
         effectiveAt: facts.capturedAt,
       };
-      return resolveInterstateFiscalMatrix(matrixFacts);
+      return resolveInterstateOutboundFiscalMatrix(matrixFacts);
     });
     if (!matrixResults.length || matrixResults.some((result) => result.status !== 'approved'))
       throw new Error(
-        `Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). Os cenários PR→SC permanecem em DRAFT; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.`
+        'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decisão Fiscal Interestadual de Saída não contém regra APPROVED utilizável; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
       );
     // Approval data alone cannot activate transmission until this ruleset maps every tax field
     // into the NF-e document and its serializer with focused coverage.

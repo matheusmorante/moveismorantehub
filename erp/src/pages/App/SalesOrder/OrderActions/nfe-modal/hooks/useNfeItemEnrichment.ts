@@ -324,7 +324,10 @@ export function useNfeItemEnrichment({
     const classificationChanged = (['ncm', 'cest', 'origem'] as const).some(
       (field) => updates[field] !== undefined && updates[field] !== nfeItems[index]?.fiscal[field]
     );
-    const resolvedUpdates = classificationChanged ? { ...updates, cfop: '', cst: '', csosnSource: undefined } : updates;
+    const resolvedUpdates = classificationChanged ? {
+      ...updates, cfop: updates.cfop ?? '', cst: updates.cst ?? '',
+      csosnSource: updates.cst !== undefined ? 'manual' as const : undefined,
+    } : updates;
     if (order) {
       const key = draftKey(order, environment);
       const existing = manualFiscalFields.current.get(key) || {};

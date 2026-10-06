@@ -103,19 +103,17 @@ export const settingsCategories: SettingsCategory[] = [
   },
   {
     id: 'impressao',
-    label: 'Impressão Direta (Windows)',
+    label: 'Impressão pelo navegador',
     icon: 'bi-printer-fill',
     group: 'system',
     keywords: [
       'impressão',
       'impressora',
-      'epson',
-      'l3250',
-      'agente',
+      'navegador',
+      'windows',
       'danfe',
       'recibo',
       'pedido',
-      'spooler',
     ],
   },
 ];

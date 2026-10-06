@@ -10,6 +10,36 @@ const asRecord = (value: unknown): UnknownRecord | null =>
     ? (value as UnknownRecord)
     : null;
 
+const hasExplicitTestIdentifier = (value: unknown): boolean =>
+  typeof value === 'string' &&
+  (/^\s*(?:TEST_AUT_|NFEHML26P\d*)/i.test(value) ||
+    /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
+
+export const isTestOrder = (value: unknown): boolean => {
+  const row = asRecord(value);
+  if (!row) return false;
+
+  const orderData = asRecord(row.order_data) ?? asRecord(row.orderData) ?? row;
+  const isTest = orderData.is_test ?? orderData.isTest ?? row.is_test ?? row.isTest;
+  if (isTest === true || isTest === 'true') return true;
+
+  const customerData =
+    asRecord(orderData.customerData) ?? asRecord(orderData.customer_data) ?? {};
+  return [
+    row.order_number,
+    row.orderNumber,
+    row.customer_name,
+    row.notes,
+    row.observation,
+    orderData.orderNumber,
+    orderData.customerName,
+    orderData.notes,
+    orderData.observation,
+    customerData.fullName,
+    customerData.name,
+  ].some(hasExplicitTestIdentifier);
+};
+
 export const isHmlFiscalTestOrder = (value: unknown): boolean => {
   const row = asRecord(value);
   if (!row) return false;
@@ -28,8 +58,11 @@ export const isHmlFiscalTestOrder = (value: unknown): boolean => {
     return true;
   }
 
-  return [row.notes, row.observation, orderData.notes, orderData.observation].some(
-    (text) => typeof text === 'string' && text.includes(HML_FISCAL_TEST_ORDER_MARKER)
+  return (
+    isTestOrder(value) ||
+    [row.notes, row.observation, orderData.notes, orderData.observation].some(
+      (text) => typeof text === 'string' && text.includes(HML_FISCAL_TEST_ORDER_MARKER)
+    )
   );
 };
 
@@ -38,11 +71,6 @@ export const isHmlFiscalTestProduct = (observations: unknown): boolean =>
   [HML_FISCAL_TEST_PRODUCT_MARKER, HML_FISCAL_TEST_ORDER_MARKER].some((marker) =>
     observations.toUpperCase().includes(marker.toUpperCase())
   );
-
-const hasExplicitTestIdentifier = (value: unknown): boolean =>
-  typeof value === 'string' &&
-  (/^\s*(?:TEST_AUT_|NFEHML26P\d*)/i.test(value) ||
-    /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
 
 export const isTestProduct = (value: unknown): boolean => {
   const product = asRecord(value);

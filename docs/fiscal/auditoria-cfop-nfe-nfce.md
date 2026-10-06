@@ -4,7 +4,7 @@
 
 O CFOP descreve a operação. Ele não define sozinho CSOSN, ICMS, ST, DIFAL ou FCP. O catálogo semântico do ERP classifica CFOPs e permite mostrar candidatos compatíveis com o destino físico, mas somente uma regra server-side `APPROVED`, completa e sem conflito pode determinar os tributos e liberar a emissão.
 
-Não há regra PR→SC aprovada no repositório. Os dez cenários iniciais estão cadastrados em `api/nfe/interstateTaxMatrix.ts` como `DRAFT`, com tratamento tributário nulo. O servidor retorna `HML_INTERSTATE_MATRIX_NOT_APPROVED` e bloqueia antes da reserva de snapshot/número, assinatura e contato com a SEFAZ. Cadastrar `6102` ou `6108` no catálogo não muda esse bloqueio.
+Não há regra PR→SC aprovada no repositório. A [auditoria normativa de 06/10/2026](matriz-interestadual-pr-sc.md) revisou as dez famílias originais e expandiu o inventário de `api/nfe/interstateTaxMatrix.ts` para 24 combinações: **20 DRAFT e 4 BLOCKED**, com tratamento executável nulo. O servidor retorna `HML_INTERSTATE_MATRIX_NOT_APPROVED` e bloqueia antes da reserva de snapshot/número, assinatura e contato com a SEFAZ. Cadastrar `6102` ou `6108` no catálogo não muda esse bloqueio.
 
 ## Classificação de CFOP
 
@@ -46,11 +46,10 @@ Escopo deste inventário inicial: ambiente HML (2), NF-e modelo 55, emitente PR/
 
 Para aprovar qualquer linha ainda devem ser definidos, por cenário e produto, origem da mercadoria (código 0–8), NCM, CEST quando houver, natureza de terceiros/produção própria, condição explícita de ST, CSOSN, grupo e base/alíquotas de ICMS, papel de substituto/substituído e protocolo aplicável, incidência/responsável/base/alíquotas/partilha do DIFAL, incidência/base/alíquota/recolhimento de FCP, vigência e referências oficiais. Nenhuma incidência é tratada como `false` por falta de informação. CEST presente ou ausente, isoladamente, não determina ST.
 
-### Referências para revisão, sem generalização automática
+### Referência normativa da revisão
 
 - O [Portal Nacional da NF-e](https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&ehctg=false) publica a tabela/classificação de CFOP; isso não fornece, por si só, a matriz tributária PR→SC.
-- A [Consulta Tributária SEFAZ-SP RC 33951/2026](https://legislacao.fazenda.sp.gov.br/Paginas/RC33951_2026.aspx) trata de fatos delimitados de contribuinte paulista e mercadoria com ST. Serve como referência de que contribuinte, destino, produto e ST alteram a análise, não como regra para emitente do Paraná.
-- A [Consulta Tributária SEFAZ-SP RC 32359/2025](https://legislacao.fazenda.sp.gov.br/Paginas/RC32359_2025.aspx) também é específica de São Paulo e de produtos/fatos determinados; não autoriza copiar CSOSN, DIFAL ou FCP para PR→SC.
+- A [matriz normativa PR → SC](matriz-interestadual-pr-sc.md) contém fontes nacionais/PR/SC, vigência, análise das dez linhas originais, inventário completo, protocolos históricos descartados e motivos de não aprovação. Consultas de SP não fundamentam qualquer tratamento executável.
 - A [FAQ da SEFA/PR sobre DIFAL](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/12) não resolve, sozinha, todas as hipóteses de saída PR→SC deste inventário.
 
 ## Garantias de execução

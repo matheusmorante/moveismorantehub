@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
 import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
+import { shouldShowOrderInSchedule } from '@/pages/utils/scheduleOrderVisibility';
 import { toast } from 'react-toastify';
 
 const ASSEMBLY_ORDERS_LIMIT = 50;
@@ -193,13 +194,13 @@ const getOrderAssemblyTasks = (rows: any[], settings: AppSettings) => {
     const status = normalizeLabel(
       row.status || data.status || row.order_status || data.order_status
     );
-    const isCancelled =
-      status.includes('cancel') ||
-      row.cancelled === true ||
-      data.cancelled === true ||
-      row.deleted === true ||
-      data.deleted === true;
-    if (isCancelled || status === 'draft' || status === 'rascunho') return [];
+    if (
+      !shouldShowOrderInSchedule(row) ||
+      status === 'draft' ||
+      status === 'rascunho'
+    ) {
+      return [];
+    }
 
     const orderHandling =
       data.handlingType ||
@@ -289,6 +290,7 @@ export function useAssemblyListQuery() {
             'id, status, created_at, order_data, deleted, order_number, order_index, customer_name, delivery_method, scheduled_date'
           )
           .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+          .or('order_data->>is_test.is.null,order_data->>is_test.eq.false')
           .order('created_at', { ascending: false })
           .limit(ASSEMBLY_ORDERS_LIMIT),
         getShowcaseAssemblies(ASSEMBLY_ORDERS_LIMIT),
