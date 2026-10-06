@@ -1,8 +1,8 @@
 import { supabase } from '../supabaseConfig';
 import {
+  type FiscalDocumentStatusRow,
   isAuthorizedFiscalDocument,
   isOutboundFiscalDocument,
-  type FiscalDocumentStatusRow,
 } from './orderFiscalBadgeRules';
 
 export interface AuthorizedFiscalDocument extends FiscalDocumentStatusRow {

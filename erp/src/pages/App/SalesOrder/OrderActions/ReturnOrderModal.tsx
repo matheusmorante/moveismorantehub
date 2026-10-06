@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Order from '../../../types/order.type';
-import { Item } from '../../../types/items.type';
-import Shipping from '../../../types/Shipping.type';
-import { saveOrder } from '../../../utils/orderHistoryService';
-import { formatOrderCode } from '../../../utils/orderCode';
-import { toast } from 'react-toastify';
 import { Undo2 } from 'lucide-react';
-import ReturnItemsSelection from './ReturnItemsSelection';
-import ReturnCollectionSection from './ReturnCollectionSection';
-import ReturnFormTabs, { ReturnFormTab } from '../ReturnFormTabs';
-import { supabase } from '../../../utils/supabaseConfig';
-import { getReturnLineKey, getReturnableQuantities } from '../../../utils/returnQuantityRules';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
+import type { Item } from '../../../types/items.type';
+import type Order from '../../../types/order.type';
+import type Shipping from '../../../types/Shipping.type';
+import { findAuthorizedFiscalDocument } from '../../../utils/nfe/findAuthorizedFiscalDocument';
 import {
+  type AvailableInvoiceLine,
   allocateReturnQuantityAcrossInvoices,
   getBilledCapacityByOrderLine,
-  type AvailableInvoiceLine,
 } from '../../../utils/nfe/invoiceLineSnapshot';
-import { findAuthorizedFiscalDocument } from '../../../utils/nfe/findAuthorizedFiscalDocument';
+import { formatOrderCode } from '../../../utils/orderCode';
+import { saveOrder } from '../../../utils/orderHistoryService';
+import { getReturnableQuantities, getReturnLineKey } from '../../../utils/returnQuantityRules';
+import { supabase } from '../../../utils/supabaseConfig';
+import ReturnFormTabs, { type ReturnFormTab } from '../ReturnFormTabs';
+import ReturnCollectionSection from './ReturnCollectionSection';
+import ReturnItemsSelection from './ReturnItemsSelection';
 
 type Props = {
   readonly order: Order;
@@ -54,13 +54,13 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
 
   useEffect(() => {
     let active = true;
-    const loadPriorReturns = async () => {
+    const loadReturnData = async () => {
       if (!order.id) {
         setReturnsLoaded(true);
         setFiscalCapacityLoaded(true);
         setReturnableQuantities(
           Object.fromEntries(
-            order.items.map((item, index) => [
+            (order.items || []).map((item, index) => [
               getReturnLineKey(item, index),
               Number(item.quantity || 0),
             ])
@@ -71,7 +71,59 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       setReturnsLoaded(false);
       setFiscalCapacityLoaded(false);
       setFiscalCapacityError(null);
-      let loadedHasAuthorizedInvoice = false;
+
+      // 1. Carrega devoluções comerciais anteriores (para controle de itens devolvíveis)
+      let priorReturns: Array<{ status?: string; items: Item[] }> = [];
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('status,items,order_data')
+          .eq('order_type', 'return')
+          .or(`linked_order_id.eq.${order.id},order_data->>linkedOrderId.eq.${order.id}`);
+        if (!active) return;
+        if (error) {
+          console.error('Erro ao consultar devoluções anteriores:', error);
+          toast.error('Não foi possível conferir o saldo já devolvido. Tente novamente.');
+        } else {
+          priorReturns = (data || []).map((row: any) => ({
+            status: row.status || row.order_data?.status,
+            items: row.items || row.order_data?.items || [],
+          }));
+        }
+      } catch (err) {
+        console.error('Erro ao consultar devoluções anteriores:', err);
+      }
+
+      if (!active) return;
+      const remaining = getReturnableQuantities(order.items || [], priorReturns);
+
+      // 2. Localiza NF-e/NFC-e original efetivamente AUTORIZADA
+      const authorizedDoc = await findAuthorizedFiscalDocument(order.id);
+      if (!active) return;
+
+      if (!authorizedDoc) {
+        // Venda sem nota fiscal autorizada (ou rejeitada/cancelada/nenhuma)
+        // Devolução puramente comercial: permite criação normalmente e não consulta saldo fiscal
+        setHasAuthorizedInvoice(false);
+        setFiscalCapacityLines([]);
+        setFiscalCapacityError(null);
+        setFiscalCapacityLoaded(true);
+        setReturnableQuantities(
+          Object.fromEntries(
+            remaining.map((quantity, index) => [
+              getReturnLineKey(order.items[index], index),
+              quantity,
+            ])
+          )
+        );
+        setReturnsLoaded(true);
+        return;
+      }
+
+      setHasAuthorizedInvoice(true);
+
+      // 3. Somente se existir documento fiscal autorizado: consulta capacidade fiscal via backend
+      let loadedHasAuthorizedInvoice = true;
       let loadedFiscalLines: AvailableInvoiceLine[] = [];
       try {
         const { data: session, error: sessionError } = await supabase.auth.getSession();
@@ -83,7 +135,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.session.access_token}`,
           },
-          body: JSON.stringify({ orderId: order.id }),
+          body: JSON.stringify({ orderId: order.id, environment: authorizedDoc.ambiente }),
         });
         const result = await response.json();
         if (!response.ok || !result.success)
@@ -98,28 +150,12 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       } catch (error: any) {
         if (!active) return;
         setFiscalCapacityError(error.message || 'Não foi possível conferir o saldo fiscal.');
-        toast.error(
-          'O saldo fiscal das NF-e não pôde ser conferido. A devolução ficará bloqueada até a consulta ser concluída.'
-        );
+        toast.warning('O saldo fiscal da NF-e autorizada não pôde ser conferido no momento.');
       } finally {
         if (active) setFiscalCapacityLoaded(true);
       }
-      const { data, error } = await supabase
-        .from('orders')
-        .select('status,items,order_data')
-        .eq('order_type', 'return')
-        .or(`linked_order_id.eq.${order.id},order_data->>linkedOrderId.eq.${order.id}`);
+
       if (!active) return;
-      if (error) {
-        console.error('Erro ao consultar devoluções anteriores:', error);
-        toast.error('Não foi possível conferir o saldo já devolvido. Tente novamente.');
-        return;
-      }
-      const priorReturns = (data || []).map((row: any) => ({
-        status: row.status || row.order_data?.status,
-        items: row.items || row.order_data?.items || [],
-      }));
-      const remaining = getReturnableQuantities(order.items || [], priorReturns);
       const billedCapacity = loadedHasAuthorizedInvoice
         ? getBilledCapacityByOrderLine(order.items || [], loadedFiscalLines)
         : null;
@@ -133,7 +169,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       );
       setReturnsLoaded(true);
     };
-    void loadPriorReturns();
+    void loadReturnData();
     return () => {
       active = false;
     };
@@ -185,8 +221,8 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
   const generateReturn = async () => {
     if (submittingRef.current) return;
     if (!returnsLoaded || !fiscalCapacityLoaded)
-      return toast.warning('Aguarde a conferência do saldo devolvível e fiscal.');
-    if (fiscalCapacityError)
+      return toast.warning('Aguarde a conferência do saldo devolvível.');
+    if (hasAuthorizedInvoice && fiscalCapacityError)
       return toast.error(`Não foi possível validar a NF-e de origem: ${fiscalCapacityError}`);
     if (!Object.keys(quantities).length)
       return toast.warning('Selecione pelo menos um item para devolver.');
@@ -216,20 +252,18 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       const originalUnitPrice = item.unitPrice;
       const originalTotalValue = quantity * originalUnitPrice;
 
-      return [
-        ...selected,
-        {
-          ...item,
-          quantity,
-          originalOrderItemIndex,
-          returnedQuantity: quantity,
-          unitPrice: returnedUnitPrice,
-          returnedUnitPrice,
-          returnedTotalValue,
-          originalUnitPrice,
-          originalTotalValue,
-        },
-      ];
+      selected.push({
+        ...item,
+        quantity,
+        originalOrderItemIndex,
+        returnedQuantity: quantity,
+        unitPrice: returnedUnitPrice,
+        returnedUnitPrice,
+        returnedTotalValue,
+        originalUnitPrice,
+        originalTotalValue,
+      });
+      return selected;
     }, []);
 
     const total = items.reduce(
@@ -337,8 +371,10 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="return-order-title"
+        tabIndex={-1}
         className="relative z-10 flex h-full w-full max-w-none flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-2xl xl:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-center justify-between border-b border-slate-50 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-4">
@@ -372,18 +408,18 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
               role="status"
               aria-live="polite"
               className={`rounded-xl border p-4 text-sm leading-relaxed ${
-                fiscalCapacityError
+                fiscalCapacityError && hasAuthorizedInvoice
                   ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-200'
                   : hasAuthorizedInvoice
                     ? 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200'
-                    : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-300'
               }`}
             >
-              {fiscalCapacityError ? (
+              {fiscalCapacityError && hasAuthorizedInvoice ? (
                 <>
-                  <strong>Não foi possível confirmar a NF-e original.</strong> A devolução permanece
-                  bloqueada até a consulta do saldo fiscal ser concluída; nenhuma nota de devolução
-                  será emitida nesta etapa.
+                  <strong>Não foi possível confirmar o saldo da NF-e original autorizada.</strong> A
+                  conferência fiscal permanece pendente; nenhuma nota de devolução será emitida
+                  nesta etapa.
                 </>
               ) : hasAuthorizedInvoice ? (
                 <>
@@ -396,11 +432,13 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                   O protocolo da SEFAZ confirma a autorização.
                 </>
               ) : (
-                <>
-                  <strong>Não há NF-e de saída autorizada vinculada à venda.</strong> Este fluxo
-                  cria somente o pedido comercial de devolução. Sem uma nota original autorizada
-                  consultável, o sistema não emitirá uma NF-e de devolução.
-                </>
+                <div className="flex items-center gap-2">
+                  <i className="bi bi-info-circle text-slate-400 shrink-0 text-base" />
+                  <span>
+                    Esta venda não possui documento fiscal emitido. A devolução será registrada sem
+                    emissão de nota fiscal de devolução.
+                  </span>
+                </div>
               )}
             </aside>
           )}
@@ -460,7 +498,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                 submitting ||
                 !returnsLoaded ||
                 !fiscalCapacityLoaded ||
-                Boolean(fiscalCapacityError) ||
+                (hasAuthorizedInvoice && Boolean(fiscalCapacityError)) ||
                 !Object.keys(quantities).length ||
                 collectAtAddress === null
               }
