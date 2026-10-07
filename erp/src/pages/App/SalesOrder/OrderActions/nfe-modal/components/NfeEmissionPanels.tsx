@@ -1,14 +1,15 @@
-import React from 'react';
+import type React from 'react';
 import type Order from '@/pages/types/order.type';
+import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { NfeCustomerTab } from '../NfeCustomerTab';
 import { NfeGeneralTab } from '../NfeGeneralTab';
+import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import { NfeItemsSection } from '../NfeItemsSection';
 import { NfePaymentTab } from '../NfePaymentTab';
-import { NfeTransportSection } from '../NfeTransportSection';
-import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import type { ThirdPartyTransporterForm } from '../NfeTransportSection';
-import type { NfeTabId, FiscalFieldError } from '../types/nfeEmission.types';
+import { NfeTransportSection } from '../NfeTransportSection';
+import type { FiscalFieldError, NfeTabId } from '../types/nfeEmission.types';
 
 export interface NfeEmissionPanelsProps {
   activeTab: NfeTabId;
@@ -16,8 +17,10 @@ export interface NfeEmissionPanelsProps {
   order: Order;
   environment: 1 | 2;
   productionConfirmed: boolean;
-  finalConsumer: boolean;
-  setFinalConsumer: (val: boolean) => void;
+  acquisitionPurpose: FiscalAcquisitionPurpose | null;
+  onAcquisitionPurposeChange: (purpose: FiscalAcquisitionPurpose) => void;
+  isSavingAcquisitionPurpose: boolean;
+  finalConsumer?: boolean;
   modelReason?: string;
   numberPreview: string;
   setNumberPreview: (val: string | null) => void;
@@ -73,8 +76,10 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   order,
   environment,
   productionConfirmed,
+  acquisitionPurpose,
+  onAcquisitionPurposeChange,
+  isSavingAcquisitionPurpose,
   finalConsumer,
-  setFinalConsumer,
   modelReason,
   numberPreview,
   setNumberPreview,
@@ -137,14 +142,15 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             environment={environment}
             productionConfirmed={productionConfirmed}
             order={order}
-            finalConsumer={finalConsumer}
-            onFinalConsumerChange={setFinalConsumer}
+            acquisitionPurpose={acquisitionPurpose}
+            onAcquisitionPurposeChange={onAcquisitionPurposeChange}
             modelReason={modelReason}
             numberPreview={numberPreview}
             onNumberPreviewChange={setNumberPreview}
             numberPreviewContext={numberPreviewContext}
             nfeNumberError={nfeNumberError}
             isSubmitting={isSubmitting}
+            isSavingAcquisitionPurpose={isSavingAcquisitionPurpose}
             isLocked={isLocked}
             emissionResult={emissionResult}
             retryNumber={retryNumber}
@@ -204,12 +210,12 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
           aria-labelledby="tab-items"
           className={activeTab === 'items' ? 'block' : 'hidden'}
         >
-          {!emissionResult?.success && (
+          {!emissionResult?.success && acquisitionPurpose !== null && (
             <NfeItemsSection
               order={order}
               environment={environment}
               fiscalModel={selectedModel || '55'}
-              finalConsumer={finalConsumer}
+              finalConsumer={finalConsumer === true}
               recipientIeIndicator={recipientIeIndicator}
               recipientIe={recipientIe}
               items={nfeItems}
@@ -219,6 +225,15 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
               onUpdateItemFiscalBlur={handleSaveDraft}
               onBatchUpdateItems={handleBatchUpdateItems}
             />
+          )}
+          {!emissionResult?.success && acquisitionPurpose === null && (
+            <p
+              role="status"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+            >
+              Registre a finalidade da compra na aba Informações Gerais para determinar CFOP e
+              tratamento fiscal dos itens.
+            </p>
           )}
         </section>
 

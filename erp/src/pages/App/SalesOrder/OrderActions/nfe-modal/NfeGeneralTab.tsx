@@ -1,21 +1,23 @@
 import type React from 'react';
 import type Order from '@/pages/types/order.type';
-import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import { safeFiscalIssueMessage } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { NfeOrderSummary } from './NfeOrderSummary';
 
 interface NfeGeneralTabProps {
   environment: 1 | 2;
   productionConfirmed: boolean;
   order: Order;
-  finalConsumer: boolean;
-  onFinalConsumerChange: (isFinalConsumer: boolean) => void;
+  acquisitionPurpose: FiscalAcquisitionPurpose | null;
+  onAcquisitionPurposeChange: (purpose: FiscalAcquisitionPurpose) => void;
   modelReason?: string;
   numberPreview: string;
   onNumberPreviewChange: (num: string) => void;
   numberPreviewContext: string;
   nfeNumberError: string | null;
   isSubmitting: boolean;
+  isSavingAcquisitionPurpose: boolean;
   isLocked: boolean;
   emissionResult: NfeEmissionResult | null;
   retryNumber?: string;
@@ -35,14 +37,15 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   environment,
   productionConfirmed,
   order,
-  finalConsumer,
-  onFinalConsumerChange,
+  acquisitionPurpose,
+  onAcquisitionPurposeChange,
   modelReason,
   numberPreview,
   onNumberPreviewChange,
   numberPreviewContext,
   nfeNumberError,
   isSubmitting,
+  isSavingAcquisitionPurpose,
   isLocked,
   emissionResult,
   retryNumber = '',
@@ -92,13 +95,24 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
               Finalidade da compra
               <select
                 aria-label="Finalidade da compra"
-                value={finalConsumer ? 'use' : 'resale'}
-                disabled={isSubmitting || isLocked}
-                onChange={(event) => onFinalConsumerChange(event.target.value === 'use')}
+                value={acquisitionPurpose ?? ''}
+                disabled={isSubmitting || isLocked || isSavingAcquisitionPurpose}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (
+                    value === 'resale' ||
+                    value === 'use_consumption' ||
+                    value === 'fixed_asset'
+                  ) {
+                    onAcquisitionPurposeChange(value);
+                  }
+                }}
                 className="rounded-none border-0 border-b-2 border-slate-200 bg-white p-2 text-xs outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500"
               >
-                <option value="use">Uso / consumo próprio</option>
+                <option value="">Selecione a finalidade</option>
                 <option value="resale">Revenda</option>
+                <option value="use_consumption">Uso / consumo próprio</option>
+                <option value="fixed_asset">Ativo imobilizado</option>
               </select>
             </label>
           </div>

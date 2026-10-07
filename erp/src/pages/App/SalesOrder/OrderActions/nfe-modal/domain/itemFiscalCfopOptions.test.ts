@@ -49,7 +49,7 @@ const enabledCfops = (decision: ReturnType<typeof resolveNfeItemCfopOptions>) =>
   decision.options.filter((option) => !option.disabled).map((option) => option.value);
 
 describe('resolveNfeItemCfopOptions', () => {
-  it('filtra para 6102 quando o destinatário é contribuinte', () => {
+  it('habilita somente 6102 quando o destinatário é contribuinte', () => {
     const decision = resolve('1', false);
 
     expect(decision.defaultCfop).toBe('6102');
@@ -57,7 +57,7 @@ describe('resolveNfeItemCfopOptions', () => {
     expect(decision.options.find((option) => option.value === '6108')?.disabled).toBe(true);
   });
 
-  it('filtra para 6102 quando o destinatário é contribuinte isento aceito pela UF', () => {
+  it('habilita somente 6102 para contribuinte isento aceito pela UF', () => {
     const decision = resolve('2', true);
 
     expect(decision.defaultCfop).toBe('6102');
@@ -65,11 +65,13 @@ describe('resolveNfeItemCfopOptions', () => {
     expect(decision.options.find((option) => option.value === '6108')?.disabled).toBe(true);
   });
 
-  it('filtra para 6108 quando o destinatário é não contribuinte e consumidor final', () => {
+  it('habilita somente 6108 quando o destinatário é não contribuinte e consumidor final', () => {
     const decision = resolve('9', true);
 
     expect(decision.defaultCfop).toBe('6108');
-    expect(decision.options.find((option) => option.value === '6108')?.diagnostic?.conflicts).toEqual([]);
+    expect(
+      decision.options.find((option) => option.value === '6108')?.diagnostic?.conflicts
+    ).toEqual([]);
     expect(enabledCfops(decision)).toEqual(['6108']);
     const incompatibleCfop = decision.options.find((option) => option.value === '6102');
     expect(incompatibleCfop?.disabled).toBe(true);
@@ -84,10 +86,15 @@ describe('resolveNfeItemCfopOptions', () => {
         { label: 'Presença / indPres', value: '9' },
       ])
     );
-    expect(incompatibleCfop?.diagnostic?.conflicts.join(' ')).toContain('indIEDest');
+    expect(incompatibleCfop?.diagnostic?.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('indIEDest'),
+        expect.stringContaining('seleciona CFOP 6108'),
+      ])
+    );
   });
 
-  it('não oferece CFOP quando a matriz bloqueia não contribuinte que não é consumidor final', () => {
+  it('mantém os CFOPs visíveis e desabilitados quando a matriz bloqueia a combinação', () => {
     const decision = resolve('9', false);
 
     expect(decision.options.length).toBeGreaterThan(0);

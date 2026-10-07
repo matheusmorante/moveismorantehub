@@ -4,7 +4,7 @@
 
 O CFOP descreve a operação. Ele não define sozinho CSOSN, ICMS, ST, DIFAL ou FCP. O catálogo semântico do ERP classifica CFOPs e permite mostrar candidatos compatíveis com o destino físico, mas somente uma regra server-side `APPROVED`, completa e sem conflito pode determinar os tributos e liberar a emissão.
 
-Não há regra de saída interestadual aprovada no repositório. A [Matriz de Decisão Fiscal Interestadual de Saída](matriz-saida-interestadual.md), em `api/nfe/interstateOutboundFiscalMatrix.ts`, reúne 24 famílias com origem atual PR e destino wildcard: **20 DRAFT e 4 BLOCKED**, com tratamento executável nulo. PR→SC, PR→SP e PR→RS entram na mesma base; o exame estadual de SC está em [overrides/sc.md](overrides/sc.md). O servidor retorna `HML_INTERSTATE_MATRIX_NOT_APPROVED` e bloqueia antes da reserva de snapshot/número, assinatura e contato com a SEFAZ. Cadastrar `6102` ou `6108` no catálogo não muda esse bloqueio.
+O inventário da [Matriz de Decisão Fiscal Interestadual de Saída](matriz-saida-interestadual.md) lista 20 células DRAFT e quatro BLOCKED. A auditoria regra por regra reclassificou as cinco famílias gerais antes marcadas `APPROVED` como `DRAFT`; o catálogo agora contém cinco famílias gerais DRAFT, uma família geral BLOCKED e nenhuma regra APPROVED. Os curingas permitiam que as cinco regras alcançassem qualquer UF e produto dentro do escopo HML/PR/CRT 1, mas CFOP/MOC/fontes nacionais não sustentavam os tratamentos completos de CSOSN, ST, DIFAL e FCP nelas codificados. As seis famílias gerais correspondem às 24 células do inventário. Os gates PR→SC que existiram durante a revisão foram removidos; SC é bloqueado pela família geral DRAFT como os demais destinos. Portanto, não existe rota interestadual liberada no catálogo atual. A auditoria histórica do cenário está em [auditoria-interestadual-pr-sc.md](auditoria-interestadual-pr-sc.md).
 
 ## Classificação de CFOP
 
@@ -49,7 +49,7 @@ Para aprovar qualquer linha ainda devem ser definidos, por cenário e produto, o
 ### Referência normativa da revisão
 
 - O [Portal Nacional da NF-e](https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&ehctg=false) publica a tabela/classificação de CFOP; isso não fornece, por si só, o tratamento tributário de uma saída interestadual.
-- A [matriz principal](matriz-saida-interestadual.md) classifica fontes nacionais/de origem e contém o inventário, vigência, prioridade e bloqueios. A [auditoria de SC](overrides/sc.md) preserva somente o exame daquele destino e dos acordos pertinentes. Não se copiam conclusões estaduais para outra UF.
+- A [matriz principal](matriz-saida-interestadual.md) classifica fontes nacionais/de origem e contém o inventário, vigência, prioridade e bloqueios. A [auditoria do cenário PR→SC](auditoria-interestadual-pr-sc.md) preserva somente o exame daquele destino e dos acordos pertinentes. Não se copiam conclusões estaduais para outra UF.
 - A [FAQ da SEFA/PR sobre DIFAL](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/12) não resolve, sozinha, todas as hipóteses interestaduais deste inventário.
 
 ## Garantias de execução

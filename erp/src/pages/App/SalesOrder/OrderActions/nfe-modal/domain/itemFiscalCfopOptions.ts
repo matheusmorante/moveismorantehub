@@ -1,18 +1,18 @@
 import {
-  getCfopDefinition,
-  listActiveCfopOptions,
-} from '../../../../../../../../shared-utils/fiscalCfopModel';
-import {
   diagnoseInterstateOutboundCfopCandidate,
-  resolveInterstateOutboundFiscalMatrix,
-  resolveInterstateStRole,
   type InterstateCfopCandidateDiagnostic,
   type InterstateCfopDiagnosticContext,
+  resolveInterstateOutboundFiscalMatrix,
+  resolveInterstateStRole,
 } from '../../../../../../../../api/nfe/interstate-outbound-fiscal-matrix/resolver';
 import type {
   InterstateOutboundFiscalMatrixFacts,
   InterstateRecipientIeStatus,
 } from '../../../../../../../../api/nfe/interstate-outbound-fiscal-matrix/types';
+import {
+  getCfopDefinition,
+  listActiveCfopOptions,
+} from '../../../../../../../../shared-utils/fiscalCfopModel';
 import type { RecipientIeIndicator } from '../../../../../../../../shared-utils/recipientIeIndicator';
 
 export interface NfeItemCfopDiagnostic {
@@ -95,6 +95,13 @@ const formatMerchandiseOrigin = (value: string) => {
 const formatBoolean = (value: boolean | undefined) =>
   value === undefined ? 'não informado' : value ? 'sim' : 'não';
 
+const formatStRole = (role: string) => {
+  if (role === 'NONE') return 'sem ST';
+  if (role === 'SUBSTITUTE') return 'substituto tributário';
+  if (role === 'SUBSTITUTED') return 'substituído tributário';
+  return role;
+};
+
 const toDiagnostic = (diagnostic: InterstateCfopCandidateDiagnostic): NfeItemCfopDiagnostic => ({
   source: 'matrix',
   context: diagnostic.context,
@@ -157,7 +164,7 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
           ? 'interestadual'
           : operationScope.scope === 'internal'
             ? 'interno'
-            : operationScope.scope,
+            : operationScope.scope || 'não determinado',
     },
     { label: 'UF de origem', value: formatUf(operationScope.issuerUf) },
     { label: 'UF de destino', value: formatUf(operationScope.operationUf) },
@@ -166,9 +173,7 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
       value: formatRecipientIndicator(recipientIeIndicator),
     },
     { label: 'indIEDest', value: recipientIeIndicator },
-    ...(recipientIe?.trim()
-      ? [{ label: 'IE informada', value: recipientIe.trim() }]
-      : []),
+    ...(recipientIe?.trim() ? [{ label: 'IE informada', value: recipientIe.trim() }] : []),
     { label: 'Consumidor final / indFinal', value: formatBoolean(finalConsumer) },
     ...(presence ? [{ label: 'Presença / indPres', value: presence }] : []),
     {
@@ -181,7 +186,7 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
     { label: 'NCM', value: fiscal.ncm || 'não informado' },
     { label: 'CEST', value: fiscal.cest || 'não informado' },
     { label: 'Mercadoria sujeita a ST', value: formatBoolean(hasSt) },
-    { label: 'Papel na substituição tributária', value: stDecision.role },
+    { label: 'Papel na substituição tributária', value: formatStRole(stDecision.role) },
     { label: 'Produto', value: item.productId || 'não vinculado ao cadastro' },
   ];
 
@@ -190,9 +195,14 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
       environment,
       model,
       issuerRegime,
-      issuerUf: formatUf(operationScope.issuerUf) === 'não informada' ? '' : formatUf(operationScope.issuerUf),
+      issuerUf:
+        formatUf(operationScope.issuerUf) === 'não informada'
+          ? ''
+          : formatUf(operationScope.issuerUf),
       destinationUf:
-        formatUf(operationScope.operationUf) === 'não informada' ? '' : formatUf(operationScope.operationUf),
+        formatUf(operationScope.operationUf) === 'não informada'
+          ? ''
+          : formatUf(operationScope.operationUf),
       destinationScope: 'INTERSTATE',
       operationType: 'sale',
       purpose: '1',
@@ -234,8 +244,7 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
         diagnostic,
       };
     });
-    const recommendedCfop =
-      resolution.status === 'approved' ? resolution.treatment.cfop || '' : '';
+    const recommendedCfop = resolution.status === 'approved' ? resolution.treatment.cfop || '' : '';
     const reason =
       resolution.status === 'approved'
         ? ''
@@ -268,7 +277,9 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
       conflicts.push('O CFOP é de entrada, mas a operação atual é uma saída.');
     }
     if (definition && definition.scope !== operationScope.scope) {
-      conflicts.push(`O CFOP é de destino ${definition.scope}, mas o destino atual é ${operationScope.scope}.`);
+      conflicts.push(
+        `O CFOP é de destino ${definition.scope}, mas o destino atual é ${operationScope.scope}.`
+      );
     }
     if (definition && !definition.allowedModels.includes(model)) {
       conflicts.push(`O CFOP não permite o modelo fiscal NF-e ${model}.`);
@@ -301,7 +312,9 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
       context: [
         ...commonContext,
         { label: 'CFOP analisado', value: candidate.value },
-        ...(expectedCfop ? [{ label: 'CFOP recomendado pela matriz', value: expectedCfop }] : []),
+        ...(expectedCfop
+          ? [{ label: 'CFOP recomendado pela regra fiscal', value: expectedCfop }]
+          : []),
       ],
       conflicts,
       ...(expectedCfop ? { recommendedCfop: expectedCfop } : {}),

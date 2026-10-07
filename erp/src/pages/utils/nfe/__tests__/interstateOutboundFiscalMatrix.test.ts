@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { initialHmlCsosnConfiguration } from '../../../../../../api/nfe/csosnPolicy';
 import { resolveFiscalDocument } from '../../../../../../api/nfe/fiscalSnapshot';
 import { serializeFiscalDocument } from '../../../../../../api/nfe/fiscalXmlSerializer';
@@ -9,8 +9,14 @@ import {
   type InterstateOutboundFiscalMatrixFacts,
   type InterstateOutboundFiscalMatrixRule,
   resolveInterstateOutboundFiscalMatrix,
+  resolveInterstateStRole,
 } from '../../../../../../api/nfe/interstateOutboundFiscalMatrix';
+import {
+  createNormalSaleRuleSet,
+  NORMAL_SALE_RULESET_VERSION,
+} from '../../../../../../api/nfe/normalSaleRuleSet';
 import { resolveFiscalCfopOrderScope } from '../../../../../../shared-utils/fiscalCfopModel';
+import { resolveOrderFiscalModel } from '../../../../../../shared-utils/fiscalDocumentModel';
 import { generateNfeAccessKey } from '../nfeAccessKey';
 import { makeInterstateFacts } from './fixtures/fiscalCfopMatrix.fixtures';
 
@@ -79,14 +85,79 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     testEvidence: 'TEST_ONLY: selector fixture',
   });
 
-  it('estrutura a matriz em 6 cenários fundamentais (5 APPROVED, 1 BLOCKED por RV 696)', () => {
+  const interstateEmissionFacts = (
+    destinationUf: string,
+    finalConsumer: boolean,
+    recipientIeIndicator: '1' | '9'
+  ) => {
+    const cfop = recipientIeIndicator === '1' ? '6102' : '6108';
+    const input = makeInterstateFacts({ recipientUf: destinationUf, cfop });
+    input.capturedAt = facts.effectiveAt;
+    input.emissionRequest.finalConsumer = finalConsumer;
+    input.emissionRequest.recipientIeIndicator = recipientIeIndicator;
+    input.emissionRequest.recipientTaxId = '11222333000181';
+    if (recipientIeIndicator === '1') input.emissionRequest.recipientIe = '123456789';
+    const customer = input.fiscalInputs!.customer as Record<string, unknown>;
+    input.fiscalInputs!.customer = {
+      ...customer,
+      personType: 'PJ',
+      cpfCnpj: '11222333000181',
+      ieIndicator: recipientIeIndicator,
+      ...(recipientIeIndicator === '1' ? { ie: '123456789' } : {}),
+    };
+    const products = input.fiscalInputs!.products as Record<string, Record<string, unknown>>;
+    products['PROD-MOVEL-1'] = { ...products['PROD-MOVEL-1'], hasSt: false };
+    input.order.data.fiscalContext = {
+      recipientIeIndicator,
+      acquisitionPurpose: finalConsumer ? 'use_consumption' : 'resale',
+      finalConsumer,
+      purpose: '1',
+    };
+    return input;
+  };
+
+  it('mantém somente as seis famílias gerais, sem aprovação fiscal interestadual', () => {
     expect(INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES).toHaveLength(6);
     expect(
       INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.filter((rule) => rule.status === 'APPROVED')
-    ).toHaveLength(5);
+    ).toHaveLength(0);
     expect(
       INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.filter((rule) => rule.status === 'BLOCKED')
     ).toHaveLength(1);
+    expect(
+      INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.filter((rule) => rule.status === 'DRAFT')
+    ).toHaveLength(5);
+
+    const generalFamilies = INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.filter(
+      (rule) => rule.id.endsWith('-BASE') && rule.candidateCfops.length > 0
+    );
+    expect(generalFamilies).toHaveLength(5);
+    expect(generalFamilies.every((rule) => rule.status === 'DRAFT')).toBe(true);
+    expect(generalFamilies.every((rule) => rule.pendingReview.length > 0)).toBe(true);
+    expect(generalFamilies.map((rule) => rule.treatment.csosn)).toEqual([
+      '103',
+      '103',
+      '103',
+      '103',
+      '103',
+    ]);
+    expect(generalFamilies.every((rule) => rule.criteria.destinationUf === null)).toBe(true);
+    expect(
+      generalFamilies.every((rule) =>
+        rule.pendingReview.some((item) => item.includes('sem override por estado'))
+      )
+    ).toBe(true);
+    expect(
+      generalFamilies.every(
+        (rule) =>
+          !rule.approvedBy &&
+          !rule.approvedAt &&
+          !rule.effectiveFrom &&
+          !rule.reviewedWildcards?.length &&
+          !rule.xmlEvidence &&
+          !rule.testEvidence
+      )
+    ).toBe(true);
 
     const expectedIds = [
       'INTERSTATE-TAXPAYER-NONFINAL-BASE',
@@ -97,7 +168,7 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       'INTERSTATE-NONTAXPAYER-NONFINAL-BASE',
     ];
     expect(INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.map((r) => r.id)).toEqual(expectedIds);
-    expect(hasApprovedInterstateOutboundRoute(facts)).toBe(true);
+    expect(hasApprovedInterstateOutboundRoute(facts)).toBe(false);
   });
 
   it('bloqueia operação com ST não configurada (INTERSTATE_ST_RULE_NOT_CONFIGURED)', () => {
@@ -115,6 +186,38 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       status: 'not_approved',
       code: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
       missingFacts: expect.arrayContaining(['recipientIeStatus']),
+    });
+  });
+
+  it('não interpreta hasSt ausente como false', () => {
+    const withoutSt = { ...facts };
+    delete withoutSt.hasSt;
+    expect(resolveInterstateOutboundFiscalMatrix(withoutSt)).toMatchObject({
+      status: 'not_approved',
+      code: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
+      missingFacts: expect.arrayContaining(['hasSt']),
+      reason: expect.stringContaining('CEST vazio ou ausente'),
+    });
+    expect(
+      resolveInterstateOutboundFiscalMatrix({
+        ...facts,
+        hasSt: undefined,
+      })
+    ).toMatchObject({ status: 'not_approved', missingFacts: expect.arrayContaining(['hasSt']) });
+  });
+
+  it('o resolvedor ST também preserva estado desconhecido quando hasSt não foi informado', () => {
+    expect(
+      resolveInterstateStRole({
+        ncm: '85165000',
+        issuerUf: 'PR',
+        destinationUf: 'SC',
+      })
+    ).toMatchObject({
+      role: null,
+      isSt: null,
+      status: 'UNCONFIGURED',
+      errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
     });
   });
 
@@ -141,8 +244,8 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     });
   });
 
-  it('valida aceitação de indIEDest=2 (Contribuinte Isento) pela UF de destino (MOC RV 805)', () => {
-    // SC aceita isento
+  it('separa validação técnica de indIEDest=2 da aprovação do tratamento tributário', () => {
+    // SC não consta na lista de UFs bloqueadas pela RV 805, mas a família tributária segue DRAFT.
     const resultSc = resolveInterstateOutboundFiscalMatrix({
       ...facts,
       destinationUf: 'SC',
@@ -150,8 +253,8 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       finalConsumer: false,
     });
     expect(resultSc).toMatchObject({
-      status: 'approved',
-      ruleId: 'INTERSTATE-EXEMPT-NONFINAL-BASE',
+      status: 'not_approved',
+      matchingDraftRuleIds: ['INTERSTATE-EXEMPT-NONFINAL-BASE'],
     });
 
     // SP NÃO aceita isento em operação interestadual (RV 805 / E16a-30)
@@ -193,36 +296,162 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     return rule;
   };
 
-  it.each(['SC', 'RS'])(
-    'PR→%s para PJ contribuinte resolve CFOP 6102 sem ST e sem DIFAL (cenário Pedido 4268)',
-    (destinationUf) => {
-      const input = {
+  it('uma regra APPROVED mais específica pode vencer um DRAFT mais amplo', () => {
+    const broadDraft = anyDestinationRule();
+    broadDraft.status = 'DRAFT';
+    broadDraft.priority = 999;
+    broadDraft.pendingReview = ['DRAFT amplo de teste'];
+    const specificApproved = completeRule('APPROVED-SPECIFIC');
+    specificApproved.priority = 1;
+
+    expect(
+      resolveInterstateOutboundFiscalMatrix(facts, [broadDraft, specificApproved])
+    ).toMatchObject({ status: 'approved', ruleId: specificApproved.id });
+  });
+
+  it('PR→RS para PJ contribuinte continua bloqueado enquanto a família geral estiver DRAFT', () => {
+    const input = {
+      ...facts,
+      destinationUf: 'RS',
+      recipientIeStatus: 'taxpayer' as const,
+      finalConsumer: false,
+    };
+    expect(
+      resolveFiscalCfopOrderScope({
+        issuerUf: 'PR',
+        deliveryMethod: 'delivery',
+        shipping: { useCustomerAddress: false, deliveryAddress: { state: 'RS' } },
+        customerAddress: { state: 'PR' },
+      })
+    ).toMatchObject({ scope: 'interstate', destination: '2' });
+    expect(resolveInterstateOutboundFiscalMatrix(input)).toMatchObject({
+      status: 'not_approved',
+      matchingDraftRuleIds: ['INTERSTATE-TAXPAYER-NONFINAL-BASE'],
+    });
+  });
+
+  it('PR→SC usa a mesma família geral DRAFT, sem regra de destino específica', () => {
+    const result = resolveInterstateOutboundFiscalMatrix(facts);
+    expect(result).toMatchObject({
+      status: 'not_approved',
+      matchingDraftRuleIds: ['INTERSTATE-TAXPAYER-FINAL-BASE'],
+    });
+    expect(INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.some((rule) => rule.id.includes('PR-SC'))).toBe(
+      false
+    );
+  });
+
+  it('mantém bloqueadas todas as 26 UFs de destino pela matriz geral sem APPROVED', () => {
+    const interstateUfs = [
+      'AC',
+      'AL',
+      'AP',
+      'AM',
+      'BA',
+      'CE',
+      'DF',
+      'ES',
+      'GO',
+      'MA',
+      'MT',
+      'MS',
+      'MG',
+      'PA',
+      'PB',
+      'PE',
+      'PI',
+      'RJ',
+      'RN',
+      'RS',
+      'RO',
+      'RR',
+      'SC',
+      'SP',
+      'SE',
+      'TO',
+    ];
+    for (const destinationUf of interstateUfs) {
+      const routeFacts = {
         ...facts,
         destinationUf,
         recipientIeStatus: 'taxpayer' as const,
         finalConsumer: false,
       };
-      expect(
-        resolveFiscalCfopOrderScope({
-          issuerUf: 'PR',
-          deliveryMethod: 'delivery',
-          shipping: { useCustomerAddress: false, deliveryAddress: { state: destinationUf } },
-          customerAddress: { state: 'PR' },
-        })
-      ).toMatchObject({ scope: 'interstate', destination: '2' });
-      expect(resolveInterstateOutboundFiscalMatrix(input)).toMatchObject({
-        status: 'approved',
-        ruleId: 'INTERSTATE-TAXPAYER-NONFINAL-BASE',
-        treatment: expect.objectContaining({
-          cfop: '6102',
-          csosn: '102',
-          st: expect.objectContaining({ applicable: false, responsibility: 'none' }),
-          difal: expect.objectContaining({ applicable: false, responsibility: 'none' }),
-        }),
+      expect(hasApprovedInterstateOutboundRoute(routeFacts)).toBe(false);
+      expect(resolveInterstateOutboundFiscalMatrix(routeFacts)).toMatchObject({
+        status: 'not_approved',
+        matchingDraftRuleIds: ['INTERSTATE-TAXPAYER-NONFINAL-BASE'],
       });
-      expect(hasApprovedInterstateOutboundRoute(input)).toBe(true);
+    }
+  });
+
+  it('bloqueia PR→SC antes de chamar o serializer quando nenhuma família está aprovada', async () => {
+    const input = interstateEmissionFacts('SC', true, '1');
+    const serializer = vi.fn();
+    const prepareThenSerialize = async () => {
+      const ruleSet = await createNormalSaleRuleSet(input);
+      const resolved = resolveFiscalDocument(input, ruleSet);
+      if (resolved.status !== 'ready') throw new Error(JSON.stringify(resolved.blockers));
+      return serializer(resolved.document);
+    };
+
+    await expect(prepareThenSerialize()).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
+    expect(serializer).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2] as const)(
+    'exige finalidade persistida antes da matriz no ambiente %s',
+    async (environment) => {
+      const input = interstateEmissionFacts('SC', true, '1');
+      input.emissionRequest.environment = environment;
+      delete (input.order.data.fiscalContext as Record<string, unknown>).acquisitionPurpose;
+      await expect(createNormalSaleRuleSet(input)).rejects.toThrow('ACQUISITION_PURPOSE_REQUIRED');
     }
   );
+
+  it.each([
+    ['resale', true],
+    ['use_consumption', false],
+    ['fixed_asset', false],
+  ])(
+    'rejeita indFinal incompatível com finalidade %s persistida',
+    async (acquisitionPurpose, finalConsumer) => {
+      const input = interstateEmissionFacts('SC', finalConsumer as boolean, '1');
+      (input.order.data.fiscalContext as Record<string, unknown>).acquisitionPurpose =
+        acquisitionPurpose;
+      await expect(createNormalSaleRuleSet(input)).rejects.toThrow('ACQUISITION_PURPOSE_MISMATCH');
+    }
+  );
+
+  it('bloqueia cenário interestadual antes do serializer sem depender de um status tributário candidato', async () => {
+    const input = interstateEmissionFacts('RS', false, '9');
+    const serializer = vi.fn();
+    const prepareThenSerialize = async () => {
+      const ruleSet = await createNormalSaleRuleSet(input);
+      const resolved = resolveFiscalDocument(input, ruleSet);
+      if (resolved.status !== 'ready') throw new Error(JSON.stringify(resolved.blockers));
+      return serializer(resolved.document);
+    };
+
+    await expect(prepareThenSerialize()).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
+    expect(serializer).not.toHaveBeenCalled();
+  });
+
+  it('mantém a família bloqueada mesmo se o usuário escolher um CSOSN candidato', async () => {
+    const input = interstateEmissionFacts('RS', true, '1');
+    input.emissionRequest.itemFiscalSelections!['1'].csosn = '103';
+    const serializer = vi.fn();
+    const prepareThenSerialize = async () => {
+      const ruleSet = await createNormalSaleRuleSet(input);
+      const resolved = resolveFiscalDocument(input, ruleSet);
+      if (resolved.status !== 'ready') throw new Error(JSON.stringify(resolved.blockers));
+      return serializer(resolved.document);
+    };
+
+    await expect(prepareThenSerialize()).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
+    expect(input.emissionRequest.itemFiscalSelections!['1'].csosn).toBe('103');
+    expect(serializer).not.toHaveBeenCalled();
+  });
 
   it('PR→PR segue interno e não casa com wildcard interestadual mesmo em fixture APPROVED', () => {
     const input = { ...facts, destinationUf: 'PR' };
@@ -533,7 +762,23 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       finalConsumer: true,
       purpose: '1',
     };
+    const interstateModelDecision = resolveOrderFiscalModel(input.order.data, {
+      issuerUf: 'PR',
+      finalConsumer: true,
+      recipientAddress: { state: 'SC' },
+    });
+    if (interstateModelDecision.status !== 'ready')
+      throw new Error('Fixture interestadual exige NF-e.');
     const internal = makeInterstateFacts({ recipientUf: 'PR', cfop: '5102' });
+    internal.fiscalInputs!.contributionDecisions = {
+      '65': {
+        scope: { model: '65', operation: 'normal_sale', issuerCrt: '1' },
+        pis: { cst: '99', base: 0, rate: 0, value: 0 },
+        cofins: { cst: '99', base: 0, rate: 0, value: 0 },
+        confirmedAt: '2026-09-01T00:00:00Z',
+        confirmedBy: 'TEST_UNIT_NFCE65_DECISION',
+      },
+    };
     const internalRules = await createHmlNormalSaleRuleSet(
       internal,
       initialHmlCsosnConfiguration()
@@ -542,7 +787,7 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     if (base.status !== 'ready') throw new Error('Fixture interna inválida');
     const selected = resolveInterstateOutboundFiscalMatrix(facts, [completeRule()]);
     if (selected.status !== 'approved') throw new Error('Fixture de seletor inválida');
-    const version = 'TEST_ONLY_INTERSTATE';
+    const version = NORMAL_SALE_RULESET_VERSION;
     const traces = base.document.decisions.map((trace) => ({
       ...trace,
       ruleSetVersion: version,
@@ -558,6 +803,7 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
         model: '55' as const,
         snapshotHash: hash,
         ruleSetVersion: version,
+        modelDecision: interstateModelDecision,
         recipient: {
           ...base.document.recipient,
           personType: 'PJ' as const,
@@ -624,7 +870,7 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     for (const value of ['<ICMSUFDest>', '<vICMSST>', '<pFCP>', '<pFCPST>'])
       expect(xml).not.toContain(value);
     expect(INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES.some((rule) => rule.status === 'APPROVED')).toBe(
-      true
+      false
     );
   });
 });

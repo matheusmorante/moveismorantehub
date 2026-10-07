@@ -1,10 +1,10 @@
 import React from 'react';
-import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import {
   getFiscalIssuePresentation,
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 
 export interface NfeEmissionFooterProps {
   invoiceTotal: number;
@@ -14,6 +14,7 @@ export interface NfeEmissionFooterProps {
   isSubmitting: boolean;
   isLoadingFiscalData: boolean;
   isLoadingCustomerType: boolean;
+  isOperationIncomplete?: boolean;
   fiscalPreparationError: string | null;
   emissionResult: NfeEmissionResult | null;
   productionConfirmed: boolean;
@@ -32,6 +33,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   isSubmitting,
   isLoadingFiscalData,
   isLoadingCustomerType,
+  isOperationIncomplete = false,
   fiscalPreparationError,
   emissionResult,
   productionConfirmed,
@@ -54,6 +56,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     isSubmitting ||
     isLoadingFiscalData ||
     isLoadingCustomerType ||
+    isOperationIncomplete ||
     hasBlockingPreparationFailure;
 
   React.useLayoutEffect(() => {

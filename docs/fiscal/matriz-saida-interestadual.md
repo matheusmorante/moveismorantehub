@@ -1,6 +1,6 @@
 # Matriz de Decisão Fiscal Interestadual de Saída
 
-Nome no código: **Interstate Outbound Fiscal Matrix**, módulo `api/nfe/interstateOutboundFiscalMatrix.ts`. Revisão de escopo: **06/10/2026**. A auditoria fiscal anterior foi preservada e classificada por abrangência; a mudança de nome não aprova tratamento tributário.
+Nome no código: **Interstate Outbound Fiscal Matrix**, módulo `api/nfe/interstateOutboundFiscalMatrix.ts`. Revisão de escopo e reconciliação do catálogo: **07/10/2026**. A auditoria fiscal anterior foi preservada e classificada por abrangência; a mudança de nome não aprova tratamento tributário.
 
 ## Escopo geográfico e autoridade fiscal
 
@@ -17,7 +17,7 @@ Uma saída é interestadual quando a UF fiscal de destino é brasileira e difere
 
 Entrega usa o endereço efetivo determinado pela política central; retirada usa o estabelecimento emitente ou o endereço efetivo de retirada informado. A UF cadastral do cliente, isoladamente, não define a rota. Ausência/invalidade de UF bloqueia. O resolver rejeita mesma UF e exterior mesmo se receber um wildcard ou uma fixture APPROVED.
 
-**20 DRAFT, 4 BLOCKED, 0 APPROVED.** As 24 combinações são famílias gerais de decisão, não 24 tratamentos tributários completos. Não foi criada uma matriz por destino. Nenhum override tributário executável foi cadastrado. A pesquisa específica de SC está em [overrides/sc.md](overrides/sc.md); sua legislação não fundamenta automaticamente SP, RS ou outra UF.
+**Inventário documental: 20 DRAFT, 4 BLOCKED, 0 APPROVED.** As 24 combinações são células de revisão, não tratamentos executáveis. A reconciliação de 07/10/2026 confirmou cinco famílias gerais DRAFT e uma família geral BLOCKED no runtime: **5 DRAFT, 1 BLOCKED e 0 APPROVED**. Cada família geral agrupa quatro células do inventário (PF/PJ × ST indicada/não indicada). Não há tratamento tributário executável específico de SC. A auditoria do cenário PR→SC está preservada como histórico em [auditoria-interestadual-pr-sc.md](auditoria-interestadual-pr-sc.md); ela não cria comportamento especial no runtime e suas fontes não fundamentam automaticamente SP, RS ou outra UF.
 
 ## Camadas e escopos normativos
 
@@ -73,13 +73,13 @@ Essa verificação foi das seções pertinentes, não da conformidade integral d
 
 ## Dimensões, candidatos e decisões pendentes
 
-São independentes: modelo, finalidade, origem/destino fiscal, PF/PJ, indIEDest, indFinal, mercadoria própria/terceiros, produto, NCM, CEST, origem fiscal, ST e vigência. CFOP, CSOSN, ICMS, DIFAL, FCP e FCP-ST são decisões do tratamento; não se inferem uns dos outros.
+São independentes: modelo, finalidade, origem/destino fiscal, PF/PJ, indIEDest, indFinal, mercadoria própria/terceiros, produto, NCM, CEST, origem fiscal, ST e vigência. CFOP, CSOSN, ICMS, DIFAL, FCP e FCP-ST são decisões do tratamento; não se inferem uns dos outros. O CSOSN indicado para esta matriz é um candidato comum do emitente/operação, não uma regra selecionada pela UF de destino. A preferência atual registrada é `103` para todas as UFs; sua comprovação legal continua pendente e, por isso, não libera as famílias `DRAFT`.
 
 O filtro de CFOP continua classificando `internal`/`interstate`/`foreign` antes de natureza da operação, tipo de mercadoria, destinatário e ST. 6102 e 6108 são candidatos condicionais. Não se escolhe 6102 apenas porque o estado mudou. 6933 não é candidato para venda de mercadoria. CEST não prova ST.
 
 | Referência do inventário | Ramo fiscal a comprovar | Pendência que impede executar |
 | --- | --- | --- |
-| C | CSOSN 101/ICMSSN101 se crédito permitido; 102/ICMSSN102 sem crédito; outros códigos com fundamento próprio | Regime/atividade do adquirente, crédito, receita/benefícios do emitente/produto |
+| C | CSOSN 103/ICMSSN102 como candidato comum; outros códigos somente com fundamento próprio | Comprovar a isenção por faixa de receita no PR e sua aplicação; sem seleção por UF de destino |
 | F | ICMSSN102 para 102/103/300/400 conforme enquadramento comprovado | Ausência de crédito não comprova tributação comum ou elimina benefícios |
 | S | Substituto 201/202/203 ou substituído 500, segundo operação real | Produto, descrição, retenção anterior, papel, acordo vigente, bases, alíquotas e serializer |
 | D0 | Examinar finalidade de revenda e eventual antecipação do adquirente | Regime do adquirente e legislação do destino; conclusões de SC não se generalizam |
@@ -87,11 +87,11 @@ O filtro de CFOP continua classificando `internal`/`interstate`/`foreign` antes 
 | D9 | Examinar consumidor final não contribuinte e situação do remetente Simples | Conclusão jurídica por enquadramento/destino; exceção XML não significa não incidência |
 | X | FCP e FCP-ST | Incidência/base/alíquota/recolhimento por destino/produto; permanece unresolved |
 
-Todos os tratamentos executáveis permanecem nulos, inclusive vigência. NCM precisa ter 8 dígitos; CEST, quando presente, 7; origem fiscal, 0–8 comprovada. CEST vazio exige análise de enquadramento, não só um cadastro vazio. O NCM 94035000 das fixtures é sintético e não aprova mercadoria operacional.
+Nenhuma família geral tem tratamento `APPROVED` executável nem vigência aprovada. Os cinco registros DRAFT carregam candidatos para análise — inclusive CSOSN 103, CFOP 6102/6108 e zeros de ST/DIFAL/FCP —, mas o status e as pendências impedem que esses valores sejam usados para autorizar ou montar XML. NCM precisa ter 8 dígitos; CEST, quando presente, 7; origem fiscal, 0–8 comprovada. CEST vazio exige análise de enquadramento, não só um cadastro vazio. O NCM 94035000 das fixtures é sintético e não aprova mercadoria operacional.
 
 ## Inventário completo e mudança dos IDs
 
-O prefixo de todas as 24 famílias mudou de `PR-SC-` para `INTERSTATE-`, preservando os sufixos. Esses IDs identificam agora famílias da base, com `issuerUf=PR` e destino wildcard. Não havia regra APPROVED ou documento emitido por esses IDs; nenhuma migration ou reescrita de histórico fiscal foi executada.
+Os 24 IDs abaixo são identificadores documentais das células de revisão; o catálogo executável usa IDs agregados diferentes, mapeados na auditoria a seguir. Nenhuma migration ou reescrita de histórico fiscal foi executada.
 
 `I` é contribuinte isento de IE; `NC` é não contribuinte. A combinação NC/não final está BLOCKED por N1 E16a-40/696, para esta venda normal de saída. DRAFT também impede emissão; suas dependências de destino continuam obrigatórias.
 
@@ -122,11 +122,28 @@ O prefixo de todas as 24 famílias mudou de `PR-SC-` para `INTERSTATE-`, preserv
 | PF-NONTAXPAYER-NONFINAL-NO-ST | PF | 9 | 0 | não | Não executável | BLOCKED | E16a-40/696 |
 | PF-NONTAXPAYER-NONFINAL-ST | PF | 9 | 0 | sim | Não executável | BLOCKED | E16a-40/696 |
 
-## Overrides por destino
+## Reconciliação das regras agregadas no runtime
 
-**Overrides executáveis existentes: nenhum.** [Santa Catarina](overrides/sc.md) possui uma auditoria específica preservada, ainda sem regra tributária completa. Não foram criados overrides SP/RS por cópia de SC. Uma regra futura de destino deve ter `destinationUf` explícito e fontes classificadas; protocolos exigem o par origem/destino e o produto pertinente.
+Foram auditadas individualmente as cinco regras que estavam `APPROVED` em `rules.ts`. Não foi localizado registro independente que sustentasse a atribuição `approvedBy: FISCAL_COUNCIL`; essa atribuição, as datas de aprovação e as evidências de teste/XML que aparentavam validar o tratamento completo foram removidas. As cinco regras agora são `DRAFT`, sem vigência aprovada. Os campos de tratamento que ainda constam nelas são valores candidatos de rascunho e não podem alimentar uma emissão.
 
-As fixtures APPROVED de testes são sintéticas e demonstram apenas a seleção: SC específico ganha em SC; SP/RS usam a regra geral sintética quando aplicável. Não são cadastros fiscais aprovados.
+| ID agregado no runtime | Células documentais cobertas (4 combinações: PF/PJ × ST sim/não) | O que as fontes sustentam | Lacuna que impede aprovação | Estado reconciliado |
+| --- | --- | --- | --- | --- |
+| `INTERSTATE-TAXPAYER-NONFINAL-BASE` | `PJ-TAXPAYER-NONFINAL-*`, `PF-TAXPAYER-NONFINAL-*` | N2 classifica 6102 para mercadoria de terceiros; N1/N3–N5 e PR1–PR3 dão regras técnicas e contextuais | CFOP não prova a validade do candidato CSOSN 103, crédito, ICMS, ausência de ST/DIFAL/FCP, nem validade para todo destino/NCM | DRAFT |
+| `INTERSTATE-TAXPAYER-FINAL-BASE` | `PJ-TAXPAYER-FINAL-*`, `PF-TAXPAYER-FINAL-*` | N2 classifica 6102; N1 define indicadores do XML | `indFinal=1` não informa se é uso/consumo ou ativo; destino, DIFAL, ST/FCP, crédito e produto precisam de decisão concreta | DRAFT |
+| `INTERSTATE-EXEMPT-NONFINAL-BASE` | `PJ-EXEMPT-NONFINAL-*`, `PF-EXEMPT-NONFINAL-*` | N1 RV 805/E16a-30 cobre a validação técnica do indIEDest por UF; N2 classifica 6102 | Aceitação técnica de IE isenta não aprova CSOSN/ICMS nem ausência de ST/DIFAL/FCP para todos os produtos/destinos | DRAFT |
+| `INTERSTATE-EXEMPT-FINAL-BASE` | `PJ-EXEMPT-FINAL-*`, `PF-EXEMPT-FINAL-*` | N1 RV 805/E16a-30 cobre validação técnica por UF; N2 classifica 6102 | A validação técnica não determina finalidade material, DIFAL, ST/FCP, crédito ou tratamento do produto | DRAFT |
+| `INTERSTATE-NONTAXPAYER-FINAL-BASE` | `PJ-NONTAXPAYER-FINAL-*`, `PF-NONTAXPAYER-FINAL-*` | N2 classifica 6108 para venda a não contribuinte; N1 cobre validações do XML | LC 190 estabelece responsabilidades de DIFAL para consumidor final; exceção de leiaute para CRT 1 não comprova incidência zero, nem encerra ST/FCP e regras de destino/produto | DRAFT |
+| `INTERSTATE-NONTAXPAYER-NONFINAL-BASE` | `PJ-NONTAXPAYER-NONFINAL-*`, `PF-NONTAXPAYER-NONFINAL-*` | N1 E16a-40 prevê rejeição 696 para saída a não contribuinte sem `indFinal=1` | A combinação permanece tecnicamente bloqueada pela rejeição nacional | BLOCKED |
+
+O início da auditoria de conteúdo para `INTERSTATE-TAXPAYER-FINAL-BASE`, usando o pedido HML #4268 como caso de referência, está em [auditoria da família contribuinte-consumidor final](auditoria-familia-interestadual-contribuinte-final.md). Essa análise não aprova a família nem estende seus achados de SC a outras UFs.
+
+As cinco famílias DRAFT têm `environment=2`, modelo 55, emitente PR/CRT 1 e mercadoria de terceiros. Seus curingas alcançavam qualquer UF brasileira, PF/PJ, NCM, CEST, origem de produto e estado de ST dentro desse escopo; não havia critério nem evidência para generalizar as conclusões tributárias a todas essas combinações. CFOP 6102/6108 é mantido como candidato classificatório, não como decisão tributária. A tabela oficial do CONFAZ delimita esses CFOPs; o Convênio 142/18 vincula ST à mercadoria, descrição, NCM/CEST, legislação e condições do acordo; LC 123 e LC 190 não validam sozinhas os tratamentos zero codificados. Fontes: [tabela CFOP do CONFAZ](https://www.confaz.fazenda.gov.br/legislacao/ajustes/sinief/cfop_cvsn_1-6.24), [Convênio ICMS 142/18](https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18), [LC 123/2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), [LC 190/2022](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp190.htm) e [MOC 7.0, Anexo I](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf).
+
+## Regras específicas por destino e auditorias
+
+**Tratamentos tributários executáveis específicos por destino: nenhum.** [A auditoria PR→SC](auditoria-interestadual-pr-sc.md) está preservada como registro histórico, sem efeito sobre a resolução atual. Uma regra futura de destino exige diferença concreta, `destinationUf` explícito e fontes classificadas; protocolos exigem o par origem/destino e o produto pertinente.
+
+As fixtures APPROVED de testes são sintéticas e demonstram apenas a precedência de critérios: uma fixture com destino SC pode vencer a geral quando for mais específica. Isso não representa um override operacional de SC nem um cadastro fiscal aprovado.
 
 ## Hierarquia, vigência e bloqueio
 
@@ -144,7 +161,7 @@ Esta refatoração não cria/reverte estoque, financeiro, reservas comerciais ou
 
 ## XML, testes e validação
 
-**Nenhum XML de nova regra fiscal aprovada:** APPROVED continua zero. O contrato contexto → regra sintética → resolução → XML permanece testado, sem emissão. Grupos tributários não implementados e campos não serializados são rejeitados, inclusive valores zero; não houve generalização de impostos de SC.
+**Nenhuma regra interestadual geral está APPROVED.** A reconciliação reclassificou as cinco famílias antes marcadas como aprovadas para DRAFT; não havia registro rastreável de aprovação fiscal nem evidência XML para o tratamento completo fora dos próprios campos dessas regras. Testes sintéticos continuam cobrindo contexto → regra sintética → resolução → XML, sem emissão real. Grupos tributários não implementados e campos não serializados são rejeitados, inclusive valores zero; não houve generalização de impostos de SC.
 
 | Validação focada | Resultado |
 | --- | --- |
@@ -155,10 +172,10 @@ Esta refatoração não cria/reverte estoque, financeiro, reservas comerciais ou
 
 A rodada dos três módulos passou com 103 casos. Após acrescentar a prova positiva de fontes de origem/par e substituir o acesso de propriedade pela forma recomendada pelo lint, o módulo completo da matriz foi repetido: 50/50 aprovados. Os outros módulos não mudaram depois de aprovados. Os testes usam mocks/fixtures locais; não há emissão via CLI, acesso real ao banco ou SOAP real.
 
-Cobertura nova: PR→PR interno; PR→SC/SP/RS na mesma base; todos os outros 26 destinos brasileiros em fixture sintética; entrega personalizada e retirada efetiva; rejeição de exterior/UF inválida/mesma UF; override SC restrito a SC; prioridade produto/NCM sobre destino; empate de destino null/omitido; finalidade/escopo obrigatórios; fontes NATIONAL/ORIGIN_STATE/DESTINATION_STATE/ORIGIN_DESTINATION_PAIR/PRODUCT_SPECIFIC e rejeição de uso fora de seus critérios. PR→SC/SP/RS sem APPROVED bloqueia antes da RPC numerada e do SOAP.
+Cobertura nova: PR→PR interno; PR→SC/SP/RS na mesma base; todos os outros 26 destinos brasileiros em fixture sintética; entrega personalizada e retirada efetiva; rejeição de exterior/UF inválida/mesma UF; precedência sintética de regra com destino explícito sobre regra geral; prioridade produto/NCM sobre destino; empate de destino null/omitido; finalidade/escopo obrigatórios; fontes NATIONAL/ORIGIN_STATE/DESTINATION_STATE/ORIGIN_DESTINATION_PAIR/PRODUCT_SPECIFIC e rejeição de uso fora de seus critérios. PR→SC/SP/RS sem resolução APPROVED bloqueia antes da RPC numerada e do SOAP.
 
 TypeScript da matriz e API fiscal passou; a API foi verificada com `--ignoreDeprecations 6.0 --rootDir . --module ESNext --moduleResolution Bundler` para acomodar o TypeScript instalado e os imports compartilhados, sem modificar configuração. ESLint dos testes ERP e Biome dos módulos API passaram. `git diff --check` passou. Não foi executada compilação integral do ERP nesta refatoração de domínio.
 
-Reauditoria do escopo: consumidores/imports atualizados; não há identidade PR-SC ou fontes SC na matriz-base do código, nem seletores separados por destino. Catálogo, validação de escopo/fontes e seleção permanecem responsabilidades relacionadas à decisão fiscal server-side; a UI não recebeu acesso ao banco ou regra tributária. A integração HML continua sendo a fronteira de execução. Dívida pendente: completar tratamentos fiscais e mapear grupos XML antes de permitir transmissão; isso não foi substituído por esta mudança estrutural.
+Reauditoria do escopo e reconciliação: cinco regras gerais foram reclassificadas como DRAFT após verificar individualmente o alcance de seus curingas, a cobertura das fontes e a falta de registro rastreável de aprovação; o ramo não contribuinte/não final permanece BLOCKED pela RV E16a-40/696. As 20 células DRAFT e quatro BLOCKED correspondem às seis famílias gerais do runtime (5 DRAFT e 1 BLOCKED). Os gates PR→SC usados durante a revisão foram removidos em 07/10/2026 por redundância: as famílias gerais agora bloqueiam SC pelo mesmo status aplicado às demais UFs. O catálogo tem 5 DRAFT, 1 BLOCKED e 0 APPROVED, sem tratamento fiscal específico de SC. Catálogo, validação de escopo/fontes e seleção permanecem responsabilidades server-side; não houve emissão real nem deploy. A transmissão interestadual permanece bloqueada até que cada família receba decisão fiscal rastreável e cobertura completa.
 
 A próxima aprovação exige fatos e tratamento concretos, inclusive as normas do destino pertinentes, e implementação/testes do XML correspondente. Generalizar o escopo geográfico não transforma pendências em decisões tributárias.

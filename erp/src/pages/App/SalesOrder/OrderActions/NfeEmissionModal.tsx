@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  HML_INTERSTATE_MATRIX_NOT_APPROVED,
   getFiscalIssuePresentation,
+  HML_INTERSTATE_MATRIX_NOT_APPROVED,
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
@@ -41,13 +41,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     useNfeCustomerPersonType(order);
 
   const {
+    acquisitionPurpose,
+    handleAcquisitionPurposeChange,
     finalConsumer,
-    setFinalConsumer,
     modelDecision,
     canOperateFiscal,
     environment,
     setEnvironment,
     isSubmitting,
+    isSavingAcquisitionPurpose,
     numberPreview,
     nfeNumberSequence,
     isLoadingNfeNumber,
@@ -261,8 +263,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         order={order}
         environment={environment}
         productionConfirmed={productionConfirmed}
+        acquisitionPurpose={acquisitionPurpose}
+        onAcquisitionPurposeChange={handleAcquisitionPurposeChange}
+        isSavingAcquisitionPurpose={isSavingAcquisitionPurpose}
         finalConsumer={finalConsumer}
-        setFinalConsumer={setFinalConsumer}
         modelReason={modelDecision?.reason}
         numberPreview={numberPreview}
         setNumberPreview={setNumberPreview}
@@ -313,6 +317,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       />
 
       <NfeEmissionFooter
+        isOperationIncomplete={isSavingAcquisitionPurpose || finalConsumer === undefined}
         invoiceTotal={invoiceTotal}
         environment={environment}
         isNfce={isNfce}

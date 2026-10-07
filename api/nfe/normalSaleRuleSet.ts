@@ -13,14 +13,14 @@ import {
   type TransportResponsible,
 } from '../../shared-utils/fiscalTransportModel';
 import {
+  getRecipientIeIndicatorConsistencyError,
+  resolveEffectiveRecipientIeIndicator,
+} from '../../shared-utils/recipientIeIndicator';
+import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../shared-utils/recipientTaxId';
-import {
-  getRecipientIeIndicatorConsistencyError,
-  resolveEffectiveRecipientIeIndicator,
-} from '../../shared-utils/recipientIeIndicator';
 import type { ApprovedFiscalRuleSet } from './fiscalCore';
 import type { FiscalAddress, FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
 import {
@@ -76,6 +76,26 @@ export async function createNormalSaleRuleSet(
   if (operationScope.scope === 'foreign')
     throw new Error('Operação com exterior exige matriz fiscal específica aprovada.');
 
+  let finalConsumer = facts.emissionRequest.finalConsumer;
+  if (operationScope.scope === 'interstate') {
+    const acquisitionPurpose = contextData.acquisitionPurpose;
+    if (
+      acquisitionPurpose !== 'resale' &&
+      acquisitionPurpose !== 'use_consumption' &&
+      acquisitionPurpose !== 'fixed_asset'
+    ) {
+      throw new Error(
+        'ACQUISITION_PURPOSE_REQUIRED: registre no pedido se a compra é para revenda, uso/consumo ou ativo imobilizado.'
+      );
+    }
+    finalConsumer = acquisitionPurpose !== 'resale';
+    if (facts.emissionRequest.finalConsumer !== finalConsumer) {
+      throw new Error(
+        'ACQUISITION_PURPOSE_MISMATCH: o indFinal enviado não corresponde à finalidade persistida no pedido.'
+      );
+    }
+  }
+
   const initialComposition = composeServiceFiscalValues(orderData.items as any);
   const modelTotal =
     initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
@@ -99,7 +119,7 @@ export async function createNormalSaleRuleSet(
   };
   const modelDecision = resolveOrderFiscalModel(decisionOrder, {
     issuerUf: String(facts.issuerProfile.companyUF || ''),
-    finalConsumer: facts.emissionRequest.finalConsumer,
+    finalConsumer,
     recipientAddress: address,
   });
   if (modelDecision.status !== 'ready') throw new Error(modelDecision.reason);
@@ -111,7 +131,12 @@ export async function createNormalSaleRuleSet(
           'INTERSTATE_OPERATION',
           'RESALE',
           'VALUE_LIMIT',
-        ].includes(reason)
+        ].includes(reason) &&
+        !(
+          reason === 'OTHER_FISCAL_REQUIREMENT' &&
+          ieIndicator === '1' &&
+          contextData.otherFiscalRequirement !== true
+        )
     )
   )
     throw new Error(
@@ -180,10 +205,7 @@ export async function createNormalSaleRuleSet(
             ? customer.personType
             : undefined,
         recipientIeStatus,
-        finalConsumer:
-          typeof facts.emissionRequest.finalConsumer === 'boolean'
-            ? facts.emissionRequest.finalConsumer
-            : modelDecision.finalConsumer,
+        finalConsumer,
         merchandiseOrigin: merchandiseOrigin(itemRecord, productFiscal),
         productOrigin: selected?.origem,
         ncm: selected?.ncm,
@@ -207,7 +229,12 @@ export async function createNormalSaleRuleSet(
         }
         if (selected?.cfop && selected.cfop !== approvedTreatment.cfop) {
           throw new Error(
-            `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${approvedTreatment.cfop} para operação interestadual); nenhuma escolha foi substituída.`
+            `CFOP escolhido diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.cfop} para operação interestadual); nenhuma escolha foi substituída.`
+          );
+        }
+        if (selected?.csosn !== approvedTreatment.csosn) {
+          throw new Error(
+            `CSOSN ${selected?.csosn || 'não informado'} diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.csosn}); nenhuma escolha foi substituída.`
           );
         }
       }
@@ -356,9 +383,7 @@ export async function createNormalSaleRuleSet(
       }
       const shipping = data.shipping ? obj(data.shipping) : {};
       const freight = money(shipping.value ?? 0, 'Frete comercial');
-      const isNonTaxpayerInterstate =
-        snapshotScope.scope === 'interstate' &&
-        ieIndicator === '9';
+      const isNonTaxpayerInterstate = snapshotScope.scope === 'interstate' && ieIndicator === '9';
       const expectedCfop =
         snapshotScope.scope === 'internal' ? '5102' : isNonTaxpayerInterstate ? '6108' : '6102';
       const { traces, determinedItems, products, discount, invoice } = determineNormalSaleItems({

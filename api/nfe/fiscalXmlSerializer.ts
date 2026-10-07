@@ -6,7 +6,6 @@ import {
 } from '../../shared-utils/recipientTaxId';
 import { type ApprovedFiscalRuleSet, validateFiscalDocument } from './fiscalCore';
 import type { FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
-import { isNormalSaleRuleSet } from './normal-sale/constants';
 import { serializeFiscalItems } from './xml/fiscalItemXml';
 import { accessKeyDigit, addressXml, dateOnly, money, requireCode, tag } from './xml/xmlPrimitives';
 
@@ -17,7 +16,7 @@ export type FiscalXmlIdentity = {
   issuedAt: string;
 };
 
-/** Pure internal-sale NF-e/NFC-e serialization, including PR online QR Code v3. */
+/** Pure NF-e/NFC-e serialization after fiscal policy and document validation. */
 export function serializeFiscalDocument(
   snapshot: FiscalSnapshotCandidate,
   document: FiscalDocument,
@@ -72,10 +71,6 @@ export function serializeFiscalDocument(
     throw new Error('Operação fiscal não suportada pelo serializer.');
   if (document.model === '65' && operation.destination !== '1')
     throw new Error('NFC-e não permite operação interestadual.');
-  if (isNormalSaleRuleSet(document.ruleSetVersion) && operation.destination !== '1')
-    throw new Error(
-      `${document.ruleSetVersion} não gera XML interestadual sem uma matriz tributária aprovada.`
-    );
   if (
     document.model === '65' &&
     (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===

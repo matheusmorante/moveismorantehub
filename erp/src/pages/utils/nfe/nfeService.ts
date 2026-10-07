@@ -542,6 +542,7 @@ export async function emitNfeForOrder(
         () => {
           const { itemCsosnOverrides, itemFiscalSelections } =
             buildFiscalItemSelectionPayload(order);
+          const requestedFinalConsumer = finalConsumer ?? order.fiscalContext?.finalConsumer;
           return JSON.stringify({
             orderId: String(order.id || ''),
             environment,
@@ -553,7 +554,9 @@ export async function emitNfeForOrder(
             ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
             ...(recipientIe === undefined ? {} : { recipientIe }),
             ...(recipientIeIndicator === undefined ? {} : { recipientIeIndicator }),
-            finalConsumer: finalConsumer ?? order.fiscalContext?.finalConsumer ?? true,
+            ...(requestedFinalConsumer === undefined
+              ? {}
+              : { finalConsumer: requestedFinalConsumer }),
             ...(deliveryByIssuer === undefined ? {} : { deliveryByIssuer }),
             ...(transporter ? { transporter } : {}),
             ...(freightMode ? { freightMode } : {}),

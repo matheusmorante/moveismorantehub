@@ -1,7 +1,7 @@
 import {
+  type FiscalCfopItemType,
   getCfopDefinition,
   isBrazilianFiscalUf,
-  type FiscalCfopItemType,
 } from '../../../shared-utils/fiscalCfopModel';
 import { EXEMPT_IE_DISALLOWED_UFS, INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES } from './rules';
 import type {
@@ -27,6 +27,7 @@ const requiredFacts: Array<keyof InterstateOutboundFiscalMatrixFacts> = [
   'purpose',
   'recipientIeStatus',
   'finalConsumer',
+  'hasSt',
   'merchandiseOrigin',
   'productOrigin',
   'ncm',
@@ -244,22 +245,40 @@ export function resolveInterstateStRole(params: {
   ncm?: string;
   issuerUf?: string;
   destinationUf?: string;
-}): {
-  role: InterstateStRole;
-  isSt: boolean;
-  status: 'RESOLVED' | 'UNCONFIGURED';
-  errorCode?: 'INTERSTATE_ST_RULE_NOT_CONFIGURED';
-  reason?: string;
-} {
+}):
+  | { role: InterstateStRole; isSt: boolean; status: 'RESOLVED' }
+  | {
+      role: null;
+      isSt: null;
+      status: 'UNCONFIGURED';
+      errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE';
+      reason: string;
+    }
+  | {
+      role: Exclude<InterstateStRole, 'NONE'>;
+      isSt: true;
+      status: 'UNCONFIGURED';
+      errorCode: 'INTERSTATE_ST_RULE_NOT_CONFIGURED';
+      reason: string;
+    } {
   const { stRole, hasSt, catalogCst, itemFiscalCst, ncm, issuerUf, destinationUf } = params;
 
-  let effectiveRole: InterstateStRole = 'NONE';
-  if (stRole) {
+  let effectiveRole: InterstateStRole;
+  if (stRole !== undefined) {
     effectiveRole = stRole;
   } else if (hasSt === true || catalogCst === '500' || itemFiscalCst === '500') {
     effectiveRole = 'SUBSTITUTED';
   } else if (hasSt === false) {
     effectiveRole = 'NONE';
+  } else {
+    return {
+      role: null,
+      isSt: null,
+      status: 'UNCONFIGURED',
+      errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
+      reason:
+        'O enquadramento de ST não foi informado; CEST vazio ou ausente no cadastro não comprova ausência de enquadramento.',
+    };
   }
 
   if (effectiveRole === 'NONE') {
@@ -372,7 +391,11 @@ export type InterstateOutboundFiscalMatrixResolution =
   | { status: 'ambiguous'; code: 'HML_INTERSTATE_MATRIX_AMBIGUOUS'; ruleIds: string[] }
   | { status: 'invalid_approved_rule'; code: 'HML_INTERSTATE_MATRIX_INVALID'; ruleIds: string[] };
 
-/** Fast route-level gate so an absent route matrix blocks even before item detail parsing. */
+/**
+ * Fast route-level gate so an absent route matrix blocks before item parsing.
+ * This does not approve the item's fiscal scenario; resolveInterstateOutboundFiscalMatrix
+ * must still select its exact rule before fiscal preparation/serialization.
+ */
 export function hasApprovedInterstateOutboundRoute(
   facts: Pick<
     InterstateOutboundFiscalMatrixFacts,
@@ -464,7 +487,9 @@ export function resolveInterstateOutboundFiscalMatrix(
 
   if (missingFacts.length) {
     return notApproved(
-      'Fatos fiscais obrigatórios ausentes ou inválidos.',
+      missingFacts.includes('hasSt')
+        ? 'Informe se o produto está sujeito à ST; CEST vazio ou ausente no cadastro não comprova ausência de enquadramento.'
+        : 'Fatos fiscais obrigatórios ausentes ou inválidos.',
       'INTERSTATE_TAX_PROFILE_INCOMPLETE'
     );
   }
@@ -505,18 +530,68 @@ export function resolveInterstateOutboundFiscalMatrix(
   }
 
   const effectiveAt = Date.parse(String(facts.effectiveAt));
-  const matchingApproved = rules.filter(
-    (rule) =>
-      rule.status === 'APPROVED' &&
-      (!Number.isFinite(Date.parse(rule.effectiveFrom || '')) ||
-        Date.parse(rule.effectiveFrom || '') <= effectiveAt) &&
-      (!rule.effectiveUntil ||
-        !Number.isFinite(Date.parse(rule.effectiveUntil)) ||
-        Date.parse(rule.effectiveUntil) >= effectiveAt) &&
-      matchesCompleteCriteria(facts as InterstateOutboundFiscalMatrixFacts, rule.criteria)
-  );
+  const specificity = (rule: InterstateOutboundFiscalMatrixRule): number[] => [
+    ...(
+      [
+        'productId',
+        'ncm',
+        'cest',
+        'destinationUf',
+        'hasSt',
+        'recipientIeStatus',
+        'recipientPersonType',
+        'finalConsumer',
+        'productOrigin',
+        'merchandiseOrigin',
+      ] as const
+    ).map((key) => (!isMissing(rule.criteria[key], key) ? 1 : 0)),
+    rule.priority,
+  ];
 
-  if (matchingApproved.length) {
+  const compare = (a: number[], b: number[]) => {
+    for (let index = 0; index < a.length; index++) {
+      if (a[index] !== b[index]) return b[index] - a[index];
+    }
+    return 0;
+  };
+
+  const ranked = rules
+    .filter((rule) => {
+      const effectiveFrom = Date.parse(rule.effectiveFrom || '');
+      const effectiveUntil = Date.parse(rule.effectiveUntil || '');
+      const active =
+        (!Number.isFinite(effectiveFrom) || effectiveFrom <= effectiveAt) &&
+        (!rule.effectiveUntil || !Number.isFinite(effectiveUntil) || effectiveUntil >= effectiveAt);
+      if (!active || rule.status === 'DEPRECATED') return false;
+      if (rule.status === 'APPROVED')
+        return matchesCompleteCriteria(facts as InterstateOutboundFiscalMatrixFacts, rule.criteria);
+      return matchesKnownCriteria(facts, rule.criteria);
+    })
+    .map((rule) => ({ rule, specificity: specificity(rule) }))
+    .sort((a, b) => compare(a.specificity, b.specificity));
+
+  if (ranked.length) {
+    const bestSpecificity = ranked[0].specificity;
+    const bestCandidates = ranked.filter(
+      (candidate) => compare(candidate.specificity, bestSpecificity) === 0
+    );
+    const unresolved = bestCandidates.filter(
+      ({ rule }) => rule.status === 'DRAFT' || rule.status === 'BLOCKED'
+    );
+
+    if (unresolved.length) {
+      const details = unresolved
+        .map(({ rule }) => {
+          const review = rule.pendingReview.join(' ');
+          return `${rule.id} (${rule.status})${review ? `: ${review}` : ''}`;
+        })
+        .join(' | ');
+      return notApproved(
+        `O cenário mais específico da matriz está pendente ou bloqueado; uma regra-base genérica não pode autorizá-lo. ${details}`
+      );
+    }
+
+    const matchingApproved = bestCandidates.map(({ rule }) => rule);
     const invalid = matchingApproved.filter((rule) => !approvalIsComplete(rule));
     if (invalid.length) {
       return {
@@ -526,49 +601,15 @@ export function resolveInterstateOutboundFiscalMatrix(
       };
     }
 
-    const specificity = (rule: InterstateOutboundFiscalMatrixRule): number[] => [
-      ...(
-        [
-          'productId',
-          'ncm',
-          'cest',
-          'destinationUf',
-          'hasSt',
-          'recipientIeStatus',
-          'recipientPersonType',
-          'finalConsumer',
-          'productOrigin',
-          'merchandiseOrigin',
-        ] as const
-      ).map((key) => (!isMissing(rule.criteria[key], key) ? 1 : 0)),
-      rule.priority,
-    ];
-
-    const compare = (a: number[], b: number[]) => {
-      for (let index = 0; index < a.length; index++) {
-        if (a[index] !== b[index]) return b[index] - a[index];
-      }
-      return 0;
-    };
-
-    const ranked = matchingApproved
-      .map((rule) => ({
-        rule,
-        specificity: specificity(rule),
-      }))
-      .sort((a, b) => compare(a.specificity, b.specificity));
-
-    const [best, second] = ranked;
-    if (second && compare(best.specificity, second.specificity) === 0) {
+    if (matchingApproved.length > 1) {
       return {
         status: 'ambiguous',
         code: 'HML_INTERSTATE_MATRIX_AMBIGUOUS',
-        ruleIds: ranked
-          .filter((item) => compare(item.specificity, best.specificity) === 0)
-          .map((item) => item.rule.id),
+        ruleIds: matchingApproved.map((rule) => rule.id),
       };
     }
 
+    const best = matchingApproved[0];
     // Resolver CSOSN determinístico e compor tratamento final
     const csosnResult = resolveInterstateCsosn({
       issuerCrt: String(facts.issuerRegime || '1'),
@@ -578,10 +619,10 @@ export function resolveInterstateOutboundFiscalMatrix(
     });
 
     const treatment: InterstateTaxTreatment = {
-      ...best.rule.treatment,
+      ...best.treatment,
       csosn: csosnResult.csosn,
       icms: {
-        ...best.rule.treatment.icms,
+        ...best.treatment.icms,
         xmlGroup: csosnResult.xmlGroup,
         framework: csosnResult.framework,
       },
@@ -589,11 +630,11 @@ export function resolveInterstateOutboundFiscalMatrix(
 
     return {
       status: 'approved',
-      rule: best.rule,
-      ruleId: best.rule.id,
-      reason: `Regra aprovada vigente (${best.rule.id}) aplicada sem conflito.`,
-      sources: [...best.rule.sourceReferences],
-      normativeSources: [...best.rule.normativeSources],
+      rule: best,
+      ruleId: best.id,
+      reason: `Regra aprovada vigente (${best.id}) aplicada sem conflito.`,
+      sources: [...best.sourceReferences],
+      normativeSources: [...best.normativeSources],
       treatment,
     };
   }
@@ -616,9 +657,7 @@ export type InterstateCfopCandidateDiagnostic = {
   conflicts: string[];
 };
 
-const diagnosticFieldLabels: Partial<
-  Record<keyof InterstateOutboundFiscalMatrixFacts, string>
-> = {
+const diagnosticFieldLabels: Partial<Record<keyof InterstateOutboundFiscalMatrixFacts, string>> = {
   environment: 'Ambiente fiscal',
   model: 'Modelo fiscal',
   issuerRegime: 'CRT do emitente',
@@ -675,9 +714,8 @@ const formatDiagnosticValue = (
   if (value === undefined || value === null || value === '') return 'não informado';
   if (key === 'environment') return value === 1 ? 'Produção (1)' : 'Homologação (2)';
   if (key === 'model') return value === '55' ? 'NF-e 55' : 'NFC-e 65';
-  if (key === 'issuerRegime') return 'CRT ' + String(value);
-  if (key === 'destinationScope')
-    return value === 'INTERSTATE' ? 'interestadual' : String(value);
+  if (key === 'issuerRegime') return `CRT ${String(value)}`;
+  if (key === 'destinationScope') return value === 'INTERSTATE' ? 'interestadual' : String(value);
   if (key === 'operationType') {
     const operationLabels: Record<string, string> = {
       sale: 'venda',
@@ -723,7 +761,14 @@ const formatDiagnosticValue = (
 
 const recipientIndicatorValue = (
   status: InterstateOutboundFiscalMatrixFacts['recipientIeStatus'] | undefined
-): string => (status === 'taxpayer' ? '1' : status === 'exempt' ? '2' : status === 'non_taxpayer' ? '9' : 'não informado');
+): string =>
+  status === 'taxpayer'
+    ? '1'
+    : status === 'exempt'
+      ? '2'
+      : status === 'non_taxpayer'
+        ? '9'
+        : 'não informado';
 
 /**
  * Gives each dropdown option a diagnostic from the exact same approved rules and
@@ -746,10 +791,11 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
     rules = INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES,
     resolution: existingResolution,
   } = params;
-  const resolution =
-    existingResolution || resolveInterstateOutboundFiscalMatrix(facts, rules);
-  const recommendedCfop = resolution.status === 'approved' ? resolution.treatment.cfop || undefined : undefined;
-  const recommendedCsosn = resolution.status === 'approved' ? resolution.treatment.csosn || undefined : undefined;
+  const resolution = existingResolution || resolveInterstateOutboundFiscalMatrix(facts, rules);
+  const recommendedCfop =
+    resolution.status === 'approved' ? resolution.treatment.cfop || undefined : undefined;
+  const recommendedCsosn =
+    resolution.status === 'approved' ? resolution.treatment.csosn || undefined : undefined;
   const ruleId = resolution.status === 'approved' ? resolution.rule.id : undefined;
   const enabled =
     resolution.status === 'approved' &&
@@ -760,23 +806,18 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
   )
     .filter((key) => facts[key] !== undefined)
     .map((key) => ({
-      label:
-        key === 'recipientIeStatus'
-          ? 'Destinatário'
-          : diagnosticFieldLabels[key] || key,
+      label: key === 'recipientIeStatus' ? 'Destinatário' : diagnosticFieldLabels[key] || key,
       value: formatDiagnosticValue(key, facts[key]),
     }));
-  context.splice(
-    context.findIndex((item) => item.label === 'Destinatário') + 1,
-    0,
-    {
-      label: 'indIEDest',
-      value: recipientIndicatorValue(facts.recipientIeStatus),
-    }
-  );
+  context.splice(context.findIndex((item) => item.label === 'Destinatário') + 1, 0, {
+    label: 'indIEDest',
+    value: recipientIndicatorValue(facts.recipientIeStatus),
+  });
   context.push({ label: 'CFOP analisado', value: candidateCfop });
-  if (recommendedCfop) context.push({ label: 'CFOP recomendado pela matriz', value: recommendedCfop });
-  if (recommendedCsosn) context.push({ label: 'CSOSN recomendado pela matriz', value: recommendedCsosn });
+  if (recommendedCfop)
+    context.push({ label: 'CFOP recomendado pela matriz', value: recommendedCfop });
+  if (recommendedCsosn)
+    context.push({ label: 'CSOSN recomendado pela matriz', value: recommendedCsosn });
   context.push(...contextExtras);
 
   const conflicts: string[] = [];
@@ -785,14 +826,11 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
   };
   const definition = getCfopDefinition(candidateCfop);
   if (!definition) {
-    addConflict('CFOP ' + candidateCfop + ' não existe no catálogo fiscal ativo.');
+    addConflict(`CFOP ${candidateCfop} não existe no catálogo fiscal ativo.`);
   } else {
     if (definition.direction !== 'outbound')
-      addConflict('O CFOP ' + candidateCfop + ' é de entrada; a operação atual é uma saída.');
-    if (
-      facts.destinationScope &&
-      definition.scope !== facts.destinationScope.toLowerCase()
-    )
+      addConflict(`O CFOP ${candidateCfop} é de entrada; a operação atual é uma saída.`);
+    if (facts.destinationScope && definition.scope !== facts.destinationScope.toLowerCase())
       addConflict(
         'O CFOP ' +
           candidateCfop +
@@ -848,10 +886,7 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
           formatDiagnosticValue('merchandiseOrigin', facts.merchandiseOrigin) +
           '.'
       );
-    if (
-      definition.stApplicability === 'required' &&
-      facts.hasSt !== true
-    )
+    if (definition.stApplicability === 'required' && facts.hasSt !== true)
       addConflict(
         'O CFOP ' +
           candidateCfop +
@@ -859,14 +894,9 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
           formatDiagnosticValue('hasSt', facts.hasSt) +
           '.'
       );
-    if (
-      definition.stApplicability === 'not_required' &&
-      facts.hasSt === true
-    )
+    if (definition.stApplicability === 'not_required' && facts.hasSt === true)
       addConflict(
-        'O CFOP ' +
-          candidateCfop +
-          ' é para mercadoria sem ST, mas o cadastro informa ST=sim.'
+        `O CFOP ${candidateCfop} é para mercadoria sem ST, mas o cadastro informa ST=sim.`
       );
   }
 
@@ -906,7 +936,7 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
       );
     }
   } else {
-    addConflict('Nenhuma regra APPROVED da matriz inclui o CFOP ' + candidateCfop + '.');
+    addConflict(`Nenhuma regra APPROVED da matriz inclui o CFOP ${candidateCfop}.`);
   }
 
   if (resolution.status === 'approved' && !enabled) {
@@ -932,7 +962,7 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
     for (const rule of blockedRules) {
       for (const pendingReason of rule.pendingReview || []) addConflict(pendingReason);
     }
-    if (resolution.reason) addConflict('Resultado da matriz: ' + resolution.reason);
+    if (resolution.reason) addConflict(`Resultado da matriz: ${resolution.reason}`);
     const stResult = resolveInterstateStRole({
       stRole: facts.stRole,
       hasSt: facts.hasSt,
@@ -941,15 +971,11 @@ export function diagnoseInterstateOutboundCfopCandidate(params: {
       destinationUf: facts.destinationUf,
     });
     if (stResult.status === 'UNCONFIGURED' && stResult.reason)
-      addConflict('Substituição tributária: ' + stResult.reason);
+      addConflict(`Substituição tributária: ${stResult.reason}`);
   } else if (resolution.status === 'ambiguous') {
-    addConflict(
-      'A matriz encontrou regras aprovadas ambíguas: ' + resolution.ruleIds.join(', ') + '.'
-    );
+    addConflict(`A matriz encontrou regras aprovadas ambíguas: ${resolution.ruleIds.join(', ')}.`);
   } else if (resolution.status === 'invalid_approved_rule') {
-    addConflict(
-      'A matriz contém regras aprovadas inválidas: ' + resolution.ruleIds.join(', ') + '.'
-    );
+    addConflict(`A matriz contém regras aprovadas inválidas: ${resolution.ruleIds.join(', ')}.`);
   }
 
   return {

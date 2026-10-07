@@ -1,8 +1,11 @@
 import type Order from '@/pages/types/order.type';
-import type { FreightContractResponsible, TransportResponsible } from '../../../../../../../../shared-utils/fiscalTransportModel';
+import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type {
+  FreightContractResponsible,
+  TransportResponsible,
+} from '../../../../../../../../shared-utils/fiscalTransportModel';
 import type { NfeItemFiscal } from '../NfeItemsSection';
 import type { ThirdPartyTransporterForm } from '../NfeTransportSection';
-import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 
 export interface FiscalFieldError {
   tab: 'general' | 'customer' | 'items' | 'transport' | 'payment';
@@ -42,12 +45,10 @@ export interface NfeTransportState {
   thirdPartyTransporter: ThirdPartyTransporterForm;
 }
 
-// In-memory emission drafts survive modal unmounts; no product/order mutation or persistent PII.
-export const emissionContexts = new Map<string, { finalConsumer: boolean }>();
+// Item edits survive modal unmounts; fiscal purchase purpose is persisted on the order.
 export const fiscalDrafts = new Map<string, Record<number, Partial<NfeItemFiscal>>>();
 
 export const clearFiscalEmissionDrafts = () => {
-  emissionContexts.clear();
   fiscalDrafts.clear();
 };
 

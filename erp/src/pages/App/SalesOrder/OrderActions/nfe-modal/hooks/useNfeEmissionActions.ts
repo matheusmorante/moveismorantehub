@@ -2,6 +2,12 @@ import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
+import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
+import {
+  HML_INTERSTATE_MATRIX_NOT_APPROVED,
+  isHmlInterstateMatrixBlock,
+  safeFiscalIssueMessage,
+} from '@/pages/utils/nfe/fiscalIssuePresentation';
 import {
   clearFiscalEmissionRequest,
   emitNfeForOrder,
@@ -9,14 +15,11 @@ import {
   printOrderDanfe,
   updateFiscalNumberPreviewCache,
 } from '@/pages/utils/nfe/nfeService';
-import {
-  HML_INTERSTATE_MATRIX_NOT_APPROVED,
-  isHmlInterstateMatrixBlock,
-  safeFiscalIssueMessage,
-} from '@/pages/utils/nfe/fiscalIssuePresentation';
-import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import type { resolveOrderFiscalModel } from '../../../../../../../../shared-utils/fiscalDocumentModel';
-import type { resolveTransport } from '../../../../../../../../shared-utils/fiscalTransportModel';
+import type {
+  DeliveryMethod,
+  resolveTransport,
+} from '../../../../../../../../shared-utils/fiscalTransportModel';
 import {
   getRecipientIeIndicatorConsistencyError,
   resolveEffectiveRecipientIeIndicator,
@@ -24,15 +27,11 @@ import {
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import type { ThirdPartyTransporterForm } from '../NfeTransportSection';
 import {
-  emissionContexts,
-  type FiscalFieldError,
-  type NfeSequencePreviewState,
-} from '../types/nfeEmission.types';
-import { validateNfeEmission } from '../services/nfeValidationService';
-import {
   consultSefazStatus,
   executeAbandonHmlTlsAttempt,
 } from '../services/nfeReconciliationService';
+import { validateNfeEmission } from '../services/nfeValidationService';
+import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
 
 export interface UseNfeEmissionActionsProps {
   order: Order | null;
@@ -41,8 +40,10 @@ export interface UseNfeEmissionActionsProps {
   modelDecision: ReturnType<typeof resolveOrderFiscalModel> | null;
   currentModel: '55' | '65';
   deliveryMethod: DeliveryMethod;
-  finalConsumer: boolean;
-  contextKey: string;
+  requiresExplicitAcquisitionPurpose: boolean;
+  isSavingAcquisitionPurpose: boolean;
+  acquisitionPurpose: FiscalAcquisitionPurpose | null;
+  finalConsumer?: boolean;
   nfeItems: NfeItemWithFiscal[];
   isLoadingFiscalData: boolean;
   fiscalPreparationError: string | null;
@@ -66,8 +67,10 @@ export function useNfeEmissionActions({
   modelDecision,
   currentModel,
   deliveryMethod,
+  requiresExplicitAcquisitionPurpose,
+  isSavingAcquisitionPurpose,
+  acquisitionPurpose,
   finalConsumer,
-  contextKey,
   nfeItems,
   isLoadingFiscalData,
   fiscalPreparationError,
@@ -100,6 +103,15 @@ export function useNfeEmissionActions({
       return;
     }
     if (!order) return;
+
+    if (isSavingAcquisitionPurpose) return;
+    if (
+      (requiresExplicitAcquisitionPurpose && !acquisitionPurpose) ||
+      typeof finalConsumer !== 'boolean'
+    ) {
+      toast.error('Registre a finalidade da compra no pedido antes de preparar a emissão.');
+      return;
+    }
 
     if (modelDecision?.status !== 'ready') {
       toast.error(modelDecision?.reason || 'Confirme os dados da operação fiscal.');
@@ -174,7 +186,6 @@ export function useNfeEmissionActions({
     if (!validation.valid) return;
 
     setFiscalFieldError(null);
-    emissionContexts.set(contextKey, { finalConsumer });
     submissionInProgress.current = true;
     setIsSubmitting(true);
 
@@ -260,7 +271,9 @@ export function useNfeEmissionActions({
       const failedResult: NfeEmissionResult = {
         success: false,
         pending: errObj?.pending === true,
-        error: (typeof errObj?.message === 'string' ? errObj.message : '') || 'Ocorreu um erro ao processar a emissão fiscal.',
+        error:
+          (typeof errObj?.message === 'string' ? errObj.message : '') ||
+          'Ocorreu um erro ao processar a emissão fiscal.',
         ...(typeof errObj?.documentId === 'string' ? { documentId: errObj.documentId } : {}),
         ...(typeof errObj?.emissionRequestId === 'string'
           ? { emissionRequestId: errObj.emissionRequestId }
@@ -275,7 +288,10 @@ export function useNfeEmissionActions({
             ? { diagnosticId: errObj.diagnosticId }
             : {}),
           ...(typeof (errObj?.transportDiagnostic as Record<string, unknown>)?.code === 'string'
-            ? { transportCode: (errObj?.transportDiagnostic as Record<string, unknown>).code as string }
+            ? {
+                transportCode: (errObj?.transportDiagnostic as Record<string, unknown>)
+                  .code as string,
+              }
             : {}),
         },
       };
@@ -368,7 +384,9 @@ export function useNfeEmissionActions({
         readyToEmit = true;
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Não foi possível iniciar a nova tentativa fiscal.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível iniciar a nova tentativa fiscal.';
         setEmissionResult((previous) => (previous ? { ...previous, error: message } : null));
       } finally {
         submissionInProgress.current = false;

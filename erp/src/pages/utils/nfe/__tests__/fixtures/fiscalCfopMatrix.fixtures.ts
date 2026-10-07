@@ -22,6 +22,7 @@ export const makeInterstateFacts = (options?: {
       version: 1,
       updatedAt: '2026-09-30T12:00:00Z',
       data: {
+        fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
         shipping: {
           value: 50,
           deliveryMethod: method,

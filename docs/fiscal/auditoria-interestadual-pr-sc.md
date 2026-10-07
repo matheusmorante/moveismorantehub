@@ -1,8 +1,10 @@
-# Auditoria de destino e requisitos de override: Santa Catarina
+# Auditoria do cenário interestadual PR → SC
 
-Este documento preserva o exame de **PR → SC** realizado em 06/10/2026. A matriz principal é a [Matriz de Decisão Fiscal Interestadual de Saída](../matriz-saida-interestadual.md). As famílias `INTERSTATE-*` são gerais; as conclusões estaduais abaixo só se aplicam ao exame de SC.
+Este documento preserva o exame do destino Santa Catarina no cenário **PR → SC** realizado em 06/10/2026. A matriz principal é a [Matriz de Decisão Fiscal Interestadual de Saída](matriz-saida-interestadual.md). Este arquivo registra uma auditoria de fontes e vetores; não representa um override tributário nem prova, por si só, uma diferença aplicável a toda operação destinada a SC.
 
-**Nenhum override tributário executável SC foi cadastrado ou aprovado.** A auditoria continua com 20 famílias DRAFT e quatro combinações BLOCKED pela regra técnica nacional descrita na matriz-base. Não foram habilitadas transmissão, produção ou regras tributárias por inferência.
+**Nenhum tratamento tributário executável específico de SC foi cadastrado ou aprovado.** A auditoria/reconciliação de 07/10/2026 confirmou que o inventário documental registra 20 células DRAFT, quatro BLOCKED e zero APPROVED; o runtime agora tem cinco famílias gerais DRAFT e uma família geral BLOCKED (5 DRAFT/1 BLOCKED/0 APPROVED). As cinco regras antes marcadas APPROVED foram reclassificadas por falta de evidência fiscal rastreável para o tratamento completo e o alcance dos curingas. Os dois gates PR→SC que existiram durante a revisão foram removidos por redundância quando as famílias gerais também viraram DRAFT. O mapeamento das seis famílias gerais às 24 células está na [matriz de saída interestadual](matriz-saida-interestadual.md).
+
+Este arquivo é um registro histórico de fontes e vetores examinados para PR→SC. Os gates temporários descritos em versões anteriores não existem mais no runtime; o cenário é bloqueado pelas mesmas famílias gerais DRAFT usadas para os outros destinos interestaduais. Não há exceção fiscal específica de SC ativa.
 
 ## Fontes específicas de destino e de acordos
 
@@ -49,9 +51,9 @@ Todas compartilham: ambiente 2, modelo 55, CRT 1, venda normal, terceiros, PR �
 
 A modalidade/base/alíquota de cada linha está na coluna C/F/S acima: são ramos condicionais, nenhum parâmetro executável foi estabelecido. Quando ST/DIFAL exigir alíquota interestadual, PR → SC em regra não se confunde com a rota a 7%; origem/importação e exceções podem exigir exame de 4%. Não aplicar uma alíquota interestadual como destaque de ICMS próprio em ICMSSN102.
 
-## Como cadastrar um override SC posteriormente
+## Critério para futura regra específica de destino
 
-Uma regra relevante só deve ser criada no mesmo catálogo da matriz-base, com destino SC explícito. Se depender de acordo, deve vincular origem, destino e produto/segmento. As fontes DESTINATION_STATE exigem SC no critério; ORIGIN_DESTINATION_PAIR exige o par; PRODUCT_SPECIFIC exige o produto/NCM/CEST correspondente.
+Uma regra de destino só deve ser criada no mesmo catálogo da matriz-base quando houver uma diferença fiscal concreta, sustentada por fonte oficial e acionada por critérios correspondentes. Se depender de acordo, deve vincular origem, destino e produto/segmento. Fontes DESTINATION_STATE exigem a UF no critério; ORIGIN_DESTINATION_PAIR exige o par; PRODUCT_SPECIFIC exige o produto/NCM/CEST correspondente.
 
 Não há preenchimento parcial por merge com a regra geral: o resolver seleciona uma regra completa, vigente e sem empate. Hierarquia: produto > NCM > CEST > destino específico > demais dimensões > prioridade. A fixture SC dos testes não é aprovação normativa; SP e RS não usam suas fontes nem seu tratamento.
 

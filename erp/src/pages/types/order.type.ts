@@ -1,10 +1,11 @@
-import { ItemsSummary, Item } from './items.type';
-import CustomerData from './customerData.type';
-import { Payment, PaymentsSummary } from './payments.type';
-import Shipping from './Shipping.type';
+import type CustomerData from './customerData.type';
+import type { Item, ItemsSummary } from './items.type';
+import type { Payment, PaymentsSummary } from './payments.type';
+import type Shipping from './Shipping.type';
 
 export type OrderType = 'sale' | 'assistance' | 'showroom' | 'budget' | 'return';
 export type ReturnMethod = 'store_delivery' | 'store_collection';
+export type FiscalAcquisitionPurpose = 'resale' | 'use_consumption' | 'fixed_asset';
 
 export type AssistanceItem = {
   id: string; // ID for internal keying
@@ -16,6 +17,7 @@ export type AssistanceItem = {
 
 export type Order = {
   fiscalContext?: {
+    acquisitionPurpose?: FiscalAcquisitionPurpose;
     finalConsumer?: boolean;
     operationType?:
       | 'sale'

@@ -13,8 +13,8 @@ import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import { NfeEmissionModal } from '../NfeEmissionModal';
 import PostOrderActionsModal from '../PostOrderActionsModal';
-import { NfeEnvironmentChoiceModal } from './NfeEnvironmentChoiceModal';
 import { useNfeItemEnrichment } from './hooks/useNfeItemEnrichment';
+import { NfeEnvironmentChoiceModal } from './NfeEnvironmentChoiceModal';
 import { clearFiscalEmissionDrafts, useNfeEmission } from './useNfeEmission';
 
 const mocks = vi.hoisted(() => ({
@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   abandonAttempt: vi.fn(),
   setReplacementSource: vi.fn(),
   buildFiscalChoices: vi.fn(),
+  updateOrder: vi.fn(),
 }));
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'administrator' } }),
@@ -49,7 +50,7 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
   printOrderDanfe: vi.fn(),
 }));
 vi.mock('@/pages/utils/settingsService', () => ({
-  getSettings: () => ({ companyUF: 'PR', fiscalDefaults: { cst: '103' } }),
+  getSettings: () => ({ companyUF: 'PR', companyCRT: '1', fiscalDefaults: { cst: '103' } }),
 }));
 vi.mock('@/pages/utils/productService', () => ({ getFullProduct: mocks.getFullProduct }));
 vi.mock('@/pages/utils/productService/productFiscalDataService', () => ({
@@ -61,6 +62,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
   fetchOrderFiscalBadgeStatuses: vi.fn().mockResolvedValue({}),
 }));
+vi.mock('@/pages/utils/orderHistoryService', () => ({ updateOrder: mocks.updateOrder }));
 vi.mock('./NcmSelect', () => ({
   NcmSelect: ({
     id,
@@ -94,6 +96,7 @@ describe('preenchimento dos itens da NF-e', () => {
     vi.resetAllMocks();
     clearFiscalEmissionDrafts();
     mocks.nextNumber.mockResolvedValue(102);
+    mocks.updateOrder.mockResolvedValue(undefined);
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'synthetic-test-token' } },
       error: null,
@@ -109,10 +112,9 @@ describe('preenchimento dos itens da NF-e', () => {
       { itemNumber: 1, csosn: '103', source: 'default' },
       { itemNumber: 2, csosn: '103', source: 'default' },
     ]);
-    mocks.getProductsFiscalData.mockImplementation(async (productIds: string[]) =>
-      new Map(
-        productIds.map((id) => [id, { id, ncm: '94036000', cfop: '5102', origem: '0' }])
-      )
+    mocks.getProductsFiscalData.mockImplementation(
+      async (productIds: string[]) =>
+        new Map(productIds.map((id) => [id, { id, ncm: '94036000', cfop: '5102', origem: '0' }]))
     );
     vi.mocked(fetchOrderFiscalBadgeStatuses).mockResolvedValue({});
   });
@@ -130,22 +132,85 @@ describe('preenchimento dos itens da NF-e', () => {
     ],
   };
   it.each([
-    ['CEST', (value: any) => { value.items[0].fiscal.cest = '0100100'; }],
-    ['origem', (value: any) => { value.items[0].fiscal.origem = '1'; }],
-    ['NCM', (value: any) => { value.items[0].fiscal.ncm = '94035000'; }],
-    ['IE', (value: any) => { value.customerData.ie = '123456789'; }],
-    ['CPF/CNPJ', (value: any) => { value.customerData.cpfCnpj = '98765432100'; }],
-    ['indIEDest', (value: any) => { value.fiscalContext = { recipientIeIndicator: '1' }; }],
-    ['indFinal', (value: any) => { value.fiscalContext = { finalConsumer: false }; }],
-    ['finalidade', (value: any) => { value.fiscalContext = { purpose: '2' }; }],
-    ['endereço', (value: any) => { value.shipping.pickupAddress = { state: 'PR', street: 'Nova rua' }; }],
-    ['quantidade', (value: any) => { value.items[0].quantity = 2; }],
-    ['ST', (value: any) => { value.items[0].fiscal.hasSt = true; }],
-    ['terceiros/própria', (value: any) => { value.items[0].merchandiseOrigin = 'own_production'; }],
+    [
+      'CEST',
+      (value: any) => {
+        value.items[0].fiscal.cest = '0100100';
+      },
+    ],
+    [
+      'origem',
+      (value: any) => {
+        value.items[0].fiscal.origem = '1';
+      },
+    ],
+    [
+      'NCM',
+      (value: any) => {
+        value.items[0].fiscal.ncm = '94035000';
+      },
+    ],
+    [
+      'IE',
+      (value: any) => {
+        value.customerData.ie = '123456789';
+      },
+    ],
+    [
+      'CPF/CNPJ',
+      (value: any) => {
+        value.customerData.cpfCnpj = '98765432100';
+      },
+    ],
+    [
+      'indIEDest',
+      (value: any) => {
+        value.fiscalContext = { recipientIeIndicator: '1' };
+      },
+    ],
+    [
+      'indFinal',
+      (value: any) => {
+        value.fiscalContext = { finalConsumer: false };
+      },
+    ],
+    [
+      'finalidade',
+      (value: any) => {
+        value.fiscalContext = { purpose: '2' };
+      },
+    ],
+    [
+      'endereço',
+      (value: any) => {
+        value.shipping.pickupAddress = { state: 'PR', street: 'Nova rua' };
+      },
+    ],
+    [
+      'quantidade',
+      (value: any) => {
+        value.items[0].quantity = 2;
+      },
+    ],
+    [
+      'ST',
+      (value: any) => {
+        value.items[0].fiscal.hasSt = true;
+      },
+    ],
+    [
+      'terceiros/própria',
+      (value: any) => {
+        value.items[0].merchandiseOrigin = 'own_production';
+      },
+    ],
   ])('invalida CFOP/CSOSN manual e prepara novamente ao alterar %s', async (_label, mutate) => {
     const manualFiscalFields = { current: new Map() };
     const initial = structuredClone(order);
-    const { result, rerender } = renderHook(({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }), { initialProps: { source: initial } });
+    const { result, rerender } = renderHook(
+      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }),
+      { initialProps: { source: initial } }
+    );
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     act(() => result.current.handleUpdateItemFiscal(0, { cfop: '5102', cst: '102' }));
     expect(result.current.nfeItems[0].fiscal.cst).toBe('102');
@@ -159,17 +224,37 @@ describe('preenchimento dos itens da NF-e', () => {
 
   it('edição manual de classificação mantém CFOP 5102 e CSOSN 103 por padrão', async () => {
     const manualFiscalFields = { current: new Map() };
-    const { result } = renderHook(() => useNfeItemEnrichment({ order, environment: 2, manualFiscalFields }));
+    const { result } = renderHook(() =>
+      useNfeItemEnrichment({ order, environment: 2, manualFiscalFields })
+    );
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94035000' }));
-    expect(result.current.nfeItems[0].fiscal).toMatchObject({ ncm: '94035000', cfop: '5102', cst: '103' });
+    expect(result.current.nfeItems[0].fiscal).toMatchObject({
+      ncm: '94035000',
+      cfop: '5102',
+      cst: '103',
+    });
   });
 
   it('mudança para SC elimina tributação interna e sugere CFOP interestadual compatível', async () => {
     const manualFiscalFields = { current: new Map() };
-    const { result, rerender } = renderHook(({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }), { initialProps: { source: order } });
+    const { result, rerender } = renderHook(
+      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }),
+      { initialProps: { source: order } }
+    );
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    rerender({ source: { ...order, shipping: { deliveryMethod: 'delivery', useCustomerAddress: false, deliveryAddress: { state: 'SC' } } } });
+    rerender({
+      source: {
+        ...order,
+        customerData: { ...order.customerData, ie: '123456789' },
+        fiscalContext: { recipientIeIndicator: '1' },
+        shipping: {
+          deliveryMethod: 'delivery',
+          useCustomerAddress: false,
+          deliveryAddress: { state: 'SC' },
+        },
+      },
+    });
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     expect(result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '6102', cst: '103' });
     expect(mocks.toast).not.toHaveBeenCalled();
@@ -417,7 +502,9 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(await screen.findByTestId('nfe-fiscal-issue-trigger'));
 
     expect(await screen.findByText('Não foi possível autorizar a nota')).toBeTruthy();
-    expect(screen.getByText(/O NCM informado para um dos produtos não existe/)).toBeTruthy();
+    expect(screen.getByTestId('fiscal-issue-card').textContent).toMatch(
+      /O NCM informado para um dos produtos não existe/
+    );
     expect((screen.getByTestId('fiscal-technical-details') as HTMLDetailsElement).open).toBe(false);
     expect(screen.queryByRole('button', { name: 'Consultar SEFAZ agora' })).toBeNull();
   });
@@ -481,12 +568,14 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({
-      success: true,
-      documentId: 'fiscal-document-615',
-      model: '65',
-      environment: 2,
-    }));
+    expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        documentId: 'fiscal-document-615',
+        model: '65',
+        environment: 2,
+      })
+    );
     expect(screen.queryByText('Nota recebida em homologação · sem valor fiscal')).toBeNull();
   });
 
@@ -782,11 +871,15 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(consult);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByTestId('nfe-fiscal-issue-trigger'));
-    expect(await screen.findByText('Estamos confirmando o que aconteceu com esta nota')).toBeTruthy();
+    expect(
+      await screen.findByText('Estamos confirmando o que aconteceu com esta nota')
+    ).toBeTruthy();
     expect(mocks.toast).not.toHaveBeenCalled();
     expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
     expect(mocks.emit).toHaveBeenCalledTimes(1);
-    fireEvent.click(await screen.findByRole('button', { name: 'Consultar tentativa em andamento' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Consultar tentativa em andamento' })
+    );
     await waitFor(() =>
       expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
     );
@@ -906,7 +999,7 @@ describe('preenchimento dos itens da NF-e', () => {
     ).not.toMatch(/HML_SEFAZ_REJECTED|\b778\b|HTTP 422/);
   });
 
-  it('mostra toast para rejeição SEFAZ retornada sem código de erro da API', async () => {
+  it('mostra rejeição SEFAZ no aviso fiscal mesmo sem código de erro da API', async () => {
     mocks.emit.mockResolvedValueOnce({
       success: false,
       pending: false,
@@ -925,12 +1018,10 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(await screen.findByTestId('nfe-fiscal-issue-trigger'));
 
     expect(await screen.findByText('Não foi possível autorizar a nota')).toBeTruthy();
-    await waitFor(() =>
-      expect(mocks.toast).toHaveBeenCalledWith(
-        expect.stringContaining('Dados do pagamento com cartão não informados')
-      )
+    expect(screen.getByTestId('fiscal-issue-card').textContent).toContain(
+      'Dados do pagamento com cartão não informados'
     );
-    expect(mocks.toast.mock.calls[0][0]).not.toContain('UNKNOWN');
+    expect(screen.getByTestId('nfe-fiscal-footer-error').textContent).not.toContain('UNKNOWN');
   });
 
   it('não renderiza o card de sucesso fiscal na tela de emissão', async () => {
@@ -1153,7 +1244,11 @@ describe('preenchimento dos itens da NF-e', () => {
         ie: '123456789',
         state: 'SC',
       },
-      fiscalContext: { finalConsumer: false, recipientIeIndicator: '1' },
+      fiscalContext: {
+        acquisitionPurpose: 'resale',
+        finalConsumer: false,
+        recipientIeIndicator: '1',
+      },
       shipping: {
         deliveryMethod: 'delivery',
         useCustomerAddress: false,
@@ -1162,17 +1257,16 @@ describe('preenchimento dos itens da NF-e', () => {
     };
 
     render(
-      <NfeEmissionModal
-        isOpen
-        order={interstateOrder}
-        initialEnvironment={2}
-        onClose={vi.fn()}
-      />
+      <NfeEmissionModal isOpen order={interstateOrder} initialEnvironment={2} onClose={vi.fn()} />
     );
 
-    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    await waitFor(() =>
+      expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false)
+    );
     expect(screen.queryByText('Tratamento fiscal não aprovado')).toBeNull();
-    expect(screen.queryByText(/tratamento fiscal aprovado/i)).toBeNull();
+    expect(screen.getByTestId('nfe-fiscal-footer-error').textContent).toMatch(
+      /tratamento fiscal aprovado/i
+    );
     expect(mocks.toast).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
@@ -1182,23 +1276,63 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getAllByText(/responsável fiscal/).length).toBeGreaterThan(0);
     expect(mocks.emit).not.toHaveBeenCalled();
   });
-  it('escolhe finalidade da compra e mostra a razão do modelo sem alterar o pedido', async () => {
-    const original = structuredClone(order);
-    render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
-    expect(screen.getByText(/NFC-e · modelo 65/)).toBeTruthy();
+  it('exige e persiste a finalidade da compra antes de resolver o modelo fiscal', async () => {
+    const unspecifiedOrder = structuredClone(order);
+    unspecifiedOrder.shipping = { deliveryMethod: 'delivery', deliveryAddress: { state: 'SC' } };
+    unspecifiedOrder.fiscalContext = { finalConsumer: true };
+    render(<NfeEmissionModal isOpen order={unspecifiedOrder} onClose={vi.fn()} />);
+    expect(screen.getByText(/Modelo fiscal a definir/)).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Selecione a finalidade' })).toBeTruthy();
     const purpose = screen.getByLabelText('Finalidade da compra');
+    fireEvent.change(purpose, { target: { value: 'use_consumption' } });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy());
+    expect(mocks.updateOrder).toHaveBeenCalledWith(unspecifiedOrder.id, {
+      fiscalContext: {
+        acquisitionPurpose: 'use_consumption',
+        finalConsumer: true,
+      },
+    });
+    expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy();
     expect(purpose.className).toContain('border-0');
     expect(purpose.className).toContain('border-b-2');
     expect(purpose.className).toContain('focus:border-blue-600');
     expect(screen.getByRole('option', { name: 'Uso / consumo próprio' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Revenda' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Ativo imobilizado' })).toBeTruthy();
     expect(screen.queryByRole('option', { name: /^(Sim|Não)/ })).toBeNull();
     expect(screen.queryByLabelText('Entrega própria da loja')).toBeNull();
     expect(screen.queryByLabelText('Cartão em terminal separado')).toBeNull();
     fireEvent.change(purpose, { target: { value: 'resale' } });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(2));
     expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy();
     expect(screen.getByText(/Mercadoria destinada à revenda/)).toBeTruthy();
-    expect(order).toEqual(original);
+    expect(unspecifiedOrder.fiscalContext).toEqual({ finalConsumer: true });
+  });
+
+  it('não usa indFinal=true como padrão quando o pedido não tem finalidade persistida', () => {
+    const unspecifiedOrder = structuredClone(order);
+    unspecifiedOrder.shipping = { deliveryMethod: 'delivery', deliveryAddress: { state: 'SC' } };
+    unspecifiedOrder.fiscalContext = { finalConsumer: true };
+    const { result } = renderHook(() => useNfeEmission(unspecifiedOrder));
+    expect(result.current.acquisitionPurpose).toBeNull();
+    expect(result.current.finalConsumer).toBeUndefined();
+    expect(result.current.modelDecision).toMatchObject({ status: 'blocked' });
+  });
+
+  it('mantém emissão bloqueada se a persistência da finalidade falhar', async () => {
+    const unspecifiedOrder = structuredClone(order);
+    unspecifiedOrder.shipping = { deliveryMethod: 'delivery', deliveryAddress: { state: 'SC' } };
+    mocks.updateOrder.mockRejectedValueOnce(new Error('TEST_AUT_SAVE_FAILURE'));
+    const { result } = renderHook(() => useNfeEmission(unspecifiedOrder));
+    await act(async () => result.current.handleAcquisitionPurposeChange('use_consumption'));
+    expect(result.current.acquisitionPurpose).toBeNull();
+    expect(result.current.finalConsumer).toBeUndefined();
+    await act(async () => result.current.handleEmit());
+    expect(mocks.emit).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalledWith(
+      'Não foi possível salvar a finalidade da compra no pedido.'
+    );
   });
 
   it('bloqueia NF-e 55 sem CPF/CNPJ antes de chamar a emissão', async () => {
@@ -1206,7 +1340,7 @@ describe('preenchimento dos itens da NF-e', () => {
       ...order,
       id: 'delivery-missing-tax-id',
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
-      fiscalContext: { finalConsumer: false },
+      fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false },
       customerData: { fullName: 'Cliente' },
     };
     const { result } = renderHook(() => useNfeEmission(deliveryOrder));
@@ -1228,7 +1362,11 @@ describe('preenchimento dos itens da NF-e', () => {
       shipping: { deliveryMethod: 'pickup' },
       customerData: { fullName: 'Consumidor', personType: 'PF' },
       paymentsSummary: { totalOrderValue: 4500 },
-      fiscalContext: { finalConsumer: true, presence: '4' },
+      fiscalContext: {
+        acquisitionPurpose: 'use_consumption',
+        finalConsumer: true,
+        presence: '4',
+      },
     };
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     render(<NfeEmissionModal isOpen order={nfcePickupOrder} onClose={vi.fn()} />);
@@ -1253,7 +1391,7 @@ describe('preenchimento dos itens da NF-e', () => {
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
       customerData: { fullName: 'Consumidor', personType: 'PF' },
       paymentsSummary: { totalOrderValue: 4500 },
-      fiscalContext: { finalConsumer: true },
+      fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
     };
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     render(<NfeEmissionModal isOpen order={nfceDeliveryOrder} onClose={vi.fn()} />);
@@ -1282,7 +1420,7 @@ describe('preenchimento dos itens da NF-e', () => {
       shipping: { deliveryMethod: 'pickup' },
       customerData: { fullName: 'Consumidor', personType: 'PF' },
       paymentsSummary: { totalOrderValue: 12000 },
-      fiscalContext: { finalConsumer: true },
+      fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
     };
     render(<NfeEmissionModal isOpen order={highValueNfceOrder} onClose={vi.fn()} />);
     await waitFor(() =>
@@ -1304,7 +1442,7 @@ describe('preenchimento dos itens da NF-e', () => {
       ...order,
       id: 'delivery-missing-tax-id-ui',
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
-      fiscalContext: { finalConsumer: false },
+      fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false },
       customerData: { fullName: 'Cliente' },
     };
     render(<NfeEmissionModal isOpen order={deliveryOrder} onClose={vi.fn()} />);
@@ -1339,7 +1477,7 @@ describe('preenchimento dos itens da NF-e', () => {
 
   it('mantém todos os campos após fechar/desmontar e reabrir o modal, sem alterar pedido', async () => {
     const original = structuredClone(order);
-    const changes = { ncm: '94034000', cfop: '5101', origem: '2', cest: '2804400', cst: '102' };
+    const changes = { ncm: '94034000', cfop: '5102', origem: '2', cest: '2804400', cst: '102' };
     const reopenOrder = { ...order, id: 'reopen-order' };
     const first = renderHook(() => useNfeEmission(reopenOrder));
     await waitFor(() => expect(first.result.current.nfeItems[0]?.fiscal.cst).toBe('103'));
@@ -1456,7 +1594,7 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Itens' }));
 
     expect(await screen.findByText('Item avulso para conferência')).toBeTruthy();
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(await screen.findByTestId('nfe-fiscal-footer-error')).toBeTruthy();
     expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(true);
   });
 
@@ -1525,6 +1663,7 @@ describe('preenchimento dos itens da NF-e', () => {
         {
           quantity: 1,
           description: 'ESTANTE DE LIVROS',
+          merchandiseOrigin: 'own_production',
           fiscal: { ncm: '94036000', cfop: '', cst: '102', origem: '0' },
         },
       ],
@@ -1707,10 +1846,9 @@ describe('preenchimento dos itens da NF-e', () => {
       customerData: { ...order.customerData, personType: 'PF' },
     };
 
-    const { result, rerender } = renderHook(
-      ({ orderProp }) => useNfeEmission(orderProp),
-      { initialProps: { orderProp: registeredOrder } }
-    );
+    const { result, rerender } = renderHook(({ orderProp }) => useNfeEmission(orderProp), {
+      initialProps: { orderProp: registeredOrder },
+    });
 
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     const initialCallCount = mocks.getProductsFiscalData.mock.calls.length;
