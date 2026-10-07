@@ -1,45 +1,13 @@
 import Product from '../../../../../types/product.type';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-
-export interface ProductListRow extends Partial<Product> {
-  id: string;
-  rowId?: string;
-  variationId?: string;
-  mergedToVariationId?: string;
-  productId?: string;
-  sku?: string;
-  code?: string;
-  description?: string;
-  displayName?: string;
-  attributes?: readonly unknown[];
-  syncUnitPrice?: boolean;
-  syncPromoPrice?: boolean;
-  syncDescription?: boolean;
-  syncWidth?: boolean;
-  syncHeight?: boolean;
-  syncDepth?: boolean;
-  syncWeight?: boolean;
-  unitPrice?: number;
-  costPrice?: number;
-  stock?: number;
-  active?: boolean;
-  status?: Product['status'];
-  images?: string[];
-  parentImages?: string[];
-  isVariation?: boolean;
-  parentId?: string;
-  isParent?: boolean;
-  allVariations?: readonly ProductListRow[];
-  activeVariationsCount?: number;
-  totalVariationsCount?: number;
-}
+import type { ProductListRow, ProductListVariationAttribute } from '../../types';
 
 interface RawVariationItem {
   id?: string;
   sku?: string | null;
   name?: string;
-  attributes?: unknown[];
+  attributes?: ProductListVariationAttribute[];
   syncUnitPrice?: boolean;
   syncPromoPrice?: boolean;
   syncDescription?: boolean;
@@ -153,7 +121,7 @@ function buildVariationListRow(
         ? product.costPrice
         : variation.costPrice,
     stock: typeof variation.stock !== 'undefined' && variation.stock !== null ? variation.stock : 0,
-    active: variation.active,
+    active: variation.active !== false,
     status: variation.status || product.status,
     images: parseVariationImages(variation.image_url, variation.images),
     parentImages: product.images || [],

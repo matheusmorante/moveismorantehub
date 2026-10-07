@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, FileText } from 'lucide-react-native';
-import { supabase } from '../../../../services/supabaseClient';
+import {
+  fetchMobileNcmCatalogEntry,
+  searchMobileNcms,
+  type MobileNcmCatalogEntry,
+} from '../../services/mobileProductFiscalService';
 
 interface Props {
   formData: any;
@@ -72,12 +76,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
     const timer = setTimeout(async () => {
       setNcmLoading(true);
       try {
-        const { data, error } = await supabase.rpc('search_ncms', {
-          search_term: query,
-          max_results: 10,
-        });
-        if (error) throw error;
-        if (!cancelled) setNcmResults(data || []);
+        const results = await searchMobileNcms(query);
+        if (!cancelled) setNcmResults(results);
       } catch (error) {
         console.warn('[ProductFormFiscalTab] Falha ao pesquisar NCM:', error);
         if (!cancelled) setNcmResults([]);
@@ -98,13 +98,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
       return;
     }
     let cancelled = false;
-    supabase
-      .from('ncms')
-      .select('code, official_description, active, start_date, end_date')
-      .eq('code', code)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!cancelled && !error) setNcmCatalog(data);
+    fetchMobileNcmCatalogEntry(code).then((entry) => {
+        if (!cancelled) setNcmCatalog(entry);
       });
     return () => {
       cancelled = true;

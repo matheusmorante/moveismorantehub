@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
-import { syncVariationsWithParent } from '../../utils/variationParentSync';
+import { syncVariationsWithParent } from '../../domain/variationParentSync';
 
 /**
  * Converte valor desconhecido (string ou number) para number positivo ou zero,

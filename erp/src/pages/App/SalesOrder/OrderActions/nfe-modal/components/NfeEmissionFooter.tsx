@@ -1,6 +1,10 @@
 import React from 'react';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
-import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import {
+  HML_INTERSTATE_MATRIX_NOT_APPROVED,
+  getFiscalIssuePresentation,
+  isHmlInterstateMatrixBlock,
+} from '@/pages/utils/nfe/fiscalIssuePresentation';
 
 export interface NfeEmissionFooterProps {
   invoiceTotal: number;
@@ -16,6 +20,7 @@ export interface NfeEmissionFooterProps {
   onClose: () => void;
   onEmit: (productionConfirmed: boolean, isRetry: boolean) => void;
   onPrintDanfe: () => void;
+  onOpenFiscalIssue?: () => void;
   onTransmissionEnabled?: () => void;
 }
 
@@ -33,6 +38,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   onClose,
   onEmit,
   onPrintDanfe,
+  onOpenFiscalIssue,
   onTransmissionEnabled,
 }) => {
   const formattedTotal = new Intl.NumberFormat('pt-BR', {
@@ -40,16 +46,22 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     currency: 'BRL',
   }).format(invoiceTotal);
 
+  const isUnapprovedInterstateMatrix = isHmlInterstateMatrixBlock(fiscalPreparationError);
+  const hasBlockingPreparationFailure =
+    Boolean(fiscalPreparationError) && !isUnapprovedInterstateMatrix;
+  const hasAttemptedInterstateMatrixBlock =
+    emissionResult?.technicalDetails?.apiCode === HML_INTERSTATE_MATRIX_NOT_APPROVED;
+
   const isEmitDisabled =
     !canOperateFiscal ||
     isSubmitting ||
     isLoadingFiscalData ||
     isLoadingCustomerType ||
-    Boolean(fiscalPreparationError);
+    hasBlockingPreparationFailure;
 
   React.useLayoutEffect(() => {
-    if (!isEmitDisabled) onTransmissionEnabled?.();
-  }, [isEmitDisabled, onTransmissionEnabled]);
+    if (!isEmitDisabled && !isUnapprovedInterstateMatrix) onTransmissionEnabled?.();
+  }, [isEmitDisabled, isUnapprovedInterstateMatrix, onTransmissionEnabled]);
 
   const isSpecialHmlConflictState = Boolean(
     emissionResult?.numberConflict ||
@@ -85,6 +97,21 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
                   Seu perfil não pode operar documentos fiscais.
                 </p>
               )}
+              {fiscalPreparationError &&
+                onOpenFiscalIssue &&
+                (!isUnapprovedInterstateMatrix || hasAttemptedInterstateMatrixBlock) && (
+                  <button
+                    type="button"
+                    data-testid="nfe-fiscal-preparation-error-button"
+                    aria-label="Ver detalhes do erro da preparação fiscal"
+                    aria-haspopup="dialog"
+                    title="Ver detalhes do erro da preparação fiscal"
+                    onClick={onOpenFiscalIssue}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950"
+                  >
+                    <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
+                  </button>
+                )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"

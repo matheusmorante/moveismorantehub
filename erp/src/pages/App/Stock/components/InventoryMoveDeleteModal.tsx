@@ -4,5 +4,5 @@
  * Implementação canônica em ../modals/InventoryMoveDeleteModal.tsx.
  */
 
-export { InventoryMoveDeleteModal, default } from '../modals/InventoryMoveDeleteModal';
-export type { InventoryMoveDeleteModalProps } from '../modals/InventoryMoveDeleteModal';
+export { InventoryMoveDeleteModal, default } from '../Movements/modals/InventoryMoveDeleteModal';
+export type { InventoryMoveDeleteModalProps } from '../Movements/modals/InventoryMoveDeleteModal';

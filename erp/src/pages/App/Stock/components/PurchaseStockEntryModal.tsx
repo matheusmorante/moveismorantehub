@@ -1,1 +1,1 @@
-export { default, PurchaseStockEntryModal } from '../modals/PurchaseStockEntryModal';
+export { default, PurchaseStockEntryModal } from '../Purchases/modals/PurchaseStockEntryModal';

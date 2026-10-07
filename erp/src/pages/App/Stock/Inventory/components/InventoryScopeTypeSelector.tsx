@@ -1,5 +1,5 @@
 import React from 'react';
-import type { InventoryScopeType } from '../modals/InventoryScopeModal';
+import type { InventoryScopeType } from '../types/inventoryScope.types';
 
 interface InventoryScopeTypeSelectorProps {
   readonly onSelect: (type: InventoryScopeType) => void;

@@ -1123,7 +1123,7 @@ describe('pipeline técnico NF-e 55 HML', () => {
               unitDiscount: 0,
               discountType: 'fixed',
               itemType: 'product',
-              fiscal: { ncm: '94035000', cfop: '5102' },
+              fiscal: { ncm: '94035000', cfop: '5102', hasSt: true },
             },
           ],
           payments: [{ method: 'pix', amount: 1200 }],

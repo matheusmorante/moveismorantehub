@@ -4,7 +4,7 @@ import type { Person } from '../../../../types/person.type';
 import { ProductSupplierField } from './ProductSupplierField';
 import { ProductPricingFields } from './ProductPricingFields';
 import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle';
-import { syncVariationsWithParent } from '../../utils/variationParentSync';
+import { syncVariationsWithParent } from '../../domain/variationParentSync';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;

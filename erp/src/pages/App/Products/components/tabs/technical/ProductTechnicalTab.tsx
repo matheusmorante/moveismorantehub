@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Product } from '../../../../../types/product.type';
-import { syncVariationsWithParent } from '../../../utils/variationParentSync';
-import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
+import { syncVariationsWithParent } from '../../../domain/variationParentSync';
 import {
   TechnicalFieldDefinition,
   getApplicableTechnicalFields,
   getAvailableAdditionalFields,
   groupTechnicalFields,
-  isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
+import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 import { AttributeManagementModal } from '../../modals/attributes/AttributeManagementModal';
 
@@ -85,71 +84,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     const loadFields = async () => {
       setLoadingFields(true);
       try {
-        // 1. Buscar todos os atributos (campos técnicos)
-        let { data: attrData, error: attrErr } = await supabase
-          .from('attributes')
-          .select('id, name, active, data_type, unit, is_custom')
-          .eq('active', true)
-          .order('name');
-        if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
-          const fallback = await supabase
-            .from('attributes')
-            .select('id, name, active, data_type, unit')
-            .eq('active', true)
-            .order('name');
-          attrData = fallback.data;
-          attrErr = fallback.error;
-        }
-        if (attrErr) throw attrErr;
-
-        // 2. Buscar valores/opções cadastrados
-        const { data: valData } = await supabase
-          .from('attribute_values')
-          .select('id, attribute_id, value');
-
-        // 3. Buscar vínculos com categorias
-        const { data: catAttrData, error: catAttrErr } = await supabase
-          .from('category_attributes')
-          .select('attribute_id, category_id, is_required');
-        if (catAttrErr) {
-          console.warn('Aviso ao buscar category_attributes:', catAttrErr);
-        }
-
+        const mapped = await fetchTechnicalFieldDefinitions('product-form');
         if (!isMounted) return;
-
-        const mapped: TechnicalFieldDefinition[] = (attrData || [])
-          .filter((attr: any) => !/^reclin[aá]vel$/i.test(String(attr.name).trim()))
-          .map((attr: any) => {
-          const opts = (valData || [])
-            .filter((v: any) => v.attribute_id === attr.id)
-            .map((v: any) => ({ id: v.id, value: v.value }))
-            .sort((a: any, b: any) =>
-              a.value.localeCompare(b.value, 'pt-BR', { numeric: true, sensitivity: 'base' })
-            );
-
-          const linkedCategoryIds = (catAttrErr ? [] : catAttrData || [])
-            .filter((ca: any) => ca.attribute_id === attr.id)
-            .map((ca: any) => ca.category_id);
-
-          return {
-            id: attr.id,
-            name: attr.name,
-            dataType: attr.data_type || 'list',
-            unit:
-              attr.unit ||
-              (['altura', 'largura', 'profundidade'].includes(
-                String(attr.name).toLocaleLowerCase('pt-BR')
-              )
-                ? 'cm'
-                : String(attr.name).toLocaleLowerCase('pt-BR') === 'peso'
-                  ? 'kg'
-                  : undefined),
-            isRequired: isRequiredCharacteristicName(attr.name),
-            isCustom: Boolean(attr.is_custom),
-            options: opts,
-            categoryIds: linkedCategoryIds,
-          };
-        });
 
         setAllTechnicalFields(mapped);
         setFormData((prev) => {

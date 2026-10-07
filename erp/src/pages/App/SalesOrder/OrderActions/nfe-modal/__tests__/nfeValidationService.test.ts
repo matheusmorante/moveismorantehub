@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import type Order from '@/pages/types/order.type';
@@ -11,6 +12,7 @@ describe('nfeValidationService', () => {
       fullName: 'Cliente Teste',
       personType: 'PF',
       cpfCnpj: '123.456.789-09',
+      address: { state: 'PR' },
     },
     items: [
       {

@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import Person from '@/pages/types/person.type';
+import type Person from '@/pages/types/person.type';
+import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
+
+export { getEmployeeDisplayName };
 
 export interface InventoryResponsibleSelectProps {
   readonly employees: readonly Person[];
@@ -7,12 +10,6 @@ export interface InventoryResponsibleSelectProps {
   readonly hasError?: boolean;
   readonly onChange: (value: string) => void;
 }
-
-/**
- * Obtém o nome de exibição preferencial do funcionário responsável (nome completo, social ou apelido).
- */
-export const getEmployeeDisplayName = (employee?: Person): string =>
-  employee?.fullName || employee?.socialName || employee?.nickname || 'Responsável não informado';
 
 /**
  * Componente seletor para definir o colaborador responsável pela sessão de contagem do inventário.

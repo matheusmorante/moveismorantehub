@@ -1,6 +1,6 @@
-import { supabase } from '../../supabaseConfig';
+﻿import { supabase } from '../../supabaseConfig';
 import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
-import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/InboundInvoicesHeader';
+import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { isValidUuid } from '../../uuidUtils';
 import { getLocalInvoices } from './inboundCacheService';

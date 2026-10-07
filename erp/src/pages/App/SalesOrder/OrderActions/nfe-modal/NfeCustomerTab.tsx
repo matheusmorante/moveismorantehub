@@ -19,6 +19,12 @@ interface NfeCustomerTabProps {
   disabled?: boolean;
   documentType?: 'CPF' | 'CNPJ' | 'CPF/CNPJ';
   requirementMessage?: string | null;
+  recipientIe?: string;
+  onRecipientIeChange?: (val: string) => void;
+  recipientIeIndicator?: '1' | '2' | '9';
+  onRecipientIeIndicatorChange?: (val: '1' | '2' | '9') => void;
+  recipientIeError?: string | null;
+  fiscalModel?: '55' | '65';
 }
 
 const maskTaxId = (value: string, personType?: 'PF' | 'PJ') => {
@@ -52,11 +58,27 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
   disabled = false,
   documentType,
   requirementMessage,
+  recipientIe = '',
+  onRecipientIeChange,
+  recipientIeIndicator = '9',
+  onRecipientIeIndicatorChange,
+  recipientIeError,
+  fiscalModel = '55',
 }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const customer = order.customerData;
   const address = customer?.fullAddress;
   const hasAddress = Boolean(address?.street || address?.city);
+
+  const fallbackIe = customer?.ie || (customer as any)?.rgIe || '';
+  const effectiveIe = recipientIe || fallbackIe;
+  const effectiveIeIndicator: '1' | '2' | '9' =
+    fiscalModel === '65'
+      ? '9'
+      : recipientIeIndicator ||
+        order.fiscalContext?.recipientIeIndicator ||
+        customer?.ieIndicator ||
+        (fallbackIe.trim() ? '1' : '9');
 
   const hasValidDocument = isValidRecipientTaxId(recipientTaxId);
   const effectivePersonType =
@@ -273,6 +295,111 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
               {identificationStatus.explanation}
             </p>
           )}
+        </div>
+      </section>
+
+      {/* Dados Fiscais do Destinatário (Situação ICMS & Inscrição Estadual) */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <i className="bi bi-bank text-blue-600 dark:text-blue-400 text-base" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+              Dados Fiscais do Destinatário (ICMS / Inscrição Estadual)
+            </h4>
+          </div>
+          {fiscalModel === '65' ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+              NFC-e: sempre Não Contribuinte
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+              {effectiveIeIndicator === '1'
+                ? 'Contribuinte ICMS'
+                : effectiveIeIndicator === '2'
+                  ? 'Contribuinte Isento'
+                  : 'Não Contribuinte'}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+          <div>
+            <label
+              htmlFor="nfe-recipient-ie-indicator"
+              className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5"
+            >
+              Situação perante o ICMS (indIEDest)
+              <span className="text-rose-500 ml-1 font-bold" aria-hidden="true">*</span>
+            </label>
+            <select
+              id="nfe-recipient-ie-indicator"
+              disabled={disabled || fiscalModel === '65'}
+              value={effectiveIeIndicator}
+              onChange={(e) => onRecipientIeIndicatorChange?.(e.target.value as '1' | '2' | '9')}
+              className="w-full rounded-none border-0 border-b-2 bg-white px-3 py-2 text-xs font-bold outline-none transition-all border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500"
+            >
+              <option value="9">9 - Não Contribuinte (Consumidor Final / sem IE)</option>
+              <option value="1">1 - Contribuinte do ICMS (Possui IE obrigatória)</option>
+              <option value="2">2 - Contribuinte Isento de Inscrição Estadual</option>
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              {effectiveIeIndicator === '1'
+                ? 'Destinatário contribuinte: a SEFAZ exige Inscrição Estadual ativa e válida.'
+                : effectiveIeIndicator === '2'
+                  ? 'Contribuinte isento: a tag <IE> não é gerada no XML da NF-e 4.00.'
+                  : 'Pessoa física ou jurídica não contribuinte do ICMS.'}
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="nfe-recipient-ie"
+              className={`block text-xs font-bold mb-1.5 ${
+                recipientIeError ? 'text-rose-700 dark:text-rose-300' : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              Inscrição Estadual (IE)
+              {effectiveIeIndicator === '1' && (
+                <span className="text-rose-500 ml-1 font-bold" aria-hidden="true">*</span>
+              )}
+            </label>
+            <input
+              id="nfe-recipient-ie"
+              type="text"
+              autoComplete="off"
+              disabled={disabled || effectiveIeIndicator === '2' || fiscalModel === '65'}
+              value={effectiveIeIndicator === '2' ? '' : effectiveIe}
+              onChange={(e) => onRecipientIeChange?.(e.target.value)}
+              placeholder={
+                effectiveIeIndicator === '2'
+                  ? 'Dispensada para Isento'
+                  : effectiveIeIndicator === '1'
+                    ? 'Informe a IE obrigatória'
+                    : 'Opcional (se possuir IE)'
+              }
+              className={`w-full rounded-none border-0 border-b-2 px-3 py-2 font-mono text-sm outline-none transition-all ${
+                effectiveIeIndicator === '2' || fiscalModel === '65'
+                  ? 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-950 dark:border-slate-800 cursor-not-allowed'
+                  : recipientIeError
+                    ? 'border-rose-500 bg-white dark:bg-slate-900 focus:border-rose-600'
+                    : 'border-slate-200 bg-white dark:bg-slate-900 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'
+              }`}
+            />
+            {recipientIeError ? (
+              <p className="mt-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                <i className="bi bi-exclamation-circle-fill" />
+                {recipientIeError}
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                {effectiveIeIndicator === '1'
+                  ? 'Obrigatório para contribuinte do ICMS.'
+                  : effectiveIeIndicator === '2'
+                    ? 'Dispensada no XML oficial da SEFAZ para indIEDest=2.'
+                    : 'Não contribuinte: informe apenas se a PJ possuir IE cadastrada.'}
+              </p>
+            )}
+          </div>
         </div>
       </section>
 

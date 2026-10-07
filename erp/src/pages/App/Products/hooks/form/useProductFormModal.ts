@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
-import { checkEcomLegibility } from '../../utils/productLegibilityRules';
+import { checkEcomLegibility } from '../../domain/productLegibilityRules';
 import {
   scrollToRequirementField,
   ProductFormTabKey,

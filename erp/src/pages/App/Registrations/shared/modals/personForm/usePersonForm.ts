@@ -462,6 +462,11 @@ export const usePersonForm = ({
       }
     }
 
+    if (formData.ieIndicator === '1' && !(formData.ie || formData.rgIe)?.trim()) {
+      toast.error('A Inscrição Estadual é obrigatória quando o cliente é Contribuinte do ICMS.');
+      return;
+    }
+
     if (!person) {
       const existing = await getPersonByIdentifiers(
         {

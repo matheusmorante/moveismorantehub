@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { InboundInvoiceActionsMenu } from './InboundInvoiceActionsMenu';
 
 interface InboundInvoicesTableProps {
   readonly invoices: readonly InboundInvoice[];
@@ -44,6 +45,22 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  const getActionsMenuProps = (invoice: InboundInvoice, canManageMappings: boolean) => ({
+    invoice,
+    isConfirmingDelete: confirmingDeleteId === invoice.id,
+    canManageMappings,
+    onClose: () => setOpenMenuId(null),
+    onManageMappings: () => onManageMappings(invoice),
+    onDownloadXml: () => onDownloadXml(invoice),
+    onStartDelete: () => setConfirmingDeleteId(invoice.id),
+    onCancelDelete: () => setConfirmingDeleteId(null),
+    onConfirmDelete: () => {
+      setOpenMenuId(null);
+      setConfirmingDeleteId(null);
+      onDelete(invoice);
+    },
+  });
 
   if (invoices.length === 0) {
     return (
@@ -211,97 +228,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                       </button>
 
                       {openMenuId === inv.id && (
-                        <div
-                          role="menu"
-                          aria-label="Opções da nota fiscal"
-                          className="absolute right-0 z-[100] mt-1 w-48 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-2xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              onManageMappings(inv);
-                            }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            <i
-                              className="bi bi-link-45deg text-blue-600 text-sm"
-                              aria-hidden="true"
-                            />
-                            Gerenciar vínculos
-                          </button>
-
-                          {inv.rawXml && (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(null);
-                                onDownloadXml(inv);
-                              }}
-                              className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                            >
-                              <i
-                                className="bi bi-download text-slate-400 text-sm"
-                                aria-hidden="true"
-                              />
-                              Baixar XML
-                            </button>
-                          )}
-
-                          <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                          {confirmingDeleteId === inv.id ? (
-                            <div className="px-4 py-2 space-y-1.5">
-                              <p className="text-[10px] font-bold text-red-600 dark:text-red-400">
-                                Confirmar remoção?
-                              </p>
-                              <p className="text-[9px] text-slate-400">
-                                Recebimentos e vínculos não são afetados.
-                              </p>
-                              <div className="flex gap-2 pt-0.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    setConfirmingDeleteId(null);
-                                    onDelete(inv);
-                                  }}
-                                  className="flex-1 rounded-lg bg-red-600 py-1 text-[10px] font-black text-white hover:bg-red-700 cursor-pointer"
-                                >
-                                  Remover
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConfirmingDeleteId(null);
-                                  }}
-                                  className="flex-1 rounded-lg bg-slate-100 py-1 text-[10px] font-black text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmingDeleteId(inv.id);
-                              }}
-                              className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
-                            >
-                              <i className="bi bi-trash3 text-sm" aria-hidden="true" />
-                              Remover NF de entrada
-                            </button>
-                          )}
-                        </div>
+                        <InboundInvoiceActionsMenu {...getActionsMenuProps(inv, true)} />
                       )}
                     </div>
                   </td>
@@ -394,100 +321,12 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                     </button>
 
                     {openMenuId === inv.id && (
-                      <div
-                        role="menu"
-                        aria-label="Opções da nota fiscal"
-                        className="absolute right-0 z-[100] mt-1 w-48 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-2xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in zoom-in-95"
-                      >
-                        {(!inv.supplierStockOrigins ||
-                          inv.supplierStockOrigins.includes('normal')) && (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              onManageMappings(inv);
-                            }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            <i
-                              className="bi bi-link-45deg text-blue-600 text-sm"
-                              aria-hidden="true"
-                            />
-                            Gerenciar vínculos
-                          </button>
+                      <InboundInvoiceActionsMenu
+                        {...getActionsMenuProps(
+                          inv,
+                          !inv.supplierStockOrigins || inv.supplierStockOrigins.includes('normal')
                         )}
-
-                        {inv.rawXml && (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              onDownloadXml(inv);
-                            }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            <i
-                              className="bi bi-download text-slate-400 text-sm"
-                              aria-hidden="true"
-                            />
-                            Baixar XML
-                          </button>
-                        )}
-
-                        <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                        {confirmingDeleteId === inv.id ? (
-                          <div className="px-4 py-2 space-y-1.5">
-                            <p className="text-[10px] font-bold text-red-600 dark:text-red-400">
-                              Confirmar remoção?
-                            </p>
-                            <p className="text-[9px] text-slate-400">
-                              Recebimentos e vínculos não são afetados.
-                            </p>
-                            <div className="flex gap-2 pt-0.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(null);
-                                  setConfirmingDeleteId(null);
-                                  onDelete(inv);
-                                }}
-                                className="flex-1 rounded-lg bg-red-600 py-1 text-[10px] font-black text-white hover:bg-red-700 cursor-pointer"
-                              >
-                                Remover
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmingDeleteId(null);
-                                }}
-                                className="flex-1 rounded-lg bg-slate-100 py-1 text-[10px] font-black text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmingDeleteId(inv.id);
-                            }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 cursor-pointer"
-                          >
-                            <i className="bi bi-trash3 text-sm" aria-hidden="true" />
-                            Remover NF de entrada
-                          </button>
-                        )}
-                      </div>
+                      />
                     )}
                   </div>
                 </div>

@@ -2,10 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 
-import {
-  resolveOfflineInventoryMatch,
-  type OfflineInventoryCatalog,
-} from './offlineInventoryCatalog';
+import { resolveOfflineInventoryMatch } from './offlineInventoryCatalog';
+import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
 
 const labelId = '22222222-2222-4222-8222-222222222222';
 const legacyUnlinkedLabelId = '44444444-4444-4444-8444-444444444444';
@@ -47,7 +45,7 @@ const catalog: OfflineInventoryCatalog = {
     [legacyUnlinkedLabelId]: {
       id: legacyUnlinkedLabelId,
       product_id: 'product-old',
-      variation_id: null,
+      variation_id: undefined,
       sku: 'SKU-ANTIGO',
       status: 'archived',
     },

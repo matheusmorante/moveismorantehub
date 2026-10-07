@@ -8,6 +8,9 @@ type CustomerData = {
   email?: string;
   cpfCnpj?: string;
   document?: string; // Campo legado ainda presente em pedidos antigos.
+  ie?: string;
+  rgIe?: string;
+  ieIndicator?: '1' | '2' | '9';
   noPhone?: boolean;
   noAddress?: boolean;
   fullAddress: FullAddress;

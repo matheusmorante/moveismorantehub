@@ -53,6 +53,7 @@ export interface OrderHistoryTableProps {
   readonly highlightOrderId?: string | null;
   readonly onFilterByOrderId?: (id: string) => void;
   readonly onShowPostSaleActions?: (order: Order) => void;
+  readonly onIssueNfe?: (order: Order, environment: 1 | 2) => void;
 }
 
 const OrderHistoryTable = ({
@@ -77,6 +78,7 @@ const OrderHistoryTable = ({
   highlightOrderId,
   onFilterByOrderId,
   onShowPostSaleActions,
+  onIssueNfe,
 }: OrderHistoryTableProps) => {
   const { width } = useWindowSize();
   const isMobile =
@@ -191,9 +193,9 @@ const OrderHistoryTable = ({
               {orders.map((order) => {
                 const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
                 const prodStatus =
-                  typeof badgeInfo === 'string' ? badgeInfo : badgeInfo?.production;
+                  typeof badgeInfo === 'string' ? badgeInfo : (badgeInfo?.production ?? 'not_issued');
                 const hmlStatus =
-                  typeof badgeInfo === 'object' ? badgeInfo?.homologation : undefined;
+                  typeof badgeInfo === 'object' ? (badgeInfo?.homologation ?? 'not_issued') : 'not_issued';
                 const prodDocumentId =
                   typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
                 const hmlDocumentId =
@@ -210,6 +212,7 @@ const OrderHistoryTable = ({
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
                     onViewFiscalDocument={onViewFiscalDocument}
+                    onIssueNfe={onIssueNfe}
                     onDelete={onDelete}
                     onRestore={onRestore}
                     onPermanentDelete={onPermanentDelete}
@@ -244,8 +247,8 @@ const OrderHistoryTable = ({
           ) : (
             orders.map((order) => {
               const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
-              const prodStatus = typeof badgeInfo === 'string' ? badgeInfo : badgeInfo?.production;
-              const hmlStatus = typeof badgeInfo === 'object' ? badgeInfo?.homologation : undefined;
+              const prodStatus = typeof badgeInfo === 'string' ? badgeInfo : (badgeInfo?.production ?? 'not_issued');
+              const hmlStatus = typeof badgeInfo === 'object' ? (badgeInfo?.homologation ?? 'not_issued') : 'not_issued';
               const prodDocumentId =
                 typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
               const hmlDocumentId =
@@ -262,6 +265,7 @@ const OrderHistoryTable = ({
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
                   onViewFiscalDocument={onViewFiscalDocument}
+                  onIssueNfe={onIssueNfe}
                   onDelete={onDelete}
                   onRestore={onRestore}
                   onPermanentDelete={onPermanentDelete}

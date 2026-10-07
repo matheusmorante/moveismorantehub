@@ -4,6 +4,7 @@ import { FiscalIssueCard } from '@/pages/App/shared/components/FiscalIssueCard';
 import {
   getFiscalIssuePresentation,
   getFiscalIssueTechnicalDetails,
+  isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
@@ -59,16 +60,35 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !emissionResult || emissionResult.success) {
+  const emissionIssueCopy =
+    emissionResult && !emissionResult.success ? getFiscalIssuePresentation(emissionResult) : null;
+  const preparationIssueCopy =
+    fiscalPreparationError && !emissionResult?.success
+      ? {
+          tone: 'error' as const,
+          title: isHmlInterstateMatrixBlock(fiscalPreparationError)
+            ? 'Tratamento fiscal não aprovado'
+            : 'Falha na preparação fiscal',
+          description: safeFiscalIssueMessage(
+            fiscalPreparationError,
+            'Não foi possível carregar a preparação fiscal. Atualize os dados e tente novamente.'
+          ),
+          nextStep: isHmlInterstateMatrixBlock(fiscalPreparationError)
+            ? 'Solicite ao responsável fiscal a revisão e aprovação da regra aplicável a este cenário.'
+            : 'Atualize os dados fiscais e tente novamente. A emissão continuará bloqueada até que a preparação seja concluída.',
+        }
+      : null;
+  const issueCopy = preparationIssueCopy ?? emissionIssueCopy;
+  const hasEmissionIssue = Boolean(
+    !preparationIssueCopy && emissionIssueCopy && emissionResult && !emissionResult.success
+  );
+
+  if (!isOpen || !issueCopy) {
     return null;
   }
 
-  const issueCopy = getFiscalIssuePresentation(emissionResult);
-  if (!issueCopy) {
-    return null;
-  }
-
-  const technicalDetails = getFiscalIssueTechnicalDetails(emissionResult);
+  const technicalDetails =
+    hasEmissionIssue && emissionResult ? getFiscalIssueTechnicalDetails(emissionResult) : undefined;
 
   return (
     <div
@@ -90,7 +110,7 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
               id="fiscal-issue-modal-title"
               className="text-sm font-black text-slate-800 dark:text-slate-100"
             >
-              Aviso da Nota Fiscal
+              {hasEmissionIssue ? 'Aviso da Nota Fiscal' : 'Erro na preparação fiscal'}
             </h3>
           </div>
           <button
@@ -112,11 +132,11 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
             technicalDetails={technicalDetails}
             onClose={onClose}
           >
-            {emissionResult.fiscalMismatchFields?.length ? (
+            {hasEmissionIssue && emissionResult?.fiscalMismatchFields?.length ? (
               <div data-testid="nfe-fiscal-mismatch-fields">
                 <p className="font-bold">Encontramos esta alteração:</p>
                 <ul className="mt-1 list-disc space-y-1 pl-5">
-                  {emissionResult.fiscalMismatchFields.map((mismatch) => (
+                  {emissionResult?.fiscalMismatchFields?.map((mismatch) => (
                     <li key={mismatch.field}>
                       <strong>{mismatch.field}</strong>
                       {mismatch.snapshotValue !== undefined &&
@@ -132,7 +152,7 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
               </div>
             ) : null}
 
-            {issueCopy.action === 'configure-certificate' && (
+            {hasEmissionIssue && emissionIssueCopy?.action === 'configure-certificate' && (
               <a
                 href="/settings/fiscal"
                 className="inline-flex rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800"
@@ -141,9 +161,10 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
               </a>
             )}
 
-            {environment === 2 &&
-              issueCopy.action === 'start-fresh-hml' &&
-              emissionResult.hmlCanAbandonTlsFailure &&
+            {hasEmissionIssue &&
+              environment === 2 &&
+              emissionIssueCopy?.action === 'start-fresh-hml' &&
+              emissionResult?.hmlCanAbandonTlsFailure &&
               onAbandonHmlTlsAttempt && (
                 <button
                   type="button"
@@ -161,9 +182,10 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                 </button>
               )}
 
-            {environment === 2 &&
-              issueCopy.action === 'start-fresh-hml' &&
-              emissionResult.hmlNewEmissionRequired &&
+            {hasEmissionIssue &&
+              environment === 2 &&
+              emissionIssueCopy?.action === 'start-fresh-hml' &&
+              emissionResult?.hmlNewEmissionRequired &&
               onStartFreshHmlEmission && (
                 <button
                   type="button"
@@ -181,7 +203,7 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                 </button>
               )}
 
-            {emissionResult.numberConflict && (
+            {hasEmissionIssue && emissionResult?.numberConflict && (
               <div className="rounded-xl border border-rose-300 bg-white/70 p-3 dark:border-rose-800 dark:bg-slate-950/50">
                 <p className="font-bold">
                   Número {emissionResult.numberConflict.previousNumber} já está sendo usado.
@@ -223,27 +245,31 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
               </div>
             )}
 
-            {emissionResult.validation?.errors.map((error) => (
-              <p key={error} className="mt-1">
-                • {safeFiscalIssueMessage(error, 'Há dados fiscais que precisam de correção.')}
-              </p>
-            ))}
+            {hasEmissionIssue &&
+              emissionResult?.validation?.errors.map((error) => (
+                <p key={error} className="mt-1">
+                  • {safeFiscalIssueMessage(error, 'Há dados fiscais que precisam de correção.')}
+                </p>
+              ))}
 
-            {issueCopy.action === 'correct-fiscal-data' && onCorrectFiscalData && (
-              <button
-                type="button"
-                onClick={onCorrectFiscalData}
-                disabled={!canOperateFiscal || isSubmitting}
-                className="rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
-              >
-                Corrigir dados fiscais
-              </button>
-            )}
+            {hasEmissionIssue &&
+              emissionIssueCopy?.action === 'correct-fiscal-data' &&
+              onCorrectFiscalData && (
+                <button
+                  type="button"
+                  onClick={onCorrectFiscalData}
+                  disabled={!canOperateFiscal || isSubmitting}
+                  className="rounded-xl bg-rose-700 px-4 py-2 font-black text-white transition-colors hover:bg-rose-800 disabled:opacity-50"
+                >
+                  Corrigir dados fiscais
+                </button>
+              )}
 
-            {issueCopy.action === 'consult' &&
-              (emissionResult.documentId ||
-                emissionResult.emissionRequestId ||
-                emissionResult.reservationRecoveryRequired) &&
+            {hasEmissionIssue &&
+              emissionIssueCopy?.action === 'consult' &&
+              (emissionResult?.documentId ||
+                emissionResult?.emissionRequestId ||
+                emissionResult?.reservationRecoveryRequired) &&
               onReconcile && (
                 <button
                   type="button"
@@ -263,9 +289,10 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                 </button>
               )}
 
-            {environment === 2 &&
-              issueCopy.action === 'retransmit-same-document' &&
-              emissionResult.hmlConfirmedNotFound &&
+            {hasEmissionIssue &&
+              environment === 2 &&
+              emissionIssueCopy?.action === 'retransmit-same-document' &&
+              emissionResult?.hmlConfirmedNotFound &&
               !emissionResult.pending &&
               emissionResult.documentId &&
               onRetry && (

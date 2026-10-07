@@ -1,4 +1,4 @@
-import type { OfflineInventoryCatalog } from './offlineInventoryCatalog';
+import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
 
 export const findInventoryDraftConflicts = (
   catalog: OfflineInventoryCatalog,

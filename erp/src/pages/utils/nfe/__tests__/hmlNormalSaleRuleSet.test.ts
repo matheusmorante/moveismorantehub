@@ -332,7 +332,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
       number: 620,
       issuedAt: '2026-10-05T18:55:03-03:00',
     });
-    expect(xml).toContain('<detPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
+    expect(xml).toContain('<detPag><indPag>0</indPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
   });
   it('valida o documento opcional informado e não aceita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();

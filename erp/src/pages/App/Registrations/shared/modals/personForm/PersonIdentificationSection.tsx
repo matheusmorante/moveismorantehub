@@ -174,6 +174,83 @@ export const PersonIdentificationSection: React.FC<PersonIdentificationSectionPr
           />
         )}
       </div>
+      {/* Dados Fiscais (específico PJ ou fornecedores/clientes) */}
+      {!isEmployee && (
+        <div className="md:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="flex items-center gap-2">
+            <i className="bi bi-file-earmark-text text-blue-600 dark:text-blue-400 text-sm" />
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
+              Dados Fiscais {formData.personType === 'PJ' ? '(Pessoa Jurídica)' : '(Opcional)'}
+            </h4>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="person-ie-indicator"
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
+              >
+                Situação perante o ICMS <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="person-ie-indicator"
+                value={formData.ieIndicator || '9'}
+                onChange={(e) => {
+                  const val = e.target.value as '1' | '2' | '9';
+                  setFormData({
+                    ...formData,
+                    ieIndicator: val,
+                    ...(val === '2' ? { rgIe: '', ie: '' } : {}),
+                  });
+                }}
+                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-bold text-slate-800 dark:text-slate-100"
+              >
+                <option value="9">9 - Não Contribuinte (Consumidor final / sem IE ou com IE de não contribuinte)</option>
+                <option value="1">1 - Contribuinte do ICMS (Possui Inscrição Estadual de contribuinte)</option>
+                <option value="2">2 - Contribuinte Isento de Inscrição Estadual</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="person-ie"
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
+              >
+                Inscrição Estadual (IE){' '}
+                {formData.ieIndicator === '1' && (
+                  <span className="text-red-500">*</span>
+                )}
+              </label>
+              <input
+                id="person-ie"
+                type="text"
+                disabled={formData.ieIndicator === '2'}
+                value={formData.ieIndicator === '2' ? '' : (formData.ie || formData.rgIe || '')}
+                onChange={(e) => {
+                  const raw = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+                  setFormData({
+                    ...formData,
+                    ie: raw,
+                    rgIe: raw,
+                  });
+                }}
+                placeholder={
+                  formData.ieIndicator === '2'
+                    ? 'Dispensada (Contribuinte Isento)'
+                    : formData.ieIndicator === '1'
+                      ? 'Informe a IE obrigatória'
+                      : 'Opcional (se possuir IE de não contribuinte)'
+                }
+                className={`w-full px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs font-bold font-mono dark:text-slate-100 ${
+                  formData.ieIndicator === '2'
+                    ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                }`}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {collectionName === 'suppliers' && (
         <div className="md:col-span-2 flex flex-col gap-2">

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import { convertInboundToPurchaseItems } from '../inboundToPurchaseConverter';
-import { InboundReceiptItem } from '../../InboundNfeItemsSection';
+import { InboundReceiptItem } from '../../components/InboundNfeItemsSection';
 
 describe('inboundToPurchaseConverter', () => {
   describe('Modo Único (1:1)', () => {

@@ -16,6 +16,18 @@ export function useNfeRecipientTaxId({ order, currentModel }: UseNfeRecipientTax
     order?.customerData?.cpfCnpj || order?.customerData?.document || ''
   );
 
+  const initialIe = order?.customerData?.ie || (order?.customerData as any)?.rgIe || '';
+  const initialIndicator: '1' | '2' | '9' =
+    currentModel === '65'
+      ? '9'
+      : order?.fiscalContext?.recipientIeIndicator ||
+        order?.customerData?.ieIndicator ||
+        (initialIe.trim() ? '1' : '9');
+
+  const [recipientIe, setRecipientIe] = useState(initialIe);
+  const [recipientIeIndicator, setRecipientIeIndicator] = useState<'1' | '2' | '9'>(initialIndicator);
+  const [recipientIeError, setRecipientIeError] = useState<string | null>(null);
+
   const handleRecipientTaxIdChange = useCallback(
     (value: string) => {
       setRecipientTaxId(value);
@@ -31,10 +43,37 @@ export function useNfeRecipientTaxId({ order, currentModel }: UseNfeRecipientTax
     [currentModel, order?.customerData?.personType]
   );
 
+  const handleRecipientIeChange = useCallback((value: string) => {
+    const cleaned = value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+    setRecipientIe(cleaned);
+    if (cleaned.trim()) {
+      setRecipientIeError(null);
+    }
+  }, []);
+
+  const handleRecipientIeIndicatorChange = useCallback((indicator: '1' | '2' | '9') => {
+    setRecipientIeIndicator(indicator);
+    if (indicator === '2') {
+      setRecipientIe('');
+      setRecipientIeError(null);
+    } else if (indicator === '1') {
+      // Se virou contribuinte mas não tem IE, avisa
+      setRecipientIeError(null);
+    } else {
+      setRecipientIeError(null);
+    }
+  }, []);
+
   return {
     recipientTaxId,
     setRecipientTaxId: handleRecipientTaxIdChange,
     recipientTaxIdError,
     setRecipientTaxIdError,
+    recipientIe,
+    setRecipientIe: handleRecipientIeChange,
+    recipientIeIndicator,
+    setRecipientIeIndicator: handleRecipientIeIndicatorChange,
+    recipientIeError,
+    setRecipientIeError,
   };
 }

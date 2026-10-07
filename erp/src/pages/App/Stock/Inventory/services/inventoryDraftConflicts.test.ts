@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findInventoryDraftConflicts } from './inventoryDraftConflicts';
-import type { OfflineInventoryCatalog } from './offlineInventoryCatalog';
+import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
 
 const catalog = {
   syncedAt: '2026-09-25T20:00:00Z',

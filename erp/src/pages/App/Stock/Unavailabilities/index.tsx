@@ -1,4 +1,4 @@
-import { CheckCircle2, FilterX, Plus } from 'lucide-react';
+﻿import { CheckCircle2, FilterX, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -12,7 +12,7 @@ import {
   type UnavailabilityStatusFilter,
   undoStockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
-import LabelPrint from './LabelPrint';
+import UnavailabilityLabelPrintModal from './modals/UnavailabilityLabelPrintModal';
 import PhotoPreviewModal from './modals/PhotoPreviewModal';
 import UnavailabilityFormModal from './modals/UnavailabilityFormModal';
 
@@ -318,7 +318,7 @@ export default function UnavailabilitiesPage() {
         }}
       />
       {labelItem && (
-        <LabelPrint
+        <UnavailabilityLabelPrintModal
           item={labelItem}
           onClose={() => {
             setLabelItem(null);

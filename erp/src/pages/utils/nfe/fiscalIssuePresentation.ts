@@ -99,6 +99,40 @@ const REJECTION_COPY: Record<string, string> = {
   '779': 'O NCM informado não é compatível com esta NFC-e.',
 };
 
+export const HML_INTERSTATE_MATRIX_NOT_APPROVED = 'HML_INTERSTATE_MATRIX_NOT_APPROVED';
+export const INTERSTATE_RULE_INVALID_COMBINATION = 'INTERSTATE_RULE_INVALID_COMBINATION';
+export const INTERSTATE_EXEMPT_IE_NOT_ALLOWED = 'INTERSTATE_EXEMPT_IE_NOT_ALLOWED';
+export const INTERSTATE_ST_RULE_NOT_CONFIGURED = 'INTERSTATE_ST_RULE_NOT_CONFIGURED';
+export const INTERSTATE_CSOSN_NOT_RESOLVED = 'INTERSTATE_CSOSN_NOT_RESOLVED';
+export const INTERSTATE_TAX_PROFILE_INCOMPLETE = 'INTERSTATE_TAX_PROFILE_INCOMPLETE';
+
+export function isHmlInterstateMatrixBlock(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  return (
+    value.startsWith(`${HML_INTERSTATE_MATRIX_NOT_APPROVED}:`) ||
+    value.startsWith(`${INTERSTATE_RULE_INVALID_COMBINATION}:`) ||
+    value.startsWith(`${INTERSTATE_EXEMPT_IE_NOT_ALLOWED}:`) ||
+    value.startsWith(`${INTERSTATE_ST_RULE_NOT_CONFIGURED}:`) ||
+    value.startsWith(`${INTERSTATE_CSOSN_NOT_RESOLVED}:`) ||
+    value.startsWith(`${INTERSTATE_TAX_PROFILE_INCOMPLETE}:`)
+  );
+}
+
+const PREPARATION_ERROR_COPY: Record<string, string> = {
+  [HML_INTERSTATE_MATRIX_NOT_APPROVED]:
+    'Ainda não existe tratamento fiscal aprovado para esta combinação de operação, UF de destino, destinatário e produtos. Atualizar os dados e tentar novamente não libera a emissão; o tratamento precisa ser revisado e aprovado pelo responsável fiscal.',
+  [INTERSTATE_RULE_INVALID_COMBINATION]:
+    'A legislação não permite a combinação de destinatário não contribuinte (indIEDest=9) sem indicador de consumidor final (rejeição 696).',
+  [INTERSTATE_EXEMPT_IE_NOT_ALLOWED]:
+    'A SEFAZ do estado de destino não permite destinatário como contribuinte isento de inscrição estadual (indIEDest=2) em operações interestaduais (rejeição 805).',
+  [INTERSTATE_ST_RULE_NOT_CONFIGURED]:
+    'Ainda não há regra de Substituição Tributária interestadual parametrizada para este produto entre as UFs de origem e destino.',
+  [INTERSTATE_CSOSN_NOT_RESOLVED]:
+    'Não foi possível determinar o CSOSN aplicável para esta operação interestadual.',
+  [INTERSTATE_TAX_PROFILE_INCOMPLETE]:
+    'Faltam dados fiscais obrigatórios para a resolução da regra interestadual.',
+};
+
 export function containsTechnicalFiscalIdentifier(value: string): boolean {
   return INTERNAL_IDENTIFIER.test(value);
 }
@@ -106,6 +140,8 @@ export function containsTechnicalFiscalIdentifier(value: string): boolean {
 export function safeFiscalIssueMessage(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const message = value.trim();
+  const code = message.match(/^([A-Z][A-Z0-9_]+):/)?.[1];
+  if (code && PREPARATION_ERROR_COPY[code]) return PREPARATION_ERROR_COPY[code];
   if (!message || containsTechnicalFiscalIdentifier(message) || SENSITIVE_VALUE.test(message))
     return fallback;
   return message;
@@ -143,6 +179,81 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
   const code = getCode(result);
   const transportCode = getTransportCode(result);
   const cStat = getCStat(result);
+  if (code === HML_INTERSTATE_MATRIX_NOT_APPROVED) {
+    return {
+      tone: 'error',
+      title: 'Tratamento fiscal não aprovado',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[HML_INTERSTATE_MATRIX_NOT_APPROVED]
+      ),
+      nextStep:
+        'Solicite ao responsável fiscal a revisão e aprovação da regra aplicável a este cenário.',
+      action: 'none',
+    };
+  }
+  if (code === INTERSTATE_RULE_INVALID_COMBINATION) {
+    return {
+      tone: 'error',
+      title: 'Combinação fiscal inválida',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[INTERSTATE_RULE_INVALID_COMBINATION]
+      ),
+      nextStep: 'Corrija os dados fiscais do destinatário marcando consumidor final como sim.',
+      action: 'correct-fiscal-data',
+    };
+  }
+  if (code === INTERSTATE_EXEMPT_IE_NOT_ALLOWED) {
+    return {
+      tone: 'error',
+      title: 'UF de destino não aceita contribuinte isento',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[INTERSTATE_EXEMPT_IE_NOT_ALLOWED]
+      ),
+      nextStep:
+        'Altere o indicador de IE do destinatário para não contribuinte ou informe a inscrição estadual ativa.',
+      action: 'correct-fiscal-data',
+    };
+  }
+  if (code === INTERSTATE_ST_RULE_NOT_CONFIGURED) {
+    return {
+      tone: 'error',
+      title: 'Substituição Tributária não configurada',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[INTERSTATE_ST_RULE_NOT_CONFIGURED]
+      ),
+      nextStep:
+        'Solicite ao responsável fiscal a parametrização do protocolo/convênio de ST aplicável para este NCM.',
+      action: 'none',
+    };
+  }
+  if (code === INTERSTATE_CSOSN_NOT_RESOLVED) {
+    return {
+      tone: 'error',
+      title: 'CSOSN não determinado',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[INTERSTATE_CSOSN_NOT_RESOLVED]
+      ),
+      nextStep: 'Revise o enquadramento fiscal do emitente e destinatário.',
+      action: 'correct-fiscal-data',
+    };
+  }
+  if (code === INTERSTATE_TAX_PROFILE_INCOMPLETE) {
+    return {
+      tone: 'error',
+      title: 'Dados fiscais incompletos',
+      description: safeFiscalIssueMessage(
+        result.error,
+        PREPARATION_ERROR_COPY[INTERSTATE_TAX_PROFILE_INCOMPLETE]
+      ),
+      nextStep: 'Preencha todos os campos fiscais do pedido e dos itens.',
+      action: 'correct-fiscal-data',
+    };
+  }
   const isTlsFailure = TLS_CODES.has(transportCode);
   const transportFailure =
     code === 'SEFAZ_TRANSPORT_FAILED' ||

@@ -2,7 +2,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
-import { PriceLabelDataFillModal } from '../components/modals/PriceLabelDataFillModal';
+import { PriceLabelDataFillModal } from '../modals/PriceLabelDataFillModal';
 import * as catalogService from '../services/priceLabelCatalogService';
 import { toast } from 'react-toastify';
 

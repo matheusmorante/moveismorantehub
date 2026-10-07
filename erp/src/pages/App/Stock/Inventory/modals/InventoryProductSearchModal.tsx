@@ -89,7 +89,7 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
           {!loading &&
             filtered
               .filter(({ p }) => {
-                const kind = (p as any)?.productKind || (p as any)?.product_kind;
+                const kind = p.productKind || ('product_kind' in p ? p.product_kind : undefined);
                 return kind !== 'salvado' && kind !== 'usado';
               })
               .map(({ p, v, key }) => {

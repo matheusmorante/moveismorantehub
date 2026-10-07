@@ -1,18 +1,13 @@
-import type {
-  DeterminedTaxGroup,
-  FiscalAddress,
-  FiscalDocument,
-  FiscalSnapshotCandidate,
-} from './fiscalSnapshot';
-import { validateFiscalDocument, type ApprovedFiscalRuleSet } from './fiscalCore';
-import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fiscalIcmsGroups';
 import { decideFiscalRecipientRequirements } from '../../shared-utils/fiscalDocumentModel';
-import { validateItemCfopMatch } from '../../shared-utils/fiscalCfopModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../shared-utils/recipientTaxId';
+import { type ApprovedFiscalRuleSet, validateFiscalDocument } from './fiscalCore';
+import type { FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
+import { serializeFiscalItems } from './xml/fiscalItemXml';
+import { accessKeyDigit, addressXml, dateOnly, money, requireCode, tag } from './xml/xmlPrimitives';
 
 export type FiscalXmlIdentity = {
   accessKey: string;
@@ -20,132 +15,6 @@ export type FiscalXmlIdentity = {
   number: number;
   issuedAt: string;
 };
-
-const escapeXml = (value: string | number) =>
-  String(value).replace(
-    /[&<>"']/g,
-    (char) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&apos;',
-      })[char] || char
-  );
-const tag = (name: string, value: string | number) => `<${name}>${escapeXml(value)}</${name}>`;
-const money = (value: number) => value.toFixed(2);
-const decimal = (value: number, scale: number) => value.toFixed(scale);
-const dateOnly = (value: string, field: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} inválida.`);
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value)
-    throw new Error(`${field} inválida.`);
-  return value;
-};
-function percent(value: number): string {
-  if (
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > 100 ||
-    Math.abs(value * 10000 - Math.round(value * 10000)) > 0.000001
-  )
-    throw new Error('Alíquota fiscal inválida.');
-  return value.toFixed(4);
-}
-
-function accessKeyDigit(base43: string): number {
-  let sum = 0;
-  for (let index = 42; index >= 0; index--) sum += Number(base43[index]) * (2 + ((42 - index) % 8));
-  const digit = 11 - (sum % 11);
-  return digit >= 10 ? 0 : digit;
-}
-
-function requireCode(value: string, pattern: RegExp, field: string): string {
-  if (!pattern.test(value)) throw new Error(`${field} inválido para serialização fiscal.`);
-  return value;
-}
-
-function addressXml(address: FiscalAddress, name: 'enderEmit' | 'enderDest'): string {
-  requireCode(address.municipalityCode, /^\d{7}$/, 'Município IBGE');
-  requireCode(address.uf, /^[A-Z]{2}$/, 'UF');
-  if (address.postalCode) requireCode(address.postalCode, /^\d{8}$/, 'CEP');
-  for (const [field, value] of Object.entries(address).filter(
-    ([field]) => field !== 'postalCode'
-  )) {
-    if (!value?.trim()) throw new Error(`Endereço fiscal sem ${field}.`);
-  }
-  return (
-    `<${name}>${tag('xLgr', address.street)}${tag('nro', address.number)}` +
-    `${tag('xBairro', address.district)}${tag('cMun', address.municipalityCode)}` +
-    `${tag('xMun', address.municipality)}${tag('UF', address.uf)}` +
-    `${address.postalCode ? tag('CEP', address.postalCode) : ''}${tag('cPais', '1058')}${tag('xPais', 'BRASIL')}</${name}>`
-  );
-}
-
-function taxAmount(tax: DeterminedTaxGroup, field: string): number {
-  const value = tax.values[field];
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
-    throw new Error(`${tax.group}.${field} precisa de valor numérico decidido.`);
-  return value;
-}
-
-function taxXml(taxes: ReadonlyArray<DeterminedTaxGroup>, origin: string): string {
-  const icms = taxes.find((tax) => tax.group === 'ICMS');
-  const pis = taxes.find((tax) => tax.group === 'PIS');
-  const cofins = taxes.find((tax) => tax.group === 'COFINS');
-  if (!icms || !pis || !cofins || taxes.some((tax) => tax.group === 'IPI'))
-    throw new Error('Grupos tributários ausentes ou ainda não suportados pelo serializer.');
-  // An approved classification must not silently drop ST/FCP/credit values while
-  // serializing one of the small set of ICMS groups currently implemented.
-  const supportedIcmsFields = icms.codeSystem === 'CST' && icms.code === '00'
-    ? ['modBC', 'vBC', 'pICMS', 'vICMS'] : ['vICMS'];
-  if (Object.keys(icms.values).some((field) => !supportedIcmsFields.includes(field)))
-    throw new Error('INTERSTATE_TAX_TREATMENT_NOT_IMPLEMENTED: campos ICMS/ST/FCP/crédito sem serialização suportada.');
-  let icmsGroup: string;
-  if (icms.codeSystem === 'CSOSN' && ZERO_OWN_ICMS_CSOSNS.includes(icms.code)) {
-    if (taxAmount(icms, 'vICMS') !== 0) throw new Error('ICMSSN102 não destaca ICMS próprio.');
-    const group = zeroOwnIcmsGroup(icms.code);
-    icmsGroup = `<${group}>${tag('orig', origin)}${tag('CSOSN', icms.code)}</${group}>`;
-  } else if (icms.codeSystem === 'CST' && icms.code === '00') {
-    const base = taxAmount(icms, 'vBC');
-    const rate = taxAmount(icms, 'pICMS');
-    const amount = taxAmount(icms, 'vICMS');
-    if (Math.abs(Math.round(base * rate) - Math.round(amount * 100)) > 1)
-      throw new Error('ICMS do item não reconcilia com base e alíquota.');
-    icmsGroup =
-      `<ICMS00>${tag('orig', origin)}${tag('CST', icms.code)}` +
-      `${tag('modBC', requireCode(String(icms.values.modBC), /^[0-3]$/, 'Modalidade da base ICMS'))}` +
-      `${tag('vBC', money(base))}${tag('pICMS', percent(rate))}` +
-      `${tag('vICMS', money(amount))}</ICMS00>`;
-  } else throw new Error(`Grupo ICMS ${icms.codeSystem}/${icms.code} ainda não suportado.`);
-
-  const contribution = (tax: DeterminedTaxGroup, group: 'PIS' | 'COFINS') => {
-    if (tax.codeSystem !== 'CST') throw new Error(`${group} exige CST explícito.`);
-    const rateName = group === 'PIS' ? 'pPIS' : 'pCOFINS';
-    const valueName = group === 'PIS' ? 'vPIS' : 'vCOFINS';
-    const amount = taxAmount(tax, valueName);
-    if (['04', '05', '06', '07', '08', '09'].includes(tax.code)) {
-      if (amount !== 0) throw new Error(`${group} não tributado com valor diferente de zero.`);
-      return `<${group}><${group}NT>${tag('CST', tax.code)}</${group}NT></${group}>`;
-    }
-    if (!['01', '02', '49', '99'].includes(tax.code))
-      throw new Error(`${group} CST ${tax.code} ainda não suportado.`);
-    const base = taxAmount(tax, 'vBC');
-    const rate = taxAmount(tax, rateName);
-    if (Math.abs(Math.round(base * rate) - Math.round(amount * 100)) > 1)
-      throw new Error(`${group} do item não reconcilia com base e alíquota.`);
-    const variant = ['01', '02'].includes(tax.code) ? `${group}Aliq` : `${group}Outr`;
-    return (
-      `<${group}><${variant}>${tag('CST', tax.code)}${tag('vBC', money(base))}` +
-      `${tag(rateName, percent(rate))}${tag(valueName, money(amount))}</${variant}></${group}>`
-    );
-  };
-  return (
-    `<imposto><ICMS>${icmsGroup}</ICMS>${contribution(pis, 'PIS')}` +
-    `${contribution(cofins, 'COFINS')}</imposto>`
-  );
-}
 
 /** Pure internal-sale NF-e/NFC-e serialization, including online QR Code v3. */
 export function serializeFiscalDocument(
@@ -213,9 +82,17 @@ export function serializeFiscalDocument(
     operation.presence !== '4'
   )
     throw new Error('NFC-e com entrega em domicílio exige indPres=4.');
-  if (document.model === '65' && document.recipient.address && document.recipient.address.uf !== 'PR')
+  if (
+    document.model === '65' &&
+    document.recipient.address &&
+    document.recipient.address.uf !== 'PR'
+  )
     throw new Error('NFC-e não permite destinatário fora do estado.');
-  if (operation.destination === '1' && document.recipient.address && document.recipient.address.uf !== 'PR') {
+  if (
+    operation.destination === '1' &&
+    document.recipient.address &&
+    document.recipient.address.uf !== 'PR'
+  ) {
     const isPickup =
       (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===
       'pickup';
@@ -223,7 +100,11 @@ export function serializeFiscalDocument(
       throw new Error('Operação interna (idDest=1) com entrega fora do estado é incoerente.');
     }
   }
-  if (operation.destination === '2' && document.recipient.address && document.recipient.address.uf === 'PR')
+  if (
+    operation.destination === '2' &&
+    document.recipient.address &&
+    document.recipient.address.uf === 'PR'
+  )
     throw new Error('Operação interestadual (idDest=2) exige destinatário com UF diferente de PR.');
   const recipientDoc = normalizeRecipientTaxId(document.recipient.cpfCnpj);
   const requirements = decideFiscalRecipientRequirements({
@@ -279,42 +160,9 @@ export function serializeFiscalDocument(
       : `<dest>${recipientDoc ? tag(recipientDoc.length === 11 ? 'CPF' : 'CNPJ', recipientDoc) : ''}` +
         `${tag('xNome', document.environment === 2 ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : document.recipient.name)}` +
         `${document.recipient.address ? addressXml(document.recipient.address, 'enderDest') : ''}` +
-        `${tag('indIEDest', document.recipient.ieIndicator)}` +
-        `${document.recipient.ie ? tag('IE', document.recipient.ie) : ''}</dest>`;
-  const items = document.items
-    .map((item) => {
-      const p = item.product;
-      const c = item.classification;
-      requireCode(c.ncm, /^\d{8}$/, `NCM do item ${item.itemNumber}`);
-      requireCode(c.cfop, /^\d{4}$/, `CFOP do item ${item.itemNumber}`);
-      const cfopMatch = validateItemCfopMatch({
-        cfop: c.cfop,
-        destination,
-        model: document.model,
-        direction: operation.direction,
-        itemType: 'product',
-        operationType: 'sale',
-      });
-      if (!cfopMatch.valid)
-        throw new Error(`CFOP do item ${item.itemNumber} inválido: ${cfopMatch.reason}`);
-      requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
-      const product =
-        `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +
-        `${tag('xProd', document.environment === 2 && item.itemNumber === 1 ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
-        `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
-        `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
-        `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +
-        `${tag('vUnCom', decimal(p.unitValue, 4))}${tag('vProd', money(p.gross))}` +
-        `${tag('cEANTrib', p.gtin)}${tag('uTrib', c.unit)}` +
-        `${tag('qTrib', decimal(p.quantity, 4))}${tag('vUnTrib', decimal(p.unitValue, 4))}` +
-        `${p.freight ? tag('vFrete', money(p.freight)) : ''}` +
-        `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
-        `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +
-        `${p.otherExpenses ? tag('vOutro', money(p.otherExpenses)) : ''}` +
-        `${tag('indTot', '1')}</prod>`;
-      return `<det nItem="${item.itemNumber}">${product}${taxXml(item.taxes, c.origin)}</det>`;
-    })
-    .join('');
+        `${tag('indIEDest', document.model === '65' ? '9' : document.recipient.ieIndicator)}` +
+        `${document.model !== '65' && document.recipient.ie && document.recipient.ieIndicator !== '2' ? tag('IE', document.recipient.ie) : ''}</dest>`;
+  const items = serializeFiscalItems(document);
   const t = document.totals;
   const total =
     `<total><ICMSTot>${tag('vBC', money(t.icmsBase))}` +
@@ -330,14 +178,20 @@ export function serializeFiscalDocument(
   const payments = `<pag>${document.payments
     .map((payment) => {
       requireCode(payment.methodCode, /^\d{2}$/, 'Meio de pagamento');
-      if (document.model === '65' && ['03', '04', '17'].includes(payment.methodCode) && !payment.card)
+      if (
+        document.model === '65' &&
+        ['03', '04', '17'].includes(payment.methodCode) &&
+        !payment.card
+      )
         throw new Error('Dados de integração do cartão/PIX ausentes para NFC-e.');
       const paymentDescription = payment.description?.trim();
       if (
         payment.methodCode === '99' &&
         (!paymentDescription || paymentDescription.length < 2 || paymentDescription.length > 60)
       )
-        throw new Error('Descreva o meio de pagamento classificado como Outros (2 a 60 caracteres).');
+        throw new Error(
+          'Descreva o meio de pagamento classificado como Outros (2 a 60 caracteres).'
+        );
       return (
         `<detPag>${payment.paymentIndicator ? tag('indPag', requireCode(payment.paymentIndicator, /^[01]$/, 'Indicador do pagamento')) : ''}` +
         `${tag('tPag', payment.methodCode)}` +

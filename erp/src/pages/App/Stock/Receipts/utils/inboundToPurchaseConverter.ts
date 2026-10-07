@@ -1,4 +1,4 @@
-import type { InboundReceiptItem, InboundReceiptItemComposition } from '../InboundNfeItemsSection';
+﻿import type { InboundReceiptItem, InboundReceiptItemComposition } from '../components/InboundNfeItemsSection';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import type Product from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';

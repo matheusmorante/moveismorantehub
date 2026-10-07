@@ -18,7 +18,7 @@ import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId } from './variationForm.types';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { useVariationDraftAutoSave } from './useVariationDraftAutoSave';
-import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../utils/variationRegistrationRules';
+import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 
 interface UseVariationFormOptions {
   isOpen: boolean;

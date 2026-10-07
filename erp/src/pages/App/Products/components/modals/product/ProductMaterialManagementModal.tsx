@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
+import {
+  createProductMaterial,
+  deleteProductMaterialIfUnused,
+  fetchProductMaterials,
+  getProductMetadataErrorCode,
+  type ProductCatalogMetadataOption,
+} from '../../../services/productCatalogMetadataService';
 
-export interface ProductMaterial {
-  readonly id: string;
-  readonly name: string;
-  readonly created_at?: string;
-}
+export type ProductMaterial = ProductCatalogMetadataOption;
 
 export interface ProductMaterialManagementModalProps {
   readonly isOpen: boolean;
@@ -31,21 +33,12 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
   const fetchMaterials = useCallback(async () => {
     setFetching(true);
     try {
-      const { data, error } = await supabase
-        .from('product_materials')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar materiais:', error);
-        if (error.code === '42P01') {
-          toast.info('Aguarde a execução do SQL de migração para carregar os materiais.');
-        }
-      } else {
-        setMaterials((data as ProductMaterial[]) || []);
-      }
+      setMaterials(await fetchProductMaterials());
     } catch (err: unknown) {
       console.error('Erro ao listar materiais:', err);
+      if (getProductMetadataErrorCode(err) === '42P01') {
+        toast.info('Aguarde a execução do SQL de migração para carregar os materiais.');
+      }
     } finally {
       setFetching(false);
     }
@@ -72,14 +65,7 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('product_materials').insert([{ name: value }]);
-
-      if (error) {
-        if (error.code === '23505') {
-          throw new Error('Este material já existe!');
-        }
-        throw error;
-      }
+      await createProductMaterial(value);
 
       setNewName('');
       toast.success('Material adicionado!');
@@ -99,24 +85,14 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
 
     try {
       // Verificar se existem produtos usando este material
-      const { count, error: checkError } = await supabase
-        .from('products')
-        .select('id', { count: 'exact', head: true })
-        .eq('material', material.name)
-        .is('deleted', false);
+      const result = await deleteProductMaterialIfUnused(material);
 
-      if (checkError) throw checkError;
-
-      if (count && count > 0) {
+      if (!result.deleted) {
         toast.error(
-          `Não é possível remover: Existem ${count} produtos vinculados a este material.`
+          `Não é possível remover: Existem ${result.linkedProductCount} produtos vinculados a este material.`
         );
         return;
       }
-
-      const { error } = await supabase.from('product_materials').delete().eq('id', material.id);
-
-      if (error) throw error;
       toast.success('Material removido!');
       await fetchMaterials();
       if (onMaterialChange) onMaterialChange();

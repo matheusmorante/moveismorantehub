@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { supabase } from '../../../../services/supabaseClient';
 import {
   getApplicableProductTechnicalFields,
   getEffectiveProductTechnicalValues,
@@ -24,6 +23,10 @@ import {
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
 } from '../../domain/productCharacteristics';
+import {
+  fetchMobileProductTechnicalFields,
+  type MobileProductTechnicalField,
+} from '../../services/mobileProductTechnicalService';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 
 interface Props {
@@ -59,7 +62,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   dark,
   parentData,
 }) => {
-  const [technicalFields, setTechnicalFields] = useState<any[]>([]);
+  const [technicalFields, setTechnicalFields] = useState<MobileProductTechnicalField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [showAdditionalAttributes, setShowAdditionalAttributes] = useState(false);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
@@ -81,52 +84,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     const load = async () => {
       setLoadingFields(true);
       try {
-        let attributesData: any[] | null = null;
-        const attributesQuery = await supabase
-          .from('attributes')
-          .select('id, name, active, data_type, unit, is_custom')
-          .eq('active', true)
-          .order('name');
-        if (
-          attributesQuery.error &&
-          (attributesQuery.error.code === '42703' ||
-            attributesQuery.error.message?.includes('is_custom'))
-        ) {
-          const fallbackQuery = await supabase
-            .from('attributes')
-            .select('id, name, active, data_type, unit')
-            .eq('active', true)
-            .order('name');
-          if (fallbackQuery.error) throw fallbackQuery.error;
-          attributesData = fallbackQuery.data;
-        } else if (attributesQuery.error) {
-          throw attributesQuery.error;
-        } else {
-          attributesData = attributesQuery.data;
-        }
-        const [{ data: options }, { data: categoryLinks }] = await Promise.all([
-          supabase.from('attribute_values').select('id, attribute_id, value'),
-          supabase.from('category_attributes').select('attribute_id, category_id'),
-        ]);
+        const fields = await fetchMobileProductTechnicalFields();
         if (!mounted) return;
-        setTechnicalFields(
-          (attributesData || []).map((attribute: any) => {
-            const links = (categoryLinks || []).filter(
-              (link: any) => link.attribute_id === attribute.id
-            );
-            return {
-              ...attribute,
-              categoryIds: links.map((link: any) => link.category_id),
-              isRequired: isRequiredCharacteristicName(attribute.name),
-              isCustom: Boolean(attribute.is_custom),
-              options: (options || [])
-                .filter((option: any) => option.attribute_id === attribute.id)
-                .sort((a: any, b: any) =>
-                  a.value.localeCompare(b.value, 'pt-BR', { numeric: true, sensitivity: 'base' })
-                ),
-            };
-          })
-        );
+        setTechnicalFields(fields);
       } catch (error) {
         console.warn('[ProductFormTechnicalTab] Falha ao carregar atributos do ERP:', error);
       } finally {

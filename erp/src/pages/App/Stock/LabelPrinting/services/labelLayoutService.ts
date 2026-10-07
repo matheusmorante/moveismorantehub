@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { GridModel, GridModelDraft } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
-import { mapDbToModel, mapModelToDb } from '../utils/LabelUtils';
+import { mapDbToModel, mapModelToDb } from './labelLayoutMapper';
 
 type LabelArtConfig = NonNullable<LabelConfig['artConfig']>;
 

@@ -35,8 +35,6 @@ export const NfeItemRow: React.FC<Props> = ({
   onUpdateFiscalBlur,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [pendingCsosn, setPendingCsosn] = useState<string | null>(null);
-  const [isCsosnConfirmationOpen, setIsCsosnConfirmationOpen] = useState(false);
   const [cfopSearch, setCfopSearch] = useState<string | null>(null);
   const savedCsosn = item.fiscal?.cst?.trim() || '';
   const currentCsosn = savedCsosn || '103';
@@ -49,17 +47,7 @@ export const NfeItemRow: React.FC<Props> = ({
   const hasCfopError = fieldError?.field === 'cfop';
   const hasCstError = fieldError?.field === 'cst';
   const hasOrigemError = fieldError?.field === 'origem';
-  const closeCsosnConfirmation = () => {
-    setIsCsosnConfirmationOpen(false);
-    setPendingCsosn(null);
-  };
-  const confirmCsosnChange = () => {
-    if (pendingCsosn === null) return;
-    if (hasCstError && onClearFieldError) onClearFieldError();
-    onUpdateFiscal('cst', pendingCsosn);
-    setIsCsosnConfirmationOpen(false);
-    setPendingCsosn(null);
-  };
+
   const selectedCfop = item.fiscal?.cfop || '';
   const visibleCfopOptions = useMemo(() => {
     const search = cfopSearch?.trim().toLocaleLowerCase('pt-BR') || '';
@@ -89,6 +77,13 @@ export const NfeItemRow: React.FC<Props> = ({
       setIsExpanded(true);
     }
   }, [hasCfopError, hasCstError, hasOrigemError]);
+
+  // Garante que o CSOSN padrão '103' esteja sincronizado no estado se vazio
+  React.useEffect(() => {
+    if (!item.fiscal?.cst) {
+      onUpdateFiscal('cst', '103');
+    }
+  }, [item.fiscal?.cst, onUpdateFiscal]);
 
   return (
     <div
@@ -280,34 +275,17 @@ export const NfeItemRow: React.FC<Props> = ({
             <select
               id={`nfe-item-csosn-${itemIndex}`}
               aria-label="CSOSN"
-              value={pendingCsosn ?? savedCsosn}
+              value={item.fiscal?.cst || '103'}
               onChange={(e) => {
-                const value = e.target.value;
-                if (!savedCsosn) {
-                  if (value) {
-                    if (hasCstError && onClearFieldError) onClearFieldError();
-                    onUpdateFiscal('cst', value);
-                  }
-                  setPendingCsosn(null);
-                } else {
-                  setPendingCsosn(value === savedCsosn ? null : value);
-                }
-              }}
-              onBlur={() => {
-                if (savedCsosn && pendingCsosn !== null && !isCsosnConfirmationOpen) {
-                  setIsCsosnConfirmationOpen(true);
-                }
+                if (hasCstError && onClearFieldError) onClearFieldError();
+                onUpdateFiscal('cst', e.target.value);
               }}
               className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none ${
                 hasCstError
                   ? 'border-rose-500 bg-rose-50/50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100 focus:border-rose-600'
                   : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-500'
               }`}
-              title="Selecionar CSOSN do item; a alteração exige confirmação"
             >
-              {!savedCsosn && (
-                <option value="">Selecione o CSOSN (sugerido: 103)</option>
-              )}
               {CSOSN_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -315,24 +293,7 @@ export const NfeItemRow: React.FC<Props> = ({
               ))}
             </select>
             <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-              {savedCsosn ? (
-                'A alteração de CSOSN só é aplicada após confirmação.'
-              ) : (
-                <>
-                  Sem classificação cadastrada. Selecione o CSOSN ou{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (hasCstError && onClearFieldError) onClearFieldError();
-                      onUpdateFiscal('cst', '103');
-                    }}
-                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline inline"
-                  >
-                    clique aqui para aplicar 103
-                  </button>
-                  .
-                </>
-              )}
+              O CSOSN padrão é 103.
             </p>
           </div>
           <div>
@@ -392,16 +353,6 @@ export const NfeItemRow: React.FC<Props> = ({
           </div>
         </div>
       )}
-      <ConfirmModal
-        isOpen={isCsosnConfirmationOpen && pendingCsosn !== null}
-        onClose={closeCsosnConfirmation}
-        onConfirm={confirmCsosnChange}
-        title="Confirmar alteração de CSOSN?"
-        message={`Tem certeza de que deseja alterar o CSOSN de ${savedCsosn || currentCsosn} para ${pendingCsosn}? Essa classificação pode mudar a tributação da NF-e.`}
-        confirmLabel="Sim, alterar"
-        cancelLabel="Não, manter atual"
-        type="warning"
-      />
     </div>
   );
 };

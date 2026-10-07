@@ -1,15 +1,8 @@
 import Product from '../../../../../types/product.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import type { ProductListFilters } from '../../types';
 
-export interface ProductListFilters {
-  activeOnly?: boolean;
-  category?: string;
-  isDraft?: boolean;
-  search?: string;
-  showTrash?: boolean;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
+export type { ProductListFilters } from '../../types';
 
 interface VariationSearchable {
   name?: string;

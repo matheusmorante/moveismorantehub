@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
-import { InboundDocumentImportModal } from '@/pages/App/Stock/InboundInvoices/InboundDocumentImportModal';
+import { InboundDocumentImportModal } from '@/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal';
 import { ManageInboundInvoiceMappingsModal } from '@/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal';
 import type {
   DateFilterConfig,

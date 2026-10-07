@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+﻿// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -10,9 +10,10 @@ import {
   createStockUnavailability,
   fetchStockUnavailabilities,
   undoStockUnavailability,
+  type StockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
 import UnavailabilitiesPage from './index';
-import UnavailabilityFormModal from './UnavailabilityFormModal';
+import UnavailabilityFormModal from './modals/UnavailabilityFormModal';
 
 vi.mock('@/pages/utils/supabaseConfig', () => {
   const createQueryBuilder = () => {

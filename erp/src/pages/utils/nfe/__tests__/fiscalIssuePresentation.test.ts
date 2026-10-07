@@ -29,6 +29,31 @@ describe('mensagens fiscais para a interface', () => {
     ).toBe('Confira os detalhes técnicos.');
   });
 
+  it('explica o bloqueio interestadual pendente sem sugerir retry como correção', () => {
+    const message = safeFiscalIssueMessage(
+      'HML_INTERSTATE_MATRIX_NOT_APPROVED: não existe tratamento interestadual aprovado para estes itens.',
+      'Falha genérica de preparação.'
+    );
+
+    expect(message).toContain('tratamento fiscal aprovado');
+    expect(message).toContain('responsável fiscal');
+    expect(message).not.toContain('HML_INTERSTATE_MATRIX_NOT_APPROVED');
+    expect(message).toContain('não libera a emissão');
+  });
+
+  it('apresenta o bloqueio de matriz interestadual como pendência sem ação de retry', () => {
+    expect(
+      getFiscalIssuePresentation({
+        error: 'HML_INTERSTATE_MATRIX_NOT_APPROVED: cenário pendente.',
+        technicalDetails: { apiCode: 'HML_INTERSTATE_MATRIX_NOT_APPROVED' },
+      })
+    ).toMatchObject({
+      title: 'Tratamento fiscal não aprovado',
+      action: 'none',
+      tone: 'error',
+    });
+  });
+
   it('orienta certificado, rejeição e consulta inconclusiva com ações próprias', () => {
     expect(getFiscalIssuePresentation({ code: 'HML_CERTIFICATE_INVALID' })).toMatchObject({
       title: 'Não foi possível usar o certificado digital',

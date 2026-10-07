@@ -3,18 +3,19 @@ import ProductTable from './components/Table/ProductTable';
 import { useProducts } from './hooks/data/useProducts';
 import { useVariationExitFlags } from './hooks/data/useVariationExitFlags';
 import Product, { ProductVisibilitySettings } from '../../../types/product.type';
+import type { ProductCategoryTree, ProductListFilters } from './types';
 import { toast } from 'react-toastify';
 
 interface ProductListProps {
   mode?: 'standard' | 'composition';
   onEdit: (product: Product) => void;
   onShowHistory?: (product: Product) => void;
-  onLaunchStock?: (product: any) => void;
-  filters?: any;
+  onLaunchStock?: (product: Product) => void;
+  filters?: ProductListFilters;
   visibilitySettings: ProductVisibilitySettings;
   onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
   onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
-  categoryTree?: any;
+  categoryTree?: ProductCategoryTree;
   title?: string;
   onCloseTrash?: () => void;
   onRefresh?: () => void;

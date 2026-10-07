@@ -1,6 +1,5 @@
 /**
- * @fileoverview Proxy de re-exportação para StockLaunchModal.
- * Mantido em components/ para garantir retrocompatibilidade com imports existentes.
+ * @fileoverview Proxy de compatibilidade para StockLaunchModal.
  * Implementação canônica em ../modals/StockLaunchModal.tsx.
  */
 

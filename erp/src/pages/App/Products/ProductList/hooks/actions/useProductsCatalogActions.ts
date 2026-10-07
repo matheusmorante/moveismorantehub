@@ -4,7 +4,7 @@ import Product from '../../../../../types/product.type';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { updateProduct } from '@/pages/utils/productService';
 import { updateProductCatalogState } from '../../utils/catalog/productCatalogState';
-import { checkEcomLegibility } from '../../../utils/productLegibilityRules';
+import { checkEcomLegibility } from '../../../domain/productLegibilityRules';
 import {
   isTestProduct,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
@@ -123,9 +123,8 @@ export const validateCatalogPublication = (
   }
 
   const isDraft =
-    Boolean(parentProduct?.is_draft) ||
-    parentProduct?.status === 'draft' ||
-    Boolean((parentProduct as any)?.isDraft);
+    Boolean(parentProduct?.isDraft) ||
+    parentProduct?.status === 'draft';
   if (isDraft) {
     return {
       isValid: false,
@@ -184,7 +183,7 @@ export const validateCatalogPublication = (
  */
 export const persistCatalogStatus = async (
   id: string,
-  newStatus: string,
+  newStatus: NonNullable<Product['status']>,
   parentProduct?: Product,
   variation?: any,
   serverProducts: Product[] = []

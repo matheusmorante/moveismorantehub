@@ -16,7 +16,7 @@ interface ProductCardHeaderProps {
   oppName: string | undefined;
   showTrash: boolean | undefined;
   onEdit: (product: Product) => void;
-  onLaunchStock?: (product: any) => void;
+  onLaunchStock?: (product: Product) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, currentStatus: boolean) => void;
   onDeactivateCatalog: (id: string) => void;

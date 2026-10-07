@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import type { CategoryType } from '../hooks/useLabelCategory';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
-import { calculateLabelDimensions } from '../utils/LabelUtils';
+import { calculateLabelDimensions } from '../utils/calculateLabelDimensions';
 
 interface LabelModelManagerModalProps {
   isOpen: boolean;

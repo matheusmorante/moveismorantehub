@@ -26,6 +26,7 @@ export function ManageInboundInvoiceMappingsModal({
   const [invoice, setInvoice] = useState<InboundInvoice | null>(initialInvoice);
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [newSupplier, setNewSupplier] = useState(false);
+  const [checkedMappingsKey, setCheckedMappingsKey] = useState<string | null>(null);
   const mappingsKey = `${invoice?.supplierId || ''}:${invoice?.items?.map((item) => `${item.itemNumber}:${item.productCode}`).join('|') || ''}`;
 
   useEffect(() => {
@@ -79,12 +80,16 @@ export function ManageInboundInvoiceMappingsModal({
         const list = await fetchPersons('suppliers');
         if (active) setSuppliers(list);
 
-        if (!invoice?.supplierId || !invoice?.items?.length) return;
+        if (!invoice?.supplierId || !invoice?.items?.length) {
+          if (active) setCheckedMappingsKey(mappingsKey);
+          return;
+        }
 
         const mappings = await findProductSupplierCodes(
           invoice.supplierId,
           invoice.items.map((item) => item.productCode)
         );
+        if (active) setCheckedMappingsKey(mappingsKey);
         if (!active || !mappings.size) return;
         setInvoice((current) => {
           if (!current || current.supplierId !== invoice.supplierId) return current;
@@ -226,7 +231,7 @@ export function ManageInboundInvoiceMappingsModal({
 
             {/* Revisão de Itens e Vínculos */}
             <InboundInvoiceItemsReview
-              suggestionsEnabled={true}
+              suggestionsEnabled={false}
               items={invoice.items}
               supplierId={invoice.supplierId}
               suppliers={suppliers}

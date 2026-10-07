@@ -48,6 +48,7 @@ interface OrderHistoryCardProps {
   readonly onViewDetails?: (order: Order) => void;
   readonly onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
   readonly onShowPostSaleActions?: (order: Order) => void;
+  readonly onIssueNfe?: (order: Order, environment: 1 | 2) => void;
 }
 
 const OrderHistoryCard = ({
@@ -71,6 +72,7 @@ const OrderHistoryCard = ({
   onViewDetails,
   onViewFiscalDocument,
   onShowPostSaleActions,
+  onIssueNfe,
 }: OrderHistoryCardProps) => {
   const settings = getSettings();
   const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
@@ -207,6 +209,7 @@ const OrderHistoryCard = ({
             status={fiscalBadgeStatus}
             documentId={fiscalDocumentId}
             onOpenDocument={onViewFiscalDocument}
+            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
             reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <OrderFiscalBadge
@@ -214,6 +217,7 @@ const OrderHistoryCard = ({
             status={fiscalHmlBadgeStatus}
             documentId={fiscalHmlDocumentId}
             onOpenDocument={onViewFiscalDocument}
+            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
             reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <div

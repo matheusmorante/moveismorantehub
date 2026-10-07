@@ -10,7 +10,10 @@ import {
   View,
 } from 'react-native';
 import { Clock3, X } from 'lucide-react-native';
-import { supabase } from '../../../services/supabaseClient';
+import {
+  fetchMobileProductPriceHistory,
+  type MobileProductPriceHistoryEntry,
+} from '../services/mobileProductPriceHistoryService';
 
 interface Props {
   visible: boolean;
@@ -21,7 +24,7 @@ interface Props {
 
 export const ProductPriceHistoryModal: React.FC<Props> = ({ visible, dark, product, onClose }) => {
   const insets = useSafeAreaInsets();
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<MobileProductPriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -29,15 +32,10 @@ export const ProductPriceHistoryModal: React.FC<Props> = ({ visible, dark, produ
     let alive = true;
     setLoading(true);
     setError(false);
-    supabase
-      .from('product_price_history')
-      .select('*')
-      .eq('product_id', product.id)
-      .order('changed_at', { ascending: false })
-      .then(({ data, error: queryError }) => {
+    void fetchMobileProductPriceHistory(product.id).then(({ rows: history, hasError }) => {
         if (!alive) return;
-        setRows(data || []);
-        setError(Boolean(queryError));
+        setRows(history);
+        setError(hasError);
         setLoading(false);
       });
     return () => {

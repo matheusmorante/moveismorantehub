@@ -68,6 +68,8 @@ export type FiscalSnapshot = {
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
     recipientTaxId?: string;
+    recipientIe?: string;
+    recipientIeIndicator?: '1' | '2' | '9';
     finalConsumer?: boolean;
     deliveryByIssuer?: boolean;
     cardNotIntegrated?: boolean;
@@ -90,6 +92,8 @@ export type FiscalSnapshotCandidate = Omit<FiscalSnapshot, 'emissionRequest'> & 
     itemCsosnOverrides?: Record<string, string>;
     itemFiscalSelections?: FiscalItemSelections;
     recipientTaxId?: string;
+    recipientIe?: string;
+    recipientIeIndicator?: '1' | '2' | '9';
     finalConsumer?: boolean;
     deliveryByIssuer?: boolean;
     cardNotIntegrated?: boolean;
@@ -304,6 +308,8 @@ export type FiscalEmissionCommand = {
   itemCsosnOverrides?: Record<string, string>;
   itemFiscalSelections?: FiscalItemSelections;
   recipientTaxId?: string;
+  recipientIe?: string;
+  recipientIeIndicator?: '1' | '2' | '9';
   finalConsumer?: boolean;
   deliveryByIssuer?: boolean;
   cardNotIntegrated?: boolean;
@@ -362,6 +368,8 @@ export function parseFiscalEmissionCommand(
     'itemCsosnOverrides',
     'itemFiscalSelections',
     'recipientTaxId',
+    'recipientIe',
+    'recipientIeIndicator',
     'finalConsumer',
     'deliveryByIssuer',
     'cardNotIntegrated',
@@ -451,6 +459,17 @@ export function parseFiscalEmissionCommand(
   )
     return { error: 'Informe um CPF ou CNPJ válido para esta emissão.' };
 
+  const recipientIeIndicator = body.recipientIeIndicator;
+  if (
+    recipientIeIndicator !== undefined &&
+    !['1', '2', '9'].includes(String(recipientIeIndicator))
+  )
+    return { error: 'Indicador da IE do destinatário inválido (deve ser 1, 2 ou 9).' };
+
+  const recipientIe = body.recipientIe;
+  if (recipientIe !== undefined && typeof recipientIe !== 'string')
+    return { error: 'Inscrição Estadual do destinatário deve ser um texto válido.' };
+
   let transporter: FiscalTransporter | undefined;
   if (body.transporter !== undefined) {
     if (typeof body.transporter !== 'object' || body.transporter === null)
@@ -492,6 +511,10 @@ export function parseFiscalEmissionCommand(
       ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
       ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
       ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
+      ...(recipientIe === undefined ? {} : { recipientIe: recipientIe.trim().toUpperCase() }),
+      ...(recipientIeIndicator === undefined
+        ? {}
+        : { recipientIeIndicator: String(recipientIeIndicator) as '1' | '2' | '9' }),
       ...(body.finalConsumer === undefined ? {} : { finalConsumer: body.finalConsumer }),
       ...(body.deliveryByIssuer === undefined ? {} : { deliveryByIssuer: body.deliveryByIssuer }),
       ...(body.cardNotIntegrated === undefined

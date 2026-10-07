@@ -9,7 +9,10 @@ import {
   Alert,
 } from 'react-native';
 import { Plus, Minus, Trash2, Search, Info } from 'lucide-react-native';
-import { supabase } from '../../../../services/supabaseClient';
+import {
+  searchMobileProductCompositionCandidates,
+  type MobileProductCompositionCandidate,
+} from '../../services/mobileProductCompositionService';
 
 interface Props {
   formData: any;
@@ -25,7 +28,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
   supplierId,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<MobileProductCompositionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
 
@@ -42,52 +45,8 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
       setSearching(true);
       setSearchError(false);
       try {
-        const term = `%${searchTerm.toLowerCase()}%`;
-        const { data, error } = await supabase
-          .from('products')
-          .select(
-            'id, name, code, price, unit_price, status, item_type, is_combo, supplier_id, main_supplier_id, supplier_ids, product_variations(id, name, sku, price, unit_price, stock, active, status)'
-          )
-          .neq('item_type', 'composition')
-          .neq('item_type', 'combo')
-          .or('is_combo.is.null,is_combo.eq.false')
-          .or(`name.ilike.${term},code.ilike.${term}`)
-          // Filtre fornecedor localmente, então busque uma janela maior antes
-          // de limitar a lista exibida para não esconder componentes válidos.
-          .limit(30);
-
-        if (error) throw error;
-        if (data) {
-          const selectedSupplierId = supplierId || formData.mainSupplierId || formData.supplierId;
-          const filtered = (data as any[]).filter((product) => {
-            if (!selectedSupplierId) return true;
-            const supplierIds = Array.isArray(product.supplier_ids) ? product.supplier_ids : [];
-            return (
-              product.supplier_id === selectedSupplierId ||
-              product.main_supplier_id === selectedSupplierId ||
-              supplierIds.includes(selectedSupplierId)
-            );
-          });
-          setResults(
-            filtered
-              .flatMap((product) => {
-                const variations = (product.product_variations || []).filter(
-                  (variation: any) => variation.active !== false && variation.status !== 'merged'
-                );
-                return variations.length > 0
-                  ? variations.map((variation: any) => ({
-                      ...product,
-                      variationId: variation.id,
-                      variationName: variation.name,
-                      variationSku: variation.sku,
-                      variationPrice: variation.price ?? variation.unit_price,
-                      variationStock: variation.stock,
-                    }))
-                  : [product];
-              })
-              .slice(0, 5)
-          );
-        }
+        const selectedSupplierId = supplierId || formData.mainSupplierId || formData.supplierId;
+        setResults(await searchMobileProductCompositionCandidates(searchTerm, selectedSupplierId));
       } catch (e) {
         console.warn('[ProductFormCompositionTab] Falha ao buscar componentes:', e);
         setResults([]);

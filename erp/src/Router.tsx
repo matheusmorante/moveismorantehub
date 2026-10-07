@@ -58,7 +58,7 @@ const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/Reports
 const SalesOrderReportViewBling = lazy(
   () => import('./pages/App/SalesOrder/ReportsBling/ReportView')
 );
-import BlingStock from './pages/App/Stock/BlingStock';
+import BlingStock from './pages/App/Stock/BlingStock/index';
 import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
 import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';

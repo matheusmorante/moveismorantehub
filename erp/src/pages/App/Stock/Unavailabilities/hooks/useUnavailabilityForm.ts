@@ -40,7 +40,9 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
     let isMounted = true;
 
     async function loadSuppliers() {
-      const list = await fetchSuppliersForProduct(selectedProduct!.id);
+      const prodId = selectedProduct?.id;
+      if (!prodId) return;
+      const list = await fetchSuppliersForProduct(prodId);
       if (!isMounted) return;
 
       setSuppliers(list);

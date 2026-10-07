@@ -114,7 +114,7 @@ describe('configuração e preparação CSOSN server-side', () => {
     const before = structuredClone(state.items);
     const result = await call('POST', { environment: 2, orderId: 'synthetic' });
     expect(result.value.items).toEqual([
-      { itemNumber: 1, csosn: '103', source: 'default' },
+      { itemNumber: 1, csosn: '103', source: 'default', cfop: '5102', cfopSource: 'INTERNAL_RULE' },
       { itemNumber: 2, csosn: '500', source: 'catalog' },
     ]);
     expect(state.items).toEqual(before);

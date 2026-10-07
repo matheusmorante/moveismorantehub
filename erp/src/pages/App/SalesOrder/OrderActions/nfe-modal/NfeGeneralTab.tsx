@@ -24,7 +24,6 @@ interface NfeGeneralTabProps {
   canOperateFiscal: boolean;
   isLoadingFiscalData: boolean;
   isLoadingNfeNumber: boolean;
-  fiscalPreparationError: string | null;
   onReconcile?: () => void;
   onAbandonHmlTlsAttempt?: () => void;
   onStartFreshHmlEmission?: () => void;
@@ -52,7 +51,6 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   canOperateFiscal,
   isLoadingFiscalData,
   isLoadingNfeNumber,
-  fiscalPreparationError,
   onReconcile,
   onAbandonHmlTlsAttempt,
   onStartFreshHmlEmission,
@@ -166,25 +164,7 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
         </section>
       </div>
 
-      {/* Alertas de Preparação e Erros SEFAZ */}
-      {fiscalPreparationError && (
-        <div
-          role="alert"
-          className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"
-        >
-          <p className="font-bold">
-            Os itens foram carregados, mas a preparação fiscal falhou. A emissão está bloqueada até
-            que a configuração seja carregada com sucesso.
-          </p>
-          <p className="mt-1">
-            {safeFiscalIssueMessage(
-              fiscalPreparationError,
-              'Não foi possível carregar a preparação fiscal. Atualize os dados e tente novamente.'
-            )}
-          </p>
-        </div>
-      )}
-
+      {/* Avisos da SEFAZ */}
       {emissionResult?.validation?.warnings?.length ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
           {emissionResult.validation.warnings.map((warning, index) => (

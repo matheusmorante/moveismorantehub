@@ -2,6 +2,7 @@ import React from 'react';
 import ProductRow from './ProductRow';
 import ProductCard from '../Card/ProductCard';
 import Product, { ProductVisibilitySettings } from '../../../../../types/product.type';
+import type { ProductCategoryTree, ProductListFilters } from '../../types';
 import { useAutoScroll } from '@/pages/utils/useAutoScroll';
 import { getSettings } from '@/pages/utils/settingsService';
 import { useWindowSize } from '@/hooks/useWindowSize';
@@ -19,7 +20,7 @@ interface ProductTableProps {
   readonly products: readonly Product[];
   readonly onEdit: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
-  readonly onLaunchStock?: (product: any) => void;
+  readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
   readonly onPermanentDelete: (id: string) => void;
@@ -28,7 +29,7 @@ interface ProductTableProps {
   readonly visibilitySettings: ProductVisibilitySettings;
   readonly onToggleColumn: (column: keyof ProductVisibilitySettings) => void;
   readonly showTrash?: boolean;
-  readonly filters?: any;
+  readonly filters?: ProductListFilters;
   readonly onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
   readonly selectedProducts: readonly string[];
   readonly onToggleSelection: (id: string) => void;
@@ -37,7 +38,7 @@ interface ProductTableProps {
   readonly onBulkTrash: () => void;
   readonly onBulkRestore: () => void;
   readonly onBulkPermanentDelete: () => void;
-  readonly categoryTree?: any;
+  readonly categoryTree?: ProductCategoryTree;
   readonly onRefresh?: () => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly exitedVariationIds?: ReadonlySet<string>;

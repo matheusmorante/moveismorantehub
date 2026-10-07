@@ -1,33 +1,12 @@
 import React from 'react';
 import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
-import { useInventoryScopeBuilder } from '../../hooks/useInventoryScopeBuilder';
+import { useInventoryScopeBuilder } from '../hooks/useInventoryScopeBuilder';
 import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSelector';
 import { InventoryScopeConfigForm } from '../components/InventoryScopeConfigForm';
+import type { ScopeConfiguration } from '../types/inventoryScope.types';
 
-export type InventoryScopeType = 'full' | 'supplier' | 'custom';
-
-export interface ScopeConfiguration {
-  type: InventoryScopeType;
-  name: string;
-  supplierId?: string;
-  responsibleId: string;
-  customProductIds?: string[];
-  hasStages?: boolean;
-  itemsSnapshot: Array<{
-    productId: string;
-    variationId?: string;
-    name: string;
-    supplierNames: string;
-    assignedSupplier: string;
-    systemStock: number;
-    unit: string;
-    sku?: string;
-    code?: string;
-    barcode?: string;
-    isActive?: boolean;
-  }>;
-}
+export type { InventoryScopeType, ScopeConfiguration } from '../types/inventoryScope.types';
 
 interface InventoryScopeModalProps {
   readonly allProducts: readonly Product[];

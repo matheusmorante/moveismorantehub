@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
+import {
+  createProductType,
+  deleteProductType,
+  fetchProductTypes,
+  type ProductCatalogMetadataOption,
+} from '../services/productCatalogMetadataService';
 
-interface ProductType {
-  id: string;
-  name: string;
-  created_at?: string;
-}
+type ProductType = ProductCatalogMetadataOption;
 
 const ProductTypes = () => {
   const [types, setTypes] = useState<ProductType[]>([]);
@@ -17,16 +18,7 @@ const ProductTypes = () => {
   const fetchTypes = async () => {
     setFetching(true);
     try {
-      const { data, error } = await supabase
-        .from('product_types')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar tipos:', error);
-      } else {
-        setTypes(data || []);
-      }
+      setTypes(await fetchProductTypes());
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,11 +36,7 @@ const ProductTypes = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('product_types')
-        .insert([{ name: newName.trim().toUpperCase() }]);
-
-      if (error) throw error;
+      await createProductType(newName);
 
       setNewName('');
       toast.success('Tipo adicionado!');
@@ -65,9 +53,7 @@ const ProductTypes = () => {
     if (!confirm('Tem certeza que deseja remover este tipo?')) return;
 
     try {
-      const { error } = await supabase.from('product_types').delete().eq('id', id);
-
-      if (error) throw error;
+      await deleteProductType(id);
       toast.success('Tipo removido!');
       fetchTypes();
     } catch (error) {

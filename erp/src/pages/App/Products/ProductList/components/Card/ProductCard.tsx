@@ -1,23 +1,21 @@
 import React from 'react';
-import Product from '../../../../../types/product.type';
-import { formatCurrency } from '../../../../../utils/formatters';
+import type Product from '../../../../../types/product.type';
+import type { ProductCategoryTree, ProductListRow } from '../../types';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import ProductSalesModal from '../../../components/modals/product/ProductSalesModal';
 import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
-import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { useProductMetadata } from '../../hooks/data/useProductMetadata';
 import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
-import { ProductCardActions } from './ProductCardActions';
 import { CardThumbnail } from './CardThumbnail';
 import { CardPriceStock } from './CardPriceStock';
 import { ProductCardVariationList } from '../Variations/ProductCardVariationList';
 import { ProductCardHeader } from './ProductCardHeader';
-import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface ProductCardProps {
-  readonly product: Product;
+  readonly product: ProductListRow;
   readonly onEdit: (product: Product) => void;
-  readonly onLaunchStock?: (product: any) => void;
+  readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
   readonly onPermanentDelete: (id: string) => void;
@@ -27,7 +25,7 @@ interface ProductCardProps {
   readonly showTrash?: boolean;
   readonly isSelected?: boolean;
   readonly onToggleSelection?: () => void;
-  readonly categoryTree?: any;
+  readonly categoryTree?: ProductCategoryTree;
   readonly onRefresh?: () => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly exitedVariationIds?: ReadonlySet<string>;
@@ -61,18 +59,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
   });
 
   const isLowStock = (product.stock || 0) <= (product.minStock || 0);
-  const isParent = product.isParent;
+  const isParent = Boolean(product.isParent);
   const isVariation = product.isVariation || !!product.parentId;
-  const isDraft = Boolean(product.isDraft) || Boolean((product as any).is_draft);
-  const isSalvado = getProductKind(product) === 'salvado';
+  const isDraft = Boolean(product.isDraft);
   const isNonConventional = isNonConventionalProduct(product);
   const canManageCatalog = !isDraft && (product.active !== false || isNonConventional);
 
   const { oppName, supplierNames } = useProductMetadata(product);
   const variationName = isVariation ? getVariationDisplayName(product) : '';
-  const hasParentVariations =
-    isParent &&
-    Boolean((product as any).allVariations && (product as any).allVariations.length > 0);
+  const hasParentVariations = Boolean(
+    isParent && product.allVariations && product.allVariations.length > 0
+  );
 
   const displayTitle = isVariation
     ? variationName || product.name || product.title || '-'
@@ -80,11 +77,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
       product.title ||
       (product.description ? product.description.split('\n')[0].substring(0, 120) : '-');
 
-  const hasPromo =
+  const hasPromo = Boolean(
     product.promoPrice &&
     Number(product.promoPrice) > 0 &&
-    Number(product.promoPrice) < Number(product.unitPrice);
-  const currentPrice = hasPromo ? product.promoPrice : product.unitPrice || 0;
+    Number(product.promoPrice) < Number(product.unitPrice)
+  );
+  const currentPrice = Number(hasPromo ? product.promoPrice : product.unitPrice || 0);
 
   return (
     <div
@@ -123,7 +121,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         hasParentVariations={hasParentVariations}
         showVariations={showVariations}
         setShowVariations={setShowVariations}
-        oppName={oppName}
+        oppName={oppName ?? undefined}
         showTrash={showTrash}
         onEdit={onEdit}
         onLaunchStock={onLaunchStock}
@@ -178,7 +176,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {!isVariation && (
             <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 leading-relaxed">
               <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-wide">
-                {getCategoryBreadcrumb(product.categoryIds || [], categoryTree) ||
+                {getCategoryBreadcrumb(
+                  product.categoryIds || [],
+                  categoryTree ?? { categories: [], relations: [] }
+                ) ||
                   product.category ||
                   '-'}
               </span>

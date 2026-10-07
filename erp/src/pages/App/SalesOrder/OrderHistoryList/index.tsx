@@ -27,6 +27,7 @@ type OrderHistoryListProps = {
   onFilterByOrderId?: (id: string) => void;
   onCustomerSearchChange?: (name: string) => void;
   onAction?: (actionKey: string, order: Order) => void;
+  onIssueNfe?: (order: Order, environment: 1 | 2) => void;
 };
 
 export interface OrderHistoryListRef {
@@ -48,6 +49,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       onFilterByOrderId,
       onCustomerSearchChange,
       onAction: onActionProp,
+      onIssueNfe,
     },
     ref
   ) => {
@@ -231,6 +233,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
               onViewDetails={onViewDetails}
               onViewFiscalDocument={onViewFiscalDocument}
               onShowPostSaleActions={onShowPostSaleActions}
+              onIssueNfe={onIssueNfe}
               onDelete={handleDelete}
               onRestore={handleRestore}
               onPermanentDelete={handlePermanentDelete}

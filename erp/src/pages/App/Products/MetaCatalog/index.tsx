@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { buildMetaCatalogItems } from './services/metaCatalogPayload';
-import { calculateMetaCatalogStats } from './services/metaCatalogStats';
+import { fetchMetaCatalogStats, fetchMetaCatalogSyncSources } from './services/metaCatalogDataService';
 
 export default function MetaCatalog() {
   const { isAdmin } = useAuth();
@@ -34,17 +34,7 @@ export default function MetaCatalog() {
   React.useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { supabase } = await import('@/pages/utils/supabaseConfig');
-
-        // Buscar todos os produtos e variações
-        const { data: products } = await supabase
-          .from('products')
-          .select('id, status, active, deleted, deleted_at');
-        const { data: variations } = await supabase
-          .from('product_variations')
-          .select('id, product_id, status, active');
-
-        setStats(calculateMetaCatalogStats(products || [], variations || []));
+        setStats(await fetchMetaCatalogStats());
       } catch (err) {
         console.error('Erro ao calcular estatísticas do catálogo Meta:', err);
       } finally {
@@ -65,29 +55,12 @@ export default function MetaCatalog() {
       setSyncProgress({ processed: 0, total: 0 });
       toast.info('Iniciando busca e sincronização de todos os produtos... 🔄');
 
-      const { supabase } = await import('@/pages/utils/supabaseConfig');
       const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
 
-      // 1. Buscar todos os produtos cadastrados no Supabase (ativos e inativos para sync completo)
-      const { data: products, error: prodErr } = await supabase
-        .from('products')
-        .select(
-          'id, name, title, description, whatsapp_description, status, active, deleted, deleted_at, opportunity_id, sales_price, unit_price, price, stock, images, brand, group_name, sku, code'
-        );
-      if (prodErr) throw prodErr;
-
-      // 2. Buscar variações e oportunidades
-      const { data: variations, error: varErr } = await supabase
-        .from('product_variations')
-        .select(
-          'id, product_id, status, active, name, color, size, sku, code, image_url, sales_price, price, stock'
-        );
-      if (varErr) throw varErr;
-
-      const { data: opps } = await supabase.from('opportunities').select('id, name, observations');
+      const { products, variations, opportunities } = await fetchMetaCatalogSyncSources();
 
       // 3. Montar a lista completa de itens para o Meta Catalog (Pai + Variações como itens individuais)
-      const allItems = buildMetaCatalogItems(products || [], variations || [], opps || []);
+      const allItems = buildMetaCatalogItems(products, variations, opportunities);
 
       // 4. Executar sync em lote via Graph API com callback de progresso
       const res = await whatsappGraphService.syncBatchProductsToCatalog(

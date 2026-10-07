@@ -5,6 +5,7 @@ describe('Suíte de Integração: Fluxo de Conferência de Compra (PurchaseRecei
   it('localiza item por código do produto ou SKU da variação durante o bipe', () => {
     const purchase: Purchase = {
       id: 'purch-check-1',
+      supplierId: 'sup-1',
       supplierName: 'Estofados Real',
       date: '2026-10-01',
       totalValue: 1000,

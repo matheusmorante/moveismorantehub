@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
+import {
+  createProductType,
+  deleteProductType,
+  fetchProductTypes,
+  getProductMetadataErrorCode,
+  type ProductCatalogMetadataOption,
+} from '../../../services/productCatalogMetadataService';
 
-export interface ProductType {
-  readonly id: string;
-  readonly name: string;
-  readonly created_at?: string;
-}
+export type ProductType = ProductCatalogMetadataOption;
 
 export interface ProductTypeManagementModalProps {
   readonly isOpen: boolean;
@@ -29,21 +31,12 @@ export const ProductTypeManagementModal: React.FC<ProductTypeManagementModalProp
   const fetchTypes = useCallback(async () => {
     setFetching(true);
     try {
-      const { data, error } = await supabase
-        .from('product_types')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar tipos:', error);
-        if (error.code === 'PGRST116' || error.code === '42P01') {
-          toast.info('Tabela de tipos será criada automaticamente no primeiro insert.');
-        }
-      } else {
-        setTypes((data as ProductType[]) || []);
-      }
+      setTypes(await fetchProductTypes());
     } catch (err: unknown) {
       console.error('Falha ao listar tipos:', err);
+      if (['PGRST116', '42P01'].includes(getProductMetadataErrorCode(err) || '')) {
+        toast.info('Tabela de tipos será criada automaticamente no primeiro insert.');
+      }
     } finally {
       setFetching(false);
     }
@@ -70,9 +63,7 @@ export const ProductTypeManagementModal: React.FC<ProductTypeManagementModalProp
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('product_types').insert([{ name: value }]);
-
-      if (error) throw error;
+      await createProductType(value);
 
       setNewName('');
       toast.success('Tipo adicionado!');
@@ -90,9 +81,7 @@ export const ProductTypeManagementModal: React.FC<ProductTypeManagementModalProp
     if (!window.confirm('Tem certeza que deseja remover este tipo?')) return;
 
     try {
-      const { error } = await supabase.from('product_types').delete().eq('id', id);
-
-      if (error) throw error;
+      await deleteProductType(id);
       toast.success('Tipo removido!');
       await fetchTypes();
     } catch (error: unknown) {

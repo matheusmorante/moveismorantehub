@@ -9,7 +9,12 @@ import {
   printOrderDanfe,
   updateFiscalNumberPreviewCache,
 } from '@/pages/utils/nfe/nfeService';
-import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import {
+  HML_INTERSTATE_MATRIX_NOT_APPROVED,
+  getFiscalIssuePresentation,
+  isHmlInterstateMatrixBlock,
+  safeFiscalIssueMessage,
+} from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import type { resolveOrderFiscalModel } from '../../../../../../../../shared-utils/fiscalDocumentModel';
 import type { resolveTransport } from '../../../../../../../../shared-utils/fiscalTransportModel';
@@ -46,6 +51,8 @@ export interface UseNfeEmissionActionsProps {
   nfeNumberSequence: { model: '55' | '65'; series: string | null; environment: 1 | 2 };
   manualNumberInput: string | null;
   recipientTaxId: string;
+  recipientIe?: string;
+  recipientIeIndicator?: '1' | '2' | '9';
   resolvedTransport: ReturnType<typeof resolveTransport>;
   thirdPartyTransporter: ThirdPartyTransporterForm;
   onSuccess?: (result: NfeEmissionResult) => void;
@@ -69,6 +76,8 @@ export function useNfeEmissionActions({
   nfeNumberSequence,
   manualNumberInput,
   recipientTaxId,
+  recipientIe,
+  recipientIeIndicator,
   resolvedTransport,
   thirdPartyTransporter,
   onSuccess,
@@ -96,6 +105,21 @@ export function useNfeEmissionActions({
 
     if (modelDecision?.status !== 'ready') {
       toast.error(modelDecision?.reason || 'Confirme os dados da operação fiscal.');
+      return;
+    }
+
+    if (isHmlInterstateMatrixBlock(fiscalPreparationError)) {
+      const blockedResult: NfeEmissionResult = {
+        success: false,
+        model: currentModel,
+        environment,
+        error: fiscalPreparationError,
+        numberReserved: false,
+        sefazContacted: false,
+        technicalDetails: { apiCode: HML_INTERSTATE_MATRIX_NOT_APPROVED },
+      };
+      setEmissionResult(blockedResult);
+      notifyEmissionFailure(blockedResult);
       return;
     }
 
@@ -127,8 +151,17 @@ export function useNfeEmissionActions({
       setFiscalFieldError(validation.fiscalFieldError);
     }
     if (validation.toastError) {
-      toast.error(validation.toastError);
+      toast.error(
+        fiscalPreparationError
+          ? safeFiscalIssueMessage(fiscalPreparationError, validation.toastError)
+          : validation.toastError
+      );
     }
+    if (currentModel === '55' && recipientIeIndicator === '1' && !recipientIe?.trim()) {
+      toast.error('Informe a Inscrição Estadual para o destinatário contribuinte do ICMS.');
+      return;
+    }
+
     if (!validation.valid) return;
 
     setFiscalFieldError(null);
@@ -165,7 +198,9 @@ export function useNfeEmissionActions({
           ? resolvedTransport.transportResponsible
           : undefined,
         resolvedTransport.freightContractResponsible,
-        freshHmlEmission
+        freshHmlEmission,
+        recipientIe,
+        recipientIeIndicator
       );
 
       if (!res.success) {

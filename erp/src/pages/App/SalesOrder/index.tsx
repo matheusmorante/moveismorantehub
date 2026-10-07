@@ -269,6 +269,12 @@ const SalesOrder = () => {
     }
   };
 
+  const handleDirectIssueNfe = (order: Order, environment: 1 | 2 = 1) => {
+    setChosenNfeEnvironment(environment);
+    setNfeEmissionOpenedAt(performance.now());
+    setNfeModalOrder(order);
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
       {/* Main Content Area */}
@@ -486,6 +492,7 @@ const SalesOrder = () => {
                       : (name) => setFilters((prev) => ({ ...prev, customerName: name }))
                   }
                   onAction={handleOrderAction}
+                  onIssueNfe={handleDirectIssueNfe}
                   onShowPostSaleActions={setPostOrderDetails}
                 />
               </div>

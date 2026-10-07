@@ -11,6 +11,9 @@ export type Person = {
   tradeName?: string; // Nome Fantasia (específico PJ)
   nickname?: string; // Apelido
   cpfCnpj?: string;
+  rgIe?: string;
+  ie?: string;
+  ieIndicator?: '1' | '2' | '9'; // 1 = Contribuinte ICMS, 2 = Isento, 9 = Não Contribuinte
   email?: string;
   phone?: string;
   noPhone?: boolean;

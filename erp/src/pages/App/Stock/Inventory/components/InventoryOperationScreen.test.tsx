@@ -30,7 +30,7 @@ vi.mock('./InventoryStagesView', () => ({
 vi.mock('./InventoryManualMode', () => ({
   InventoryManualMode: () => <div>Lista de produtos</div>,
 }));
-vi.mock('../../hooks/useInventoryOperation', () => ({
+vi.mock('../hooks/useInventoryOperation', () => ({
   useInventoryOperation: (items: AuditItem[]) => ({
     filter: 'all',
     setFilter: vi.fn(),

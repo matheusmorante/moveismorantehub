@@ -8,7 +8,7 @@ import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 
 import InventoryScopeModal from './InventoryScopeModal';
-import type { InventoryScopeType } from './InventoryScopeModal';
+import type { InventoryScopeType } from '../types/inventoryScope.types';
 import InventoryOperationScreen from '../components/InventoryOperationScreen';
 import InventoryReviewModal from '../modals/InventoryReviewModal';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
@@ -109,9 +109,9 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
       assignedSupplier: supplierNames.split(' / ')[0] || 'Sem fornecedor',
       systemStock,
       unit: product.unit || 'UN',
-      sku: variation?.sku || (product as any).sku || product.code || '',
+      sku: variation?.sku || product.sku || product.code || '',
       code: product.code || '',
-      barcode: variation?.barcode || (product as any).barcode || '',
+      barcode: variation?.barcode || product.barcode || '',
     };
 
     setItems((prev) =>

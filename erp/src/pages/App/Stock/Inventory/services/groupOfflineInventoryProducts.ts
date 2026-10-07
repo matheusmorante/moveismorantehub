@@ -1,6 +1,19 @@
 import type Product from '@/pages/types/product.type';
 
-export const groupOfflineInventoryProducts = (rows: readonly any[]): Product[] => {
+type OfflineInventoryVariationRow = Pick<
+  NonNullable<Product['variations']>[number],
+  'id'
+> &
+  Partial<NonNullable<Product['variations']>[number]>;
+
+type OfflineInventoryProductRow = Omit<Partial<Product>, 'id' | 'variations'> & {
+  id?: string | number;
+  variations?: readonly OfflineInventoryVariationRow[] | null;
+};
+
+export const groupOfflineInventoryProducts = (
+  rows: readonly OfflineInventoryProductRow[]
+): Product[] => {
   const products = new Map<string, Product>();
   for (const row of rows) {
     const id = String(row.id);
@@ -9,11 +22,13 @@ export const groupOfflineInventoryProducts = (rows: readonly any[]): Product[] =
       products.set(id, { ...row, variations: [...(row.variations || [])] } as Product);
       continue;
     }
-    const variations = new Map(
-      (previous.variations || []).map((variation) => [String(variation.id), variation])
-    );
+
+    const variations = new Map<string, OfflineInventoryVariationRow>();
+    for (const variation of previous.variations || []) {
+      variations.set(String(variation.id), variation);
+    }
     for (const variation of row.variations || []) variations.set(String(variation.id), variation);
-    products.set(id, { ...previous, variations: [...variations.values()] });
+    products.set(id, { ...previous, variations: [...variations.values()] } as Product);
   }
   return [...products.values()];
 };

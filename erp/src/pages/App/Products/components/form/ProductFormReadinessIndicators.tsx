@@ -1,6 +1,6 @@
 import React from 'react';
 import Product from '../../../../types/product.type';
-import { checkERPLegibility } from '../../utils/productLegibilityRules';
+import { checkERPLegibility } from '../../domain/productLegibilityRules';
 
 interface ProductFormReadinessIndicatorsProps {
   readonly formData: Partial<Product>;

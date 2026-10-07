@@ -1,133 +1,31 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { extractLabelIdentity, extractScannedCodes } from '@/pages/utils/barcodeScannerUtils';
+import { resolveOfflineInventoryMatch } from '../domain/offlineInventoryCatalogMatching';
+import {
+  selectOfflineInventoryCatalogProducts,
+  selectOfflineInventoryCatalogSuppliers,
+} from '../domain/offlineInventoryCatalogSelectors';
+import {
+  compactOfflineInventoryCatalogRows,
+  createEmptyOfflineInventoryCatalog,
+  readOfflineInventoryCatalogSnapshot,
+  writeOfflineInventoryCatalogSnapshot,
+} from '../storage/offlineInventoryCatalogStorage';
+import type {
+  OfflineInventoryCatalog,
+  OfflineInventoryCatalogRow,
+  OfflineInventoryMatch,
+} from '../types/offlineInventoryCatalog.types';
 
-type CatalogRow = Record<string, any>;
-export interface OfflineInventoryCatalog {
-  formatVersion?: 2;
-  products: Record<string, CatalogRow>;
-  variations: Record<string, CatalogRow>;
-  labels: Record<string, CatalogRow>;
-  suppliers: Record<string, CatalogRow>;
-  cursors: Record<string, string>;
-  syncedAt: string | null;
-  deletionCursor?: number;
-}
+type CatalogRow = OfflineInventoryCatalogRow;
 
-export interface OfflineInventoryMatch {
-  productId: string;
-  variationId: string;
-  name: string;
-  sku: string;
-  code: string;
-  barcode: string;
-  systemStock: number;
-  unit: string;
-  supplierIds: string[];
-  supplierNames: string[];
-  assignedSupplier: string;
-  isActive: boolean;
-  labelStatus?: string;
-}
+export type {
+  OfflineInventoryCatalog,
+  OfflineInventoryMatch,
+} from '../types/offlineInventoryCatalog.types';
 
-const DATABASE_NAME = 'morante-inventory';
-const STORE_NAME = 'catalog';
-const LEGACY_CATALOG_KEY = 'inventory-identification-index';
-const CATALOG_KEY = 'inventory-identification-index-v2';
-const emptyCatalog = (): OfflineInventoryCatalog => ({
-  products: {},
-  variations: {},
-  labels: {},
-  suppliers: {},
-  cursors: {},
-  syncedAt: null,
-  deletionCursor: 0,
-});
-const compactRows = (
-  rows: Record<string, CatalogRow>,
-  keys: readonly string[]
-): Record<string, CatalogRow> =>
-  Object.fromEntries(
-    Object.entries(rows).map(([id, row]) => [
-      id,
-      Object.fromEntries(
-        keys.filter((key) => row[key] !== undefined).map((key) => [key, row[key]])
-      ),
-    ])
-  );
 let syncInFlight: Promise<{ success: boolean; syncedAt: string | null }> | null = null;
 let cachedCatalog: OfflineInventoryCatalog | null = null;
 let lastSyncAttemptAt = 0;
-
-const openCatalogDatabase = (): Promise<IDBDatabase> =>
-  new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, 3);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('drafts'))
-        db.createObjectStore('drafts', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains(STORE_NAME))
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('outbox'))
-        db.createObjectStore('outbox', { keyPath: 'id' });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-
-const usableSnapshot = (snapshot: unknown): snapshot is OfflineInventoryCatalog => {
-  if (!snapshot || typeof snapshot !== 'object') return false;
-  const value = snapshot as Partial<OfflineInventoryCatalog>;
-  return Boolean(
-    value.products && value.variations && value.labels && value.suppliers && value.cursors
-  );
-};
-
-const readSnapshot = async (): Promise<OfflineInventoryCatalog | null> => {
-  const db = await openCatalogDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(CATALOG_KEY);
-    request.onsuccess = () => {
-      if (usableSnapshot(request.result?.snapshot)) {
-        resolve(request.result.snapshot);
-        return;
-      }
-      const legacyRequest = store.get(LEGACY_CATALOG_KEY);
-      legacyRequest.onsuccess = () =>
-        resolve(
-          usableSnapshot(legacyRequest.result?.snapshot) ? legacyRequest.result.snapshot : null
-        );
-    };
-    transaction.oncomplete = () => db.close();
-    transaction.onerror = () => {
-      db.close();
-      reject(transaction.error);
-    };
-  });
-};
-
-const writeSnapshot = async (snapshot: OfflineInventoryCatalog): Promise<void> => {
-  const db = await openCatalogDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    transaction
-      .objectStore(STORE_NAME)
-      .put({ id: CATALOG_KEY, snapshot, updatedAt: new Date().toISOString() });
-    transaction.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    transaction.onerror = () => {
-      db.close();
-      reject(transaction.error);
-    };
-    transaction.onabort = () => {
-      db.close();
-      reject(transaction.error);
-    };
-  });
-};
 
 const maxTimestamp = (rows: CatalogRow[], previous?: string) =>
   rows.reduce((max, row) => {
@@ -176,7 +74,8 @@ const fetchDeletions = async (cursor = 0): Promise<CatalogRow[]> => {
 
 export const getOfflineInventoryCatalog = async (): Promise<OfflineInventoryCatalog> => {
   if (cachedCatalog) return cachedCatalog;
-  cachedCatalog = (await readSnapshot()) || emptyCatalog();
+  cachedCatalog = (await readOfflineInventoryCatalogSnapshot()) ||
+    createEmptyOfflineInventoryCatalog();
   return cachedCatalog;
 };
 
@@ -256,7 +155,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       const compact: OfflineInventoryCatalog = {
         ...next,
         formatVersion: 2,
-        products: compactRows(next.products, [
+        products: compactOfflineInventoryCatalogRows(next.products, [
           'id',
           'name',
           'code',
@@ -272,7 +171,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'supplier_ids',
           'updated_at',
         ]),
-        variations: compactRows(next.variations, [
+        variations: compactOfflineInventoryCatalogRows(next.variations, [
           'id',
           'product_id',
           'name',
@@ -284,7 +183,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'deleted',
           'updated_at',
         ]),
-        labels: compactRows(next.labels, [
+        labels: compactOfflineInventoryCatalogRows(next.labels, [
           'id',
           'product_id',
           'variation_id',
@@ -293,7 +192,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'status',
           'updated_at',
         ]),
-        suppliers: compactRows(next.suppliers, [
+        suppliers: compactOfflineInventoryCatalogRows(next.suppliers, [
           'id',
           'person_type',
           'full_name',
@@ -304,8 +203,8 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'updated_at',
         ]),
       };
-      await writeSnapshot(compact);
-      const verified = await readSnapshot();
+      await writeOfflineInventoryCatalogSnapshot(compact);
+      const verified = await readOfflineInventoryCatalogSnapshot();
       if (verified?.formatVersion !== 2 || verified.syncedAt !== compact.syncedAt) {
         throw new Error('Não foi possível confirmar a gravação do novo índice no navegador.');
       }
@@ -333,224 +232,18 @@ export const ensureOfflineInventoryCatalogSynced = async () => {
   return syncOfflineInventoryCatalog();
 };
 
-const canonicalVariation = (catalog: OfflineInventoryCatalog, initialId: string) => {
-  let current = catalog.variations[initialId];
-  const seen = new Set<string>();
-  while (current?.merged_to_variation_id) {
-    if (seen.has(String(current.id))) return null;
-    seen.add(String(current.id));
-    current = catalog.variations[String(current.merged_to_variation_id)];
-  }
-  return current && !current.deleted ? current : null;
-};
-
-export const resolveOfflineInventoryMatch = (
-  catalog: OfflineInventoryCatalog,
-  rawCode: string
-): OfflineInventoryMatch | null => {
-  const { labelId } = extractLabelIdentity(rawCode);
-  const label = labelId ? catalog.labels[labelId] : undefined;
-  const candidateIds = new Set<string>();
-  const addVariation = (variationId?: unknown) => {
-    if (!variationId) return;
-    const canonical = canonicalVariation(catalog, String(variationId));
-    if (canonical) candidateIds.add(String(canonical.id));
-  };
-  if (label) addVariation(label.variation_id);
-  const codes = new Set(
-    extractScannedCodes(rawCode)
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean)
-  );
-  if (label?.sku) codes.add(String(label.sku).trim().toLowerCase());
-  if (label?.barcode) codes.add(String(label.barcode).trim().toLowerCase());
-  if (label?.product_id && !label.variation_id) {
-    const productVariationIds = new Set(
-      Object.values(catalog.variations)
-        .filter((row) => String(row.product_id) === String(label.product_id) && !row.deleted)
-        .map((row) => canonicalVariation(catalog, String(row.id)))
-        .filter(Boolean)
-        .map((row) => String(row!.id))
-    );
-    if (productVariationIds.size === 1) candidateIds.add([...productVariationIds][0]);
-  }
-  const labelsByVariation = new Map<string, CatalogRow[]>();
-  for (const entry of Object.values(catalog.labels)) {
-    if (!entry.variation_id) continue;
-    const list = labelsByVariation.get(String(entry.variation_id)) || [];
-    list.push(entry);
-    labelsByVariation.set(String(entry.variation_id), list);
-  }
-  for (const variation of Object.values(catalog.variations)) {
-    const product = catalog.products[String(variation.product_id)];
-    if (
-      !product ||
-      ((product.item_type !== 'product' ||
-        product.deleted ||
-        product.deleted_at ||
-        product.is_draft) &&
-        !variation.merged_to_variation_id) ||
-      (variation.deleted && !variation.merged_to_variation_id)
-    )
-      continue;
-    const canonical = canonicalVariation(catalog, String(variation.id));
-    if (!canonical) continue;
-    const identifiers = [
-      variation.id,
-      variation.sku,
-      product.code,
-      product.id,
-      ...(labelsByVariation.get(String(variation.id)) || []).flatMap((entry) => [
-        entry.id,
-        entry.sku,
-        entry.barcode,
-      ]),
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).trim().toLowerCase());
-    if ([...codes].some((code) => identifiers.includes(code)))
-      candidateIds.add(String(canonical.id));
-  }
-  if (candidateIds.size !== 1) return null;
-  const variationId = [...candidateIds][0];
-  const variation = catalog.variations[variationId];
-  const product = variation && catalog.products[String(variation.product_id)];
-  if (
-    !variation ||
-    !product ||
-    product.item_type !== 'product' ||
-    product.deleted ||
-    product.deleted_at ||
-    product.is_draft ||
-    product.product_kind === 'salvado' ||
-    product.product_kind === 'usado' ||
-    variation.deleted
-  )
-    return null;
-  const ids = [
-    ...new Set(
-      [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-        .filter(Boolean)
-        .map(String)
-    ),
-  ];
-  const names = ids
-    .map((id) => {
-      const supplier = catalog.suppliers[id];
-      return supplier?.social_name || supplier?.full_name || supplier?.nickname || '';
-    })
-    .filter(Boolean);
-  const matchedLabel =
-    label ||
-    (labelsByVariation.get(variationId) || []).find((entry) =>
-      [...codes].some((code) =>
-        [entry.sku, entry.barcode]
-          .filter(Boolean)
-          .some((value) => String(value).trim().toLowerCase() === code)
-      )
-    );
-  return {
-    productId: String(product.id),
-    variationId,
-    name: variation.name || product.name || product.description || 'Produto',
-    sku: variation.sku || product.code || matchedLabel?.sku || '',
-    code: product.code || '',
-    barcode: matchedLabel?.barcode || '',
-    systemStock: Number(variation.stock ?? product.stock ?? 0),
-    unit: product.unit || 'UN',
-    supplierIds: ids,
-    supplierNames: names,
-    assignedSupplier: names[0] || 'Sem fornecedor',
-    isActive:
-      product.active !== false &&
-      variation.active !== false &&
-      !['hidden', 'draft'].includes(String(variation.status || '').toLowerCase()),
-    labelStatus: matchedLabel?.status,
-  };
-};
+export { resolveOfflineInventoryMatch };
 
 export const findOfflineInventoryMatch = async (
   rawCode: string
 ): Promise<OfflineInventoryMatch | null> =>
   resolveOfflineInventoryMatch(await getOfflineInventoryCatalog(), rawCode);
 
-export const getOfflineInventoryCatalogProducts = async (): Promise<any[]> => {
-  const catalog = await getOfflineInventoryCatalog();
-  const labelsByVariation = new Map<string, CatalogRow[]>();
-  for (const entry of Object.values(catalog.labels)) {
-    if (!entry.variation_id) continue;
-    const key = String(entry.variation_id);
-    labelsByVariation.set(key, [...(labelsByVariation.get(key) || []), entry]);
-  }
-  return Object.values(catalog.variations).flatMap((variation) => {
-    if (variation.merged_to_variation_id || variation.deleted) return [];
-    const product = catalog.products[String(variation.product_id)];
-    if (
-      !product ||
-      product.item_type !== 'product' ||
-      product.deleted ||
-      product.deleted_at ||
-      product.is_draft ||
-      product.product_kind === 'salvado' ||
-      product.product_kind === 'usado'
-    )
-      return [];
-    const supplierIds = [
-      ...new Set(
-        [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-          .filter(Boolean)
-          .map(String)
-      ),
-    ];
-    const labels = labelsByVariation.get(String(variation.id)) || [];
-    return [
-      {
-        id: product.id,
-        code: product.code || '',
-        sku: variation.sku || product.code || '',
-        name: product.name || variation.name,
-        title: product.name || variation.name,
-        description: product.description || variation.name,
-        unit: product.unit || 'UN',
-        stock: Number(variation.stock ?? product.stock ?? 0),
-        active:
-          product.active !== false &&
-          variation.active !== false &&
-          !['hidden', 'draft'].includes(String(variation.status || '').toLowerCase()),
-        deleted: false,
-        itemType: 'product',
-        mainSupplierId: product.main_supplier_id,
-        supplierId: product.supplier_id,
-        supplierIds,
-        variations: [
-          {
-            id: String(variation.id),
-            name: variation.name || product.name,
-            sku: variation.sku || '',
-            stock: Number(variation.stock ?? 0),
-            active: variation.active !== false,
-            status: variation.status || undefined,
-            mergedToVariationId: variation.merged_to_variation_id || undefined,
-            barcode: labels.find((entry) => entry.barcode)?.barcode || '',
-          },
-        ],
-      },
-    ];
-  });
-};
+export const getOfflineInventoryCatalogProducts = async (): Promise<any[]> =>
+  selectOfflineInventoryCatalogProducts(await getOfflineInventoryCatalog());
 
-export const getOfflineInventorySuppliers = async (): Promise<any[]> => {
-  const catalog = await getOfflineInventoryCatalog();
-  return Object.values(catalog.suppliers)
-    .filter((supplier) => !supplier.deleted)
-    .map((supplier) => ({
-      id: supplier.id,
-      fullName: supplier.full_name,
-      tradeName: supplier.social_name,
-      nickname: supplier.nickname,
-      type: 'suppliers',
-    }));
-};
+export const getOfflineInventorySuppliers = async (): Promise<any[]> =>
+  selectOfflineInventoryCatalogSuppliers(await getOfflineInventoryCatalog());
 
 export const clearOfflineInventoryCatalogCache = () => {
   cachedCatalog = null;

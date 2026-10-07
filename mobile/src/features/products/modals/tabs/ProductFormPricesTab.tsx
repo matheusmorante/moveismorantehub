@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
-import { supabase } from '../../../../services/supabaseClient';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
 import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
-import { parseLocalizedPrice as parsePrice } from '../../services/mobileProductHelpers';
+import { parseLocalizedNumber as parsePrice } from '../../domain/productNumbers';
+import {
+  fetchActiveMobileProductSuppliers,
+  type MobileProductSupplier,
+} from '../../services/mobileSupplierService';
 
 interface Props {
   formData: any;
@@ -38,22 +41,13 @@ const calculateFinalPurchasePrice = (
 };
 
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState<string>('');
   const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   // Carrega fornecedores ativos do banco
   useEffect(() => {
-    supabase
-      .from('people')
-      .select('id, full_name, nickname, stock_origins')
-      .in('person_type', ['supplier', 'suppliers'])
-      .eq('active', true)
-      .eq('deleted', false)
-      .order('full_name')
-      .then(({ data }) => {
-        if (data) setSuppliers(data);
-      });
+    void fetchActiveMobileProductSuppliers().then(setSuppliers);
   }, []);
 
   const selectedStockOrigin =

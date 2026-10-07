@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import StockLaunchModal from './components/StockLaunchModal';
+import StockLaunchModal from './modals/StockLaunchModal';
 import InventoryAuditModal from './Inventory/modals/InventoryAuditModal';
-import InventoryMovesHistory from './components/InventoryMovesHistory';
+import InventoryMovesHistory from './Movements/components/InventoryMovesHistory';
 import { InventoryAudit } from './Inventory/InventoryAudit';
 import type {
   InventorySnapshotItem,
@@ -12,7 +12,7 @@ import InventoryAuditDetailsModal from './Inventory/modals/InventoryAuditDetails
 import PurchasesIndex from './Purchases/Index';
 import Product, { Variation } from '../../types/product.type';
 import Purchase from '../../types/purchase.type';
-import PurchaseStockEntryModal from './components/PurchaseStockEntryModal';
+import PurchaseStockEntryModal from './Purchases/modals/PurchaseStockEntryModal';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 

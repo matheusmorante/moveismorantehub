@@ -334,7 +334,9 @@ export async function emitNfeForOrder(
   hasTransport?: boolean,
   transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY',
   freightContractResponsible?: 'SENDER' | 'RECIPIENT' | 'THIRD_PARTY',
-  _forceNewIntent = false
+  _forceNewIntent = false,
+  recipientIe?: string,
+  recipientIeIndicator?: '1' | '2' | '9'
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
   if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
@@ -546,6 +548,8 @@ export async function emitNfeForOrder(
             ...(Object.keys(itemCsosnOverrides).length ? { itemCsosnOverrides } : {}),
             ...(Object.keys(itemFiscalSelections).length ? { itemFiscalSelections } : {}),
             ...(recipientTaxId === undefined ? {} : { recipientTaxId }),
+            ...(recipientIe === undefined ? {} : { recipientIe }),
+            ...(recipientIeIndicator === undefined ? {} : { recipientIeIndicator }),
             finalConsumer: finalConsumer ?? order.fiscalContext?.finalConsumer ?? true,
             ...(deliveryByIssuer === undefined ? {} : { deliveryByIssuer }),
             ...(transporter ? { transporter } : {}),

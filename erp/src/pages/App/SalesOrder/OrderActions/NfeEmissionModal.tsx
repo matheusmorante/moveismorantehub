@@ -1,5 +1,10 @@
 import React from 'react';
-import { getFiscalIssuePresentation } from '@/pages/utils/nfe/fiscalIssuePresentation';
+import {
+  HML_INTERSTATE_MATRIX_NOT_APPROVED,
+  getFiscalIssuePresentation,
+  isHmlInterstateMatrixBlock,
+  safeFiscalIssueMessage,
+} from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import {
   decideFiscalRecipientRequirements,
@@ -54,6 +59,11 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     recipientTaxIdError,
     recipientTaxId,
     setRecipientTaxId,
+    recipientIe,
+    setRecipientIe,
+    recipientIeIndicator,
+    setRecipientIeIndicator,
+    recipientIeError,
     handleSaveDraft,
     setNumberPreview,
     emissionResult,
@@ -97,6 +107,19 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   });
 
   const [isFiscalIssueModalOpen, setIsFiscalIssueModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen) setIsFiscalIssueModalOpen(false);
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (
+      emissionResult?.technicalDetails?.apiCode === HML_INTERSTATE_MATRIX_NOT_APPROVED &&
+      emissionResult.error?.startsWith(`${HML_INTERSTATE_MATRIX_NOT_APPROVED}:`)
+    ) {
+      setIsFiscalIssueModalOpen(true);
+    }
+  }, [emissionResult?.error, emissionResult?.technicalDetails?.apiCode]);
 
   const handleTransmissionEnabled = React.useCallback(() => {
     const startedAt = emissionStartedAtRef.current;
@@ -209,6 +232,18 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
       <NfeEmissionTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
+      {fiscalPreparationError && !isHmlInterstateMatrixBlock(fiscalPreparationError) && (
+        <div
+          role="alert"
+          className="mx-3 mt-2 shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 sm:mx-6"
+        >
+          {safeFiscalIssueMessage(
+            fiscalPreparationError,
+            'Não foi possível carregar a preparação fiscal. Atualize os dados e tente novamente.'
+          )}
+        </div>
+      )}
+
       {isPreparingNfe && (
         <div
           role="status"
@@ -242,7 +277,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         canOperateFiscal={canOperateFiscal}
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingNfeNumber={isLoadingNfeNumber}
-        fiscalPreparationError={fiscalPreparationError}
         handleReconcile={handleReconcile}
         handleAbandonHmlTlsAttempt={handleAbandonHmlTlsAttempt}
         handleStartFreshHmlEmission={handleStartFreshHmlEmission}
@@ -255,6 +289,11 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         recipientTaxIdError={recipientTaxIdError}
         recipientTaxIdInput={recipientTaxIdInput}
         recipientRequirements={recipientRequirements}
+        recipientIe={recipientIe}
+        setRecipientIe={setRecipientIe}
+        recipientIeIndicator={recipientIeIndicator}
+        setRecipientIeIndicator={setRecipientIeIndicator}
+        recipientIeError={recipientIeError}
         nfeItems={nfeItems}
         fiscalFieldError={fiscalFieldError}
         clearFiscalFieldError={clearFiscalFieldError}
@@ -282,6 +321,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingCustomerType={isLoadingCustomerType}
         fiscalPreparationError={fiscalPreparationError}
+        onOpenFiscalIssue={() => setIsFiscalIssueModalOpen(true)}
         emissionResult={emissionResult}
         productionConfirmed={productionConfirmed}
         onClose={onClose}
@@ -291,7 +331,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       />
 
       <NfeFiscalIssueModal
-        isOpen={isFiscalIssueModalOpen && hasFiscalIssue}
+        isOpen={isFiscalIssueModalOpen && (hasFiscalIssue || Boolean(fiscalPreparationError))}
         onClose={() => setIsFiscalIssueModalOpen(false)}
         emissionResult={emissionResult}
         environment={environment}

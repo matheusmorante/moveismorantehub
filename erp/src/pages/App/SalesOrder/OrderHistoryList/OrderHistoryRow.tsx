@@ -49,6 +49,7 @@ interface OrderHistoryRowProps {
   id?: string;
   onFilterByOrderId?: (id: string) => void;
   onShowPostSaleActions?: (order: Order) => void;
+  onIssueNfe?: (order: Order, environment: 1 | 2) => void;
 }
 
 const OrderHistoryRow = ({
@@ -75,6 +76,7 @@ const OrderHistoryRow = ({
   onViewDetails,
   onViewFiscalDocument,
   onShowPostSaleActions,
+  onIssueNfe,
 }: OrderHistoryRowProps) => {
   const settings = getSettings();
   const isDraft = order.status === 'draft';
@@ -246,6 +248,7 @@ const OrderHistoryRow = ({
                   status={fiscalBadgeStatus}
                   documentId={fiscalDocumentId}
                   onOpenDocument={onViewFiscalDocument}
+                  onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
                   reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
                 />
                 <OrderFiscalBadge
@@ -253,6 +256,7 @@ const OrderHistoryRow = ({
                   status={fiscalHmlBadgeStatus}
                   documentId={fiscalHmlDocumentId}
                   onOpenDocument={onViewFiscalDocument}
+                  onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
                   reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
                 />
                 <OrderOperationalBadges

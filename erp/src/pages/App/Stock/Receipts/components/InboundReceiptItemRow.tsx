@@ -47,7 +47,7 @@ export function InboundReceiptItemRow({
                 UN: {item.unit}
               </span>
             )}
-            {(item as unknown as Record<string, unknown>).code && (
+            {Boolean((item as unknown as Record<string, unknown>).code) && (
               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 Cód. Fornecedor: {String((item as unknown as Record<string, unknown>).code)}
               </span>

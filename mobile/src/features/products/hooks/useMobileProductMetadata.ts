@@ -1,50 +1,8 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../services/supabaseClient';
-
-let oppCache: Record<string, string> | null = null;
-let oppPromise: Promise<Record<string, string>> | null = null;
-
-export const fetchOppMap = async (): Promise<Record<string, string>> => {
-  if (oppCache) return oppCache;
-  if (!oppPromise) {
-    oppPromise = (async () => {
-      const { data } = await supabase.from('opportunities').select('id, name');
-      const map: Record<string, string> = {};
-      if (data) {
-        data.forEach((item: any) => {
-          map[item.id] = item.name;
-        });
-      }
-      oppCache = map;
-      return map;
-    })();
-  }
-  return oppPromise;
-};
-
-let supplierCache: Record<string, string> | null = null;
-let supplierPromise: Promise<Record<string, string>> | null = null;
-
-export const fetchSupplierMap = async (): Promise<Record<string, string>> => {
-  if (supplierCache) return supplierCache;
-  if (!supplierPromise) {
-    supplierPromise = (async () => {
-      const { data } = await supabase
-        .from('people')
-        .select('id, full_name, nickname, social_name')
-        .or('person_type.ilike.suppliers,person_type.ilike.supplier');
-      const map: Record<string, string> = {};
-      if (data) {
-        data.forEach((item: any) => {
-          map[item.id] = item.nickname || item.full_name || item.social_name || '';
-        });
-      }
-      supplierCache = map;
-      return map;
-    })();
-  }
-  return supplierPromise;
-};
+import {
+  fetchProductOpportunityMap,
+  fetchProductSupplierMap,
+} from '../services/mobileProductMetadataService';
 
 export function useMobileProductMetadata(product: any) {
   const [oppName, setOppName] = useState<string | null>(
@@ -56,7 +14,7 @@ export function useMobileProductMetadata(product: any) {
     let mounted = true;
     const oppId = product.opportunity_id || product.opportunityId;
     if (oppId) {
-      fetchOppMap().then((map) => {
+      fetchProductOpportunityMap().then((map) => {
         if (mounted && map[oppId]) setOppName(map[oppId]);
       });
     } else {
@@ -73,7 +31,7 @@ export function useMobileProductMetadata(product: any) {
     const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
 
     if (sIds.length > 0) {
-      fetchSupplierMap().then((map) => {
+      fetchProductSupplierMap().then((map) => {
         if (!mounted) return;
         const names: string[] = [];
         sIds.forEach((id) => {

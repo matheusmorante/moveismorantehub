@@ -85,7 +85,9 @@ export function useInboundInvoiceProductCreation({
         description: item.productDescription,
       });
       const { categories } = await fetchGroupsAndCategories();
-      const activeCategories = (categories || []).filter((category) => category.active !== false);
+      const activeCategories = (categories || []).filter(
+        (category) => (category as { active?: boolean }).active !== false
+      );
       const resolvedCategory = await resolveAutoCategory(suggestion.title, activeCategories);
 
       const finalCost = itemCostWithAdditionalCosts(item);

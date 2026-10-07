@@ -12,8 +12,8 @@ describe('usePriceLabelState - Undo / Redo e Gerenciamento de Histórico', () =>
     vi.useRealTimers();
   });
 
-  const mockProduct = { name: 'PRODUTO TESTE', price: '199,00' };
-  const mockConfig = { layoutId: 'layout_test', text: 'PRODUTO TESTE', price: '199,00' };
+  const mockProduct = { name: 'PRODUTO TESTE', price: '199,00' } as any;
+  const mockConfig = { layoutId: 'layout_test', text: 'PRODUTO TESTE', price: '199,00' } as any;
 
   it('inicializa com pilhas vazias e canUndo/canRedo falsos ao abrir', () => {
     const { result } = renderHook(() => usePriceLabelState(mockProduct, mockConfig, true));

@@ -94,7 +94,9 @@ describe('OrderCardAndMenuActions', () => {
     expect(screen.queryByText('Editar Venda')).toBeNull();
   });
 
-  it('exibe o rótulo NFH no card apenas quando houver nota fiscal de homologação emitida', () => {
+  it('exibe o rótulo NFH no card mesmo quando não houver nota fiscal de homologação emitida e permite emitir ao clicar', () => {
+    const onIssueNfe = vi.fn();
+    const onViewFiscalDocument = vi.fn();
     const { rerender } = render(
       <MemoryRouter>
         <OrderHistoryCard
@@ -107,12 +109,20 @@ describe('OrderCardAndMenuActions', () => {
           onPermanentDelete={vi.fn()}
           onAction={vi.fn()}
           onStatusUpdate={vi.fn()}
+          onIssueNfe={onIssueNfe}
+          onViewFiscalDocument={onViewFiscalDocument}
         />
       </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
-    expect(screen.queryByText('NFH')).toBeNull();
+    expect(screen.getByText('NFH')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('NFH'));
+    expect(onIssueNfe).toHaveBeenCalledWith(baseOrder, 2);
+
+    fireEvent.click(screen.getByText('NF'));
+    expect(onIssueNfe).toHaveBeenCalledWith(baseOrder, 1);
 
     rerender(
       <MemoryRouter>
@@ -120,18 +130,24 @@ describe('OrderCardAndMenuActions', () => {
           order={baseOrder}
           fiscalBadgeStatus="not_issued"
           fiscalHmlBadgeStatus="issued"
+          fiscalHmlDocumentId="hml-doc-123"
           onEdit={vi.fn()}
           onDelete={vi.fn()}
           onRestore={vi.fn()}
           onPermanentDelete={vi.fn()}
           onAction={vi.fn()}
           onStatusUpdate={vi.fn()}
+          onIssueNfe={onIssueNfe}
+          onViewFiscalDocument={onViewFiscalDocument}
         />
       </MemoryRouter>
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
     expect(screen.getByText('NFH')).toBeTruthy();
-    expect(screen.getByTitle('Nota fiscal de homologação emitida')).toBeTruthy();
+    expect(screen.getByTitle('Nota fiscal de homologação emitida · Abrir documento fiscal')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('NFH'));
+    expect(onViewFiscalDocument).toHaveBeenCalledWith('hml-doc-123', 2);
   });
 });

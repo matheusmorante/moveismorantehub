@@ -1,18 +1,20 @@
 import React, { useState, useMemo, useRef } from 'react';
+import type Product from '@/pages/types/product.type';
+import type { Variation } from '@/pages/types/product.type';
 import type { AuditItem } from '../types/inventoryAudit.types';
 import { InventoryOperationHeader } from './InventoryOperationHeader';
 import { InventoryManualMode } from './InventoryManualMode';
 import { InventoryStagesView } from './InventoryStagesView';
-import { useInventoryOperation } from '../../hooks/useInventoryOperation';
-import type { InventoryScopeType } from '../modals/InventoryScopeModal';
+import { useInventoryOperation } from '../hooks/useInventoryOperation';
+import type { InventoryScopeType } from '../types/inventoryScope.types';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import { matchScannedProductItem } from '@/pages/utils/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import {
   ensureOfflineInventoryCatalogSynced,
   findOfflineInventoryMatch,
-  type OfflineInventoryMatch,
 } from '../services/offlineInventoryCatalog';
+import type { OfflineInventoryMatch } from '../types/offlineInventoryCatalog.types';
 
 interface InventoryOperationScreenProps {
   readonly items: AuditItem[];
@@ -22,7 +24,7 @@ interface InventoryOperationScreenProps {
   readonly onUpdateCount: (id: string, count: number | null) => void;
   readonly onIncrementScannedItem: (id: string, labelId?: string) => Promise<number | null>;
   readonly onAddManualItem: () => void;
-  readonly onUpdateItemProduct?: (itemId: string, product: any, variation?: any) => void;
+  readonly onUpdateItemProduct?: (itemId: string, product: Product, variation?: Variation) => void;
   readonly onReview: () => void;
   readonly onClose?: () => void;
 }

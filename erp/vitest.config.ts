@@ -4,9 +4,10 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     preserveSymlinks: true,
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: /^maplibre-gl$/, replacement: path.resolve(__dirname, './src/testMocks/maplibre-gl.ts') },
+    ],
   },
   test: {
     environment: 'node',

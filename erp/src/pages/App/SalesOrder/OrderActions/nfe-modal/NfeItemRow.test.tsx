@@ -56,27 +56,8 @@ describe('NfeItemRow', () => {
     expect(csosn.value).toBe('103');
 
     fireEvent.change(csosn, { target: { value: '102' } });
-    expect(onUpdateFiscal).not.toHaveBeenCalled();
-    fireEvent.blur(csosn);
-    expect(screen.getByText('Confirmar alteração de CSOSN?')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Sim, alterar' }));
     expect(onUpdateFiscal).toHaveBeenCalledWith('cst', '102');
-  });
-
-  it('restaura o CSOSN anterior quando a alteração é cancelada', () => {
-    const onUpdateFiscal = vi.fn();
-    render(
-      <NfeItemRow item={createItem(false)} itemIndex={0} onUpdateFiscal={onUpdateFiscal} />
-    );
-    fireEvent.click(screen.getByTitle('Ver / editar CFOP, CSOSN, Origem e CEST'));
-
-    const csosn = screen.getByRole('combobox', { name: 'CSOSN' }) as HTMLSelectElement;
-    fireEvent.change(csosn, { target: { value: '102' } });
-    fireEvent.blur(csosn);
-    fireEvent.click(screen.getByRole('button', { name: 'Não, manter atual' }));
-
-    expect(csosn.value).toBe('103');
-    expect(onUpdateFiscal).not.toHaveBeenCalled();
+    expect(screen.queryByText('Confirmar alteração de CSOSN?')).toBeNull();
   });
 
   it('exibe CFOP candidato interestadual, mas impede sua seleção enquanto a matriz está pendente', () => {
@@ -108,7 +89,7 @@ describe('NfeItemRow', () => {
     expect(screen.getByText('Operação PR → SC; matriz tributária pendente.')).toBeTruthy();
   });
 
-  it('permite selecionar 103 diretamente e limpa erro quando o item não tem CSOSN prévio', () => {
+  it('assume 103 por padrão e permite alterar diretamente sem confirmação quando o item não tem CSOSN prévio', () => {
     const onUpdateFiscal = vi.fn();
     const onClearFieldError = vi.fn();
     const itemWithoutCsosn = {
@@ -127,36 +108,11 @@ describe('NfeItemRow', () => {
     );
 
     const csosnSelect = screen.getByRole('combobox', { name: 'CSOSN' }) as HTMLSelectElement;
-    expect(csosnSelect.value).toBe('');
+    expect(csosnSelect.value).toBe('103');
 
-    fireEvent.change(csosnSelect, { target: { value: '103' } });
+    fireEvent.change(csosnSelect, { target: { value: '102' } });
     expect(onClearFieldError).toHaveBeenCalled();
-    expect(onUpdateFiscal).toHaveBeenCalledWith('cst', '103');
+    expect(onUpdateFiscal).toHaveBeenCalledWith('cst', '102');
     expect(screen.queryByText('Confirmar alteração de CSOSN?')).toBeNull();
-  });
-
-  it('permite aplicar 103 pelo link de atalho quando o item não tem CSOSN cadastrado', () => {
-    const onUpdateFiscal = vi.fn();
-    const onClearFieldError = vi.fn();
-    const itemWithoutCsosn = {
-      ...createItem(false),
-      fiscal: { ncm: '94035000', cfop: '5102', cst: '', origem: '0' },
-    };
-
-    render(
-      <NfeItemRow
-        item={itemWithoutCsosn}
-        itemIndex={0}
-        fieldError={{ field: 'cst', message: 'Selecione o CSOSN do produto' }}
-        onUpdateFiscal={onUpdateFiscal}
-        onClearFieldError={onClearFieldError}
-      />
-    );
-
-    const applyButton = screen.getByRole('button', { name: 'clique aqui para aplicar 103' });
-    fireEvent.click(applyButton);
-
-    expect(onClearFieldError).toHaveBeenCalled();
-    expect(onUpdateFiscal).toHaveBeenCalledWith('cst', '103');
   });
 });

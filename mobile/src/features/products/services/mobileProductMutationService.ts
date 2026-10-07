@@ -1,14 +1,12 @@
 import { supabase } from '../../../services/supabaseClient';
 import { getPersistableProductTechnicalValues } from '../domain/productCharacteristics';
+import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import {
   ensureAtLeastOneOperationalVariation,
   resolveProductVariationName,
 } from '../domain/productVariationName';
-import {
-  generateVariationSku,
-  getNextSequentialProductCode,
-  parseLocalizedPrice,
-} from './mobileProductHelpers';
+import { generateVariationSku } from '../domain/productSku';
+import { getNextSequentialProductCode } from './mobileProductCodeService';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')

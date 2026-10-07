@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import React from 'react';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeType
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {}, isTestEnvironment: false }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: vi.fn().mockResolvedValue([]) }));
 vi.mock('@/pages/App/Products/ProductFormModal', () => ({ default: () => null }));
-vi.mock('./QuickRegisterVariationModal', () => ({ QuickRegisterVariationModal: () => null }));
+vi.mock('../modals/QuickRegisterVariationModal', () => ({ QuickRegisterVariationModal: () => null }));
 vi.mock('@/components/shared/DropdownPortal', () => ({ default: () => null }));
 vi.mock('@/pages/utils/productSupplierCodesService', () => ({
   findProductSupplierCodes: vi.fn().mockResolvedValue(new Map()),

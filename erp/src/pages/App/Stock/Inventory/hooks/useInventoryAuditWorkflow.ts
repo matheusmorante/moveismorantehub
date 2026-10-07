@@ -6,8 +6,8 @@ import type {
   InventoryAuditSession,
   InventorySnapshotItem,
 } from '../types/inventoryAudit.types';
-import type { ScopeConfiguration } from '../modals/InventoryScopeModal';
-import { getEmployeeDisplayName } from '../components/InventoryResponsibleSelect';
+import type { ScopeConfiguration } from '../types/inventoryScope.types';
+import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
 import { getWebInventoryDraft, saveWebInventoryDraft } from '../services/inventoryLocalDrafts';
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
@@ -153,9 +153,9 @@ export const useInventoryAuditWorkflow = (
             physicalCount: source.physicalCount,
             unit: product?.unit || 'UN',
             countedAt: (source as AuditItem).countedAt,
-            sku: source.sku || (product as any)?.sku || product?.code || '',
+            sku: source.sku || product?.sku || product?.code || '',
             code: source.code || product?.code || '',
-            barcode: source.barcode || (product as any)?.barcode || '',
+            barcode: source.barcode || product?.barcode || '',
           } as AuditItem;
         });
         draftRef.current = {

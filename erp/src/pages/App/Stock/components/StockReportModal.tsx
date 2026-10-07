@@ -1,6 +1,5 @@
 /**
- * @fileoverview Proxy de re-exportação para StockReportModal.
- * Mantido em components/ para garantir retrocompatibilidade com imports existentes.
+ * @fileoverview Proxy de compatibilidade para StockReportModal.
  * Implementação canônica em ../modals/StockReportModal.tsx.
  */
 

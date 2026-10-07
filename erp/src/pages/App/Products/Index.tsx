@@ -1,23 +1,26 @@
-import React from 'react';
+﻿import React from 'react';
 import Product, { ProductVisibilitySettings, Variation } from '../../types/product.type';
 import ProductList from './ProductList';
 import ProductFilters, { ProductFiltersData } from './ProductFilters';
 import ProductFormModal from './modals/ProductFormModal';
 import VariationFormModal from './modals/VariationFormModal';
 import PriceHistoryModal from './modals/PriceHistoryModal';
-import StockLaunchModal from '../Stock/components/StockLaunchModal';
+import StockLaunchModal from '../Stock/modals/StockLaunchModal';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
-import { supabase } from '../../utils/supabaseConfig';
-import { calculateVariationCatalogStats } from './ProductList/utils/catalog/registeredVariationCount';
+import { loadProductCatalogStats } from './ProductList/services/productCatalogStatsService';
 import { resolveProductVariation } from './utils/resolveProductVariation';
 const categoryTree = undefined;
 
 const defaultVisibility: ProductVisibilitySettings = {
+  id: false,
+  sku: false,
   code: true,
   description: true,
   category: true,
+  costPrice: false,
   createdAt: true,
   unitPrice: true,
+  weight: false,
   stock: true,
   status: true,
   actions: true,
@@ -91,15 +94,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
 
   const fetchStats = React.useCallback(async () => {
     try {
-      const { data: allProducts } = await supabase
-        .from('products')
-        .select(
-          'id, status, active, is_draft, deleted, product_variations(id, sku, status, active)'
-        )
-        .eq('deleted', false);
-
-      const stats = calculateVariationCatalogStats(allProducts || []);
-      setCatalogStats(stats);
+      setCatalogStats(await loadProductCatalogStats());
     } catch (err: unknown) {
       console.error('Erro ao carregar estatísticas dos produtos:', err);
     }
@@ -110,8 +105,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   }, [fetchStats]);
 
   const productListRef = React.useRef<{ refresh: () => void }>(null);
-  const trashListRef = React.useRef<{ refresh: () => void }>(null);
-
   const toggleVisibility = (column: keyof ProductVisibilitySettings) => {
     setVisibilitySettings((prev) => ({
       ...prev,
@@ -329,7 +322,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsTrashOpen(false);
                         setFilters((prev) => ({
                           ...prev,
                           activeOnly: undefined,
@@ -354,7 +346,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsTrashOpen(false);
                           setFilters((prev) =>
                             summaryChannel === 'erp'
                               ? { ...prev, activeOnly: true, status: undefined, isDraft: undefined }
@@ -378,7 +369,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsTrashOpen(false);
                           if (summaryChannel === 'erp') {
                             setFilters((prev) => ({
                               ...prev,
@@ -535,7 +525,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
         }}
         onSuccess={() => {
           productListRef.current?.refresh();
-          trashListRef.current?.refresh();
           fetchStats();
         }}
         product={editingProduct}

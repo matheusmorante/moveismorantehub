@@ -200,23 +200,6 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
         toastError: fieldErr.message,
       };
     }
-    if (operationScope.scope === 'interstate') {
-      const fieldErr: FiscalFieldError = {
-        tab: 'items',
-        fieldId: `nfe-item-cfop-${index}`,
-        itemIndex: index,
-        itemField: 'cfop',
-        message:
-          `Operação interestadual ${operationScope.issuerUf} → ${operationScope.operationUf}: ` +
-          'não existe matriz tributária aprovada; a emissão permanece bloqueada.',
-      };
-      return {
-        valid: false,
-        recipientTaxIdError: null,
-        fiscalFieldError: fieldErr,
-        toastError: fieldErr.message,
-      };
-    }
 
     const cfopTrimmed = item.fiscal?.cfop?.trim() || '';
     if (!cfopTrimmed) {

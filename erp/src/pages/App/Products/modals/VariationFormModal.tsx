@@ -9,7 +9,7 @@ import { VariationIdentificationTab } from '../components/variationTabs/Variatio
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
-import { checkERPLegibility, checkEcomLegibility } from '../utils/productLegibilityRules';
+import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
 
 interface VariationFormModalProps {
   readonly isOpen: boolean;

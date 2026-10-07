@@ -78,7 +78,7 @@ export const resolveOrderFiscalBadgePair = (
 
   return {
     production,
-    homologation: homologation !== 'not_issued' ? homologation : undefined,
+    homologation,
     productionDocumentId: findDocumentId(prodDocs, production),
     homologationDocumentId:
       homologation !== 'not_issued' ? findDocumentId(hmlDocs, homologation) : undefined,

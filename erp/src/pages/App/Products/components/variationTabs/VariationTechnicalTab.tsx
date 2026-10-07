@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
-import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import {
   TechnicalFieldDefinition,
   getApplicableTechnicalFields,
@@ -12,15 +11,15 @@ import {
   setVariationOverride,
   removeVariationOverride,
   groupTechnicalFields,
-  isRequiredCharacteristicName,
 } from '@/pages/utils/technicalValuesService';
+import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
 
 interface VariationTechnicalTabProps {
-  readonly formData: Variation;
+  readonly formData: Variation & { readonly material?: string | null };
   readonly setFormData?: React.Dispatch<React.SetStateAction<Variation | null>>;
-  readonly parentProduct: Product;
+  readonly parentProduct: Product & { readonly attributes?: Variation['attributes'] };
   readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
   readonly showDescription?: boolean;
 }
@@ -65,61 +64,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     const loadFields = async () => {
       setLoadingFields(true);
       try {
-        let { data: attrData, error: attrErr } = await supabase
-          .from('attributes')
-          .select('id, name, active, data_type, unit, is_custom')
-          .eq('active', true)
-          .order('name');
-        if (attrErr && (attrErr.message?.includes('is_custom') || attrErr.code === '42703')) {
-          const fallback = await supabase
-            .from('attributes')
-            .select('id, name, active, data_type, unit')
-            .eq('active', true)
-            .order('name');
-          attrData = fallback.data;
-          attrErr = fallback.error;
-        }
-        if (attrErr) throw attrErr;
-
-        const { data: valData } = await supabase
-          .from('attribute_values')
-          .select('id, attribute_id, value');
-
-        const { data: catAttrData, error: catAttrErr } = await supabase
-          .from('category_attributes')
-          .select('attribute_id, category_id, is_required');
-        if (catAttrErr) {
-          console.warn('Aviso ao buscar category_attributes na variação:', catAttrErr);
-        }
-
+        const mapped = await fetchTechnicalFieldDefinitions('variation-form');
         if (!isMounted) return;
-
-        const mapped: TechnicalFieldDefinition[] = (attrData || [])
-          .filter((attr: any) => !/^reclin[aá]vel$/i.test(String(attr.name).trim()))
-          .map((attr: any) => {
-          const opts = (valData || [])
-            .filter((v: any) => v.attribute_id === attr.id)
-            .map((v: any) => ({ id: v.id, value: v.value }))
-            .sort((a: any, b: any) =>
-              a.value.localeCompare(b.value, 'pt-BR', { numeric: true, sensitivity: 'base' })
-            );
-
-          const linkedCategoryIds = (catAttrErr ? [] : catAttrData || [])
-            .filter((ca: any) => ca.attribute_id === attr.id)
-            .map((ca: any) => ca.category_id);
-
-          return {
-            id: attr.id,
-            name: attr.name,
-            dataType: attr.data_type || 'list',
-            unit: attr.unit || undefined,
-            isRequired: isRequiredCharacteristicName(String(attr.name)),
-            isCustom: Boolean(attr.is_custom),
-            options: opts,
-            categoryIds: linkedCategoryIds,
-          };
-        });
-
         setAllTechnicalFields(mapped);
       } catch (err) {
         console.error('Erro ao carregar Características na variação:', err);

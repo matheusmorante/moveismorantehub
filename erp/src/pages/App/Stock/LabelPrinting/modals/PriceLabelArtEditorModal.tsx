@@ -4,20 +4,28 @@ import { toast } from 'react-toastify';
 import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import { usePriceLabelState } from '../hooks/usePriceLabelState';
-import { PriceLabelLayersModal } from '../components/modals/PriceLabelLayersModal';
-import { PriceLabelOpportunityModal } from '../components/modals/PriceLabelOpportunityModal';
-import { PriceLabelDataFillModal } from '../components/modals/PriceLabelDataFillModal';
-import { PriceLabelTestValuesModal } from '../components/modals/PriceLabelTestValuesModal';
+import { usePriceLabelTestValues } from '../hooks/usePriceLabelTestValues';
+import { usePriceLabelEditorKeyboardShortcuts } from '../hooks/usePriceLabelEditorKeyboardShortcuts';
+import { usePriceLabelLayerSelection } from '../hooks/usePriceLabelLayerSelection';
+import { PriceLabelLayersModal } from './PriceLabelLayersModal';
+import { PriceLabelOpportunityModal } from './PriceLabelOpportunityModal';
+import { PriceLabelDataFillModal } from './PriceLabelDataFillModal';
+import { PriceLabelTestValuesModal } from './PriceLabelTestValuesModal';
+import { PriceLabelColorPickerPopup } from './price-label-editor/PriceLabelColorPickerPopup';
+import { PriceLabelSelectedElementToolbar } from './price-label-editor/PriceLabelSelectedElementToolbar';
 import {
   fetchPriceLabelArtConfig,
   fetchOpportunities,
 } from '../services/priceLabelPersistenceService';
+import { buildPriceLabelAutoSaveConfig } from '../services/priceLabelAutoSaveConfig';
 
-import {
+import type {
   PriceLabelArtEditorModalProps,
   PriceLabelLayerKey,
-  FONT_OPTIONS,
 } from '../types/PriceLabelArtEditorTypes';
+import { PriceLabelEditorHeader } from './price-label-editor/PriceLabelEditorHeader';
+import { PriceLabelEditorFooter } from './price-label-editor/PriceLabelEditorFooter';
+import { PriceLabelMenuBar } from './price-label-editor/PriceLabelMenuBar';
 
 export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> = ({
   isOpen,
@@ -244,9 +252,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     handleRedo,
     canUndo,
     canRedo,
-    undoStackRef,
-    redoStackRef,
-    isApplyingHistoryRef,
   } = usePriceLabelState(initialProduct, config, isOpen);
   const [colorHistory, setColorHistory] = useState<string[]>([
     '#000000',
@@ -307,43 +312,41 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       pendingGradientColorRef.current = null;
     }
     setShowColorPickerDropdown(false);
-  }; // ESTADO DO MODAL DE TESTE DE VALORES (SLIDERS DE 0 A 9 POR DÍGITO)
-  const [isTestValuesModalOpen, setIsTestValuesModalOpen] = useState(false);
-  const testValuesBackupRef = useRef<{ promoPrice: string; normalPrice: string } | null>(null);
-
-  // Sliders de Teste para o Preço Principal (Dezena, Centena, Milhar)
-  const [testDezenaD1, setTestDezenaD1] = useState(3);
-  const [testDezenaD2, setTestDezenaD2] = useState(9);
-
-  const [testCentenaD1, setTestCentenaD1] = useState(3);
-  const [testCentenaD2, setTestCentenaD2] = useState(9);
-  const [testCentenaD3, setTestCentenaD3] = useState(9);
-
-  const [testMilharD1, setTestMilharD1] = useState(1);
-  const [testMilharD2, setTestMilharD2] = useState(3);
-  const [testMilharD3, setTestMilharD3] = useState(9);
-  const [testMilharD4, setTestMilharD4] = useState(9);
-
-  // Sliders de Teste para o Preço Antigo (normalPrice)
-  const [testNormalD1, setTestNormalD1] = useState(4);
-  const [testNormalD2, setTestNormalD2] = useState(9);
-  const [testNormalD3, setTestNormalD3] = useState(9);
-
-  const openTestValuesModal = () => {
-    testValuesBackupRef.current = {
-      promoPrice,
-      normalPrice,
-    };
-    setIsTestValuesModalOpen(true);
   };
-
-  const closeTestValuesModal = () => {
-    if (testValuesBackupRef.current) {
-      setPromoPrice(testValuesBackupRef.current.promoPrice);
-      setNormalPrice(testValuesBackupRef.current.normalPrice);
-    }
-    setIsTestValuesModalOpen(false);
-  };
+  const {
+    isTestValuesModalOpen,
+    openTestValuesModal,
+    closeTestValuesModal,
+    testDezenaD1,
+    setTestDezenaD1,
+    testDezenaD2,
+    setTestDezenaD2,
+    testCentenaD1,
+    setTestCentenaD1,
+    testCentenaD2,
+    setTestCentenaD2,
+    testCentenaD3,
+    setTestCentenaD3,
+    testMilharD1,
+    setTestMilharD1,
+    testMilharD2,
+    setTestMilharD2,
+    testMilharD3,
+    setTestMilharD3,
+    testMilharD4,
+    setTestMilharD4,
+    testNormalD1,
+    setTestNormalD1,
+    testNormalD2,
+    setTestNormalD2,
+    testNormalD3,
+    setTestNormalD3,
+  } = usePriceLabelTestValues({
+    promoPrice,
+    normalPrice,
+    setPromoPrice,
+    setNormalPrice,
+  });
 
   const isInitializedRef = useRef(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -538,56 +541,6 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     );
   }, [selectedOppId, oppColorsMap, defaultBgColor]);
 
-  const buildAutoSaveConfig = (currentSnapshot: Record<string, any>) => {
-    const {
-      fabricTemplateJson: _legacyFabricTemplate,
-      fabricDataUrl: _legacyFabricImage,
-      ...currentArtConfig
-    } = (config.artConfig || {}) as Record<string, any>;
-
-    const fullArtConfig = {
-      ...currentArtConfig,
-      globalSnapshot: currentSnapshot,
-      oppColorsMap: {
-        ...(currentArtConfig.oppColorsMap || {}),
-        ...oppColorsMap,
-      },
-      opportunities: {
-        ...Object.fromEntries(
-          Object.keys(currentArtConfig.opportunities || {}).map((oppId) => [oppId, currentSnapshot])
-        ),
-        default: currentSnapshot,
-        none: currentSnapshot,
-        [selectedOppId]: currentSnapshot,
-      },
-    };
-
-    return {
-      artConfig: fullArtConfig,
-      text: title,
-      price: normalPrice,
-      promoPrice,
-      showPromoPrice,
-      bg_color: oppColorsMap.none?.background || '#ffffff',
-      priceColor,
-      promoPriceColor: priceColor,
-      priceFormat: 'split' as const,
-      showName: showTitle,
-      priceFontSizeTens: scaleTens,
-      priceFontSizeHundreds: scaleHundreds,
-      priceFontSizeThousands: scaleThousands,
-      priceFontSizeTenThousands: scaleTenThousands,
-      namePosX: titlePos.x,
-      namePosY: titlePos.y,
-      nameWidth: titleWidth,
-      pricePosX: promoPricePos.x,
-      pricePosY: promoPricePos.y,
-      dePricePorGroupPos,
-      dePricePorGroupRotation,
-      dePricePorGroupGap,
-    };
-  };
-
   const queueAutoSave = (snapshot: Record<string, any>, serialized: string) => {
     const previousSnapshot = lastQueuedSnapshotRef.current;
     lastQueuedSnapshotRef.current = serialized;
@@ -596,7 +549,32 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
     const operation = saveQueueRef.current
       .catch(() => undefined)
-      .then(() => onSaveConfig(buildAutoSaveConfig(snapshot)))
+      .then(() =>
+        onSaveConfig(
+          buildPriceLabelAutoSaveConfig({
+            artConfig: config.artConfig,
+            snapshot,
+            oppColorsMap,
+            selectedOppId,
+            title,
+            normalPrice,
+            promoPrice,
+            showPromoPrice,
+            priceColor,
+            showTitle,
+            scaleTens,
+            scaleHundreds,
+            scaleThousands,
+            scaleTenThousands,
+            titlePos,
+            titleWidth,
+            promoPricePos,
+            dePricePorGroupPos,
+            dePricePorGroupRotation,
+            dePricePorGroupGap,
+          })
+        )
+      )
       .then(() => {
         if (latestRequestedSnapshotRef.current === serialized) setAutoSaveStatus('saved');
       })
@@ -650,146 +628,53 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     }
   };
 
-  // TECLAS DO TECLADO PARA MOVER ELEMENTO & ATALHOS DESFAZER/REFAZER
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      const isInput = targetTag === 'input' || targetTag === 'textarea';
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (isInput) return;
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleRedo();
-        } else {
-          handleUndo();
-        }
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        if (isInput) return;
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
-
-      if (!selectedElement || selectedElement === 'background') return;
-
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        if (isInput) return;
-
-        e.preventDefault();
-        const step = e.shiftKey ? 5 : 1;
-        const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
-        const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
-
-        if (selectedElement === 'title') setTitlePos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'dePricePorGroup')
-          setDePricePorGroupPos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'deText') setDePos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'normalPrice')
-          setNormalPricePos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'porText') setPorPos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'currencySymbol')
-          setCurrencyPos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'promoPrice')
-          setPromoPricePos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'cents') setCentsPos((p) => ({ x: p.x + dx, y: p.y + dy }));
-        else if (selectedElement === 'installments')
-          setInstallmentsPos((p) => ({ x: p.x + dx, y: p.y + dy }));
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, selectedElement, handleUndo, handleRedo]);
-
-  // SELEÇÃO INTELIGENTE DE ELEMENTOS (ALTERNÂNCIA DE CAMADAS SOBREPOSTAS AO RE-CLICAR E SHIFT MULTISELEÇÃO)
-  const handleElementClick = useCallback(
-    (layerKey: PriceLabelLayerKey, e: React.MouseEvent) => {
-      e.stopPropagation();
-
-      const visibleLayers: { key: PriceLabelLayerKey; label: string }[] = [
-        { key: 'title', label: 'Nome do Produto' },
-        { key: 'dePricePorGroup', label: 'Grupo De / Preço / Por (Flex)' },
-        { key: 'deText', label: 'Texto "De"' },
-        { key: 'normalPrice', label: 'Preço Original' },
-        { key: 'porText', label: 'Texto "Por"' },
-        { key: 'currencySymbol', label: 'Símbolo R$' },
-        { key: 'promoPrice', label: 'Preço Principal' },
-        { key: 'cents', label: 'Centavos' },
-        { key: 'installments', label: 'Parcelamento' },
-      ];
-
-      if (e.shiftKey) {
-        // Clicar com Shift em qualquer um dos itens do grupo (De, Preço Original, Por) seleciona o AGRUPAMENTO (dePricePorGroup)
-        if (['deText', 'normalPrice', 'porText', 'dePricePorGroup'].includes(layerKey as string)) {
-          setSelectedElement('dePricePorGroup');
-          setSelectedElements(new Set<PriceLabelLayerKey>(['dePricePorGroup']));
-          return;
-        }
-
-        setSelectedElements((prev) => {
-          const next = new Set(prev);
-          if (next.has(layerKey)) {
-            next.delete(layerKey);
-          } else {
-            next.add(layerKey);
-          }
-
-          // Atualiza o selectedElement principal
-          if (next.size > 0) {
-            const arr = Array.from(next);
-            setSelectedElement(arr[arr.length - 1]);
-          } else {
-            setSelectedElement(null);
-          }
-          return next;
-        });
-      } else {
-        setSelectedElements(new Set<PriceLabelLayerKey>([layerKey]));
-
-        if (prevSelectedRef.current === layerKey) {
-          const activeList = visibleLayers.filter((l) => {
-            if (l.key === 'title') return showTitle;
-            if (l.key === 'deText') return showDe;
-            if (l.key === 'normalPrice') return showNormalPrice;
-            if (l.key === 'porText') return showPor;
-            if (l.key === 'currencySymbol') return showCurrency;
-            if (l.key === 'promoPrice') return showPromoPrice;
-            if (l.key === 'cents') return showCents;
-            if (l.key === 'installments') return showInstallments;
-            return false;
-          });
-
-          const curIdx = activeList.findIndex((l) => l.key === layerKey);
-          if (curIdx !== -1 && activeList.length > 1) {
-            const nextLayer = activeList[(curIdx + 1) % activeList.length];
-            setSelectedElement(nextLayer.key);
-            setSelectedElements(new Set([nextLayer.key]));
-            return;
-          }
-        }
-
-        setSelectedElement(layerKey);
-      }
-    },
+  const keyboardPositionSetters = useMemo(
+    () => ({
+      title: setTitlePos,
+      dePricePorGroup: setDePricePorGroupPos,
+      deText: setDePos,
+      normalPrice: setNormalPricePos,
+      porText: setPorPos,
+      currencySymbol: setCurrencyPos,
+      promoPrice: setPromoPricePos,
+      cents: setCentsPos,
+      installments: setInstallmentsPos,
+    }),
     [
-      selectedElement,
-      selectedElements,
-      showTitle,
-      showDe,
-      showNormalPrice,
-      showPor,
-      showCurrency,
-      showPromoPrice,
-      showCents,
-      showInstallments,
+      setTitlePos,
+      setDePricePorGroupPos,
+      setDePos,
+      setNormalPricePos,
+      setPorPos,
+      setCurrencyPos,
+      setPromoPricePos,
+      setCentsPos,
+      setInstallmentsPos,
     ]
   );
+
+  usePriceLabelEditorKeyboardShortcuts({
+    isOpen,
+    selectedElement,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    positionSetters: keyboardPositionSetters,
+  });
+
+  // A selection change on click cycles overlapping layers; Shift keeps multi-selection.
+  const handleElementClick = usePriceLabelLayerSelection({
+    previousSelectedRef: prevSelectedRef,
+    setSelectedElement,
+    setSelectedElements,
+    showTitle,
+    showDe,
+    showNormalPrice,
+    showPor,
+    showCurrency,
+    showPromoPrice,
+    showCents,
+    showInstallments,
+  });
 
   // ARRASTATOR DE ELEMENTOS NO CANVAS COM ÍMÃ E LINHAS GUIA MAGNÉTICAS (SUPORTE A MULTISELEÇÃO E MOVIMENTAÇÃO CONJUNTA)
   const startDragging = useCallback(
@@ -1213,6 +1098,24 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     }
   };
 
+  const handleOpportunityColorChange = (
+    opportunityId: string,
+    color: string,
+    isCurrentActiveOpp: boolean
+  ) => {
+    if (!selectedElement) return;
+
+    setOppColorsMap((prev) => ({
+      ...prev,
+      [opportunityId]: {
+        ...(prev[opportunityId] || {}),
+        [selectedElement]: color,
+      },
+    }));
+    if (isCurrentActiveOpp) handleColorSelect(color, false);
+    pendingGradientColorRef.current = color;
+  };
+
   // ALTERAR FONTE DA CAMADA ATIVA
   const handleFontChange = (fontVal: string) => {
     if (selectedElement === 'title') setTitleFontFamily(fontVal);
@@ -1458,749 +1361,110 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     <div
       className={`fixed inset-0 z-50 flex flex-col animate-fade-in overflow-hidden w-screen h-screen ${isStandaloneTemplate ? 'bg-white dark:bg-slate-950' : 'bg-slate-900/90 backdrop-blur-md'}`}
     >
-      {/* 1. MODAL HEADER FULLWIDTH */}
-      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
-        <div className="flex items-center gap-3.5">
-          <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-black">
-            <i className="bi bi-palette-fill text-sm" />
-          </div>
-          <div>
-            <h2 className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">
-              TEMPLATE DA ETIQUETA DE PREÇO
-            </h2>
-          </div>
-        </div>
+      <PriceLabelEditorHeader
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onBackToErp={handleBackToErp}
+      />
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={!canUndo}
-            title="Desfazer alterações (Ctrl+Z)"
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-          >
-            <i className="bi bi-arrow-counterclockwise text-sm"></i>
-            <span className="hidden sm:inline">Desfazer</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleRedo}
-            disabled={!canRedo}
-            title="Refazer alterações (Ctrl+Y)"
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-          >
-            <i className="bi bi-arrow-clockwise text-sm"></i>
-            <span className="hidden sm:inline">Refazer</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleBackToErp}
-            className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black"
-          >
-            <i className="bi bi-arrow-left text-xs" />
-            <span>Voltar ao ERP</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. BARRA DE MENU PRINCIPAL (SUPERIOR) */}
-      <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-visible relative z-[1000]">
-        {/* LADO ESQUERDO: ARQUIVO (DROPDOWN), CAMADAS, MARGEM DE SEGURANÇA & SELEÇÃO DE TIPO DE ETIQUETA */}
-        <div className="flex items-center gap-3 shrink-0 flex-nowrap">
-          {/* ARQUIVO DROPDOWN (SEM CONTAINER BRANCO, APENAS TEXTO + SETA, zIndex: 99999) */}
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsFileMenuOpen(!isFileMenuOpen)}
-              className="px-2 py-1 text-xs font-black text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer flex items-center gap-1"
-            >
-              <span>Arquivo</span>
-              <i className="bi bi-chevron-down text-[9px] text-slate-400" />
-            </button>
-
-            {isFileMenuOpen && (
-              <div
-                style={{ zIndex: 99999 }}
-                className="absolute left-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 z-[1100] animate-fade-in"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsFileMenuOpen(false);
-                    handleDownloadPng();
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950 flex items-center gap-2.5 cursor-pointer"
-                >
-                  <i className="bi bi-file-earmark-arrow-down-fill text-emerald-600 text-sm" />
-                  <span>Baixar PNG</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsFileMenuOpen(false);
-                    handleCopyImage();
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950 flex items-center gap-2.5 cursor-pointer"
-                >
-                  <i className="bi bi-clipboard-check-fill text-blue-600 text-sm" />
-                  <span>Copiar Imagem</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsFileMenuOpen(false);
-                    setSelectedElement('title');
-                    setSelectedElements(new Set(['title']));
-                    const newTitle = window.prompt('Nome / Título da Arte:', title);
-                    if (newTitle !== null && newTitle.trim()) {
-                      setTitle(newTitle.trim().toUpperCase());
-                      toast.success('Título da arte atualizado!');
-                    }
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950 flex items-center gap-2.5 cursor-pointer border-t border-slate-100 dark:border-slate-800"
-                >
-                  <i className="bi bi-pencil-square text-purple-600 text-sm" />
-                  <span>Nomear Arte</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* CAMADAS BUTTON (APENAS ÍCONE) */}
-          <button
-            type="button"
-            onClick={() => setIsLayersModalOpen(true)}
-            title="Gerenciar Camadas"
-            className="p-1.5 text-xs font-black text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer flex items-center justify-center rounded-lg hover:bg-slate-300/50 dark:hover:bg-slate-800 shrink-0"
-          >
-            <i className="bi bi-layers-fill text-blue-600 text-sm" />
-          </button>
-
-          {/* MARGEM DE SEGURANÇA BUTTON (APENAS ÍCONE) */}
-          <button
-            type="button"
-            onClick={() => setShowSafetyMargin(!showSafetyMargin)}
-            title="Exibir ou ocultar a borda da margem de segurança da impressão"
-            className={`p-1.5 text-xs font-black transition cursor-pointer rounded-lg shrink-0 flex items-center justify-center ${
-              showSafetyMargin
-                ? 'text-red-600 hover:bg-red-100 dark:hover:bg-red-950/50'
-                : 'text-slate-600 hover:bg-slate-300/50 dark:text-slate-400 dark:hover:bg-slate-800'
-            }`}
-          >
-            <i className="bi bi-bounding-box-circles text-sm" />
-          </button>
-
-          <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
-
-          {/* SELETOR DE CONTEXTO: TIPO DE ETIQUETA (VISÃO DE CONTEXTO) */}
-          <div className="flex items-center gap-1.5 shrink-0 bg-blue-50/70 dark:bg-slate-800/70 border border-blue-200 dark:border-slate-700 rounded-xl px-2.5 py-1">
-            <i className="bi bi-tag-fill text-blue-600 dark:text-blue-400 text-xs shrink-0" />
-            <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0">
-              Visão:
-            </span>
-            <select
-              value={selectedOppId}
-              onChange={(e) => handleSelectOpportunityContext(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-white text-xs font-black uppercase outline-none cursor-pointer pr-1"
-              title="Alternar visão de contexto do tipo de etiqueta"
-            >
-              {allOppOptions.map((opp) => (
-                <option
-                  key={opp.id}
-                  value={opp.id}
-                  className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-bold"
-                >
-                  {opp.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 shrink-0 mx-1" />
-
-          {/* BOTÃO PRODUTO MODELO */}
-          <button
-            type="button"
-            onClick={() => setIsDataFillModalOpen(true)}
-            title="Escolher produto modelo ou preencher dados da etiqueta"
-            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-slate-900 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-emerald-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider shrink-0"
-          >
-            <i className="bi bi-box-seam-fill text-emerald-600 dark:text-emerald-400 text-sm" />
-            <span>Produto Modelo</span>
-          </button>
-
-          {/* BOTÃO TESTE DE VALORES */}
-          <button
-            type="button"
-            onClick={openTestValuesModal}
-            title="Simular e testar numerações nos preços da etiqueta com sliders (0 a 9)"
-            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 hover:from-purple-100 hover:to-indigo-100 dark:hover:from-slate-700 dark:hover:to-slate-800 text-slate-800 dark:text-white border border-purple-200 dark:border-slate-700 rounded-xl cursor-pointer shadow-xs transition-all active:scale-95 text-xs font-black uppercase tracking-wider shrink-0"
-          >
-            <i className="bi bi-sliders text-purple-600 dark:text-purple-400 text-sm" />
-            <span>Teste de Valores</span>
-          </button>
-        </div>
-      </div>
+      <PriceLabelMenuBar
+        onDownloadPng={handleDownloadPng}
+        onCopyImage={handleCopyImage}
+        onRenameTitle={() => {
+          setSelectedElement('title');
+          setSelectedElements(new Set(['title']));
+          const newTitle = window.prompt('Nome / Título da Arte:', title);
+          if (newTitle !== null && newTitle.trim()) {
+            setTitle(newTitle.trim().toUpperCase());
+            toast.success('Título da arte atualizado!');
+          }
+        }}
+        onOpenLayersModal={() => setIsLayersModalOpen(true)}
+        showSafetyMargin={showSafetyMargin}
+        onToggleSafetyMargin={() => setShowSafetyMargin(!showSafetyMargin)}
+        selectedOppId={selectedOppId}
+        onSelectOpportunityContext={handleSelectOpportunityContext}
+        allOppOptions={allOppOptions}
+        onOpenDataFillModal={() => setIsDataFillModalOpen(true)}
+        onOpenTestValuesModal={openTestValuesModal}
+      />
 
       {/* 3. BARRA DE FERRAMENTAS DO ELEMENTO SELECIONADO */}
-      <div className="flex items-center justify-start gap-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-2 shrink-0 overflow-visible relative z-30 min-h-[44px]">
-        {/* BOTÃO DESMARCAR (SÓ ÍCONE) */}
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedElement(null);
-            setSelectedElements(new Set());
-          }}
-          disabled={!selectedElement && selectedElements.size === 0}
-          title="Desmarcar Seleção"
-          className={`w-8 h-8 rounded-xl transition cursor-pointer shrink-0 flex items-center justify-center ${
-            selectedElement || selectedElements.size > 0
-              ? 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
-              : 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
-          }`}
-        >
-          <i className="bi bi-cursor-fill text-xs" />
-        </button>
-
-        <div className="h-6 w-px bg-slate-300 dark:bg-slate-800 shrink-0 mx-0.5" />
-
-        {/* SELEÇÃO ATIVA: FERRAMENTAS DA CAMADA ATIVA */}
-        {selectedElements.size > 1 ? (
-          <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
-            {/* Identificador de Seleção em Lote */}
-            <div className="flex flex-col gap-0.5 items-start shrink-0">
-              <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
-                Seleção:
-              </span>
-              <div className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs h-8">
-                <i className="bi bi-layers-half text-xs" />
-                <span>{selectedElements.size} Elementos</span>
-              </div>
-            </div>
-
-            {/* SELETOR DE FONTE EM LOTE */}
-            <div className="flex flex-col gap-0.5 items-start shrink-0">
-              <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
-                Fonte (Lote):
-              </span>
-              <select
-                value=""
-                onChange={(e) => handleBatchFontFamily(e.target.value)}
-                className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-bold outline-none h-8 cursor-pointer shadow-xs"
-              >
-                <option value="" disabled>
-                  Alterar tipografia...
-                </option>
-                {FONT_OPTIONS.map((font) => (
-                  <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                    {font.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* TAMANHO DA FONTE EM LOTE */}
-            <div className="flex flex-col gap-0.5 items-start shrink-0">
-              <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
-                Tamanho (Lote):
-              </span>
-              <div className="flex items-center gap-1 h-8">
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  placeholder="Ex: 24"
-                  onChange={(e) => handleBatchFontSize(Number(e.target.value))}
-                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                />
-                <span className="text-[10px] font-bold text-slate-400">px</span>
-              </div>
-            </div>
-          </div>
-        ) : selectedElement ? (
-          <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
-            {/* Identificador do Elemento Ativo */}
-            <div className="flex flex-col gap-0.5 items-start shrink-0">
-              <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
-                Elemento:
-              </span>
-              <div className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 shadow-xs h-8">
-                <i
-                  className={`bi ${priceLabelLayers.find((l) => l.key === selectedElement)?.icon}`}
-                />
-                <span>{priceLabelLayers.find((l) => l.key === selectedElement)?.label}</span>
-              </div>
-            </div>
-
-            {/* SELETOR DE FONTE / TIPOGRAFIA */}
-            {selectedElement !== 'background' && selectedElement !== 'dePricePorGroup' && (
-              <div className="flex flex-col gap-0.5 items-start shrink-0">
-                <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
-                  Fonte:
-                </span>
-                <select
-                  value={activeFontFamily}
-                  onChange={(e) => handleFontChange(e.target.value)}
-                  className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-bold outline-none h-8 cursor-pointer shadow-xs"
-                >
-                  {FONT_OPTIONS.map((font) => (
-                    <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                      {font.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* CONTROLE DE ESPAÇAMENTO (GAP) DO GRUPO FLEX DE/POR */}
-            {selectedElement === 'dePricePorGroup' && (
-              <div className="flex flex-col gap-0.5 items-start shrink-0">
-                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase leading-none">
-                  Espaçamento do Grupo:
-                </span>
-                <div className="flex items-center gap-1 h-8">
-                  <input
-                    type="number"
-                    min="0"
-                    max="200"
-                    value={dePricePorGroupGap}
-                    onChange={(e) => setDePricePorGroupGap(Number(e.target.value))}
-                    className="bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                  />
-                  <span className="text-[10px] font-bold text-slate-400">px</span>
-                </div>
-              </div>
-            )}
-
-            {/* SELETOR DE TAMANHO FLUTUANTE (TEXTO LIMPO SEM BORDA OU BG) */}
-            {selectedElement !== 'background' && selectedElement !== 'dePricePorGroup' && (
-              <div className="relative shrink-0 flex items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowSizeDropdown(!showSizeDropdown);
-                  }}
-                  className="px-2 py-1 text-xs font-black text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 bg-transparent border-0 cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <span>Tamanho</span>
-                  <i
-                    className={`bi bi-chevron-down text-[10px] transition-transform ${showSizeDropdown ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                {showSizeDropdown && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-[100]"
-                      onClick={() => setShowSizeDropdown(false)}
-                    />
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-[200] animate-fade-in flex flex-col gap-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-wider">
-                          Tamanho da Fonte (px)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowSizeDropdown(false)}
-                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                        >
-                          <i className="bi bi-x-lg text-xs" />
-                        </button>
-                      </div>
-
-                      {selectedElement === 'promoPrice' ? (
-                        <>
-                          {/* 1. DEZENA */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                              Dezena:
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="1000"
-                                  value={scaleTens}
-                                  onChange={(e) => setScaleTens(Number(e.target.value))}
-                                  className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                />
-                                <span className="text-[10px] font-bold text-slate-400">px</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowPromoPriceTens(!showPromoPriceTens)}
-                                title={showPromoPriceTens ? 'Ocultar Dezena' : 'Exibir Dezena'}
-                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
-                                  showPromoPriceTens
-                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                                    : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
-                                }`}
-                              >
-                                <i
-                                  className={`bi ${showPromoPriceTens ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}
-                                />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 2. CENTENA */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                              Centena:
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="1000"
-                                  value={scaleHundreds}
-                                  onChange={(e) => setScaleHundreds(Number(e.target.value))}
-                                  className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                />
-                                <span className="text-[10px] font-bold text-slate-400">px</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowPromoPriceHundreds(!showPromoPriceHundreds)}
-                                title={
-                                  showPromoPriceHundreds ? 'Ocultar Centena' : 'Exibir Centena'
-                                }
-                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
-                                  showPromoPriceHundreds
-                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                                    : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
-                                }`}
-                              >
-                                <i
-                                  className={`bi ${showPromoPriceHundreds ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}
-                                />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 3. MILHAR */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                              Milhar:
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="1000"
-                                  value={scaleThousands}
-                                  onChange={(e) => setScaleThousands(Number(e.target.value))}
-                                  className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-16 text-center h-8"
-                                />
-                                <span className="text-[10px] font-bold text-slate-400">px</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowPromoPriceThousands(!showPromoPriceThousands)}
-                                title={showPromoPriceThousands ? 'Ocultar Milhar' : 'Exibir Milhar'}
-                                className={`w-8 h-8 rounded-xl text-xs font-black flex items-center justify-center transition-colors cursor-pointer border ${
-                                  showPromoPriceThousands
-                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                                    : 'bg-slate-100 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500'
-                                }`}
-                              >
-                                <i
-                                  className={`bi ${showPromoPriceThousands ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`}
-                                />
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        /* TAMANHO ÚNICO PARA TODOS OS OUTROS ELEMENTOS */
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                            Tamanho da Fonte:
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="1"
-                              max="1000"
-                              value={
-                                selectedElement === 'title'
-                                  ? titleFontSizeTens
-                                  : selectedElement === 'deText'
-                                    ? deFontSizeTens
-                                    : selectedElement === 'normalPrice'
-                                      ? normalPriceFontSizeTens
-                                      : selectedElement === 'porText'
-                                        ? porFontSizeTens
-                                        : selectedElement === 'currencySymbol'
-                                          ? currencyFontSizeTens
-                                          : selectedElement === 'cents'
-                                            ? centsFontSizeTens
-                                            : installmentsFontSizeTens
-                              }
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (selectedElement === 'title') {
-                                  setTitleFontSizeTens(v);
-                                  setTitleFontSizeHundreds(v);
-                                  setTitleFontSizeThousands(v);
-                                } else if (selectedElement === 'deText') {
-                                  setDeFontSizeTens(v);
-                                  setDeFontSizeHundreds(v);
-                                  setDeFontSizeThousands(v);
-                                } else if (selectedElement === 'normalPrice') {
-                                  setNormalPriceFontSizeTens(v);
-                                  setNormalPriceFontSizeHundreds(v);
-                                  setNormalPriceFontSizeThousands(v);
-                                } else if (selectedElement === 'porText') {
-                                  setPorFontSizeTens(v);
-                                  setPorFontSizeHundreds(v);
-                                  setPorFontSizeThousands(v);
-                                } else if (selectedElement === 'currencySymbol') {
-                                  setCurrencyFontSizeTens(v);
-                                  setCurrencyFontSizeHundreds(v);
-                                  setCurrencyFontSizeThousands(v);
-                                } else if (selectedElement === 'cents') {
-                                  setCentsFontSizeTens(v);
-                                  setCentsFontSizeHundreds(v);
-                                  setCentsFontSizeThousands(v);
-                                } else if (selectedElement === 'installments') {
-                                  setInstallmentsFontSizeTens(v);
-                                  setInstallmentsFontSizeHundreds(v);
-                                  setInstallmentsFontSizeThousands(v);
-                                }
-                              }}
-                              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1 text-xs font-black w-20 text-center h-8"
-                            />
-                            <span className="text-[10px] font-bold text-slate-400">px</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* SELETOR DE COR COMPACTO COM POPUP FLUTUANTE */}
-            {selectedElement !== 'dePricePorGroup' && (
-              <div className="relative shrink-0 flex items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowColorPickerDropdown(!showColorPickerDropdown);
-                  }}
-                  className="relative flex items-center justify-center w-8 h-8 rounded-xl border border-slate-300 dark:border-slate-700 shadow-xs cursor-pointer overflow-hidden p-0.5 bg-white dark:bg-slate-900 active:scale-95 transition-all"
-                  title="Alterar Cor"
-                >
-                  <div
-                    className="w-full h-full rounded-lg border border-white/60"
-                    style={{ backgroundColor: activeColor }}
-                  />
-                </button>
-
-                {showColorPickerDropdown && (
-                  <>
-                    {/* Overlay desfocado cobrindo a tela */}
-                    <div
-                      className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[9999]"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeColorPicker();
-                      }}
-                    />
-
-                    {/* Modal flutuante de cor por Tipo de Etiqueta */}
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 z-[10000] animate-fade-in flex flex-col max-h-[85vh]"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3 shrink-0">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
-                            <i className="bi bi-palette-fill text-base" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                              Cores por Tipo de Etiqueta
-                            </h3>
-                            <p className="text-[10px] text-slate-400 font-bold">
-                              Configure a cor e veja as cores recentes para cada modalidade
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={closeColorPicker}
-                          className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <i className="bi bi-x-lg text-xs" />
-                        </button>
-                      </div>
-
-                      {/* Lista de Tópicos por Tipo de Etiqueta */}
-                      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
-                        {allOppOptions.map((opp) => {
-                          const isCurrentActiveOpp = selectedOppId === opp.id;
-                          const oppColor = (() => {
-                            if (selectedElement && oppColorsMap[opp.id]?.[selectedElement]) {
-                              return oppColorsMap[opp.id][selectedElement];
-                            }
-                            if (selectedElement === 'background') return getDefaultBg(opp.id);
-                            if (selectedElement === 'promoPrice') return '#1e3a8a';
-                            if (
-                              selectedElement === 'title' ||
-                              selectedElement === 'deText' ||
-                              selectedElement === 'normalPrice' ||
-                              selectedElement === 'porText' ||
-                              selectedElement === 'currencySymbol' ||
-                              selectedElement === 'cents' ||
-                              selectedElement === 'installments'
-                            ) {
-                              return '#000000';
-                            }
-                            return '#000000';
-                          })();
-
-                          const handleOppColorChange = (color: string) => {
-                            if (!selectedElement) return;
-                            setOppColorsMap((prev) => ({
-                              ...prev,
-                              [opp.id]: {
-                                ...(prev[opp.id] || {}),
-                                [selectedElement]: color,
-                              },
-                            }));
-                            if (isCurrentActiveOpp) {
-                              handleColorSelect(color, false);
-                            }
-                            pendingGradientColorRef.current = color;
-                          };
-
-                          return (
-                            <div
-                              key={opp.id}
-                              className={`p-4 rounded-2xl border transition-all ${
-                                isCurrentActiveOpp
-                                  ? 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
-                                  : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800'
-                              }`}
-                            >
-                              {/* Nome do Tipo de Etiqueta */}
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`w-2.5 h-2.5 rounded-full ${isCurrentActiveOpp ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
-                                  />
-                                  <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wide">
-                                    {opp.name}
-                                  </span>
-                                </div>
-                                {isCurrentActiveOpp && (
-                                  <span className="text-[9px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 px-2 py-0.5 rounded-md">
-                                    VISÃO ATUAL
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Seletor de Cor + Hex */}
-                              <div className="flex items-center gap-3 mb-3">
-                                <label className="relative flex items-center justify-center w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 shadow-md cursor-pointer overflow-hidden bg-gradient-to-r from-red-500 via-green-500 to-blue-500 p-0.5 shrink-0 hover:scale-105 active:scale-95 transition-all">
-                                  <input
-                                    type="color"
-                                    value={oppColor}
-                                    onChange={(e) => handleOppColorChange(e.target.value)}
-                                    className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                                  />
-                                  <div
-                                    className="w-full h-full rounded-lg border border-white/60"
-                                    style={{ backgroundColor: oppColor }}
-                                  />
-                                </label>
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">
-                                    Cor da Fonte
-                                  </span>
-                                  <span className="text-xs font-mono font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                                    {oppColor}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Cores Recentes Usadas */}
-                              {colorHistory.length > 0 && (
-                                <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">
-                                    Cores Recentes:
-                                  </span>
-                                  <div className="flex items-center gap-1.5 flex-wrap select-none">
-                                    {colorHistory.map((color, cIdx) => (
-                                      <button
-                                        key={`${opp.id}-${color}-${cIdx}`}
-                                        type="button"
-                                        onClick={() => handleOppColorChange(color)}
-                                        className={`w-7 h-7 rounded-lg border shadow-2xs hover:scale-110 active:scale-95 transition-all cursor-pointer ${
-                                          color.toLowerCase() === oppColor.toLowerCase()
-                                            ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/20'
-                                            : 'border-slate-300/40 dark:border-slate-700/60'
-                                        }`}
-                                        style={{ backgroundColor: color }}
-                                        title={color}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* VISIBILIDADE TOGGLE (SÓ ÍCONE DE OLHO) */}
-            {(() => {
-              const layer = priceLabelLayers.find((l) => l.key === selectedElement);
-              if (!layer || layer.key === 'background') return null;
-              return (
-                <button
-                  type="button"
-                  onClick={layer.toggleVisibility}
-                  title={
-                    layer.isVisible
-                      ? 'Camada Visível (Clique para Ocultar)'
-                      : 'Camada Oculta (Clique para Exibir)'
-                  }
-                  className={`w-8 h-8 rounded-xl text-sm font-black transition cursor-pointer flex items-center justify-center shrink-0 shadow-xs ${
-                    layer.isVisible
-                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                      : 'bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800'
-                  }`}
-                >
-                  <i className={`bi ${layer.isVisible ? 'bi-eye-fill' : 'bi-eye-slash-fill'}`} />
-                </button>
-              );
-            })()}
-          </div>
-        ) : (
-          <div className="text-[11px] font-medium text-slate-400 italic">
-            Clique em qualquer elemento na etiqueta abaixo para editá-lo
-          </div>
-        )}
-      </div>
+      <PriceLabelSelectedElementToolbar
+        selectedElement={selectedElement}
+        selectedElements={selectedElements}
+        onClearSelection={() => {
+          setSelectedElement(null);
+          setSelectedElements(new Set());
+        }}
+        priceLabelLayers={priceLabelLayers}
+        activeFontFamily={activeFontFamily}
+        onFontChange={handleFontChange}
+        onBatchFontFamily={handleBatchFontFamily}
+        onBatchFontSize={handleBatchFontSize}
+        dePricePorGroupGap={dePricePorGroupGap}
+        setDePricePorGroupGap={setDePricePorGroupGap}
+        scaleTens={scaleTens}
+        setScaleTens={setScaleTens}
+        showPromoPriceTens={showPromoPriceTens}
+        setShowPromoPriceTens={setShowPromoPriceTens}
+        scaleHundreds={scaleHundreds}
+        setScaleHundreds={setScaleHundreds}
+        showPromoPriceHundreds={showPromoPriceHundreds}
+        setShowPromoPriceHundreds={setShowPromoPriceHundreds}
+        scaleThousands={scaleThousands}
+        setScaleThousands={setScaleThousands}
+        showPromoPriceThousands={showPromoPriceThousands}
+        setShowPromoPriceThousands={setShowPromoPriceThousands}
+        titleFontSizeTens={titleFontSizeTens}
+        setTitleFontSizeTens={setTitleFontSizeTens}
+        setTitleFontSizeHundreds={setTitleFontSizeHundreds}
+        setTitleFontSizeThousands={setTitleFontSizeThousands}
+        deFontSizeTens={deFontSizeTens}
+        setDeFontSizeTens={setDeFontSizeTens}
+        setDeFontSizeHundreds={setDeFontSizeHundreds}
+        setDeFontSizeThousands={setDeFontSizeThousands}
+        normalPriceFontSizeTens={normalPriceFontSizeTens}
+        setNormalPriceFontSizeTens={setNormalPriceFontSizeTens}
+        setNormalPriceFontSizeHundreds={setNormalPriceFontSizeHundreds}
+        setNormalPriceFontSizeThousands={setNormalPriceFontSizeThousands}
+        porFontSizeTens={porFontSizeTens}
+        setPorFontSizeTens={setPorFontSizeTens}
+        setPorFontSizeHundreds={setPorFontSizeHundreds}
+        setPorFontSizeThousands={setPorFontSizeThousands}
+        currencyFontSizeTens={currencyFontSizeTens}
+        setCurrencyFontSizeTens={setCurrencyFontSizeTens}
+        setCurrencyFontSizeHundreds={setCurrencyFontSizeHundreds}
+        setCurrencyFontSizeThousands={setCurrencyFontSizeThousands}
+        centsFontSizeTens={centsFontSizeTens}
+        setCentsFontSizeTens={setCentsFontSizeTens}
+        setCentsFontSizeHundreds={setCentsFontSizeHundreds}
+        setCentsFontSizeThousands={setCentsFontSizeThousands}
+        installmentsFontSizeTens={installmentsFontSizeTens}
+        setInstallmentsFontSizeTens={setInstallmentsFontSizeTens}
+        setInstallmentsFontSizeHundreds={setInstallmentsFontSizeHundreds}
+        setInstallmentsFontSizeThousands={setInstallmentsFontSizeThousands}
+        activeColor={activeColor}
+        onToggleColorPicker={(event) => {
+          event.stopPropagation();
+          setShowColorPickerDropdown(!showColorPickerDropdown);
+        }}
+        showSizeDropdown={showSizeDropdown}
+        setShowSizeDropdown={setShowSizeDropdown}
+      />
+      <PriceLabelColorPickerPopup
+        isOpen={showColorPickerDropdown}
+        onClose={closeColorPicker}
+        allOppOptions={allOppOptions}
+        selectedOppId={selectedOppId}
+        selectedElement={selectedElement}
+        oppColorsMap={oppColorsMap}
+        getDefaultBg={getDefaultBg}
+        colorHistory={colorHistory}
+        onOppColorChange={handleOpportunityColorChange}
+      />
 
       {/* MODAL BODY: PREVIEW EM 100% DA LARGURA DISPONÍVEL */}
       {(() => {
@@ -2454,31 +1718,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         setInstallments={setInstallments}
       />
 
-      {/* Modal Footer Fullwidth */}
-      <div className="flex items-center px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-        <div
-          className={`flex items-center gap-2 text-xs font-bold ${
-            autoSaveStatus === 'error' ? 'text-red-600' : 'text-slate-500'
-          }`}
-        >
-          <i
-            className={`bi text-sm ${
-              autoSaveStatus === 'saving'
-                ? 'bi-arrow-repeat animate-spin text-blue-500'
-                : autoSaveStatus === 'error'
-                  ? 'bi-exclamation-circle-fill text-red-500'
-                  : 'bi-cloud-check-fill text-emerald-500'
-            }`}
-          />
-          <span>
-            {autoSaveStatus === 'saving'
-              ? 'Salvamento automático...'
-              : autoSaveStatus === 'error'
-                ? 'Erro no salvamento automático'
-                : 'Salvamento automático'}
-          </span>
-        </div>
-      </div>
+      <PriceLabelEditorFooter autoSaveStatus={autoSaveStatus} />
 
       {/* Modal de Teste de Valores (Simulador com Sliders) */}
       <PriceLabelTestValuesModal

@@ -157,23 +157,23 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(mocks.prepare).toHaveBeenCalledTimes(2);
   });
 
-  it('edição manual de classificação remove CFOP/CSOSN anteriores', async () => {
+  it('edição manual de classificação mantém CFOP 5102 e CSOSN 103 por padrão', async () => {
     const manualFiscalFields = { current: new Map() };
     const { result } = renderHook(() => useNfeItemEnrichment({ order, environment: 2, manualFiscalFields }));
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94035000' }));
-    expect(result.current.nfeItems[0].fiscal).toMatchObject({ ncm: '94035000', cfop: '', cst: '' });
+    expect(result.current.nfeItems[0].fiscal).toMatchObject({ ncm: '94035000', cfop: '5102', cst: '103' });
   });
 
-  it('mudança para SC elimina tributação interna e mantém o bloqueio interestadual', async () => {
+  it('mudança para SC elimina tributação interna e sugere CFOP interestadual compatível', async () => {
     const manualFiscalFields = { current: new Map() };
     const { result, rerender } = renderHook(({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }), { initialProps: { source: order } });
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     rerender({ source: { ...order, shipping: { deliveryMethod: 'delivery', useCustomerAddress: false, deliveryAddress: { state: 'SC' } } } });
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    expect(result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '', cst: '' });
-    expect(result.current.fiscalPreparationError).toContain('HML_INTERSTATE_MATRIX_NOT_APPROVED');
-    expect(mocks.prepare).toHaveBeenCalledTimes(1);
+    expect(result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '6102', cst: '103' });
+    expect(mocks.toast).not.toHaveBeenCalled();
+    expect(mocks.prepare).toHaveBeenCalledTimes(2);
   });
   it('bloqueia a transmissão e identifica o item ausente da consulta fiscal em lote', async () => {
     const productIds = Array.from(
@@ -506,7 +506,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getByText('Número da nota')).toBeTruthy();
     expect(screen.queryByText('Número da nota (prévia)')).toBeNull();
     expect(preview.readOnly).toBe(false);
-    expect(screen.getByTestId('nfe-number-preview-context').textContent).toBe(
+    expect(screen.getByTestId('nfe-number-preview-context').textContent).toContain(
       'Série 1 · Homologação'
     );
     expect(mocks.nextNumber).toHaveBeenCalledWith('65', DEFAULT_NFE_ENVIRONMENT, '1', 600);
@@ -1090,8 +1090,7 @@ describe('preenchimento dos itens da NF-e', () => {
     const reopened = renderHook(() => useNfeEmission(registeredOrder));
     await waitFor(() => expect(reopened.result.current.isLoadingFiscalData).toBe(false));
     expect(reopened.result.current.nfeItems[0].fiscal.ncm).toBe('94034000');
-    expect(reopened.result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '', cst: '' });
-    act(() => reopened.result.current.handleUpdateItemFiscal(0, { cfop: '5102', cst: '103' }));
+    expect(reopened.result.current.nfeItems[0].fiscal).toMatchObject({ cfop: '5102', cst: '103' });
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     await act(async () => reopened.result.current.handleEmit());
     expect(mocks.emit.mock.calls[0][0].items[0].fiscal.ncm).toBe('94034000');
@@ -1136,6 +1135,52 @@ describe('preenchimento dos itens da NF-e', () => {
     await act(async () => result.current.handleEmit());
     expect(mocks.emit).not.toHaveBeenCalled();
     expect(mocks.toast).toHaveBeenCalledWith('Configuração indisponível');
+  });
+  it('abre cenário interestadual em edição e só mostra o bloqueio ao clicar em emitir', async () => {
+    mocks.prepare.mockRejectedValue(
+      new Error(
+        'HML_INTERSTATE_MATRIX_NOT_APPROVED: ainda não existe tratamento fiscal aprovado para esta combinação.'
+      )
+    );
+    const interstateOrder: any = {
+      ...order,
+      id: 'hml-interstate-matrix-pending',
+      customerData: {
+        ...order.customerData,
+        fullName: 'TEST_AUT_PJ_SC',
+        cpfCnpj: '12345678000195',
+        personType: 'PJ',
+        ie: '123456789',
+        state: 'SC',
+      },
+      fiscalContext: { finalConsumer: false, recipientIeIndicator: '1' },
+      shipping: {
+        deliveryMethod: 'delivery',
+        useCustomerAddress: false,
+        deliveryAddress: { state: 'SC' },
+      },
+    };
+
+    render(
+      <NfeEmissionModal
+        isOpen
+        order={interstateOrder}
+        initialEnvironment={2}
+        onClose={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false));
+    expect(screen.queryByText('Tratamento fiscal não aprovado')).toBeNull();
+    expect(screen.queryByText(/tratamento fiscal aprovado/i)).toBeNull();
+    expect(mocks.toast).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    fireEvent.click(await screen.findByTestId('nfe-fiscal-issue-trigger'));
+
+    expect(await screen.findByText('Tratamento fiscal não aprovado')).toBeTruthy();
+    expect(screen.getAllByText(/responsável fiscal/).length).toBeGreaterThan(0);
+    expect(mocks.emit).not.toHaveBeenCalled();
   });
   it('escolhe finalidade da compra e mostra a razão do modelo sem alterar o pedido', async () => {
     const original = structuredClone(order);

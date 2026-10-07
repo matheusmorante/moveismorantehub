@@ -32,7 +32,6 @@ export interface NfeEmissionPanelsProps {
   canOperateFiscal: boolean;
   isLoadingFiscalData: boolean;
   isLoadingNfeNumber: boolean;
-  fiscalPreparationError: string | null;
   handleReconcile: () => void;
   handleAbandonHmlTlsAttempt: () => void;
   handleStartFreshHmlEmission: () => void;
@@ -45,6 +44,11 @@ export interface NfeEmissionPanelsProps {
   recipientTaxIdError: string | null;
   recipientTaxIdInput: React.RefObject<HTMLInputElement>;
   recipientRequirements: { documentType?: string; message?: string };
+  recipientIe?: string;
+  setRecipientIe?: (val: string) => void;
+  recipientIeIndicator?: '1' | '2' | '9';
+  setRecipientIeIndicator?: (val: '1' | '2' | '9') => void;
+  recipientIeError?: string | null;
   nfeItems: NfeItemWithFiscal[];
   fiscalFieldError: FiscalFieldError | null;
   clearFiscalFieldError: () => void;
@@ -85,7 +89,6 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   canOperateFiscal,
   isLoadingFiscalData,
   isLoadingNfeNumber,
-  fiscalPreparationError,
   handleReconcile,
   handleAbandonHmlTlsAttempt,
   handleStartFreshHmlEmission,
@@ -98,6 +101,11 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   recipientTaxIdError,
   recipientTaxIdInput,
   recipientRequirements,
+  recipientIe,
+  setRecipientIe,
+  recipientIeIndicator,
+  setRecipientIeIndicator,
+  recipientIeError,
   nfeItems,
   fiscalFieldError,
   clearFiscalFieldError,
@@ -153,7 +161,6 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             canOperateFiscal={canOperateFiscal}
             isLoadingFiscalData={isLoadingFiscalData}
             isLoadingNfeNumber={isLoadingNfeNumber}
-            fiscalPreparationError={fiscalPreparationError}
             onReconcile={handleReconcile}
             onAbandonHmlTlsAttempt={handleAbandonHmlTlsAttempt}
             onStartFreshHmlEmission={handleStartFreshHmlEmission}
@@ -181,6 +188,12 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             disabled={isSubmitting || isLocked}
             documentType={recipientRequirements.documentType}
             requirementMessage={recipientRequirements.message}
+            recipientIe={recipientIe}
+            onRecipientIeChange={setRecipientIe}
+            recipientIeIndicator={recipientIeIndicator}
+            onRecipientIeIndicatorChange={setRecipientIeIndicator}
+            recipientIeError={recipientIeError}
+            fiscalModel={selectedModel || '55'}
           />
         </section>
 

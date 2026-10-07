@@ -39,18 +39,18 @@ describe('resolveOrderFiscalBadgeStatus', () => {
 });
 
 describe('resolveOrderFiscalBadgePair', () => {
-  it('retorna produção not_issued e homologação undefined quando não há documentos', () => {
+  it('retorna produção not_issued e homologação not_issued quando não há documentos', () => {
     const result = resolveOrderFiscalBadgePair([]);
     expect(result).toEqual({
       production: 'not_issued',
-      homologation: undefined,
+      homologation: 'not_issued',
     });
   });
 
-  it('mantém homologação oculta (undefined) se não houver nota autorizada/emitida em homologação', () => {
+  it('mantém homologação como not_issued se não houver nota autorizada/emitida em homologação', () => {
     const result = resolveOrderFiscalBadgePair([outbound('rejeitada', 2), outbound('rascunho', 2)]);
     expect(result.production).toBe('not_issued');
-    expect(result.homologation).toBeUndefined();
+    expect(result.homologation).toBe('not_issued');
   });
 
   it('exibe NFH quando homologação estiver autorizada e NF permanece not_issued se produção não tiver nota', () => {
@@ -59,10 +59,10 @@ describe('resolveOrderFiscalBadgePair', () => {
     expect(result.homologation).toBe('issued');
   });
 
-  it('reconhece nota emitida em produção no rótulo NF e preserva NFH oculto se homologação não tiver nota', () => {
+  it('reconhece nota emitida em produção no rótulo NF e preserva NFH not_issued se homologação não tiver nota', () => {
     const result = resolveOrderFiscalBadgePair([outbound('autorizada', 1)]);
     expect(result.production).toBe('issued');
-    expect(result.homologation).toBeUndefined();
+    expect(result.homologation).toBe('not_issued');
   });
 
   it('permite coexistência de NF e NFH quando ambos foram emitidos', () => {

@@ -52,6 +52,11 @@ export function useNfeEmission(
     setRecipientTaxId,
     recipientTaxIdError,
     setRecipientTaxIdError,
+    recipientIe,
+    setRecipientIe,
+    recipientIeIndicator,
+    setRecipientIeIndicator,
+    recipientIeError,
   } = useNfeRecipientTaxId({ order, currentModel });
 
   // 1. Itens e Enriquecimento Fiscal
@@ -118,6 +123,8 @@ export function useNfeEmission(
     nfeNumberSequence,
     manualNumberInput,
     recipientTaxId,
+    recipientIe,
+    recipientIeIndicator,
     resolvedTransport,
     thirdPartyTransporter,
     onSuccess,
@@ -153,6 +160,11 @@ export function useNfeEmission(
     recipientTaxIdError,
     recipientTaxId,
     setRecipientTaxId,
+    recipientIe,
+    setRecipientIe,
+    recipientIeIndicator,
+    setRecipientIeIndicator,
+    recipientIeError,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
     handleEmit,

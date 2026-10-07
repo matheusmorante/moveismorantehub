@@ -1,7 +1,7 @@
-import { supabase } from '../../supabaseConfig';
+﻿import { supabase } from '../../supabaseConfig';
 import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
-import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/InboundInvoicesHeader';
+import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { isValidUuid } from '../../uuidUtils';
 import {
   getMonthDateBounds,

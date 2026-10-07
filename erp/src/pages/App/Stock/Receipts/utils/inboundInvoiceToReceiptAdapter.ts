@@ -1,4 +1,4 @@
-import type Person from '@/pages/types/person.type';
+﻿import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import {
@@ -12,7 +12,7 @@ import {
   getLegacyCompatibleCosts,
 } from '@/pages/utils/inboundNfe/additionalCosts';
 import { fetchPersons } from '@/pages/utils/personService';
-import type { InboundReceiptItem } from '../InboundNfeItemsSection';
+import type { InboundReceiptItem } from '../components/InboundNfeItemsSection';
 
 export type InboundInvoiceAdaptedState = {
   resolvedSupplierId: string;

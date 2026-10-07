@@ -1,8 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
-import { Opportunity, PriceLabelLayerKey } from '../types/PriceLabelArtEditorTypes';
+import type {
+  Opportunity,
+  PriceLabelArtEditorModalProps,
+  PriceLabelLayerKey,
+} from '../types/PriceLabelArtEditorTypes';
+import { usePriceLabelHistory } from './usePriceLabelHistory';
 
-export function usePriceLabelState(initialProduct: any, config: any, isOpen: boolean) {
+export function usePriceLabelState(
+  initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
+  config: PriceLabelArtEditorModalProps['config'],
+  isOpen: boolean
+) {
   const [magnitudeTemplates, setMagnitudeTemplates] = useState<{
     tens?: any;
     hundreds?: any;
@@ -167,10 +176,6 @@ export function usePriceLabelState(initialProduct: any, config: any, isOpen: boo
   const pendingGradientColorRef = useRef<string | null>(null);
 
   // Sistema de Histórico (Undo / Redo)
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const undoStackRef = useRef<any[]>([]);
-  const redoStackRef = useRef<any[]>([]);
   const isApplyingHistoryRef = useRef<boolean>(false);
 
   const applyMagnitudeSnapshot = (s: any, preserveFixedTextStyles = false) => {
@@ -730,123 +735,17 @@ export function usePriceLabelState(initialProduct: any, config: any, isOpen: boo
     installmentsFontSizeThousands,
   ]);
 
-  // ----------------------------------------------------
-  // SISTEMA ROBUSTO DE HISTÓRICO: DESFAZER (Ctrl+Z) E REFAZER (Ctrl+Y)
-  // ----------------------------------------------------
-
-  // Registra o snapshot inicial e acompanha mudanças do editor para a pilha de Desfazer/Refazer
-  useEffect(() => {
-    if (!isOpen) {
-      undoStackRef.current = [];
-      redoStackRef.current = [];
-      setCanUndo(false);
-      setCanRedo(false);
-      return;
-    }
-
-    // Ao abrir, inicializa a pilha com a arte atual
-    if (undoStackRef.current.length === 0) {
-      const initialSnap = getSnapshot();
-      undoStackRef.current = [initialSnap];
-      redoStackRef.current = [];
-      setCanUndo(false);
-      setCanRedo(false);
-    }
-
-    if (isApplyingHistoryRef.current) return;
-
-    const timer = setTimeout(() => {
-      if (isApplyingHistoryRef.current) return;
-      const currentSnap = getSnapshot();
-      const stack = undoStackRef.current;
-      if (stack.length > 0) {
-        const lastSnap = stack[stack.length - 1];
-        if (JSON.stringify(lastSnap) === JSON.stringify(currentSnap)) return;
-      }
-      undoStackRef.current = [...stack.slice(-50), currentSnap];
-      redoStackRef.current = [];
-      setCanUndo(undoStackRef.current.length > 1);
-      setCanRedo(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [isOpen, getSnapshot]);
-
-  const handleUndo = useCallback(() => {
-    const stack = undoStackRef.current;
-    if (stack.length <= 1) return;
-
-    isApplyingHistoryRef.current = true;
-    const current = stack.pop()!;
-    redoStackRef.current.push(current);
-
-    const previous = stack[stack.length - 1];
-    applySnapshot(previous);
-
-    setCanUndo(stack.length > 1);
-    setCanRedo(true);
-
-    setTimeout(() => {
-      isApplyingHistoryRef.current = false;
-    }, 120);
-  }, []);
-
-  const handleRedo = useCallback(() => {
-    const redoStack = redoStackRef.current;
-    if (redoStack.length === 0) return;
-
-    isApplyingHistoryRef.current = true;
-    const next = redoStack.pop()!;
-    undoStackRef.current.push(next);
-
-    applySnapshot(next);
-
-    setCanUndo(undoStackRef.current.length > 1);
-    setCanRedo(redoStack.length > 0);
-
-    setTimeout(() => {
-      isApplyingHistoryRef.current = false;
-    }, 120);
-  }, []);
-
-  // Atalhos globais de teclado para Ctrl+Z e Ctrl+Y (ou Cmd+Z / Cmd+Y no Mac)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isInput =
-        target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-
-      if (isCtrlOrCmd) {
-        const key = e.key.toLowerCase();
-        if (key === 'z') {
-          if (e.shiftKey) {
-            // Ctrl + Shift + Z -> Refazer
-            e.preventDefault();
-            handleRedo();
-          } else {
-            // Ctrl + Z -> Desfazer (se não estiver num campo de texto simples)
-            if (!isInput) {
-              e.preventDefault();
-              handleUndo();
-            }
-          }
-        } else if (key === 'y') {
-          // Ctrl + Y -> Refazer
-          if (!isInput) {
-            e.preventDefault();
-            handleRedo();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleUndo, handleRedo]);
+  const {
+    handleUndo,
+    handleRedo,
+    canUndo,
+    canRedo,
+  } = usePriceLabelHistory<ReturnType<typeof getSnapshot>>({
+    isOpen,
+    getSnapshot,
+    applySnapshot,
+    isApplyingHistoryRef,
+  });
   return {
     applySnapshot,
     getSnapshot,
@@ -855,9 +754,6 @@ export function usePriceLabelState(initialProduct: any, config: any, isOpen: boo
     handleRedo,
     canUndo,
     canRedo,
-    undoStackRef,
-    redoStackRef,
-    isApplyingHistoryRef,
     getDefaultBg,
     showSafetyMargin,
     setShowSafetyMargin,

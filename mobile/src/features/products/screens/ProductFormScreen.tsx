@@ -28,7 +28,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../../services/supabaseClient';
 import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
@@ -42,8 +41,10 @@ import {
   getMobileEffectiveVariationPrice,
   getMobileVariationRegistrationIssue,
   isMobileEcommerceLegible,
+  type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
+import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
@@ -51,10 +52,8 @@ import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
 import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
 import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
-import {
-  getNextSequentialProductCode,
-  parseLocalizedPrice,
-} from '../services/mobileProductHelpers';
+import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
+import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -401,13 +400,7 @@ export const ProductFormScreen: React.FC<Props> = ({
       setFormDataRaw({ ...INITIAL_FORM, ...(initialData || {}) });
       void (async () => {
         try {
-          const { data, error } = await supabase
-            .from('settings')
-            .select('data')
-            .eq('id', 'app')
-            .maybeSingle();
-          if (error) throw error;
-          const defaults = data?.data?.fiscalDefaults;
+          const defaults = await fetchMobileProductFiscalDefaults();
           if (!defaults) return;
           setFormDataRaw((prev: any) =>
             Object.keys(prev.fiscal || {}).length > 0
@@ -579,7 +572,9 @@ export const ProductFormScreen: React.FC<Props> = ({
             variation,
             issue: getMobileVariationRegistrationIssue(formData, variation, variations),
           }))
-          .find(({ issue }) => issue !== null);
+          .find(
+            (entry: { issue: MobileVariationRegistrationIssue | null }) => entry.issue !== null
+          );
         if (invalidVariation?.issue) {
           Alert.alert('Variação inválida', invalidVariation.issue.message, [
             { text: 'OK', onPress: () => setActiveTab('variacoes') },

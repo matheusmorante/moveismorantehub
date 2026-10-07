@@ -1,63 +1,17 @@
 import React from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import Product from '@/pages/types/product.type';
+import type Product from '@/pages/types/product.type';
+import {
+  fetchProductOpportunityMap,
+  fetchProductSupplierMap,
+} from '../../../services/productCatalogMetadataService';
 
-let oppCache: Record<string, string> | null = null;
-let oppPromise: Promise<Record<string, string>> | null = null;
-
-interface OpportunityRow {
-  readonly id: string;
-  readonly name?: string;
+interface ProductMetadataSource extends Product {
+  readonly main_supplier_id?: string | null;
+  readonly supplier_id?: string | null;
+  readonly supplier_ids?: readonly string[] | null;
+  readonly supplierName?: string | null;
+  readonly supplier?: { readonly name?: string | null } | null;
 }
-
-interface PersonRow {
-  readonly id: string;
-  readonly full_name?: string;
-  readonly nickname?: string;
-  readonly social_name?: string;
-}
-
-export const fetchOppMap = async (): Promise<Record<string, string>> => {
-  if (oppCache) return oppCache;
-  if (!oppPromise) {
-    oppPromise = (async () => {
-      const { data } = await supabase.from('opportunities').select('id, name');
-      const map: Record<string, string> = {};
-      if (data) {
-        (data as readonly OpportunityRow[]).forEach((item) => {
-          if (item.name) map[item.id] = item.name;
-        });
-      }
-      oppCache = map;
-      return map;
-    })();
-  }
-  return oppPromise;
-};
-
-let supplierCache: Record<string, string> | null = null;
-let supplierPromise: Promise<Record<string, string>> | null = null;
-
-export const fetchSupplierMap = async (): Promise<Record<string, string>> => {
-  if (supplierCache) return supplierCache;
-  if (!supplierPromise) {
-    supplierPromise = (async () => {
-      const { data } = await supabase
-        .from('people')
-        .select('id, full_name, nickname, social_name')
-        .or('person_type.ilike.suppliers,person_type.ilike.supplier');
-      const map: Record<string, string> = {};
-      if (data) {
-        (data as readonly PersonRow[]).forEach((item) => {
-          map[item.id] = item.nickname || item.full_name || item.social_name || '';
-        });
-      }
-      supplierCache = map;
-      return map;
-    })();
-  }
-  return supplierPromise;
-};
 
 export interface UseProductMetadataResult {
   readonly oppName: string | null;
@@ -67,7 +21,7 @@ export interface UseProductMetadataResult {
 /**
  * Hook para carregar dinamicamente o nome da oportunidade e fornecedores de um produto.
  */
-export function useProductMetadata(product: Product): UseProductMetadataResult {
+export function useProductMetadata(product: ProductMetadataSource): UseProductMetadataResult {
   const [oppName, setOppName] = React.useState<string | null>(
     product.opportunityName || product.opportunity?.name || null
   );
@@ -76,7 +30,7 @@ export function useProductMetadata(product: Product): UseProductMetadataResult {
   React.useEffect(() => {
     let isMounted = true;
     if (product.opportunityId) {
-      fetchOppMap().then((map) => {
+      fetchProductOpportunityMap().then((map) => {
         if (isMounted && map && product.opportunityId && map[product.opportunityId]) {
           setOppName(map[product.opportunityId]);
         }
@@ -115,7 +69,7 @@ export function useProductMetadata(product: Product): UseProductMetadataResult {
     const sIds = supplierIdsKey ? supplierIdsKey.split(',') : [];
 
     if (sIds.length > 0) {
-      fetchSupplierMap().then((map) => {
+      fetchProductSupplierMap().then((map) => {
         if (!isMounted) return;
         const resolvedNames: string[] = [];
         sIds.forEach((id) => {

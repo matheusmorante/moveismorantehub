@@ -1,198 +1,40 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { FiscalDatabase } from './fiscalDatabaseTypes';
-import type {
-  FiscalDocument,
-  FiscalJsonValue,
-  FiscalSnapshotCandidate,
-  FiscalDecisionTrace,
-  FiscalAddress,
-  DeterminedFiscalItem,
-} from './fiscalSnapshot';
-import { createHmlTechnicalRuleSet } from './hmlTechnicalRuleSet';
-import { resolveItemCsosn, type HmlCsosnConfiguration } from './csosnPolicy';
-import { ZERO_OWN_ICMS_CSOSNS } from '../../shared-utils/fiscalIcmsGroups';
-import { parseFiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
 import { composeServiceFiscalValues } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
+import { resolveFiscalCfopOrderScope } from '../../shared-utils/fiscalCfopModel';
 import {
-  resolveOrderFiscalModel,
-  getFiscalRecipientAddress,
-  fiscalPresence,
   decideFiscalRecipientRequirements,
+  fiscalPresence,
+  getFiscalRecipientAddress,
+  resolveOrderFiscalModel,
 } from '../../shared-utils/fiscalDocumentModel';
+import { parseFiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
+import {
+  type DeliveryMethod,
+  resolveTransport,
+  type TransportResponsible,
+} from '../../shared-utils/fiscalTransportModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../shared-utils/recipientTaxId';
-import {
-  resolveTransport,
-  type DeliveryMethod,
-  type TransportResponsible,
-} from '../../shared-utils/fiscalTransportModel';
-import { resolveFiscalCfopOrderScope } from '../../shared-utils/fiscalCfopModel';
-import {
-  classifyOrderPaymentSettlement,
-  getOrderFulfillmentPaymentCondition,
-  getOrderPaymentActualDate,
-  getOrderPaymentDueDate,
-  isPromissoryPaymentMethod,
-} from '../../shared-utils/orderPaymentState';
+import type { HmlCsosnConfiguration } from './csosnPolicy';
+import type { FiscalAddress, FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
+import { HML_NORMAL_SALE_RULESET_VERSION } from './hml-normal-sale/constants';
+import { determineHmlNormalSaleItems } from './hml-normal-sale/items';
+import { municipalityCode } from './hml-normal-sale/municipality';
+import { resolveHmlNormalSalePayments } from './hml-normal-sale/payments';
+import { money, obj, required } from './hml-normal-sale/values';
+import { createHmlTechnicalRuleSet } from './hmlTechnicalRuleSet';
 import {
   hasApprovedInterstateOutboundRoute,
-  resolveInterstateOutboundFiscalMatrix,
   type InterstateOutboundFiscalMatrixFacts,
   type InterstateRecipientIeStatus,
+  resolveInterstateOutboundFiscalMatrix,
 } from './interstateOutboundFiscalMatrix';
 
-export const HML_NORMAL_SALE_RULESET_VERSION = 'HML_NORMAL_SALE_V2';
-const obj = (value: unknown): Record<string, any> => {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error('Fatos fiscais obrigatórios ausentes.');
-  return value as Record<string, any>;
-};
-const required = (value: unknown, field: string): string => {
-  if (typeof value !== 'string' || !value.trim()) throw new Error(`${field} ausente.`);
-  return value.trim();
-};
-const normalize = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase();
-const municipalitiesByUf = new Map<string, Promise<Array<{ id: number; nome: string }>>>();
-async function municipalityCode(city: string, uf = 'PR', existingCode?: string): Promise<string> {
-  if (existingCode && /^\d{7}$/.test(String(existingCode))) {
-    return String(existingCode);
-  }
-  const normUf = uf.toUpperCase();
-  let promise = municipalitiesByUf.get(normUf);
-  if (!promise) {
-    promise = fetch(
-      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${normUf}/municipios`,
-      { signal: AbortSignal.timeout(10000) }
-    )
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Consulta oficial IBGE indisponível para UF ${normUf}.`);
-        const data = await response.json();
-        if (
-          !Array.isArray(data) ||
-          data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== 'string')
-        )
-          throw new Error('Resposta oficial IBGE inválida.');
-        return data as Array<{ id: number; nome: string }>;
-      })
-      .catch((error) => {
-        municipalitiesByUf.delete(normUf);
-        throw error;
-      });
-    municipalitiesByUf.set(normUf, promise);
-  }
-  const list = await promise;
-  const match = list.find((item) => normalize(item.nome) === normalize(city));
-  if (!match)
-    throw new Error(`Município do destinatário não encontrado na fonte oficial IBGE de ${normUf}.`);
-  return String(match.id);
-}
-const money = (value: unknown, field: string, positive = false): number => {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    value < (positive ? 0.01 : 0) ||
-    Math.abs(value * 100 - Math.round(value * 100)) > 0.000001
-  )
-    throw new Error(`${field} inválido ou fora da precisão de centavos.`);
-  return Math.round(value * 100);
-};
-/** Read-only preflight inputs; the canonical snapshot RPC captures these again under locks. */
-export async function loadHmlNormalSaleInputs(
-  db: SupabaseClient<FiscalDatabase>,
-  facts: FiscalSnapshotCandidate,
-  appSettings: Record<string, unknown>
-): Promise<void> {
-  const items = facts.order.data.items as Array<Record<string, any>>;
-  if (!Array.isArray(items)) throw new Error('Itens comerciais ausentes.');
-  const ids = Array.from(
-    new Set(
-      items
-        .map((item) => item.productId)
-        .filter(
-          (id): id is string =>
-            typeof id === 'string' &&
-            /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)
-        )
-    )
-  );
-  const customerId = obj(facts.order.data.customerData).id;
-  const [catalog, customer, decision] = await Promise.all([
-    ids.length
-      ? db.from('products').select('id,fiscal').in('id', ids)
-      : Promise.resolve({ data: [], error: null }),
-    db
-      .from('people')
-      .select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted')
-      .eq('id', String(customerId || ''))
-      .maybeSingle(),
-    db
-      .from('settings')
-      .select('data')
-      .eq('id', 'fiscal_decision_simples_nfe55_normal_sale_v1')
-      .maybeSingle(),
-  ]);
-  if (catalog.error || customer.error || decision.error || !customer.data || customer.data.deleted)
-    throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
-  facts.fiscalInputs = {
-    products: Object.fromEntries(
-      (catalog.data || []).map((row) => [row.id, row.fiscal])
-    ) as FiscalJsonValue,
-    customer: {
-      id: customer.data.id,
-      fullName: customer.data.full_name,
-      cpfCnpj: customer.data.cpf_cnpj,
-      address: customer.data.address,
-      ie: customer.data.rg_ie,
-      personType: customer.data.person_type_pf_pj,
-    },
-    contributionDecision: (decision.data?.data || null) as FiscalJsonValue,
-    fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue,
-  };
-  const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
-  const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
-  if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
-  const ncms = await db
-    .from('ncms')
-    .select('code,active,is_active,start_date,end_date')
-    .in('code', codes);
-  const date = facts.capturedAt.slice(0, 10);
-  const products = obj(facts.fiscalInputs.products);
-  const invalidSelection = Object.entries(selections).some(([itemNumber, selection]) => {
-    const item = items.filter((candidate) => candidate.itemType !== 'service')[
-      Number(itemNumber) - 1
-    ];
-    const savedItemFiscal = item?.fiscal && typeof item.fiscal === 'object' ? item.fiscal : {};
-    const savedProductFiscal =
-      item?.productId && products[item.productId] && typeof products[item.productId] === 'object'
-        ? (products[item.productId] as Record<string, unknown>)
-        : {};
-    const originalNcm = String(savedItemFiscal.ncm || savedProductFiscal.ncm || '').replace(
-      /\D/g,
-      ''
-    );
-    return !ncms.data?.some(
-      (ncm) =>
-        ncm.code === selection.ncm &&
-        ncm.active &&
-        (!ncm.start_date || ncm.start_date <= date) &&
-        (!ncm.end_date || ncm.end_date >= date) &&
-        (ncm.is_active || originalNcm === selection.ncm)
-    );
-  });
-  if (ncms.error || invalidSelection)
-    throw new Error(
-      'NCM escolhido está oficialmente inválido ou desativado para novas seleções da loja.'
-    );
-}
+export { loadHmlNormalSaleInputs } from './hml-normal-sale/inputLoader';
+export { HML_NORMAL_SALE_RULESET_VERSION };
 
-/** Limited HML matrix: internal sale, CRT1, supported zero own-ICMS groups. */
 export async function createHmlNormalSaleRuleSet(
   facts: FiscalSnapshotCandidate,
   configuration: HmlCsosnConfiguration
@@ -203,7 +45,9 @@ export async function createHmlNormalSaleRuleSet(
   const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
   const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
   if (!['delivery', 'pickup'].includes(String(shippingData.deliveryMethod || '')))
-    throw new Error('Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.');
+    throw new Error(
+      'Modalidade atual do pedido ausente ou inválida; confirme entrega ou retirada.'
+    );
   const address = getFiscalRecipientAddress({
     ...orderData,
     customerData: { ...obj(orderData.customerData || {}), fullAddress: customer.address },
@@ -223,10 +67,7 @@ export async function createHmlNormalSaleRuleSet(
   const modelTotal =
     initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
     initialComposition.vOutroCents +
-    money(
-      shippingData.value ?? 0,
-      'Frete comercial'
-    );
+    money(shippingData.value ?? 0, 'Frete comercial');
   const decisionOrder = {
     ...orderData,
     orderType: facts.order.type,
@@ -252,9 +93,12 @@ export async function createHmlNormalSaleRuleSet(
   if (
     modelDecision.reasons.some(
       (reason) =>
-        !['RETAIL_FINAL_CONSUMER_IN_STATE', 'INTERSTATE_OPERATION', 'RESALE', 'VALUE_LIMIT'].includes(
-          reason
-        )
+        ![
+          'RETAIL_FINAL_CONSUMER_IN_STATE',
+          'INTERSTATE_OPERATION',
+          'RESALE',
+          'VALUE_LIMIT',
+        ].includes(reason)
     )
   )
     throw new Error(
@@ -281,33 +125,42 @@ export async function createHmlNormalSaleRuleSet(
       );
     const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
     const productCatalog = obj(inputs.products);
-    const ieIndicator = contextData.recipientIeIndicator;
-    const recipientIeStatus: InterstateRecipientIeStatus | undefined =
+    const ieIndicator =
+      contextData.recipientIeIndicator ||
+      customer.ieIndicator ||
+      (customer.ie ? '1' : '9');
+    const recipientIeStatus: InterstateRecipientIeStatus =
       ieIndicator === '1'
         ? 'taxpayer'
         : ieIndicator === '2'
           ? 'exempt'
-          : ieIndicator === '9'
-            ? 'non_taxpayer'
-            : undefined;
+          : 'non_taxpayer';
     const explicitBoolean = (...values: unknown[]): boolean | undefined =>
       values.find((value): value is boolean => typeof value === 'boolean');
     const merchandiseOrigin = (item: Record<string, any>, fiscal: Record<string, any>) => {
       const source = item.merchandiseOrigin ?? fiscal.merchandiseOrigin;
       if (source === 'third_party' || source === 'own_production') return source;
       const isOwnProduction = explicitBoolean(item.isOwnProduction, fiscal.isOwnProduction);
-      return isOwnProduction === undefined ? undefined : isOwnProduction ? 'own_production' : 'third_party';
+      return isOwnProduction === undefined
+        ? 'third_party'
+        : isOwnProduction
+          ? 'own_production'
+          : 'third_party';
     };
     const matrixResults = initialComposition.products.map(({ item }, index) => {
       const selected = selections[String(index + 1)];
       const itemRecord = item as Record<string, any>;
-      const itemFiscal = itemRecord.fiscal && typeof itemRecord.fiscal === 'object'
-        ? itemRecord.fiscal as Record<string, any>
-        : {};
-      const productFiscalRaw = itemRecord.productId ? productCatalog[itemRecord.productId] : undefined;
-      const productFiscal = productFiscalRaw && typeof productFiscalRaw === 'object'
-        ? productFiscalRaw as Record<string, any>
-        : {};
+      const itemFiscal =
+        itemRecord.fiscal && typeof itemRecord.fiscal === 'object'
+          ? (itemRecord.fiscal as Record<string, any>)
+          : {};
+      const productFiscalRaw = itemRecord.productId
+        ? productCatalog[itemRecord.productId]
+        : undefined;
+      const productFiscal =
+        productFiscalRaw && typeof productFiscalRaw === 'object'
+          ? (productFiscalRaw as Record<string, any>)
+          : {};
       const matrixFacts: Partial<InterstateOutboundFiscalMatrixFacts> = {
         environment: facts.emissionRequest.environment,
         model: modelDecision.model,
@@ -325,21 +178,47 @@ export async function createHmlNormalSaleRuleSet(
         finalConsumer:
           typeof facts.emissionRequest.finalConsumer === 'boolean'
             ? facts.emissionRequest.finalConsumer
-            : undefined,
+            : modelDecision.finalConsumer,
         merchandiseOrigin: merchandiseOrigin(itemRecord, productFiscal),
         productOrigin: selected?.origem,
         ncm: selected?.ncm,
         cest: selected?.cest,
-        hasSt: explicitBoolean(itemFiscal.hasSt, itemFiscal.isSt, productFiscal.hasSt, productFiscal.isSt),
+        hasSt: explicitBoolean(
+          itemFiscal.hasSt,
+          itemFiscal.isSt,
+          productFiscal.hasSt,
+          productFiscal.isSt
+        ),
         productId: typeof itemRecord.productId === 'string' ? itemRecord.productId : undefined,
         effectiveAt: facts.capturedAt,
       };
-      return resolveInterstateOutboundFiscalMatrix(matrixFacts);
+      const matrixResult = resolveInterstateOutboundFiscalMatrix(matrixFacts);
+      if (matrixResult.status === 'approved') {
+        const approvedTreatment = matrixResult.treatment;
+        if (selected?.cfop === '6933' || selected?.cfop === '5933') {
+          throw new Error(
+            `CFOP ${selected.cfop} pertence a prestação de serviço (ISSQN) e não pode ser aplicado a venda de mercadoria.`
+          );
+        }
+        if (selected?.cfop && selected.cfop !== approvedTreatment.cfop) {
+          throw new Error(
+            `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${approvedTreatment.cfop} para operação interestadual); nenhuma escolha foi substituída.`
+          );
+        }
+      }
+      return matrixResult;
     });
-    if (!matrixResults.length || matrixResults.some((result) => result.status !== 'approved'))
+    const nonApproved = matrixResults.find((result) => result.status !== 'approved');
+    if (!matrixResults.length || nonApproved) {
+      const code =
+        nonApproved && 'code' in nonApproved
+          ? nonApproved.code
+          : 'HML_INTERSTATE_MATRIX_NOT_APPROVED';
+      const reason = nonApproved && 'reason' in nonApproved ? nonApproved.reason : '';
       throw new Error(
-        'Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decisão Fiscal Interestadual de Saída não contém regra APPROVED utilizável; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'
+        `Operação interestadual não está coberta pela matriz HML_NORMAL_SALE_V2 (${code}). ${reason || 'A Matriz de Decisão Fiscal Interestadual de Saída não contém regra APPROVED utilizável; CFOP candidato não define CSOSN, ICMS, ST, DIFAL ou FCP.'}`
       );
+    }
   }
 
   // Share the existing issuer/CRT/environment/contribution approval gates after the
@@ -434,10 +313,15 @@ export async function createHmlNormalSaleRuleSet(
         deliveryMethod: String(snapshotShipping.deliveryMethod || ''),
         shipping: snapshotShipping,
         customerAddress:
-          snapshotCustomer.fullAddress || snapshotCustomer.address || undefined,
+          snapshotCustomer.fullAddress ||
+          snapshotCustomer.address ||
+          customer.address ||
+          undefined,
       });
       if (snapshotScope.destination === null)
-        throw new Error(snapshotScope.reason || 'Local físico da operação fiscal não identificado.');
+        throw new Error(
+          snapshotScope.reason || 'Local físico da operação fiscal não identificado.'
+        );
       const recipientCpfCnpj = normalizeRecipientTaxId(
         String(snapshot.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? '')
       );
@@ -468,328 +352,34 @@ export async function createHmlNormalSaleRuleSet(
       }
       const shipping = data.shipping ? obj(data.shipping) : {};
       const freight = money(shipping.value ?? 0, 'Frete comercial');
-      const persistedInputs = obj(snapshot.fiscalInputs);
-      const catalog = obj(persistedInputs.products);
-      const expectedCfop = snapshotScope.scope === 'internal' ? '5102' : '6102';
-      const allowedSavedCfops = ['5102', '6102'];
-      const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
-        const selected = selections[String(index + 1)];
-        const saved = (item as any).fiscal || {};
-        const productFiscal = catalog[item.productId || ''] || {};
-        for (const fiscal of [saved, productFiscal]) {
-          if (
-            (fiscal.cfop && !allowedSavedCfops.includes(fiscal.cfop)) ||
-            ['icmsPercent', 'pisPercent', 'cofinsPercent', 'ipiPercent'].some(
-              (field) => Number(fiscal[field] || 0) !== 0
-            )
-          )
-            throw new Error(
-              'Exceção tributária do pedido/cadastro exige matriz específica; os dados não foram substituídos.'
-            );
-        }
-        const csosn = resolveItemCsosn({
-          configuration,
-          environment: 2,
-          issuerCrt: '1',
-          manual: snapshot.emissionRequest.itemCsosnOverrides?.[String(index + 1)],
-          catalog: productFiscal.cst,
-        });
-        if (selected.csosn !== csosn.csosn)
-          throw new Error('CSOSN confirmado diverge da escolha fiscal preparada.');
-        if (selected.cfop === '6933' || selected.cfop === '5933')
-          throw new Error(
-            `CFOP ${selected.cfop} pertence a prestação de serviço (ISSQN) e não pode ser aplicado a venda de mercadoria.`
-          );
-        if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn) || selected.cfop !== expectedCfop)
-          throw new Error(
-            `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${expectedCfop} para operação interna); nenhuma escolha foi substituída.`
-          );
-        const isSupportedContributionCst = (cst?: string) =>
-          !cst || cst === contribution.pis.cst || cst === '49' || cst === '99';
-        if (
-          !isSupportedContributionCst(saved.pisCst) ||
-          !isSupportedContributionCst(saved.cofinsCst) ||
-          !isSupportedContributionCst(productFiscal.pisCst) ||
-          !isSupportedContributionCst(productFiscal.cofinsCst)
-        )
-          throw new Error('Exceção de PIS/COFINS exige regra específica.');
-        return {
-          decisionId: `hml-real-item-${index + 1}`,
-          ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION,
-          effectiveAt: contribution.confirmedAt,
-          inputFacts: {
-            orderId: snapshot.order.id,
-            itemNumber: index + 1,
-            environment: 2,
-            issuerCrt: '1',
-            recipientMunicipalitySource: 'IBGE',
-            recipientMunicipalityCode: code,
-          },
-          result: {
-            ...selected,
-            csosnSource: csosn.source,
-            configurationVersion: configuration.version,
-            pisCst: contribution.pis.cst,
-            cofinsCst: contribution.cofins.cst,
-            modelDecision,
-          },
-          reason: modelDecision.reason,
-          approver: 'operator_instruction_real_orders_hml_only',
-        };
+      const isNonTaxpayerInterstate =
+        snapshotScope.scope === 'interstate' &&
+        (facts.emissionRequest.recipientIeIndicator === '9' ||
+          contextData.recipientIeIndicator === '9' ||
+          customer.ieIndicator === '9' ||
+          ieIndicator === '9');
+      const expectedCfop =
+        snapshotScope.scope === 'internal' ? '5102' : isNonTaxpayerInterstate ? '6108' : '6102';
+      const { traces, determinedItems, products, discount, invoice } = determineHmlNormalSaleItems({
+        snapshot,
+        composition,
+        selections,
+        expectedCfop,
+        snapshotScope,
+        contribution,
+        modelDecision,
+        configuration,
+        code,
+        freight,
       });
-      const determinedItems = composition.products.map(
-        ({ item, vProdCents, vDescCents }, index): DeterminedFiscalItem => {
-          const selected = selections[String(index + 1)];
-          return {
-            itemNumber: index + 1,
-            product: {
-              code: String(item.productId || item.orderItemId || `ITEM-${index + 1}`).slice(0, 60),
-              description: required(item.description, 'Descrição comercial'),
-              gtin: 'SEM GTIN',
-              quantity: item.quantity,
-              unitValue: vProdCents / 100 / item.quantity,
-              gross: vProdCents / 100,
-              discount: vDescCents / 100,
-              freight: index === 0 ? freight / 100 : 0,
-              insurance: 0,
-              otherExpenses: index === 0 ? composition.vOutroCents / 100 : 0,
-            },
-            classification: {
-              ncm: selected.ncm,
-              cfop: selected.cfop,
-              origin: selected.origem,
-              cest: selected.cest || undefined,
-              unit: 'UN',
-            },
-            taxes: [
-              {
-                group: 'ICMS' as const,
-                codeSystem: 'CSOSN' as const,
-                code: selected.csosn,
-                values: { vICMS: 0 },
-                decisionId: traces[index].decisionId,
-              },
-              {
-                group: 'PIS' as const,
-                codeSystem: 'CST' as const,
-                code: contribution.pis.cst,
-                values: {
-                  vBC: contribution.pis.base,
-                  pPIS: contribution.pis.rate,
-                  vPIS: contribution.pis.value,
-                },
-                decisionId: traces[index].decisionId,
-              },
-              {
-                group: 'COFINS' as const,
-                codeSystem: 'CST' as const,
-                code: contribution.cofins.cst,
-                values: {
-                  vBC: contribution.cofins.base,
-                  pCOFINS: contribution.cofins.rate,
-                  vCOFINS: contribution.cofins.value,
-                },
-                decisionId: traces[index].decisionId,
-              },
-            ],
-            decisions: [traces[index]],
-          };
-        }
-      );
-      const products = composition.products.reduce((sum, item) => sum + item.vProdCents, 0);
-      const discount = composition.products.reduce((sum, item) => sum + item.vDescCents, 0);
-      const invoice = products - discount + freight + composition.vOutroCents;
-      const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
-      const resolvedPayments: Array<{
-        methodCode: string;
-        amountCents: number;
-        settlement: 'paid' | 'pending';
-        description?: string;
-        paymentDate?: string;
-        dueDate?: string;
-        installments: number;
-        card?: {
-          integrationType: '1' | '2';
-          acquirerCnpj?: string;
-          brand?: string;
-          authorization?: string;
-        };
-      }> = [];
-      let paidCents = 0;
-      let pendingCents = 0;
-
-      for (let index = 0; index < rawPayments.length; index += 1) {
-        const payment = rawPayments[index];
-        const amountValue = Number(payment.amount ?? 0);
-        if (!Number.isFinite(amountValue) || amountValue < 0)
-          throw new Error(`Valor do pagamento ${index + 1} inválido.`);
-        if (amountValue === 0) continue;
-        const amountCents = money(amountValue, `Pagamento ${index + 1}`, true);
-        const settlement = classifyOrderPaymentSettlement(payment.status);
-        if (settlement === 'unconfirmed')
-          throw new Error(
-            `Pagamento ${index + 1} está como “${String(payment.status)}”; confirme se foi recebido ou permanece pendente antes de transmitir.`
-          );
-
-        const originalMethod = typeof payment.method === 'string' ? payment.method.trim() : '';
-        const method = normalize(originalMethod);
-        const isPromissory = isPromissoryPaymentMethod(originalMethod);
-        const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-        let methodCode = method.includes('PIX')
-          ? '17'
-          : method.includes('CREDITO') || method.includes('CREDIT')
-            ? '03'
-            : method.includes('DEBITO') || method.includes('DEBIT')
-              ? '04'
-              : method.includes('DINHEIRO') || method.includes('CASH')
-                ? '01'
-                : method.includes('BOLETO')
-                  ? '15'
-                  : isPromissory
-                    ? '99'
-                    : undefined;
-        let description = methodCode === '99' ? originalMethod : undefined;
-        if (!methodCode && settlement === 'pending' && (!method || method === 'VERIFICAR')) {
-          if (!fulfillmentCondition)
-            throw new Error('O pedido pendente não informa se a entrega será por entrega ou retirada.');
-          methodCode = '99';
-          description = fulfillmentCondition;
-        }
-        if (!methodCode)
-          throw new Error(
-            `Meio de pagamento “${originalMethod || 'não informado'}” do item ${index + 1} exige mapeamento fiscal específico.`
-          );
-
-        const paymentCard = payment.fiscalCard;
-        const rawInstallments = Number(payment.installments ?? 1);
-        if (!Number.isInteger(rawInstallments) || rawInstallments < 1 || rawInstallments > 120)
-          throw new Error(`Quantidade de parcelas inválida no pagamento ${index + 1}.`);
-        const canDeclareNotIntegrated =
-          settlement === 'pending' ||
-          snapshot.emissionRequest.cardNotIntegrated ||
-          (modelDecision.model === '65' && methodCode === '17');
-        const card =
-          paymentCard ||
-          (canDeclareNotIntegrated && ['03', '04', '17'].includes(methodCode)
-            ? { integrationType: '2' as const }
-            : undefined);
-        if (
-          modelDecision.model === '65' &&
-          ['03', '04', '17'].includes(methodCode) &&
-          (!card ||
-            !['1', '2'].includes(card.integrationType) ||
-            (card.integrationType === '1' &&
-              ['03', '04'].includes(methodCode) &&
-              (!/^\d{14}$/.test(card.acquirerCnpj || '') || !card.authorization)))
-        )
-          throw new Error(
-            `Pagamento ${index + 1}: informe a integração e os dados fiscais reais do cartão/PIX para NFC-e.`
-          );
-
-        const resolved = {
-          methodCode,
-          amountCents,
-          settlement,
-          ...(description ? { description } : {}),
-          ...(settlement === 'paid' && getOrderPaymentActualDate(payment)
-            ? { paymentDate: getOrderPaymentActualDate(payment) }
-            : {}),
-          ...(settlement === 'pending'
-            ? { dueDate: getOrderPaymentDueDate(payment, shipping) }
-            : {}),
-          installments: rawInstallments,
-          ...(card ? { card } : {}),
-        };
-        resolvedPayments.push(resolved);
-        if (settlement === 'paid') paidCents += amountCents;
-        else pendingCents += amountCents;
-      }
-
-      const orderPaymentSummary =
-        data.paymentsSummary &&
-        typeof data.paymentsSummary === 'object' &&
-        !Array.isArray(data.paymentsSummary)
-          ? data.paymentsSummary
-          : {};
-      const summaryPaid = Number(orderPaymentSummary.totalAmountPaid ?? 0);
-      if (!resolvedPayments.length && Number.isFinite(summaryPaid) && summaryPaid > 0)
-        throw new Error(
-          'O Pedido de Venda informa valor recebido, mas não tem os meios de pagamento correspondentes; revise os pagamentos antes de transmitir.'
-        );
-      const amountDueCents = invoice - paidCents;
-      if (amountDueCents < 0)
-        throw new Error('Os valores marcados como pagos excedem o total fiscal da nota.');
-      if (pendingCents > amountDueCents)
-        throw new Error('Os valores pendentes do pedido excedem o saldo ainda devido da nota.');
-
-      if (pendingCents < amountDueCents) {
-        if (resolvedPayments.some((payment) => payment.settlement === 'pending' && payment.methodCode === '99' && isPromissoryPaymentMethod(payment.description)))
-          throw new Error(
-            'O valor pendente da promissória não cobre todo o saldo da nota; revise as parcelas registradas no Pedido de Venda.'
-          );
-        const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-        if (!fulfillmentCondition)
-          throw new Error('O saldo pendente não tem condição de retirada ou entrega definida no pedido.');
-        const fallbackDueDate = getOrderPaymentDueDate({}, shipping);
-        resolvedPayments.push({
-          methodCode: '99',
-          amountCents: amountDueCents - pendingCents,
-          settlement: 'pending',
-          description: fulfillmentCondition,
-          ...(fallbackDueDate ? { dueDate: fallbackDueDate } : {}),
-          installments: 1,
-        });
-        pendingCents = amountDueCents;
-      }
-
-      if (paidCents + pendingCents !== invoice)
-        throw new Error('Os valores recebidos e pendentes não reconciliam com o total fiscal da nota.');
-
-      const payments = resolvedPayments.map((payment) => ({
-        methodCode: payment.methodCode,
-        amount: payment.amountCents / 100,
-        paymentIndicator: payment.settlement === 'paid' ? ('0' as const) : ('1' as const),
-        ...(payment.description ? { description: payment.description } : {}),
-        ...(payment.paymentDate ? { paymentDate: payment.paymentDate } : {}),
-        ...(payment.card ? { card: payment.card } : {}),
-        decision: traces[0],
-      }));
-      const payment = paidCents + pendingCents;
-      const pendingPayments = resolvedPayments.filter((item) => item.settlement === 'pending');
-      const billingParts: Array<{ dueDate?: string; amountCents: number }> = [];
-      for (const pendingPayment of pendingPayments) {
-        if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
-          const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
-          const remainder = pendingPayment.amountCents % pendingPayment.installments;
-          if (perInstallment < 1)
-            throw new Error('O valor da promissória não cobre a quantidade de parcelas registrada.');
-          for (let index = 0; index < pendingPayment.installments; index += 1)
-            billingParts.push({
-              amountCents: perInstallment + (index < remainder ? 1 : 0),
-            });
-        } else {
-          billingParts.push({
-            ...(pendingPayment.dueDate ? { dueDate: pendingPayment.dueDate } : {}),
-            amountCents: pendingPayment.amountCents,
-          });
-        }
-      }
-      if (billingParts.length > 120)
-        throw new Error('A condição a prazo excede o limite fiscal de 120 parcelas.');
-      const billingInstallments =
-        modelDecision.model === '55' && billingParts.length > 0
-          ? billingParts
-              .sort((left, right) => {
-                if (!left.dueDate) return right.dueDate ? 1 : 0;
-                if (!right.dueDate) return -1;
-                return left.dueDate.localeCompare(right.dueDate);
-              })
-              .map((part, index) => ({
-                number: String(index + 1).padStart(3, '0'),
-                ...(part.dueDate ? { dueDate: part.dueDate } : {}),
-                amount: part.amountCents / 100,
-              }))
-          : undefined;
+      const { payments, payment, billingInstallments } = resolveHmlNormalSalePayments({
+        snapshot,
+        data,
+        shipping,
+        modelDecision,
+        traces,
+        invoice,
+      });
       const issuer = snapshot.issuerProfile;
       const issuerAddress: FiscalAddress = {
         street: required(issuer.companyLogradouro, 'Logradouro emitente'),
@@ -861,7 +451,7 @@ export async function createHmlNormalSaleRuleSet(
           natureOfOperation: 'VENDA DE MERCADORIA',
           direction: 'outbound',
           purpose: '1',
-          destination: '1',
+          destination: snapshotScope.destination || '1',
           presence,
           finalConsumer: modelDecision.finalConsumer ? '1' : '0',
           freightMode: resolvedTransport.modFrete,

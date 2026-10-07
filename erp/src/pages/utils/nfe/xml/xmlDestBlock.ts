@@ -73,9 +73,19 @@ export function buildDestXml(
   const name = isHomologacao
     ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
     : customer?.fullName || 'CONSUMIDOR FINAL';
-  const indicator = order.fiscalContext?.recipientIeIndicator || '9';
-  if (indicator !== '9')
-    throw new Error('Condição de contribuinte exige o serializer fiscal do backend.');
+  const indicator =
+    model === '65'
+      ? '9'
+      : order.fiscalContext?.recipientIeIndicator || customer?.ieIndicator || '9';
+  const rawIe = customer?.ie || (customer as any)?.rgIe || '';
+  const cleanIe = rawIe.replace(/\D/g, '');
+  if (model !== '65' && indicator === '1' && !cleanIe) {
+    throw new Error('Destinatário contribuinte do ICMS exige Inscrição Estadual.');
+  }
+  const ieXml =
+    model !== '65' && indicator !== '2' && cleanIe
+      ? '<IE>' + escapeXml(cleanIe) + '</IE>'
+      : '';
   const documentTag = doc.length === 11 ? 'CPF' : 'CNPJ';
   return (
     '<dest>' +
@@ -84,6 +94,10 @@ export function buildDestXml(
     escapeXml(name) +
     '</xNome>' +
     addressXml +
-    '<indIEDest>9</indIEDest></dest>'
+    '<indIEDest>' +
+    indicator +
+    '</indIEDest>' +
+    ieXml +
+    '</dest>'
   );
 }

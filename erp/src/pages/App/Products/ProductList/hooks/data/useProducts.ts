@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Product from '../../../../../types/product.type';
+import type { ProductListFilters } from '../../types';
 import { fetchProductsPage, activateProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { flattenProductsForList } from '../../utils/catalog/productListTransformers';
@@ -23,7 +24,7 @@ import {
   executeBulkPermanentDelete,
 } from '../actions/useProductsDeletionActions';
 
-export const useProducts = (filters?: any) => {
+export const useProducts = (filters?: ProductListFilters) => {
   // ═══════════════════════════════════════════════
   // SERVER PAGINATION state (Backend Supabase .range)
   // ═══════════════════════════════════════════════
@@ -121,13 +122,14 @@ export const useProducts = (filters?: any) => {
             return {
               ...product,
               allVariations: product.allVariations.filter(
-                (v: any) => filters?.includeMergedVariations === true || !v.mergedToVariationId
+                (variation) =>
+                  filters?.includeMergedVariations === true || !variation.mergedToVariationId
               ),
             };
           }
           return product;
         })
-        .filter((product: any) => {
+        .filter((product) => {
           return (
             filters?.includeMergedVariations === true ||
             !product.isVariation ||
@@ -147,10 +149,7 @@ export const useProducts = (filters?: any) => {
     const targetProduct = serverProducts.find(
       (p) => String(p.id) === String(id) || String((p as any).realId) === String(id)
     );
-    const isDraft =
-      Boolean(targetProduct?.is_draft) ||
-      targetProduct?.status === 'draft' ||
-      Boolean((targetProduct as any)?.isDraft);
+    const isDraft = Boolean(targetProduct?.isDraft) || targetProduct?.status === 'draft';
 
     if (isDraft) {
       await discardProductDraft(id, refresh);

@@ -1,5 +1,11 @@
-import { MeasurementInput } from '@/components/MeasurementInput';
 import React, { useState } from 'react';
+import { LabelGridSheetPreview } from '../components/LabelGridSheetPreview';
+import { createGridModelFromEditorState } from '../services/labelGridModelFactory';
+import { LabelGridModelToolbar } from './label-grid-model-editor/LabelGridModelToolbar';
+import { LabelGridModelSettingsPanel } from './label-grid-model-editor/LabelGridModelSettingsPanel';
+import { LabelGridModelCanvasElement } from './label-grid-model-editor/LabelGridModelCanvasElement';
+import type { LabelGridModelCanvasElementData } from './label-grid-model-editor/LabelGridModelCanvasElement';
+import { LabelGridModelElementSelector } from './label-grid-model-editor/LabelGridModelElementSelector';
 
 const BOOTSTRAP_ICONS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
@@ -52,7 +58,6 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
 
   const [imageScale, setImageScale] = useState(1);
   const [customPreviewImage, setCustomPreviewImage] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Estados de tipografia
   const [nameFontSize, setNameFontSize] = useState(7);
@@ -622,115 +627,99 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     if (isSaving) return;
     setIsSaving(true);
     try {
-      const newModel: GridModel = {
-        id: editingModel?.id || `custom_${Date.now()}`,
-        name: name.trim() || generatedName,
-        columns: columns,
-        rows: rows,
-        marginT: marginT,
-        marginB: marginB,
-        marginL: marginL,
-        marginR: marginR,
-        gapH: gapH,
-        gapV: gapV,
-        paperSize: paperSize,
-        paperWidth: paperSize === 'Custom' ? customWidth : undefined,
-        paperHeight: paperSize === 'Custom' ? customHeight : undefined,
-        icon: layoutType === 'round' ? 'bi-circle' : 'bi-grid-fill',
-        category: editingModel?.category || currentCategory || 'identificacao',
-        type: layoutType,
-        nameFontSize: nameFontSize,
-        nameColor: nameColor,
-        nameBold: nameBold,
-        nameAlign: nameAlign,
-        nameVAlign: nameVAlign,
-        priceFontSize: priceFontSize,
-        priceColor: priceColor,
-        priceBold: priceBold,
-        priceAlign: priceAlign,
-        priceVAlign: priceVAlign,
-        promoFontSize: promoFontSize,
-        promoColor: promoColor,
-        promoPriceFontSize: promoPriceFontSize,
-        promoPriceColor: promoPriceColor,
-        promoPriceBold: promoPriceBold,
-        promoPriceAlign: promoPriceAlign,
-        promoPriceVAlign: promoPriceVAlign,
-        oldPriceFontSize: oldPriceFontSize,
-        oldPriceColor: oldPriceColor,
-        oldPriceBold: oldPriceBold,
-        oldPriceAlign: oldPriceAlign,
-        oldPriceVAlign: oldPriceVAlign,
-        namePosX: namePos.x,
-        namePosY: namePos.y,
-        pricePosX: pricePos.x,
-        pricePosY: pricePos.y,
-        promoPosX: promoPos.x,
-        promoPosY: promoPos.y,
-        barcodePosX: barcodePos.x,
-        barcodePosY: barcodePos.y,
-        dePricePorGroupPos: editingModel?.dePricePorGroupPos,
-        dePricePorGroupRotation: editingModel?.dePricePorGroupRotation,
-        dePricePorGroupGap: editingModel?.dePricePorGroupGap,
-        nameWidth: nameWidth,
-        nameHeight: nameHeight,
-        priceWidth: priceWidth,
-        priceHeight: priceHeight,
-        promoWidth: promoWidth,
-        promoHeight: promoHeight,
-        priceFontSizeTens: priceFontSizeTens,
-        priceFontSizeHundreds: priceFontSizeHundreds,
-        priceFontSizeThousands: priceFontSizeThousands,
-        priceFontSizeTenThousands: priceFontSizeTenThousands,
+      const newModel = createGridModelFromEditorState({
+        editingModel,
+        name,
+        generatedName,
+        currentCategory,
+        columns,
+        rows,
+        marginT,
+        marginB,
+        marginL,
+        marginR,
+        gapH,
+        gapV,
+        paperSize,
+        customWidth,
+        customHeight,
+        layoutType,
+        nameFontSize,
+        nameColor,
+        nameBold,
+        nameAlign,
+        nameVAlign,
+        priceFontSize,
+        priceColor,
+        priceBold,
+        priceAlign,
+        priceVAlign,
+        promoFontSize,
+        promoColor,
+        promoPriceFontSize,
+        promoPriceColor,
+        promoPriceBold,
+        promoPriceAlign,
+        promoPriceVAlign,
+        oldPriceFontSize,
+        oldPriceColor,
+        oldPriceBold,
+        oldPriceAlign,
+        oldPriceVAlign,
+        namePos,
+        pricePos,
+        promoPos,
+        barcodePos,
+        nameWidth,
+        nameHeight,
+        priceWidth,
+        priceHeight,
+        promoWidth,
+        promoHeight,
+        priceFontSizeTens,
+        priceFontSizeHundreds,
+        priceFontSizeThousands,
+        priceFontSizeTenThousands,
         bg_color: bgColor,
-        nameBgColor: nameBgColor,
-        priceBgColor: priceBgColor,
-        promoBgColor: promoBgColor,
-        priceFormat: priceFormat,
-        priceSymbolFontSize: priceSymbolFontSize,
-        priceSymbolColor: priceSymbolColor,
-        priceSymbolBold: priceSymbolBold,
-        priceSymbolPosX: priceSymbolPos.x,
-        priceSymbolPosY: priceSymbolPos.y,
-        priceDecimalsFontSize: priceDecimalsFontSize,
-        priceDecimalsColor: priceDecimalsColor,
-        priceDecimalsBold: priceDecimalsBold,
-        priceDecimalsPosX: priceDecimalsPos.x,
-        priceDecimalsPosY: priceDecimalsPos.y,
-        promoNamePosX: promoNamePos.x,
-        promoNamePosY: promoNamePos.y,
-        promoNameFontSize: promoNameFontSize,
-        promoNameAlign: promoNameAlign,
-        promoNameVAlign: promoNameVAlign,
-        promoNameColor: promoNameColor,
-        promoNameBold: promoNameBold,
-        promoNameWidth: promoNameWidth,
-        promoNameHeight: promoNameHeight,
-        promoNameBgColor: promoNameBgColor,
-        oldPricePosX: oldPricePos.x,
-        oldPricePosY: oldPricePos.y,
-        oldPriceWidth: oldPriceWidth,
-        oldPriceHeight: oldPriceHeight,
-        promoBarcodePosX: promoBarcodePos.x,
-        promoBarcodePosY: promoBarcodePos.y,
-        extraFields: extraFields,
-        extraFieldsPromo: extraFieldsPromo,
-        fontFamily: fontFamily,
-        // Split Price Promoção no Modelo
-        promoPriceSymbolPosX: promoPriceSymbolPos.x,
-        promoPriceSymbolPosY: promoPriceSymbolPos.y,
-        promoPriceSymbolFontSize: promoPriceSymbolFontSize,
-        promoPriceSymbolColor: promoPriceSymbolColor,
-        promoPriceSymbolBold: promoPriceSymbolBold,
-        promoPriceDecimalsPosX: promoPriceDecimalsPos.x,
-        promoPriceDecimalsPosY: promoPriceDecimalsPos.y,
-        promoPriceDecimalsFontSize: promoPriceDecimalsFontSize,
-        promoPriceDecimalsColor: promoPriceDecimalsColor,
-        promoPriceDecimalsBold: promoPriceDecimalsBold,
-
-        imageScale: imageScale,
-        previewImage: customPreviewImage,
-      };
+        nameBgColor,
+        priceBgColor,
+        promoBgColor,
+        priceFormat,
+        priceSymbolFontSize,
+        priceSymbolColor,
+        priceSymbolBold,
+        priceSymbolPos,
+        priceDecimalsFontSize,
+        priceDecimalsColor,
+        priceDecimalsBold,
+        priceDecimalsPos,
+        promoNamePos,
+        promoNameFontSize,
+        promoNameAlign,
+        promoNameVAlign,
+        promoNameColor,
+        promoNameBold,
+        promoNameWidth,
+        promoNameHeight,
+        promoNameBgColor,
+        oldPricePos,
+        oldPriceWidth,
+        oldPriceHeight,
+        promoBarcodePos,
+        extraFields,
+        extraFieldsPromo,
+        fontFamily,
+        promoPriceSymbolPos,
+        promoPriceSymbolFontSize,
+        promoPriceSymbolColor,
+        promoPriceSymbolBold,
+        promoPriceDecimalsPos,
+        promoPriceDecimalsFontSize,
+        promoPriceDecimalsColor,
+        promoPriceDecimalsBold,
+        imageScale,
+        customPreviewImage,
+      });
       await onSave(newModel);
       onClose();
     } finally {
@@ -971,484 +960,100 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     updateStyle('valign', next[activeVAlign]);
   };
 
-  // Componente da Barra de Ferramentas Fixa (Header do Designer com Scroll)
-  const FixedToolbar = () => {
-    return (
-      <div
-        className={`px-12 py-3 border-b min-h-[85px] flex items-center justify-between transition-all ${isInactive && !isDesignMode ? 'bg-slate-50/50 grayscale opacity-50' : 'bg-white dark:bg-slate-900 shadow-sm border-blue-500/20'}`}
-      >
-        <div className="flex items-center gap-6 flex-wrap">
-          <button
-            onClick={() => setIsDesignMode(false)}
-            className="px-5 py-3 bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all flex items-center gap-2 shadow-lg active:scale-95 shrink-0"
-          >
-            <i className="bi bi-chevron-left" /> Voltar
-          </button>
-
-          <div className="h-8 w-px bg-slate-200 hidden sm:block" />
-
-          {/* Modo de Visualização (Alternar entre Normal e Promo) */}
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1 rounded-2xl">
-            <button
-              onClick={() => {
-                setIsPromoPreview(false);
-                setSelectedElement(null);
-              }}
-              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${!isPromoPreview ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Preço Normal
-            </button>
-            <button
-              onClick={() => {
-                setIsPromoPreview(true);
-                setSelectedElement(null);
-              }}
-              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${isPromoPreview ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >
-              Promocional
-            </button>
-          </div>
-
-          <button
-            onClick={addExtraField}
-            className="px-5 py-3 bg-blue-50 text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 shadow-sm border border-blue-100 active:scale-95 shrink-0"
-          >
-            <i className="bi bi-fonts" /> Texto+
-          </button>
-
-          <div className="h-8 w-px bg-slate-200" />
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Cor de Fundo Dinâmica */}
-            <div className="relative flex flex-col items-center gap-1">
-              <div className="relative">
-                <button
-                  className="w-9 h-9 rounded-xl border-2 border-slate-200 shadow-sm transition-all hover:scale-110 active:scale-90"
-                  style={{ backgroundColor: activeBg === 'transparent' ? '#fff' : activeBg }}
-                >
-                  <input
-                    type="color"
-                    value={activeBg === 'transparent' ? '#ffffff' : activeBg}
-                    onChange={(e) => updateStyle('bg', e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  {activeBg === 'transparent' ? (
-                    <div className="absolute inset-x-0 top-1/2 h-0.5 bg-red-500 -rotate-45" />
-                  ) : null}
-                  <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-slate-100">
-                    <i
-                      className={`bi bi-${selectedElement ? 'square-fill' : 'card-heading'} text-[8px] text-slate-500`}
-                    />
-                  </div>
-                </button>
-                {activeBg !== 'transparent' && (
-                  <button
-                    onClick={() => updateStyle('bg', 'transparent')}
-                    className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-sm hover:bg-rose-600 transition-colors"
-                  >
-                    <i className="bi bi-x" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="h-8 w-px bg-slate-200 mx-1" />
-
-            {/* Ímã Toggle */}
-            <button
-              onClick={() => setSnapEnabled(!snapEnabled)}
-              title={snapEnabled ? 'Desativar Ímã de Centro' : 'Ativar Ímã de Centro'}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${snapEnabled ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'}`}
-            >
-              <i className={`bi bi-magnet${snapEnabled ? '-fill' : ''} text-base`} />
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 mx-1" />
-
-            {/* Cor do Texto */}
-            <div className="relative">
-              <button
-                disabled={isInactive}
-                onClick={() => setShowColorPalette(!showColorPalette)}
-                className={`flex flex-col items-center px-2 py-1 rounded-xl transition-all ${showColorPalette ? 'bg-slate-100' : 'hover:bg-slate-50'} ${isInactive ? 'opacity-30 cursor-not-allowed' : ''}`}
-              >
-                <span
-                  className="text-[12px] font-black leading-none"
-                  style={{ color: activeColor }}
-                >
-                  A
-                </span>
-                <div
-                  className="h-[2.5px] w-4 mt-0.5 rounded-full"
-                  style={{ backgroundColor: activeColor }}
-                />
-              </button>
-              {showColorPalette && (
-                <>
-                  <div
-                    className="fixed inset-0 z-[1000]"
-                    onClick={() => setShowColorPalette(false)}
-                  />
-                  <div className="absolute top-full left-0 mt-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 rounded-2xl shadow-2xl z-[1001] w-48">
-                    <div className="grid grid-cols-5 gap-2">
-                      {[
-                        '#000000',
-                        '#ffffff',
-                        '#ef4444',
-                        '#f97316',
-                        '#f59e0b',
-                        '#eab308',
-                        '#84cc16',
-                        '#22c55e',
-                        '#10b981',
-                        '#14b8a6',
-                        '#06b6d4',
-                        '#0ea5e9',
-                        '#3b82f6',
-                        '#6366f1',
-                        '#8b5cf6',
-                        '#a855f7',
-                        '#d946ef',
-                        '#ec4899',
-                        '#f43f5e',
-                      ].map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => updateStyle('color', c)}
-                          className="w-6 h-6 rounded-md hover:scale-125 transition-transform"
-                          style={{
-                            backgroundColor: c,
-                            border: c.toLowerCase() === '#ffffff' ? '1px solid #ddd' : 'none',
-                          }}
-                        >
-                          {activeColor.toLowerCase() === c.toLowerCase() && (
-                            <i
-                              className={`bi bi-check text-[10px] ${c.toLowerCase() === '#ffffff' ? 'text-black' : 'text-white'}`}
-                            />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="h-px bg-slate-50 my-2" />
-                    <div className="relative group">
-                      <button className="w-full text-[7px] font-black uppercase text-slate-400 py-1">
-                        Mais...
-                      </button>
-                      <input
-                        type="color"
-                        value={activeColor}
-                        onChange={(e) => updateStyle('color', e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Tamanho Base */}
-            <div
-              className={`flex flex-col items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl ${isInactive ? 'opacity-30' : ''}`}
-            >
-              <span className="text-[7px] font-black uppercase text-slate-400">Base</span>
-              <input
-                disabled={isInactive}
-                type="number"
-                value={Math.round(activeSize)}
-                onChange={(e) => updateStyle('size', parseInt(e.target.value) || 1)}
-                className="w-9 bg-transparent border-none text-[11px] font-black text-center outline-none cursor-pointer"
-              />
-            </div>
-
-            {/* Escalas Dinâmicas (Apenas para Preços) */}
-            {(selectedElement === 'mainPrice' || selectedElement === 'oldPrice') && (
-              <div className="flex items-center gap-1.5 animate-in slide-in-from-left-2 duration-300">
-                <div className="h-6 w-px bg-slate-200 mx-1" />
-                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
-                  <span className="text-[6px] font-black uppercase text-slate-400">10+</span>
-                  <input
-                    type="number"
-                    value={priceFontSizeTens || 0}
-                    onChange={(e) => setPriceFontSizeTens(parseInt(e.target.value) || 0)}
-                    className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
-                  <span className="text-[6px] font-black uppercase text-slate-400">100+</span>
-                  <input
-                    type="number"
-                    value={priceFontSizeHundreds || 0}
-                    onChange={(e) => setPriceFontSizeHundreds(parseInt(e.target.value) || 0)}
-                    className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
-                  <span className="text-[6px] font-black uppercase text-slate-400">1k+</span>
-                  <input
-                    type="number"
-                    value={priceFontSizeThousands || 0}
-                    onChange={(e) => setPriceFontSizeThousands(parseInt(e.target.value) || 0)}
-                    className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-0.5 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-100">
-                  <span className="text-[6px] font-black uppercase text-slate-400">10k+</span>
-                  <input
-                    type="number"
-                    value={priceFontSizeTenThousands || 0}
-                    onChange={(e) => setPriceFontSizeTenThousands(parseInt(e.target.value) || 0)}
-                    className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Negrito */}
-            <button
-              disabled={isInactive}
-              onClick={() => updateStyle('bold', !activeBold)}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${activeBold ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'} ${isInactive ? 'opacity-30 cursor-not-allowed' : ''}`}
-            >
-              <i className="bi bi-type-bold text-base" />
-            </button>
-
-            <div className="h-6 w-px bg-slate-200 mx-1" />
-
-            {/* Alinhamento */}
-            <button
-              disabled={isInactive}
-              onClick={cycleAlign}
-              className={`w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 transition-all text-slate-600 ${isInactive ? 'opacity-30 cursor-not-allowed' : ''}`}
-            >
-              <i
-                className={`bi bi-text-${activeAlign === 'center' ? 'center' : activeAlign === 'left' ? 'left' : 'right'} text-base`}
-              />
-            </button>
-
-            <button
-              onClick={cycleVAlign}
-              className="p-3 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all shadow-sm flex flex-col items-center gap-1 group"
-            >
-              <i
-                className={`bi bi-align-${activeVAlign === 'middle' ? 'center' : activeVAlign} text-slate-600`}
-              />
-              <span className="text-[7px] font-black uppercase text-slate-400 group-hover:text-blue-500">
-                Vert
-              </span>
-            </button>
-          </div>
-
-          <div className="h-8 w-px bg-slate-200 mx-2" />
-
-          {/* Seletor de Fonte */}
-          <div className="flex items-center gap-2">
-            <i className="bi bi-fonts text-slate-400" />
-            <select
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-              className="bg-slate-50 border-none text-[10px] font-bold px-3 py-2 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-[120px]"
-            >
-              <option value="Inter">Inter (Padrão)</option>
-              <option value="Montserrat">Montserrat</option>
-              <option value="Oswald">Oswald</option>
-              <option value="Roboto">Roboto</option>
-              <option value="Playfair Display">Playfair</option>
-              <option value="Bebas Neue">Bebas Neue</option>
-              <option value="Libre Barcode 128">Barcode Font</option>
-            </select>
-          </div>
-
-          <div className="h-8 w-px bg-slate-200 mx-2" />
-
-          {/* Toggle de Preço Separado */}
-          {selectedElement === 'mainPrice' && (
-            <div className="flex items-center gap-2 bg-blue-50/50 p-1 rounded-2xl border border-blue-100">
-              <span className="text-[8px] font-black text-blue-600 uppercase px-3">
-                Preço: {priceFormat === 'split' ? 'Separado' : 'Unificado'}
-              </span>
-              <button
-                onClick={() => setPriceFormat((prev) => (prev === 'split' ? 'standard' : 'split'))}
-                className={`px-4 py-1.5 rounded-xl text-[8px] font-black uppercase transition-all ${priceFormat === 'split' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 hover:bg-blue-100'}`}
-              >
-                {priceFormat === 'split' ? 'Mudar p/ Unificado' : 'Mudar p/ Separado'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="flex flex-col items-end">
-            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-              Selecionado
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 truncate max-w-[120px]">
-              {selectedElement === 'name'
-                ? 'Produto'
-                : selectedElement === 'mainPrice'
-                  ? 'Preço Principal'
-                  : selectedElement === 'oldPrice'
-                    ? 'Preço Antigo'
-                    : selectedElement === 'priceSymbol'
-                      ? 'Símbolo R$'
-                      : selectedElement === 'priceDecimals'
-                        ? 'Centavos'
-                        : 'Nenhum'}
-            </span>
-          </div>
-          {selectedElement && (
-            <button
-              onClick={() => setSelectedElement(null)}
-              className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-500 rounded-xl transition-all hover:bg-rose-500 hover:text-white"
-            >
-              <i className="bi bi-x-lg text-sm" />
-            </button>
-          )}
-        </div>
-      </div>
-    );
+  const effectivePreviewImage = customPreviewImage || previewImage || null;
+  const selectedPaper = PAPER_OPTIONS.find((option) => option.id === paperSize) || PAPER_OPTIONS[0];
+  const toolbarState = {
+    isInactive,
+    isDesignMode,
+    isPromoPreview,
+    selectedElement,
+    activeBackground: activeBg,
+    snapEnabled,
+    showColorPalette,
+    activeColor,
+    activeSize,
+    activeBold,
+    activeAlign,
+    activeVerticalAlign: activeVAlign,
+    priceFontSizes: {
+      tens: priceFontSizeTens,
+      hundreds: priceFontSizeHundreds,
+      thousands: priceFontSizeThousands,
+      tenThousands: priceFontSizeTenThousands,
+    },
+    fontFamily,
+    priceFormat,
   };
-
-  const effectivePreviewImage = customPreviewImage || previewImage;
-
-  // Visualizador de Folha Inteira com Exemplos
-  const SheetPreviewGrid = () => {
-    const option = PAPER_OPTIONS.find((o) => o.id === paperSize) || PAPER_OPTIONS[0];
-    const w = paperSize === 'Custom' ? customWidth : option.w;
-    const h = paperSize === 'Custom' ? customHeight : option.h;
-    const aspect = w / h;
-    const previewH = 1000;
-    const previewW = previewH * aspect;
-
-    return (
-      <div className="flex flex-col items-center gap-6 w-full">
-        {/* Botão de Upload de Exemplo */}
-        <div className="w-full max-w-4xl flex items-center justify-between">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
-              Conteúdo de Amostra
-            </p>
-            <p className="text-[7px] text-slate-400 italic">
-              Escolha uma imagem para pré-visualizar o layout da folha.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {customPreviewImage && (
-              <button
-                onClick={() => setCustomPreviewImage(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl text-[8px] font-black uppercase transition-all"
-              >
-                <i className="bi bi-trash3 mr-2" /> Limpar
-              </button>
-            )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = (re) => setCustomPreviewImage(re.target?.result as string);
-                  reader.readAsDataURL(file);
-                }
-              }}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-3"
-            >
-              <i className="bi bi-image-fill" />{' '}
-              {customPreviewImage ? 'Trocar Amostra' : 'Escolher Amostra'}
-            </button>
-          </div>
-        </div>
-
-        <div
-          className="relative bg-white shadow-2xl border-4 border-white overflow-hidden flex flex-col"
-          style={{
-            width: `${previewW}px`,
-            height: `${previewH}px`,
-            padding: `${marginT / 2}px ${marginR / 2}px ${marginB / 2}px ${marginL / 2}px`,
-          }}
-        >
-          {/* Camada de Fundo (Backgrounds) */}
-          <div
-            className="flex-1 grid"
-            style={{
-              gridTemplateColumns: `repeat(${columns}, 1fr)`,
-              gridTemplateRows: `repeat(${rows}, 1fr)`,
-              columnGap: `${gapH / 2}px`,
-              rowGap: `${gapV / 2}px`,
-            }}
-          >
-            {Array.from({ length: columns * rows }).map((_, i) => (
-              <div key={i} className="relative flex items-center justify-center overflow-visible">
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: bgColor || 'white',
-                    zIndex: 0,
-                  }}
-                >
-                  {effectivePreviewImage && (
-                    <img
-                      src={effectivePreviewImage}
-                      alt=""
-                      style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transform: `translate(-50%, -50%) scale(${imageScale})`,
-                        opacity: 1, // Amostra com 100% de opacidade na prévia da folha
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Camada de Bordas (Sobrepostas e visíveis umas sobre as outras) */}
-          <div
-            className="absolute grid pointer-events-none"
-            style={{
-              inset: `${marginT / 2}px ${marginR / 2}px ${marginB / 2}px ${marginL / 2}px`,
-              gridTemplateColumns: `repeat(${columns}, 1fr)`,
-              gridTemplateRows: `repeat(${rows}, 1fr)`,
-              columnGap: `${gapH / 2}px`,
-              rowGap: `${gapV / 2}px`,
-            }}
-          >
-            {Array.from({ length: columns * rows }).map((_, i) => {
-              return (
-                <div key={i} className="relative flex items-center justify-center overflow-visible">
-                  {/* Borda de Sangria (Azul) - Desenha por cima de tudo */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      zIndex: 10,
-                    }}
-                  />
-
-                  {/* Borda da Etiqueta (Cinza) */}
-                  <div
-                    className={`relative border border-slate-400 overflow-hidden ${layoutType === 'round' ? 'rounded-full' : ''}`}
-                    style={{ width: '100%', height: '100%', zIndex: 5 }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
+  const toolbarHandlers = {
+    onExitDesignMode: () => setIsDesignMode(false),
+    onChangePreviewMode: (promo: boolean) => {
+      setIsPromoPreview(promo);
+      setSelectedElement(null);
+    },
+    onAddExtraField: addExtraField,
+    onUpdateStyle: updateStyle,
+    onToggleSnap: () => setSnapEnabled(!snapEnabled),
+    onToggleColorPalette: setShowColorPalette,
+    onPriceFontSizeChange: (
+      scale: 'tens' | 'hundreds' | 'thousands' | 'tenThousands',
+      value: number
+    ) => {
+      if (scale === 'tens') setPriceFontSizeTens(value);
+      else if (scale === 'hundreds') setPriceFontSizeHundreds(value);
+      else if (scale === 'thousands') setPriceFontSizeThousands(value);
+      else setPriceFontSizeTenThousands(value);
+    },
+    onCycleAlign: cycleAlign,
+    onCycleVerticalAlign: cycleVAlign,
+    onFontFamilyChange: setFontFamily,
+    onTogglePriceFormat: () =>
+      setPriceFormat((prev) => (prev === 'split' ? 'standard' : 'split')),
+    onClearSelection: () => setSelectedElement(null),
+  };
+  const settingsPanelState = {
+    name,
+    generatedName,
+    paperSize,
+    paperOptions: PAPER_OPTIONS,
+    customWidth,
+    customHeight,
+    columns,
+    rows,
+    imageScale,
+    gapH,
+    gapV,
+    marginT,
+    marginB,
+    marginL,
+    marginR,
+  };
+  const settingsPanelHandlers = {
+    onNameChange: setName,
+    onPaperSizeChange: (value: string) => {
+      const option = PAPER_OPTIONS.find((candidate) => candidate.id === value);
+      if (option) {
+        setPaperSize(option.id);
+        if (option.id !== 'Custom') {
+          setCustomWidth(option.w);
+          setCustomHeight(option.h);
+        }
+      }
+    },
+    onCustomWidthChange: setCustomWidth,
+    onCustomHeightChange: setCustomHeight,
+    onColumnsChange: setColumns,
+    onRowsChange: setRows,
+    onDecreaseImageScale: () =>
+      setImageScale((prev) => Math.max(0.1, parseFloat((prev - 0.01).toFixed(2)))),
+    onImageScaleChange: setImageScale,
+    onIncreaseImageScale: () =>
+      setImageScale((prev) => Math.min(10, parseFloat((prev + 0.01).toFixed(2)))),
+    onGapHChange: setGapH,
+    onGapVChange: setGapV,
+    onMarginTChange: setMarginT,
+    onMarginBChange: setMarginB,
+    onMarginLChange: setMarginL,
+    onMarginRChange: setMarginR,
   };
 
   return (
@@ -1523,7 +1128,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
 
         {isDesignMode ? (
           <>
-            {FixedToolbar()}
+            <LabelGridModelToolbar state={toolbarState} handlers={toolbarHandlers} />
             <div className="flex-1 overflow-y-auto p-12 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-start gap-12 select-none">
               {/* Visualização da Etiqueta Interativa */}
               <div className="relative flex-1 flex flex-col items-center justify-center p-4">
@@ -1703,200 +1308,23 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                           ),
                         ]
                           .filter((el) => !el.hidden)
-                          .map((el: any) => (
-                            <div
+                          .map((el: LabelGridModelCanvasElementData) => (
+                            <LabelGridModelCanvasElement
                               key={el.id}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setDraggingElement(el.id);
-                                setSelectedElement(el.id);
-                              }}
-                              className={`absolute flex cursor-move border group/el ${draggingElement === el.id || resizingElement === el.id ? 'z-50' : 'transition-all duration-200 z-10'} ${selectedElement === el.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-transparent hover:border-slate-300'}`}
-                              style={{
-                                left: `${el.pos.x}%`,
-                                top: `${el.pos.y}%`,
-                                width: `${el.width}%`,
-                                height: el.isBarcode ? '15%' : 'max-content',
-                                transform: 'translate(-50%, -50%)',
-                                padding: el.isBarcode ? '0' : '4px',
-                                backgroundColor: el.bgColor || 'transparent',
-                                fontFamily: fontFamily || 'Inter',
-                                display: 'flex',
-                                alignItems:
-                                  el.valign === 'bottom'
-                                    ? 'flex-end'
-                                    : el.valign === 'top'
-                                      ? 'flex-start'
-                                      : 'center',
-                                justifyContent:
-                                  el.align === 'right'
-                                    ? 'flex-end'
-                                    : el.align === 'left'
-                                      ? 'flex-start'
-                                      : 'center',
-                                overflow: 'visible',
-                              }}
-                            >
-                              {el.id === 'barcode' ? (
-                                <div className="w-full flex items-center justify-center opacity-40">
-                                  {' '}
-                                  <i className="bi bi-barcode text-5xl" />{' '}
-                                </div>
-                              ) : (
-                                <div
-                                  onDoubleClick={() => {
-                                    if (el.id.startsWith('extra_') || el.id === 'name')
-                                      setEditingTextElement(el.id);
-                                  }}
-                                  style={{
-                                    fontSize: `calc( (${el.font} / 500) * 100cqh )`,
-                                    fontWeight: el.bold ? '950' : '400',
-                                    color: el.color,
-                                    textAlign: el.align,
-                                    width: '100%',
-                                    lineHeight: '1.1',
-                                    whiteSpace: el.id === 'name' ? 'normal' : 'nowrap',
-                                    wordBreak: el.id === 'name' ? 'break-word' : 'normal',
-                                  }}
-                                >
-                                  {editingTextElement === el.id ? (
-                                    <input
-                                      autoFocus
-                                      value={el.text}
-                                      onChange={(e) => updateStyle('text', e.target.value)}
-                                      onBlur={() => setEditingTextElement(null)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') setEditingTextElement(null);
-                                      }}
-                                      className="w-full bg-blue-500/10 border-none outline-none text-center rounded ring-4 ring-blue-500/20"
-                                      style={{
-                                        fontSize: 'inherit',
-                                        color: 'inherit',
-                                        fontWeight: 'inherit',
-                                        textAlign: 'inherit',
-                                      }}
-                                    />
-                                  ) : (
-                                    el.text
-                                  )}
-                                </div>
-                              )}
-
-                              {selectedElement === el.id && el.id.startsWith('extra_') && (
-                                <div className="absolute -top-4 -right-4 z-[200]">
-                                  <div className="relative group/menu">
-                                    <button className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
-                                      {' '}
-                                      <i className="bi bi-three-dots-vertical text-xs" />{' '}
-                                    </button>
-                                    <div className="absolute top-0 left-full ml-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-2xl opacity-0 scale-90 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:scale-100 group-hover/menu:pointer-events-auto transition-all flex flex-col min-w-[120px]">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          duplicateExtraField(el.id);
-                                        }}
-                                        className="w-full px-4 py-2 hover:bg-blue-50 text-blue-600 rounded-xl transition-colors flex items-center gap-3"
-                                      >
-                                        {' '}
-                                        <i className="bi bi-copy text-[10px]" />{' '}
-                                        <span className="text-[8px] font-black uppercase">
-                                          Duplicar
-                                        </span>{' '}
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          removeExtraField(el.id);
-                                        }}
-                                        className="w-full px-4 py-2 hover:bg-rose-50 text-rose-500 rounded-xl transition-colors flex items-center gap-3"
-                                      >
-                                        {' '}
-                                        <i className="bi bi-trash3-fill text-[10px]" />{' '}
-                                        <span className="text-[8px] font-black uppercase">
-                                          Excluir
-                                        </span>{' '}
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {selectedElement === el.id && el.id !== 'barcode' && (
-                                <>
-                                  {/* Alças de Largura (Laterais Ampliadas) */}
-                                  <div
-                                    onMouseDown={(e) =>
-                                      handleMouseDownResize(
-                                        e,
-                                        el.id,
-                                        'right',
-                                        el.font,
-                                        el.pos.x,
-                                        el.width
-                                      )
-                                    }
-                                    className="absolute -right-2 top-0 bottom-0 w-4 cursor-ew-resize z-50 flex items-center justify-center"
-                                  >
-                                    {' '}
-                                    <div className="w-1.5 h-8 bg-blue-600 rounded-full border border-white" />{' '}
-                                  </div>
-                                  <div
-                                    onMouseDown={(e) =>
-                                      handleMouseDownResize(
-                                        e,
-                                        el.id,
-                                        'left',
-                                        el.font,
-                                        el.pos.x,
-                                        el.width
-                                      )
-                                    }
-                                    className="absolute -left-2 top-0 bottom-0 w-4 cursor-ew-resize z-50 flex items-center justify-center"
-                                  >
-                                    {' '}
-                                    <div className="w-1.5 h-8 bg-blue-600 rounded-full border border-white" />{' '}
-                                  </div>
-
-                                  {/* NOVO: Alça de Fonte (Borda Inferior) */}
-                                  <div
-                                    onMouseDown={(e) =>
-                                      handleMouseDownResize(
-                                        e,
-                                        el.id,
-                                        'font',
-                                        el.font,
-                                        el.pos.x,
-                                        el.width
-                                      )
-                                    }
-                                    className="absolute -bottom-2 left-0 right-0 h-4 cursor-ns-resize z-[51] flex flex-col items-center justify-center"
-                                  >
-                                    <div className="w-1/2 h-1 bg-blue-600 rounded-full" />
-                                    <div className="text-[6px] font-black text-blue-600 uppercase mt-0.5 bg-white/80 px-1 rounded">
-                                      Fonte
-                                    </div>
-                                  </div>
-
-                                  {/* Alça de Canto */}
-                                  <div
-                                    onMouseDown={(e) =>
-                                      handleMouseDownResize(
-                                        e,
-                                        el.id,
-                                        'font',
-                                        el.font,
-                                        el.pos.x,
-                                        el.width
-                                      )
-                                    }
-                                    className="absolute -right-3 -bottom-3 w-6 h-6 bg-white border-[3px] border-blue-600 rounded-full cursor-nwse-resize shadow-xl z-[52] flex items-center justify-center hover:scale-125 transition-transform"
-                                  >
-                                    {' '}
-                                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />{' '}
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                              el={el}
+                              draggingElement={draggingElement}
+                              resizingElement={resizingElement}
+                              selectedElement={selectedElement}
+                              editingTextElement={editingTextElement}
+                              fontFamily={fontFamily}
+                              setDraggingElement={setDraggingElement}
+                              setSelectedElement={setSelectedElement}
+                              setEditingTextElement={setEditingTextElement}
+                              updateStyle={updateStyle}
+                              duplicateExtraField={duplicateExtraField}
+                              removeExtraField={removeExtraField}
+                              handleMouseDownResize={handleMouseDownResize}
+                            />
                           ))}
                       </div>
                     </div>
@@ -1904,300 +1332,19 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                 })()}
               </div>
 
-              {/* Lista Horizontal de Elementos */}
-              <div className="w-full max-w-4xl flex items-center gap-2 overflow-x-auto pb-4 px-2 no-scrollbar shrink-0">
-                {[
-                  { id: 'name', label: 'Produto', icon: 'bi-type-h1', hidden: false },
-                  {
-                    id: 'mainPrice',
-                    label: 'Preço Principal',
-                    icon: 'bi-currency-dollar',
-                    hidden: false,
-                  },
-                  {
-                    id: 'oldPrice',
-                    label: 'Preço Antigo',
-                    icon: 'bi-type-strikethrough',
-                    hidden: !isPromoPreview,
-                  },
-                  {
-                    id: 'priceSymbol',
-                    label: 'Símbolo R$',
-                    icon: 'bi-coin',
-                    hidden: currentCategory !== 'precos',
-                  },
-                  {
-                    id: 'priceDecimals',
-                    label: 'Centavos',
-                    icon: 'bi-percent',
-                    hidden: currentCategory !== 'precos',
-                  },
-                  ...(currentCategory !== 'precos'
-                    ? [{ id: 'barcode', label: 'Código Barras', icon: 'bi-barcode', hidden: false }]
-                    : []),
-                  ...(isPromoPreview ? extraFieldsPromo || [] : extraFields || []).map((f) => ({
-                    id: f.id,
-                    label: f.text,
-                    icon: 'bi-fonts',
-                    hidden: false,
-                  })),
-                ]
-                  .filter((i) => !i.hidden)
-                  .map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedElement(item.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-2xl whitespace-nowrap text-[9px] font-black uppercase transition-all shadow-sm shrink-0 ${selectedElement === item.id ? 'bg-blue-600 text-white translate-y-[-2px] shadow-blue-500/30' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100'}`}
-                    >
-                      <i className={item.icon} /> {item.label}
-                    </button>
-                  ))}
-              </div>
+              <LabelGridModelElementSelector
+                currentCategory={currentCategory}
+                isPromoPreview={isPromoPreview}
+                extraFields={extraFields}
+                extraFieldsPromo={extraFieldsPromo}
+                selectedElement={selectedElement}
+                onSelectElement={(elementId) => setSelectedElement(elementId)}
+              />
             </div>
           </>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Nome do Modelo */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-3 lg:col-span-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    Nome do Modelo
-                  </p>
-                  <span className="text-[9px] text-slate-400 font-bold">
-                    Personalize o nome para identificar facilmente
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={generatedName}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-blue-500 rounded-2xl px-5 py-3.5 text-sm font-black text-slate-800 dark:text-white outline-none transition-all"
-                />
-                <p className="text-[9px] text-slate-400 italic">
-                  Deixe em branco para usar o nome padrão gerado pela grade: <b>{generatedName}</b>
-                </p>
-              </div>
-
-              {/* Formato do Papel */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Papel
-                </p>
-                <select
-                  value={paperSize}
-                  onChange={(e) => {
-                    const opt = PAPER_OPTIONS.find((o) => o.id === e.target.value);
-                    if (opt) {
-                      setPaperSize(opt.id);
-                      if (opt.id !== 'Custom') {
-                        setCustomWidth(opt.w);
-                        setCustomHeight(opt.h);
-                      }
-                    }
-                  }}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-4 text-sm font-black outline-none"
-                >
-                  {PAPER_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
-                {paperSize === 'Custom' && (
-                  <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="L"
-                      value={customWidth}
-                      onChange={(e) => setCustomWidth(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
-                    />
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="H"
-                      value={customHeight}
-                      onChange={(e) => setCustomHeight(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Matriz */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Grade de Impressão
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    {' '}
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Colunas
-                    </label>{' '}
-                    <input
-                      type="number"
-                      value={columns}
-                      onChange={(e) => setColumns(parseInt(e.target.value) || 1)}
-                      className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
-                    />{' '}
-                  </div>
-                  <div>
-                    {' '}
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Linhas
-                    </label>{' '}
-                    <input
-                      type="number"
-                      value={rows}
-                      onChange={(e) => setRows(parseInt(e.target.value) || 1)}
-                      className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
-                    />{' '}
-                  </div>
-                </div>
-              </div>
-
-              {/* Escala da Imagem */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    Escala da Imagem (Zoom)
-                  </p>
-                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                    x{Number(imageScale).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() =>
-                      setImageScale((prev) => Math.max(0.1, parseFloat((prev - 0.01).toFixed(2))))
-                    }
-                    className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
-                  >
-                    <i className="bi bi-dash-lg" />
-                  </button>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="10"
-                    step="0.01"
-                    value={imageScale}
-                    onChange={(e) => setImageScale(parseFloat(e.target.value))}
-                    className="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-100 rounded-lg appearance-none"
-                  />
-                  <button
-                    onClick={() =>
-                      setImageScale((prev) => Math.min(10, parseFloat((prev + 0.01).toFixed(2))))
-                    }
-                    className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
-                  >
-                    <i className="bi bi-plus-lg" />
-                  </button>
-                </div>
-                <p className="text-[7px] text-slate-400 italic">
-                  Ajuste o zoom com precisão. Clique nos botões para ajuste fino (0.01) ou deslize
-                  para mudanças rápidas.
-                </p>
-              </div>
-
-              {/* Espaçamento (Gaps) */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Distância entre Etiquetas (Gaps mm)
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    {' '}
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Horizontal
-                    </label>{' '}
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={gapH}
-                      onChange={(e) => setGapH(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-center font-black"
-                    />{' '}
-                  </div>
-                  <div>
-                    {' '}
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Vertical
-                    </label>{' '}
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={gapV}
-                      onChange={(e) => setGapV(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-center font-black"
-                    />{' '}
-                  </div>
-                </div>
-              </div>
-
-              {/* Margens do Papel */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4 lg:col-span-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  Margens do Papel (Sangria mm)
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Topo (T)
-                    </label>
-                    <MeasurementInput
-                      unit="mm"
-                      showBadge={false}
-                      value={marginT}
-                      onChangeValue={(val) => setMarginT(val || 0)}
-                      className="w-full bg-transparent text-center font-black text-blue-600 outline-none"
-                    />
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Base (B)
-                    </label>
-                    <MeasurementInput
-                      unit="mm"
-                      showBadge={false}
-                      value={marginB}
-                      onChangeValue={(val) => setMarginB(val || 0)}
-                      className="w-full bg-transparent text-center font-black text-blue-600 outline-none"
-                    />
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Esq. (L)
-                    </label>
-                    <MeasurementInput
-                      unit="mm"
-                      showBadge={false}
-                      value={marginL}
-                      onChangeValue={(val) => setMarginL(val || 0)}
-                      className="w-full bg-transparent text-center font-black text-blue-600 outline-none"
-                    />
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <label className="text-[8px] font-black text-slate-400 block mb-1 uppercase">
-                      Dir. (R)
-                    </label>
-                    <MeasurementInput
-                      unit="mm"
-                      showBadge={false}
-                      value={marginR}
-                      onChangeValue={(val) => setMarginR(val || 0)}
-                      className="w-full bg-transparent text-center font-black text-blue-600 outline-none"
-                    />
-                  </div>
-                </div>
-                <p className="text-[7px] text-slate-400 italic text-center">
-                  Para modelos 1x1 (térmicos), deixe todos em 0 para não ter bordas brancas.
-                </p>
-              </div>
-            </div>
+            <LabelGridModelSettingsPanel state={settingsPanelState} handlers={settingsPanelHandlers} />
 
             {/* Botão de Edição de Design (Oculto em categorias de imagem) */}
             {currentCategory !== 'logos' && currentCategory !== 'posts' && (
@@ -2229,7 +1376,22 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
                 Prévia do modelo em folha inteira
               </p>
-              {SheetPreviewGrid()}
+              <LabelGridSheetPreview
+                layout={{
+                  paperWidth: paperSize === 'Custom' ? customWidth : selectedPaper.w,
+                  paperHeight: paperSize === 'Custom' ? customHeight : selectedPaper.h,
+                  columns,
+                  rows,
+                  margins: { top: marginT, bottom: marginB, left: marginL, right: marginR },
+                  gaps: { horizontal: gapH, vertical: gapV },
+                  layoutType,
+                  backgroundColor: bgColor,
+                  imageScale,
+                  previewImage: effectivePreviewImage,
+                  customPreviewImage,
+                }}
+                onCustomPreviewImageChange={setCustomPreviewImage}
+              />
             </div>
           </div>
         )}

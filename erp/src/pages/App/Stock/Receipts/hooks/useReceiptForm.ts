@@ -16,6 +16,7 @@ import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesServi
 import { calculateReceiptItems } from '@/pages/utils/goodsReceiptCostCalculation';
 import { convertInboundToPurchaseItems } from '../utils/inboundToPurchaseConverter';
 import { adaptInboundInvoiceToReceiptState } from '../utils/inboundInvoiceToReceiptAdapter';
+import { calculateReceiptRateioBase } from '../utils/calculateReceiptRateioBase';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -255,29 +256,15 @@ export function useReceiptForm({
   });
   const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
 
-  const baseValueForRateio = useMemo(() => {
-    if (initialInboundInvoice?.totalInvoice && initialInboundInvoice.totalInvoice > 0)
-      return initialInboundInvoice.totalInvoice;
-    if (initialInboundInvoice?.totalProducts && initialInboundInvoice.totalProducts > 0)
-      return initialInboundInvoice.totalProducts;
-    if (inboundItems && inboundItems.length > 0) {
-      const sum = inboundItems.reduce(
-        (acc, item) => acc + (item.unitCost || 0) * Math.max(1, item.quantity),
-        0
-      );
-      if (sum > 0) return sum;
-    }
-    if (items && items.length > 0) {
-      const sum = items.reduce(
-        (acc, item) =>
-          acc +
-          (item.fiscalBaseCost ?? item.baseCost ?? item.unitCost ?? 0) * Math.max(1, item.quantity),
-        0
-      );
-      if (sum > 0) return sum;
-    }
-    return 0;
-  }, [initialInboundInvoice, inboundItems, items]);
+  const baseValueForRateio = useMemo(
+    () =>
+      calculateReceiptRateioBase({
+        initialInvoice: initialInboundInvoice,
+        inboundItems,
+        items,
+      }),
+    [initialInboundInvoice, inboundItems, items]
+  );
 
   // ── Auto-save do rascunho ──────────────────────────────────────────────────
   useEffect(() => {

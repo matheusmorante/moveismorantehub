@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { PurchaseItemsSection } from '@/components/PurchaseItemsSection';
+import { PurchaseItemsSection } from '../../components/PurchaseItemsSection';
 import { formatCurrency } from '@/pages/utils/formatters';
 import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Purchase from '@/pages/types/purchase.type';
-import ReceiptFiscalDocumentsSection from '../ReceiptFiscalDocumentsSection';
+import ReceiptFiscalDocumentsSection from '../components/ReceiptFiscalDocumentsSection';
 import ReturnObservationTags from '@/pages/App/SalesOrder/OrderActions/ReturnObservationTags';
-import InboundNfeItemsSection from '../InboundNfeItemsSection';
+import InboundNfeItemsSection from '../components/InboundNfeItemsSection';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
 import { InboundInvoiceFiscalReview } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceFiscalReview';
 import { useReceiptForm } from '../hooks/useReceiptForm';

@@ -112,6 +112,13 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
         source: 'cadastro',
         totalOrders: 0,
         customerData: {
+          id: p.id,
+          personType: p.personType || (p.cpfCnpj && p.cpfCnpj.length > 14 ? 'PJ' : 'PF'),
+          cpfCnpj: p.cpfCnpj || '',
+          ie: p.ie || p.rgIe || '',
+          rgIe: p.rgIe || p.ie || '',
+          ieIndicator: p.ieIndicator || '9',
+          email: p.email || '',
           fullName: name,
           phone: p.phone || '',
           noPhone: p.noPhone || false,

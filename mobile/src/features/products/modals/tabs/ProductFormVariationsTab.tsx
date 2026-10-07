@@ -26,7 +26,8 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { generateVariationSku, parseLocalizedPrice } from '../../services/mobileProductHelpers';
+import { parseLocalizedNumber as parseLocalizedPrice } from '../../domain/productNumbers';
+import { generateVariationSku } from '../../domain/productSku';
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';

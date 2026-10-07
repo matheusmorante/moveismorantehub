@@ -13,7 +13,9 @@ export const mapToDB = (collectionName: string, person: Partial<Person>) => {
   if (p.nickname !== undefined || p.tradeName !== undefined)
     dbObj.nickname = p.nickname || p.tradeName;
   if (p.cpfCnpj !== undefined) dbObj.cpf_cnpj = p.cpfCnpj;
-  if (p.rgIe !== undefined) dbObj.rg_ie = p.rgIe;
+  // Estrutura legada: a coluna people.rg_ie armazena o RG para PF e a Inscrição Estadual (IE) para PJ.
+  if (p.rgIe !== undefined || p.ie !== undefined) dbObj.rg_ie = p.ie !== undefined ? p.ie : p.rgIe;
+  if (p.ieIndicator !== undefined) dbObj.ie_indicator = p.ieIndicator;
   if (p.email !== undefined) dbObj.email = p.email;
   if (p.phone !== undefined) dbObj.phone = p.phone;
   if (p.observation !== undefined) dbObj.observation = p.observation;
@@ -110,7 +112,10 @@ export const mapFromDB = (data: any): Person => {
     socialName: data.social_name || '',
     nickname: data.nickname || '',
     cpfCnpj: data.cpf_cnpj || '',
+    // Estrutura legada: a coluna people.rg_ie guarda o RG para PF e a Inscrição Estadual (IE) para PJ.
     rgIe: data.rg_ie || '',
+    ie: data.person_type_pf_pj === 'PJ' ? (data.rg_ie || '') : (data.rg_ie || ''),
+    ieIndicator: (data.ie_indicator as '1' | '2' | '9') || '9',
     email: data.email || '',
     phone: data.phone || '',
     address: parsedAddress || {},

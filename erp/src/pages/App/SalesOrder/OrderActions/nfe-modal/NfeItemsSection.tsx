@@ -63,7 +63,7 @@ export const NfeItemsSection: React.FC<Props> = ({
   });
   const cfopContextMessage =
     operationScope.scope === 'interstate'
-      ? `Operação interestadual · ${operationScope.issuerUf} → ${operationScope.operationUf}. O CFOP 6102 está classificado, mas a matriz tributária não foi aprovada; emissão bloqueada.`
+      ? `Operação interestadual · ${operationScope.issuerUf} → ${operationScope.operationUf}.`
       : operationScope.scope === 'internal' &&
           operationScope.locationSource === 'issuer_pickup_location'
         ? `Retirada no estabelecimento emitente (${operationScope.operationUf}); o endereço cadastral do cliente não define o CFOP.`
@@ -71,13 +71,9 @@ export const NfeItemsSection: React.FC<Props> = ({
           ? `Operação interna · ${operationScope.issuerUf} → ${operationScope.operationUf}.`
           : operationScope.reason || 'Não foi possível determinar o local físico da operação.';
   const matrixWarning =
-    environment === 1
-      ? 'Matriz de CFOP de Produção não disponível para este fluxo.'
-      : operationScope.scope === 'interstate'
-        ? 'Matriz tributária interestadual pendente de aprovação.'
-        : operationScope.scope === 'foreign'
-          ? 'Operação com exterior sem matriz fiscal aprovada.'
-        : undefined;
+    operationScope.scope === 'foreign'
+      ? 'Operação com exterior sem matriz fiscal aprovada.'
+      : undefined;
 
   const cfopOptionsForItem = (item: NfeItemWithFiscal): NfeItemCfopOption[] => {
     if (!operationScope.scope) return [];
@@ -104,17 +100,19 @@ export const NfeItemsSection: React.FC<Props> = ({
       isSt,
     })).map((option) => {
       const approvedInCurrentMatrix =
-        environment === 2 &&
-        operationScope.scope === 'internal' &&
-        option.value === '5102' &&
-        merchandiseOrigin === 'third_party' &&
-        !isSt;
+        (operationScope.scope === 'internal' &&
+          option.value === '5102' &&
+          merchandiseOrigin === 'third_party' &&
+          !isSt) ||
+        (operationScope.scope === 'interstate' &&
+          (option.value === '6102' || option.value === '6108') &&
+          merchandiseOrigin === 'third_party' &&
+          !isSt);
       const pendingReason =
-        operationScope.scope === 'interstate' &&
-        option.operationType === 'sale_to_non_taxpayer'
-          ? ' — venda a não contribuinte; matriz pendente'
-          : option.stApplicability === 'scenario_dependent'
-            ? ' — ST depende do cenário; matriz pendente'
+        option.stApplicability === 'required' || isSt
+          ? ' — ST exige matriz específica'
+          : merchandiseOrigin === 'own_production'
+            ? ' — produção própria exige matriz específica'
             : ' — matriz fiscal não aprovada';
       return {
         value: option.value,

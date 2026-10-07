@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { fetchProductCategoryOptions } from '../services/productCategoryOptionsService';
 
 export interface ProductFiltersData {
   search: string;
@@ -13,8 +13,8 @@ export interface ProductFiltersData {
 }
 
 export interface ProductFiltersProps {
-  readonly filters: ProductFiltersData;
-  readonly setFilters: React.Dispatch<React.SetStateAction<ProductFiltersData>>;
+  readonly filters: Partial<ProductFiltersData>;
+  readonly setFilters: React.Dispatch<React.SetStateAction<Partial<ProductFiltersData>>>;
 }
 
 export const ProductFilters: React.FC<ProductFiltersProps> = ({ filters, setFilters }) => {
@@ -26,10 +26,8 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({ filters, setFilt
     let active = true;
     const loadCats = async () => {
       try {
-        const { data, error } = await supabase.from('categories').select('id, name').order('name');
-        if (!error && data && active) {
-          setAvailableCategories(data);
-        }
+        const categories = await fetchProductCategoryOptions();
+        if (active) setAvailableCategories(categories);
       } catch (err: unknown) {
         console.warn('[ProductFilters] Erro ao carregar categorias:', err);
       }

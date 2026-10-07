@@ -4,5 +4,5 @@
  * Implementação canônica em ../modals/InventoryMoveEditModal.tsx.
  */
 
-export { InventoryMoveEditModal, default } from '../modals/InventoryMoveEditModal';
-export type { InventoryMoveEditModalProps } from '../modals/InventoryMoveEditModal';
+export { InventoryMoveEditModal, default } from '../Movements/modals/InventoryMoveEditModal';
+export type { InventoryMoveEditModalProps } from '../Movements/modals/InventoryMoveEditModal';

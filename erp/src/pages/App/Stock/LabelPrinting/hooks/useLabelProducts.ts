@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { processProductData } from '../utils/LabelUtils';
+import { processProductData } from '../utils/processLabelProductData';
 
 export const ITEMS_PER_PAGE = 15;
 

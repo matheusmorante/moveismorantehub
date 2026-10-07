@@ -2,7 +2,7 @@ import React from 'react';
 import type Person from '@/pages/types/person.type';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import InventoryResponsibleSelect from '../components/InventoryResponsibleSelect';
-import type { InventoryScopeType } from '../modals/InventoryScopeModal';
+import type { InventoryScopeType } from '../types/inventoryScope.types';
 
 interface InventoryScopeConfigFormProps {
   readonly scopeType: InventoryScopeType | null;

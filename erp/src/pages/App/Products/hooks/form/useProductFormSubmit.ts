@@ -2,9 +2,9 @@ import { getEnteredProductName } from './rules/productDraftRules';
 import { useCallback } from 'react';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
-import { checkERPLegibility, checkEcomLegibility } from '../../utils/productLegibilityRules';
+import { checkERPLegibility, checkEcomLegibility } from '../../domain/productLegibilityRules';
 import { toast } from 'react-toastify';
-import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../utils/variationRegistrationRules';
+import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 import { isTestProduct } from '@/pages/utils/hmlTestData';
 
