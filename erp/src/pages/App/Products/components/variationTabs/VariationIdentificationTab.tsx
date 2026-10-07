@@ -27,6 +27,7 @@ interface VariationIdentificationTabProps {
   readonly getDefaultVariationName?: (attributes?: Variation['attributes']) => string;
   readonly getDefaultVariationTitle?: (attributes?: Variation['attributes']) => string;
   readonly fetchDbAttributes?: () => Promise<void>;
+  readonly isSingleVariation?: boolean;
 }
 
 export const VariationIdentificationTab: React.FC<VariationIdentificationTabProps> = ({
@@ -35,6 +36,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
   parentProduct,
   diferenciarTitulo,
   setDiferenciarTitulo,
+  isSingleVariation = false,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
@@ -47,7 +49,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
               <span>Nome</span>
               <span className="text-red-500 ml-0.5">*</span>
             </label>
-            <button
+            {!isSingleVariation && <button
               type="button"
               onClick={() => {
                 const newValue = !diferenciarTitulo;
@@ -71,7 +73,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
               }`}
             >
               {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
-            </button>
+            </button>}
           </div>
           {(() => {
             const parentPrefix = (
@@ -110,10 +112,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 </span>
                 <input
                   type="text"
+                  disabled={isSingleVariation}
                   placeholder="Complemento da variação (ex: Branco 6 Portas)..."
                   value={currentSuffix}
                   onChange={(e) => handleSuffixChange(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0"
+                  className="w-full bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70"
                   aria-label="Sufixo do nome da variação"
                 />
               </div>
@@ -129,6 +132,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             </label>
             <input
               type="text"
+              disabled={isSingleVariation}
               placeholder="Título exibido no catálogo digital..."
               value={formData.title || formData.marketplaceTitle || ''}
               onChange={(e) =>
@@ -149,7 +153,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                   }
                 }
               }}
-              className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all font-mono"
+              className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all font-mono disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
         ) : null}

@@ -4,6 +4,7 @@ import {
   checkProductIsUsed,
   checkProductLinkedToSales,
   checkVariationIsUsed,
+  physicalDeleteVariation,
 } from './productDependencyCheck';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
@@ -104,5 +105,29 @@ describe('checkProductLinkedToSales', () => {
 
     await expect(checkVariationIsUsed(variationId)).resolves.toBe(true);
     expect(mockDb.from).not.toHaveBeenCalledWith('orders');
+  });
+});
+
+describe('physicalDeleteVariation', () => {
+  beforeEach(() => {
+    mockDb.from.mockReset();
+  });
+
+  it('bloqueia a exclusão da última variação sem excluir o produto pai', async () => {
+    mockDb.from.mockImplementation((table: string) => {
+      if (table === 'product_variations') {
+        return queryResult({ data: [{ id: '44444444-4444-4444-8444-444444444444' }], error: null });
+      }
+      return queryResult({ data: [], error: null });
+    });
+
+    const result = await physicalDeleteVariation(
+      '55555555-5555-4555-8555-555555555555',
+      '44444444-4444-4444-8444-444444444444'
+    );
+
+    expect(result).toMatchObject({ success: false });
+    expect(result.message).toContain('ao menos uma variação');
+    expect(mockDb.from).not.toHaveBeenCalledWith('products');
   });
 });

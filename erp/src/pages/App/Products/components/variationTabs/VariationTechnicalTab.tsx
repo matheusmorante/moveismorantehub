@@ -22,6 +22,7 @@ interface VariationTechnicalTabProps {
   readonly parentProduct: Product & { readonly attributes?: Variation['attributes'] };
   readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
   readonly showDescription?: boolean;
+  readonly isSingleVariation?: boolean;
 }
 
 export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
@@ -29,6 +30,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   parentProduct,
   handleChange,
   showDescription = false,
+  isSingleVariation = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -289,7 +291,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         ? rawEffectiveVal
                         : variationAttributeValues[fieldLower];
                     const isManual = manualFieldNames.includes(field.name);
-                    // Campo está "ativo" se tem override próprio OU se o pai informou valor
+                    // Campo está ativo se tem override explícito ou se o pai configurou sua aplicabilidade.
                     const parentVal = parentNormalizedValues[field.name];
                     const parentText = String(parentVal ?? '').trim();
                     const parentIsZero =
@@ -310,7 +312,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                       isAlwaysApplicable ||
                       (isOverridden
                         ? normalizedEffectiveValue !== 'não se aplica'
-                        : normalizedEffectiveValue !== 'não se aplica');
+                        : Object.prototype.hasOwnProperty.call(parentNormalizedValues, field.name) &&
+                          normalizedEffectiveValue !== 'não se aplica');
                     // O vínculo é a fonte da verdade: sem override a variação está
                     // sincronizada e o status deve ser somente leitura. Ao dessincronizar,
                     // handleSetOverride cria também um override vazio, quando necessário.
@@ -345,10 +348,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             {(field.name.toLowerCase() === 'profundidade' ||
                               field.name.toLowerCase() === 'comprimento') && (
                               <button
-                                type="button"
-                                title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
-                                onClick={() => handleToggleDepthLength(field)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                              type="button"
+                              disabled={isSingleVariation}
+                              title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                              onClick={() => handleToggleDepthLength(field)}
+                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1 disabled:opacity-50"
                               >
                                 <i className="bi bi-arrow-left-right" />
                               </button>
@@ -372,7 +376,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                                     handleSetOverride(field.name, valueToApply);
                                   }
                                 }}
-                                disabled={!canEditApplicability}
+                                disabled={!canEditApplicability || isSingleVariation}
                                 className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${canEditApplicability ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${isApplicable ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
                                 title={
                                   isAlwaysApplicable
@@ -392,6 +396,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                             {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
                             <button
                               type="button"
+                              disabled={isSingleVariation}
                               onClick={() => {
                                 if (isOverridden) {
                                   handleRemoveOverride(field.name);
@@ -399,7 +404,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                                   handleSetOverride(field.name, effectiveVal ?? '');
                                 }
                               }}
-                              className={`p-1 rounded-lg flex items-center transition-all cursor-pointer ${
+                              className={`p-1 rounded-lg flex items-center transition-all ${isSingleVariation ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                                 isOverridden
                                   ? 'text-slate-400 hover:text-slate-600'
                                   : 'text-emerald-500 hover:text-emerald-600'
@@ -433,7 +438,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                           value={
                             effectiveVal !== undefined && effectiveVal !== null ? effectiveVal : ''
                           }
-                          disabled={isInheritedFromParent}
+                          disabled={isSingleVariation || isInheritedFromParent}
                           onChange={(selectedVal) => handleSetOverride(field.name, selectedVal)}
                         />
                       </div>
@@ -477,8 +482,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                 )}
                 <button
                   type="button"
+                  disabled={isSingleVariation}
                   onClick={() => handleChange('syncDescription', !formData.syncDescription)}
-                  className={`p-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${formData.syncDescription ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
+                  className={`p-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:cursor-not-allowed disabled:opacity-70 ${formData.syncDescription ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
                   title={
                     formData.syncDescription
                       ? 'Desvincular Descrição do Pai'

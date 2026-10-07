@@ -50,8 +50,8 @@ const BodyRow = ({
   const shouldAdjustPaymentAmount = Math.abs(paymentAmountDifference) > 0.01;
   const paymentAmountAdjustmentTitle =
     paymentAmountDifference > 0
-      ? `Ajustar para o total do pedido (adicionar ${formatCurrency(paymentAmountDifference)})`
-      : `Ajustar valor para o total do pedido (reduzir ${formatCurrency(Math.abs(paymentAmountDifference))})`;
+      ? `Ajustar o restante nos pagamentos (aumentar ${formatCurrency(paymentAmountDifference)})`
+      : `Ajustar o restante nos pagamentos (reduzir ${formatCurrency(Math.abs(paymentAmountDifference))})`;
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

@@ -42,18 +42,32 @@ export function getVariationRegistrationIssue(
   }
 
   const dimensions = resolveVariationDimensions(parent, variation);
-  const missingDimensions = (['width', 'height', 'depth'] as const)
-    .filter((field) => dimensions[field] <= 0)
-    .map((field) => ({ width: 'Largura', height: 'Altura', depth: 'Profundidade' })[field]);
+  const technicalValues = getEffectiveVariationTechnicalValues(
+    parent.technicalValues || {},
+    variation
+  );
+  const dimensionFields = [
+    { field: 'width', label: 'Largura', names: ['Largura'] },
+    { field: 'height', label: 'Altura', names: ['Altura'] },
+    { field: 'depth', label: 'Profundidade', names: ['Profundidade', 'Comprimento'] },
+  ] as const;
+  const missingDimensions = dimensionFields
+    .filter(({ field, names }) => {
+      if (dimensions[field] > 0) return false;
+      return names.some((name) => {
+        if (!Object.prototype.hasOwnProperty.call(technicalValues, name)) return false;
+        const value = String(technicalValues[name] ?? '').trim().toLocaleLowerCase('pt-BR');
+        return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+      });
+    })
+    .map(({ label }) => label);
   if (missingDimensions.length) {
     return {
       message: `Informe valores maiores que zero para as dimensões obrigatórias: ${missingDimensions.join(', ')}.`,
       tab: 'tecnico',
     };
   }
-  const missing = getMissingRequiredCharacteristics(
-    getEffectiveVariationTechnicalValues(parent.technicalValues || {}, variation)
-  );
+  const missing = getMissingRequiredCharacteristics(technicalValues);
   if (missing.length) {
     return { message: `Preencha as características obrigatórias da variação: ${missing.join(', ')}.`, tab: 'tecnico' };
   }

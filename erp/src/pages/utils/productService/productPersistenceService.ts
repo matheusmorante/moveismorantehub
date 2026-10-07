@@ -1,7 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../../types/product.type';
 import { resolveUniqueSlug } from '../uniqueSlug';
-import { isDefaultVariation, normalizeVariationSku } from '../productVariationDefaults';
+import { normalizeVariationSku } from '../productVariationDefaults';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { mapToDB } from './productMapper';
 import { isNonConventionalProduct } from '../productKindRules';
@@ -99,15 +99,22 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
     }
 
     // Sincronizar imagens na tabela product_images
-    if (product.id && Array.isArray(product.images) && product.images.length > 0) {
+    if (product.id && Array.isArray(product.images)) {
       try {
         const imageRecords = product.images.map((url, idx) => ({
           product_id: product.id,
           image_url: url,
           is_main: idx === 0,
         }));
-        await supabase.from('product_images').delete().eq('product_id', product.id);
-        await supabase.from('product_images').insert(imageRecords);
+        const { error: deleteImagesError } = await supabase
+          .from('product_images')
+          .delete()
+          .eq('product_id', product.id);
+        if (deleteImagesError) throw deleteImagesError;
+        if (imageRecords.length > 0) {
+          const { error: insertImagesError } = await supabase.from('product_images').insert(imageRecords);
+          if (insertImagesError) throw insertImagesError;
+        }
       } catch (imgErr) {
         console.error('[ProductService] Erro ao sincronizar product_images:', imgErr);
       }
@@ -121,12 +128,26 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
         product.variations &&
         product.variations.length > 0
       ) {
+        const variationsToPersist = [...product.variations];
+        let generatedDefaultId: string | undefined;
+        if (!isNonConventionalProduct(product)) {
+          const { data: currentParentVariations, error: currentParentVariationsError } = await supabase
+            .from('product_variations')
+            .select('id, sku')
+            .eq('product_id', product.id);
+          if (currentParentVariationsError) throw currentParentVariationsError;
+          const requestedIds = new Set(variationsToPersist.map((item) => item.id));
+          const generatedDefault = (currentParentVariations || []).find(
+            (item: any) => String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
+          );
+          generatedDefaultId = generatedDefault?.id;
+        }
         // Foto é requisito de publicação no catálogo, não requisito operacional.
         const isUuid = (value?: string) =>
           Boolean(
             value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
           );
-        const variationsWithUuid = product.variations
+        const variationsWithUuid = variationsToPersist
           .map((variation, originalIndex) => ({ variation, originalIndex }))
           .filter(({ variation }) => isUuid(variation.id));
         if (variationsWithUuid.length !== product.variations.length) {
@@ -183,8 +204,8 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
           usedSkus.add(resolvedSku);
           v.sku = resolvedSku;
 
-          const effectiveImages = isDefaultVariation(v, index)
-            ? (v.images ?? product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
+          const effectiveImages = variationsToPersist.length === 1
+            ? (product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
             : v.images || [];
           return {
             ...(v.id ? { id: v.id } : {}),
@@ -231,14 +252,21 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
         if (recordsToSave.length > 0) {
           const { error: varErr } = await supabase.from('product_variations').upsert(recordsToSave);
           if (varErr) throw varErr;
+          if (generatedDefaultId) {
+            // Replace the deferred placeholder only after the requested rows exist,
+            // so the database never sees a committed product with zero variations.
+            const { error: defaultDeleteError } = await supabase
+              .from('product_variations')
+              .delete()
+              .eq('id', generatedDefaultId);
+            if (defaultDeleteError) throw defaultDeleteError;
+          }
 
           if (!product.isDraft) {
             const hasActive = recordsToSave.some((r) => r.active !== false);
             await supabase.from(TABLE_NAME).update({ active: hasActive }).eq('id', product.id);
           }
         }
-      } else {
-        await supabase.from('product_variations').delete().eq('product_id', product.id);
       }
     }
   } catch (err: any) {

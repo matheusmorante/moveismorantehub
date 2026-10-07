@@ -16,6 +16,7 @@ interface VariationPricingTabProps {
   readonly handleDiscountFixedChange: (valStr: string) => void;
   readonly handlePromoPriceFieldChange: (valStr: string) => void;
   readonly updateCost?: (fields: Partial<Variation>) => void;
+  readonly isSingleVariation?: boolean;
 }
 
 export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
@@ -30,6 +31,7 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
   handleDiscountPercentChange,
   handleDiscountFixedChange,
   handlePromoPriceFieldChange,
+  isSingleVariation = false,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
@@ -41,6 +43,7 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
           </h4>
           <button
             type="button"
+            disabled={isSingleVariation}
             onClick={() => {
               const nextSync = !formData.syncUnitPrice;
               setFormData((prev) =>
@@ -54,7 +57,8 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
                   : null
               );
             }}
-            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all cursor-pointer ${
+            title={isSingleVariation ? 'A única variação herda os dados do produto.' : undefined}
+            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${isSingleVariation ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
               formData.syncUnitPrice
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'

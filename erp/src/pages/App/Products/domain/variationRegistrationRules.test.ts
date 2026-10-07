@@ -6,7 +6,7 @@ const variation: Variation = {
   id: 'v1', sku: '001-01', name: 'Armário Azul', unitPrice: 120, stock: 0,
   active: false, status: 'draft', attributes: [], syncUnitPrice: false,
   syncWidth: false, syncHeight: false, syncDepth: false, width: 80, height: 180, depth: 50,
-  technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+  technicalValues: { Cor: 'Azul' },
 };
 const parent: Partial<Product> = {
   name: 'Armário', unitPrice: 150, categoryIds: ['categoria'], mainSupplierId: 'fornecedor',
@@ -18,8 +18,31 @@ describe('requisitos existentes para concluir uma variação', () => {
     expect(getVariationRegistrationIssue(parent, variation)).toBeNull();
     expect(resolveVariationDimensions(parent, variation)).toEqual({ width: 80, height: 180, depth: 50 });
   });
-  it.each(['width', 'height', 'depth'] as const)('bloqueia %s inválida', (field) => {
-    expect(getVariationRegistrationIssue(parent, { ...variation, [field]: NaN })).toMatchObject({ tab: 'tecnico' });
+  it.each([
+    ['width', 'Largura'],
+    ['height', 'Altura'],
+    ['depth', 'Profundidade'],
+  ] as const)('bloqueia %s inválida quando a característica está ligada', (field, name) => {
+    expect(getVariationRegistrationIssue(parent, {
+      ...variation,
+      [field]: NaN,
+      technicalValues: { ...variation.technicalValues, [name]: '' },
+    })).toMatchObject({ tab: 'tecnico' });
+  });
+  it('ignora dimensões sem valor quando suas características estão desligadas', () => {
+    const disabledDimensions = {
+      ...variation,
+      width: 0,
+      height: 0,
+      depth: 0,
+      technicalValues: {
+        ...variation.technicalValues,
+        Largura: 'Não se aplica',
+        Altura: 'Não se aplica',
+        Profundidade: 'Não se aplica',
+      },
+    };
+    expect(getVariationRegistrationIssue(parent, disabledDimensions)).toBeNull();
   });
   it('resolve dimensões herdadas e características técnicas com vírgula decimal', () => {
     const inherited = { ...variation, syncWidth: true, syncHeight: true, syncDepth: true };
@@ -29,9 +52,15 @@ describe('requisitos existentes para concluir uma variação', () => {
     expect(getVariationRegistrationIssue(parent, technical)).toBeNull();
     expect(resolveVariationDimensions(parent, technical).width).toBe(80.5);
   });
-  it.each(['Cor', 'Material da estrutura'])('bloqueia característica obrigatória %s vazia', (name) => {
+  it('bloqueia característica obrigatória Cor vazia', () => {
     expect(getVariationRegistrationIssue(parent, { ...variation,
-      technicalValues: { ...variation.technicalValues, [name]: '' } })?.message).toContain(name);
+      technicalValues: { ...variation.technicalValues, Cor: '' } })?.message).toContain('Cor');
+  });
+  it('permite característica opcional Material da estrutura vazia', () => {
+    expect(getVariationRegistrationIssue(parent, {
+      ...variation,
+      technicalValues: { ...variation.technicalValues, 'Material da estrutura': '' },
+    })).toBeNull();
   });
   it('valida preço próprio e permite preço herdado somente quando a sincronização está ligada', () => {
     expect(getVariationRegistrationIssue(parent, { ...variation, unitPrice: 0 })?.message).toContain('Preço de Venda');

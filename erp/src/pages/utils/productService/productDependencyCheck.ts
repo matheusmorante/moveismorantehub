@@ -257,31 +257,30 @@ export const physicalDeleteVariation = async (
     if (countError) throw countError;
 
     if (variations && variations.length <= 1) {
-      // It's the last variation. Delete the parent instead.
-      return { ...(await physicalDeleteProduct(realProductId)), parentDeleted: true };
-    } else {
-      // Delete only this variation
-      const { error: delError } = await supabase
-        .from('product_variations')
-        .delete()
-        .eq('id', variationId);
-      if (delError) throw delError;
-
-      // Update cache
-      const products = getLocalProducts();
-      const parentIdx = products.findIndex((p) => String(p.id).split('_')[0] === realProductId);
-      if (parentIdx >= 0) {
-        const parent = products[parentIdx];
-        if (Array.isArray(parent.variations)) {
-          parent.variations = parent.variations.filter((v) => v.id !== variationId);
-          products[parentIdx] = parent;
-          saveLocalProducts(products);
-        }
-      }
-      notifySubscribers();
-
-      return { success: true, message: 'Variação excluída com sucesso.' };
+      return {
+        success: false,
+        message: 'Todo produto precisa manter ao menos uma variação. Exclua o produto se não for mais necessário.',
+      };
     }
+
+    // Delete only this variation; the database also rejects a concurrent delete of the last one.
+    const { error: delError } = await supabase
+      .from('product_variations')
+      .delete()
+      .eq('id', variationId);
+    if (delError) throw delError;
+
+    const products = getLocalProducts();
+    const parentIdx = products.findIndex((p) => String(p.id).split('_')[0] === realProductId);
+    if (parentIdx >= 0) {
+      const parent = products[parentIdx];
+      if (Array.isArray(parent.variations)) {
+        parent.variations = parent.variations.filter((v) => v.id !== variationId);
+        saveLocalProducts(products);
+      }
+    }
+    notifySubscribers();
+    return { success: true, message: 'Variação excluída com sucesso.' };
   } catch (error: any) {
     console.error('Erro ao excluir variação fisicamente:', error);
     return { success: false, message: error.message || 'Erro ao excluir a variação.' };

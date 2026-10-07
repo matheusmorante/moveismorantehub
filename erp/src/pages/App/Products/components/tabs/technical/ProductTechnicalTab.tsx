@@ -136,10 +136,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const handleTechnicalValueChange = (fieldName: string, value: any) => {
     setFormData((prev) => {
       const currentTech = { ...(prev.technicalValues || {}) };
-      const isRequiredField = allTechnicalFields.some(
-        (field) => field.name === fieldName && field.isRequired
-      );
-      if (value === undefined || value === null || (value === '' && !isRequiredField)) {
+      if (value === undefined || value === null) {
         delete currentTech[fieldName];
       } else {
         currentTech[fieldName] = value;
@@ -235,12 +232,18 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     const rawValue =
                       formData.technicalValues?.[field.name] ??
                       (/^marca$/i.test(field.name.trim()) ? formData.brand : undefined);
+                    const hasConfiguredValue =
+                      (formData.technicalValues?.[field.name] !== undefined &&
+                        formData.technicalValues?.[field.name] !== null) ||
+                      (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand));
                     const hasSelectedValue =
                       rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
                     const isManual = manualFieldNames.includes(field.name);
                     const isNotApplicable = rawValue === 'Não se aplica';
                     const isAlwaysApplicable = field.isRequired;
-                    const isApplicable = isAlwaysApplicable || !isNotApplicable;
+                    const isApplicable =
+                      isAlwaysApplicable ||
+                      (hasConfiguredValue && !isNotApplicable);
                     const isFieldInvalid =
                       isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
 
@@ -297,7 +300,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                             )}
                           </label>
                           <div className="flex items-center gap-1.5">
-                            {/* Switch Toggle: Ligado = Se aplica (padrão) | Desligado = Não se aplica */}
+                            {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
                             {!field.isRequired && (
                               <button
                                 type="button"

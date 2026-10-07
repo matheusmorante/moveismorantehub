@@ -48,6 +48,9 @@ const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
   const { isOpen, parentProduct, variation } = props;
+  const isSingleVariation = variation
+    ? (parentProduct.variations || []).length === 1
+    : (parentProduct.variations || []).length === 0;
 
   const {
     loading,
@@ -332,15 +335,17 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               getDefaultVariationName={getDefaultVariationName}
               getDefaultVariationTitle={getDefaultVariationTitle}
               fetchDbAttributes={fetchDbAttributes}
+              isSingleVariation={isSingleVariation}
             />
           )}
 
           {activeTab === 'fotos' && (
             <VariationPhotosTab
-              images={formData.images || []}
-              parentImages={
-                allParentImages.length > 0 ? allParentImages : parentProduct?.images || []
-              }
+              images={isSingleVariation
+                ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || [])
+                : formData.images || []}
+              parentImages={allParentImages.length > 0 ? allParentImages : parentProduct?.images || []}
+              isSingleVariation={isSingleVariation}
               onChangeImages={(newImages) =>
                 setFormData((prev) => (prev ? { ...prev, images: newImages } : null))
               }
@@ -361,6 +366,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               handleDiscountFixedChange={handleDiscountFixedChange}
               handlePromoPriceFieldChange={handlePromoPriceFieldChange}
               updateCost={updateCost}
+              isSingleVariation={isSingleVariation}
             />
           )}
 
@@ -370,6 +376,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               setFormData={setFormData}
               parentProduct={parentProduct}
               handleChange={handleChange}
+              isSingleVariation={isSingleVariation}
             />
           )}
 
@@ -380,10 +387,11 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               </h3>
               <textarea
                 rows={16}
-                value={formData.description || ''}
+                value={isSingleVariation ? parentProduct.description || '' : formData.description || ''}
+                disabled={isSingleVariation}
                 onChange={(event) => handleChange('description', event.target.value)}
                 placeholder="Descrição específica desta variação..."
-                className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200"
+                className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
               />
             </div>
           )}

@@ -21,6 +21,9 @@ export type PaymentsSummary = {
   totalPaymentsFee: number;
   totalOrderValue: number;
   totalAmountPaid: number;
+  /** Signed gap between the order total and all payment rows; negative means excess. */
+  paymentAllocationDifference?: number;
+  /** Unpaid balance; kept separate from payment allocation for financial views. */
   amountRemaining: number;
   change?: number;
   // Legacy support

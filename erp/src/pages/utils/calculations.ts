@@ -68,6 +68,9 @@ export const calcPaymentsSummary = (
 
   const totalOrderValue = itemsSummary.itemsTotalValue + shippingValue + totalPaymentsFee;
   const totalAmountPaid = calcPaidPaymentsTotalValue(payments);
+  const paymentAllocationDifference = Number(
+    (totalOrderValue - calcPaymentsTotalValue(payments)).toFixed(2)
+  );
   const rawRemaining = totalOrderValue - totalAmountPaid;
   const amountRemaining = rawRemaining > 0 ? Number(rawRemaining.toFixed(2)) : 0;
   const change = rawRemaining < 0 ? Number(Math.abs(rawRemaining).toFixed(2)) : 0;
@@ -76,6 +79,7 @@ export const calcPaymentsSummary = (
     totalPaymentsFee,
     totalOrderValue,
     totalAmountPaid,
+    paymentAllocationDifference,
     amountRemaining,
     change,
   };

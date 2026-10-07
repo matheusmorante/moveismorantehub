@@ -76,4 +76,71 @@ describe('mapDbVariations', () => {
 
     expect(variations[0].comboItems).toEqual(comboItems);
   });
+
+  it('lê campos herdados da variação única a partir dos dados atuais do produto', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const [variation] = mapDbVariations(
+      [{
+        id,
+        product_id: 'product-1',
+        sku: '003962-01',
+        name: 'Nome antigo',
+        image_url: 'https://example.test/photo.jpg',
+        use_parent_name: true,
+        use_parent_price: true,
+        use_parent_promo_price: true,
+        use_parent_dimensions: true,
+        use_parent_description: true,
+        attributes: [],
+      }],
+      {
+        id: 'product-1',
+        name: 'Produto atual',
+        unit_price: 100,
+        promo_price: 90,
+        cost_price: 60,
+        description: 'Descrição atual',
+        condition: 'usado',
+        fiscal: { ncm: '94035000' },
+        width: '30',
+        height: '40',
+        depth: '20',
+        ipi_percent: 5,
+        freight_cost: 12,
+        freight_type: 'fixed',
+        technical_specs: {
+          variationDetails: [{
+            id,
+            syncCostPrice: true,
+            syncCondition: true,
+            syncFiscal: true,
+            syncWidth: true,
+            syncHeight: true,
+            syncDepth: true,
+            syncWeight: true,
+            syncIpi: true,
+            syncFreight: true,
+          }],
+        },
+      },
+      '003962'
+    );
+
+    expect(variation).toMatchObject({
+      name: 'Produto Atual',
+      unitPrice: 100,
+      promoPrice: 90,
+      costPrice: 60,
+      description: 'Descrição atual',
+      condition: 'usado',
+      fiscal: { ncm: '94035000' },
+      width: 30,
+      height: 40,
+      depth: 20,
+      ipiPercent: 5,
+      freightCost: 12,
+      freightType: 'fixed',
+      images: ['https://example.test/photo.jpg'],
+    });
+  });
 });

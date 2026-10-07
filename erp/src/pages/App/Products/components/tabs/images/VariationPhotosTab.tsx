@@ -6,18 +6,21 @@ import ProductImage from '@/components/ProductImage';
 interface VariationPhotosTabProps {
   readonly images: readonly string[];
   readonly parentImages: readonly string[];
+  readonly isSingleVariation?: boolean;
   readonly onChangeImages: (images: string[]) => void;
 }
 
 export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
   images,
   parentImages,
+  isSingleVariation = false,
   onChangeImages,
 }) => {
   const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleRemoveImage = (indexToRemove: number) => {
+    if (isSingleVariation) return;
     const next = images.filter((_, idx) => idx !== indexToRemove);
     onChangeImages(next);
   };
@@ -30,8 +33,9 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
             <span>Fotos da Variação</span>
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Clique no botão para vincular fotos do produto pai. Arraste para reordenar (a 1ª foto é
-            a capa).
+            {isSingleVariation
+              ? 'As fotos desta variação acompanham automaticamente as fotos do produto.'
+              : 'Clique no botão para vincular fotos do produto pai. Arraste para reordenar (a 1ª foto é a capa).'}
           </p>
         </div>
 
@@ -45,7 +49,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
       {/* Grid com Input 1:1 + Fotos Vinculadas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 pt-1">
         {/* Slot/Input 1:1 de Adicionar/Vincular Fotos */}
-        <button
+        {!isSingleVariation && <button
           type="button"
           onClick={() => setIsSelectModalOpen(true)}
           className="group relative aspect-square rounded-none border-2 border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/80 dark:hover:bg-blue-900/30 transition-all flex flex-col items-center justify-center gap-2 text-center p-3 cursor-pointer shadow-xs hover:shadow-md"
@@ -61,7 +65,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
               Fotos do Pai
             </span>
           </div>
-        </button>
+        </button>}
 
         {/* Fotos Vinculadas com Drag and Drop */}
         {images.map((url, index) => {
@@ -70,8 +74,8 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
           return (
             <div
               key={`${url}-${index}`}
-              draggable
-              onDragStart={() => setDraggedIndex(index)}
+              draggable={!isSingleVariation}
+              onDragStart={() => !isSingleVariation && setDraggedIndex(index)}
               onDragOver={(e) => {
                 e.preventDefault();
                 if (draggedIndex === null || draggedIndex === index) return;
@@ -87,7 +91,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                   ? 'border-blue-500 ring-2 ring-blue-500/30'
                   : 'border-slate-200 dark:border-slate-800 hover:border-blue-300'
               } ${draggedIndex === index ? 'opacity-50 scale-95' : 'opacity-100'}`}
-              title="Arraste para reordenar as fotos"
+              title={isSingleVariation ? 'Fotos sincronizadas com o produto' : 'Arraste para reordenar as fotos'}
             >
               <ProductImage
                 src={url}
@@ -105,7 +109,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
               )}
 
               {/* Botão Remover/Desvincular */}
-              <button
+              {!isSingleVariation && <button
                 type="button"
                 aria-label={`Desvincular foto ${index + 1}`}
                 onClick={(e) => {
@@ -116,27 +120,27 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                 title="Desvincular foto"
               >
                 <i className="bi bi-trash text-xs" aria-hidden="true" />
-              </button>
+              </button>}
 
               {/* Dica de arrasto em hover */}
-              <div className="absolute inset-x-0 bottom-0 py-1 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-wider gap-1 pointer-events-none">
+              {!isSingleVariation && <div className="absolute inset-x-0 bottom-0 py-1 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-wider gap-1 pointer-events-none">
                 <i className="bi bi-arrows-move" aria-hidden="true" />
                 Arrastar
-              </div>
+              </div>}
             </div>
           );
         })}
       </div>
 
       {/* Modal de Seleção de Fotos do Pai */}
-      <VariationParentImagesSelectModal
+      {!isSingleVariation && <VariationParentImagesSelectModal
         isOpen={isSelectModalOpen}
         onClose={() => setIsSelectModalOpen(false)}
         parentImages={parentImages as string[]}
         selectedImages={images as string[]}
         maxSelection={MAX_VARIATION_IMAGES}
         onConfirm={(selected) => onChangeImages(selected)}
-      />
+      />}
     </div>
   );
 };

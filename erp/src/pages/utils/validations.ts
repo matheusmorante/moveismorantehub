@@ -107,13 +107,14 @@ export const validateOrder = (order: Order): ValidationErrors => {
     effectiveItemsTotalValue += order.assistanceServiceValue;
   }
 
-  const { totalOrderValue } = calcPaymentsSummary(
+  const paymentSummary = calcPaymentsSummary(
     payments,
     { ...itemsSummary, itemsTotalValue: effectiveItemsTotalValue },
     shippingValue
   );
   const paymentCoverageDifference = Number(
-    (totalOrderValue - calcPaymentsTotalValue(payments)).toFixed(2)
+    (paymentSummary.paymentAllocationDifference ??
+      paymentSummary.totalOrderValue - calcPaymentsTotalValue(payments)).toFixed(2)
   );
 
   const isReturn = order.orderType === 'return';

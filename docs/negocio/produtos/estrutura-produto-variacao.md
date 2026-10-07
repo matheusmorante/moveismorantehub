@@ -7,8 +7,15 @@ Este documento especifica o modelo conceitual de produtos e variações, a regra
 ## 🧩 Modelo Único "Todo Produto Possui Variação"
 
 No Morante Hub, a arquitetura de catálogo é estritamente uniformizada:
-1. **Produto Simples**: É um produto pai que possui exatamente **1 variação única principal** (criada automaticamente por `ensureDefaultVariation`).
+1. **Produto Simples**: É um produto pai que possui exatamente **1 variação única principal** (criada automaticamente por `ensureDefaultVariation` e garantida no banco).
 2. **Produto Composto / Com Variações**: É um produto pai que possui **2 ou mais variações** (ex: Cores, Tamanhos, Medidas).
+
+### Invariante e herança da variação única
+
+- Todo registro de produto (`item_type = 'product'`) deve terminar cada transação com pelo menos uma linha em `product_variations`. O banco cria a variação padrão ao gravar um produto sem variações e rejeita a remoção ou transferência da última variação enquanto o produto pai existir. Serviços não entram nessa regra.
+- Na variação única, preço, preço promocional, dimensões, descrição e nome ficam herdados do produto pai. A interface bloqueia os controles de personalização enquanto ela for a única variação; ao adicionar uma segunda, os controles voltam a ficar disponíveis.
+- As fotos da variação única refletem as fotos do produto pai. A sincronização usa os URLs já gravados em `product_images` (com `products.images` como fallback), sem copiar arquivos. A partir da segunda variação, a sincronização para e as URLs específicas existentes são preservadas. Ao voltar de duas variações para uma, a herança e a sincronização são reativadas.
+- Inserts em lote e a gravação móvel usam a mesma validação no commit, para que a transição de uma para várias ou de várias para uma seja avaliada pelo estado final da transação.
 
 ```mermaid
 classDiagram

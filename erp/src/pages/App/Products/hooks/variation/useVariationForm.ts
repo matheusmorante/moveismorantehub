@@ -59,6 +59,9 @@ export function useVariationForm({
   const [allParentImages, setAllParentImages] = useState<string[]>([]);
   const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(false);
   const isDraft = isProductDraft(parentProduct);
+  const isSingleVariation = variation
+    ? (parentProduct.variations || []).length === 1
+    : (parentProduct.variations || []).length === 0;
   const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>((update) => {
     setFormData((previous) => {
       const next = typeof update === 'function' ? update(previous) : update;
@@ -261,14 +264,21 @@ export function useVariationForm({
           ...variation,
           title: variation.title || variation.marketplaceTitle || '',
           images: parseVariationImages((variation as any).image_url, variation.images),
-          syncUnitPrice: variation.syncUnitPrice ?? true,
-          syncDescription: variation.syncDescription ?? true,
-          syncCostPrice: variation.syncCostPrice ?? true,
-          syncFiscal: variation.syncFiscal ?? true,
-          syncWidth: variation.syncWidth ?? true,
-          syncHeight: variation.syncHeight ?? true,
-          syncDepth: variation.syncDepth ?? true,
-          syncWeight: variation.syncWeight ?? true,
+          syncUnitPrice: isSingleVariation || (variation.syncUnitPrice ?? true),
+          syncPromoPrice: isSingleVariation || (variation.syncPromoPrice ?? true),
+          syncDescription: isSingleVariation || (variation.syncDescription ?? true),
+          syncCostPrice: isSingleVariation || (variation.syncCostPrice ?? true),
+          syncCondition: isSingleVariation || (variation.syncCondition ?? true),
+          syncFiscal: isSingleVariation || (variation.syncFiscal ?? true),
+          syncWithParent: isSingleVariation || (variation.syncWithParent ?? true),
+          syncDimensions: isSingleVariation || (variation.syncDimensions ?? true),
+          syncWidth: isSingleVariation || (variation.syncWidth ?? true),
+          syncHeight: isSingleVariation || (variation.syncHeight ?? true),
+          syncDepth: isSingleVariation || (variation.syncDepth ?? true),
+          syncWeight: isSingleVariation || (variation.syncWeight ?? true),
+          syncIpi: isSingleVariation || (variation.syncIpi ?? true),
+          syncFreight: isSingleVariation || (variation.syncFreight ?? true),
+          ...(isSingleVariation ? { images: allParentImages.length > 0 ? allParentImages : parentProduct.images || [] } : {}),
         });
         setDiferenciarTitulo(
           Boolean(variation.title && variation.title !== variation.name) ||
@@ -304,7 +314,7 @@ export function useVariationForm({
           active: false,
           status: 'draft',
           attributes: [],
-          images: [],
+          images: isSingleVariation ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || []) : [],
           syncUnitPrice: true,
           syncDescription: true,
           syncCostPrice: true,
@@ -371,7 +381,9 @@ export function useVariationForm({
       }))
       .filter((attr) => attr.name.trim() && attr.value.trim());
     const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
-    let variationName = (formData.name || '').trim();
+    let variationName = isSingleVariation
+      ? parentPrefix
+      : (formData.name || '').trim();
     if (parentPrefix) {
       if (!variationName.toLowerCase().startsWith(parentPrefix.toLowerCase())) {
         variationName = `${parentPrefix} ${variationName}`.trim();
@@ -383,11 +395,45 @@ export function useVariationForm({
 
     const finalVariation: Variation = {
       ...formData,
+      ...(isSingleVariation
+        ? {
+            syncUnitPrice: true,
+            syncPromoPrice: true,
+            syncDescription: true,
+            syncCostPrice: true,
+            syncCondition: true,
+            syncFiscal: true,
+            syncWithParent: true,
+            syncDimensions: true,
+            syncWidth: true,
+            syncHeight: true,
+            syncDepth: true,
+            syncWeight: true,
+            syncIpi: true,
+            syncFreight: true,
+            images: allParentImages.length > 0 ? allParentImages : parentProduct.images || [],
+            unitPrice: parentProduct.unitPrice || 0,
+            promoPrice: parentProduct.promoPrice || 0,
+            costPrice: parentProduct.costPrice || 0,
+            condition: parentProduct.condition || 'novo',
+            description: parentProduct.description || '',
+            fiscal: parentProduct.fiscal ? { ...parentProduct.fiscal } : undefined,
+            width: parentProduct.width || 0,
+            height: parentProduct.height || 0,
+            depth: parentProduct.depth || 0,
+            weight: parentProduct.weight || 0,
+            ipiPercent: parentProduct.ipiPercent || 0,
+            ipiType: parentProduct.ipiType || 'percentage',
+            freightCost: parentProduct.freightCost || 0,
+            freightType: parentProduct.freightType || 'fixed',
+            finalPurchasePrice: parentProduct.finalPurchasePrice || 0,
+          }
+        : {}),
       attributes: cleanAttributes,
       name: toTitleCase(variationName),
-      title: toTitleCase(diferenciarTitulo ? formData.title || variationName : variationName),
+      title: toTitleCase(!isSingleVariation && diferenciarTitulo ? formData.title || variationName : variationName),
       marketplaceTitle: toTitleCase(
-        diferenciarTitulo
+        !isSingleVariation && diferenciarTitulo
           ? formData.marketplaceTitle || formData.title || variationName
           : variationName
       ),

@@ -98,11 +98,29 @@ describe('productLegibilityRules (Domínio Puro)', () => {
       width: 0,
       height: 90,
       depth: 100,
+      technicalValues: { Largura: '' },
     };
     const result = checkEcomLegibility(product);
     expect(result.isLegible).toBe(false);
     expect(result.checks.images).toBe(false);
     expect(result.checks.dimensions).toBe(false);
+  });
+
+  it('ignora dimensões marcadas como não aplicáveis ao validar a publicação', () => {
+    const product: Partial<Product> = {
+      title: 'Mesa lateral',
+      description: 'Mesa lateral compacta',
+      categoryIds: ['cat-1'],
+      unitPrice: 150,
+      images: ['https://example.test/product.jpg'],
+      technicalValues: {
+        Largura: 'Não se aplica',
+        Altura: 'Não se aplica',
+        Profundidade: 'Não se aplica',
+      },
+    };
+    const result = checkEcomLegibility(product);
+    expect(result.checks.dimensions).toBe(true);
   });
 
   it('deve aprovar produto de fabricação própria sem necessidade de fornecedor', () => {

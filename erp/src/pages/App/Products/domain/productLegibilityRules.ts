@@ -138,14 +138,19 @@ export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegib
   const isService = data.itemType === 'service';
   const getDim = (prop: 'width' | 'height' | 'depth', names: string[]) => {
     if (isPositiveNumber(data[prop])) return true;
-    if (data.technicalValues) {
-      for (const name of names) {
-        const val = String(data.technicalValues[name] || '').replace(',', '.');
-        const num = Number(val);
-        if (!isNaN(num) && num > 0) return true;
-      }
+    const values = data.technicalValues || {};
+    for (const name of names) {
+      const rawValue = values[name];
+      const val = String(rawValue ?? '').replace(',', '.');
+      const num = Number(val);
+      if (Number.isFinite(num) && num > 0) return true;
     }
-    return false;
+    const isApplicable = names.some((name) => {
+      if (!Object.prototype.hasOwnProperty.call(values, name)) return false;
+      const value = String(values[name] ?? '').trim().toLocaleLowerCase('pt-BR');
+      return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+    });
+    return !isApplicable;
   };
 
   const hasValidDimensions =

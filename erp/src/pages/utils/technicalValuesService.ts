@@ -110,7 +110,7 @@ export const groupTechnicalFields = (
 
 export type TechnicalValuesMap = Record<string, any>;
 
-export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Material da estrutura'] as const;
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor'] as const;
 
 const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
 

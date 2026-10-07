@@ -71,7 +71,16 @@ export const mapDbVariations = (
       name: toTitleCase(attribute.name),
       value: toTitleCase(attribute.value),
     }));
-    const formattedName = toTitleCase(v.name || data.name || data.title || '');
+    const syncWidth = details.syncWidth ?? v.use_parent_dimensions !== false;
+    const syncHeight = details.syncHeight ?? v.use_parent_dimensions !== false;
+    const syncDepth = details.syncDepth ?? v.use_parent_dimensions !== false;
+    const syncWeight = details.syncWeight ?? v.use_parent_dimensions !== false;
+    const syncFiscal = details.syncFiscal !== false;
+    const syncIpi = details.syncIpi !== false;
+    const syncFreight = details.syncFreight !== false;
+    const formattedName = toTitleCase(
+      (v.use_parent_name === true ? data.name || data.title : v.name) || data.name || data.title || ''
+    );
 
     if (v.product_id) {
       return {
@@ -88,25 +97,32 @@ export const mapDbVariations = (
         costPrice: details.syncCostPrice === false
           ? Number(v.cost_price ?? details.costPrice ?? 0)
           : Number(data.cost_price || 0),
+        ipiPercent: syncIpi ? Number(data.ipi_percent || 0) : Number(details.ipiPercent || 0),
+        freightCost: syncFreight ? Number(data.freight_cost || 0) : Number(details.freightCost || 0),
+        freightType: syncFreight ? data.freight_type || 'fixed' : details.freightType || 'fixed',
         active:
           v.active !== undefined && v.active !== null ? Boolean(v.active) : Boolean(data.active),
         status: (v.status || data.status || 'hidden') as 'draft' | 'published' | 'hidden',
-        condition: details.condition || data.condition || 'novo',
+        condition: details.syncCondition === false ? details.condition || data.condition || 'novo' : data.condition || 'novo',
+        fiscal: syncFiscal ? data.fiscal : details.fiscal,
         attributes: attributesList,
         images: varImages,
         comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
         syncUnitPrice: v.use_parent_price !== false,
         syncPromoPrice: v.use_parent_promo_price !== false,
         syncDescription: v.use_parent_description !== false,
-        description: v.description || '',
-        syncWidth: details.syncWidth ?? v.use_parent_dimensions !== false,
-        syncHeight: details.syncHeight ?? v.use_parent_dimensions !== false,
-        syncDepth: details.syncDepth ?? v.use_parent_dimensions !== false,
-        syncWeight: details.syncWeight ?? v.use_parent_dimensions !== false,
-        width: v.width ? Number(v.width) : undefined,
-        depth: v.depth ? Number(v.depth) : undefined,
-        height: v.height ? Number(v.height) : undefined,
-        weight: v.weight ? Number(v.weight) : details.weight,
+        description: v.use_parent_description !== false ? data.description || '' : v.description || details.description || '',
+        syncWidth,
+        syncHeight,
+        syncDepth,
+        syncWeight,
+        syncFiscal,
+        syncIpi,
+        syncFreight,
+        width: syncWidth ? Number(data.width || 0) : (v.width ? Number(v.width) : undefined),
+        depth: syncDepth ? Number(data.depth || 0) : (v.depth ? Number(v.depth) : undefined),
+        height: syncHeight ? Number(data.height || 0) : (v.height ? Number(v.height) : undefined),
+        weight: syncWeight ? Number(data.weight || 0) : (v.weight ? Number(v.weight) : details.weight),
       };
     }
     return {
