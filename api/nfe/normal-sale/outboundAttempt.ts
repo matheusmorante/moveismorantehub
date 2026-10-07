@@ -95,9 +95,11 @@ async function persist(
 }
 
 function finalResult(a: Attempt, doc: Document): OutboundResult {
+  const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ''));
   return {
     status: 200,
     body: {
+      ...parsed,
       success: a.state === 'authorized' && doc.status !== 'cancelada',
       ...metadata(a),
       state: doc.status === 'cancelada' ? 'cancelled' : a.state,
@@ -106,6 +108,12 @@ function finalResult(a: Attempt, doc: Document): OutboundResult {
       sefazResponseXml: doc.xml_protocolo,
       protocolNumber: doc.numero_protocolo,
       xMotivo: doc.motivo_status,
+      ...(doc.status === 'cancelada'
+        ? {
+            code: 'FISCAL_ALREADY_CANCELLED',
+            error: 'O documento original está cancelado. Seu histórico foi preservado.',
+          }
+        : {}),
       ...(a.state === 'rejected'
         ? { code: 'FISCAL_SEFAZ_REJECTED', error: doc.motivo_status }
         : {}),

@@ -70,36 +70,37 @@ compartilhará o cálculo sem compartilhar a identidade.
 - Falta de decisão ou modelo incorreto bloqueia antes de reservar um novo número.
   Um snapshot já congelado com contribuição de outro modelo é rejeitado sem ser
   reescrito. XMLs e documentos históricos não foram migrados.
-- A emissão normal de Produção ainda não está conectada a uma política completa
-  de reserva, persistência e reconciliação. A API continua bloqueando esse caminho
-  antes de alocação ou contato SEFAZ. A regra comum, por si só, não libera o envio.
+- A emissão normal de Produção está conectada à política comum de reserva,
+  persistência e reconciliação, com flag e confirmação do ambiente no backend.
+  A ausência da decisão própria 65 ainda bloqueia esse modelo antes de reserva.
+  Ver [implementação e evidências](emissao-normal-reserva-reconciliacao.md).
 - Esta alteração não cria efeitos de estoque, financeiro ou cancelamento.
 
 ## Banco e validação
 
-### Conexão operacional ainda necessária
+### Conexão operacional implementada em 07/10/2026
 
-A inspeção do caminho de emissão encontrou limites concretos além da decisão
-tributária. Eles pertencem à política técnica de ambiente:
+A política técnica foi conectada ao mesmo pipeline nos ambientes 1 e 2:
 
-| Etapa | Situação atual | Contrato necessário para a emissão normal |
+| Etapa | Implementação atual | Garantia |
 |---|---|---|
-| Comando JSON | `parseFiscalEmissionCommand` ainda limita as seleções do modal ao ambiente 2 | Aceitar as mesmas seleções verificadas em Produção, com autenticação, confirmação e flag no backend |
-| Snapshot e número | A RPC com contexto permanece HML; a base possui restrições de seleções por ambiente | Capturar fatos, decisão do modelo, contexto e reserva na mesma transação, com isolamento por modelo/série/ambiente e perfil do emitente |
-| Documento e tentativa | `reserve_hml_nfe_outbound_with_replacement` valida exclusivamente ambiente 2 e versões HML | Política de venda normal que preserve XML assinado, snapshot e identidade da tentativa; não converter XML HML em XML produtivo |
+| Comando JSON | As seleções verificáveis são aceitas nos ambientes 1/2 | Autenticação, confirmação e flag produtiva preservadas no backend |
+| Snapshot e número | `prepare_nfe_outbound_attempt` trava fatos e reserva por CNPJ/modelo/ambiente/série | Snapshot, documento, XML assinado e tentativa são gravados na mesma transação da numeração |
+| Documento e tentativa | `NORMAL_SALE_V1` usa lease e intenção imutável nos dois ambientes | Retry idêntico recupera a tentativa; payload diferente com a mesma intenção é recusado |
 | Chamada SEFAZ | Endpoints por modelo/ambiente centralizados; assinatura, XML/XSD e transporte reutilizáveis | Chamada após commit, sem transação SQL aberta durante SOAP |
-| Resultado | `persist_hml_nfe_result` grava status `homologada`, itens, protocolo e histórico atomicamente | Preservar essa atomicidade com status autorizado correspondente ao ambiente; nunca gravar sucesso sem os itens e protocolo |
-| Consulta/retry | A política HML usa lease e consulta antes do retry; o caminho legado genérico grava fatos em chamadas independentes | Consulta e persistência reconciliáveis; retry explícito da mesma chave/XML somente após 217 confirmado, sem nova numeração |
+| Resultado | `persist_nfe_outbound_result` grava protocolo, itens, histórico e status correspondente ao ambiente | Nenhuma autorização parcial; chave, ambiente e cStat conferidos dentro da RPC |
+| Consulta/retry | `reconcileNormalSale` consulta a identidade reservada e reutiliza XML/numeração | Timeout não reenvia; primeiro 217 após incerteza apenas registra ausência; outra ação explícita consulta novamente |
 
-Efeitos obrigatórios: a reserva cria snapshot e posição na sequência; a preparação
-grava documento, XML e tentativa; uma autorização confirmada grava protocolo,
+Efeitos obrigatórios: a preparação grava número, snapshot, documento, XML e
+tentativa na mesma transação; uma autorização confirmada grava protocolo,
 itens e histórico fiscal na mesma transação. Uma resposta desconhecida mantém
 tentativa pendente para consulta. A emissão não movimenta estoque, não cria
 recebíveis e não altera o fato comercial. A reconciliação posterior deve completar
 os fatos fiscais sem duplicá-los nem reenviar uma possível autorização.
 
-Este rastreamento não habilitou funções HML para ambiente 1 nem alterou suas
-restrições ou leases. A implementação operacional de Produção permanece pendente.
+As funções e documentos históricos HML foram preservados. A venda normal usa
+RPCs comuns e infraestrutura fiscal compartilhada; não converte XML HML para
+Produção nem reaproveita a fixture técnica como regra de negócio.
 
 Projeto conferido: `hkoxhourxwlddgsfdgws`. Advisors executados antes da migration;
 os alertas existentes não foram tratados como aprovação fiscal.
@@ -108,12 +109,14 @@ os alertas existentes não foram tratados como aprovação fiscal.
 |---|---|
 | `20261007154819_fiscal_contribution_decisions_by_model.sql` | `20261007154819_fiscal_contribution_decisions_by_model` |
 | `20261005181000_enable_pgtap_for_controlled_fiscal_tests.sql` | `20261007154823_enable_pgtap_for_controlled_fiscal_tests` |
+| `20261007170426_common_outbound_emission.sql` | `20261007170426_common_outbound_emission` |
+| `20261007171956_normal_outbound_write_guards.sql` | `20261007171956_normal_outbound_write_guards` |
 
 A migration de seleção por modelo preservou `SECURITY DEFINER`, `search_path`
 vazio e execução restrita ao backend. Não aplicou em lote migrations pendentes
 de normalização de destinatário ou de numeração.
 
-Validação focada: **123 testes unitários em 8 arquivos** e **12 assertivas pgTAP**
+Validação anterior da extração da regra: **123 testes unitários em 8 arquivos** e **12 assertivas pgTAP**
 no PostgreSQL remoto. A integração cobriu decisão ausente, modelo incorreto,
 seleção independente 55/65, hash do snapshot, repetição idempotente e bloqueios de
 ambiente/permissão. Fixtures `TEST_AUT_61a309ca-9505-4469-978d-940be46b1ebd`,
@@ -123,5 +126,9 @@ decisões de teste retidos. Não houve emissão nem chamada à SEFAZ.
 Verificações estáticas: TypeScript estrito do grafo da regra comum, ESLint dos
 três testes alterados e Biome dos 11 arquivos novos/extraídos passaram. O build
 fiscal carregou e executou as 10 rotas no Node, além de resolver WASM e XSD oficial.
-Esses resultados não validam emissão real de Produção. Não houve redeploy nesta
-etapa.
+Esses resultados não validam emissão real de Produção.
+
+A conexão operacional acrescentou **25 testes do orquestrador**, cobertura dos
+consumidores/API e **35 assertivas pgTAP**, além de duas reservas PostgREST reais
+concorrentes. Não houve emissão fiscal real. Camadas, fixtures e limites estão no
+[registro técnico da conexão](emissao-normal-reserva-reconciliacao.md).

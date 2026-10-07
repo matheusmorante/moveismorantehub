@@ -27,7 +27,7 @@ BEGIN
   RAISE EXCEPTION 'Test requires unused synthetic issuer/series/actor fixtures';
  END IF;
  SELECT jsonb_object_agg(modelo||':'||ambiente||':'||serie,ultimo_numero) INTO v_old_seq FROM public.nfe_sequences;
- PERFORM extensions.plan(32);
+ PERFORM extensions.plan(35);
  v_tap := array_append(v_tap,extensions.ok(
   public.reserve_nfe_outbound_number(v_fake,'55',1,'887',1,1)=1 AND
   public.reserve_nfe_outbound_number(v_fake,'65',1,'887',1,1)=1,
@@ -39,7 +39,7 @@ BEGIN
  v_tap := array_append(v_tap,extensions.ok(public.reserve_nfe_outbound_number(v_fake,'55',1,'886',1,1)=1,
   'series have independent counters'));
  v_query := format('SELECT public.reserve_nfe_outbound_number(%L,''55'',1,''887'',1,1)',v_fake);
- v_tap := array_append(v_tap,extensions.throws_ok(v_query,'40001','FISCAL_SEQUENCE_CHANGED','stale reservation loses CAS'));
+ v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_SEQUENCE_CHANGED','stale reservation loses CAS'));
  v_tap := array_append(v_tap,extensions.ok(public.peek_nfe_outbound_number(v_fake,'55',1,'887',1)=2,
   'losing CAS does not advance the counter'));
 
@@ -128,6 +128,12 @@ BEGIN
  v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_HISTORY_IMMUTABLE','snapshot cannot be rewritten'));
  v_query := format('UPDATE public.nfe_outbound_attempts SET request_command=''{}'' WHERE document_id=%L::uuid',v_doc);
  v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_HISTORY_IMMUTABLE','idempotency payload cannot be rewritten'));
+ v_query := format('SET LOCAL ROLE authenticated; UPDATE public.nfe_documents SET status=''pendente'' WHERE id=%L::uuid',v_doc);
+ v_tap := array_append(v_tap,extensions.throws_ok(v_query,'42501',NULL,'browser cannot bypass the server by writing status directly'));
+ v_query := format('UPDATE public.nfe_document_items SET description=''TEST_AUT_CHANGED'' WHERE document_id=%L::uuid',v_doc);
+ v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_HISTORY_IMMUTABLE','authorized items cannot be rewritten'));
+ v_query := format('DELETE FROM public.nfe_document_items WHERE document_id=%L::uuid',v_doc);
+ v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_HISTORY_IMMUTABLE','authorized items cannot be deleted'));
 
  IF NOT EXISTS(SELECT 1 FROM public.settings WHERE id='fiscal_decision_simples_nfce65_normal_sale_v1') THEN
   INSERT INTO public.settings(id,data) VALUES('fiscal_decision_simples_nfce65_normal_sale_v1',jsonb_build_object(
@@ -168,7 +174,7 @@ BEGIN
  END LOOP;
 END; $test$;
 ROLLBACK;
-SELECT '32 pgTAP assertions passed; fixtures rolled back' AS result,
+SELECT '35 pgTAP assertions passed; fixtures rolled back' AS result,
  (SELECT count(*) FROM public.orders WHERE id IN('TEST_AUT___RUN_UUID___55','TEST_AUT___RUN_UUID___65')) AS retained_orders,
  (SELECT count(*) FROM public.nfe_outbound_attempts WHERE emission_request_id='__RUN_UUID__'::uuid) AS retained_attempts,
  (SELECT count(*) FROM public.people WHERE id='TEST_AUT___RUN_UUID___CUSTOMER') AS retained_people,

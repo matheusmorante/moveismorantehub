@@ -204,7 +204,7 @@ function database() {
             }
           : { data: null, error: { message: 'IDEMPOTENCY_KEY_REUSED' } };
       if (failPreparation)
-        return { data: null, error: { message: 'TEST_UNIT_PREPARATION_FAILURE' } };
+        return { data: null, error: { message: 'TEST_UNIT_PREPARATION_FAILURE', code: '23514' } };
       if (
         attempts.some(
           (a) =>
@@ -440,6 +440,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
   it('identical final retry returns the same attempt without SOAP or a new number', async () => {
     const d = database();
     const first = await emit(d);
+    vi.stubEnv('NFE_CERTIFICATE_BASE64', '');
     const second = await recoverNormalSale(d.db, command());
     expect(second?.body).toMatchObject({
       success: true,
@@ -491,6 +492,71 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(d.snapshots).toHaveLength(0);
     expect(d.attempts).toHaveLength(0);
     expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('lost preparation response preserves the original committed attempt without sending again', async () => {
+    const d = database();
+    const rpc = d.rpc.getMockImplementation()!;
+    d.rpc.mockImplementation(async (name, args) => {
+      const result = await rpc(name, args);
+      if (name === 'prepare_nfe_outbound_attempt') throw new Error('TEST_UNIT_RESPONSE_LOST');
+      return result;
+    });
+    const r = await emit(d);
+    expect(r.body).toMatchObject({
+      pending: true,
+      numberReserved: true,
+      emissionRequestId: requestId,
+    });
+    expect(d.attempts).toHaveLength(1);
+    expect(mocks.send).not.toHaveBeenCalled();
+    d.rpc.mockImplementation(rpc);
+    d.attempts[0].attempt_token = null;
+    const resumed = await recoverNormalSale(d.db, command());
+    expect(resumed?.body).toMatchObject({ success: true, nfeNumber: 102 });
+    expect(d.attempts).toHaveLength(1);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+  });
+  it('unknown preparation failure keeps the intent pending without claiming no number was reserved', async () => {
+    const d = database();
+    const rpc = d.rpc.getMockImplementation()!;
+    d.rpc.mockImplementation(async (name, args) => {
+      if (name === 'prepare_nfe_outbound_attempt') throw new Error('TEST_UNIT_NETWORK_LOSS');
+      return rpc(name, args);
+    });
+    const r = await emit(d);
+    expect(r.body).toMatchObject({
+      pending: true,
+      code: 'FISCAL_PREPARATION_UNCONFIRMED',
+      emissionRequestId: requestId,
+      sefazContacted: false,
+    });
+    expect(r.body.numberReserved).toBeUndefined();
+    expect(d.attempts).toHaveLength(0);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('cancelled final document is preserved and cannot be emitted again by the same intent', async () => {
+    const d = database();
+    await emit(d);
+    d.documents[0].status = 'cancelada';
+    const r = await recoverNormalSale(d.db, command());
+    expect(r?.body).toMatchObject({
+      success: false,
+      state: 'cancelled',
+      code: 'FISCAL_ALREADY_CANCELLED',
+    });
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(d.attempts).toHaveLength(1);
+  });
+  it('production switch disables transmission but still permits reconciliation of an existing key', async () => {
+    const d = database();
+    mocks.send.mockRejectedValueOnce(new Error('timeout'));
+    await emit(d);
+    vi.stubEnv('NFE_PRODUCTION_ENABLED', 'false');
+    mocks.send.mockResolvedValueOnce(authorization(d.attempts[0].access_key, 1));
+    const r = await reconcileNormalSale(d.db, d.documents[0].id);
+    expect(r.body).toMatchObject({ success: true, state: 'authorized' });
+    expect(mocks.send.mock.calls[1][0].xmlPayload).toContain('<xServ>CONSULTAR</xServ>');
+    expect(d.attempts).toHaveLength(1);
   });
   it('XML failure happens before any reservation', async () => {
     const d = database();

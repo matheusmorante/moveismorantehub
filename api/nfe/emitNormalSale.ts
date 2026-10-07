@@ -61,6 +61,7 @@ export async function emitNormalSale(
     );
 
   const facts = structuredClone(candidate);
+  let preparationSubmitted = false;
   try {
     await loadNormalSaleInputs(db, facts, appSettings);
     let rules = await createNormalSaleRuleSet(facts);
@@ -179,6 +180,7 @@ export async function emitNormalSale(
       await validateNfeAgainstOfficialSchema(signedXml);
       await assertXmlFiscalSelections(snapshot, signedXml);
       const token = randomUUID();
+      preparationSubmitted = true;
       const saved = await db.rpc('prepare_nfe_outbound_attempt', {
         p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
         p_signed_xml: signedXml,
@@ -191,12 +193,27 @@ export async function emitNormalSale(
       if (
         saved.error?.message.includes('FISCAL_SEQUENCE_CHANGED') &&
         command.requestedNumber === undefined
-      )
+      ) {
+        preparationSubmitted = false;
         continue;
+      }
       if (saved.error || !saved.data?.documentId) {
         // A lost RPC response can hide a committed preparation. Resolve the original intent before returning.
         const recovery = await recoverNormalSale(db, command);
         if (recovery) return recovery;
+        if (!saved.error?.code)
+          return outboundFailure(
+            503,
+            'FISCAL_PREPARATION_UNCONFIRMED',
+            'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
+            {
+              pending: true,
+              emissionRequestId: command.emissionRequestId,
+              orderId: command.orderId,
+              environment: command.environment,
+              sefazContacted: false,
+            }
+          );
         const reason =
           saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
         return outboundFailure(
@@ -208,6 +225,7 @@ export async function emitNormalSale(
           { numberReserved: false, sefazContacted: false }
         );
       }
+      preparationSubmitted = false;
       return reconcileNormalSale(
         db,
         saved.data.documentId,
@@ -223,6 +241,26 @@ export async function emitNormalSale(
       { numberReserved: false, sefazContacted: false }
     );
   } catch (error) {
+    if (preparationSubmitted) {
+      try {
+        const recovery = await recoverNormalSale(db, command);
+        if (recovery) return recovery;
+      } catch {
+        /* A transport error can hide a committed preparation. */
+      }
+      return outboundFailure(
+        503,
+        'FISCAL_PREPARATION_UNCONFIRMED',
+        'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
+        {
+          pending: true,
+          emissionRequestId: command.emissionRequestId,
+          orderId: command.orderId,
+          environment: command.environment,
+          sefazContacted: false,
+        }
+      );
+    }
     return outboundFailure(
       422,
       'FISCAL_PREPARATION_INVALID',

@@ -21,16 +21,9 @@ async function worker() {
   if (legacy.error || legacy.data) throw new Error('SYNTHETIC_ISSUER_NOT_UNUSED');
   const insert = await db.from('nfe_establishment_sequences').insert(fixture);
   if (insert.error) throw new Error('COUNTER_FIXTURE_INSERT_FAILED');
+  let requestsCompleted = false;
   try {
     console.log(JSON.stringify({ stage: 'ready', runId, projectRef: ref, issuer, model: '55', environment: 2, series: '886' }));
-    if (process.argv.includes('--wait-for-start')) {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('START_SIGNAL_TIMEOUT')), 60000);
-        process.stdin.once('data', () => { clearTimeout(timeout); resolve(); });
-        process.stdin.resume();
-      });
-      process.stdin.pause();
-    }
     const reserve = async (workerId) => {
       const startedAt = new Date().toISOString();
       const started = performance.now();
@@ -50,6 +43,7 @@ async function worker() {
       return { workerId, startedAt, elapsedMs: Math.round(performance.now() - started), number: result.data, casConflict: conflict };
     };
     const settled = await Promise.allSettled([reserve('A'), reserve('B')]);
+    requestsCompleted = settled.every(result => result.status === 'fulfilled');
     const results = settled.map(result => {
       if (result.status === 'rejected') throw result.reason;
       return result.value;
@@ -58,10 +52,17 @@ async function worker() {
       throw new Error('CONCURRENT_RESERVATION_ASSERTION_FAILED');
     console.log(JSON.stringify({ stage: 'passed', runId, projectRef: ref, results, sefazCalls: 0 }));
   } finally {
-    const removed = await db.from('nfe_establishment_sequences').delete().eq('issuer_cnpj', issuer).eq('model', '55')
-      .eq('environment', 2).eq('series', '886').in('last_number', [0, 1, 2]).select('issuer_cnpj');
-    if (removed.error || removed.data?.length !== 1) throw new Error('OWN_COUNTER_FIXTURE_CLEANUP_FAILED');
-    console.log(JSON.stringify({ stage: 'cleaned', runId, retainedCounterFixtures: 0 }));
+    if (requestsCompleted) {
+      const removed = await db.from('nfe_establishment_sequences').delete().eq('issuer_cnpj', issuer).eq('model', '55')
+        .eq('environment', 2).eq('series', '886').in('last_number', [0, 1, 2]).select('issuer_cnpj');
+      if (removed.error || removed.data?.length !== 1) throw new Error('OWN_COUNTER_FIXTURE_CLEANUP_FAILED');
+      console.log(JSON.stringify({ stage: 'cleaned', runId, retainedCounterFixtures: 0 }));
+    } else {
+      // Aborting HTTP does not prove that PostgreSQL stopped. Keep the identity
+      // available for a read-only reconciliation before scoped fixture cleanup.
+      console.log(JSON.stringify({ stage: 'cleanup-pending', runId, projectRef: ref, issuer,
+        model: '55', environment: 2, series: '886', reason: 'RESERVATION_COMPLETION_UNCONFIRMED' }));
+    }
   }
 }
 

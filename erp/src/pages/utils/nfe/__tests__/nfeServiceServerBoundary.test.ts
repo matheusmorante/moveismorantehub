@@ -14,6 +14,80 @@ vi.mock('../danfeGenerator', () => ({ openDanfePrintWindow: mocks.print }));
 vi.mock('../../settingsService', () => ({ getSettings: vi.fn().mockResolvedValue({}) }));
 
 describe('emissão NF-e no ERP', () => {
+  it.each([1, 2] as const)(
+    'reconhece 217 do pipeline comum no ambiente %s sem reenviar',
+    async (environment) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          success: false,
+          code: 'FISCAL_CONFIRMED_NOT_FOUND',
+          state: 'not_found',
+          cStat: '217',
+          pending: false,
+          documentId: 'TEST_AUT_COMMON_DOCUMENT',
+          emissionRequestId: 'f19b3e63-6f84-45ea-8c5f-39476d709a3d',
+          orderId: 'TEST_AUT_COMMON_ORDER',
+          model: '55',
+          environment,
+          nfeNumber: 102,
+          series: '1',
+          accessKey: '1'.repeat(44),
+        }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { emitNfeForOrder } = await import('../nfeService');
+      const result = await emitNfeForOrder(
+        { id: `TEST_AUT_common-${environment}` } as any,
+        environment,
+        environment === 1
+      );
+      expect(result).toMatchObject({
+        success: false,
+        pending: false,
+        hmlConfirmedNotFound: true,
+        documentId: 'TEST_AUT_COMMON_DOCUMENT',
+        nfeNumber: 102,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+        environment,
+        productionConfirmed: environment === 1,
+      });
+    }
+  );
+  it('preserva o resultado 217 no retry explícito produtivo', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        success: false,
+        code: 'FISCAL_CONFIRMED_NOT_FOUND',
+        state: 'not_found',
+        cStat: '217',
+        pending: false,
+        documentId: 'TEST_AUT_ORIGINAL_DOCUMENT',
+        environment: 1,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { emitNfeForOrder } = await import('../nfeService');
+    expect(
+      await emitNfeForOrder(
+        { id: 'TEST_AUT_COMMON_RETRY' } as any,
+        1,
+        true,
+        'TEST_AUT_ORIGINAL_DOCUMENT'
+      )
+    ).toMatchObject({
+      success: false,
+      pending: false,
+      hmlConfirmedNotFound: true,
+      documentId: 'TEST_AUT_ORIGINAL_DOCUMENT',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
   it.each([400, 409, 422, 500, 502, 503])(
     'trata HTTP %s sem repetir o POST ou trocar a intenção',
     async (status) => {
