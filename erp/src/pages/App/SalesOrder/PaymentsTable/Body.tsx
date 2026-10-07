@@ -48,6 +48,7 @@ const Body = ({ payments, setPayments, summary, isMobile, errors }: Props) => {
       onChange={changePayments}
       onDelete={() => deletePayment(idx)}
       payment={payment}
+      payments={payments}
       summary={summary}
       idx={idx}
       isMobile={isMobile}

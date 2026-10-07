@@ -113,7 +113,7 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Sequência e Numeração
+              Sequência
             </span>
             <label className="mt-2 flex flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
               Número da nota

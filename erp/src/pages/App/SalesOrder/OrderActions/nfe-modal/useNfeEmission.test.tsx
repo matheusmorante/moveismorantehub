@@ -1600,27 +1600,56 @@ describe('preenchimento dos itens da NF-e', () => {
     );
   });
 
-  it('mantém a opção de produção desativada por segurança no modal prévio', async () => {
+  it('abre o fluxo de produção no modal prévio quando ainda não foi emitida', async () => {
     const orderForTest: any = {
       ...order,
       id: 'prod-test-order',
       nfeData: null,
     };
+    const onSelectEnvironment = vi.fn();
 
     render(
       <NfeEnvironmentChoiceModal
         isOpen
         order={orderForTest}
         onClose={vi.fn()}
-        onSelectEnvironment={vi.fn()}
+        onSelectEnvironment={onSelectEnvironment}
       />
     );
 
     const prodButton = screen.getByText('Produção').closest('button');
-    expect(prodButton?.hasAttribute('disabled')).toBe(true);
-    expect(prodButton?.getAttribute('title')).toBe(
-      'Emissão em produção desativada temporariamente por segurança.'
+    expect(prodButton?.hasAttribute('disabled')).toBe(false);
+    expect(prodButton?.getAttribute('title')).toContain('tpAmb=1');
+    fireEvent.click(prodButton!);
+    expect(onSelectEnvironment).toHaveBeenCalledWith(1);
+  });
+
+  it('mantém Produção disponível quando o pedido tem somente uma NFC-e de homologação', async () => {
+    const hmlOrder: any = {
+      ...order,
+      id: 'hml-only-order',
+      nfeData: {
+        status: 'homologada',
+        environment: 2,
+        accessKey: '41261000000000000000650010000005991000000010',
+        protocolNumber: '123456789',
+      },
+    };
+    const onSelectEnvironment = vi.fn();
+
+    render(
+      <NfeEnvironmentChoiceModal
+        isOpen
+        order={hmlOrder}
+        onClose={vi.fn()}
+        onSelectEnvironment={onSelectEnvironment}
+      />
     );
+
+    const prodButton = screen.getByText('Produção').closest('button');
+    expect(prodButton?.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(prodButton!);
+    expect(onSelectEnvironment).toHaveBeenCalledWith(1);
   });
 
   it('no modal de formulário, não exibe os botões de seleção de ambiente no cabeçalho e inicializa com o ambiente escolhido', async () => {

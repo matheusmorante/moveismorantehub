@@ -8,6 +8,10 @@ export interface ProductFiscalData {
   cfop?: string;
   cst?: string;
   origem?: string;
+  merchandiseOrigin?: 'third_party' | 'own_production' | 'not_applicable';
+  isOwnProduction?: boolean;
+  hasSt?: boolean;
+  isSt?: boolean;
   pisCst?: string;
   cofinsCst?: string;
   variations?: Record<string, Partial<ProductFiscalData>>;
@@ -115,12 +119,23 @@ export const getProductsFiscalData = async (
 
 function mapFiscalFields(value: unknown): Omit<ProductFiscalData, 'id' | 'variations'> {
   const fiscal = (value || {}) as Record<string, unknown>;
+  const merchandiseOrigin = fiscal.merchandiseOrigin;
   return {
     ncm: typeof fiscal.ncm === 'string' ? fiscal.ncm : undefined,
     cest: typeof fiscal.cest === 'string' ? fiscal.cest : undefined,
     cfop: typeof fiscal.cfop === 'string' ? fiscal.cfop : undefined,
     cst: typeof fiscal.cst === 'string' ? fiscal.cst : undefined,
     origem: typeof fiscal.origem === 'string' ? fiscal.origem : undefined,
+    merchandiseOrigin:
+      merchandiseOrigin === 'third_party' ||
+      merchandiseOrigin === 'own_production' ||
+      merchandiseOrigin === 'not_applicable'
+        ? merchandiseOrigin
+        : undefined,
+    isOwnProduction:
+      typeof fiscal.isOwnProduction === 'boolean' ? fiscal.isOwnProduction : undefined,
+    hasSt: typeof fiscal.hasSt === 'boolean' ? fiscal.hasSt : undefined,
+    isSt: typeof fiscal.isSt === 'boolean' ? fiscal.isSt : undefined,
     pisCst: typeof fiscal.pisCst === 'string' ? fiscal.pisCst : undefined,
     cofinsCst: typeof fiscal.cofinsCst === 'string' ? fiscal.cofinsCst : undefined,
   };

@@ -89,6 +89,7 @@ export function useProductAutocomplete({
 
         (productsData || []).forEach((p: Product) => {
           const productKind = getProductKind(p);
+          const isSalvado = productKind === 'salvado';
           if (allowedProductKinds && !allowedProductKinds.includes(productKind)) return;
 
           if (

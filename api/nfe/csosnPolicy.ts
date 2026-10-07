@@ -30,7 +30,7 @@ export function validateCsosn(value: unknown, issuerCrt: string): string {
     throw new Error('CSOSN inválido. Selecione uma opção fiscal válida.');
   // This policy is scoped to CRT 1. MEI/other regimes require their own applicable matrix.
   if (issuerCrt !== '1')
-    throw new Error('O padrão CSOSN de homologação exige CRT 1 (Simples Nacional).');
+    throw new Error('Esta regra de CSOSN exige CRT 1 (Simples Nacional).');
   return value;
 }
 

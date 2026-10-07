@@ -1,4 +1,4 @@
-import { calcPaymentsSummary, calcItemsSummary } from './calculations';
+import { calcPaymentsSummary, calcPaymentsTotalValue, calcItemsSummary } from './calculations';
 import { getSettings } from '@/pages/utils/settingsService';
 import CustomerData from '../types/customerData.type';
 import { Item } from '../types/items.type';
@@ -42,7 +42,7 @@ export const validateItems = (
 
 export const validatePayments = (
   payments: Payment[],
-  amountRemaining: number
+  paymentCoverageDifference: number
 ): ValidationErrors => {
   const errors: ValidationErrors = {};
   if (!payments || !Array.isArray(payments)) return errors;
@@ -59,13 +59,13 @@ export const validatePayments = (
 
   if (!payments || payments.length === 0) {
     errors['payments_summary'] = 'Informe ao menos uma forma de pagamento.';
-  } else if (Math.abs(amountRemaining) > 0.01) {
-    if (amountRemaining > 0) {
+  } else if (Math.abs(paymentCoverageDifference) > 0.01) {
+    if (paymentCoverageDifference > 0) {
       errors['payments_summary'] =
-        `Ainda há R$ ${amountRemaining.toFixed(2).replace('.', ',')} a ser declarado.`;
+        `Ainda há R$ ${paymentCoverageDifference.toFixed(2).replace('.', ',')} a ser declarado.`;
     } else {
       errors['payments_summary'] =
-        `O valor pago ultrapassou o total em R$ ${Math.abs(amountRemaining).toFixed(2).replace('.', ',')}.`;
+        `A soma dos valores informados ultrapassou o total em R$ ${Math.abs(paymentCoverageDifference).toFixed(2).replace('.', ',')}.`;
     }
   }
 
@@ -107,10 +107,13 @@ export const validateOrder = (order: Order): ValidationErrors => {
     effectiveItemsTotalValue += order.assistanceServiceValue;
   }
 
-  const { amountRemaining } = calcPaymentsSummary(
+  const { totalOrderValue } = calcPaymentsSummary(
     payments,
     { ...itemsSummary, itemsTotalValue: effectiveItemsTotalValue },
     shippingValue
+  );
+  const paymentCoverageDifference = Number(
+    (totalOrderValue - calcPaymentsTotalValue(payments)).toFixed(2)
   );
 
   const isReturn = order.orderType === 'return';
@@ -127,7 +130,7 @@ export const validateOrder = (order: Order): ValidationErrors => {
   if (!isDraft && !isBudget) {
     Object.assign(errors, {
       ...validateShipping(order.shipping, order.customerData, isBudget),
-      ...validatePayments(payments, amountRemaining),
+      ...validatePayments(payments, paymentCoverageDifference),
     });
   } else if (!isDraft && isBudget) {
     Object.assign(errors, {

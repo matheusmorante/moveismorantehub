@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import { createHmlNormalSaleRuleSet } from '../../../../../../api/nfe/hmlNormalSaleRuleSet';
+import { createNormalSaleRuleSet } from '../../../../../../api/nfe/normalSaleRuleSet';
 import { initialHmlCsosnConfiguration } from '../../../../../../api/nfe/csosnPolicy';
 import {
   resolveFiscalDocument,
@@ -85,6 +86,16 @@ const makeFacts = (): FiscalSnapshotCandidate => ({
       confirmedBy: 'TEST_UNIT_APPROVED',
       productionApproved: false,
     },
+    // Independent unit decision: never reuse the model 55 decision as model 65.
+    contributionDecisions: {
+      '65': {
+        scope: { model: '65', operation: 'normal_sale', issuerCrt: '1' },
+        pis: { cst: '99', base: 0, rate: 0, value: 0 },
+        cofins: { cst: '99', base: 0, rate: 0, value: 0 },
+        confirmedAt: '2026-09-01T00:00:00Z',
+        confirmedBy: 'TEST_UNIT_NFCE65_DECISION',
+      },
+    },
   },
   emissionRequest: {
     id: 'f19b3e63-6f84-45ea-8c5f-39476d709a3d',
@@ -103,6 +114,64 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     )
   );
   afterAll(() => vi.unstubAllGlobals());
+  it.each([false, true])(
+    'usa a mesma determinação de negócio em HML e Produção (consumidor final=%s)',
+    async (finalConsumer) => {
+      const determined = [];
+      for (const environment of [1, 2] as const) {
+        const facts = makeFacts();
+        facts.emissionRequest.environment = environment;
+        facts.emissionRequest.finalConsumer = finalConsumer;
+        facts.emissionRequest.cardNotIntegrated = true;
+        facts.emissionRequest.itemFiscalSelections!['1'].csosn = '102';
+        const rules = await createNormalSaleRuleSet(facts);
+        expect(rules.technicalHomologationOnly).toBeUndefined();
+        const result = resolveFiscalDocument(facts, rules);
+        if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+        expect(result.document).toMatchObject({ environment, model: finalConsumer ? '65' : '55' });
+        expect(result.document.items[0].taxes[0].code).toBe('102');
+        expect(result.document.decisions[0].result.contributionDecisionId).toBe(
+          finalConsumer
+            ? 'fiscal_decision_simples_nfce65_normal_sale_v1'
+            : 'fiscal_decision_simples_nfe55_normal_sale_v1'
+        );
+        const xml = serializeFiscalDocument(facts, result.document, rules, {
+          accessKey: generateNfeAccessKey({
+            ufCode: '41', yearMonth: '2609', cnpj: '12345678000195',
+            model: result.document.model, series: '1', number: 701,
+            emissionType: '1', randomCode: '12345678',
+          }).accessKey,
+          series: 1, number: 701, issuedAt: '2026-09-30T10:00:00-03:00',
+        });
+        expect(xml).toContain(`<tpAmb>${environment}</tpAmb>`);
+        await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
+        determined.push({
+          classification: result.document.items[0].classification,
+          taxes: result.document.items[0].taxes,
+          operation: result.document.operation,
+          totals: result.document.totals,
+        });
+      }
+      expect(determined[0]).toEqual(determined[1]);
+    }
+  );
+  it('recusa usar a decisão 55 na NFC-e 65, inclusive em homologação', async () => {
+    const facts = makeFacts();
+    facts.emissionRequest.finalConsumer = true;
+    delete facts.fiscalInputs!.contributionDecisions;
+    await expect(createNormalSaleRuleSet(facts)).rejects.toThrow('CONTRIBUTION_MODEL_SCOPE_REQUIRED');
+    await expect(
+      createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())
+    ).rejects.toThrow('CONTRIBUTION_MODEL_SCOPE_REQUIRED');
+  });
+  it('não usa a configuração CSOSN HML como default da venda real', async () => {
+    const facts = makeFacts();
+    facts.emissionRequest.itemFiscalSelections!['1'].csosn = '102';
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.items[0].taxes[0].code).toBe('102');
+  });
   it.each(['pickup', 'delivery'])(
     'gera NFC-e %s para PF/PJ com QR Code v3 e XSD após assinatura',
     async (method) => {

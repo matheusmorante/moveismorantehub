@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { validateCsosn } from './csosnPolicy';
 import { assertFiscalSelectionIntegrity } from './fiscalSelectionIntegrity';
+import { isNormalSaleRuleSet } from './normal-sale/constants';
 import {
   resolveOrderFiscalModel,
   getFiscalRecipientAddress,
@@ -105,7 +106,7 @@ export function validateFiscalDocument(
   }
   if (!['55', '65'].includes(document.model) || !document.items.length || !document.payments.length)
     throw new Error('Modelo, itens ou pagamentos fiscais ausentes.');
-  if (ruleSet.version === 'HML_NORMAL_SALE_V2') {
+  if (isNormalSaleRuleSet(ruleSet.version)) {
     const customer = snapshot.fiscalInputs?.customer as Record<string, unknown> | undefined;
     const customerPersonType =
       customer?.personType === 'PF' || customer?.personType === 'PJ'

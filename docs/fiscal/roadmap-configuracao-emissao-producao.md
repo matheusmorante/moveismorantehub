@@ -1,6 +1,6 @@
 # Roadmap Canônico: NF-e e NFC-e de Saída (MoranteHub)
 
-**Atualizado em:** 30/09/2026
+**Atualizado em:** 07/10/2026
 **Fonte de Verdade para:** Emissão de Documentos Fiscais de Saída (NF-e/NFC-e) diretamente com o SEFAZ-PR.
 
 ## Ponto de retomada — 30/09/2026
@@ -56,7 +56,15 @@ Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md
 
 ## 1. Estado Atual e Correções Conceituais (Auditoria Revisada)
 
-**Status de produção: BLOQUEADO.** As regras e a matriz de testes em homologação foram removidas em 2026-10-03 para redefinição. Este roadmap não contém critérios vigentes para executar testes HML. A remoção não libera emissão fiscal em produção.
+**Status de produção: BLOQUEADO.** Em 2026-10-07, a responsável informou que já testou NFC-e 65 e dispensou novo plano aprovado ou nova evidência de autorização conjunta dos modelos 55/65 como gate documental adicional. Essa decisão não elimina as verificações fiscais, técnicas, operacionais e de configuração que seguem pendentes; não libera emissão em produção por si só.
+
+**Separação arquitetural para a emissão normal:** reutilizar o mesmo core de determinação fiscal, serialização XML, assinatura, validação, comunicação SEFAZ e interpretação de retorno nos dois ambientes. `tpAmb`, endpoints, certificado/configuração, numeração, confirmação de Produção, idempotência e reconciliação pertencem à política do ambiente. A fixture técnica `HML_TECHNICAL_V1` e suas reservas/recuperações `reserve_hml_*` permanecem exclusivas de HML. A tabela `nfe_sequences` já isola numeração por modelo, série e ambiente; a aplicação atual tem um único perfil de emitente.
+
+**Estado do fluxo de venda normal:** o botão de Produção abre o fluxo com `tpAmb=1` e confirmação explícita, mas a API ainda bloqueia a nova emissão antes de reservar número ou contatar a SEFAZ. A determinação de negócio foi extraída para `normalSaleRuleSet.ts`, comum aos ambientes 1/2, preservando a fixture técnica e o adaptador HML separados. A política de reserva, persistência e reconciliação da emissão normal ainda precisa ser conectada a Produção. Não contornar esse caminho usando XML montado no cliente. A política de endpoints SEFA/PR foi centralizada por modelo, serviço e ambiente.
+
+**Decisões de PIS/COFINS por modelo:** a origem oficial do CST 99 zerado da decisão 55 foi auditada; seu escopo permanece exclusivamente 55. A NFC-e 65 exige a chave própria `fiscal_decision_simples_nfce65_normal_sale_v1`, sem herdar a decisão 55. Essa configuração ainda não existe e sua aplicação fiscal concreta está em análise. O snapshot transacional passou a selecionar a decisão pelo modelo, sem reescrever históricos. O CSOSN 103 configurado para HML não se torna padrão da regra comum. Ver [auditoria das decisões de contribuições](decisoes-contribuicoes-venda-normal.md).
+
+**NFC-e / CSC / QR Code:** as quatro variáveis `NFE_CSC_ID_PRODUCAO`, `NFE_CSC_PRODUCAO`, `NFE_CSC_ID_HOMOLOGACAO` e `NFE_CSC_HOMOLOGACAO` estão cadastradas como Secret no escopo Production do Vercel; foram conferidos somente nomes e escopo, sem ler valores. O serializer do QR Code online v3 usa `chave|3|tpAmb` e não consome o CSC. A página da SEFA/PR lista um ID CSC adicional na tabela de parâmetros, embora o modelo online da mesma página e a [NT 2025.001 v1.03](https://www.nfe.fazenda.gov.br/Portal/exibirArquivo.aspx?conteudo=NvuzQGYd6E8%3D), confirmada também pelo padrão do XSD oficial PL_010f em uso, definam online v3 com três parâmetros. As variáveis foram preparadas para configuração dos CSCs por ambiente, mas não são usadas pelo fluxo online v3 atual. A emissão normal de Produção permanece bloqueada no backend pela política operacional ainda não conectada; a decisão própria de contribuições da NFC-e 65 também está pendente. Fonte consultada em 07/10/2026: [SEFA/PR — QR Code](https://sped.fazenda.pr.gov.br/NFCe/Pagina/QR-Code), [SEFA/PR — CSC](https://sped.fazenda.pr.gov.br/NFCe/Pagina/Codigo-de-Seguranca-do-Contribuinte-CSC) e Portal Nacional.
 
 A auditoria identificou exageros e incorreções conceituais na análise anterior que agora estão corrigidos:
 - **Homologação x Produção:** O código suporta configurar ambos, mas **Produção não está "homologada"**. O fato de existirem endpoints não significa que a emissão de produção foi validada ponta a ponta. O status real é: *código preparado e testado localmente, mas a integração contra a SEFAZ em Produção carece de validação e operação efetiva*.
@@ -68,9 +76,9 @@ A auditoria identificou exageros e incorreções conceituais na análise anterio
 
 ## 2. Roadmap por prioridade
 
-### 🔴 P0 — Plano de homologação a redefinir
+### Homologação — sem gate documental adicional por decisão da responsável
 
-As instruções e os critérios anteriores foram removidos em 2026-10-03 a pedido da usuária. A estratégia será redefinida; esta seção não prescreve cenários, massa, execução nem critérios de aceite.
+Não exigir uma nova matriz aprovada nem novos resultados de autorização para os modelos 55/65 como condição documental de go-live. A responsável confirma que já testou a NFC-e 65. Esta dispensa não comprova por si só as lacunas técnicas descritas pela auditoria e não substitui a validação dos demais gates aplicáveis.
 
 ### 🟠 P1 — Segurança operacional
 
@@ -144,4 +152,4 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 ---
 ## 5. Próximo Passo Exato
 
-**Próximo passo: redefinir o plano de testes fiscais em homologação.** Não há instruções ou critérios HML vigentes neste documento. Produção continua bloqueada.
+**Próximo passo:** concluir as verificações fiscais, técnicas, operacionais e de configuração que ainda se aplicam e registrar a decisão de liberação. A ausência de novo plano ou de novos resultados de autorização em HML não é, por si só, um gate documental adicional. Produção continua bloqueada até os demais bloqueadores serem resolvidos.

@@ -1,9 +1,9 @@
 import React from 'react';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import {
-  HML_INTERSTATE_MATRIX_NOT_APPROVED,
   getFiscalIssuePresentation,
   isHmlInterstateMatrixBlock,
+  safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 
 export interface NfeEmissionFooterProps {
@@ -49,9 +49,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   const isUnapprovedInterstateMatrix = isHmlInterstateMatrixBlock(fiscalPreparationError);
   const hasBlockingPreparationFailure =
     Boolean(fiscalPreparationError) && !isUnapprovedInterstateMatrix;
-  const hasAttemptedInterstateMatrixBlock =
-    emissionResult?.technicalDetails?.apiCode === HML_INTERSTATE_MATRIX_NOT_APPROVED;
-
   const isEmitDisabled =
     !canOperateFiscal ||
     isSubmitting ||
@@ -68,6 +65,20 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
       emissionResult?.hmlConfirmedNotFound ||
       emissionResult?.hmlNewEmissionRequired
   );
+  const emissionIssue =
+    emissionResult && !emissionResult.success && !emissionResult.pending
+      ? getFiscalIssuePresentation(emissionResult)
+      : null;
+  const fiscalIssueMessage = emissionIssue
+    ? `${emissionIssue.title}. ${emissionIssue.description}`
+    : fiscalPreparationError
+      ? safeFiscalIssueMessage(
+          fiscalPreparationError,
+          'Não foi possível preparar os dados fiscais. Consulte os detalhes do aviso fiscal.'
+        )
+      : !canOperateFiscal
+        ? 'Seu perfil não pode operar documentos fiscais.'
+        : null;
 
   return (
     <footer className="px-3 py-2 sm:px-6 sm:py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
@@ -80,7 +91,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center justify-end gap-2 sm:gap-2.5 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 sm:gap-2.5 w-full sm:w-auto">
         <button
           type="button"
           onClick={onClose}
@@ -89,29 +100,35 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
           Fechar
         </button>
 
+        {fiscalIssueMessage && (
+          <div
+            data-testid="nfe-fiscal-footer-error"
+            role="alert"
+            aria-live="assertive"
+            className="flex min-w-0 max-w-full sm:max-w-[36rem] items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+          >
+            <i className="bi bi-exclamation-triangle-fill mt-0.5 shrink-0" aria-hidden="true" />
+            <p className="min-w-0 whitespace-normal break-words text-xs leading-5">
+              {fiscalIssueMessage}
+            </p>
+            {onOpenFiscalIssue && (emissionIssue || fiscalPreparationError) && (
+              <button
+                type="button"
+                aria-label="Ver detalhes do aviso fiscal"
+                aria-haspopup="dialog"
+                title="Ver detalhes do aviso fiscal"
+                onClick={onOpenFiscalIssue}
+                className="shrink-0 text-xs font-bold underline underline-offset-2 hover:text-rose-950 dark:hover:text-white"
+              >
+                Detalhes
+              </button>
+            )}
+          </div>
+        )}
+
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
-              {!canOperateFiscal && (
-                <p className="text-xs font-semibold text-rose-600" role="alert">
-                  Seu perfil não pode operar documentos fiscais.
-                </p>
-              )}
-              {fiscalPreparationError &&
-                onOpenFiscalIssue &&
-                (!isUnapprovedInterstateMatrix || hasAttemptedInterstateMatrixBlock) && (
-                  <button
-                    type="button"
-                    data-testid="nfe-fiscal-preparation-error-button"
-                    aria-label="Ver detalhes do erro da preparação fiscal"
-                    aria-haspopup="dialog"
-                    title="Ver detalhes do erro da preparação fiscal"
-                    onClick={onOpenFiscalIssue}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950"
-                  >
-                    <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-                  </button>
-                )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"

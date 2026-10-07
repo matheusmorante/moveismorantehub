@@ -12,6 +12,8 @@ import {
 } from '@/pages/utils/productService/productFiscalDataService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { withNfeEmissionStage } from '../../../../../../../../src/telemetry/nfeEmissionPerformance';
+import { getCfopDefinition } from '../../../../../../../../shared-utils/fiscalCfopModel';
+import { resolveEffectiveRecipientIeIndicator } from '../../../../../../../../shared-utils/recipientIeIndicator';
 import { resolveItemFiscalCfopContext } from '../domain/itemFiscalCfopContext';
 import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
 import { draftKey } from '../types/nfeEmission.types';
@@ -20,6 +22,7 @@ export interface UseNfeItemEnrichmentProps {
   order: Order | null;
   environment: 1 | 2;
   finalConsumer?: boolean;
+  recipientIeIndicator?: '1' | '2' | '9';
   recipientTaxId?: string;
   model?: '55' | '65';
   manualFiscalFields: React.MutableRefObject<Map<string, Record<number, Partial<NfeItemFiscal>>>>;
@@ -40,6 +43,7 @@ export function useNfeItemEnrichment({
   order,
   environment,
   finalConsumer,
+  recipientIeIndicator,
   recipientTaxId,
   model,
   manualFiscalFields,
@@ -62,6 +66,7 @@ export function useNfeItemEnrichment({
     environment,
     model,
     finalConsumer,
+    recipientIeIndicator,
     recipientTaxId,
     getSettings().companyUF,
     order?.orderType,
@@ -112,13 +117,19 @@ export function useNfeItemEnrichment({
         data?: { fiscalContext?: { recipientIeIndicator?: string } };
       }
     ).data?.fiscalContext;
-    const recipientIeIndicator =
-      currentOrder.customerData?.ieIndicator || fiscalContext?.recipientIeIndicator || '';
+    const effectiveRecipientIeIndicator = resolveEffectiveRecipientIeIndicator({
+      selected: recipientIeIndicator,
+      persisted:
+        currentOrder.fiscalContext?.recipientIeIndicator ||
+        fiscalContext?.recipientIeIndicator,
+      customer: currentOrder.customerData?.ieIndicator,
+      ie: currentOrder.customerData?.ie,
+    });
     const cfopContext = resolveItemFiscalCfopContext({
       order: currentOrder,
       issuerUf: settings.companyUF,
       configuredCfop: defaultFiscal.cfop,
-      recipientIeIndicator,
+      recipientIeIndicator: effectiveRecipientIeIndicator,
     });
     const { operationScope, suggestedInitialCfop, compatibleCfop } = cfopContext;
     const scopeSignature = `${operationScope.destination || 'unknown'}:${operationScope.operationUf || ''}`;
@@ -133,6 +144,7 @@ export function useNfeItemEnrichment({
     let invalidatedCfop = false;
     const fallbackItems: NfeItemWithFiscal[] = productItems.map((item) => {
       const savedFiscal = item.fiscal;
+      const sourceCfopDefinition = getCfopDefinition(savedFiscal?.cfop || '');
       const savedCfop = dependenciesChanged ? '' : compatibleCfop(savedFiscal?.cfop);
       if (savedFiscal?.cfop && !savedCfop) invalidatedCfop = true;
       return {
@@ -144,6 +156,12 @@ export function useNfeItemEnrichment({
           cfop: savedCfop || suggestedInitialCfop,
           cst: (!dependenciesChanged && savedFiscal?.cst) || '103',
           origem: savedFiscal?.origem || defaultFiscal.origem || '0',
+          merchandiseOrigin:
+            savedFiscal?.merchandiseOrigin || sourceCfopDefinition?.merchandiseOrigin,
+          isOwnProduction:
+            savedFiscal?.isOwnProduction ?? sourceCfopDefinition?.isOwnProduction,
+          hasSt: savedFiscal?.hasSt ?? savedFiscal?.isSt ?? sourceCfopDefinition?.isSt,
+          isSt: savedFiscal?.isSt ?? sourceCfopDefinition?.isSt,
         },
       };
     });
@@ -236,6 +254,10 @@ export function useNfeItemEnrichment({
               cfop: variation?.cfop || product?.cfop,
               cst: variation?.cst || product?.cst,
               origem: variation?.origem || product?.origem,
+              merchandiseOrigin: variation?.merchandiseOrigin || product?.merchandiseOrigin,
+              isOwnProduction: variation?.isOwnProduction ?? product?.isOwnProduction,
+              hasSt: variation?.hasSt ?? product?.hasSt,
+              isSt: variation?.isSt ?? product?.isSt,
             },
           };
         });
@@ -247,6 +269,9 @@ export function useNfeItemEnrichment({
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           }
           const savedFiscal = item.fiscal;
+          const sourceCfopDefinition = getCfopDefinition(
+            catalogFiscal?.cfop || savedFiscal?.cfop || ''
+          );
           enrichedList.push({
             ...fallbackItems[index],
             fiscal: {
@@ -267,6 +292,24 @@ export function useNfeItemEnrichment({
               csosnSource: preparedCsosn?.source,
               origem:
                 savedFiscal?.origem || catalogFiscal?.origem || fallbackItems[index].fiscal.origem,
+              merchandiseOrigin:
+                savedFiscal?.merchandiseOrigin ||
+                catalogFiscal?.merchandiseOrigin ||
+                sourceCfopDefinition?.merchandiseOrigin,
+              isOwnProduction:
+                savedFiscal?.isOwnProduction ??
+                catalogFiscal?.isOwnProduction ??
+                sourceCfopDefinition?.isOwnProduction,
+              hasSt:
+                savedFiscal?.hasSt ??
+                savedFiscal?.isSt ??
+                catalogFiscal?.hasSt ??
+                catalogFiscal?.isSt ??
+                sourceCfopDefinition?.isSt,
+              isSt:
+                savedFiscal?.isSt ??
+                catalogFiscal?.isSt ??
+                sourceCfopDefinition?.isSt,
             },
           });
           const manual = manualFiscalFields.current.get(draftKey(currentOrder, environment))?.[
@@ -315,7 +358,7 @@ export function useNfeItemEnrichment({
     return () => {
       isMounted = false;
     };
-  }, [orderId, fiscalDependencySignature, environment, manualFiscalFields]);
+  }, [orderId, fiscalDependencySignature, environment, recipientIeIndicator, manualFiscalFields]);
 
   const handleUpdateItemFiscal = (index: number, updates: Partial<NfeItemFiscal>) => {
     const currentOrder = orderRef.current;
@@ -325,6 +368,7 @@ export function useNfeItemEnrichment({
       order: currentOrder,
       issuerUf: settings.companyUF,
       configuredCfop: defaultFiscal.cfop,
+      recipientIeIndicator,
     });
     const { compatibleCfop, defaultCfop, defaultCst } = cfopContext;
 
@@ -384,6 +428,7 @@ export function useNfeItemEnrichment({
       order: currentOrder,
       issuerUf: settings.companyUF,
       configuredCfop: defaultFiscal.cfop,
+      recipientIeIndicator,
     });
     const { compatibleCfop, defaultCfop, defaultCst } = cfopContext;
 

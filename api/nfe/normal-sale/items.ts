@@ -2,26 +2,26 @@ import type { composeServiceFiscalValues } from '../../../erp/src/pages/utils/nf
 import type { FiscalCfopOrderScope } from '../../../shared-utils/fiscalCfopModel';
 import type { FiscalModelDecision } from '../../../shared-utils/fiscalDocumentModel';
 import { ZERO_OWN_ICMS_CSOSNS } from '../../../shared-utils/fiscalIcmsGroups';
-import { type HmlCsosnConfiguration, resolveItemCsosn } from '../csosnPolicy';
+import { validateCsosn } from '../csosnPolicy';
 import type {
   DeterminedFiscalItem,
   FiscalDecisionTrace,
   FiscalSnapshotCandidate,
 } from '../fiscalSnapshot';
-import { HML_NORMAL_SALE_RULESET_VERSION } from './constants';
+import type { ValidSimplesNormalSaleContribution } from '../simplesNormalSaleContribution';
 import { obj, required } from './values';
 
 type ReadyFiscalModelDecision = Extract<FiscalModelDecision, { status: 'ready' }>;
 
-export function determineHmlNormalSaleItems(params: {
+export function determineNormalSaleItems(params: {
   snapshot: FiscalSnapshotCandidate;
   composition: ReturnType<typeof composeServiceFiscalValues>;
   selections: Record<string, any>;
   expectedCfop: string;
   snapshotScope: FiscalCfopOrderScope;
-  contribution: Record<string, any>;
+  contribution: ValidSimplesNormalSaleContribution;
   modelDecision: ReadyFiscalModelDecision;
-  configuration: HmlCsosnConfiguration;
+  ruleSetVersion: string;
   code: string;
   freight: number;
 }) {
@@ -33,7 +33,7 @@ export function determineHmlNormalSaleItems(params: {
     snapshotScope,
     contribution,
     modelDecision,
-    configuration,
+    ruleSetVersion,
     code,
     freight,
   } = params;
@@ -41,8 +41,22 @@ export function determineHmlNormalSaleItems(params: {
   const allowedSavedCfops = ['5102', '6102', '6108'];
   const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
     const selected = selections[String(index + 1)];
-    const saved = (item as any).fiscal || {};
+    const itemRecord = item as any;
+    const saved = itemRecord.fiscal || {};
     const productFiscal = catalog[item.productId || ''] || {};
+    const ownProduction =
+      itemRecord.merchandiseOrigin === 'own_production' ||
+      saved.merchandiseOrigin === 'own_production' ||
+      productFiscal.merchandiseOrigin === 'own_production' ||
+      itemRecord.isOwnProduction === true ||
+      saved.isOwnProduction === true ||
+      productFiscal.isOwnProduction === true;
+    const hasSt = [itemRecord.hasSt, itemRecord.isSt, saved.hasSt, saved.isSt, productFiscal.hasSt, productFiscal.isSt]
+      .find((value) => typeof value === 'boolean');
+    if (expectedCfop === '5102' && (ownProduction || hasSt === true))
+      throw new Error(
+        'Venda normal interna de produção própria ou com ST exige matriz fiscal específica aprovada.'
+      );
     for (const fiscal of [saved, productFiscal]) {
       if (
         (fiscal.cfop && !allowedSavedCfops.includes(fiscal.cfop)) ||
@@ -54,20 +68,15 @@ export function determineHmlNormalSaleItems(params: {
           'Exceção tributária do pedido/cadastro exige matriz específica; os dados não foram substituídos.'
         );
     }
-    const csosn = resolveItemCsosn({
-      configuration,
-      environment: 2,
-      issuerCrt: '1',
-      manual: snapshot.emissionRequest.itemCsosnOverrides?.[String(index + 1)],
-      catalog: productFiscal.cst,
-    });
-    if (selected.csosn !== csosn.csosn)
+    const override = snapshot.emissionRequest.itemCsosnOverrides?.[String(index + 1)];
+    const csosn = validateCsosn(selected.csosn, String(snapshot.issuerProfile.companyCRT));
+    if (override !== undefined && override !== csosn)
       throw new Error('CSOSN confirmado diverge da escolha fiscal preparada.');
     if (selected.cfop === '6933' || selected.cfop === '5933')
       throw new Error(
         `CFOP ${selected.cfop} pertence a prestação de serviço (ISSQN) e não pode ser aplicado a venda de mercadoria.`
       );
-    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn) || selected.cfop !== expectedCfop)
+    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn) || selected.cfop !== expectedCfop)
       throw new Error(
         `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${expectedCfop} para operação ${snapshotScope.scope === 'internal' ? 'interna' : 'interestadual'}); nenhuma escolha foi substituída.`
       );
@@ -81,27 +90,29 @@ export function determineHmlNormalSaleItems(params: {
     )
       throw new Error('Exceção de PIS/COFINS exige regra específica.');
     return {
-      decisionId: `hml-real-item-${index + 1}`,
-      ruleSetVersion: HML_NORMAL_SALE_RULESET_VERSION,
+      decisionId: `normal-sale-item-${index + 1}`,
+      ruleSetVersion,
       effectiveAt: contribution.confirmedAt,
       inputFacts: {
         orderId: snapshot.order.id,
         itemNumber: index + 1,
-        environment: 2,
+        environment: snapshot.emissionRequest.environment,
         issuerCrt: '1',
         recipientMunicipalitySource: 'IBGE',
         recipientMunicipalityCode: code,
       },
       result: {
         ...selected,
-        csosnSource: csosn.source,
-        configurationVersion: configuration.version,
+        csosnSource: 'confirmed_item_selection',
+        contributionDecisionId: contribution.decisionId,
+        contributionDecisionModel: contribution.model,
+        ...(contribution.sourceUrl ? { contributionSourceUrl: contribution.sourceUrl } : {}),
         pisCst: contribution.pis.cst,
         cofinsCst: contribution.cofins.cst,
         modelDecision,
       },
       reason: modelDecision.reason,
-      approver: 'operator_instruction_real_orders_hml_only',
+      approver: contribution.confirmedBy,
     };
   });
   const determinedItems = composition.products.map(

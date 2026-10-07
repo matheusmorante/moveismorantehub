@@ -11,7 +11,7 @@ import { money, normalize, obj } from './values';
 
 type ReadyFiscalModelDecision = Extract<FiscalModelDecision, { status: 'ready' }>;
 
-export function resolveHmlNormalSalePayments(params: {
+export function resolveNormalSalePayments(params: {
   snapshot: FiscalSnapshotCandidate;
   data: FiscalSnapshotCandidate['order']['data'];
   shipping: Record<string, any>;

@@ -4,6 +4,10 @@ import {
   isValidRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../../../../../../../shared-utils/recipientTaxId';
+import {
+  getRecipientIeIndicatorConsistencyError,
+  resolveEffectiveRecipientIeIndicator,
+} from '../../../../../../../../shared-utils/recipientIeIndicator';
 
 export interface UseNfeRecipientTaxIdProps {
   order: Order | null;
@@ -17,16 +21,18 @@ export function useNfeRecipientTaxId({ order, currentModel }: UseNfeRecipientTax
   );
 
   const initialIe = order?.customerData?.ie || (order?.customerData as any)?.rgIe || '';
-  const initialIndicator: '1' | '2' | '9' =
-    currentModel === '65'
-      ? '9'
-      : order?.fiscalContext?.recipientIeIndicator ||
-        order?.customerData?.ieIndicator ||
-        (initialIe.trim() ? '1' : '9');
+  const initialIndicator = resolveEffectiveRecipientIeIndicator({
+    selected: currentModel === '65' ? '9' : undefined,
+    persisted: order?.fiscalContext?.recipientIeIndicator,
+    customer: order?.customerData?.ieIndicator,
+    ie: initialIe,
+  });
 
   const [recipientIe, setRecipientIe] = useState(initialIe);
   const [recipientIeIndicator, setRecipientIeIndicator] = useState<'1' | '2' | '9'>(initialIndicator);
-  const [recipientIeError, setRecipientIeError] = useState<string | null>(null);
+  const [recipientIeError, setRecipientIeError] = useState<string | null>(() =>
+    getRecipientIeIndicatorConsistencyError(initialIndicator, initialIe)
+  );
 
   const handleRecipientTaxIdChange = useCallback(
     (value: string) => {

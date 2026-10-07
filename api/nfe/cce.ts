@@ -11,20 +11,13 @@ import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { isNfeProductionEnabled } from './productionGuard';
 import { extractCertificateAndKey, signNfeEventXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
+import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
-const eventEndpoints = {
-  1: 'https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
-  2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
-} as const;
-const queryEndpoints = {
-  1: 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-  2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-} as const;
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -104,7 +97,7 @@ async function reconcilePendingEvent(
     const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
     const requestXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${document.ambiente}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${document.chave_acesso}</chNFe></consSitNFe>`;
     consultationXml = await sendSoapToSefaz({
-      url: queryEndpoints[document.ambiente as 1 | 2],
+      url: getNfeServiceEndpoint('55', document.ambiente, 'NFeConsultaProtocolo4'),
       action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
       serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
       xmlPayload: requestXml,
@@ -395,7 +388,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let responseXml: string;
     try {
       responseXml = await sendSoapToSefaz({
-        url: eventEndpoints[document.ambiente as 1 | 2],
+        url: getNfeServiceEndpoint('55', document.ambiente, 'NFeRecepcaoEvento4'),
         action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento',
         serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4',
         xmlPayload: signedXml,

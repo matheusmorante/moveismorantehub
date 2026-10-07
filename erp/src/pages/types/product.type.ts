@@ -79,6 +79,9 @@ export type FiscalInfo = {
   origem?: string;
   cst?: string; // or CSOSN
   cfop?: string;
+  isOwnProduction?: boolean;
+  hasSt?: boolean;
+  isSt?: boolean;
   pisCst?: string;
   cofinsCst?: string;
   icmsPercent?: number;

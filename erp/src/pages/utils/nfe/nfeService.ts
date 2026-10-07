@@ -413,6 +413,7 @@ export async function emitNfeForOrder(
             ? parseFiscalNumberConflict(retryResult.numberConflict)
             : undefined,
         hmlNewEmissionRequired: retryResult.code === 'HML_NEW_EMISSION_REQUIRED',
+        hmlConfirmedNotFound: ['HML_CONFIRMED_NOT_FOUND', 'FISCAL_CONFIRMED_NOT_FOUND'].includes(retryResult.code),
         transportDiagnostic: retryResult.transportDiagnostic
           ? {
               ...retryResult.transportDiagnostic,
@@ -634,7 +635,7 @@ export async function emitNfeForOrder(
           typeof result.protocolNumber === 'string' ? result.protocolNumber : undefined,
         protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : undefined,
         pending: activeAttemptConflict || requiresReconciliation(response.status, result),
-        hmlConfirmedNotFound: result.code === 'HML_CONFIRMED_NOT_FOUND',
+        hmlConfirmedNotFound: ['HML_CONFIRMED_NOT_FOUND', 'FISCAL_CONFIRMED_NOT_FOUND'].includes(result.code),
         hmlNewEmissionRequired: result.code === 'HML_NEW_EMISSION_REQUIRED',
         hmlCanAbandonTlsFailure: result.hmlCanAbandonTlsFailure === true,
         fiscalMismatchFields: Array.isArray(result.fiscalMismatchFields)
@@ -697,7 +698,7 @@ export async function emitNfeForOrder(
         return {
           success: true,
           ...metadata,
-          danfeUnavailableReason: 'DANFE HML deve ser gerado do XML fiscal persistido no backend.',
+          danfeUnavailableReason: 'DANFE deve ser gerado do XML fiscal persistido no backend.',
         };
       const logFn =
         response.status >= 500 &&
@@ -751,13 +752,13 @@ export async function emitNfeForOrder(
         errorMessage = result.reservationRecoveryRequired
           ? 'Já existe uma reserva fiscal para este pedido. Retome a reserva existente para preservar a numeração.'
           : 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.';
-      } else if (result.code === 'HML_TRANSMISSION_UNCERTAIN') {
+      } else if (['HML_TRANSMISSION_UNCERTAIN', 'FISCAL_TRANSMISSION_UNCERTAIN'].includes(result.code)) {
         errorMessage =
           'Houve falha de conexão e a SEFAZ não respondeu. Consulte a tentativa para verificar se a nota foi autorizada.';
-      } else if (result.code === 'HML_CONFIRMED_NOT_FOUND') {
+      } else if (['HML_CONFIRMED_NOT_FOUND', 'FISCAL_CONFIRMED_NOT_FOUND'].includes(result.code)) {
         errorMessage =
           'A consulta retornou 217: a nota não consta na SEFAZ. Você pode retransmitir o mesmo documento.';
-      } else if (result.code === 'HML_RECONCILIATION_REQUIRED') {
+      } else if (['HML_RECONCILIATION_REQUIRED', 'FISCAL_RECONCILIATION_REQUIRED'].includes(result.code)) {
         errorMessage =
           'Existe uma tentativa anterior sem confirmação da SEFAZ. Consulte a situação antes de emitir novamente.';
       } else if (result.code === 'HML_NEW_EMISSION_REQUIRED') {

@@ -416,8 +416,6 @@ export function parseFiscalEmissionCommand(
   let itemFiscalSelections: FiscalItemSelections;
   try {
     itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
-    if (Object.keys(itemFiscalSelections).length && environment !== 2)
-      throw new Error('Seleções provisórias do modal estão habilitadas somente em homologação.');
     for (const [key, code] of Object.entries(itemCsosnOverrides)) {
       if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
         throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);

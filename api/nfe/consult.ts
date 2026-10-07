@@ -8,23 +8,15 @@ import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { retryHmlTechnical, consultAuthorizedHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
+import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
+import { reconcileNormalSale } from './normal-sale/outboundAttempt';
+import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
-const endpoints = {
-  '55': {
-    1: 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-    2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-  },
-  '65': {
-    1: 'https://nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4',
-    2: 'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4',
-  },
-} as const;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'OPTIONS,POST');
@@ -35,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
 
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const supabase = createClient(supabaseUrl, serviceKey, { db: { retry: false } });
   const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({
@@ -54,6 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (error || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
+    if (doc.fiscal_ruleset_version === NORMAL_SALE_RULESET_VERSION) {
+      const result = await reconcileNormalSale(supabase, doc.id);
+      return res.status(result.status).json(result.body);
+    }
     if (isHmlRuleSet(doc.fiscal_ruleset_version)) {
       const result =
         doc.status === 'homologada'
@@ -73,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const model = String(doc.modelo) as '55' | '65';
     const environment = Number(doc.ambiente) as 1 | 2;
     const accessKey = String(doc.chave_acesso || '');
-    if (!(model in endpoints) || ![1, 2].includes(environment) || !/^\d{44}$/.test(accessKey)) {
+    if (!['55', '65'].includes(model) || ![1, 2].includes(environment) || !/^\d{44}$/.test(accessKey)) {
       return res
         .status(409)
         .json({ success: false, error: 'Modelo, ambiente ou chave de acesso inválidos.' });
@@ -87,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const certificate = extractCertificateAndKey(pfx, password || '');
     const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
     const responseXml = await sendSoapToSefaz({
-      url: endpoints[model][environment],
+      url: getNfeServiceEndpoint(model, environment, 'NFeConsultaProtocolo4'),
       action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
       serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
       xmlPayload: queryXml,

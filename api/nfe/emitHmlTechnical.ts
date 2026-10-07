@@ -48,6 +48,8 @@ import {
 } from '../../shared-utils/fiscalNumbering';
 import { isValidRecipientTaxId, normalizeRecipientTaxId } from '../../shared-utils/recipientTaxId';
 import { isSameFiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
+import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
+import type { ApprovedFiscalRuleSet } from './fiscalCore';
 
 export const isHmlRuleSet = (version: unknown) =>
   version === HML_TECHNICAL_RULESET_VERSION ||
@@ -59,8 +61,7 @@ type Result = { status: number; body: Record<string, unknown> };
 type HmlDocumentRow = FiscalDatabase['public']['Tables']['nfe_documents']['Row'];
 const hmlEndpoint = (model: unknown, service: string) => {
   if (model !== '55' && model !== '65') throw new Error('Modelo fiscal inválido.');
-  const prefix = model === '65' ? 'nfce' : 'nfe';
-  return `https://homologacao.${prefix}.sefa.pr.gov.br/${prefix}/${service}`;
+  return getNfeServiceEndpoint(model, 2, service);
 };
 const failure = (
   status: number,
@@ -1163,7 +1164,7 @@ export async function emitHmlTechnical(
       'HML_FISCAL_DECISION_UNAVAILABLE',
       'Decisão persistida de PIS/COFINS indisponível.'
     );
-  let rules: Awaited<ReturnType<typeof createHmlNormalSaleRuleSet>>;
+  let rules: ApprovedFiscalRuleSet;
   try {
     const configuration = await loadHmlCsosnConfiguration(db, true);
     rules = technicalFixture

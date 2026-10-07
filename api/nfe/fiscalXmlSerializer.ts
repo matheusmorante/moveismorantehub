@@ -6,6 +6,7 @@ import {
 } from '../../shared-utils/recipientTaxId';
 import { type ApprovedFiscalRuleSet, validateFiscalDocument } from './fiscalCore';
 import type { FiscalDocument, FiscalSnapshotCandidate } from './fiscalSnapshot';
+import { isNormalSaleRuleSet } from './normal-sale/constants';
 import { serializeFiscalItems } from './xml/fiscalItemXml';
 import { accessKeyDigit, addressXml, dateOnly, money, requireCode, tag } from './xml/xmlPrimitives';
 
@@ -16,7 +17,7 @@ export type FiscalXmlIdentity = {
   issuedAt: string;
 };
 
-/** Pure internal-sale NF-e/NFC-e serialization, including online QR Code v3. */
+/** Pure internal-sale NF-e/NFC-e serialization, including PR online QR Code v3. */
 export function serializeFiscalDocument(
   snapshot: FiscalSnapshotCandidate,
   document: FiscalDocument,
@@ -39,7 +40,7 @@ export function serializeFiscalDocument(
     !Number.isInteger(identity.number) ||
     identity.number < 1 ||
     !Number.isInteger(identity.series) ||
-    identity.series < 1 ||
+    identity.series < 0 ||
     identity.series > 999
   )
     throw new Error('Chave, emitente, modelo, série ou número fiscal não conferem.');
@@ -71,9 +72,9 @@ export function serializeFiscalDocument(
     throw new Error('Operação fiscal não suportada pelo serializer.');
   if (document.model === '65' && operation.destination !== '1')
     throw new Error('NFC-e não permite operação interestadual.');
-  if (document.ruleSetVersion === 'HML_NORMAL_SALE_V2' && operation.destination !== '1')
+  if (isNormalSaleRuleSet(document.ruleSetVersion) && operation.destination !== '1')
     throw new Error(
-      'HML_NORMAL_SALE_V2 não gera XML interestadual sem uma matriz tributária aprovada.'
+      `${document.ruleSetVersion} não gera XML interestadual sem uma matriz tributária aprovada.`
     );
   if (
     document.model === '65' &&

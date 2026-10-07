@@ -10,6 +10,10 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { validateOrdinaryOutboundEnvelope } from '../../erp/src/pages/utils/nfe/fiscalEnvelope';
 import { isNfeProductionEnabled } from './productionGuard';
+import { getNfeAuthorizationEndpoint } from './fiscalEnvironmentPolicy';
+import { emitNormalSale } from './emitNormalSale';
+import { recoverNormalSale, reconcileNormalSale } from './normal-sale/outboundAttempt';
+import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { validateNfeAgainstOfficialSchema } from './schemaValidator';
@@ -27,7 +31,6 @@ import {
 } from './responsibleTechnician';
 import {
   parseFiscalEmissionCommand,
-  resolveFiscalDocument,
   type FiscalIssuerProfileKey,
   type FiscalJsonValue,
   type FiscalSnapshotCandidate,
@@ -38,18 +41,6 @@ const supabaseUrl =
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const supabaseServiceKey = getSupabaseSecretKey() || '';
-
-// Endpoints Oficiais SEFAZ-PR Homologação e Produção
-const SEFAZ_PR_URLS = {
-  homologacao: {
-    '55': 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
-    '65': 'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
-  },
-  producao: {
-    '55': 'https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
-    '65': 'https://nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4',
-  },
-};
 
 type RetryResponseMetadata = {
   documentId: string;
@@ -123,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: 'Serviço fiscal sem credencial segura do banco.',
         });
-      supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey);
+      supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
       const fiscalAuthorization = await authorizeFiscalOperator(
         supabase,
         req.headers.authorization
@@ -134,14 +125,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: fiscalAuthorization.message,
         });
 
-      if (command.environment === 1)
-        return res.status(503).json({
-          success: false,
-          code: 'PRODUCTION_FISCAL_RULESET_REQUIRED',
-          error: 'Produção exige uma matriz fiscal aprovada e um pipeline próprio.',
-        });
-
-      const recovered = await recoverHmlTechnical(supabase, command);
+      const normalRecovery = await recoverNormalSale(supabase, command);
+      if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);
+      const recovered = command.environment === 2 ? await recoverHmlTechnical(supabase, command) : null;
       if (recovered) return res.status(recovered.status).json(recovered.body);
 
       const { data: orderRow, error: orderError } = await supabase
@@ -240,6 +226,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           itemCsosnOverrides: command.itemCsosnOverrides,
           itemFiscalSelections: command.itemFiscalSelections,
           recipientTaxId: command.recipientTaxId,
+          recipientIe: command.recipientIe,
+          recipientIeIndicator: command.recipientIeIndicator,
           finalConsumer: command.finalConsumer,
           deliveryByIssuer: command.deliveryByIssuer,
           cardNotIntegrated: command.cardNotIntegrated,
@@ -250,29 +238,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           freightMode: command.freightMode,
         },
       };
-      if (command.environment === 2) {
+      if (command.environment === 2 && candidate.order.data.fiscalScenario === 'HML_TECHNICAL_V1') {
         const result = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
         return res.status(result.status).json(result.body);
       }
-      const determination = resolveFiscalDocument(candidate);
-      if (determination.status === 'blocked')
-        return res.status(422).json({
-          success: false,
-          code: 'FISCAL_DETERMINATION_REQUIRED',
-          error: 'A emissão está bloqueada até existir matriz fiscal aprovada e ativa.',
-          blockers: determination.blockers,
-          numberReserved: false,
-          sefazContacted: false,
-        });
-
-      // No serializer/transmission path may proceed from a client-supplied XML.
-      return res.status(503).json({
-        success: false,
-        code: 'FISCAL_DOCUMENT_SERIALIZER_UNAVAILABLE',
-        error: 'O serializador fiscal server-side ainda não está configurado.',
-        numberReserved: false,
-        sefazContacted: false,
-      });
+      const result = await emitNormalSale(supabase, command, candidate, issuerSettings, fiscalAuthorization.userId);
+      return res.status(result.status).json(result.body);
     }
 
     if (!xml && !req.body.retryDocumentId) {
@@ -321,7 +292,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res
         .status(503)
         .json({ success: false, error: 'Serviço fiscal sem credencial segura do banco.' });
-    supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey);
+    supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
     const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
     if (!fiscalAuthorization.ok)
       return res.status(fiscalAuthorization.status).json({
@@ -347,11 +318,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model = String(retryDoc.modelo || '');
       selectedEnvironment = Number(retryDoc.ambiente);
 
+      if (retryDoc.fiscal_ruleset_version === NORMAL_SALE_RULESET_VERSION) {
+        const result = await reconcileNormalSale(supabase, retryDoc.id, true, req.body.productionConfirmed === true);
+        return res.status(result.status).json(result.body);
+      }
+
       if (selectedEnvironment === 1)
         return res.status(503).json({
           success: false,
           code: 'PRODUCTION_FISCAL_RULESET_REQUIRED',
-          error: 'Produção exige uma matriz fiscal aprovada e um pipeline próprio.',
+          error:
+            'A retransmissão produtiva ainda depende da política fiscal de Produção; nenhum XML HML será convertido ou reutilizado.',
         });
 
       if (!orderId || ![1, 2].includes(selectedEnvironment) || !['55', '65'].includes(model))
@@ -673,9 +650,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 5. Determinar URL da SEFAZ
     const isHomologacao = selectedEnvironment === 2;
-    const sefazUrl = isHomologacao
-      ? SEFAZ_PR_URLS.homologacao[String(model) as '55' | '65']
-      : SEFAZ_PR_URLS.producao[String(model) as '55' | '65'];
+    const sefazUrl = getNfeAuthorizationEndpoint(
+      String(model),
+      selectedEnvironment
+    );
 
     console.log(
       `[NF-e Emit] Enviando lote ${idLote} para SEFAZ-PR (${isHomologacao ? 'Homologação' : 'Produção'})...`

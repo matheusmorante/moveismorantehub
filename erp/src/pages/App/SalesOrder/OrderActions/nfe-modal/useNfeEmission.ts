@@ -66,7 +66,15 @@ export function useNfeEmission(
     fiscalPreparationError,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
-  } = useNfeItemEnrichment({ order, environment, manualFiscalFields, finalConsumer, recipientTaxId, model: currentModel });
+  } = useNfeItemEnrichment({
+    order,
+    environment,
+    manualFiscalFields,
+    finalConsumer,
+    recipientIeIndicator,
+    recipientTaxId,
+    model: currentModel,
+  });
 
   // 2. Transporte
   const {

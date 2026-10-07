@@ -50,6 +50,7 @@ export type FiscalDatabase = {
       nfe_documents: FiscalTable<
         {
           id: string;
+          issuer_cnpj: string | null;
           order_id: string;
           numero_nfe: number;
           serie: string;
@@ -96,6 +97,7 @@ export type FiscalDatabase = {
       >;
       nfe_fiscal_snapshots: FiscalTable<{
         id: string;
+        issuer_cnpj: string | null;
         emission_request_id: string;
         order_id: string;
         order_version: number;
@@ -120,6 +122,36 @@ export type FiscalDatabase = {
         discount_value: number;
         product_xml: string;
         taxes_xml: string;
+      }>;
+      nfe_outbound_attempts: FiscalTable<{
+        id: string;
+        emission_request_id: string;
+        order_id: string;
+        document_id: string;
+        snapshot_id: string;
+        issuer_cnpj: string;
+        model: '55' | '65';
+        environment: 1 | 2;
+        series: string;
+        number: number;
+        access_key: string;
+        request_command: Record<string, unknown>;
+        request_fingerprint: string;
+        xml_sha256: string;
+        state:
+          | 'prepared'
+          | 'transmitting'
+          | 'reconciling'
+          | 'authorized'
+          | 'rejected'
+          | 'confirmed_not_found';
+        actor_id: string | null;
+        attempt_token: string | null;
+        attempt_expires_at: string | null;
+        transmission_started_at: string | null;
+        response_history: Record<string, unknown>[];
+        created_at: string;
+        updated_at: string;
       }>;
       nfe_return_item_allocations: FiscalTable<{
         id: string;
@@ -178,6 +210,57 @@ export type FiscalDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      peek_nfe_outbound_number: {
+        Args: {
+          p_issuer_cnpj: string;
+          p_model: string;
+          p_environment: number;
+          p_series: string;
+          p_minimum: number;
+        };
+        Returns: number;
+      };
+      prepare_nfe_outbound_attempt: {
+        Args: {
+          p_snapshot: Record<string, unknown>;
+          p_signed_xml: string;
+          p_access_key: string;
+          p_request_command: Record<string, unknown>;
+          p_attempt_token: string;
+          p_actor_id: string;
+          p_minimum_number: number;
+        };
+        Returns: {
+          documentId: string;
+          snapshotId: string;
+          snapshotHash?: string;
+          created: boolean;
+        };
+      };
+      claim_nfe_outbound_attempt: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: boolean;
+      };
+      release_nfe_outbound_attempt: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: undefined;
+      };
+      start_nfe_outbound_transmission: {
+        Args: { p_document_id: string; p_attempt_token: string };
+        Returns: undefined;
+      };
+      persist_nfe_outbound_result: {
+        Args: {
+          p_document_id: string;
+          p_attempt_token: string;
+          p_state: string;
+          p_reason: string;
+          p_response_xml: string;
+          p_protocol: string | null;
+          p_items: Record<string, unknown>[];
+        };
+        Returns: undefined;
+      };
       prepare_nfe_operation_draft: {
         Args: {
           p_kind: string;

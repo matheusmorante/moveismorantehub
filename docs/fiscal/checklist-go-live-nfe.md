@@ -1,6 +1,10 @@
 # Checklist de go-live — NF-e de produção
 
-Produção permanece bloqueada até que cada gate aplicável abaixo tenha evidência e aprovação registradas. A homologação usa `tpAmb=2`; qualquer emissão produtiva usa `tpAmb=1`, endpoint oficial de produção derivado no backend e uma liberação explícita. A flag de produção deve permanecer desligada por padrão. Não habilitar a flag como parte deste checklist.
+Produção permanece bloqueada até que cada gate técnico, fiscal, operacional e de acesso aplicável abaixo seja validado e aprovado. A homologação usa `tpAmb=2`; qualquer emissão produtiva usa `tpAmb=1`, endpoint oficial de produção derivado no backend e uma liberação explícita. A flag de produção deve permanecer desligada por padrão. Não habilitar a flag como parte deste checklist.
+
+## Decisão sobre evidências de homologação — 07/10/2026
+
+A responsável informou que já testou a NFC-e 65 em homologação. Não exigir nova evidência, reexecução desse teste, nem plano aprovado com resultados de autorização para os modelos 55 e 65 como gate adicional de go-live. Por decisão da responsável, a revisão documental do enquadramento NCM/CFOP/CSOSN/CST também foi retirada deste checklist. Essas dispensas não resolvem nem apagam eventuais achados técnicos da auditoria fiscal e não marcam como concluídas as demais verificações técnicas, operacionais ou de configuração abaixo.
 
 ## Segurança da emissão
 
@@ -16,7 +20,6 @@ Produção permanece bloqueada até que cada gate aplicável abaixo tenha evidê
 - [ ] Conferir razão social, CNPJ, IE, CRT, endereço e município do emitente contra o cadastro oficial.
 - [ ] Revisar modelo, série e próxima numeração de produção; verificar continuidade e não reutilização de números consumidos.
 - [ ] Revisar CSC/CSRT e respectivos identificadores/tokens apenas para os modelos e eventos em que são exigidos; conferir ambiente, titularidade e validade sem copiar valores secretos para o checklist.
-- [ ] Revisar NCM, origem, CFOP, CSOSN/CST, benefícios e defaults por operação e produto; validar exceções manualmente, sem ativar NCM em massa.
 - [ ] Confirmar que saldo físico não bloqueia a emissão da NF-e; movimento e saldo de estoque seguem o gatilho comercial próprio e não são alterados pela transmissão fiscal.
 - [ ] Validar destinatário, endereço, IE/indicador de IE, quantidades, descontos, frete, serviços e totais nos cenários de venda reais previstos.
 

@@ -12,6 +12,7 @@ import { ValidationErrors } from '../../../utils/validations';
 
 interface Props {
   payment: Payment;
+  payments: Payment[];
   summary: PaymentsSummary;
   onChange: (idx: number, key: keyof Payment, value: number | string) => void;
   onChangeFee: (idx: number, fee: number, feeType: 'fixed' | 'percentage') => void;
@@ -23,6 +24,7 @@ interface Props {
 
 const BodyRow = ({
   payment,
+  payments,
   summary,
   onChange,
   onChangeFee,
@@ -34,6 +36,22 @@ const BodyRow = ({
   const statusError = errors[`payment_${idx}_status`];
   const methodError = errors[`payment_${idx}_method`];
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
+
+  const otherPaymentAmounts = payments.reduce(
+    (total, otherPayment, paymentIdx) =>
+      paymentIdx === idx ? total : total + (Number(otherPayment.amount) || 0),
+    0
+  );
+  const targetPaymentAmount = Math.max(
+    0,
+    Number((summary.totalOrderValue - summary.totalPaymentsFee - otherPaymentAmounts).toFixed(2))
+  );
+  const paymentAmountDifference = Number((targetPaymentAmount - payment.amount).toFixed(2));
+  const shouldAdjustPaymentAmount = Math.abs(paymentAmountDifference) > 0.01;
+  const paymentAmountAdjustmentTitle =
+    paymentAmountDifference > 0
+      ? `Ajustar para o total do pedido (adicionar ${formatCurrency(paymentAmountDifference)})`
+      : `Ajustar valor para o total do pedido (reduzir ${formatCurrency(Math.abs(paymentAmountDifference))})`;
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -186,25 +204,12 @@ const BodyRow = ({
                   showBadge={true}
                   badgeText="R$"
                 />
-                {Math.abs(summary.amountRemaining) > 0.01 && (
+                {shouldAdjustPaymentAmount && (
                   <button
                     type="button"
-                    onClick={() =>
-                      onChange(
-                        idx,
-                        'amount',
-                        Math.max(
-                          0,
-                          Math.round((payment.amount + summary.amountRemaining) * 100) / 100
-                        )
-                      )
-                    }
+                    onClick={() => onChange(idx, 'amount', targetPaymentAmount)}
                     className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all shrink-0"
-                    title={
-                      summary.amountRemaining > 0
-                        ? `Puxar saldo restante (${formatCurrency(summary.amountRemaining)})`
-                        : `Ajustar valor para o total do pedido (excesso de ${formatCurrency(Math.abs(summary.amountRemaining))})`
-                    }
+                    title={paymentAmountAdjustmentTitle}
                   >
                     <i className="bi bi-magic" />
                   </button>
@@ -378,22 +383,12 @@ const BodyRow = ({
             showBadge={true}
             badgeText="R$"
           />
-          {Math.abs(summary.amountRemaining) > 0.01 && (
+          {shouldAdjustPaymentAmount && (
             <button
               type="button"
-              onClick={() =>
-                onChange(
-                  idx,
-                  'amount',
-                  Math.max(0, Math.round((payment.amount + summary.amountRemaining) * 100) / 100)
-                )
-              }
+              onClick={() => onChange(idx, 'amount', targetPaymentAmount)}
               className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all shrink-0"
-              title={
-                summary.amountRemaining > 0
-                  ? `Puxar saldo restante (${formatCurrency(summary.amountRemaining)})`
-                  : `Ajustar valor para o total do pedido (excesso de ${formatCurrency(Math.abs(summary.amountRemaining))})`
-              }
+              title={paymentAmountAdjustmentTitle}
             >
               <i className="bi bi-magic" />
             </button>

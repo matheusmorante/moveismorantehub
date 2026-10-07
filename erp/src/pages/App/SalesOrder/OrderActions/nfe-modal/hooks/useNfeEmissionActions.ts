@@ -11,13 +11,16 @@ import {
 } from '@/pages/utils/nfe/nfeService';
 import {
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
-  getFiscalIssuePresentation,
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import type { resolveOrderFiscalModel } from '../../../../../../../../shared-utils/fiscalDocumentModel';
 import type { resolveTransport } from '../../../../../../../../shared-utils/fiscalTransportModel';
+import {
+  getRecipientIeIndicatorConsistencyError,
+  resolveEffectiveRecipientIeIndicator,
+} from '../../../../../../../../shared-utils/recipientIeIndicator';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import type { ThirdPartyTransporterForm } from '../NfeTransportSection';
 import {
@@ -30,11 +33,6 @@ import {
   consultSefazStatus,
   executeAbandonHmlTlsAttempt,
 } from '../services/nfeReconciliationService';
-
-function notifyEmissionFailure(result: NfeEmissionResult) {
-  const issue = getFiscalIssuePresentation(result);
-  toast.error(`${issue.title}. ${issue.description}`);
-}
 
 export interface UseNfeEmissionActionsProps {
   order: Order | null;
@@ -119,7 +117,6 @@ export function useNfeEmissionActions({
         technicalDetails: { apiCode: HML_INTERSTATE_MATRIX_NOT_APPROVED },
       };
       setEmissionResult(blockedResult);
-      notifyEmissionFailure(blockedResult);
       return;
     }
 
@@ -157,9 +154,21 @@ export function useNfeEmissionActions({
           : validation.toastError
       );
     }
-    if (currentModel === '55' && recipientIeIndicator === '1' && !recipientIe?.trim()) {
-      toast.error('Informe a Inscrição Estadual para o destinatário contribuinte do ICMS.');
-      return;
+    if (currentModel === '55') {
+      const effectiveIeIndicator = resolveEffectiveRecipientIeIndicator({
+        selected: recipientIeIndicator,
+        persisted: order.fiscalContext?.recipientIeIndicator,
+        customer: order.customerData?.ieIndicator,
+        ie: recipientIe || order.customerData?.ie,
+      });
+      const recipientIeError = getRecipientIeIndicatorConsistencyError(
+        effectiveIeIndicator,
+        recipientIe
+      );
+      if (recipientIeError) {
+        toast.error(recipientIeError);
+        return;
+      }
     }
 
     if (!validation.valid) return;
@@ -205,7 +214,6 @@ export function useNfeEmissionActions({
 
       if (!res.success) {
         setEmissionResult(res);
-        if (res.pending !== true) notifyEmissionFailure(res);
         if (res.numberConflict?.nextNumber) {
           if (nfeNumberSequence.series) {
             updateFiscalNumberPreviewCache(
@@ -272,7 +280,6 @@ export function useNfeEmissionActions({
         },
       };
       setEmissionResult(failedResult);
-      if (failedResult.pending !== true) notifyEmissionFailure(failedResult);
     } finally {
       submissionInProgress.current = false;
       setIsSubmitting(false);

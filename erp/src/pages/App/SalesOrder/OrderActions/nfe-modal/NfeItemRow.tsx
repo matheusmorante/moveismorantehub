@@ -4,14 +4,8 @@ import { formatCurrency } from '@/pages/utils/formatters';
 import { NcmSelect } from './NcmSelect';
 import { composeServiceFiscalValues } from '@/pages/utils/nfe/serviceFiscalComposition';
 import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
-import ConfirmModal from '@/components/shared/ConfirmModal';
 import { CSOSN_OPTIONS, ORIGEM_OPTIONS, CEST_OPTIONS } from '@/pages/utils/nfe/fiscalConstants';
-
-export interface NfeItemCfopOption {
-  value: string;
-  label: string;
-  disabled?: boolean;
-}
+import type { NfeItemCfopOption } from './domain/itemFiscalCfopOptions';
 
 interface Props {
   item: NfeItemWithFiscal;
@@ -36,8 +30,7 @@ export const NfeItemRow: React.FC<Props> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [cfopSearch, setCfopSearch] = useState<string | null>(null);
-  const savedCsosn = item.fiscal?.cst?.trim() || '';
-  const currentCsosn = savedCsosn || '103';
+  const [activeCfopReason, setActiveCfopReason] = useState<string | null>(null);
   const values = composeServiceFiscalValues([item]).products[0];
   const itemTotal = (values.vProdCents - values.vDescCents) / 100;
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
@@ -49,26 +42,18 @@ export const NfeItemRow: React.FC<Props> = ({
   const hasOrigemError = fieldError?.field === 'origem';
 
   const selectedCfop = item.fiscal?.cfop || '';
+  const selectedCfopAvailable = cfopOptions.some(
+    (option) => option.value === selectedCfop && !option.disabled
+  );
   const visibleCfopOptions = useMemo(() => {
     const search = cfopSearch?.trim().toLocaleLowerCase('pt-BR') || '';
-    const options =
-      selectedCfop && !cfopOptions.some((option) => option.value === selectedCfop)
-        ? [
-            {
-              value: selectedCfop,
-              label: `${selectedCfop} — incompatível com a operação atual`,
-              disabled: true,
-            },
-            ...cfopOptions,
-          ]
-        : cfopOptions;
     return search
-      ? options.filter(
+      ? cfopOptions.filter(
           (option) =>
             option.value === selectedCfop ||
             option.label.toLocaleLowerCase('pt-BR').includes(search)
         )
-      : options;
+      : cfopOptions;
   }, [cfopOptions, cfopSearch, selectedCfop]);
 
   // Se o erro estiver dentro da sanfona (CFOP, CSOSN, Origem), abre automaticamente
@@ -198,7 +183,7 @@ export const NfeItemRow: React.FC<Props> = ({
               type="text"
               aria-label="CFOP"
               autoComplete="off"
-              value={cfopSearch ?? selectedCfop}
+              value={cfopSearch ?? (selectedCfopAvailable ? selectedCfop : '')}
               onChange={(e) => {
                 const value = e.target.value;
                 const selectedOption = visibleCfopOptions.find((option) => option.value === value);
@@ -216,9 +201,14 @@ export const NfeItemRow: React.FC<Props> = ({
                 }
               }}
               onFocus={() => {
-                if (cfopSearch === null) setCfopSearch(selectedCfop);
+                if (cfopSearch === null) setCfopSearch(selectedCfopAvailable ? selectedCfop : '');
               }}
-              onBlur={() => setTimeout(() => setCfopSearch(null), 200)}
+              onBlur={(event) => {
+                const nextTarget = event.relatedTarget;
+                const optionsList = event.currentTarget.parentElement?.querySelector('ul');
+                if (nextTarget instanceof Node && optionsList?.contains(nextTarget)) return;
+                setTimeout(() => setCfopSearch(null), 200);
+              }}
               placeholder="Buscar código ou descrição"
               className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 outline-none ${
                 hasCfopError
@@ -231,6 +221,47 @@ export const NfeItemRow: React.FC<Props> = ({
                 {visibleCfopOptions.map((cf) => (
                   <li
                     key={cf.value}
+                    role="option"
+                    aria-disabled={Boolean(cf.disabled)}
+                    aria-selected={selectedCfop === cf.value && !cf.disabled}
+                    aria-label={
+                      cf.disabled
+                        ? 'CFOP ' +
+                          cf.value +
+                          ': ' +
+                          cf.label +
+                          '. Indisponível: ' +
+                          (cf.disabledReason || 'Este CFOP não foi aprovado para a operação atual.')
+                        : 'CFOP ' + cf.value + ': ' + cf.label
+                    }
+                    title={cf.disabledReason}
+                    aria-describedby={
+                      cf.disabled && activeCfopReason === cf.value
+                        ? `nfe-cfop-diagnostic-${itemIndex}-${cf.value}`
+                        : undefined
+                    }
+                    tabIndex={cf.disabled ? 0 : -1}
+                    onFocus={() => {
+                      if (cf.disabledReason) setActiveCfopReason(cf.value);
+                    }}
+                    onBlur={(event) => {
+                      const nextTarget = event.relatedTarget;
+                      if (nextTarget instanceof Node && event.currentTarget.parentElement?.contains(nextTarget))
+                        return;
+                      setActiveCfopReason(null);
+                      setCfopSearch(null);
+                    }}
+                    onMouseEnter={() => {
+                      if (cf.disabledReason) setActiveCfopReason(cf.value);
+                    }}
+                    onMouseLeave={(event) => {
+                      if (document.activeElement !== event.currentTarget) setActiveCfopReason(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (cf.disabled && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                      }
+                    }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       if (!cf.disabled) {
@@ -239,7 +270,7 @@ export const NfeItemRow: React.FC<Props> = ({
                         setCfopSearch(null);
                       }
                     }}
-                    className={`px-3 py-2 text-xs cursor-pointer ${
+                    className={`group px-3 py-2 text-xs cursor-pointer ${
                       cf.disabled
                         ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-900/50'
                         : 'hover:bg-blue-50 dark:hover:bg-blue-900/30'
@@ -247,6 +278,62 @@ export const NfeItemRow: React.FC<Props> = ({
                   >
                     <div className="font-bold">{cf.value}</div>
                     <div className="text-slate-500 dark:text-slate-400">{cf.label}</div>
+                    {cf.disabledReason && activeCfopReason === cf.value && (
+                      <div
+                        id={`nfe-cfop-diagnostic-${itemIndex}-${cf.value}`}
+                        role="tooltip"
+                        className="mt-2 max-w-[34rem] rounded-lg bg-slate-900 px-3 py-2 text-[10px] leading-4 text-white shadow-lg"
+                      >
+                        <div className="mb-1 font-bold">
+                          CFOP {cf.value} indisponível
+                        </div>
+                        {cf.diagnostic ? (
+                          <>
+                            <section className="mb-2">
+                              <h5 className="font-semibold">
+                                {cf.diagnostic.source === 'matrix'
+                                  ? 'Contexto fiscal considerado pela matriz'
+                                  : 'Contexto fiscal considerado pela regra de venda'}
+                              </h5>
+                              <ul className="mt-1 space-y-0.5">
+                                {cf.diagnostic.context.map((entry, index) => (
+                                  <li key={`${entry.label}-${index}`}>
+                                    <span className="font-semibold">{entry.label}:</span>{' '}
+                                    {entry.value}
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                            <section>
+                              <h5 className="font-semibold">Conflitos encontrados</h5>
+                              {cf.diagnostic.conflicts.length ? (
+                                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                                  {cf.diagnostic.conflicts.map((conflict) => (
+                                    <li key={conflict}>{conflict}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="mt-1">Este CFOP não foi selecionado pela regra atual.</p>
+                              )}
+                            </section>
+                            {cf.diagnostic.recommendedCfop && (
+                              <p className="mt-2 font-semibold">
+                                {cf.diagnostic.source === 'matrix'
+                                  ? `Para esta combinação, a matriz seleciona CFOP ${cf.diagnostic.recommendedCfop}.`
+                                  : `Para esta combinação, a regra fiscal seleciona CFOP ${cf.diagnostic.recommendedCfop}.`}
+                              </p>
+                            )}
+                            {cf.diagnostic.recommendedCsosn && (
+                              <p className="mt-1">
+                                CSOSN recomendado pela matriz: {cf.diagnostic.recommendedCsosn}.
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          cf.disabledReason
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
                 {visibleCfopOptions.length === 0 && (

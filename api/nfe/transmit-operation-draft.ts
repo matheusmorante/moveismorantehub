@@ -40,17 +40,10 @@ import {
   getReturnCfopOptionsForSourceItem,
 } from '../../shared-utils/fiscalOperationContext';
 import { originalItemCfop } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
+import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey = getSupabaseSecretKey() || '';
-const authorizationUrls = {
-  1: 'https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
-  2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4',
-} as const;
-const consultationUrls = {
-  1: 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-  2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
-} as const;
 type Environment = 1 | 2;
 
 function brazilTimestamp(now = new Date()): string {
@@ -432,7 +425,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const consultKey = async (accessKey: string): Promise<string> => {
       const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
       return sendSoapToSefaz({
-        url: consultationUrls[environment],
+        url: getNfeServiceEndpoint('55', environment, 'NFeConsultaProtocolo4'),
         action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
         serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
         xmlPayload: queryXml,
@@ -752,7 +745,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let sefazXml: string;
     try {
       sefazXml = await sendSoapToSefaz({
-        url: authorizationUrls[environment],
+        url: getNfeServiceEndpoint('55', environment, 'NFeAutorizacao4'),
         action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
         xmlPayload: batchXml,
         certPem: certificate.certPem,

@@ -15,23 +15,13 @@ import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
+import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const supabaseServiceKey = getSupabaseSecretKey() || '';
-const EVENT_ENDPOINTS = {
-  '55': {
-    1: 'https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
-    2: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
-  },
-  '65': {
-    1: 'https://nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4',
-    2: 'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4',
-  },
-} as const;
-
 const escapeXml = (value: string) =>
   value.replace(
     /[<>&"']/g,
@@ -186,14 +176,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let situationXml: string;
       try {
         situationXml = await sendSoapToSefaz({
-          url:
-            String(doc.modelo) === '65'
-              ? Number(doc.ambiente) === 1
-                ? 'https://nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4'
-                : 'https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4'
-              : Number(doc.ambiente) === 1
-                ? 'https://nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4'
-                : 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
+          url: getNfeServiceEndpoint(
+            String(doc.modelo),
+            Number(doc.ambiente),
+            'NFeConsultaProtocolo4'
+          ),
           action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
           serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
           xmlPayload: queryXml,
@@ -346,7 +333,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let responseXml: string;
     try {
-      const url = EVENT_ENDPOINTS[String(doc.modelo) as '55' | '65'][environment as 1 | 2];
+      const url = getNfeServiceEndpoint(
+        String(doc.modelo),
+        environment,
+        'NFeRecepcaoEvento4'
+      );
       responseXml = await sendSoapToSefaz({
         url,
         action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento',

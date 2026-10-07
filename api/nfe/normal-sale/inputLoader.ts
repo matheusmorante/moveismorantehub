@@ -2,9 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseFiscalItemSelections } from '../../../shared-utils/fiscalItemSelections';
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import type { FiscalJsonValue, FiscalSnapshotCandidate } from '../fiscalSnapshot';
+import { normalSaleContributionSettingsId } from '../simplesNormalSaleContribution';
 import { obj } from './values';
 /** Read-only preflight inputs; the canonical snapshot RPC captures these again under locks. */
-export async function loadHmlNormalSaleInputs(
+export async function loadNormalSaleInputs(
   db: SupabaseClient<FiscalDatabase>,
   facts: FiscalSnapshotCandidate,
   appSettings: Record<string, unknown>
@@ -34,9 +35,8 @@ export async function loadHmlNormalSaleInputs(
       .maybeSingle(),
     db
       .from('settings')
-      .select('data')
-      .eq('id', 'fiscal_decision_simples_nfe55_normal_sale_v1')
-      .maybeSingle(),
+      .select('id,data')
+      .in('id', [normalSaleContributionSettingsId('55'), normalSaleContributionSettingsId('65')]),
   ]);
   if (catalog.error || customer.error || decision.error || !customer.data || customer.data.deleted)
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
@@ -52,7 +52,13 @@ export async function loadHmlNormalSaleInputs(
       ie: customer.data.rg_ie,
       personType: customer.data.person_type_pf_pj,
     },
-    contributionDecision: (decision.data?.data || null) as FiscalJsonValue,
+    contributionDecisions: Object.fromEntries(
+      (['55', '65'] as const).map((model) => [
+        model,
+        decision.data?.find((row) => row.id === normalSaleContributionSettingsId(model))?.data ||
+          null,
+      ])
+    ) as FiscalJsonValue,
     fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue,
   };
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);

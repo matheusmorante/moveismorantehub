@@ -76,7 +76,7 @@ function database() {
                 version: 1,
                 updated_at: '2026-09-30T12:00:00.000Z',
               }
-            : ['nfe_documents', 'nfe_fiscal_snapshots'].includes(table)
+            : ['nfe_documents', 'nfe_fiscal_snapshots', 'nfe_outbound_attempts'].includes(table)
               ? null
               : { data: { companyCnpj: '00000000000000', companyCMun: '4106902' } },
         error: null,
@@ -176,7 +176,7 @@ describe('API de emissão fiscal server-side', () => {
     expect(result.statusCode).toBe(422);
     expect(result.body).toMatchObject({
       success: false,
-      code: 'FISCAL_DETERMINATION_REQUIRED',
+      code: 'FISCAL_PREPARATION_INVALID',
       numberReserved: false,
       sefazContacted: false,
     });
@@ -217,6 +217,12 @@ describe('API de emissão fiscal server-side', () => {
   it('recupera autorização HML antes de ler pedido e configurações atuais', async () => {
     const db = database();
     db.from.mockImplementation((table: string) => {
+      if (table === 'nfe_outbound_attempts')
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+          }),
+        };
       if (table !== 'nfe_documents') throw new Error('Pedido/configuração atual não deve ser lido');
       return {
         select: () => ({
@@ -264,7 +270,7 @@ describe('API de emissão fiscal server-side', () => {
     expect(mocks.extractCertificateAndKey).not.toHaveBeenCalled();
   });
 
-  it('mantém produção bloqueada mesmo com confirmação e flag legada', async () => {
+  it('conecta Produção ao preflight comum e recusa fatos incompletos antes da reserva', async () => {
     const db = database();
     mocks.createClient.mockReturnValue(db);
     process.env.NFE_PRODUCTION_ENABLED = 'true';
@@ -278,9 +284,9 @@ describe('API de emissão fiscal server-side', () => {
       } as any,
       result.res
     );
-    expect(result.statusCode).toBe(503);
-    expect(result.body.code).toBe('PRODUCTION_FISCAL_RULESET_REQUIRED');
-    expect(db.from).not.toHaveBeenCalledWith('orders');
+    expect(result.statusCode).toBe(422);
+    expect(result.body.code).toBe('FISCAL_PREPARATION_INVALID');
+    expect(db.from).toHaveBeenCalledWith('orders');
     expect(db.rpc).not.toHaveBeenCalled();
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });

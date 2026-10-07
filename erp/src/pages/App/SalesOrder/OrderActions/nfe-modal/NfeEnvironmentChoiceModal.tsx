@@ -60,8 +60,8 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
   const isProdIssued = Boolean(
     fiscalStatuses?.production === 'issued' ||
       (order.nfeData?.status === 'autorizada' && (order.nfeData?.environment ?? 1) === 1) ||
-      order.nfeData?.accessKey ||
-      order.nfeData?.protocolNumber
+      (order.nfeData?.environment === 1 &&
+        (order.nfeData?.accessKey || order.nfeData?.protocolNumber))
   );
 
   return (
@@ -148,25 +148,38 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               </span>
             </button>
 
-            {/* Opção Produção (Desativada temporariamente por segurança para evitar emissão acidental) */}
+            {/* Produção abre o fluxo normal, que exige confirmação explícita antes do envio. */}
             <button
               type="button"
-              disabled={true}
+              disabled={isProdIssued}
               title={
                 isProdIssued
                   ? 'Nota fiscal de produção já emitida para este pedido.'
-                  : 'Emissão em produção desativada temporariamente por segurança.'
+                  : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.'
               }
-              className="flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto"
+              onClick={() => {
+                if (!isProdIssued) onSelectEnvironment(1);
+              }}
+              className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
+                isProdIssued
+                  ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
+                  : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100/80 dark:hover:bg-rose-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
+              }`}
             >
-              <div className="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 flex items-center justify-center mb-2.5">
-                <i className="bi bi-file-earmark-lock text-2xl" />
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-2.5">
+                <i className="bi bi-file-earmark-check text-2xl" />
               </div>
-              <span className="text-sm font-black tracking-wide uppercase text-slate-400 dark:text-slate-500">
+              <span
+                className={`text-sm font-black tracking-wide uppercase ${
+                  isProdIssued ? 'text-slate-400 dark:text-slate-500' : ''
+                }`}
+              >
                 Produção
               </span>
-              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-1">
-                {isProdIssued ? 'Já emitida para este pedido' : 'Desativado por segurança'}
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                {isProdIssued
+                  ? 'Já emitida para este pedido'
+                  : 'Ambiente oficial • exige confirmação'}
               </span>
             </button>
           </div>

@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
+import { resolveFiscalCfopOrderScope } from '../../../../../../../shared-utils/fiscalCfopModel';
 import {
-  getCfopDefinition,
-  listActiveCfopOptions,
-  resolveFiscalCfopOrderScope,
-  type FiscalCfopOperationType,
-} from '../../../../../../../shared-utils/fiscalCfopModel';
+  resolveEffectiveRecipientIeIndicator,
+  type RecipientIeIndicator,
+} from '../../../../../../../shared-utils/recipientIeIndicator';
+import { fiscalPresence } from '../../../../../../../shared-utils/fiscalDocumentModel';
 import { getSettings } from '@/pages/utils/settingsService';
-import { NfeItemRow, type NfeItemCfopOption } from './NfeItemRow';
+import { NfeItemRow } from './NfeItemRow';
+import { resolveNfeItemCfopOptions } from './domain/itemFiscalCfopOptions';
 
 export interface NfeItemFiscal {
   ncm: string;
@@ -18,6 +19,10 @@ export interface NfeItemFiscal {
   cst: string;
   csosnSource?: string;
   origem: string;
+  merchandiseOrigin?: 'third_party' | 'own_production' | 'not_applicable';
+  isOwnProduction?: boolean;
+  hasSt?: boolean;
+  isSt?: boolean;
 }
 
 export interface NfeItemWithFiscal extends Item {
@@ -29,6 +34,9 @@ interface Props {
   order: Order;
   environment: 1 | 2;
   fiscalModel: '55' | '65';
+  finalConsumer: boolean;
+  recipientIeIndicator?: RecipientIeIndicator;
+  recipientIe?: string;
   items: NfeItemWithFiscal[];
   activeError?: {
     itemIndex?: number;
@@ -45,6 +53,9 @@ export const NfeItemsSection: React.FC<Props> = ({
   order,
   environment,
   fiscalModel,
+  finalConsumer,
+  recipientIeIndicator,
+  recipientIe,
   items,
   activeError,
   onClearFieldError,
@@ -55,8 +66,32 @@ export const NfeItemsSection: React.FC<Props> = ({
   const unregisteredCount = items.filter((i) => i.isUnregistered).length;
   const shipping = (order.shipping as Record<string, unknown> | undefined) || {};
   const customerData = (order.customerData as Record<string, unknown> | undefined) || {};
+  const fiscalContext =
+    (order.fiscalContext as Record<string, unknown> | undefined) ||
+    ((order as Order & { data?: { fiscalContext?: Record<string, unknown> } }).data
+      ?.fiscalContext as Record<string, unknown> | undefined) ||
+    {};
+  const settings = getSettings();
+  const effectiveRecipientIeIndicator = resolveEffectiveRecipientIeIndicator({
+    selected: recipientIeIndicator,
+    persisted: fiscalContext.recipientIeIndicator,
+    customer: customerData.ieIndicator,
+    ie: customerData.ie,
+  });
+  const recipientDocument = String(customerData.cpfCnpj || customerData.document || '').replace(
+    /\D/g,
+    ''
+  );
+  const recipientPersonType =
+    customerData.personType === 'PF' || customerData.personType === 'PJ'
+      ? customerData.personType
+      : recipientDocument.length === 11
+        ? 'PF'
+        : recipientDocument.length === 14
+          ? 'PJ'
+          : undefined;
   const operationScope = resolveFiscalCfopOrderScope({
-    issuerUf: getSettings().companyUF,
+    issuerUf: settings.companyUF,
     deliveryMethod: String(shipping.deliveryMethod || ''),
     shipping,
     customerAddress: customerData.fullAddress || customerData.address,
@@ -70,59 +105,57 @@ export const NfeItemsSection: React.FC<Props> = ({
         : operationScope.scope === 'internal'
           ? `Operação interna · ${operationScope.issuerUf} → ${operationScope.operationUf}.`
           : operationScope.reason || 'Não foi possível determinar o local físico da operação.';
+  const presence = fiscalPresence(
+    fiscalModel,
+    String(shipping.deliveryMethod || ''),
+    typeof fiscalContext.presence === 'string' ? fiscalContext.presence : undefined
+  );
   const matrixWarning =
     operationScope.scope === 'foreign'
       ? 'Operação com exterior sem matriz fiscal aprovada.'
       : undefined;
+  const effectiveAt = useRef(new Date().toISOString()).current;
+  const cfopDecisions = useMemo(
+    () =>
+      items.map((item) =>
+        resolveNfeItemCfopOptions({
+          item,
+          operationScope,
+          environment,
+          model: fiscalModel,
+          issuerRegime: String(settings.companyCRT || ''),
+          recipientIeIndicator: effectiveRecipientIeIndicator,
+          recipientIe: recipientIe || String(customerData.ie || ''),
+          finalConsumer,
+          recipientPersonType,
+          presence,
+          effectiveAt,
+        })
+      ),
+    [
+      items,
+      operationScope,
+      environment,
+      fiscalModel,
+      settings.companyCRT,
+      effectiveRecipientIeIndicator,
+      customerData.ie,
+      recipientIe,
+      finalConsumer,
+      recipientPersonType,
+      presence,
+      effectiveAt,
+    ]
+  );
 
-  const cfopOptionsForItem = (item: NfeItemWithFiscal): NfeItemCfopOption[] => {
-    if (!operationScope.scope) return [];
-    const existingDefinition = getCfopDefinition(item.fiscal?.cfop || '');
-    const merchandiseOrigin =
-      existingDefinition?.merchandiseOrigin === 'own_production'
-        ? 'own_production'
-        : 'third_party';
-    const isSt = item.fiscal?.cst === '500' || Boolean(existingDefinition?.isSt);
-    const itemType = item.itemType === 'service' ? 'service' : 'product';
-    const operationTypes: FiscalCfopOperationType[] =
-      itemType === 'service'
-        ? ['service']
-        : operationScope.scope === 'interstate'
-          ? ['sale', 'sale_to_non_taxpayer']
-          : ['sale'];
-    return operationTypes.flatMap((operationType) => listActiveCfopOptions({
-      direction: 'outbound',
-      scope: operationScope.scope || undefined,
-      model: fiscalModel,
-      itemType,
-      operationType,
-      merchandiseOrigin,
-      isSt,
-    })).map((option) => {
-      const approvedInCurrentMatrix =
-        (operationScope.scope === 'internal' &&
-          option.value === '5102' &&
-          merchandiseOrigin === 'third_party' &&
-          !isSt) ||
-        (operationScope.scope === 'interstate' &&
-          (option.value === '6102' || option.value === '6108') &&
-          merchandiseOrigin === 'third_party' &&
-          !isSt);
-      const pendingReason =
-        option.stApplicability === 'required' || isSt
-          ? ' — ST exige matriz específica'
-          : merchandiseOrigin === 'own_production'
-            ? ' — produção própria exige matriz específica'
-            : ' — matriz fiscal não aprovada';
-      return {
-        value: option.value,
-        label: approvedInCurrentMatrix
-          ? option.label
-          : `${option.label}${pendingReason}`,
-        disabled: !approvedInCurrentMatrix,
-      };
+  useEffect(() => {
+    items.forEach((item, index) => {
+      const expectedCfop = cfopDecisions[index]?.defaultCfop || '';
+      if ((item.fiscal?.cfop || '') !== expectedCfop) {
+        onUpdateItemFiscal(index, { cfop: expectedCfop });
+      }
     });
-  };
+  }, [items, cfopDecisions, onUpdateItemFiscal]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -167,8 +200,12 @@ export const NfeItemsSection: React.FC<Props> = ({
               key={`${item.productId || 'item'}_${index}`}
               item={item}
               itemIndex={index}
-              cfopOptions={cfopOptionsForItem(item)}
-              cfopContextMessage={cfopContextMessage}
+              cfopOptions={cfopDecisions[index]?.options}
+              cfopContextMessage={
+                cfopDecisions[index]?.reason
+                  ? `${cfopContextMessage} ${cfopDecisions[index].reason}`
+                  : cfopContextMessage
+              }
               fieldError={itemFieldError}
               onClearFieldError={onClearFieldError}
               onUpdateFiscal={(field, val) => onUpdateItemFiscal(index, { [field]: val })}
