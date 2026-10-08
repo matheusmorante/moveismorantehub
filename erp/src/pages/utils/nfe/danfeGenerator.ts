@@ -29,18 +29,30 @@ export function generateDanfeHtml(data: DanfeData): string {
     environment,
   } = data;
   const isHomologacao = environment === 2;
+  const fiscalDetails = data.fiscalDetails;
   const formattedKey = formatAccessKey(accessKey);
   const docTitle = model === '65' ? 'DANFE NFC-e' : 'DANFE NF-e';
 
-  const totalOrder = Number(order.paymentsSummary?.totalOrderValue || 0);
-  const freight = Number(order.shipping?.value || 0);
-  const discount = Number(order.itemsSummary?.totalFixedDiscount || 0);
-  const totalProd = Math.max(0, totalOrder - freight + discount);
+  const amount = (value: string | undefined, fallback: number) =>
+    value !== undefined && value !== '' ? Number(value) || 0 : fallback;
+  const totalOrder = amount(
+    fiscalDetails?.summary.invoiceTotal,
+    Number(order.paymentsSummary?.totalOrderValue || 0)
+  );
+  const freight = amount(fiscalDetails?.summary.freight, Number(order.shipping?.value || 0));
+  const discount = amount(
+    fiscalDetails?.summary.discount,
+    Number(order.itemsSummary?.totalFixedDiscount || 0)
+  );
+  const totalProd = amount(
+    fiscalDetails?.summary.products,
+    Math.max(0, totalOrder - freight + discount)
+  );
 
-  const nowIso = new Date().toISOString();
-  const dtEmi = formatToBRDate(nowIso);
-  const dtSaida = formatToBRDate(nowIso);
-  const hrSaida = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const dtEmi = formatToBRDate(fiscalDetails?.general.issueDate || new Date().toISOString());
+  const dtSaida = formatToBRDate(fiscalDetails?.general.exitDate);
+  const hrSaida =
+    fiscalDetails?.general.exitDate?.match(/T(\d{2}:\d{2}(?::\d{2})?)/)?.[1] || '-';
 
   const styles = getDanfeOfficialStyles(isHomologacao);
   const headerHtml = buildDanfeHeaderOfficialHtml({
@@ -50,7 +62,11 @@ export function generateDanfeHtml(data: DanfeData): string {
     formattedKey,
     protocolNumber,
     protocolDate,
-    natOp: data.natOp || 'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS',
+    natOp:
+      data.natOp ||
+      fiscalDetails?.general.natureOperation ||
+      'VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS',
+    fiscalDetails,
   });
   const recipientHtml = buildDanfeRecipientOfficialHtml({
     order,
@@ -58,16 +74,18 @@ export function generateDanfeHtml(data: DanfeData): string {
     dtEmi,
     dtSaida,
     hrSaida,
+    fiscalDetails,
   });
   const taxesAndTotalsHtml = buildDanfeTaxesAndTotalsOfficialHtml({
     totalOrder,
     totalProd,
     freight,
     discount,
+    fiscalDetails,
   });
-  const transportHtml = buildDanfeTransportOfficialHtml(order);
-  const itemsTableHtml = buildDanfeItemsOfficialHtml(order, settings);
-  const additionalInfoHtml = buildDanfeAdditionalInfoOfficialHtml(order);
+  const transportHtml = buildDanfeTransportOfficialHtml(order, fiscalDetails);
+  const itemsTableHtml = buildDanfeItemsOfficialHtml(order, settings, fiscalDetails);
+  const additionalInfoHtml = buildDanfeAdditionalInfoOfficialHtml(order, fiscalDetails);
 
   return `
 <!DOCTYPE html>

@@ -7,8 +7,8 @@ import {
   resolveOrderCustomerSnapshot,
   buildOrderPersistencePayload,
 } from '../orderSnapshotResolution';
-import Order from '../orderSnapshotResolution';
-import Person from '../orderSnapshotResolution';
+import type Order from '../../types/order.type';
+import type Person from '../../types/person.type';
 
 describe('orderSnapshotResolution', () => {
   const mockDbPerson: Person = {
@@ -268,6 +268,23 @@ describe('orderSnapshotResolution', () => {
     expect(payload.returned_total_amount).toBe(450.5);
     expect(payload.original_sold_total).toBe(500.0);
     expect(payload.return_kind).toBe('partial');
+  });
+
+  it('persiste o marcador explícito de teste e deixa pedidos normais sem esse campo', () => {
+    const testOrder = {
+      is_test: true,
+      orderType: 'sale',
+      items: [],
+      payments: [],
+    } as unknown as Order;
+    const normalOrder = {
+      orderType: 'sale',
+      items: [],
+      payments: [],
+    } as unknown as Order;
+
+    expect(buildOrderPersistencePayload(testOrder).order_data.is_test).toBe(true);
+    expect(buildOrderPersistencePayload(normalOrder).order_data).not.toHaveProperty('is_test');
   });
 
   it('normaliza datas no formato brasileiro (DD/MM/YYYY) para ISO válido evitando erro 22008', () => {

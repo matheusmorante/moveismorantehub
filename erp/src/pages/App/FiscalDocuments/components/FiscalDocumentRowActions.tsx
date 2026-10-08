@@ -163,7 +163,7 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
         Baixar XML autorizado
       </button>
 
-      {fiscalDocument.status !== 'cancelada' && (
+      {canOperateFiscal && fiscalDocument.status !== 'cancelada' && (
         <button
           type="button"
           role="menuitem"
@@ -174,7 +174,7 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
         </button>
       )}
 
-      {canIssueCce(fiscalDocument).canIssue && (
+      {canOperateFiscal && canIssueCce(fiscalDocument).canIssue && (
         <button
           type="button"
           role="menuitem"
@@ -185,7 +185,8 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
         </button>
       )}
 
-      {fiscalDocument.order_id &&
+      {canOperateFiscal &&
+        fiscalDocument.order_id &&
         fiscalDocument.document_type === 'outbound' &&
         cancellationEligibility?.canProceed && (
           <button
@@ -204,7 +205,8 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
           </button>
         )}
 
-      {!fiscalDocument.order_id &&
+      {canOperateFiscal &&
+        !fiscalDocument.order_id &&
         fiscalDocument.modelo === '55' &&
         fiscalDocument.document_type === 'outbound' &&
         ['autorizada', 'homologada'].includes(fiscalDocument.status) && (

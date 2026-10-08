@@ -1869,4 +1869,27 @@ describe('preenchimento dos itens da NF-e', () => {
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     expect(mocks.getProductsFiscalData.mock.calls.length).toBe(initialCallCount + 1);
   });
+
+  it('não reinicia o carregamento fiscal dos itens enquanto o CPF do destinatário é digitado', async () => {
+    mocks.getProductsFiscalData.mockClear();
+    const registeredOrder: any = {
+      ...order,
+      id: 'typing-tax-id-order',
+      items: [{ ...order.items[0], productId: 'typing-product' }],
+      customerData: { ...order.customerData, personType: 'PF' },
+    };
+    const { result } = renderHook(() => useNfeEmission(registeredOrder));
+
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    const initialCallCount = mocks.getProductsFiscalData.mock.calls.length;
+    expect(initialCallCount).toBe(1);
+
+    for (const value of ['1', '12', '123', '1234', '12345']) {
+      await act(async () => result.current.setRecipientTaxId(value));
+      await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+      expect(result.current.recipientTaxId).toBe(value);
+    }
+
+    expect(mocks.getProductsFiscalData).toHaveBeenCalledTimes(initialCallCount);
+  });
 });

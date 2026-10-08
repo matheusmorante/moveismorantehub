@@ -318,6 +318,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model = String(retryDoc.modelo || '');
       selectedEnvironment = Number(retryDoc.ambiente);
 
+      if (selectedEnvironment === 1) {
+        if (!supabase) {
+          return res.status(503).json({
+            success: false,
+            code: 'PRODUCTION_ORDER_GUARD_UNAVAILABLE',
+            error: 'Não foi possível consultar o pedido antes da retransmissão.',
+          });
+        }
+        const { data: orderForRetry, error: orderLookupError } = await supabase
+          .from('orders')
+          .select('order_data')
+          .eq('id', orderId)
+          .maybeSingle();
+        if (orderLookupError || !orderForRetry) {
+          return res.status(503).json({
+            success: false,
+            code: 'PRODUCTION_ORDER_GUARD_UNAVAILABLE',
+            error: 'Não foi possível confirmar a elegibilidade do pedido antes da retransmissão.',
+          });
+        }
+        if (
+          (orderForRetry.order_data as Record<string, unknown> | null)?.is_test === true
+        ) {
+          return res.status(403).json({
+            success: false,
+            code: 'TEST_ORDER_PRODUCTION_BLOCKED',
+            error: 'Pedidos marcados como teste não podem ser retransmitidos em Produção.',
+          });
+        }
+      }
+
       if (retryDoc.fiscal_ruleset_version === NORMAL_SALE_RULESET_VERSION) {
         const result = await reconcileNormalSale(supabase, retryDoc.id, true, req.body.productionConfirmed === true);
         return res.status(result.status).json(result.body);

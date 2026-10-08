@@ -56,6 +56,7 @@ export function useNfeEmissionModalState({
   const [retryNumber, setRetryNumber] = React.useState('');
   const recipientTaxIdInput = React.useRef<HTMLInputElement>(null);
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
+  const recipientTaxIdPrefilledOrderId = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -80,20 +81,23 @@ export function useNfeEmissionModalState({
     };
   }, [isOpen, order?.id]);
 
-  React.useEffect(
-    () =>
-      setRecipientTaxId(
-        maskRecipientTaxId(
-          emissionOrder?.customerData?.cpfCnpj || emissionOrder?.customerData?.document || ''
-        )
-      ),
-    [
-      order?.id,
-      emissionOrder?.customerData?.cpfCnpj,
-      emissionOrder?.customerData?.document,
-      setRecipientTaxId,
-    ]
-  );
+  React.useEffect(() => {
+    if (!isOpen || !emissionOrder?.id) return;
+    if (recipientTaxIdPrefilledOrderId.current === emissionOrder.id) return;
+
+    recipientTaxIdPrefilledOrderId.current = emissionOrder.id;
+    setRecipientTaxId(
+      maskRecipientTaxId(
+        emissionOrder.customerData?.cpfCnpj || emissionOrder.customerData?.document || ''
+      )
+    );
+  }, [
+    isOpen,
+    emissionOrder?.id,
+    emissionOrder?.customerData?.cpfCnpj,
+    emissionOrder?.customerData?.document,
+    setRecipientTaxId,
+  ]);
 
   React.useEffect(() => {
     if (fiscalFieldError) {

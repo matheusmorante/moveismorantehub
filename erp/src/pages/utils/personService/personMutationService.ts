@@ -2,13 +2,24 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Person from '../../types/person.type';
 import { TABLE_NAME, mapToDB, mapFromDB } from './personMapper';
 
-export const savePerson = async (collectionName: string, person: Person): Promise<Person> => {
-  if (person.id) {
+export type SavePersonOptions = { insertOnly?: boolean };
+
+export const savePerson = async (
+  collectionName: string,
+  person: Person,
+  options: SavePersonOptions = {}
+): Promise<Person> => {
+  if (person.id && !options.insertOnly) {
     return await updatePerson(collectionName, person.id, person);
+  }
+
+  if (options.insertOnly && !person.id) {
+    throw new Error('A criação protegida exige o UUID reservado da fixture.');
   }
 
   try {
     const dbPerson = mapToDB(collectionName, person);
+    if (options.insertOnly && person.id) dbPerson.id = person.id;
     const { data, error } = await supabase.from(TABLE_NAME).insert([dbPerson]).select();
 
     if (error) throw error;

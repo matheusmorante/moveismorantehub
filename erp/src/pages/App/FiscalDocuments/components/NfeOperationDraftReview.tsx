@@ -160,6 +160,12 @@ export function NfeOperationDraftReview({
                 </label>
               )}
             </div>
+            {!isReturn && (
+              <p className="text-[10px] text-slate-500">
+                CFOP original {line.originalCfop || 'não identificado'} · use o inverso configurado;
+                sem mapeamento, informe e confirme o CFOP inverso com a revisão fiscal.
+              </p>
+            )}
             <div className="grid gap-2 sm:grid-cols-2">
               <details>
                 <summary className="cursor-pointer text-[10px] font-bold text-slate-600">

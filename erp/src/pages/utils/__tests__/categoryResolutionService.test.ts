@@ -14,8 +14,8 @@ const categories = [
   { id: 'aerial-cabinets', name: 'Armários Aéreos' },
   { id: 'bathroom-sets', name: 'Conjuntos para Banheiro' },
   { id: 'bathroom-mirrors', name: 'Espelheira para Banheiro' },
-  { id: 'kitchen-sets', name: 'Conjunto para Sala de Jantar' },
-  { id: 'dining-tables', name: 'Mesa para Sala de Jantar' },
+  { id: 'kitchen-sets', name: 'Conjunto Mesa e Cadeiras' },
+  { id: 'dining-tables', name: 'Mesas para Cozinha/Sala de Jantar' },
   { id: 'pias', name: 'Pias' },
 ];
 
@@ -36,6 +36,7 @@ describe('categoryResolutionService', () => {
     ['Armário aéreo cozinha 3 portas', 'aerial-cabinets'],
     ['Conjunto de banheiro Veneza', 'bathroom-sets'],
     ['CJ SALA JANTAR MADETAL MOSCOU 136CM 4CAD GRECIA', 'kitchen-sets'],
+    ['Conjunto Mesa e Cadeiras Madetal 136cm', 'kitchen-sets'],
   ])('classifica "%s" como %s', (title, expectedId) => {
     expect(matchCategoryByRules(title, categories)?.id).toBe(expectedId);
     expect(

@@ -22,7 +22,7 @@ export function evaluateDocumentEligibility(
   authorizedDocumentCount = 1
 ) {
   const authorizationDateFor = (candidate: any) =>
-    getAuthorizedAt(candidate?.xml_protocolo || '', candidate?.created_at || '');
+    getAuthorizedAt(candidate?.xml_protocolo || '', '');
   const deadlineFor = (candidate: any) => {
     const window = getCancellationWindow(
       String(candidate?.modelo || ''),
@@ -272,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .json({ action: 'manual_review', error: 'Ambiente fiscal da NF-e inválido.' });
   const policy = getFiscalCancellationPolicy({
     model: String(document.modelo),
-    authorizedAt: getAuthorizedAt(document.xml_protocolo || '', document.created_at || ''),
+    authorizedAt: getAuthorizedAt(document.xml_protocolo || '', ''),
     status: String(document.status),
     environment: Number(document.ambiente) as 1 | 2,
     goodsCirculated: false,

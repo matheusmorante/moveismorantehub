@@ -14,6 +14,9 @@ interface FormFooterProps {
   currentStep: number;
   buttonLabel?: string;
   colorScheme?: 'blue' | 'emerald' | 'indigo';
+  showTestMode?: boolean;
+  isTestMode?: boolean;
+  onTestModeChange?: (enabled: boolean) => void;
 }
 
 const FormFooter = ({
@@ -28,6 +31,9 @@ const FormFooter = ({
   currentStep,
   buttonLabel,
   colorScheme = 'emerald',
+  showTestMode = false,
+  isTestMode = false,
+  onTestModeChange,
 }: FormFooterProps) => {
   const isBudget = currentOrder.orderType === 'budget';
   const isLastStep = isBudget ? currentStep === 4 : currentStep === 5;
@@ -48,6 +54,40 @@ const FormFooter = ({
                 )}
               </span>
             </div>
+
+            {showTestMode && currentOrder.orderType === 'sale' && onTestModeChange && (
+              <div
+                className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors ${
+                  isTestMode
+                    ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'
+                    : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-800/40'
+                }`}
+              >
+                <span
+                  className={`text-[10px] font-bold ${
+                    isTestMode
+                      ? 'text-amber-800 dark:text-amber-200'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Modo teste
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="Modo teste"
+                  aria-checked={isTestMode}
+                  onClick={() => onTestModeChange(!isTestMode)}
+                  className={`inline-flex min-w-12 items-center justify-center rounded-full px-2 py-1 text-[9px] font-black tracking-wider transition-colors ${
+                    isTestMode
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {isTestMode ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            )}
 
             {showDraftAutoSave && (
               <div

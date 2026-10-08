@@ -1,16 +1,26 @@
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
+import {
+  canPrintProductIdentificationLabels,
+  isProductIdentificationLabelOnlyProfile,
+} from '@/pages/utils/accessRoles';
 import Product from '../../../../../types/product.type';
 import { getProductKind, isNonConventionalProduct } from '../../../../../utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
+import type { CardVariationItem } from '../Variations/ProductCardVariationList';
+import { VariationItemActions } from '../Variations/VariationItemActions';
 import { ProductCardActions } from './ProductCardActions';
 
 interface ProductCardHeaderProps {
   product: Product;
+  readOnly?: boolean;
+  showCatalogControl?: boolean;
   isParent: boolean;
   isVariation: boolean;
   isDraft: boolean;
   canManageCatalog: boolean;
   hasParentVariations: boolean;
+  singleVariation?: CardVariationItem;
   showVariations: boolean;
   setShowVariations: React.Dispatch<React.SetStateAction<boolean>>;
   oppName: string | undefined;
@@ -22,17 +32,21 @@ interface ProductCardHeaderProps {
   onDeactivateCatalog: (id: string) => void;
   onShowHistory?: (product: Product) => void;
   onDuplicate?: (product: Product) => void;
+  onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
+  onMergeWithAnotherVariation?: (variation: CardVariationItem) => void;
   onOpenSalesModal: () => void;
-  onOpenWhatsApp: (msg: string) => void;
 }
 
 export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   product,
+  readOnly = false,
+  showCatalogControl = true,
   isParent,
   isVariation,
   isDraft,
   canManageCatalog,
   hasParentVariations,
+  singleVariation,
   showVariations,
   setShowVariations,
   oppName,
@@ -44,9 +58,19 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   onDeactivateCatalog,
   onShowHistory,
   onDuplicate,
+  onMoveToAnotherFamily,
+  onMergeWithAnotherVariation,
   onOpenSalesModal,
-  onOpenWhatsApp,
 }) => {
+  const { profile } = useAuth();
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
+  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
+  const [activeVariationMenuId, setActiveVariationMenuId] = React.useState<string | null>(null);
+  const variationMenuAnchorRef = React.useRef<HTMLButtonElement>(null);
+  const variationMenuId = singleVariation?.id || singleVariation?.variationId || 'single-variation';
+  const isVariationMenuOpen = activeVariationMenuId === variationMenuId;
+  const singleVariationId = singleVariation?.variationId || singleVariation?.id || product.id!;
+
   return (
     <div className="flex justify-between items-center mb-2 gap-2 flex-wrap">
       {/* Lado Esquerdo: Botão Dropdown de Variações + Código do Produto */}
@@ -85,26 +109,42 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
       >
         {/* 1. Status de Canais (ERP e Catálogo) */}
         <ChannelStatusBadges
-          active={product.active !== false}
-          catalogStatus={product.status}
-          isParent={isParent}
+          active={singleVariation ? singleVariation.active !== false : product.active !== false}
+          catalogStatus={singleVariation?.status || product.status}
+          isParent={isParent && !singleVariation}
           isNonConventional={isNonConventionalProduct(product)}
           isSalvado={getProductKind(product) === 'salvado'}
           canManageCatalog={canManageCatalog}
+          showCatalogControl={showCatalogControl}
           isDraft={isDraft}
           activeVariationsCount={
-            (product as any).activeVariationsCount ??
-            product.variations?.filter((v: any) => v.active !== false).length
+            singleVariation
+              ? undefined
+              : ((product as any).activeVariationsCount ??
+                product.variations?.filter((v: any) => v.active !== false).length)
           }
-          totalVariationsCount={(product as any).totalVariationsCount ?? product.variations?.length}
+          totalVariationsCount={
+            singleVariation
+              ? undefined
+              : ((product as any).totalVariationsCount ?? product.variations?.length)
+          }
           onToggleActive={(e) => {
             e.stopPropagation();
-            onToggleActive(product.id!, product.active !== false);
+            onToggleActive(
+              singleVariationId,
+              singleVariation ? singleVariation.active !== false : product.active !== false
+            );
           }}
           onToggleCatalog={(e) => {
             e.stopPropagation();
-            onDeactivateCatalog(product.id!);
+            onDeactivateCatalog(singleVariationId);
           }}
+          disabled={Boolean(singleVariation?.mergedToVariationId)}
+          disabledReason={
+            singleVariation?.mergedToVariationId
+              ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+              : undefined
+          }
           size="xs"
         />
 
@@ -131,18 +171,75 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           </span>
         )}
 
-        {/* Botões de Ação */}
-        {!showTrash && !isVariation && (
+        {readOnly && !showTrash && !isLabelOnlyProfile ? (
+          <button
+            type="button"
+            onClick={() => onEdit(product)}
+            aria-label={`Ver detalhes de ${product.name || product.title || 'produto'}`}
+            title="Ver detalhes"
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+          >
+            <i className="bi bi-eye" />
+          </button>
+        ) : (
+        /* Botões de Ação */
+        <>
+        {!showTrash && singleVariation && (
+          <>
+            {!readOnly && <button
+              type="button"
+              onClick={() => onEdit(product)}
+              aria-label={isDraft ? 'Retomar cadastro' : 'Editar Produto'}
+              title={isDraft ? 'Retomar cadastro' : 'Editar Produto'}
+              className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0 cursor-pointer"
+            >
+              <i
+                className={
+                  isDraft
+                    ? 'bi bi-play-fill text-sm text-blue-600 dark:text-blue-400'
+                    : 'bi bi-pencil text-xs'
+                }
+              />
+            </button>}
+            {(!isLabelOnlyProfile || canPrintIdentificationLabel) && <button
+              ref={variationMenuAnchorRef}
+              type="button"
+              onClick={() => setActiveVariationMenuId(isVariationMenuOpen ? null : variationMenuId)}
+              aria-haspopup="menu"
+              aria-expanded={isVariationMenuOpen}
+              aria-label="Ações da variação"
+              title="Opções da variação"
+              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shrink-0 cursor-pointer ${isVariationMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+            >
+              <i className="bi bi-three-dots-vertical text-xs" />
+            </button>}
+            {(!isLabelOnlyProfile || canPrintIdentificationLabel) && <VariationItemActions
+              product={product}
+              variation={singleVariation}
+              anchorRef={variationMenuAnchorRef}
+              isMenuOpen={isVariationMenuOpen}
+              onSetActiveVarMenuId={setActiveVariationMenuId}
+              onEdit={onEdit}
+              onShowHistory={onShowHistory}
+              onLaunchStock={onLaunchStock}
+              onMoveToAnotherFamily={onMoveToAnotherFamily}
+              onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+            />}
+          </>
+        )}
+        {!showTrash && !isVariation && !singleVariation && (
           <ProductCardActions
             product={product}
+            showEditButton={!readOnly}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
             onShowHistory={onShowHistory}
             onLaunchStock={onLaunchStock}
             onDelete={onDelete}
             onOpenSalesModal={onOpenSalesModal}
-            onOpenWhatsApp={onOpenWhatsApp}
           />
+        )}
+        </>
         )}
       </div>
     </div>

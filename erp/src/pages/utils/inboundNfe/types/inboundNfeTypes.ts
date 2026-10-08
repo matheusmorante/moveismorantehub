@@ -118,6 +118,8 @@ export interface InboundInvoice {
   emitterAddress?: Record<string, unknown>;
   supplierId?: string;
   supplierStockOrigins?: string[];
+  /** tpAmb do XML/distribuição: 1=Produção, 2=Homologação. Ausente nos registros sem evidência. */
+  environment?: 1 | 2;
 
   // Transport
   modFrete?: string;

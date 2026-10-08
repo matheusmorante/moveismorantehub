@@ -60,7 +60,8 @@ serve(async (req) => {
       );
     }
 
-    const { cnpj: requestedCnpj, environment = "production" } = body;
+    const { cnpj: requestedCnpj } = body;
+    const environment = body.environment === "homologation" ? "homologation" : "production";
     const accessKey = String(body.accessKey || "").replace(/\D/g, "");
     const isAccessKeyQuery = Boolean(accessKey);
     if (isAccessKeyQuery && accessKey.length !== 44) {
@@ -236,7 +237,11 @@ serve(async (req) => {
       for (const docB64 of docZipBlocks) {
         try {
           const unzippedXml = await decompressGzipBase64(docB64);
-          const parsed = parseNfeXml(unzippedXml, ultNsuRetornado);
+          const parsed = parseNfeXml(
+            unzippedXml,
+            ultNsuRetornado,
+            environment === "production" ? 1 : 2,
+          );
 
           if (parsed && parsed.chave_acesso) {
             // A resposta ao formulário não pode depender da persistência de uma
@@ -328,6 +333,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         queryType: isAccessKeyQuery ? "consChNFe" : "distNSU",
+        environment,
         cStat: finalCStat,
         xMotivo: finalXMotivo,
         ultNSU: currentUltNsu,

@@ -14,6 +14,7 @@ export interface ChannelStatusBadgesProps {
   readonly size?: 'sm' | 'xs';
   readonly disabled?: boolean;
   readonly isDraft?: boolean;
+  readonly showCatalogControl?: boolean;
   readonly activeVariationsCount?: number;
   readonly totalVariationsCount?: number;
   readonly disabledReason?: string;
@@ -34,6 +35,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   size = 'sm',
   disabled = false,
   isDraft = false,
+  showCatalogControl = true,
   activeVariationsCount,
   totalVariationsCount,
   disabledReason,
@@ -46,7 +48,9 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const isCatalogPublished = !isDraft && catalogStatus === 'published';
   const isERPActive = !isDraft && !isNonConventional && active !== false;
-  const isERPDisabled = disabled || isNonConventional;
+  const isERPDisabled = disabled || isNonConventional || isDraft;
+  const isCatalogDisabled =
+    disabled || isDraft || (!canManageCatalog && !onToggleCatalog);
 
   const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
   const py = size === 'xs' ? 'py-0.5' : 'py-1';
@@ -221,16 +225,16 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             title={
               isNonConventional
                 ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
-                : disabled
-                  ? undefined
-                  : isDraft
-                    ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
+                : isDraft
+                  ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
+                  : disabled
+                    ? undefined
                     : isERPActive
                       ? 'Clique para desativar esta variação no ERP'
                       : 'Clique para ativar esta variação no ERP'
             }
             className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isNonConventional
+              isNonConventional || isDraft
                 ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
                 : disabled
                   ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
@@ -253,7 +257,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
             {/* Status Interativo ERP */}
             <span
               className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isNonConventional
+                isNonConventional || isDraft
                   ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
                   : disabled
                     ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
@@ -278,19 +282,19 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
       )}
 
       {/* Botão Catálogo (apenas para itens que não são agrupadores de produto pai) */}
-      {!isParent && (
+      {!isParent && showCatalogControl && (
         <button
           type="button"
           onClick={handleCatalogClick}
-          disabled={disabled || (!isDraft && !canManageCatalog && !onToggleCatalog)}
+          disabled={isCatalogDisabled}
           onMouseEnter={() => disabled && setShowDisabledPopover(true)}
           onMouseLeave={() => disabled && setShowDisabledPopover(false)}
           aria-label={`Status Catálogo: ${isCatalogPublished ? 'Publicado' : 'Oculto'}`}
           title={
-            disabled
-              ? undefined
-              : isDraft
-                ? 'Produto em rascunho. Termine o cadastramento para poder publicá-lo no Catálogo.'
+            isDraft
+              ? 'Produto em rascunho. Termine o cadastramento para poder publicá-lo no Catálogo.'
+              : disabled
+                ? undefined
                 : !canManageCatalog
                   ? 'Gerenciamento de catálogo indisponível'
                   : isCatalogPublished
@@ -298,11 +302,13 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                     : 'Clique para publicar no Catálogo Digital'
           }
           className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
-            disabled
-              ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
-              : isCatalogPublished
-                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
-                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
+            isDraft
+              ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
+              : disabled
+                ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+                : isCatalogPublished
+                  ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
+                  : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
           }`}
         >
           {/* Tag Fixa Catálogo */}
@@ -315,7 +321,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           {/* Status Interativo Catálogo */}
           <span
             className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-              disabled
+              disabled || isDraft
                 ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
                 : isCatalogPublished
                   ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'

@@ -90,12 +90,12 @@ const facts = (c: FiscalEmissionCommand): FiscalSnapshotCandidate => ({
     itemFiscalSelections: c.itemFiscalSelections,
   },
 });
-const contribution = (model: string) => ({
-  scope: { model, operation: 'normal_sale', issuerCrt: '1' },
+const contribution = () => ({
+  scope: { models: ['55', '65'], operation: 'normal_sale', issuerCrt: '1' },
   pis: { cst: '99', base: 0, rate: 0, value: 0 },
   cofins: { cst: '99', base: 0, rate: 0, value: 0 },
   confirmedAt: '2026-09-01T00:00:00Z',
-  confirmedBy: `TEST_UNIT_OWN_${model}`,
+  confirmedBy: 'TEST_UNIT_SHARED_DECISION',
 });
 function authorization(key: string, environment: number, protocol = '141260000000001') {
   return `<retEnviNFe><tpAmb>${environment}</tpAmb><cStat>104</cStat><protNFe><infProt><tpAmb>${environment}</tpAmb><chNFe>${key}</chNFe><cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>${protocol}</nProt><dhRecbto>2026-10-07T12:00:00-03:00</dhRecbto></infProt></protNFe></retEnviNFe>`;
@@ -111,11 +111,13 @@ function database() {
   const counters = new Map<string, number>();
   let failPreparation = false,
     failResult = false,
-    own65 = true;
-  const settings = ['55', '65'].map((model) => ({
-    id: `fiscal_decision_simples_${model === '55' ? 'nfe55' : 'nfce65'}_normal_sale_v1`,
-    data: contribution(model),
-  }));
+    contributionDecisionPresent = true;
+  const settings = [
+    {
+      id: 'fiscal_decision_simples_normal_sale_v1',
+      data: contribution(),
+    },
+  ];
   const from = vi.fn((table: string) => {
     const filters: Array<(r: Record<string, any>) => boolean> = [];
     const rows = () => {
@@ -127,7 +129,7 @@ function database() {
             : table === 'nfe_fiscal_snapshots'
               ? snapshots
               : table === 'settings'
-                ? settings.filter((r) => own65 || r.data.scope.model !== '65')
+              ? settings.filter(() => contributionDecisionPresent)
                 : table === 'ncms'
                   ? [
                       {
@@ -313,8 +315,8 @@ function database() {
     failResult: () => {
       failResult = true;
     },
-    remove65: () => {
-      own65 = false;
+    removeContributionDecision: () => {
+      contributionDecisionPresent = false;
     },
   };
 }
@@ -593,9 +595,9 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(d.counters.size).toBe(0);
     expect(mocks.send).not.toHaveBeenCalled();
   });
-  it('missing own65 decision cannot fall back to model55', async () => {
+  it('missing shared decision blocks before number reservation or SEFAZ contact', async () => {
     const d = database();
-    d.remove65();
+    d.removeContributionDecision();
     const r = await emit(d, command(1, true));
     expect(r.body.error).toContain('CONTRIBUTION_MODEL_SCOPE_REQUIRED');
     expect(d.counters.size).toBe(0);

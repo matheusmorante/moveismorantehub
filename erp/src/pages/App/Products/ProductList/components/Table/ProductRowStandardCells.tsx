@@ -22,6 +22,7 @@ export interface CellContext {
   readonly isExpanded?: boolean;
   readonly onToggleExpand?: () => void;
   readonly categoryTree?: unknown;
+  readonly showCatalogControl?: boolean;
   readonly canManageCatalog: boolean;
   readonly isDraft: boolean;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
@@ -37,6 +38,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
     isExpanded,
     onToggleExpand,
     categoryTree,
+    showCatalogControl = true,
     canManageCatalog,
     isDraft,
     onToggleActive,
@@ -240,6 +242,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               isNonConventional={isNonConventionalProduct(product as any)}
               isSalvado={getProductKind(product) === 'salvado'}
               canManageCatalog={canManageCatalog}
+              showCatalogControl={showCatalogControl}
               isDraft={isDraft}
               activeVariationsCount={product.activeVariationsCount}
               totalVariationsCount={product.totalVariationsCount}

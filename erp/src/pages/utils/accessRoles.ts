@@ -1,4 +1,5 @@
 import { UserRole } from '@/context/AuthContext';
+import { canPerform } from './permissionService';
 
 export const SYSTEM_ROLES: Array<[Exclude<UserRole, 'pending'>, string]> = [
   ['administrator', 'Administrador'],
@@ -24,6 +25,39 @@ export const getProfileRoles = (profile: {
 }): UserRole[] => {
   const roles = profile.roles?.filter((role) => role !== 'pending') || [];
   return roles.length ? roles : profile.role && profile.role !== 'pending' ? [profile.role] : [];
+};
+
+export const isStockistOnlyProfile = (profile?: {
+  role?: UserRole;
+  roles?: UserRole[] | null;
+} | null): boolean => {
+  const roles = profile ? getProfileRoles(profile) : [];
+  return roles.length === 1 && roles[0] === 'stockist';
+};
+
+type ProfileRoleSource = { role?: UserRole; roles?: UserRole[] | null };
+
+const hasOnlyRoles = (
+  profile: ProfileRoleSource | null | undefined,
+  allowedRoles: readonly UserRole[]
+): boolean => {
+  const roles = profile ? getProfileRoles(profile) : [];
+  return roles.length > 0 && roles.every((role) => allowedRoles.includes(role));
+};
+
+export const isProductIdentificationLabelOnlyProfile = (
+  profile?: ProfileRoleSource | null
+): boolean => hasOnlyRoles(profile, ['seller', 'stockist', 'deliverer']);
+
+export const shouldHideCatalogPublicationStatus = (
+  profile?: ProfileRoleSource | null
+): boolean => hasOnlyRoles(profile, ['stockist', 'deliverer']);
+
+export const canPrintProductIdentificationLabels = (
+  profile?: ProfileRoleSource | null
+): boolean => {
+  const roles = profile ? getProfileRoles(profile) : [];
+  return canPerform('printProductIdentificationLabels', roles);
 };
 
 export const getPrimaryRole = (roles: UserRole[]): UserRole =>

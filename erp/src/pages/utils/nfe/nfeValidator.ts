@@ -1,16 +1,17 @@
-import Order from '@/pages/types/order.type';
-import { AppSettings } from '../settingsService';
+import type Order from '@/pages/types/order.type';
+import { resolveFiscalCfopOrderScope } from '../../../../../shared-utils/fiscalCfopModel';
 import {
-  resolveOrderFiscalModel,
-  getFiscalRecipientAddress,
-  fiscalPresence,
   decideFiscalRecipientRequirements,
+  fiscalPresence,
+  getFiscalRecipientAddress,
+  resolveOrderFiscalModel,
 } from '../../../../../shared-utils/fiscalDocumentModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
   recipientTaxIdMatchesPersonType,
 } from '../../../../../shared-utils/recipientTaxId';
+import type { AppSettings } from '../settingsService';
 
 export interface NfeValidationResult {
   isValid: boolean;
@@ -80,9 +81,42 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
   }
 
   // Recipient requirements follow the fiscal model and presence, not pickup/delivery alone.
-  const decision = resolveOrderFiscalModel(order, {
+  const acquisitionPurpose = order.fiscalContext?.acquisitionPurpose;
+  const hasPersistedPurpose =
+    acquisitionPurpose === 'resale' ||
+    acquisitionPurpose === 'use_consumption' ||
+    acquisitionPurpose === 'fixed_asset';
+  const operationScope = resolveFiscalCfopOrderScope({
     issuerUf: settings.companyUF,
-    finalConsumer: order.fiscalContext?.finalConsumer ?? true,
+    deliveryMethod: order.shipping?.deliveryMethod,
+    shipping: order.shipping,
+    customerAddress: getFiscalRecipientAddress(order),
+  });
+  const isInterstate = operationScope.scope === 'interstate';
+  const finalConsumer = hasPersistedPurpose
+    ? acquisitionPurpose !== 'resale'
+    : isInterstate
+      ? undefined
+      : order.fiscalContext?.finalConsumer;
+
+  if (isInterstate && !hasPersistedPurpose) {
+    errors.push('Registre no pedido se a compra é para revenda, uso/consumo ou ativo imobilizado.');
+  }
+  if (
+    hasPersistedPurpose &&
+    typeof order.fiscalContext?.finalConsumer === 'boolean' &&
+    order.fiscalContext.finalConsumer !== finalConsumer
+  ) {
+    errors.push('O indFinal persistido não corresponde à finalidade da compra no pedido.');
+  }
+
+  const decisionOrder = {
+    ...order,
+    fiscalContext: { ...order.fiscalContext, finalConsumer },
+  };
+  const decision = resolveOrderFiscalModel(decisionOrder, {
+    issuerUf: settings.companyUF,
+    finalConsumer,
   });
   if (decision.status === 'blocked') errors.push(decision.reason);
   else {

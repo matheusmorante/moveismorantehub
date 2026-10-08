@@ -172,7 +172,7 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
   });
 
   it('bloqueia operação com ST não configurada (INTERSTATE_ST_RULE_NOT_CONFIGURED)', () => {
-    const withSt = { ...facts, stRole: 'SUBSTITUTE' as const };
+    const withSt = { ...facts, hasSt: true, stRole: 'SUBSTITUTE' as const };
     expect(resolveInterstateOutboundFiscalMatrix(withSt)).toMatchObject({
       status: 'not_approved',
       code: 'INTERSTATE_ST_RULE_NOT_CONFIGURED',
@@ -221,6 +221,24 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
     });
   });
 
+  it('não infere papel de substituído apenas de hasSt=true ou CST 500', () => {
+    for (const context of [{ hasSt: true }, { catalogCst: '500' }, { itemFiscalCst: '500' }])
+      expect(
+        resolveInterstateStRole({
+          ...context,
+          ncm: '85165000',
+          issuerUf: 'PR',
+          destinationUf: 'SC',
+        })
+      ).toMatchObject({
+        role: null,
+        isSt: null,
+        status: 'UNCONFIGURED',
+        errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
+        reason: expect.stringContaining('papel do emitente'),
+      });
+  });
+
   it('só permite resolução sintética com regra APPROVED completa e sem conflito', () => {
     expect(hasApprovedInterstateOutboundRoute(facts, [completeRule()])).toBe(true);
     expect(resolveInterstateOutboundFiscalMatrix(facts, [completeRule()])).toMatchObject({
@@ -242,6 +260,18 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       status: 'invalid_approved_rule',
       code: 'HML_INTERSTATE_MATRIX_INVALID',
     });
+  });
+
+  it('retorna o tratamento fiscal completo da regra sem recalcular CSOSN ou grupo de ICMS', () => {
+    const rule = completeRule('COMPLETE-TREATMENT-TEST');
+    rule.criteria.allowsIcmsCredit = false;
+    rule.treatment.csosn = '103';
+    const result = resolveInterstateOutboundFiscalMatrix({ ...facts, allowsIcmsCredit: false }, [
+      rule,
+    ]);
+
+    expect(result).toMatchObject({ status: 'approved', ruleId: rule.id });
+    if (result.status === 'approved') expect(result.treatment).toEqual(rule.treatment);
   });
 
   it('separa validação técnica de indIEDest=2 da aprovação do tratamento tributário', () => {
@@ -569,6 +599,120 @@ describe('Matriz de Decisão Fiscal Interestadual de Saída server-side', () => 
       resolveInterstateOutboundFiscalMatrix({ ...facts, destinationUf: 'SP' }, [sc])
     ).toMatchObject({ status: 'not_approved' });
   });
+
+  it('regra do par PR→SC prevalece sobre regra de destino e não vaza para outras rotas', () => {
+    const destination = genericRule();
+    destination.id = 'DESTINATION-SC-TEST';
+    delete destination.criteria.issuerUf;
+    destination.criteria.destinationUf = 'SC';
+    destination.reviewedWildcards = [...destination.reviewedWildcards!, 'issuerUf'];
+    destination.normativeScope = 'DESTINATION_STATE';
+    destination.normativeSources = [
+      { id: 'SC-TEST', scope: 'DESTINATION_STATE', destinationUf: 'SC', url: 'TEST_SC' },
+    ];
+    destination.sourceReferences = ['TEST_SC'];
+    destination.criteria.recipientTaxRegime = 'TEST_REGIME';
+    destination.priority = 999;
+
+    const pair = genericRule();
+    pair.id = 'PAIR-PR-SC-TEST';
+    pair.criteria.destinationUf = 'SC';
+    pair.normativeScope = 'ORIGIN_DESTINATION_PAIR';
+    pair.normativeSources = [
+      {
+        id: 'PR-SC-TEST',
+        scope: 'ORIGIN_DESTINATION_PAIR',
+        issuerUf: 'PR',
+        destinationUf: 'SC',
+        url: 'TEST_PR_SC',
+      },
+    ];
+    pair.sourceReferences = ['TEST_PR_SC'];
+    pair.priority = 1;
+
+    const scFacts = { ...facts, recipientTaxRegime: 'TEST_REGIME' };
+    expect(resolveInterstateOutboundFiscalMatrix(scFacts, [destination, pair])).toMatchObject({
+      status: 'approved',
+      ruleId: pair.id,
+    });
+    expect(
+      resolveInterstateOutboundFiscalMatrix({ ...scFacts, issuerUf: 'SP' }, [destination, pair])
+    ).toMatchObject({ status: 'approved', ruleId: destination.id });
+    expect(
+      resolveInterstateOutboundFiscalMatrix({ ...facts, destinationUf: 'SP' }, [pair])
+    ).toMatchObject({ status: 'not_approved' });
+  });
+
+  it('regra específica de SP não é selecionada para uma operação destinada a SC', () => {
+    const sp = genericRule();
+    sp.id = 'DESTINATION-SP-TEST';
+    sp.criteria.destinationUf = 'SP';
+    sp.normativeScope = 'DESTINATION_STATE';
+    sp.normativeSources = [
+      { id: 'SP-TEST', scope: 'DESTINATION_STATE', destinationUf: 'SP', url: 'TEST_SP' },
+    ];
+    sp.sourceReferences = ['TEST_SP'];
+
+    expect(resolveInterstateOutboundFiscalMatrix(facts, [sp])).toMatchObject({
+      status: 'not_approved',
+    });
+  });
+
+  it('regra por CEST prevalece somente quando o CEST informado corresponde', () => {
+    const general = anyDestinationRule();
+    general.priority = 999;
+    const cest = anyDestinationRule();
+    cest.id = 'CEST-TEST';
+    cest.criteria.cest = '1234567';
+    cest.reviewedWildcards = cest.reviewedWildcards!.filter((key) => key !== 'cest');
+    cest.normativeScope = 'PRODUCT_SPECIFIC';
+    cest.normativeSources = [
+      { id: 'CEST-SOURCE', scope: 'PRODUCT_SPECIFIC', cest: '1234567', url: 'TEST_CEST' },
+    ];
+    cest.sourceReferences = ['TEST_CEST'];
+    cest.priority = 1;
+
+    expect(
+      resolveInterstateOutboundFiscalMatrix({ ...facts, cest: '1234567' }, [general, cest])
+    ).toMatchObject({ status: 'approved', ruleId: cest.id });
+    expect(
+      resolveInterstateOutboundFiscalMatrix({ ...facts, cest: '7654321' }, [general, cest])
+    ).toMatchObject({ status: 'approved', ruleId: general.id });
+  });
+
+  it('bloqueia regras igualmente específicas com decisões diferentes, mesmo com prioridade distinta', () => {
+    const first = genericRule();
+    const second = genericRule();
+    second.id = 'HIGH-PRIORITY-ALTERNATIVE';
+    second.priority = 999;
+    second.treatment.csosn = '103';
+
+    expect(resolveInterstateOutboundFiscalMatrix(facts, [first, second])).toMatchObject({
+      status: 'ambiguous',
+      ruleIds: [first.id, second.id],
+    });
+  });
+
+  it.each(['DRAFT', 'BLOCKED'] as const)(
+    'regra mais específica %s impede fallback para a regra geral APPROVED',
+    (status) => {
+      const general = anyDestinationRule();
+      general.priority = 999;
+      const specific = genericRule();
+      specific.id = `${status}-SC-TEST`;
+      specific.criteria.destinationUf = 'SC';
+      specific.priority = 1;
+      specific.status = status;
+      specific.pendingReview = [`Regra ${status} para revisão`];
+
+      expect(resolveInterstateOutboundFiscalMatrix(facts, [general, specific])).toMatchObject({
+        status: 'not_approved',
+        ...(status === 'DRAFT'
+          ? { matchingDraftRuleIds: [specific.id] }
+          : { matchingBlockedRuleIds: [specific.id] }),
+      });
+    }
+  );
 
   it('produto/NCM prevalece sobre override de destino; destino null/omitido tem a mesma especificidade', () => {
     const general = anyDestinationRule();

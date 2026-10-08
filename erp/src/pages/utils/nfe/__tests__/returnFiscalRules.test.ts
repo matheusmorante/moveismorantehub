@@ -50,6 +50,18 @@ const sameStateNonTaxpayerFinalConsumer =
   '<NFe><infNFe><ide><indFinal>1</indFinal></ide><emit><CRT>1</CRT></emit><dest><UF>PR</UF><indIEDest>9</indIEDest></dest></infNFe></NFe>';
 
 describe('regras fiscais centralizadas da NF-e de devolução', () => {
+  it('fixa o modelo, finalidade, natureza e tipo de operação da NF-e de estorno', () => {
+    const rules = getFiscalFormRules('estorno');
+    expect(rules.allowedModels).toEqual(['55']);
+    expect(rules.allowedFinalidades).toEqual([3]);
+    expect(rules.fixedValues).toMatchObject({ finalidade: 3, tpNF: 0, natOp: 'Nota Fiscal de Estorno' });
+    expect(rules.natureOptions).toEqual([
+      { value: 'Nota Fiscal de Estorno', label: 'Nota Fiscal de Estorno' },
+    ]);
+    expect(rules.readOnlyFields).toContain('natureOfOperation');
+    expect(rules.requiredFields).toContain('natureOfOperation');
+  });
+
   it('aceita somente NF-e 55 autorizada, protocolada, íntegra e vinculada ao mesmo pedido', () => {
     expect(validateAuthorizedOutboundNfe(authorizedSource(), orderId, 1)).toBeNull();
     expect(validateAuthorizedOutboundNfe(authorizedSource(), '33333333-3333-4333-8333-333333333333', 1))

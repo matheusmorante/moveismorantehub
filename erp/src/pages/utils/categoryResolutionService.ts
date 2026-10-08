@@ -51,9 +51,18 @@ const CATEGORY_ALIAS_RULES: readonly CategoryAliasRule[] = [
     category: 'Cozinhas Moduladas e Compactas',
     aliases: ['cozinha modulada', 'cozinha compacta', 'jogo de cozinha', 'cozinha planejada'],
   },
-  { category: 'Conjunto para Sala de Jantar', aliases: ['conjunto sala jantar', 'cj sala jantar'] },
-  { category: 'Mesa para Sala de Jantar', aliases: ['mesa sala jantar', 'mesa para jantar'] },
-  { category: 'Cadeiras para Sala de Jantar', aliases: ['cadeira sala jantar', 'cadeiras jantar'] },
+  {
+    category: 'Conjunto Mesa e Cadeiras',
+    aliases: ['conjunto sala jantar', 'cj sala jantar', 'conjunto mesa e cadeiras'],
+  },
+  {
+    category: 'Mesas para Cozinha/Sala de Jantar',
+    aliases: ['mesa sala jantar', 'mesa para jantar', 'mesa cozinha sala jantar'],
+  },
+  {
+    category: 'Cadeiras para Cozinha/Sala de Jantar',
+    aliases: ['cadeira sala jantar', 'cadeiras jantar', 'cadeira cozinha sala jantar'],
+  },
   {
     category: 'Mesas para Escritório',
     aliases: ['mesa escritorio', 'escrivaninha', 'mesa para escritorio'],

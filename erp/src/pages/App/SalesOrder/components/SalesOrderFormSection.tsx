@@ -21,6 +21,7 @@ type SalesOrderFormSectionProps = {
   sellerRef?: React.RefObject<HTMLButtonElement>;
   /** Se true, destaca visualmente os itens sem produto vinculado (temporários) */
   highlightTemporaryItems?: boolean;
+  showTestMode?: boolean;
 };
 
 const SalesOrderFormSection = ({
@@ -30,6 +31,7 @@ const SalesOrderFormSection = ({
   onOpenSellerSearch,
   sellerRef,
   highlightTemporaryItems,
+  showTestMode = false,
 }: SalesOrderFormSectionProps) => {
   const { state, actions } = form;
   const isPickup = state.shipping.deliveryMethod === 'pickup';
@@ -306,6 +308,9 @@ const SalesOrderFormSection = ({
               : 'Salvar Edição'
         }
         colorScheme={isBudget ? 'indigo' : state.status === 'draft' ? 'emerald' : 'blue'}
+        showTestMode={showTestMode}
+        isTestMode={state.isTestMode}
+        onTestModeChange={actions.setTestMode}
       />
 
       <style

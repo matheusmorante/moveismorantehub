@@ -4,6 +4,18 @@ import { renderHook, act } from '@testing-library/react';
 import { useSalesOrderForm } from '../useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 
+const { mockSaveOrder } = vi.hoisted(() => ({ mockSaveOrder: vi.fn() }));
+
+vi.mock('@/pages/utils/orderHistoryService', () => ({
+  saveOrder: mockSaveOrder,
+  resolveCompletedOrderStatus: vi.fn(() => 'scheduled'),
+}));
+
+vi.mock('@/pages/utils/validations', () => ({
+  validateBase: vi.fn(() => true),
+  validateOrder: vi.fn(() => ({})),
+}));
+
 // Mock Supabase to avoid test config error
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {
@@ -148,7 +160,7 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
       result.current.actions.loadOrderForEditing(mockOrder);
     });
 
-    expect(result.current.state.isDraftAutoSaveEnabled).toBe(false);
+    expect(result.current.state.isDraftAutoSaveEnabled).toBe(true);
 
     // Verificar que os itens NÃO foram sobrescritos com "Na caixa > Montagem no local da entrega"
     expect(result.current.state.items[0].handlingType).toBe('Item não necessita de montagem');
@@ -259,5 +271,52 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
     expect(result.current.state.currentOrder.shipping.orderType).toBe(
       'Na caixa > Montagem por conta do cliente'
     );
+  });
+
+  it('recupera o marcador existente e não o herda ao duplicar um pedido de teste', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    act(() => {
+      result.current.actions.loadOrderForEditing({
+        id: 'existing-test-order',
+        orderIndex: 2002,
+        orderType: 'sale',
+        is_test: true,
+        items: [],
+        payments: [],
+        shipping: { deliveryMethod: 'pickup', value: 0, orderType: '' },
+      } as unknown as Order);
+    });
+
+    expect(result.current.state.isTestMode).toBe(true);
+    expect(result.current.state.currentOrder.is_test).toBe(true);
+
+    act(() => {
+      result.current.actions.loadOrderForEditing({
+        id: undefined,
+        orderIndex: undefined,
+        orderType: 'sale',
+        is_test: true,
+        items: [],
+        payments: [],
+        shipping: { deliveryMethod: 'pickup', value: 0, orderType: '' },
+      } as unknown as Order);
+    });
+
+    expect(result.current.state.isTestMode).toBe(false);
+    expect(result.current.state.currentOrder.is_test).toBeUndefined();
+  });
+
+  it('envia is_test ao caminho de salvamento quando o administrador liga o modo teste', async () => {
+    mockSaveOrder.mockReset().mockResolvedValue('new-test-order');
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    act(() => result.current.actions.setTestMode(true));
+    await act(async () => {
+      await result.current.actions.handleSaveOrder();
+    });
+
+    expect(mockSaveOrder).toHaveBeenCalledTimes(1);
+    expect(mockSaveOrder.mock.calls[0][0].is_test).toBe(true);
   });
 });

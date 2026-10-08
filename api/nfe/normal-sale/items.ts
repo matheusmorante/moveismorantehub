@@ -8,7 +8,7 @@ import type {
   FiscalDecisionTrace,
   FiscalSnapshotCandidate,
 } from '../fiscalSnapshot';
-import type { ValidSimplesNormalSaleContribution } from '../simplesNormalSaleContribution';
+import type { ResolvedSimplesNormalSaleContribution } from '../simplesNormalSaleContribution';
 import { obj, required } from './values';
 
 type ReadyFiscalModelDecision = Extract<FiscalModelDecision, { status: 'ready' }>;
@@ -19,7 +19,7 @@ export function determineNormalSaleItems(params: {
   selections: Record<string, any>;
   expectedCfop: string;
   snapshotScope: FiscalCfopOrderScope;
-  contribution: ValidSimplesNormalSaleContribution;
+  contribution: ResolvedSimplesNormalSaleContribution;
   modelDecision: ReadyFiscalModelDecision;
   ruleSetVersion: string;
   code: string;
@@ -51,8 +51,14 @@ export function determineNormalSaleItems(params: {
       itemRecord.isOwnProduction === true ||
       saved.isOwnProduction === true ||
       productFiscal.isOwnProduction === true;
-    const hasSt = [itemRecord.hasSt, itemRecord.isSt, saved.hasSt, saved.isSt, productFiscal.hasSt, productFiscal.isSt]
-      .find((value) => typeof value === 'boolean');
+    const hasSt = [
+      itemRecord.hasSt,
+      itemRecord.isSt,
+      saved.hasSt,
+      saved.isSt,
+      productFiscal.hasSt,
+      productFiscal.isSt,
+    ].find((value) => typeof value === 'boolean');
     if (expectedCfop === '5102' && (ownProduction || hasSt === true))
       throw new Error(
         'Venda normal interna de produção própria ou com ST exige matriz fiscal específica aprovada.'

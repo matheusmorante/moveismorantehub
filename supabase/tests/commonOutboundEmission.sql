@@ -1,6 +1,6 @@
 -- Replace __RUN_UUID__ with a fresh UUID before execution. No SOAP or fiscal issuance.
 -- The synthetic XML/protocol exercise PostgreSQL persistence boundaries only.
--- Every fixture, including counters and the temporary own-65 decision, rolls back.
+-- Every fixture and counter rolls back; 55/65 use the same shared decision.
 BEGIN;
 SET LOCAL lock_timeout='3s';
 SET LOCAL statement_timeout='25s';
@@ -48,7 +48,7 @@ BEGIN
  FROM unnest(ARRAY['companyName','companyAddress','companyCnpj','companyIE','companyIM','companyCRT',
   'companyLogradouro','companyNumero','companyBairro','companyCEP','companyCMun','companyXMun','companyUF','companyPhone','cscId']) k;
  v_issuer := regexp_replace(v_profile->>'companyCnpj','[^0-9]','','g');
- SELECT data INTO v_decision FROM public.settings WHERE id='fiscal_decision_simples_nfe55_normal_sale_v1';
+ SELECT data INTO v_decision FROM public.settings WHERE id='fiscal_decision_simples_normal_sale_v1';
  INSERT INTO public.people(id,full_name,cpf_cnpj,person_type_pf_pj,deleted,address)
  VALUES(v_customer,v_run,'12345678909','PF',false,'{"street":"RUA TESTE","number":"10","neighborhood":"CENTRO","city":"Curitiba","state":"PR","cep":"80010000"}');
  SELECT jsonb_build_object('id',id,'fullName',full_name,'cpfCnpj',cpf_cnpj,'address',address,'ie',rg_ie,'personType',person_type_pf_pj)
@@ -135,12 +135,6 @@ BEGIN
  v_query := format('DELETE FROM public.nfe_document_items WHERE document_id=%L::uuid',v_doc);
  v_tap := array_append(v_tap,extensions.throws_ok(v_query,'23514','FISCAL_HISTORY_IMMUTABLE','authorized items cannot be deleted'));
 
- IF NOT EXISTS(SELECT 1 FROM public.settings WHERE id='fiscal_decision_simples_nfce65_normal_sale_v1') THEN
-  INSERT INTO public.settings(id,data) VALUES('fiscal_decision_simples_nfce65_normal_sale_v1',jsonb_build_object(
-   'testRunId',v_run,'scope','{"model":"65","operation":"normal_sale","issuerCrt":"1"}'::jsonb,
-   'pis','{"cst":"99","base":0,"rate":0,"value":0}'::jsonb,'cofins','{"cst":"99","base":0,"rate":0,"value":0}'::jsonb,'confirmedBy',v_run,'confirmedAt',now()));
- END IF;
- SELECT data INTO v_decision FROM public.settings WHERE id='fiscal_decision_simples_nfce65_normal_sale_v1';
  SELECT v_snapshot || jsonb_build_object('order',jsonb_build_object('id',id,'type',order_type,'status',status,'deleted',deleted,'version',version,'updatedAt',updated_at,'data',order_data))
  INTO v_snapshot65 FROM public.orders WHERE id=v_order65;
  v_snapshot65 := jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(v_snapshot65,'{emissionRequest,id}',to_jsonb(v_request65)),
@@ -150,7 +144,7 @@ BEGIN
  v_key65 := overlay(v_key placing '65' from 21 for 2); v_xml65 := replace(replace(v_xml,v_key,v_key65),'<mod>55</mod>','<mod>65</mod>');
  v_saved65 := public.prepare_nfe_outbound_attempt(v_snapshot65,v_xml65,v_key65,v_command65,v_token,NULL,1);
  v_tap := array_append(v_tap,extensions.ok((SELECT number=1 AND model='65' AND environment=2 FROM public.nfe_outbound_attempts WHERE document_id=(v_saved65->>'documentId')::uuid),
-  'NFC-e reserves its own number using its own scoped decision'));
+  'NFC-e reserves its own number using the shared contribution decision'));
  v_tap := array_append(v_tap,extensions.ok((SELECT bool_and(ultimo_numero=1) AND count(*)=2 FROM public.nfe_sequences WHERE serie='887' AND ambiente=2),
   'legacy owner counters mirror the new per-establishment ledger without model collision'));
  v_tap := array_append(v_tap,extensions.ok(

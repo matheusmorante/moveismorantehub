@@ -18,6 +18,7 @@ import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 interface ProductGeneralTabProps {
   readonly onOpenCategorySearch: () => void;
   readonly isService: boolean;
+  readonly isStockistOnly?: boolean;
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly availableCategories: readonly ProductCategoryOption[];
@@ -29,6 +30,7 @@ interface ProductGeneralTabProps {
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
   onOpenCategorySearch,
   isService,
+  isStockistOnly = false,
   formData,
   setFormData,
   availableCategories,
@@ -38,7 +40,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 }) => {
   const { opportunities } = useProductOpportunities();
 
-  const [diferenciarTitulo, setDiferenciarTitulo] = React.useState<boolean>(
+  const [diferenciarTitulo] = React.useState<boolean>(
     Boolean(formData.title && formData.title !== formData.name) ||
       Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
   );
@@ -111,113 +113,18 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
       <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {!isService && (
-          <div id="field-product-kind" className="flex flex-col gap-1.5 p-2 rounded-2xl">
-            <label
-              htmlFor="product-kind"
-              className={`text-[10px] uppercase font-black tracking-widest ${validationErrors?.productKind ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
-            >
-              Origem do estoque <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="product-kind"
-              value={formData.productKind ?? ''}
-              aria-required="true"
-              aria-invalid={Boolean(validationErrors?.productKind)}
-              onChange={(event) => {
-                const selectedKind = event.target.value as Product['productKind'] | '';
-                const productKind = selectedKind || undefined;
-                if (!productKind) {
-                  setFormData((prev) => ({ ...prev, productKind: undefined, condition: '' }));
-                  return;
-                }
-                const salvadoOpp = opportunities.find((o) =>
-                  o.name.toLowerCase().includes('salvado')
-                );
-
-                setFormData((prev) => {
-                  const next: Partial<Product> = {
-                    ...prev,
-                    productKind,
-                    condition:
-                      productKind === 'salvado'
-                        ? 'salvado'
-                        : productKind === 'usado'
-                          ? 'usado'
-                          : 'novo',
-                  };
-
-                  if (productKind === 'salvado' || productKind === 'usado') {
-                    next.active = false;
-                    next.variations = (prev.variations || []).map((variation) => ({
-                      ...variation,
-                      active: false,
-                    }));
-                    if (productKind === 'salvado' && salvadoOpp) {
-                      next.opportunityId = salvadoOpp.id;
-                    } else if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
-                      next.opportunityId = null;
-                    }
-                  } else {
-                    if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
-                      next.opportunityId = null;
-                    }
-                  }
-                  return next;
-                });
-              }}
-              className={`w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 ${validationErrors?.productKind ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
-            >
-              <option value="">Selecione</option>
-              <option value="normal">Convencional</option>
-              <option value="salvado">Salvados</option>
-              <option value="usado">Usados</option>
-            </select>
-            {validationErrors?.productKind && (
-              <span className="text-[10px] text-red-600 dark:text-red-400">
-                Selecione a origem do estoque.
-              </span>
-            )}
-            {isNonConventionalProduct(formData) && (
-              <span className="text-[10px] text-slate-500">
-                O produto e suas variações serão desativados no ERP.
-              </span>
-            )}
-          </div>
-        )}
         {/* Nome do Produto (ERP) */}
         <div
           id="field-product-name"
           className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl"
         >
-          <div className="flex items-center justify-between h-6">
+          <div className="flex items-center h-6">
             <label
               className={`text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5 ${validationErrors?.name ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
             >
-              <span>Nome</span>
+              <span>Nome do Produto</span>
               <span className="text-red-500 ml-0.5">*</span>
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                const newValue = !diferenciarTitulo;
-                setDiferenciarTitulo(newValue);
-                if (!newValue) {
-                  setFormData((prev) => ({
-                    ...prev,
-                    title: prev.name,
-                    marketplaceTitle: prev.name,
-                  }));
-                }
-              }}
-              className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors ${
-                diferenciarTitulo
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
-                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
-              }`}
-            >
-              {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
-            </button>
           </div>
           <input
             value={formData.name || ''}
@@ -314,6 +221,80 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
           )}
         </div>
 
+        {!isService && (
+          <div id="field-product-kind" className="flex flex-col gap-1.5 p-2 rounded-2xl">
+            <label
+              htmlFor="product-kind"
+              className={`text-[10px] uppercase font-black tracking-widest ${validationErrors?.productKind ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
+            >
+              Origem do estoque <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="product-kind"
+              value={formData.productKind ?? ''}
+              aria-required="true"
+              aria-invalid={Boolean(validationErrors?.productKind)}
+              onChange={(event) => {
+                const selectedKind = event.target.value as Product['productKind'] | '';
+                const productKind = selectedKind || undefined;
+                if (!productKind) {
+                  setFormData((prev) => ({ ...prev, productKind: undefined, condition: '' }));
+                  return;
+                }
+                const salvadoOpp = opportunities.find((o) =>
+                  o.name.toLowerCase().includes('salvado')
+                );
+
+                setFormData((prev) => {
+                  const next: Partial<Product> = {
+                    ...prev,
+                    productKind,
+                    condition:
+                      productKind === 'salvado'
+                        ? 'salvado'
+                        : productKind === 'usado'
+                          ? 'usado'
+                          : 'novo',
+                  };
+
+                  if (productKind === 'salvado' || productKind === 'usado') {
+                    next.active = false;
+                    next.variations = (prev.variations || []).map((variation) => ({
+                      ...variation,
+                      active: false,
+                    }));
+                    if (productKind === 'salvado' && salvadoOpp) {
+                      next.opportunityId = salvadoOpp.id;
+                    } else if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
+                      next.opportunityId = null;
+                    }
+                  } else {
+                    if (salvadoOpp && prev.opportunityId === salvadoOpp.id) {
+                      next.opportunityId = null;
+                    }
+                  }
+                  return next;
+                });
+              }}
+              className={`w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 ${validationErrors?.productKind ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+            >
+              <option value="">Selecione</option>
+              <option value="normal">Convencional</option>
+              <option value="salvado">Salvados</option>
+              <option value="usado">Usados</option>
+            </select>
+            {validationErrors?.productKind && (
+              <span className="text-[10px] text-red-600 dark:text-red-400">
+                Selecione a origem do estoque.
+              </span>
+            )}
+            {isNonConventionalProduct(formData) && (
+              <span className="text-[10px] text-slate-500">
+                O produto e suas variações serão desativados no ERP.
+              </span>
+            )}
+          </div>
+        )}
         {/* Catalog / Ecommerce Title Section (Exibido apenas se diferenciarTitulo for true) */}
         {diferenciarTitulo ? (
           <div
@@ -363,7 +344,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         />
       )}
       {/* Oportunidade */}
-      <div className="md:col-span-2">
+      {!isStockistOnly && (
+        <div className="md:col-span-2">
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
             <span>Oportunidade</span>
@@ -376,7 +358,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={formData.productKind === 'salvado'}
           >
-            <option value="">Nenhuma (Produto Convencional)</option>
+            <option value="">Nenhuma</option>
             {opportunities
               .filter((opp) => {
                 if (formData.productKind === 'normal' || !formData.productKind) {
@@ -391,7 +373,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               ))}
           </select>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Observations */}
       <div className="md:col-span-2">

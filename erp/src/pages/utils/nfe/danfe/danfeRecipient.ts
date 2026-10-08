@@ -1,4 +1,6 @@
 import Order from '@/pages/types/order.type';
+import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
+import { escapeDanfeHtml } from './danfeHtmlUtils';
 
 export interface DanfeRecipientParams {
   order: Order;
@@ -6,6 +8,7 @@ export interface DanfeRecipientParams {
   dtEmi: string;
   dtSaida: string;
   hrSaida: string;
+  fiscalDetails?: ParsedFiscalDetails;
 }
 
 /**
@@ -13,20 +16,43 @@ export interface DanfeRecipientParams {
  */
 export function buildDanfeRecipientOfficialHtml(params: DanfeRecipientParams): string {
   const { order, isHomologacao, dtEmi, dtSaida, hrSaida } = params;
+  const recipient = params.fiscalDetails?.recipient;
+  const fromFiscalXml = Boolean(params.fiscalDetails);
+  const fromSource = (xmlValue: string | undefined, legacyValue: string | undefined) =>
+    fromFiscalXml ? xmlValue || '' : legacyValue || '';
   const customer = order.customerData;
   const destName = isHomologacao
     ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
-    : customer?.fullName || 'CONSUMIDOR FINAL';
-  const destDoc = customer?.cpfCnpj || '';
-  const destLogr = order.shipping?.deliveryAddress?.street || customer?.fullAddress?.street || '';
-  const destNum = order.shipping?.deliveryAddress?.number || customer?.fullAddress?.number || 'S/N';
+    : fromSource(recipient?.name, customer?.fullName) || 'CONSUMIDOR FINAL';
+  const destDoc = fromSource(recipient?.taxId, customer?.cpfCnpj);
+  const destStreet = fromSource(
+    recipient?.street,
+    order.shipping?.deliveryAddress?.street || customer?.fullAddress?.street
+  );
+  const destLogr = [destStreet, fromSource(recipient?.complement, '')].filter(Boolean).join(', ');
+  const destNum = fromSource(
+    recipient?.number,
+    order.shipping?.deliveryAddress?.number || customer?.fullAddress?.number
+  ) || (fromFiscalXml ? '' : 'S/N');
   const destBairro =
-    order.shipping?.deliveryAddress?.neighborhood || customer?.fullAddress?.neighborhood || '';
-  const destCep = order.shipping?.deliveryAddress?.cep || customer?.fullAddress?.cep || '';
-  const destMun = order.shipping?.deliveryAddress?.city || customer?.fullAddress?.city || 'Colombo';
-  const destUF = order.shipping?.deliveryAddress?.state || customer?.fullAddress?.state || 'PR';
-  const destPhone = customer?.phone || '';
-  const destIE = (customer as any)?.rgIe || 'ISENTO';
+    fromSource(
+      recipient?.district,
+      order.shipping?.deliveryAddress?.neighborhood || customer?.fullAddress?.neighborhood
+    );
+  const destCep = fromSource(
+    recipient?.postalCode,
+    order.shipping?.deliveryAddress?.cep || customer?.fullAddress?.cep
+  );
+  const destMun = fromSource(
+    recipient?.municipality,
+    order.shipping?.deliveryAddress?.city || customer?.fullAddress?.city
+  );
+  const destUF = fromSource(
+    recipient?.state,
+    order.shipping?.deliveryAddress?.state || customer?.fullAddress?.state
+  );
+  const destPhone = fromSource(recipient?.phone, customer?.phone);
+  const destIE = fromSource(recipient?.stateRegistration, (customer as any)?.rgIe) || 'ISENTO';
 
   return `
         <!-- BLOCO 3: DESTINATÁRIO / REMETENTE -->
@@ -39,55 +65,55 @@ export function buildDanfeRecipientOfficialHtml(params: DanfeRecipientParams): s
             <tr>
                 <td style="width: 58%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">NOME / RAZÃO SOCIAL</div>
-                    <div class="box-value">${destName}</div>
+                    <div class="box-value">${escapeDanfeHtml(destName)}</div>
                 </td>
                 <td style="width: 24%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">CNPJ / CPF</div>
-                    <div class="box-value">${destDoc || '&nbsp;'}</div>
+                    <div class="box-value">${escapeDanfeHtml(destDoc) || '&nbsp;'}</div>
                 </td>
                 <td colspan="2" style="width: 18%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">DATA DA EMISSÃO</div>
-                    <div class="box-value text-right">${dtEmi}</div>
+                    <div class="box-value text-right">${escapeDanfeHtml(dtEmi)}</div>
                 </td>
             </tr>
             <tr>
                 <td style="width: 48%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">ENDEREÇO</div>
-                    <div class="box-value">${destLogr ? `${destLogr}, ${destNum}` : 'RETIRADA NO ESTABELECIMENTO'}</div>
+                    <div class="box-value">${destLogr ? `${escapeDanfeHtml(destLogr)}${destNum ? `, ${escapeDanfeHtml(destNum)}` : ''}` : fromFiscalXml ? '&nbsp;' : 'RETIRADA NO ESTABELECIMENTO'}</div>
                 </td>
                 <td style="width: 24%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">BAIRRO / DISTRITO</div>
-                    <div class="box-value">${destBairro || '&nbsp;'}</div>
+                    <div class="box-value">${escapeDanfeHtml(destBairro) || '&nbsp;'}</div>
                 </td>
                 <td style="width: 13%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">CEP</div>
-                    <div class="box-value">${destCep || '&nbsp;'}</div>
+                    <div class="box-value">${escapeDanfeHtml(destCep) || '&nbsp;'}</div>
                 </td>
                 <td style="width: 15%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">DATA DE SAÍDA/ENTRADA</div>
-                    <div class="box-value text-right">${dtSaida}</div>
+                    <div class="box-value text-right">${escapeDanfeHtml(dtSaida)}</div>
                 </td>
             </tr>
             <tr>
                 <td style="width: 38%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">MUNICÍPIO</div>
-                    <div class="box-value">${destMun}</div>
+                    <div class="box-value">${escapeDanfeHtml(destMun) || '&nbsp;'}</div>
                 </td>
                 <td style="width: 18%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">FONE / FAX</div>
-                    <div class="box-value">${destPhone || '&nbsp;'}</div>
+                    <div class="box-value">${escapeDanfeHtml(destPhone) || '&nbsp;'}</div>
                 </td>
                 <td style="width: 6%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">UF</div>
-                    <div class="box-value text-center">${destUF}</div>
+                    <div class="box-value text-center">${escapeDanfeHtml(destUF) || '&nbsp;'}</div>
                 </td>
                 <td style="width: 18%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">INSCRIÇÃO ESTADUAL</div>
-                    <div class="box-value">${destIE}</div>
+                    <div class="box-value">${escapeDanfeHtml(destIE)}</div>
                 </td>
                 <td style="width: 20%; border: 1px solid #000; padding: 1px 3px;">
                     <div class="box-title">HORA DE SAÍDA</div>
-                    <div class="box-value text-right">${hrSaida}</div>
+                    <div class="box-value text-right">${escapeDanfeHtml(hrSaida)}</div>
                 </td>
             </tr>
         </table>

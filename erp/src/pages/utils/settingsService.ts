@@ -13,6 +13,7 @@ import {
   MORANTE_PICKUP_HANDLING_OPTIONS,
   settingsUseGenericDefaults,
 } from './handlingMigration';
+import { PERMISSION_ACTIONS } from './permissionConfig';
 
 export interface OrderStatusConfig {
   id: string;
@@ -192,6 +193,7 @@ export interface AppSettings {
   };
   stockNotificationConditions?: ('novo' | 'usado' | 'salvado')[];
   rolePermissions?: Record<string, string[]>;
+  rolePermissionsMigrationVersion?: number;
   whatsappTemplates?: {
     reviewRequest: string;
     orderConfirmation: string;
@@ -311,6 +313,206 @@ const migrateSettings = (settings: any): AppSettings => {
     'cscToken',
   ]) {
     delete settings[key];
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 1) {
+    const rolePermissions = settings.rolePermissions || {};
+    const addStockistPermission = (roles: unknown, defaults: string[]): string[] => [
+      ...new Set([...(Array.isArray(roles) ? roles : defaults), 'stockist']),
+    ];
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewProducts: addStockistPermission(rolePermissions.viewProducts, [
+        'manager',
+        'seller',
+        'deliverer',
+      ]),
+      productConfig: addStockistPermission(rolePermissions.productConfig, ['manager']),
+    };
+    settings.rolePermissionsMigrationVersion = 1;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 2) {
+    const rolePermissions = settings.rolePermissions || {};
+    const ensureCatalogReadAccess = (): string[] => {
+      const roles = Array.isArray(rolePermissions.viewProducts)
+        ? rolePermissions.viewProducts
+        : ['manager', 'stockist'];
+      return [...new Set([...roles, 'seller', 'deliverer'])];
+    };
+    const removeDeliverer = (action: string, defaults: string[]): string[] => {
+      const roles = Array.isArray(rolePermissions[action]) ? rolePermissions[action] : defaults;
+      return roles.filter((role: string) => role !== 'deliverer');
+    };
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewProducts: ensureCatalogReadAccess(),
+      productConfig: removeDeliverer('productConfig', ['manager', 'stockist', 'seller']),
+      viewOrders: removeDeliverer('viewOrders', ['manager']),
+      createEditOrders: removeDeliverer('createEditOrders', ['manager']),
+      viewPeople: removeDeliverer('viewPeople', ['manager']),
+      createEditPeople: removeDeliverer('createEditPeople', ['manager']),
+      viewFinancials: removeDeliverer('viewFinancials', ['manager', 'accountant']),
+      exportReports: removeDeliverer('exportReports', ['manager', 'accountant']),
+      viewFiscal: removeDeliverer('viewFiscal', ['manager', 'accountant']),
+      viewMarketing: removeDeliverer('viewMarketing', ['manager']),
+    };
+    settings.rolePermissionsMigrationVersion = 2;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 3) {
+    const rolePermissions = settings.rolePermissions || {};
+    const updateRoles = (
+      action: string,
+      defaults: string[],
+      add: string[] = [],
+      remove: string[] = []
+    ): string[] => {
+      const existing = Array.isArray(rolePermissions[action])
+        ? rolePermissions[action]
+        : defaults;
+      return [...new Set([...existing.filter((role: string) => !remove.includes(role)), ...add])];
+    };
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewProducts: updateRoles('viewProducts', ['manager', 'seller', 'deliverer', 'stockist'], [
+        'seller',
+        'deliverer',
+      ]),
+      viewStock: updateRoles('viewStock', ['manager', 'deliverer', 'stockist'], [], ['seller']),
+      viewSuppliers: updateRoles('viewSuppliers', ['manager', 'stockist'], ['seller'], [
+        'deliverer',
+      ]),
+      productConfig: updateRoles(
+        'productConfig',
+        ['manager', 'stockist', 'seller'],
+        ['seller'],
+        ['deliverer']
+      ),
+      deleteProducts: updateRoles('deleteProducts', ['manager', 'seller'], ['seller'], [
+        'deliverer',
+      ]),
+      viewOrders: updateRoles('viewOrders', ['manager'], [], ['seller', 'deliverer']),
+      createEditOrders: updateRoles('createEditOrders', ['manager'], [], ['seller', 'deliverer']),
+      viewPeople: updateRoles('viewPeople', ['manager'], [], ['seller', 'deliverer']),
+      createEditPeople: updateRoles('createEditPeople', ['manager'], [], ['seller', 'deliverer']),
+      viewFinancials: updateRoles('viewFinancials', ['manager', 'accountant'], [], [
+        'seller',
+        'deliverer',
+      ]),
+      exportReports: updateRoles('exportReports', ['manager', 'accountant'], [], [
+        'seller',
+        'deliverer',
+      ]),
+      viewFiscal: updateRoles('viewFiscal', ['manager', 'accountant'], [], [
+        'seller',
+        'deliverer',
+      ]),
+      viewMarketing: updateRoles('viewMarketing', ['manager'], [], ['seller', 'deliverer']),
+    };
+    settings.rolePermissionsMigrationVersion = 3;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 4) {
+    const rolePermissions = settings.rolePermissions || {};
+    const inheritedFrom: Record<string, string> = {
+      viewBudgets: 'viewOrders',
+      viewAssistanceOrders: 'viewOrders',
+      viewReturns: 'viewOrders',
+      viewSalesReports: 'viewOrders',
+      exportSalesReports: 'exportReports',
+      viewProductCharacteristics: 'productConfig',
+      viewProductCategories: 'productConfig',
+      viewProductCompositions: 'productConfig',
+      viewProductReconciliation: 'productConfig',
+      viewStockMovements: 'viewStock',
+      viewStockInventory: 'viewStock',
+      viewStockUnavailabilities: 'viewStock',
+      viewStockPurchases: 'viewStock',
+      viewStockReceipts: 'viewStock',
+      viewStockLabels: 'viewStock',
+      viewBlingStock: 'viewStock',
+      viewMarketingPosts: 'viewMarketing',
+      viewChannelCatalog: 'viewMarketing',
+      viewMetaCatalog: 'viewMarketing',
+      viewWhatsAppMarketplace: 'viewMarketing',
+      viewCustomers: 'viewPeople',
+      viewEmployees: 'viewPeople',
+      viewServices: 'viewPeople',
+      viewCustomerDesires: 'viewPeople',
+      viewInboundFiscal: 'viewFiscal',
+      viewNcmCatalog: 'viewFiscal',
+      viewFinanceTransactions: 'viewFinancials',
+      viewFinancePayables: 'viewFinancials',
+      viewFinanceReceivables: 'viewFinancials',
+      viewFinanceSettings: 'viewFinancials',
+    };
+    const nextPermissions = { ...rolePermissions };
+
+    for (const permission of PERMISSION_ACTIONS) {
+      if (nextPermissions[permission.id] !== undefined) continue;
+      const inheritedRoles = inheritedFrom[permission.id]
+        ? nextPermissions[inheritedFrom[permission.id]]
+        : undefined;
+      nextPermissions[permission.id] = Array.isArray(inheritedRoles)
+        ? [...inheritedRoles]
+        : [...permission.defaultRoles];
+    }
+
+    settings.rolePermissions = nextPermissions;
+    settings.rolePermissionsMigrationVersion = 4;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 5) {
+    const rolePermissions = settings.rolePermissions || {};
+    const identificationLabelDefaults =
+      PERMISSION_ACTIONS.find((permission) => permission.id === 'printProductIdentificationLabels')
+        ?.defaultRoles || [];
+    const blingStockRoles = Array.isArray(rolePermissions.viewBlingStock)
+      ? rolePermissions.viewBlingStock
+      : PERMISSION_ACTIONS.find((permission) => permission.id === 'viewBlingStock')?.defaultRoles || [];
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewBlingStock: blingStockRoles.filter((role: string) => role !== 'stockist'),
+      printProductIdentificationLabels: Array.isArray(rolePermissions.printProductIdentificationLabels)
+        ? rolePermissions.printProductIdentificationLabels
+        : [...identificationLabelDefaults],
+    };
+    settings.rolePermissionsMigrationVersion = 5;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 6) {
+    const rolePermissions = settings.rolePermissions || {};
+    const ensureAccountantFiscalAccess = (action: string): string[] => {
+      const defaults = PERMISSION_ACTIONS.find((permission) => permission.id === action)?.defaultRoles || [];
+      const roles = Array.isArray(rolePermissions[action]) ? rolePermissions[action] : defaults;
+      return [...new Set([...roles, 'accountant'])];
+    };
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewFiscal: ensureAccountantFiscalAccess('viewFiscal'),
+      viewInboundFiscal: ensureAccountantFiscalAccess('viewInboundFiscal'),
+      viewNcmCatalog: ensureAccountantFiscalAccess('viewNcmCatalog'),
+    };
+    settings.rolePermissionsMigrationVersion = 6;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 7) {
+    const rolePermissions = settings.rolePermissions || {};
+    const fiscalModuleRoles = ['administrator', 'manager', 'accountant', 'seller', 'stockist'];
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewFiscal: [...fiscalModuleRoles],
+      viewInboundFiscal: [...fiscalModuleRoles],
+      viewNcmCatalog: [...fiscalModuleRoles],
+    };
+    settings.rolePermissionsMigrationVersion = 7;
   }
 
   // Migração de manuseio: string[] -> HandlingOption[]
@@ -641,14 +843,9 @@ RESPOSTA NO FORMATO JSON:
       '📦 *LEMBRETE DE MONTAGEM - MÓVEIS MORANTE*\n\nOlá {{customerName}}, para a entrega de hoje do(s) seu(s) móvel(is) *{{furnitureItems}}*, pedimos a gentileza de deixar o espaço limpo e livre no local para a realização da montagem!',
   },
   stockNotificationConditions: ['novo'],
-  rolePermissions: {
-    manualStockMovement: ['administrator', 'manager', 'stockist'],
-    productConfig: ['administrator', 'manager'],
-    viewFinancials: ['administrator', 'manager', 'accountant'],
-    deleteOrders: ['administrator', 'manager'],
-    startDelivery: ['administrator', 'deliverer'],
-    manageSettings: ['administrator'],
-  },
+  rolePermissions: Object.fromEntries(
+    PERMISSION_ACTIONS.map((permission) => [permission.id, [...permission.defaultRoles]])
+  ),
   whatsappTemplates: {
     reviewRequest:
       '*Olá {{customerName}}!* 👋\n\nFicamos muito felizes com sua compra na Móveis Morante! \n\nPoderia nos ajudar avaliando nosso atendimento no Google? Leva menos de 1 minuto e nos ajuda muito: \n\n{{reviewUrl}}\n\nMuito obrigado!',

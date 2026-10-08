@@ -2,6 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import { useAuth } from '@/context/AuthContext';
+import {
+  canPrintProductIdentificationLabels,
+  isProductIdentificationLabelOnlyProfile,
+} from '@/pages/utils/accessRoles';
 import type { CardVariationItem } from './ProductCardVariationList';
 
 interface VariationItemActionsProps {
@@ -27,14 +32,15 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
   isMenuOpen,
   onSetActiveVarMenuId,
   onEdit,
-  onShowHistory,
-  onLaunchStock,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
 }) => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
+  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
 
-  if (!isMenuOpen) return null;
+  if (!isMenuOpen || (isLabelOnlyProfile && !canPrintIdentificationLabel)) return null;
 
   const handlePrintIdentificationLabel = () => {
     const parentTitle = product.name || product.title || '';
@@ -75,7 +81,7 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
       onClose={() => onSetActiveVarMenuId(null)}
       className="w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-50 text-xs font-bold text-slate-700 dark:text-slate-200"
     >
-      {!v.mergedToVariationId && (
+      {canPrintIdentificationLabel && !v.mergedToVariationId && (
         <button
           type="button"
           onClick={(e) => {
@@ -89,7 +95,7 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
           Imprimir Etiqueta de Identificação
         </button>
       )}
-      {!v.mergedToVariationId && (
+      {!isLabelOnlyProfile && !v.mergedToVariationId && (
         <button
           type="button"
           onClick={(e) => {
@@ -103,7 +109,7 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
           Editar Produto
         </button>
       )}
-      {onMoveToAnotherFamily && !v.mergedToVariationId && (
+      {!isLabelOnlyProfile && onMoveToAnotherFamily && !v.mergedToVariationId && (
         <button
           type="button"
           onClick={async (e) => {
@@ -143,7 +149,7 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
           Mover para Outro Pai
         </button>
       )}
-      {onMergeWithAnotherVariation && !v.mergedToVariationId && (
+      {!isLabelOnlyProfile && onMergeWithAnotherVariation && !v.mergedToVariationId && (
         <button
           type="button"
           onClick={async (e) => {

@@ -2,7 +2,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import logoMorante from '../../assets/brand-mark.svg';
 import { MenuKey } from '../../AppLayout';
 import { useAuth } from '../../context/AuthContext';
-import { hasFiscalOperationRole } from '../../pages/utils/nfe/fiscalAuthorization';
+import { canPerform } from '../../pages/utils/permissionService';
+import { getProfileRoles } from '../../pages/utils/accessRoles';
+import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -88,6 +90,13 @@ const menuItems: any[] = [
         label: 'Recebimentos de Mercadorias',
         shortLabel: 'Recebimentos',
       },
+      {
+        type: 'link',
+        to: '/estoque/bling',
+        icon: 'bi-cloud-arrow-down',
+        iconColor: 'text-blue-500',
+        label: 'Estoque Bling',
+      },
       { type: 'header', label: 'COMPRAS' },
       {
         type: 'link',
@@ -136,10 +145,22 @@ const menuItems: any[] = [
         label: 'Clientes',
       },
       {
+        to: '/customers/desires',
+        icon: 'bi-heart',
+        iconColor: 'text-rose-500',
+        label: 'Necessidades de clientes',
+      },
+      {
         to: '/registrations/employees',
         icon: 'bi-person-badge-fill',
         iconColor: 'text-violet-600',
         label: 'Colaboradores',
+      },
+      {
+        to: '/registrations/services',
+        icon: 'bi-tools',
+        iconColor: 'text-violet-500',
+        label: 'Serviços',
       },
     ],
   },
@@ -238,6 +259,24 @@ const menuItems: any[] = [
         iconColor: 'text-amber-500',
         label: 'Movimentações',
       },
+      {
+        to: '/finance/payables',
+        icon: 'bi-box-arrow-up-right',
+        iconColor: 'text-amber-600',
+        label: 'Contas a pagar',
+      },
+      {
+        to: '/finance/receivables',
+        icon: 'bi-box-arrow-in-down-left',
+        iconColor: 'text-green-600',
+        label: 'Contas a receber',
+      },
+      {
+        to: '/finance/settings',
+        icon: 'bi-gear',
+        iconColor: 'text-slate-500',
+        label: 'Configurações financeiras',
+      },
     ],
   },
   {
@@ -260,6 +299,18 @@ const menuItems: any[] = [
         label: 'Catálogo Meta',
       },
       {
+        to: '/marketing/channel-catalog',
+        icon: 'bi-grid-3x3-gap',
+        iconColor: 'text-indigo-500',
+        label: 'Catálogo de canais',
+      },
+      {
+        to: '/registrations/whatsapp-marketplace',
+        icon: 'bi-whatsapp',
+        iconColor: 'text-green-500',
+        label: 'Marketplace WhatsApp',
+      },
+      {
         to: '/estoque/etiquetas?category=logos',
         icon: 'bi-printer-fill',
         iconColor: 'text-purple-500',
@@ -272,7 +323,124 @@ const menuItems: any[] = [
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const canOperateFiscal = hasFiscalOperationRole(profile);
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canViewProducts = canPerform('viewProducts', roles);
+  const canViewStock = [
+    'viewStockMovements',
+    'viewStockInventory',
+    'viewStockUnavailabilities',
+    'viewStockPurchases',
+    'viewStockReceipts',
+    'viewStockLabels',
+    'viewBlingStock',
+  ].some((action) => canPerform(action, roles));
+  const canViewSuppliers = canPerform('viewSuppliers', roles);
+  const canViewProductSubmodules = [
+    'viewProductCharacteristics',
+    'viewProductCategories',
+    'viewProductCompositions',
+    'viewProductReconciliation',
+  ].some((action) => canPerform(action, roles));
+  const canViewPeople = [
+    'viewCustomers',
+    'viewEmployees',
+    'viewServices',
+    'viewCustomerDesires',
+  ].some((action) => canPerform(action, roles));
+  const canViewOrders = [
+    'viewOrders',
+    'viewBudgets',
+    'viewAssistanceOrders',
+    'viewReturns',
+    'viewSalesReports',
+  ].some((action) => canPerform(action, roles));
+  const canViewFiscal = ['viewFiscal', 'viewInboundFiscal', 'viewNcmCatalog'].some((action) =>
+    canPerform(action, roles)
+  );
+  const canUseFinance = canUseFinanceModule(roles);
+  const canSeeFinanceBeta = canSeeFinanceModuleBeta(roles);
+  const canViewMarketing = [
+    'viewMarketingPosts',
+    'viewChannelCatalog',
+    'viewMetaCatalog',
+    'viewWhatsAppMarketplace',
+  ].some((action) => canPerform(action, roles));
+  const canViewLogistics = ['viewDeliverySchedule', 'viewAssemblyList'].some((action) =>
+    canPerform(action, roles)
+  );
+  const visibleMenuItems = menuItems.filter((item) => {
+    switch (item.key) {
+      case 'products':
+        return canViewProducts || canViewProductSubmodules;
+      case 'stock':
+        return canViewStock || canViewSuppliers;
+      case 'registrations':
+        return canViewPeople;
+      case 'salesOrder':
+        return canViewOrders;
+      case 'fiscal':
+        return canViewFiscal;
+      case 'finance':
+        return canUseFinance || canSeeFinanceBeta;
+      case 'marketing':
+        return canViewMarketing;
+      case 'logistics':
+        return canViewLogistics;
+      default:
+        return true;
+    }
+  });
+
+  const canSeeLink = (to?: string) => {
+    if (!to) return true;
+    const path = to.split('?')[0];
+    const permissionByPath: Record<string, string> = {
+      '/products': 'viewProducts',
+      '/products/characteristics': 'viewProductCharacteristics',
+      '/products/categories': 'viewProductCategories',
+      '/products/compositions': 'viewProductCompositions',
+      '/products/reconciliation/suppliers': 'viewProductReconciliation',
+      '/registrations/product-categories': 'viewProductCategories',
+      '/registrations/product-types': 'viewProductCategories',
+      '/registrations/variations': 'viewProductCharacteristics',
+      '/registrations/customers': 'viewCustomers',
+      '/registrations/employees': 'viewEmployees',
+      '/registrations/services': 'viewServices',
+      '/customers/desires': 'viewCustomerDesires',
+      '/estoque/movimentacoes': 'viewStockMovements',
+      '/estoque/inventarios': 'viewStockInventory',
+      '/estoque/indisponibilidades': 'viewStockUnavailabilities',
+      '/estoque/recebimentos': 'viewStockReceipts',
+      '/estoque/bling': 'viewBlingStock',
+      '/estoque/pedidos-compra': 'viewStockPurchases',
+      '/estoque/fornecedores': 'viewSuppliers',
+      '/estoque/etiquetas': 'viewStockLabels',
+      '/sales-order': 'viewOrders',
+      '/budgets': 'viewBudgets',
+      '/assistance-orders': 'viewAssistanceOrders',
+      '/returns': 'viewReturns',
+      '/sales-order/reports': 'viewSalesReports',
+      '/fiscal-documents': 'viewFiscal',
+      '/estoque/notas-fiscais-entrada': 'viewInboundFiscal',
+      '/estoque/ncm': 'viewNcmCatalog',
+      '/delivery-schedule': 'viewDeliverySchedule',
+      '/logistics/assembly-list': 'viewAssemblyList',
+      '/finance/transactions': 'viewFinanceTransactions',
+      '/finance/payables': 'viewFinancePayables',
+      '/finance/receivables': 'viewFinanceReceivables',
+      '/finance/settings': 'viewFinanceSettings',
+      '/marketing/posts': 'viewMarketingPosts',
+      '/products/meta-catalog': 'viewMetaCatalog',
+      '/marketing/channel-catalog': 'viewChannelCatalog',
+      '/registrations/whatsapp-marketplace': 'viewWhatsAppMarketplace',
+    };
+
+    if (path === '/estoque/etiquetas' && to.includes('category=logos')) {
+      return canPerform('viewStockLabels', roles);
+    }
+    const action = permissionByPath[path];
+    return action ? canPerform(action, roles) : true;
+  };
 
   if (!isOpen) return null;
 
@@ -335,8 +503,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
         {/* Seções de Menu */}
         <nav className="flex flex-col gap-1 px-4 pt-4 pb-6">
-          {menuItems.map((item) => {
-            const isActive = activeMenu === item.key;
+          {visibleMenuItems.map((item) => {
+            const isLockedFinance = item.key === 'finance' && !canUseFinance;
+            const isActive = !isLockedFinance && activeMenu === item.key;
             return (
               <div
                 key={item.key}
@@ -344,12 +513,18 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
               >
                 {/* Cabeçalho da Seção */}
                 <button
-                  onClick={() => toggle(item.key)}
+                  type="button"
+                  disabled={isLockedFinance}
+                  aria-disabled={isLockedFinance}
+                  title={isLockedFinance ? 'Em beta: disponível somente para administradores.' : undefined}
+                  onClick={() => {
+                    if (!isLockedFinance) toggle(item.key);
+                  }}
                   className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-bold text-sm ${
                     isActive
                       ? `${item.bg} ${item.color}`
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
+                  } ${isLockedFinance ? 'cursor-not-allowed opacity-55' : ''}`}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -360,30 +535,35 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                       ></i>
                     </div>
                     <span>{item.label}</span>
-                    {item.beta && (
+                    {(item.beta || isLockedFinance) && (
                       <span className="text-[7px] font-black bg-slate-100 dark:bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full tracking-tighter uppercase">
                         BETA
                       </span>
                     )}
                   </div>
-                  <i
-                    className={`bi bi-chevron-down transition-transform duration-300 ${isActive ? 'rotate-180 ' + item.color : 'text-slate-400'}`}
-                  ></i>
+                  {!isLockedFinance && (
+                    <i
+                      className={`bi bi-chevron-down transition-transform duration-300 ${isActive ? 'rotate-180 ' + item.color : 'text-slate-400'}`}
+                    ></i>
+                  )}
                 </button>
 
                 {/* Sub-links expandíveis */}
                 {isActive && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-2 pb-4 px-2">
                     {item.links.map((link: any, idx: number) =>
-                      link.to === '/fiscal-documents' && !canOperateFiscal ? null : link.type ===
-                        'header' ? (
-                        <div
-                          key={`header-${idx}`}
-                          className="md:col-span-2 px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
-                        >
-                          {link.label}
-                        </div>
-                      ) : (
+                      link.type === 'header' ? (
+                        item.key === 'stock' &&
+                        !canViewStock &&
+                        link.label !== 'COMPRAS' ? null : (
+                          <div
+                            key={`header-${idx}`}
+                            className="md:col-span-2 px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
+                          >
+                            {link.label}
+                          </div>
+                        )
+                      ) : !canSeeLink(link.to) ? null : (
                         <button
                           key={link.to}
                           onClick={() => handleLink(link.to as string)}

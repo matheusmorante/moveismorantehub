@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import SellerSearchModal from '../SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
 type NewSaleOrderProps = {
   onClose?: () => void;
@@ -14,6 +15,7 @@ type NewSaleOrderProps = {
   initialOrder?: Order;
   defaultDeliveryMethod?: 'delivery' | 'pickup';
   defaultOrderType?: Order['orderType'];
+  orderType?: Order['orderType'];
 };
 
 const NewSaleOrder = ({
@@ -21,7 +23,8 @@ const NewSaleOrder = ({
   onSaveSuccess = () => {},
   initialOrder,
   defaultDeliveryMethod = 'delivery',
-  defaultOrderType = 'sale',
+  defaultOrderType,
+  orderType: orderTypeProp,
 }: NewSaleOrderProps) => {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -32,8 +35,10 @@ const NewSaleOrder = ({
   }, []);
 
   const [searchParams] = useSearchParams();
+  const { isAdministrator } = useAuth();
   const typeFromQuery = searchParams.get('type') as Order['orderType'] | null;
-  const initialType = defaultOrderType || typeFromQuery || 'sale';
+  const initialType = orderTypeProp || defaultOrderType || typeFromQuery || 'sale';
+  const showTestMode = isAdministrator && !initialOrder && initialType === 'sale';
 
   const form = useSalesOrderForm(defaultDeliveryMethod, initialType);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -390,6 +395,7 @@ const NewSaleOrder = ({
           onLoadJSON={handleLoadJSON}
           onOpenSellerSearch={() => setIsSellerSearchOpen(true)}
           sellerRef={sellerRef}
+          showTestMode={showTestMode}
         />
       </div>
     </div>

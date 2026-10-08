@@ -12,8 +12,6 @@ interface FiscalDocumentsFilterBarProps {
   onSeriesChange: (series: string) => void;
   onDateFromChange: (date: string) => void;
   onDateToChange: (date: string) => void;
-  showMoreFilters: boolean;
-  onToggleMoreFilters: () => void;
 }
 
 export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> = ({
@@ -27,8 +25,6 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
   onSeriesChange,
   onDateFromChange,
   onDateToChange,
-  showMoreFilters,
-  onToggleMoreFilters,
 }) => {
   return (
     <form
@@ -80,18 +76,9 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
         >
           Buscar
         </button>
-        <button
-          type="button"
-          aria-expanded={showMoreFilters}
-          onClick={onToggleMoreFilters}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-800"
-        >
-          {showMoreFilters ? 'Menos filtros' : 'Mais filtros'}
-        </button>
       </div>
 
-      {showMoreFilters && (
-        <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+      <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
           <label className="flex flex-col gap-1 text-[10px] font-medium text-slate-500">
             Ambiente
             <select
@@ -137,8 +124,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
               className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
             />
           </label>
-        </div>
-      )}
+      </div>
     </form>
   );
 };

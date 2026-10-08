@@ -1,4 +1,4 @@
-export const FISCAL_OPERATOR_ROLES = ['seller', 'manager', 'administrator'] as const;
+export const FISCAL_OPERATOR_ROLES = ['manager', 'administrator'] as const;
 
 const fiscalOperatorRoles = new Set<string>(FISCAL_OPERATOR_ROLES);
 

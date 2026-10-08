@@ -167,6 +167,23 @@ const getAttributeCombinationKey = (variation?: Variation | any) =>
     .sort()
     .join('|');
 
+const normalizeNameTokens = (value: unknown): string[] =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .match(/[a-z0-9]+/g) || [];
+
+const containsNamePhrase = (name: string, phrase: string): boolean => {
+  const nameTokens = normalizeNameTokens(name);
+  const phraseTokens = normalizeNameTokens(phrase);
+  if (phraseTokens.length === 0) return true;
+
+  return nameTokens.some((_, start) =>
+    phraseTokens.every((token, offset) => nameTokens[start + offset] === token)
+  );
+};
+
 export const hasDuplicateVariationAttributeCombination = (
   variation: Variation | any,
   variations: Variation[] = []
@@ -186,6 +203,55 @@ export const getVariationAttributeValuesInNameOrder = (
   getVariationAttributePairs({ attributes })
     .filter(({ showName }) => showName)
     .map(({ value }) => String(value).trim());
+
+const getCharacteristicValue = (
+  values: Record<string, any> | undefined,
+  characteristicName: string
+): { found: boolean; value: string } => {
+  const entry = Object.entries(values || {}).find(
+    ([name]) => normalizeAttributePart(name) === normalizeAttributePart(characteristicName)
+  );
+  if (!entry) return { found: false, value: '' };
+
+  const rawValue = entry[1];
+  const value =
+    rawValue && typeof rawValue === 'object'
+      ? ((rawValue as { value?: unknown; val?: unknown }).value ??
+        (rawValue as { val?: unknown }).val ??
+        '')
+      : rawValue;
+  return { found: true, value: String(value ?? '').trim() };
+};
+
+/** Inclui a Cor herdada do pai no nome, exceto quando a variação já define sua própria Cor. */
+export const getVariationNameAttributes = (
+  attributes: Variation['attributes'] = [],
+  parentTechnicalValues: Record<string, any> = {},
+  variationTechnicalValues: Record<string, any> = {}
+): Variation['attributes'] => {
+  const hasVariationColorAttribute = getVariationAttributePairs({ attributes }).some(
+    ({ name }) => normalizeAttributePart(name) === 'cor'
+  );
+  if (hasVariationColorAttribute) return attributes;
+
+  const variationColor = getCharacteristicValue(variationTechnicalValues, 'Cor');
+  const parentColor = getCharacteristicValue(parentTechnicalValues, 'Cor');
+  const color = variationColor.found ? variationColor.value : parentColor.value;
+  if (!color) return attributes;
+
+  return [...attributes, { name: 'Cor', value: color, showName: true }];
+};
+
+export const buildProductVariationName = (parentName: string, suffix: string): string => {
+  const parent = parentName.trim();
+  const variationSuffix = suffix.trim();
+  if (!parent) return variationSuffix;
+  if (!variationSuffix) return parent;
+  return `${parent} - ${variationSuffix}`;
+};
+
+export const isVariationNamePlaceholderSuffix = (suffix: string): boolean =>
+  ['produto', 'variação', 'nova variação'].includes(suffix.trim().toLowerCase());
 
 const getLegacyUnstructuredAttributeText = (attributes: unknown): string => {
   if (typeof attributes !== 'string' || !attributes.trim()) return '';
@@ -213,7 +279,7 @@ export const computeVariationName = (
       ? orderedValues.join(' ')
       : getLegacyUnstructuredAttributeText(attributes);
 
-  const fullName = [cleanParent, attrValuesStr].filter(Boolean).join(' ');
+  const fullName = buildProductVariationName(cleanParent, attrValuesStr);
   return toTitleCase(fullName);
 };
 
@@ -226,10 +292,33 @@ export const getSelectedProductDisplayName = (
   product?: Partial<Product> | any,
   variation?: Partial<Variation> | any
 ): string => {
-  const variationName = String(variation?.name || '').trim();
-  if (variationName) return toTitleCase(variationName);
+  const parentName = String(product?.name || product?.title || product?.description || '').trim();
+  const variationName = String(variation?.displayName || variation?.name || '').trim();
+  if (!variation) return toTitleCase(parentName);
 
-  return toTitleCase(String(product?.name || product?.title || product?.description || '').trim());
+  const attributes = variation.attributes ?? [];
+  const nameAttributes = getVariationNameAttributes(
+    attributes,
+    product?.technicalValues || {},
+    variation?.technicalValues || {}
+  );
+  const visibleAttributeValues = getVariationAttributeValuesInNameOrder(nameAttributes);
+  if (visibleAttributeValues.length === 0) {
+    return toTitleCase(variationName || parentName);
+  }
+
+  const includesParent = !parentName || containsNamePhrase(variationName, parentName);
+  const includesAttributes = visibleAttributeValues.every((value) =>
+    containsNamePhrase(variationName, value)
+  );
+  if (variationName && includesParent && includesAttributes) {
+    return toTitleCase(variationName);
+  }
+
+  const completeVariationName = computeVariationName(parentName, nameAttributes);
+  if (completeVariationName) return completeVariationName;
+
+  return toTitleCase(variationName || parentName);
 };
 
 export const hasMissingRequiredAttributes = (variations: Variation[] = []) => {
@@ -252,7 +341,7 @@ export const isDefaultVariation = (variation: any, index?: number): boolean => {
 export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): T => {
   if (product.itemType === 'service') return product;
   if (product.variations?.length) return { ...product, hasVariations: true };
-  const name = toTitleCase(product.name || product.title || product.description || 'Produto');
+  const name = toTitleCase(product.name || product.title || product.description || '');
   const sku = product.code ? `${product.code}-01` : '';
   return {
     ...product,

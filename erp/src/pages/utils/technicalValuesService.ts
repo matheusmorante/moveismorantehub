@@ -35,6 +35,9 @@ export interface CharacteristicGroup<T extends { name: string }> {
   fields: T[];
 }
 
+export const NAME_COMPOSING_CHARACTERISTIC_TOPIC =
+  'Característica que compõe o nome do produto';
+
 const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
   { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
   { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
@@ -47,10 +50,7 @@ const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
     matches: /\b(espelho|porta|gaveta|deslizamento|mecanismo|retr[aá]til|extens[íi]vel)\b/i,
   },
   { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
-  {
-    title: 'Materiais e acabamento',
-    matches: /\b(material|acabamento|cor|madeira|metal|vidro)\b/i,
-  },
+  { title: 'Materiais e acabamento', matches: /\b(material|acabamento|madeira|metal|vidro)\b/i },
 ];
 
 /** Organiza características por tópicos de apresentação, sem alterar valores ou identificadores persistidos. */
@@ -58,9 +58,15 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => {
   const groups = new Map<string, T[]>();
+  const nameComposingFields: T[] = [];
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
+    if (isRequiredCharacteristicName(field.name)) {
+      nameComposingFields.push(field);
+      return;
+    }
+
     if (field.isCustom === true) {
       otherFields.push(field);
       return;
@@ -76,6 +82,9 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   });
 
   return [
+    ...(nameComposingFields.length > 0
+      ? [{ title: NAME_COMPOSING_CHARACTERISTIC_TOPIC, fields: nameComposingFields }]
+      : []),
     ...CHARACTERISTIC_TOPICS.flatMap((topic) => {
       const groupedFields = groups.get(topic.title);
       if (!groupedFields?.length) return [];

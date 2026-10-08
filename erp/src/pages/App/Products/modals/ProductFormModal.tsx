@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/context/AuthContext';
 import Product from '../../../types/product.type';
+import './ProductFormModal.css';
 
 // Modular UI Components
 import VariationFormModal from './VariationFormModal';
@@ -18,6 +20,7 @@ import ProductInventoryTab from '../components/tabs/ProductInventoryTab';
 import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
 import ProductTechnicalTab from '../components/tabs/technical/ProductTechnicalTab';
 import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
+import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
 
 // Orchestrator Hook
 import { useProductFormModal } from '../hooks/form/useProductFormModal';
@@ -30,6 +33,7 @@ export interface ProductFormModalProps {
   readonly initialTab?: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal';
   readonly openAddVariationOnOpen?: boolean;
   readonly onSuccess?: (newProduct: Product) => void;
+  readonly onDraftSaved?: () => void;
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly isQuickRegister?: boolean;
 }
@@ -43,6 +47,8 @@ export interface ProductFormModalProps {
  */
 const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   const { isOpen, onClose, product, onSuccess } = props;
+  const { profile } = useAuth();
+  const isStockistOnly = isStockistOnlyProfile(profile);
 
   const {
     activeTab,
@@ -84,7 +90,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     variationsInUse,
     handleNextStep,
     isLastStep,
-  } = useProductFormModal(props);
+  } = useProductFormModal({ ...props, isStockistOnly });
 
   const handleDraftFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
@@ -139,15 +145,16 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
       />
 
       <div
-        onPaste={images.handlePaste}
+        onPaste={isStockistOnly ? undefined : images.handlePaste}
         onBlurCapture={handleDraftFieldBlurCapture}
         onChangeCapture={handleDraftSelectChangeCapture}
         onClickCapture={handleDraftSearchOptionClickCapture}
-        className="relative bg-white dark:bg-slate-900 w-full h-full m-0 p-0 rounded-none shadow-none flex flex-col overflow-hidden animate-in fade-in duration-200 border-0"
+        className="product-form-fullscreen relative bg-white dark:bg-slate-900 w-full h-full m-0 p-0 rounded-none shadow-none flex flex-col overflow-hidden animate-in fade-in duration-200 border-0"
       >
         <ProductFormHeader
           product={product}
           isDraftProduct={isDraftProduct}
+          isStockistOnly={isStockistOnly}
           formData={formData}
           ecomStatus={ecomStatus}
           isService={isService}
@@ -163,6 +170,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
             <ProductGeneralTab
               onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
               isService={isService}
+              isStockistOnly={isStockistOnly}
               formData={formData}
               setFormData={setFormData}
               availableCategories={availableCategories}
@@ -172,7 +180,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
             />
           )}
 
-          {!isService && activeTab === 'ecommerce' && (
+          {!isStockistOnly && !isService && activeTab === 'ecommerce' && (
             <ProductEcommerceTab
               formData={formData}
               setFormData={setFormData}
@@ -197,11 +205,12 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               setFormData={setFormData}
               handleImproveDescriptionWithAI={ai.handleImproveDescriptionWithAI}
               isImprovingDescription={ai.isImprovingDescription}
+              requiredFieldsOnly={isStockistOnly}
               validationErrors={validationErrors}
             />
           )}
 
-          {!isService && activeTab === 'description' && (
+          {!isStockistOnly && !isService && activeTab === 'description' && (
             <ProductDescriptionTab
               formData={formData}
               setFormData={setFormData}
@@ -276,7 +285,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           onSubmit={() => handleSubmit()}
         />
 
-        {variations.editingVariationId &&
+          {variations.editingVariationId &&
           formData.variations?.some(
             (v) =>
               v.id === variations.editingVariationId ||
@@ -321,6 +330,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
 
         <ProductSaveResultModal
           saveResult={saveResult}
+          canPublishToCatalog={!isStockistOnly}
           onCloseModal={() => setSaveResult(null)}
           onSuccess={
             onSuccess ||

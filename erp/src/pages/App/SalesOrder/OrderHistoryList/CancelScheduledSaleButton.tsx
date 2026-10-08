@@ -3,6 +3,7 @@ import Order from '../../../types/order.type';
 import CancelSaleModal from './CancelSaleModal';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { parseNfeApiResponse } from '@/pages/utils/nfe/parseNfeApiResponse';
 
 type Props = {
   order: Order;
@@ -16,6 +17,7 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
     action: 'none' | 'cancel' | 'estorno' | 'manual_review';
     hasAuthorizedInvoice: boolean;
     model?: string;
+    environment?: 1 | 2;
     reason?: string;
   }>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -40,7 +42,14 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
         },
         body: JSON.stringify({ orderId: order.id, preview: true }),
       });
-      const result = await response.json();
+      const result = await parseNfeApiResponse<{
+        action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+        hasAuthorizedInvoice: boolean;
+        model?: string;
+        environment?: 1 | 2;
+        reason?: string;
+        error?: string;
+      }>(response, 'Não foi possível consultar as consequências fiscais.');
       if (!response.ok)
         throw new Error(result.error || 'Não foi possível consultar as consequências fiscais.');
       setPreview(result);

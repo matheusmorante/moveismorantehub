@@ -2,6 +2,7 @@ import type React from 'react';
 import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type { FiscalRecipientRequirementDecision } from '../../../../../../../../shared-utils/fiscalDocumentModel';
 import { NfeCustomerTab } from '../NfeCustomerTab';
 import { NfeGeneralTab } from '../NfeGeneralTab';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
@@ -46,7 +47,7 @@ export interface NfeEmissionPanelsProps {
   handleSaveDraft: () => void;
   recipientTaxIdError: string | null;
   recipientTaxIdInput: React.RefObject<HTMLInputElement>;
-  recipientRequirements: { documentType?: string; message?: string };
+  recipientRequirements: Pick<FiscalRecipientRequirementDecision, 'documentType' | 'message'>;
   recipientIe?: string;
   setRecipientIe?: (val: string) => void;
   recipientIeIndicator?: '1' | '2' | '9';
@@ -63,7 +64,7 @@ export interface NfeEmissionPanelsProps {
   freightContractResponsible: any;
   setFreightContractResponsible: (val: any) => void;
   thirdPartyTransporter: ThirdPartyTransporterForm;
-  setThirdPartyTransporter: (val: ThirdPartyTransporterForm) => void;
+  setThirdPartyTransporter: React.Dispatch<React.SetStateAction<ThirdPartyTransporterForm>>;
   itemsTotal: number;
   freightTotal: number;
   discountTotal: number;

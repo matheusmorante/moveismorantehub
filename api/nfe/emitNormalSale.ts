@@ -28,6 +28,7 @@ import {
   getResponsibleTechnicianConfigurationIssues,
 } from './responsibleTechnician';
 import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from './schemaValidator';
+import { isSyntheticOrderBlockedInProduction } from './normal-sale/testOrderProductionGuard';
 
 /** One normal-sale pipeline for tpAmb 1/2. The database commits number, facts, signed XML and attempt together. */
 export async function emitNormalSale(
@@ -37,6 +38,14 @@ export async function emitNormalSale(
   appSettings: Record<string, unknown>,
   actorId: string
 ): Promise<OutboundResult> {
+  if (isSyntheticOrderBlockedInProduction(command.environment, candidate.order.data))
+    return outboundFailure(
+      403,
+      'TEST_ORDER_PRODUCTION_BLOCKED',
+      'Pedidos marcados como teste não podem ser emitidos em Produção.',
+      { numberReserved: false, sefazContacted: false }
+    );
+
   const recovered = await recoverNormalSale(db, command);
   if (recovered) return recovered;
   const gate = productionTransmissionGate(
@@ -75,11 +84,14 @@ export async function emitNormalSale(
       );
     validateParanaIssuerIe(preflight.document.issuer.ie);
     const model = preflight.document.model;
-    // Keep exactly the model-specific record that PostgreSQL will re-read under lock.
+    // Keep exactly the shared scenario decision that PostgreSQL re-reads under lock.
     const inputs = obj(facts.fiscalInputs);
-    const decisions = obj(inputs.contributionDecisions);
+    const decisions = inputs.contributionDecisions ? obj(inputs.contributionDecisions) : {};
     const { contributionDecisions: _allDecisions, ...ownInputs } = inputs;
-    facts.fiscalInputs = { ...ownInputs, contributionDecision: decisions[model] };
+    facts.fiscalInputs = {
+      ...ownInputs,
+      contributionDecision: inputs.contributionDecision ?? decisions[model],
+    };
     facts.emissionRequest.modelDecision = preflight.document.modelDecision;
     facts.emissionRequest.finalConsumer = preflight.document.operation.finalConsumer === '1';
     rules = await createNormalSaleRuleSet(facts);

@@ -39,6 +39,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isAdministrator: boolean;
   isManager: boolean;
+  isRealAdministrator: boolean;
+  activeRoleMode: UserRole | null;
+  setActiveRoleMode: (role: UserRole | null) => void;
   isPending: boolean;
   passwordCredentialStatus: PasswordCredentialStatus;
   refreshPasswordCredentialStatus: () => Promise<boolean>;
@@ -52,6 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [activeRoleModeState, setActiveRoleModeState] = useState<UserRole | null>(null);
   const [passwordCredentialStatus, setPasswordCredentialStatus] =
     useState<PasswordCredentialStatus>('idle');
 
@@ -76,6 +80,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     },
     [refreshPasswordCredentialStatus]
+  );
+
+  const isRealAdministrator =
+    profile?.role === 'administrator' || profile?.roles?.includes('administrator') === true;
+
+  const setActiveRoleMode = useCallback(
+    (role: UserRole | null) => {
+      if (!isRealAdministrator) return;
+      setActiveRoleModeState(role === 'pending' ? null : role);
+    },
+    [isRealAdministrator]
+  );
+
+  useEffect(() => {
+    if (!isRealAdministrator) setActiveRoleModeState(null);
+  }, [isRealAdministrator]);
+
+  const isRoleModeActive = isRealAdministrator && activeRoleModeState !== null;
+  const effectiveProfile = useMemo(() => {
+    if (!profile || !isRoleModeActive || !activeRoleModeState) return profile;
+    return { ...profile, role: activeRoleModeState, roles: [activeRoleModeState] };
+  }, [profile, isRoleModeActive, activeRoleModeState]);
+  const effectiveRoles = useMemo(
+    () =>
+      effectiveProfile?.roles?.length
+        ? effectiveProfile.roles
+        : effectiveProfile?.role
+          ? [effectiveProfile.role]
+          : [],
+    [effectiveProfile]
   );
 
   const isMasterEmailCheck = (emailStr: string) => {
@@ -382,25 +416,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setActiveRoleModeState(null);
     setPasswordCredentialStatus('idle');
   };
 
   const value = useMemo(
     () => ({
       user,
-      profile,
+      profile: effectiveProfile,
       isAuthenticated: !!user,
       loading,
-      isAdmin:
-        profile?.roles?.some((role) => role === 'administrator' || role === 'manager') ||
-        profile?.role === 'administrator' ||
-        profile?.role === 'manager',
-      isAdministrator:
-        profile?.role === 'administrator' || profile?.roles?.includes('administrator') === true,
-      isManager:
-        profile?.roles?.some((role) => role === 'manager' || role === 'administrator') ||
-        profile?.role === 'manager' ||
-        profile?.role === 'administrator',
+      isAdmin: effectiveRoles.some((role) => role === 'administrator' || role === 'manager'),
+      isAdministrator: effectiveRoles.includes('administrator'),
+      isManager: effectiveRoles.some((role) => role === 'manager' || role === 'administrator'),
+      isRealAdministrator,
+      activeRoleMode: isRoleModeActive ? activeRoleModeState : null,
+      setActiveRoleMode,
       isPending:
         !loading &&
         !!user &&
@@ -413,7 +444,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [
       user,
       profile,
+      effectiveProfile,
+      effectiveRoles,
       loading,
+      isRealAdministrator,
+      isRoleModeActive,
+      activeRoleModeState,
+      setActiveRoleMode,
       passwordCredentialStatus,
       refreshPasswordCredentialStatus,
       createPasswordCredential,

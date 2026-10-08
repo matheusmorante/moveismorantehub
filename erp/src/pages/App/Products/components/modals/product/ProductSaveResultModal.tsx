@@ -33,6 +33,7 @@ export interface ProductSaveResultModalProps {
   readonly onSuccess?: (newProduct: Product) => void;
   readonly onCloseForm: () => void;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  readonly canPublishToCatalog?: boolean;
 }
 
 /**
@@ -44,6 +45,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   onSuccess,
   onCloseForm,
   setFormData,
+  canPublishToCatalog = true,
 }) => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(saveResult?.product ?? null);
   const [updatingErp, setUpdatingErp] = useState(false);
@@ -97,7 +99,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   };
 
   const handleToggleCatalog = async () => {
-    if (updatingEcom) return;
+    if (updatingEcom || !canPublishToCatalog) return;
     const newStatus: 'hidden' | 'published' = isCatalogPublished ? 'hidden' : 'published';
 
     if (newStatus === 'published' && !saveResult.ecomLegible) {
@@ -170,10 +172,14 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
           Produto Cadastrado com Sucesso!
         </h3>
         <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-1 mb-5">
-          Confira os requisitos de cada canal e ajuste o status de ativação:
+          {canPublishToCatalog
+            ? 'Confira os requisitos de cada canal e ajuste o status de ativação:'
+            : 'Confira os requisitos do ERP e ajuste o status de ativação:'}
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left mb-6">
+        <div
+          className={`grid grid-cols-1 ${canPublishToCatalog ? 'md:grid-cols-2' : ''} gap-4 text-left mb-6`}
+        >
           {/* Canal ERP */}
           <div className="p-4 rounded-2xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 flex flex-col justify-between gap-3">
             <div>
@@ -314,8 +320,8 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
             </button>
           </div>
 
-          {/* Canal Catálogo Digital */}
-          <div className="p-4 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 flex flex-col justify-between gap-3">
+          {canPublishToCatalog && (
+            <div className="p-4 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 flex flex-col justify-between gap-3">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -439,7 +445,8 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                     : 'Publicar no Catálogo'}
               </button>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         <button

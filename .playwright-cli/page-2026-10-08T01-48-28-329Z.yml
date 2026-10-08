@@ -1,0 +1,409 @@
+- generic [active] [ref=f57e1]:
+  - generic [ref=f57e2]:
+    - generic [ref=f57e6]:
+      - region "Notifications Alt+T"
+      - banner [ref=f57e8]:
+        - generic [ref=f57e9]:
+          - button "" [ref=f57e10] [cursor=pointer]
+          - link [ref=f57e12] [cursor=pointer]:
+            - /url: /
+            - img "ERP Móveis Morante" [ref=f57e14]
+          - text:                 
+        - generic [ref=f57e15]:
+          - button "" [ref=f57e17] [cursor=pointer]
+          - button "" [ref=f57e19] [cursor=pointer]
+          - button "M Matheus Morante Administrador " [ref=f57e22] [cursor=pointer]:
+            - generic [ref=f57e23]: M
+            - generic [ref=f57e24]:
+              - generic [ref=f57e25]: Matheus Morante
+              - generic [ref=f57e26]: Administrador
+            - generic [ref=f57e27]: 
+      - main [ref=f57e28]:
+        - generic [ref=f57e29]:
+          - generic [ref=f57e30]:
+            - generic [ref=f57e32]:
+              - generic [ref=f57e33]: 
+              - heading "Controle de Acesso" [level=1] [ref=f57e36]
+            - generic [ref=f57e37]:
+              - button " Usuários" [ref=f57e38] [cursor=pointer]:
+                - generic [ref=f57e39]: 
+                - generic [ref=f57e40]: Usuários
+              - button " Permissões por Perfil de Acesso" [ref=f57e41] [cursor=pointer]:
+                - generic [ref=f57e42]: 
+                - generic [ref=f57e43]: Permissões por Perfil de Acesso
+          - generic [ref=f57e44]:
+            - generic [ref=f57e45]:
+              - generic [ref=f57e46]:
+                - generic [ref=f57e47]: Total Usuários
+                - generic [ref=f57e48]: 
+              - paragraph [ref=f57e49]: "9"
+            - generic [ref=f57e50]:
+              - generic [ref=f57e51]:
+                - generic [ref=f57e52]: Administradores
+                - generic [ref=f57e53]: 
+              - paragraph [ref=f57e54]: "4"
+            - generic [ref=f57e55]:
+              - generic [ref=f57e56]:
+                - generic [ref=f57e57]: Gestores
+                - generic [ref=f57e58]: 
+              - paragraph [ref=f57e59]: "1"
+            - generic [ref=f57e60]:
+              - generic [ref=f57e61]:
+                - generic [ref=f57e62]: Estoquistas
+                - generic [ref=f57e63]: 
+              - paragraph [ref=f57e64]: "0"
+            - generic [ref=f57e65]:
+              - generic [ref=f57e66]:
+                - generic [ref=f57e67]: Vendedores
+                - generic [ref=f57e68]: 
+              - paragraph [ref=f57e69]: "2"
+            - generic [ref=f57e70]:
+              - generic [ref=f57e71]:
+                - generic [ref=f57e72]: Entregadores
+                - generic [ref=f57e73]: 
+              - paragraph [ref=f57e74]: "1"
+            - generic [ref=f57e75]:
+              - generic [ref=f57e76]:
+                - generic [ref=f57e77]: Sem Acesso
+                - generic [ref=f57e78]: 
+              - paragraph [ref=f57e79]: "4"
+          - generic [ref=f57e80]:
+            - generic [ref=f57e81]:
+              - generic [ref=f57e82]:
+                - generic [ref=f57e83]: 
+                - textbox "Buscar por nome, e-mail ou telefone..." [ref=f57e84]
+              - generic [ref=f57e85]:
+                - combobox [ref=f57e86] [cursor=pointer]:
+                  - option "Todos os Perfis de Acesso" [selected]
+                  - option "Administrador"
+                  - option "Gestor"
+                  - option "Estoquista"
+                  - option "Vendedor"
+                  - option "Entregador / Montador"
+                  - option "Sem Acesso"
+                - button " Novo Colaborador" [ref=f57e87] [cursor=pointer]:
+                  - generic [ref=f57e88]: 
+                  - generic [ref=f57e89]: Novo Colaborador
+            - generic [ref=f57e90]:
+              - heading "Usuários com Cargo (5)" [level=3] [ref=f57e92]:
+                - text: Usuários com Cargo
+                - generic [ref=f57e93]: (5)
+              - table [ref=f57e95]:
+                - rowgroup [ref=f57e96]:
+                  - row [ref=f57e97]:
+                    - columnheader "Usuário / Colaborador" [ref=f57e98]
+                    - columnheader "Perfis de Acesso" [ref=f57e99]
+                    - columnheader "Telefone" [ref=f57e100]
+                    - columnheader "Ações" [ref=f57e101]
+                - rowgroup [ref=f57e102]:
+                  - row [ref=f57e103]:
+                    - cell "LI Liliane Cristine  Vendedora Master lilianecristine505@gmail.com" [ref=f57e104]:
+                      - generic [ref=f57e105]:
+                        - generic [ref=f57e106]: LI
+                        - generic [ref=f57e107]:
+                          - generic [ref=f57e108]:
+                            - paragraph [ref=f57e109]: Liliane Cristine
+                            - generic [ref=f57e110]:
+                              - generic [ref=f57e111]: 
+                              - text: Vendedora Master
+                          - paragraph [ref=f57e112]: lilianecristine505@gmail.com
+                    - cell " Vendedor  Administrador" [ref=f57e113]:
+                      - generic [ref=f57e114]:
+                        - generic [ref=f57e115]:
+                          - generic [ref=f57e116]: 
+                          - text: Vendedor
+                        - generic [ref=f57e117]:
+                          - generic [ref=f57e118]: 
+                          - text: Administrador
+                    - cell "-" [ref=f57e119]
+                    - cell [ref=f57e120]:
+                      - button " Definir Perfis / Editar" [ref=f57e122] [cursor=pointer]:
+                        - generic [ref=f57e123]: 
+                        - generic [ref=f57e124]: Definir Perfis / Editar
+                  - row [ref=f57e125]:
+                    - cell "LU Lucas Morante dos Santos  Entregador / Montador / Administrador lucasmorantedossantos@gmail.com" [ref=f57e126]:
+                      - generic [ref=f57e127]:
+                        - generic [ref=f57e128]: LU
+                        - generic [ref=f57e129]:
+                          - generic [ref=f57e130]:
+                            - paragraph [ref=f57e131]: Lucas Morante dos Santos
+                            - generic [ref=f57e132]:
+                              - generic [ref=f57e133]: 
+                              - text: Entregador / Montador / Administrador
+                          - paragraph [ref=f57e134]: lucasmorantedossantos@gmail.com
+                    - cell " Entregador / Montador  Administrador" [ref=f57e135]:
+                      - generic [ref=f57e136]:
+                        - generic [ref=f57e137]:
+                          - generic [ref=f57e138]: 
+                          - text: Entregador / Montador
+                        - generic [ref=f57e139]:
+                          - generic [ref=f57e140]: 
+                          - text: Administrador
+                    - cell "-" [ref=f57e141]
+                    - cell [ref=f57e142]:
+                      - button " Definir Perfis / Editar" [ref=f57e144] [cursor=pointer]:
+                        - generic [ref=f57e145]: 
+                        - generic [ref=f57e146]: Definir Perfis / Editar
+                  - row [ref=f57e147]:
+                    - cell "MA Matheus Morante  Administrador / Vendedor matheusmorante002@gmail.com" [ref=f57e148]:
+                      - generic [ref=f57e149]:
+                        - generic [ref=f57e150]: MA
+                        - generic [ref=f57e151]:
+                          - generic [ref=f57e152]:
+                            - paragraph [ref=f57e153]: Matheus Morante
+                            - generic [ref=f57e154]:
+                              - generic [ref=f57e155]: 
+                              - text: Administrador / Vendedor
+                          - paragraph [ref=f57e156]: matheusmorante002@gmail.com
+                    - cell " Administrador  Vendedor" [ref=f57e157]:
+                      - generic [ref=f57e158]:
+                        - generic [ref=f57e159]:
+                          - generic [ref=f57e160]: 
+                          - text: Administrador
+                        - generic [ref=f57e161]:
+                          - generic [ref=f57e162]: 
+                          - text: Vendedor
+                    - cell "(41) 99749-3547" [ref=f57e163]
+                    - cell [ref=f57e164]:
+                      - button " Definir Perfis / Editar" [ref=f57e166] [cursor=pointer]:
+                        - generic [ref=f57e167]: 
+                        - generic [ref=f57e168]: Definir Perfis / Editar
+                  - row [ref=f57e169]:
+                    - cell "RO Rosilene Morante  Gestor rosilenemorante123@gmail.com" [ref=f57e170]:
+                      - generic [ref=f57e171]:
+                        - generic [ref=f57e172]: RO
+                        - generic [ref=f57e173]:
+                          - generic [ref=f57e174]:
+                            - paragraph [ref=f57e175]: Rosilene Morante
+                            - generic [ref=f57e176]:
+                              - generic [ref=f57e177]: 
+                              - text: Gestor
+                          - paragraph [ref=f57e178]: rosilenemorante123@gmail.com
+                    - cell " Gestor" [ref=f57e179]:
+                      - generic [ref=f57e181]:
+                        - generic [ref=f57e182]: 
+                        - text: Gestor
+                    - cell "(41) 99224-4631" [ref=f57e183]
+                    - cell [ref=f57e184]:
+                      - button " Definir Perfis / Editar" [ref=f57e186] [cursor=pointer]:
+                        - generic [ref=f57e187]: 
+                        - generic [ref=f57e188]: Definir Perfis / Editar
+                  - row [ref=f57e189]:
+                    - cell "TE TEST_AUT_NFE_HML_OPERATOR  Administrador test.aut.nfe.hml@morantehub.invalid" [ref=f57e190]:
+                      - generic [ref=f57e191]:
+                        - generic [ref=f57e192]: TE
+                        - generic [ref=f57e193]:
+                          - generic [ref=f57e194]:
+                            - paragraph [ref=f57e195]: TEST_AUT_NFE_HML_OPERATOR
+                            - generic [ref=f57e196]:
+                              - generic [ref=f57e197]: 
+                              - text: Administrador
+                          - paragraph [ref=f57e198]: test.aut.nfe.hml@morantehub.invalid
+                    - cell " Administrador  Sem acesso" [ref=f57e199]:
+                      - generic [ref=f57e200]:
+                        - generic [ref=f57e201]:
+                          - generic [ref=f57e202]: 
+                          - text: Administrador
+                        - generic [ref=f57e203]:
+                          - generic [ref=f57e204]: 
+                          - text: Sem acesso
+                    - cell "-" [ref=f57e205]
+                    - cell [ref=f57e206]:
+                      - button " Definir Perfis / Editar" [ref=f57e208] [cursor=pointer]:
+                        - generic [ref=f57e209]: 
+                        - generic [ref=f57e210]: Definir Perfis / Editar
+            - generic [ref=f57e211]:
+              - heading "Sem Cargo (4)" [level=3] [ref=f57e213]:
+                - text: Sem Cargo
+                - generic [ref=f57e214]: (4)
+              - table [ref=f57e216]:
+                - rowgroup [ref=f57e217]:
+                  - row [ref=f57e218]:
+                    - columnheader "Usuário / Colaborador" [ref=f57e219]
+                    - columnheader "Perfis de Acesso" [ref=f57e220]
+                    - columnheader "Telefone" [ref=f57e221]
+                    - columnheader "Ações" [ref=f57e222]
+                - rowgroup [ref=f57e223]:
+                  - row [ref=f57e224]:
+                    - cell "MA Matheus Morante  Sem Acesso matheusmorante001@gmail.com" [ref=f57e225]:
+                      - generic [ref=f57e226]:
+                        - generic [ref=f57e227]: MA
+                        - generic [ref=f57e228]:
+                          - generic [ref=f57e229]:
+                            - paragraph [ref=f57e230]: Matheus Morante
+                            - generic [ref=f57e231]:
+                              - generic [ref=f57e232]: 
+                              - text: Sem Acesso
+                          - paragraph [ref=f57e233]: matheusmorante001@gmail.com
+                    - cell " Sem acesso" [ref=f57e234]:
+                      - generic [ref=f57e236]:
+                        - generic [ref=f57e237]: 
+                        - text: Sem acesso
+                    - cell "-" [ref=f57e238]
+                    - cell [ref=f57e239]:
+                      - button " Definir Perfis / Editar" [ref=f57e241] [cursor=pointer]:
+                        - generic [ref=f57e242]: 
+                        - generic [ref=f57e243]: Definir Perfis / Editar
+                  - row [ref=f57e244]:
+                    - cell "MI midorikaminari1  Sem Acesso midorikaminari1@gmail.com" [ref=f57e245]:
+                      - generic [ref=f57e246]:
+                        - generic [ref=f57e247]: MI
+                        - generic [ref=f57e248]:
+                          - generic [ref=f57e249]:
+                            - paragraph [ref=f57e250]: midorikaminari1
+                            - generic [ref=f57e251]:
+                              - generic [ref=f57e252]: 
+                              - text: Sem Acesso
+                          - paragraph [ref=f57e253]: midorikaminari1@gmail.com
+                    - cell " Sem acesso" [ref=f57e254]:
+                      - generic [ref=f57e256]:
+                        - generic [ref=f57e257]: 
+                        - text: Sem acesso
+                    - cell "-" [ref=f57e258]
+                    - cell [ref=f57e259]:
+                      - button " Definir Perfis / Editar" [ref=f57e261] [cursor=pointer]:
+                        - generic [ref=f57e262]: 
+                        - generic [ref=f57e263]: Definir Perfis / Editar
+                  - row [ref=f57e264]:
+                    - cell "MÓ Móveis Morante  Sem Acesso moveismorante@gmail.com" [ref=f57e265]:
+                      - generic [ref=f57e266]:
+                        - generic [ref=f57e267]: MÓ
+                        - generic [ref=f57e268]:
+                          - generic [ref=f57e269]:
+                            - paragraph [ref=f57e270]: Móveis Morante
+                            - generic [ref=f57e271]:
+                              - generic [ref=f57e272]: 
+                              - text: Sem Acesso
+                          - paragraph [ref=f57e273]: moveismorante@gmail.com
+                    - cell " Sem acesso" [ref=f57e274]:
+                      - generic [ref=f57e276]:
+                        - generic [ref=f57e277]: 
+                        - text: Sem acesso
+                    - cell "-" [ref=f57e278]
+                    - cell [ref=f57e279]:
+                      - button " Definir Perfis / Editar" [ref=f57e281] [cursor=pointer]:
+                        - generic [ref=f57e282]: 
+                        - generic [ref=f57e283]: Definir Perfis / Editar
+                  - row [ref=f57e284]:
+                    - cell "PL playwright.test  Sem Acesso playwright.test@moveismorante.com.br" [ref=f57e285]:
+                      - generic [ref=f57e286]:
+                        - generic [ref=f57e287]: PL
+                        - generic [ref=f57e288]:
+                          - generic [ref=f57e289]:
+                            - paragraph [ref=f57e290]: playwright.test
+                            - generic [ref=f57e291]:
+                              - generic [ref=f57e292]: 
+                              - text: Sem Acesso
+                          - paragraph [ref=f57e293]: playwright.test@moveismorante.com.br
+                    - cell " Sem acesso" [ref=f57e294]:
+                      - generic [ref=f57e296]:
+                        - generic [ref=f57e297]: 
+                        - text: Sem acesso
+                    - cell "-" [ref=f57e298]
+                    - cell [ref=f57e299]:
+                      - button " Definir Perfis / Editar" [ref=f57e301] [cursor=pointer]:
+                        - generic [ref=f57e302]: 
+                        - generic [ref=f57e303]: Definir Perfis / Editar
+      - generic [ref=f57e304]:
+        - generic [ref=f57e305]:
+          - generic:
+            - generic: Gerenciamento
+            - generic: 
+          - button "Gerenciamento administrativo" [ref=f57e306] [cursor=pointer]:
+            - generic [ref=f57e307]: 
+        - generic [ref=f57e308]:
+          - generic:
+            - generic:
+              - generic: Seu Lizandro
+              - generic: Agente IA do ERP
+          - button "Abrir chat do Seu Lizandro, Agente Inteligente do ERP" [ref=f57e309] [cursor=pointer]:
+            - img "Seu Lizandro - Agente IA" [ref=f57e311]
+    - region "Notifications Alt+T"
+  - dialog [ref=f57e314]:
+    - button "Fechar formulário de Editar Usuário e Perfis de Acesso" [ref=f57e315]
+    - generic [ref=f57e316]:
+      - generic [ref=f57e317]:
+        - heading "Editar Usuário e Perfis de Acesso" [level=2] [ref=f57e319]
+        - button "Fechar" [ref=f57e320] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f57e321]: 
+      - generic [ref=f57e322]:
+        - generic [ref=f57e323]:
+          - generic [ref=f57e325]:
+            - generic [ref=f57e326]: Nome * *
+            - generic [ref=f57e327]:
+              - generic [ref=f57e328]: 
+              - textbox "Nome do Funcionário" [ref=f57e329]: Lucas Morante dos Santos
+          - generic [ref=f57e330]:
+            - generic [ref=f57e331]: CPF
+            - textbox "CPF" [ref=f57e332]:
+              - /placeholder: 000.000.000-00
+          - generic [ref=f57e333]:
+            - generic [ref=f57e334]:
+              - generic [ref=f57e335]:
+                - generic [ref=f57e336]:
+                  - generic [ref=f57e337]: 
+                  - text: Perfis de Acesso de Usuário (Selecione um ou mais)
+                  - generic [ref=f57e338]: "*"
+                - generic [ref=f57e339]: 1 perfil(is) selecionado(s)
+              - generic [ref=f57e340]:
+                - button " Administrador Acesso total a todas as áreas do sistema " [ref=f57e418] [cursor=pointer]:
+                  - generic [ref=f57e342]: 
+                  - generic [ref=f57e344]:
+                    - generic [ref=f57e345]: Administrador
+                    - generic [ref=f57e346]: Acesso total a todas as áreas do sistema
+                  - generic [ref=f57e347]: 
+                - button " Gestor Gestão operacional, estoque e relatórios " [ref=f57e349] [cursor=pointer]:
+                  - generic [ref=f57e350]: 
+                  - generic [ref=f57e352]:
+                    - generic [ref=f57e353]: Gestor
+                    - generic [ref=f57e354]: Gestão operacional, estoque e relatórios
+                  - generic [ref=f57e355]: 
+                - button " Estoquista Controle, contagens e movimentações de estoque " [ref=f57e417] [cursor=pointer]:
+                  - generic [ref=f57e358]: 
+                  - generic [ref=f57e360]:
+                    - generic [ref=f57e361]: Estoquista
+                    - generic [ref=f57e362]: Controle, contagens e movimentações de estoque
+                  - generic [ref=f57e363]: 
+                - button " Vendedor Vendas, pedidos e clientes " [ref=f57e365] [cursor=pointer]:
+                  - generic [ref=f57e366]: 
+                  - generic [ref=f57e368]:
+                    - generic [ref=f57e369]: Vendedor
+                    - generic [ref=f57e370]: Vendas, pedidos e clientes
+                  - generic [ref=f57e371]: 
+                - button " Entregador / Montador Rotas de entrega e montagens " [ref=f57e419] [cursor=pointer]:
+                  - generic [ref=f57e374]: 
+                  - generic [ref=f57e376]:
+                    - generic [ref=f57e377]: Entregador / Montador
+                    - generic [ref=f57e378]: Rotas de entrega e montagens
+                  - generic [ref=f57e379]: 
+                - button " Sem Acesso Acesso bloqueado temporariamente " [ref=f57e381] [cursor=pointer]:
+                  - generic [ref=f57e382]: 
+                  - generic [ref=f57e384]:
+                    - generic [ref=f57e385]: Sem Acesso
+                    - generic [ref=f57e386]: Acesso bloqueado temporariamente
+                  - generic [ref=f57e387]: 
+            - generic [ref=f57e389]:
+              - generic [ref=f57e390]:
+                - generic [ref=f57e391]: Cargo Principal do Colaborador
+                - generic [ref=f57e392]:
+                  - generic [ref=f57e393]: 
+                  - 'textbox "Ex: Vendedor, Gerente Comercial, Montador, Auxiliar..." [ref=f57e394]': Estoquista
+              - paragraph [ref=f57e395]:
+                - generic [ref=f57e396]: 
+                - text: "O Cargo Principal define a função profissional do colaborador na empresa (ex: Vendedor, Montador), independente dos Perfis de Acesso ao sistema (onde ele pode ter permissão de Administrador sem problemas)."
+          - generic [ref=f57e397]:
+            - generic [ref=f57e398]: Telefone
+            - textbox "(00) 00000-0000" [ref=f57e401]
+          - generic [ref=f57e402]:
+            - generic [ref=f57e403]: E-mail *
+            - textbox "exemplo@email.com" [disabled] [ref=f57e404]: lucasmorantedossantos@gmail.com
+            - generic [ref=f57e405]: O e-mail do colaborador está vinculado à conta de acesso e não pode ser alterado.
+        - generic [ref=f57e407] [cursor=pointer]:
+          - generic [ref=f57e408]:
+            - generic [ref=f57e409]: 
+            - heading "Endereço" [level=4] [ref=f57e410]
+            - generic [ref=f57e411]: (Opcional - clique para expandir)
+          - generic [ref=f57e412]: 
+      - generic [ref=f57e414]:
+        - button "Cancelar" [ref=f57e415] [cursor=pointer]
+        - button "Salvar Alterações" [disabled] [ref=f57e416]

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { generateVariationSku, checkProductHasMoves } from '@/pages/utils/productService';
+import { buildProductVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
@@ -144,7 +145,7 @@ export function useProductFormVariations(
         .join(' ');
 
       const parentName = toTitleCase(formData.name || formData.description || '');
-      const name = toTitleCase([parentName, attributeValues].filter(Boolean).join(' '));
+      const name = toTitleCase(buildProductVariationName(parentName, attributeValues));
       const parentCode = formData.code || '000000';
       const finalSku = generateVariationSku(parentCode, formData.variations || [], idx);
 

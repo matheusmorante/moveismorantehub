@@ -3,7 +3,7 @@ import type {
   FiscalIssueTechnicalDetails,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 
-export const FISCAL_DOCUMENTS_PAGE_SIZE = 30;
+export const FISCAL_DOCUMENTS_PAGE_SIZE = 15;
 
 export interface NfeDocumentRecord {
   id: string;
@@ -101,6 +101,43 @@ export interface ParsedFiscalPayment {
   card?: ParsedFiscalCardInfo;
 }
 
+export interface ParsedFiscalIssuer {
+  name: string;
+  taxId: string;
+  stateRegistration: string;
+  stateRegistrationSubstitute: string;
+  street: string;
+  number: string;
+  complement: string;
+  district: string;
+  municipality: string;
+  state: string;
+  postalCode: string;
+  phone: string;
+}
+
+export interface ParsedFiscalSummary {
+  products: string;
+  freight: string;
+  insurance: string;
+  discount: string;
+  otherExpenses: string;
+  importTax: string;
+  icmsBase: string;
+  icmsValue: string;
+  icmsSubstitutionBase: string;
+  icmsSubstitutionValue: string;
+  ipiValue: string;
+  invoiceTotal: string;
+}
+
+export interface ParsedFiscalBilling {
+  number: string;
+  originalValue: string;
+  discount: string;
+  netValue: string;
+}
+
 export interface ParsedFiscalItem {
   code: string;
   description: string;
@@ -130,6 +167,7 @@ export interface ParsedFiscalGeneral {
   natureOperation: string;
   issueDate: string;
   exitDate?: string;
+  environment?: string;
   model: string;
   series: string;
   number: string;
@@ -141,9 +179,11 @@ export interface ParsedFiscalGeneral {
   referencedKey?: string;
   total: string;
   additionalInfo: string;
+  taxAuthorityInfo?: string;
 }
 
 export type ParsedFiscalDetails = {
+  issuer: ParsedFiscalIssuer;
   general: ParsedFiscalGeneral;
   recipient: {
     name: string;
@@ -164,8 +204,10 @@ export type ParsedFiscalDetails = {
     deliveryAddress?: ParsedFiscalDeliveryAddress | null;
   };
   items: ParsedFiscalItem[];
+  summary: ParsedFiscalSummary;
   totals: Array<{ label: string; value: string; isTaxDetail?: boolean }>;
   transport: ParsedFiscalTransport | string[] | null;
+  billing?: ParsedFiscalBilling;
   payments: ParsedFiscalPayment[];
   installments?: ParsedFiscalInstallment[];
   changeValue?: string;

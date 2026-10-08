@@ -7,8 +7,10 @@ import {
 import { withNfeEmissionStage } from '../../../../../src/telemetry/nfeEmissionPerformance';
 import { type AppSettings, getSettings } from '../settingsService';
 import { supabase } from '../supabaseConfig';
+import { parseFiscalXmlDetails } from '@/pages/App/FiscalDocuments/utils/fiscalXmlParser';
 import { type DanfeData, openDanfePrintWindow } from './danfeGenerator';
 import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy';
+import { parseNfeApiResponse } from './parseNfeApiResponse';
 import { canIssueCce } from './nfeCce';
 import { DEFAULT_NFE_ENVIRONMENT } from './nfeEnvironment';
 import { getAuthorizedAt } from './nfeEventRules';
@@ -413,9 +415,9 @@ export async function emitNfeForOrder(
             ? parseFiscalNumberConflict(retryResult.numberConflict)
             : undefined,
         hmlNewEmissionRequired: retryResult.code === 'HML_NEW_EMISSION_REQUIRED',
-        hmlConfirmedNotFound: ['HML_CONFIRMED_NOT_FOUND', 'FISCAL_CONFIRMED_NOT_FOUND'].includes(
-          retryResult.code
-        ),
+        hmlConfirmedNotFound:
+          typeof retryResult.code === 'string' &&
+          ['HML_CONFIRMED_NOT_FOUND', 'FISCAL_CONFIRMED_NOT_FOUND'].includes(retryResult.code),
         transportDiagnostic: retryResult.transportDiagnostic
           ? {
               ...retryResult.transportDiagnostic,
@@ -797,7 +799,6 @@ export async function emitNfeForOrder(
  * Abre o DANFE de um pedido que já teve NF-e emitida
  */
 export async function printOrderDanfe(order: Order): Promise<void> {
-  const settings: AppSettings = await getSettings();
   const nfeData = (order as any).nfeData;
   if (!nfeData) {
     throw new Error('Este pedido ainda não possui NF-e emitida.');
@@ -816,6 +817,31 @@ export async function printOrderDanfe(order: Order): Promise<void> {
       'Dados de autorização incompletos. Consulte o documento fiscal antes de imprimir o DANFE.'
     );
 
+  let xml = typeof nfeData.xml === 'string' ? nfeData.xml : '';
+  if (!xml && order.id) {
+    const { data, error } = await supabase
+      .from('nfe_documents')
+      .select('xml_nfe')
+      .eq('order_id', order.id)
+      .eq('chave_acesso', nfeData.accessKey)
+      .eq('ambiente', nfeData.environment)
+      .maybeSingle();
+    if (error) throw new Error('Não foi possível carregar o XML fiscal original.');
+    xml = data?.xml_nfe || '';
+  }
+  const fiscalDetails = parseFiscalXmlDetails(xml);
+  if (
+    !fiscalDetails ||
+    fiscalDetails.general.model !== nfeData.model ||
+    Number(fiscalDetails.general.number) !== Number(nfeData.nfeNumber) ||
+    fiscalDetails.general.series !== String(nfeData.series) ||
+    (fiscalDetails.general.environment && Number(fiscalDetails.general.environment) !== nfeData.environment)
+  ) {
+    throw new Error('O XML fiscal original não corresponde aos dados de autorização deste pedido.');
+  }
+
+  const settings: AppSettings = await getSettings();
+
   openDanfePrintWindow({
     order,
     settings,
@@ -827,6 +853,8 @@ export async function printOrderDanfe(order: Order): Promise<void> {
     model: nfeData.model,
     environment: nfeData.environment,
     status: nfeData.status,
+    natOp: fiscalDetails.general.natureOperation,
+    fiscalDetails,
   });
 }
 
@@ -852,7 +880,7 @@ export function canCancelFiscalDocument(doc: {
   const environment = doc.ambiente === 2 ? 2 : 1;
   const policy = getFiscalCancellationPolicy({
     model: String(doc.modelo || ''),
-    authorizedAt: getAuthorizedAt(doc.xml_protocolo, doc.created_at || ''),
+    authorizedAt: getAuthorizedAt(doc.xml_protocolo, ''),
     status: String(doc.status || ''),
     environment,
     goodsCirculated: Boolean(doc.isMerchandiseDelivered),
@@ -892,7 +920,12 @@ export async function processOrderCancellationFiscalEffects(
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ orderId }),
   });
-  const policy = await policyResponse.json();
+  const policy = await parseNfeApiResponse<{
+    action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+    documentId?: string;
+    environment?: number;
+    error?: string;
+  }>(policyResponse, 'Não foi possível decidir o efeito fiscal.');
   if (!policyResponse.ok)
     throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
   if (policy.action === 'none') return { action: 'none' };
@@ -920,7 +953,16 @@ export async function processOrderCancellationFiscalEffects(
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
   });
-  const result = await response.json();
+  const result = await parseNfeApiResponse<{
+    success?: boolean;
+    error?: string;
+    draftId?: string;
+    cStat?: string;
+    protocolNumber?: string;
+    protocolDate?: string;
+    xMotivo?: string;
+    reconciliationRequired?: boolean;
+  }>(response, 'Não foi possível aplicar o efeito fiscal do pedido.');
   if (!response.ok || result.success === false)
     throw new Error(result.error || 'Não foi possível aplicar o efeito fiscal do pedido.');
   return policy.action === 'estorno'

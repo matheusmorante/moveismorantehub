@@ -16,12 +16,10 @@ describe('ProductManufacturingTypeToggle', () => {
     );
 
     expect(screen.getByText('Origem Comercial do Produto')).toBeTruthy();
-    const badge = screen.getByTestId('origin-status-badge');
-    expect(badge.textContent).toContain('Adquirido ou Recebido de Terceiros (Padrão)');
     expect(screen.getByText(/Mercadoria adquirida\/recebida de parceiros/i)).toBeTruthy();
-
-    const switchBtn = screen.getByRole('switch');
-    expect(switchBtn.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Adquirido de Terceiros' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Fabricação Própria' })).toBeTruthy();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
   it('renderiza o estado de fabricação própria corretamente', () => {
@@ -33,30 +31,11 @@ describe('ProductManufacturingTypeToggle', () => {
       />
     );
 
-    const badge = screen.getByTestId('origin-status-badge');
-    expect(badge.textContent).toContain('Produção do Próprio Estabelecimento (Fabricação Própria)');
     expect(screen.getByText(/Produção própria da empresa/i)).toBeTruthy();
-
-    const switchBtn = screen.getByRole('switch');
-    expect(switchBtn.getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
-  it('chama onChange com true ao clicar no switch quando está em terceiros', () => {
-    const onChange = vi.fn();
-    render(
-      <ProductManufacturingTypeToggle
-        isOwnProduction={false}
-        onChange={onChange}
-      />
-    );
-
-    const switchBtn = screen.getByRole('switch');
-    fireEvent.click(switchBtn);
-
-    expect(onChange).toHaveBeenCalledWith(true);
-  });
-
-  it('chama onChange com false ao clicar no botão "Adquirido de Terceiros"', () => {
+  it('chama onChange com false ao selecionar "Adquirido de Terceiros"', () => {
     const onChange = vi.fn();
     render(
       <ProductManufacturingTypeToggle
@@ -71,7 +50,7 @@ describe('ProductManufacturingTypeToggle', () => {
     expect(onChange).toHaveBeenCalledWith(false);
   });
 
-  it('chama onChange com true ao clicar no botão "Fabricação Própria"', () => {
+  it('chama onChange com true ao selecionar "Fabricação Própria"', () => {
     const onChange = vi.fn();
     render(
       <ProductManufacturingTypeToggle

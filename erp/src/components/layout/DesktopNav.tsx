@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { hasFiscalOperationRole } from '../../pages/utils/nfe/fiscalAuthorization';
+import { canPerform } from '../../pages/utils/permissionService';
+import { getProfileRoles } from '../../pages/utils/accessRoles';
+import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
 
 import { MenuKey } from '../../AppLayout';
 
@@ -101,7 +103,61 @@ const DropdownItem = ({
 
 const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
   const { profile } = useAuth();
-  const canOperateFiscal = hasFiscalOperationRole(profile);
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canViewProducts = canPerform('viewProducts', roles);
+  const canViewProductCharacteristics = canPerform('viewProductCharacteristics', roles);
+  const canViewProductCategories = canPerform('viewProductCategories', roles);
+  const canViewProductCompositions = canPerform('viewProductCompositions', roles);
+  const canViewProductReconciliation = canPerform('viewProductReconciliation', roles);
+  const canViewStockMovements = canPerform('viewStockMovements', roles);
+  const canViewStockInventory = canPerform('viewStockInventory', roles);
+  const canViewStockUnavailabilities = canPerform('viewStockUnavailabilities', roles);
+  const canViewStockPurchases = canPerform('viewStockPurchases', roles);
+  const canViewStockReceipts = canPerform('viewStockReceipts', roles);
+  const canViewStockLabels = canPerform('viewStockLabels', roles);
+  const canViewBlingStock = canPerform('viewBlingStock', roles);
+  const canViewStock = [
+    canViewStockMovements,
+    canViewStockInventory,
+    canViewStockUnavailabilities,
+    canViewStockPurchases,
+    canViewStockReceipts,
+    canViewStockLabels,
+    canViewBlingStock,
+  ].some(Boolean);
+  const canViewSuppliers = canPerform('viewSuppliers', roles);
+  const canViewProductMenu = canViewProducts || [
+    canViewProductCharacteristics,
+    canViewProductCategories,
+    canViewProductCompositions,
+    canViewProductReconciliation,
+  ].some(Boolean);
+  const canViewCustomers = canPerform('viewCustomers', roles);
+  const canViewEmployees = canPerform('viewEmployees', roles);
+  const canViewServices = canPerform('viewServices', roles);
+  const canViewCustomerDesires = canPerform('viewCustomerDesires', roles);
+  const canViewPeople = [canViewCustomers, canViewEmployees, canViewServices, canViewCustomerDesires].some(Boolean);
+  const canViewOrders = [
+    'viewOrders',
+    'viewBudgets',
+    'viewAssistanceOrders',
+    'viewReturns',
+    'viewSalesReports',
+  ].some((action) => canPerform(action, roles));
+  const canViewFiscal = ['viewFiscal', 'viewInboundFiscal', 'viewNcmCatalog'].some((action) =>
+    canPerform(action, roles)
+  );
+  const canUseFinance = canUseFinanceModule(roles);
+  const canSeeFinanceBeta = canSeeFinanceModuleBeta(roles);
+  const canViewMarketing = [
+    'viewMarketingPosts',
+    'viewChannelCatalog',
+    'viewMetaCatalog',
+    'viewWhatsAppMarketplace',
+  ].some((action) => canPerform(action, roles));
+  const canViewDeliverySchedule = canPerform('viewDeliverySchedule', roles);
+  const canViewAssemblyList = canPerform('viewAssemblyList', roles);
+  const canViewLogistics = canViewDeliverySchedule || canViewAssemblyList;
   const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
   return (
@@ -112,6 +168,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
       </Link>
 
       {/* Produtos do Bling e Importação */}
+      {canViewProductMenu && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('products')}
@@ -128,49 +185,66 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'products' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Catálogo" />
-            <DropdownItem
-              to="/products"
-              icon="bi-list-ul"
-              title="Cadastros"
-              description="Gerenciar Cadastros de Produtos"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/products/characteristics"
-              icon="bi-sliders2"
-              title="Características"
-              description="Cores, medidas e características"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/products/categories"
-              icon="bi-tag-fill"
-              title="Ambientes e categorias"
-              description="Agrupamentos de catálogo"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/products/compositions"
-              icon="bi-diagram-3-fill"
-              title="Composições"
-              description="Kits e montagens"
-              onClick={() => setActiveMenu(null)}
-            />
-
-            <DropdownSeparator />
-            <DropdownGroup title="Integração" />
-            <DropdownItem
-              to="/products/reconciliation/suppliers"
-              icon="bi-magic"
-              title="Conciliação de fornecedores"
-              description="Sincronizar base externa"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canViewProducts && (
+              <DropdownItem
+                to="/products"
+                icon="bi-list-ul"
+                title="Cadastros"
+                description="Gerenciar Cadastros de Produtos"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {(canViewProductCharacteristics || canViewProductCategories || canViewProductCompositions) && (
+              <>
+                {canViewProductCharacteristics && (
+                  <DropdownItem
+                    to="/products/characteristics"
+                    icon="bi-sliders2"
+                    title="Características"
+                    description="Cores, medidas e características"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewProductCategories && (
+                  <DropdownItem
+                    to="/products/categories"
+                    icon="bi-tag-fill"
+                    title="Ambientes e categorias"
+                    description="Agrupamentos de catálogo"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewProductCompositions && (
+                  <DropdownItem
+                    to="/products/compositions"
+                    icon="bi-diagram-3-fill"
+                    title="Composições"
+                    description="Kits e montagens"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+              </>
+            )}
+            {canViewProductReconciliation && (
+              <>
+                <DropdownSeparator />
+                <DropdownGroup title="Integração" />
+                <DropdownItem
+                  to="/products/reconciliation/suppliers"
+                  icon="bi-magic"
+                  title="Conciliação de fornecedores"
+                  description="Sincronizar base externa"
+                  onClick={() => setActiveMenu(null)}
+                />
+              </>
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Estoque */}
+      {(canViewStock || canViewSuppliers) && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('stock')}
@@ -186,76 +260,107 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         </button>
         {activeMenu === 'stock' && (
           <div className={dropdownClass}>
-            <DropdownGroup title="Operação" />
-            <DropdownItem
-              to="/estoque/movimentacoes"
-              icon="bi-arrow-left-right"
-              title="Movimentações"
-              description="Entradas e saídas manuais"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/inventarios"
-              icon="bi-journal-check"
-              title="Inventário"
-              description="Contagem e ajustes"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/indisponibilidades"
-              icon="bi-dash-circle-dotted"
-              title="Indisponibilidades"
-              description="Registro de perdas e avarias"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/recebimentos"
-              icon="bi-clipboard-check"
-              title="Recebimentos"
-              description="Conferência de mercadorias"
-              onClick={() => setActiveMenu(null)}
-            />
-
-            <DropdownSeparator />
-
-            <DropdownGroup title="Compras" />
-            <DropdownItem
-              to="/estoque/pedidos-compra"
-              icon="bi-cart-fill"
-              title="Pedidos de compra"
-              description="Gestão de pedidos"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/fornecedores"
-              icon="bi-truck"
-              title="Fornecedores"
-              description="Cadastro e gestão"
-              onClick={() => setActiveMenu(null)}
-            />
-
-            <DropdownSeparator />
-
-            <DropdownGroup title="Etiquetas" />
-            <DropdownItem
-              to="/estoque/etiquetas?category=identificacao"
-              icon="bi-upc-scan"
-              title="Identificação"
-              description="Códigos de barras e caixas"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/etiquetas?category=precos"
-              icon="bi-tag-fill"
-              title="Preços"
-              description="Gôndolas e mostruários"
-              onClick={() => setActiveMenu(null)}
-            />
+            {(canViewStockMovements || canViewStockInventory || canViewStockUnavailabilities || canViewStockReceipts || canViewBlingStock) && (
+              <>
+                <DropdownGroup title="Operação" />
+                {canViewStockMovements && (
+                  <DropdownItem
+                    to="/estoque/movimentacoes"
+                    icon="bi-arrow-left-right"
+                    title="Movimentações"
+                    description="Entradas e saídas manuais"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewStockInventory && (
+                  <DropdownItem
+                    to="/estoque/inventarios"
+                    icon="bi-journal-check"
+                    title="Inventário"
+                    description="Contagem e ajustes"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewStockUnavailabilities && (
+                  <DropdownItem
+                    to="/estoque/indisponibilidades"
+                    icon="bi-dash-circle-dotted"
+                    title="Indisponibilidades"
+                    description="Registro de perdas e avarias"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewStockReceipts && (
+                  <DropdownItem
+                    to="/estoque/recebimentos"
+                    icon="bi-clipboard-check"
+                    title="Recebimentos"
+                    description="Conferência de mercadorias"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewBlingStock && (
+                  <DropdownItem
+                    to="/estoque/bling"
+                    icon="bi-cloud-arrow-down"
+                    title="Estoque Bling"
+                    description="Estoque sincronizado"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+              </>
+            )}
+            {(canViewStockPurchases || canViewSuppliers) && (
+              <>
+                {canViewStock && <DropdownSeparator />}
+                <DropdownGroup title="Compras" />
+                {canViewStockPurchases && (
+                  <DropdownItem
+                    to="/estoque/pedidos-compra"
+                    icon="bi-cart-fill"
+                    title="Pedidos de compra"
+                    description="Gestão de pedidos"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+              </>
+            )}
+            {canViewSuppliers && (
+              <DropdownItem
+                to="/estoque/fornecedores"
+                icon="bi-truck"
+                title="Fornecedores"
+                description="Cadastro e gestão"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewStockLabels && (
+              <>
+                {(canViewStock || canViewSuppliers) && <DropdownSeparator />}
+                <DropdownGroup title="Etiquetas" />
+                <DropdownItem
+                  to="/estoque/etiquetas?category=identificacao"
+                  icon="bi-upc-scan"
+                  title="Identificação"
+                  description="Códigos de barras e caixas"
+                  onClick={() => setActiveMenu(null)}
+                />
+                <DropdownItem
+                  to="/estoque/etiquetas?category=precos"
+                  icon="bi-tag-fill"
+                  title="Preços"
+                  description="Gôndolas e mostruários"
+                  onClick={() => setActiveMenu(null)}
+                />
+              </>
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Pessoas */}
+      {canViewPeople && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('registrations')}
@@ -272,25 +377,49 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'registrations' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Cadastros" />
-            <DropdownItem
-              to="/registrations/customers"
-              icon="bi-person-fill"
-              title="Clientes"
-              description="Gestão de carteira"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/registrations/employees"
-              icon="bi-person-badge"
-              title="Colaboradores"
-              description="Equipe e vendedores"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canViewCustomers && (
+              <DropdownItem
+                to="/registrations/customers"
+                icon="bi-person-fill"
+                title="Clientes"
+                description="Gestão de carteira"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewEmployees && (
+              <DropdownItem
+                to="/registrations/employees"
+                icon="bi-person-badge"
+                title="Colaboradores"
+                description="Equipe e vendedores"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewServices && (
+              <DropdownItem
+                to="/registrations/services"
+                icon="bi-tools"
+                title="Serviços"
+                description="Serviços cadastrados"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewCustomerDesires && (
+              <DropdownItem
+                to="/customers/desires"
+                icon="bi-heart"
+                title="Necessidades de clientes"
+                description="Preferências registradas"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Vendas */}
+      {canViewOrders && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('salesOrder')}
@@ -307,58 +436,71 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'salesOrder' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Operação" />
-            <DropdownItem
-              to="/sales-order"
-              icon="bi-cart-fill"
-              title="Pedidos de venda"
-              description="Gerenciar pedidos"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/budgets"
-              icon="bi-file-text"
-              title="Orçamentos"
-              description="Propostas e negociações"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/assistance-orders"
-              icon="bi-tools"
-              title="Assistências"
-              description="Garantias e reparos"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/returns"
-              icon="bi-arrow-return-left"
-              title="Devoluções"
-              description="Trocas e devoluções"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canPerform('viewOrders', roles) && (
+              <DropdownItem
+                to="/sales-order"
+                icon="bi-cart-fill"
+                title="Pedidos de venda"
+                description="Gerenciar pedidos"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewBudgets', roles) && (
+              <DropdownItem
+                to="/budgets"
+                icon="bi-file-text"
+                title="Orçamentos"
+                description="Propostas e negociações"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewAssistanceOrders', roles) && (
+              <DropdownItem
+                to="/assistance-orders"
+                icon="bi-tools"
+                title="Assistências"
+                description="Garantias e reparos"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewReturns', roles) && (
+              <DropdownItem
+                to="/returns"
+                icon="bi-arrow-return-left"
+                title="Devoluções"
+                description="Trocas e devoluções"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
 
-            <DropdownSeparator />
-
-            <DropdownGroup title="Relatórios" />
-            <DropdownItem
-              to="/sales-order/reports"
-              icon="bi-bar-chart-fill"
-              title="Relatório de vendas"
-              description="Exportação CSV"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/sales-order/reports-bling"
-              icon="bi-clouds-fill"
-              title="Relatórios Bling"
-              description="Integração externa"
-              beta={true}
-              onClick={() => setActiveMenu(null)}
-            />
+            {canPerform('viewSalesReports', roles) && (
+              <>
+                <DropdownSeparator />
+                <DropdownGroup title="Relatórios" />
+                <DropdownItem
+                  to="/sales-order/reports"
+                  icon="bi-bar-chart-fill"
+                  title="Relatório de vendas"
+                  description="Exportação CSV"
+                  onClick={() => setActiveMenu(null)}
+                />
+                <DropdownItem
+                  to="/sales-order/reports-bling"
+                  icon="bi-clouds-fill"
+                  title="Relatórios Bling"
+                  description="Integração externa"
+                  beta={true}
+                  onClick={() => setActiveMenu(null)}
+                />
+              </>
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Fiscal */}
+      {canViewFiscal && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('fiscal')}
@@ -375,7 +517,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'fiscal' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Documentos e cadastros" />
-            {canOperateFiscal && (
+            {canPerform('viewFiscal', roles) && (
               <DropdownItem
                 to="/fiscal-documents"
                 icon="bi-receipt"
@@ -384,25 +526,31 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onClick={() => setActiveMenu(null)}
               />
             )}
-            <DropdownItem
-              to="/estoque/notas-fiscais-entrada"
-              icon="bi-receipt-cutoff"
-              title="Notas de entrada"
-              description="Manifestação e importação XML"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/ncm"
-              icon="bi-journal-text"
-              title="NCM"
-              description="Tabela oficial e revisão de produtos"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canPerform('viewInboundFiscal', roles) && (
+              <DropdownItem
+                to="/estoque/notas-fiscais-entrada"
+                icon="bi-receipt-cutoff"
+                title="Notas de entrada"
+                description="Manifestação e importação XML"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewNcmCatalog', roles) && (
+              <DropdownItem
+                to="/estoque/ncm"
+                icon="bi-journal-text"
+                title="NCM"
+                description="Tabela oficial e revisão de produtos"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Logística */}
+      {canViewLogistics && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('logistics')}
@@ -419,20 +567,24 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'logistics' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Operação" />
-            <DropdownItem
-              to="/delivery-schedule"
-              icon="bi-calendar-event"
-              title="Agenda"
-              description="Cronograma de entregas"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/logistics/assembly-list"
-              icon="bi-list-check"
-              title="Lista de montagem"
-              description="Roteiro de montadores"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canViewDeliverySchedule && (
+              <DropdownItem
+                to="/delivery-schedule"
+                icon="bi-calendar-event"
+                title="Agenda"
+                description="Cronograma de entregas"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewAssemblyList && (
+              <DropdownItem
+                to="/logistics/assembly-list"
+                icon="bi-list-check"
+                title="Lista de montagem"
+                description="Roteiro de montadores"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
             <DropdownSeparator />
 
             <DropdownGroup title="Mobile" />
@@ -445,8 +597,10 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
           </div>
         )}
       </div>
+      )}
 
       {/* Marketing */}
+      {(canViewMarketing || canViewStockLabels) && (
       <div
         className="relative h-full flex items-center"
         onMouseEnter={() => setActiveMenu('marketing')}
@@ -463,58 +617,114 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         {activeMenu === 'marketing' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Criação" />
-            <DropdownItem
-              to="/marketing/posts"
-              icon="bi-instagram"
-              title="Gerador de prompt"
-              description="Criar ideias de posts"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/products/meta-catalog"
-              icon="bi-meta"
-              title="Catálogo Meta"
-              description="Integração de feed"
-              onClick={() => setActiveMenu(null)}
-            />
-            <DropdownItem
-              to="/estoque/etiquetas?category=logos"
-              icon="bi-printer-fill"
-              title="Impressão de logotipos"
-              description="Artes e promoções"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canPerform('viewMarketingPosts', roles) && (
+              <DropdownItem
+                to="/marketing/posts"
+                icon="bi-instagram"
+                title="Gerador de prompt"
+                description="Criar ideias de posts"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewMetaCatalog', roles) && (
+              <DropdownItem
+                to="/products/meta-catalog"
+                icon="bi-meta"
+                title="Catálogo Meta"
+                description="Integração de feed"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewWhatsAppMarketplace', roles) && (
+              <DropdownItem
+                to="/registrations/whatsapp-marketplace"
+                icon="bi-whatsapp"
+                title="Marketplace WhatsApp"
+                description="Catálogo do WhatsApp"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canViewStockLabels && (
+              <DropdownItem
+                to="/estoque/etiquetas?category=logos"
+                icon="bi-printer-fill"
+                title="Impressão de logotipos"
+                description="Artes e promoções"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
           </div>
         )}
       </div>
+      )}
 
       {/* Financeiro */}
+      {(canUseFinance || canSeeFinanceBeta) && (
       <div
         className="relative h-full flex items-center"
-        onMouseEnter={() => setActiveMenu('finance')}
-        onMouseLeave={() => setActiveMenu(null)}
+        onMouseEnter={canUseFinance ? () => setActiveMenu('finance') : undefined}
+        onMouseLeave={canUseFinance ? () => setActiveMenu(null) : undefined}
       >
         <button
-          onClick={() => toggle('finance')}
-          className={menuBtnClass(activeMenu === 'finance', false)}
+          type="button"
+          disabled={!canUseFinance}
+          aria-disabled={!canUseFinance}
+          title={canUseFinance ? undefined : 'Em beta: disponível somente para administradores.'}
+          onClick={() => canUseFinance && toggle('finance')}
+          className={`${menuBtnClass(canUseFinance && activeMenu === 'finance', !canUseFinance)} ${!canUseFinance ? 'cursor-not-allowed disabled:active:scale-100' : ''}`}
         >
           <i className="bi bi-wallet2"></i>
           <span>Financeiro</span>
-          <i className={chevronClass(activeMenu === 'finance')}></i>
+          {canSeeFinanceBeta && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              Beta
+            </span>
+          )}
+          {canUseFinance && <i className={chevronClass(activeMenu === 'finance')}></i>}
         </button>
-        {activeMenu === 'finance' && (
+        {canUseFinance && activeMenu === 'finance' && (
           <div className={dropdownClass}>
             <DropdownGroup title="Operação" />
-            <DropdownItem
-              to="/finance/transactions"
-              icon="bi-arrow-left-right"
-              title="Movimentações"
-              description="Contas a pagar e receber"
-              onClick={() => setActiveMenu(null)}
-            />
+            {canPerform('viewFinanceTransactions', roles) && (
+              <DropdownItem
+                to="/finance/transactions"
+                icon="bi-arrow-left-right"
+                title="Movimentações"
+                description="Lançamentos financeiros"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewFinancePayables', roles) && (
+              <DropdownItem
+                to="/finance/payables"
+                icon="bi-box-arrow-up-right"
+                title="Contas a pagar"
+                description="Compromissos financeiros"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewFinanceReceivables', roles) && (
+              <DropdownItem
+                to="/finance/receivables"
+                icon="bi-box-arrow-in-down-left"
+                title="Contas a receber"
+                description="Recebimentos pendentes"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
+            {canPerform('viewFinanceSettings', roles) && (
+              <DropdownItem
+                to="/finance/settings"
+                icon="bi-gear"
+                title="Configurações"
+                description="Preferências financeiras"
+                onClick={() => setActiveMenu(null)}
+              />
+            )}
           </div>
         )}
       </div>
+      )}
     </nav>
   );
 };

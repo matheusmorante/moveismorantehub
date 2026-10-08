@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 import { blingService } from '@/pages/services/blingService';
 import { BlingProductDetailsModal } from './components/BlingProductDetailsModal';
@@ -11,6 +12,7 @@ const BlingStock: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState<BlingProductItem[]>([]);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState<BlingProductItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
@@ -34,7 +36,26 @@ const BlingStock: React.FC = () => {
         criterio: 1,
         pesquisa: searchTerm || undefined,
       });
-      setProducts(data.data || []);
+      const pageProducts = data.data || [];
+      const reportedTotalPages = Number(
+        data.meta?.totalPaginas ?? data.meta?.totalPages ?? data.meta?.total_pages
+      );
+      const hasReportedTotalPages = Number.isFinite(reportedTotalPages) && reportedTotalPages > 0;
+
+      if (!hasReportedTotalPages && page > 1 && pageProducts.length === 0) {
+        setTotalPages(page - 1);
+        setPage(page - 1);
+        return;
+      }
+
+      setProducts(pageProducts);
+      setTotalPages(
+        hasReportedTotalPages
+          ? reportedTotalPages
+          : pageProducts.length < 20
+            ? page
+            : page + 1
+      );
     } catch (err: unknown) {
       console.error(err);
       toast.error('Erro ao carregar produtos do Bling.');
@@ -147,23 +168,13 @@ const BlingStock: React.FC = () => {
             )}
           </button>
 
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1 || loading}
-              className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm disabled:opacity-30 transition-all"
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
-            <span className="px-4 text-[10px] font-black uppercase text-slate-500">{page}</span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={loading || products.length < 20}
-              className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm disabled:opacity-30 transition-all"
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </div>
+          <FixedPageSlots
+            ariaLabel="Paginação dos produtos sincronizados do Bling"
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            loading={loading}
+          />
         </div>
       </div>
 

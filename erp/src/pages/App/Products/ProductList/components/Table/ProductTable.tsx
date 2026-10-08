@@ -2,7 +2,7 @@ import React from 'react';
 import ProductRow from './ProductRow';
 import ProductCard from '../Card/ProductCard';
 import Product, { ProductVisibilitySettings } from '../../../../../types/product.type';
-import type { ProductCategoryTree, ProductListFilters } from '../../types';
+import type { ProductCategoryTree, ProductListFilters, ProductListRow } from '../../types';
 import { useAutoScroll } from '@/pages/utils/useAutoScroll';
 import { getSettings } from '@/pages/utils/settingsService';
 import { useWindowSize } from '@/hooks/useWindowSize';
@@ -15,9 +15,12 @@ import {
 import { ProductBulkActionsToolbar } from '../Shared/ProductBulkActionsToolbar';
 import { MoveVariationFamilyModal } from '../../modals/MoveVariationFamilyModal';
 import { MergeVariationModal } from '../../modals/MergeVariationModal';
+import { useAuth } from '@/context/AuthContext';
+import { shouldHideCatalogPublicationStatus } from '@/pages/utils/accessRoles';
 
 interface ProductTableProps {
   readonly products: readonly Product[];
+  readonly readOnly?: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
@@ -46,6 +49,7 @@ interface ProductTableProps {
 
 const ProductTable = ({
   products,
+  readOnly = false,
   onEdit,
   onShowHistory,
   onLaunchStock,
@@ -71,6 +75,8 @@ const ProductTable = ({
   onDuplicate,
   exitedVariationIds,
 }: ProductTableProps) => {
+  const { profile } = useAuth();
+  const showCatalogControl = !shouldHideCatalogPublicationStatus(profile);
   const { width } = useWindowSize();
   // Telas menores que XL (< 1280px) ou ambiente mobile/webview usam visualização em cards por padrão
   const isMobile =
@@ -180,7 +186,7 @@ const ProductTable = ({
   return (
     <div className="flex flex-col gap-4">
       {/* Bulk Actions Toolbar */}
-      {selectedProducts.length > 0 && (
+      {!readOnly && selectedProducts.length > 0 && (
         <ProductBulkActionsToolbar
           selectedCount={selectedProducts.length}
           onClearSelection={onClearSelection}
@@ -276,6 +282,8 @@ const ProductTable = ({
                 <ProductRow
                   key={product.id}
                   product={product}
+                  readOnly={readOnly}
+                  showCatalogControl={showCatalogControl}
                   onEdit={onEdit}
                   onShowHistory={onShowHistory}
                   onLaunchStock={onLaunchStock}
@@ -321,7 +329,9 @@ const ProductTable = ({
             .map((product) => (
               <ProductCard
                 key={product.id}
-                product={product}
+                product={product as ProductListRow}
+                readOnly={readOnly}
+                showCatalogControl={showCatalogControl}
                 onEdit={onEdit}
                 onShowHistory={onShowHistory}
                 onLaunchStock={onLaunchStock}

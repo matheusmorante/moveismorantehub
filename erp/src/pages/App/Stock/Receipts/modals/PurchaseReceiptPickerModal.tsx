@@ -5,6 +5,7 @@ import { subscribeToPurchases } from '@/pages/utils/purchaseService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 export interface PurchaseReceiptPickerModalProps {
   readonly isOpen: boolean;
@@ -163,29 +164,17 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
           )}
         </div>
 
-        {selectedSupplierId && totalPages > 1 && (
-          <footer className="flex items-center justify-between border-t border-slate-100 p-4 dark:border-slate-800 bg-slate-50 dark:bg-slate-955/30">
+        {selectedSupplierId && (
+          <footer className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-955/30 sm:flex-row">
             <span className="text-xs font-bold text-slate-500">
               Página {safeCurrentPage} de {totalPages} ({availablePurchases.length} pedidos)
             </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={safeCurrentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={safeCurrentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Próxima
-              </button>
-            </div>
+            <FixedPageSlots
+              ariaLabel="Paginação dos pedidos de compra disponíveis"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </footer>
         )}
       </section>

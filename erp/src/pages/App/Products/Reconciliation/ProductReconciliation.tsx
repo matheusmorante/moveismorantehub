@@ -22,6 +22,7 @@ import { ApplySupplierModal } from './modals/ApplySupplierModal';
 import { ApplyCategoryModal } from './modals/ApplyCategoryModal';
 import { ApplyNcmModal } from './modals/ApplyNcmModal';
 import { ApplyAttributeModal } from './modals/ApplyAttributeModal';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 export const ProductReconciliation: React.FC = () => {
   const [products, setProducts] = useState<ReconciliationProductItem[]>([]);
@@ -323,26 +324,17 @@ export const ProductReconciliation: React.FC = () => {
               {totalCount} produtos
             </span>
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <button
-                disabled={page === 1 || isLoading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors flex items-center gap-1"
-              >
-                <i className="bi bi-chevron-left"></i> Anterior
-              </button>
-
+            <div className="flex flex-col items-center gap-2 self-end sm:self-center">
               <span className="text-xs font-black text-purple-600 dark:text-purple-400 px-2">
-                Página {page}
+                Página {page} de {Math.max(1, Math.ceil(totalCount / pageSize))}
               </span>
-
-              <button
-                disabled={page * pageSize >= totalCount || isLoading}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors flex items-center gap-1"
-              >
-                Próxima <i className="bi bi-chevron-right"></i>
-              </button>
+              <FixedPageSlots
+                ariaLabel="Paginação da conciliação de produtos"
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+                onPageChange={setPage}
+                loading={isLoading}
+              />
             </div>
           </div>
         )}

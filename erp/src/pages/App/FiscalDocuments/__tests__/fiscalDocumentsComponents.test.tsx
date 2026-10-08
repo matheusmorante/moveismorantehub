@@ -46,11 +46,12 @@ describe('FiscalDocuments - Components', () => {
       />
     );
 
-    expect(screen.getByText(/75 documento\(s\)/)).toBeDefined();
-    expect(screen.getByText(/Página 1 de 3/)).toBeDefined();
+    expect(screen.getByText('75')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Página 1, atual' }).getAttribute('aria-current')).toBe(
+      'page'
+    );
 
-    const nextBtn = screen.getByRole('button', { name: /Próxima/i });
-    await userEvent.click(nextBtn);
+    await userEvent.click(screen.getByRole('button', { name: 'Página 2' }));
     expect(onPageChange).toHaveBeenCalledWith(1);
   });
 

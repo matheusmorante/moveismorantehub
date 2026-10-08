@@ -1,7 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { ActionProductLike } from '../Table/ProductRowActionsCell';
+import { useAuth } from '@/context/AuthContext';
+import {
+  canPrintProductIdentificationLabels,
+  isProductIdentificationLabelOnlyProfile,
+} from '@/pages/utils/accessRoles';
+import type { ActionProductLike } from '../ProductRowActionsCell';
 
 export interface ChildVariationActionsProps {
   readonly product: ActionProductLike;
@@ -18,6 +23,11 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
+  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
+
+  if (isLabelOnlyProfile && !canPrintIdentificationLabel) return null;
 
   const handlePrintIdentificationLabel = () => {
     const parentTitle = (product as any).name || (product as any).title || '';
@@ -87,7 +97,7 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
               </div>
             ) : (
               <>
-                <button
+                {canPrintIdentificationLabel && <button
                   type="button"
                   role="menuitem"
                   onClick={(event) => {
@@ -101,8 +111,8 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
                     Imprimir Etiqueta de Identificação
                   </span>
-                </button>
-                {onMoveToAnotherFamily && (
+                </button>}
+                {!isLabelOnlyProfile && onMoveToAnotherFamily && (
                   <button
                     type="button"
                     role="menuitem"
@@ -139,7 +149,7 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
                     </span>
                   </button>
                 )}
-                {onMergeWithAnotherVariation && (
+                {!isLabelOnlyProfile && onMergeWithAnotherVariation && (
                   <button
                     type="button"
                     role="menuitem"

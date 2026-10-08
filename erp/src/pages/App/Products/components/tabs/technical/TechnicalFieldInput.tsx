@@ -3,6 +3,8 @@ import { TechnicalCombobox } from './TechnicalCombobox';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
+const MAX_INLINE_CHOICE_OPTIONS = 8;
+
 type Props = {
   field: TechnicalFieldDefinition;
   value: any;
@@ -19,7 +21,8 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   onChange,
 }) => {
   let type = field.dataType || 'list';
-  if (/^(marca|modelo)$/i.test(field.name.trim())) {
+  const isShortTextCharacteristic = /^(linha|marca|modelo)$/i.test(field.name.trim());
+  if (isShortTextCharacteristic) {
     type = 'text_short';
   } else if (
     /quantidade de (portas?|gavetas?)/i.test(field.name) ||
@@ -27,15 +30,18 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   ) {
     type = 'integer';
   }
-  const maxLength = 120;
+  const maxLength = isShortTextCharacteristic ? 30 : 120;
   if (type === 'text_short' || type === 'text') {
     const isMarca = /^marca$/i.test(field.name.trim());
     const isModelo = /^modelo$/i.test(field.name.trim());
+    const isLinha = /^linha$/i.test(field.name.trim());
     const placeholder = isMarca
       ? 'Digite a marca'
       : isModelo
         ? 'Digite o modelo'
-        : undefined;
+        : isLinha
+          ? 'Digite a linha'
+          : undefined;
 
     return (
       <input
@@ -89,7 +95,8 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   }
   if (type === 'decimal' || type === 'measure')
     return <DecimalInput value={value} disabled={disabled} onChange={onChange} />;
-  const isSmallList = field.options && field.options.length > 0 && field.options.length < 5;
+  const isSmallList =
+    field.options.length > 0 && field.options.length <= MAX_INLINE_CHOICE_OPTIONS;
 
   if (type === 'radio') {
     if (isSmallList) {
@@ -126,7 +133,7 @@ export const TechnicalFieldInput: React.FC<Props> = ({
       />
     );
   }
-  if ((type === 'list' || !type) && field.options && field.options.length > 0 && field.options.length < 5) {
+  if ((type === 'list' || !type) && isSmallList) {
     return (
       <SmallListChips options={field.options} value={value} disabled={disabled} onChange={onChange} />
     );

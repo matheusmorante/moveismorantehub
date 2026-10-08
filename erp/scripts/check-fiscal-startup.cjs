@@ -23,9 +23,11 @@ async function check() {
     assert.equal(result.status, 0, 'Fiscal backend failed to start in native Node.');
     return;
   }
-  for (const route of ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
-    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number']) {
-    const dynamic = !['emit', 'consult', 'document-details', 'item-defaults'].includes(route);
+  const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
+    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy'];
+  const directRoutes = ['emit', 'consult', 'document-details', 'item-defaults', 'order-cancellation-policy'];
+  for (const route of routes) {
+    const dynamic = !directRoutes.includes(route);
     const source = await readFile(resolve(__dirname, `../api/nfe/${dynamic ? 'operations' : route}.ts`), 'utf8');
     const emitted = ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },

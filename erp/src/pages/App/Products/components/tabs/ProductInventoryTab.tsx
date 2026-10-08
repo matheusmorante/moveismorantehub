@@ -141,7 +141,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Botão de Ligar / Desligar: Adquirido de Terceiros vs Fabricação Própria */}
+      {/* Seletor da origem comercial do produto */}
       <ProductManufacturingTypeToggle
         isOwnProduction={isOwnProduction}
         onChange={handleToggleOrigin}

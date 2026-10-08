@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/context/AuthContext';
 import Product, { Variation } from '../../../types/product.type';
 import ManageAttributesModal from '../components/modals/attributes/ManageAttributesModal';
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
@@ -10,6 +11,7 @@ import { VariationPricingTab } from '../components/variationTabs/VariationPricin
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
 import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
+import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
 
 interface VariationFormModalProps {
   readonly isOpen: boolean;
@@ -29,28 +31,31 @@ interface TabDefinition {
   readonly icon: string;
 }
 
-const getFormTabs = (isComposition: boolean): readonly TabDefinition[] => {
+const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly TabDefinition[] => {
   const tabs: TabDefinition[] = [
     { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
+    ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos da Variação', icon: 'bi-images' }] : []),
     { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
-    { id: 'descricao', label: 'Descrição', icon: 'bi-file-text' },
-    { id: 'fotos', label: 'Fotos da Variação', icon: 'bi-images' },
+    ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
   ];
+
+  tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
 
   if (isComposition) {
     tabs.push({ id: 'compostos', label: 'Produtos Componentes', icon: 'bi-diagram-3' });
   }
-
-  tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
 
   return tabs;
 };
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
   const { isOpen, parentProduct, variation } = props;
+  const { profile } = useAuth();
+  const isStockistOnly = isStockistOnlyProfile(profile);
   const isSingleVariation = variation
     ? (parentProduct.variations || []).length === 1
     : (parentProduct.variations || []).length === 0;
+  const isSingleExistingVariation = Boolean(variation) && isSingleVariation;
 
   const {
     loading,
@@ -82,7 +87,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     handleClose,
     isDraft,
     autoSaveStatus,
-  } = useVariationForm(props);
+  } = useVariationForm({ ...props, isStockistOnly });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,6 +116,14 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
 
   const erpStatus = checkERPLegibility(effectiveProductForValidation);
   const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
+  const inheritedDataTabs: readonly VariationTabId[] = [
+    'identificacao',
+    'tecnico',
+    'descricao',
+    'estoque',
+  ];
+  const showInheritedDataNotice =
+    isSingleExistingVariation && inheritedDataTabs.includes(activeTab);
 
   return createPortal(
     <div className="fixed inset-0 z-[1000020] flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200">
@@ -125,7 +138,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         role="dialog"
         aria-modal="true"
         aria-labelledby="variation-form-modal-title"
-        className="relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
+        className="product-form-fullscreen relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
       >
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col gap-2 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
@@ -234,8 +247,9 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               </div>
             </div>
 
-            {/* Pílula Catálogo */}
-            <div className="relative group cursor-help">
+            {/* Estoquista não edita fotos; os requisitos do catálogo incluem fotos. */}
+            {!isStockistOnly && (
+              <div className="relative group cursor-help">
               <div
                 className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${parentProduct.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}
               >
@@ -281,7 +295,8 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   </li>
                 </ul>
               </div>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -297,8 +312,12 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
           >
             {getFormTabs(
               parentProduct.itemType === 'composition' ||
-                (parentProduct as any).item_type === 'composition'
+                (parentProduct as any).item_type === 'composition',
+              isStockistOnly
             ).map((tab) => {
+              const isInheritedDataTab =
+                isSingleExistingVariation && inheritedDataTabs.includes(tab.id);
+
               return (
                 <button
                   key={tab.id}
@@ -306,7 +325,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   role="tab"
                   aria-selected={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${
+                  className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${isInheritedDataTab ? 'opacity-50' : ''} ${
                     activeTab === tab.id
                       ? 'border-blue-600 text-blue-600 cursor-pointer'
                       : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer'
@@ -321,87 +340,114 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         </div>
 
         {/* Corpo do Formulário */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 custom-scrollbar min-h-0">
-          {activeTab === 'identificacao' && (
-            <VariationIdentificationTab
-              formData={formData}
-              setFormData={setFormData}
-              parentProduct={parentProduct}
-              diferenciarTitulo={diferenciarTitulo}
-              setDiferenciarTitulo={setDiferenciarTitulo}
-              dbAttributes={dbAttributes}
-              dbAttributeValues={dbAttributeValues}
-              setIsManageAttributesOpen={setIsManageAttributesOpen}
-              getDefaultVariationName={getDefaultVariationName}
-              getDefaultVariationTitle={getDefaultVariationTitle}
-              fetchDbAttributes={fetchDbAttributes}
-              isSingleVariation={isSingleVariation}
-            />
-          )}
+        <div className="relative flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 custom-scrollbar min-h-0">
+          <div
+            className={showInheritedDataNotice ? 'pointer-events-none select-none opacity-30 grayscale' : ''}
+          >
+            <fieldset
+              disabled={showInheritedDataNotice}
+              aria-hidden={showInheritedDataNotice}
+              className="m-0 min-w-0 border-0 p-0"
+            >
+              {activeTab === 'identificacao' && (
+                <VariationIdentificationTab
+                  formData={formData}
+                  setFormData={setFormData}
+                  parentProduct={parentProduct}
+                  diferenciarTitulo={diferenciarTitulo}
+                  setDiferenciarTitulo={setDiferenciarTitulo}
+                  dbAttributes={dbAttributes}
+                  dbAttributeValues={dbAttributeValues}
+                  setIsManageAttributesOpen={setIsManageAttributesOpen}
+                  getDefaultVariationName={getDefaultVariationName}
+                  getDefaultVariationTitle={getDefaultVariationTitle}
+                  fetchDbAttributes={fetchDbAttributes}
+                  isSingleVariation={isSingleVariation}
+                />
+              )}
 
-          {activeTab === 'fotos' && (
-            <VariationPhotosTab
-              images={isSingleVariation
-                ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || [])
-                : formData.images || []}
-              parentImages={allParentImages.length > 0 ? allParentImages : parentProduct?.images || []}
-              isSingleVariation={isSingleVariation}
-              onChangeImages={(newImages) =>
-                setFormData((prev) => (prev ? { ...prev, images: newImages } : null))
-              }
-            />
-          )}
+              {!isStockistOnly && activeTab === 'fotos' && (
+                <VariationPhotosTab
+                  images={isSingleVariation
+                    ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || [])
+                    : formData.images || []}
+                  parentImages={allParentImages.length > 0 ? allParentImages : parentProduct?.images || []}
+                  isSingleVariation={isSingleVariation}
+                  onChangeImages={(newImages) =>
+                    setFormData((prev) => (prev ? { ...prev, images: newImages } : null))
+                  }
+                />
+              )}
 
-          {activeTab === 'estoque' && (
-            <VariationPricingTab
-              formData={formData}
-              setFormData={setFormData}
-              parentProduct={parentProduct}
-              varDiscountPercent={varDiscountPercent}
-              varDiscountFixed={varDiscountFixed}
-              getParentDiscountPercent={getParentDiscountPercent}
-              getParentDiscountFixed={getParentDiscountFixed}
-              handlePriceChange={handlePriceChange}
-              handleDiscountPercentChange={handleDiscountPercentChange}
-              handleDiscountFixedChange={handleDiscountFixedChange}
-              handlePromoPriceFieldChange={handlePromoPriceFieldChange}
-              updateCost={updateCost}
-              isSingleVariation={isSingleVariation}
-            />
-          )}
+              {activeTab === 'estoque' && (
+                <VariationPricingTab
+                  formData={formData}
+                  setFormData={setFormData}
+                  parentProduct={parentProduct}
+                  varDiscountPercent={varDiscountPercent}
+                  varDiscountFixed={varDiscountFixed}
+                  getParentDiscountPercent={getParentDiscountPercent}
+                  getParentDiscountFixed={getParentDiscountFixed}
+                  handlePriceChange={handlePriceChange}
+                  handleDiscountPercentChange={handleDiscountPercentChange}
+                  handleDiscountFixedChange={handleDiscountFixedChange}
+                  handlePromoPriceFieldChange={handlePromoPriceFieldChange}
+                  updateCost={updateCost}
+                  isSingleVariation={isSingleVariation}
+                />
+              )}
 
-          {activeTab === 'tecnico' && (
-            <VariationTechnicalTab
-              formData={formData}
-              setFormData={setFormData}
-              parentProduct={parentProduct}
-              handleChange={handleChange}
-              isSingleVariation={isSingleVariation}
-            />
-          )}
+              {activeTab === 'tecnico' && (
+                <VariationTechnicalTab
+                  formData={formData}
+                  setFormData={setFormData}
+                  parentProduct={parentProduct}
+                  handleChange={handleChange}
+                  requiredFieldsOnly={isStockistOnly}
+                  isSingleVariation={isSingleVariation}
+                />
+              )}
 
-          {activeTab === 'descricao' && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                Descrição da variação
-              </h3>
-              <textarea
-                rows={16}
-                value={isSingleVariation ? parentProduct.description || '' : formData.description || ''}
-                disabled={isSingleVariation}
-                onChange={(event) => handleChange('description', event.target.value)}
-                placeholder="Descrição específica desta variação..."
-                className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
-              />
+              {!isStockistOnly && activeTab === 'descricao' && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                    Descrição da variação
+                  </h3>
+                  <textarea
+                    rows={16}
+                    value={isSingleVariation ? parentProduct.description || '' : formData.description || ''}
+                    disabled={isSingleVariation}
+                    onChange={(event) => handleChange('description', event.target.value)}
+                    placeholder="Descrição específica desta variação..."
+                    className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
+                  />
+                </div>
+              )}
+
+              {activeTab === 'compostos' && (
+                <VariationCompositionItemsTab
+                  formData={formData}
+                  setFormData={setFormData}
+                  parentProduct={parentProduct}
+                />
+              )}
+            </fieldset>
+          </div>
+          {showInheritedDataNotice && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-50/40 px-5 py-8 dark:bg-slate-950/40">
+              <div
+                role="status"
+                className="max-w-lg rounded-2xl border border-slate-200 bg-white/95 px-6 py-5 text-center shadow-xl dark:border-slate-700 dark:bg-slate-900/95"
+              >
+                <i className="bi bi-arrow-down-up mb-3 block text-2xl text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                <p className="text-sm font-bold leading-relaxed text-slate-700 dark:text-slate-200">
+                  Como este produto tem apenas uma variação no momento, os campos desta aba são herdados do produto principal.
+                </p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Para alterá-los, edite o produto principal ou adicione outra variação para liberar a edição individual.
+                </p>
+              </div>
             </div>
-          )}
-
-          {activeTab === 'compostos' && (
-            <VariationCompositionItemsTab
-              formData={formData}
-              setFormData={setFormData}
-              parentProduct={parentProduct}
-            />
           )}
         </div>
 

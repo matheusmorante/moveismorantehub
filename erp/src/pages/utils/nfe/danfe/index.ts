@@ -6,3 +6,4 @@ export * from './danfeTaxesAndTotals';
 export * from './danfeTransport';
 export * from './danfeItemsTable';
 export * from './danfeAdditionalInfo';
+export * from './danfeHtmlUtils';

@@ -9,6 +9,10 @@ import StockLaunchModal from '../Stock/modals/StockLaunchModal';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { loadProductCatalogStats } from './ProductList/services/productCatalogStatsService';
 import { resolveProductVariation } from './utils/resolveProductVariation';
+import ProductDetailsModal from './modals/ProductDetailsModal';
+import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
+import { getProfileRoles } from '@/pages/utils/accessRoles';
 const categoryTree = undefined;
 
 const defaultVisibility: ProductVisibilitySettings = {
@@ -31,12 +35,17 @@ interface ProductsProps {
 }
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
+  const { profile } = useAuth();
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canManageProducts = canPerform('productConfig', roles);
+  const readOnly = !canManageProducts;
   const [filters, setFilters] = React.useState<Partial<ProductFiltersData>>({});
   const [showTestProducts, setShowTestProducts] = React.useState(false);
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
   const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
+  const [viewingProduct, setViewingProduct] = React.useState<Product | null>(null);
   const [initialFormData, setInitialFormData] = React.useState<Partial<Product> | null>(null);
 
   const [isVariationModalOpen, setIsVariationModalOpen] = React.useState(false);
@@ -138,10 +147,10 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
       <div className="flex-1 flex flex-col min-w-0 p-0.5 sm:p-2 lg:p-6 xl:p-8">
-        <div className="flex flex-col gap-3 sm:gap-6 flex-1 min-h-0">
+        <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
           {/* Header Actions Container */}
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">
-            <div className="flex flex-wrap items-center gap-3 w-full">
+            <div className="flex flex-wrap items-center gap-2 w-full">
               <div className="relative flex-1 min-w-[200px] max-w-md">
                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600"></i>
                 <input
@@ -151,17 +160,24 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   }
                   value={filters.search || ''}
                   onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-                  className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                  className="w-full pl-12 pr-4 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 />
               </div>
 
-              <ShowTestDataToggle checked={showTestProducts} onChange={setShowTestProducts} />
+              {canManageProducts && (
+                <ShowTestDataToggle
+                  checked={showTestProducts}
+                  onChange={setShowTestProducts}
+                  compact
+                />
+              )}
 
+              {canManageProducts && (
               <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>
                 <div className="relative">
                   <button
                     onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-                    className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
+                    className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
                     title="Opções"
                   >
                     <i className="bi bi-three-dots-vertical text-lg" />
@@ -224,6 +240,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   )}
                 </div>
               </div>
+              )}
             </div>
           </div>
 
@@ -233,11 +250,16 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
             <div className="flex-1 min-w-0">
               <ProductList
                 mode={mode}
+                readOnly={readOnly}
                 filters={currentFilters}
                 title={currentTitle}
                 onCloseTrash={handleCloseSpecialView}
-                visibilitySettings={visibilitySettings}
+                visibilitySettings={readOnly ? { ...visibilitySettings, actions: true } : visibilitySettings}
                 onEdit={(p: Product) => {
+                  if (readOnly) {
+                    setViewingProduct(p);
+                    return;
+                  }
                   if (p.isVariation) {
                     setVariationParentProduct(p);
                     setEditingVariation(resolveProductVariation(p));
@@ -247,18 +269,18 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                     setIsFormModalOpen(true);
                   }
                 }}
-                onShowHistory={(p: Product) => {
+                onShowHistory={canManageProducts ? (p: Product) => {
                   setHistoryProduct(p);
                   setIsHistoryModalOpen(true);
-                }}
-                onLaunchStock={(p: Product) => {
+                } : undefined}
+                onLaunchStock={canManageProducts ? (p: Product) => {
                   if (p.isVariation) {
                     setStockLaunchTarget({ variation: resolveProductVariation(p) });
                   } else {
                     setStockLaunchTarget({ product: p });
                   }
                   setIsStockModalOpen(true);
-                }}
+                } : undefined}
                 onToggleColumn={toggleVisibility}
                 onSort={handleSort}
                 categoryTree={categoryTree}
@@ -270,6 +292,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
               />
             </div>
 
+            {canManageProducts && (
             <div className="hidden xl:block w-80 shrink-0 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-sm p-4 space-y-4">
               {/* TÓPICO 1: Resumo do Catálogo (Sanfona) */}
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -448,12 +471,13 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Modal de Filtros para Mobile (< lg) */}
-      {isSidebarOpen && (
+      {canManageProducts && isSidebarOpen && (
         <div
           role="dialog"
           aria-modal="true"
@@ -516,7 +540,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
       )}
 
       {/* Form Modal */}
-      <ProductFormModal
+      {canManageProducts && <ProductFormModal
         isOpen={isFormModalOpen}
         onClose={() => {
           setIsFormModalOpen(false);
@@ -527,20 +551,24 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
           productListRef.current?.refresh();
           fetchStats();
         }}
+        onDraftSaved={() => {
+          productListRef.current?.refresh();
+          fetchStats();
+        }}
         product={editingProduct}
         initialData={initialFormData}
-      />
+      />}
 
-      <PriceHistoryModal
+      {canManageProducts && <PriceHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => {
           setIsHistoryModalOpen(false);
           setHistoryProduct(null);
         }}
         product={historyProduct}
-      />
+      />}
 
-      {isVariationModalOpen && variationParentProduct && (
+      {canManageProducts && isVariationModalOpen && variationParentProduct && (
         <VariationFormModal
           isOpen={isVariationModalOpen}
           onClose={() => {
@@ -556,7 +584,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
         />
       )}
 
-      {isStockModalOpen && (
+      {canManageProducts && isStockModalOpen && (
         <StockLaunchModal
           isOpen={isStockModalOpen}
           onClose={() => {
@@ -566,6 +594,10 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
           targetProduct={stockLaunchTarget?.product || null}
           targetVariation={stockLaunchTarget?.variation}
         />
+      )}
+
+      {viewingProduct && (
+        <ProductDetailsModal product={viewingProduct} onClose={() => setViewingProduct(null)} />
       )}
     </div>
   );

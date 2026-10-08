@@ -1,5 +1,8 @@
 import React from 'react';
 import Product from '@/pages/types/product.type';
+import type { Variation } from '@/pages/types/product.type';
+import { useAuth } from '@/context/AuthContext';
+import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import { LabelPrintType } from '../../../components/modals/product/LabelPrintSelectionModal';
 import { ChildVariationActions } from './ProductRowActions/ChildVariationActions';
 import { ParentProductActions } from './ProductRowActions/ParentProductActions';
@@ -8,10 +11,13 @@ export interface ActionProductLike extends Product {
   readonly is_draft?: boolean;
   readonly variationId?: string;
   readonly mergedToVariationId?: string;
+  readonly displayName?: string;
+  readonly attributes?: Variation['attributes'];
 }
 
 export interface ProductRowActionsCellProps {
   readonly product: ActionProductLike;
+  readonly readOnly?: boolean;
   readonly isChildVar: boolean;
   readonly showTrash?: boolean;
   readonly onEdit: (product: Product) => void;
@@ -32,6 +38,7 @@ export interface ProductRowActionsCellProps {
  */
 export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   product,
+  readOnly = false,
   isChildVar,
   showTrash,
   onEdit,
@@ -45,12 +52,24 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   onMergeWithAnotherVariation,
   onRefresh,
 }) => {
+  const { profile } = useAuth();
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
   const isDraft =
     Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
 
   return (
     <td key="actions" className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-      {isChildVar ? (
+      {readOnly && !isLabelOnlyProfile ? (
+        <button
+          type="button"
+          onClick={() => onEdit(product)}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+          aria-label={`Ver detalhes de ${product.name || product.title || 'produto'}`}
+        >
+          <i className="bi bi-eye" />
+          Detalhes
+        </button>
+      ) : isChildVar ? (
         <ChildVariationActions
           product={product}
           onMoveToAnotherFamily={onMoveToAnotherFamily}
@@ -60,7 +79,8 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
       ) : (
         <ParentProductActions
           product={product}
-          showTrash={showTrash}
+          showTrash={showTrash && !isLabelOnlyProfile}
+          showEditButton={!readOnly}
           isDraft={isDraft}
           onEdit={onEdit}
           onRestore={onRestore}

@@ -9,7 +9,10 @@ import {
   replaceProductImage,
   setProductCoverImage,
 } from './images/productImageOrdering';
-import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
+import {
+  getMaxParentProductImages,
+  MAX_VARIATION_IMAGES,
+} from '@/pages/utils/productImageLimits';
 
 interface ProductEcommerceTabProps {
   readonly formData: Partial<Product>;
@@ -44,7 +47,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
-  const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
+  const variationCount = formData.variations?.length ?? 0;
+  const maxPhotos = getMaxParentProductImages(variationCount);
   const currentCount = (formData.images || []).length;
 
   const handleReplacePhoto = async (index: number, file: File) => {
@@ -111,6 +115,31 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* PHOTOS SECTION */}
       <div id="field-product-images" className="flex flex-col gap-6 transition-all p-2 rounded-2xl">
+        <div
+          role="note"
+          aria-label="Limite de fotos do produto"
+          className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <i className="bi bi-info-circle-fill mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <div className="space-y-1 text-xs">
+            <p className="font-black">
+              Limite do produto pai: {maxPhotos} foto(s)
+              {variationCount > 0 && ` (${variationCount} × ${MAX_VARIATION_IMAGES})`}.
+            </p>
+            <p>
+              {variationCount > 0
+                ? `Com ${variationCount} ${variationCount === 1 ? 'variação' : 'variações'}, adicione outra para ampliar o limite em mais ${MAX_VARIATION_IMAGES} fotos.`
+                : `Sem variações, o limite é ${MAX_VARIATION_IMAGES} fotos; com variações, ele acompanha a quantidade, com ${MAX_VARIATION_IMAGES} fotos por variação.`}{' '}
+              Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos.
+            </p>
+            {currentCount > maxPhotos && (
+              <p className="font-semibold">
+                Este cadastro já possui {currentCount} fotos, acima do limite atual. As fotos existentes serão preservadas; remova algumas ou aumente a quantidade de variações até o limite cobrir o total atual antes de incluir novas.
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider">
             <i className="bi bi-camera text-base text-purple-600 dark:text-purple-400"></i>

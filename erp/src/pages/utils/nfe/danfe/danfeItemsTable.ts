@@ -1,12 +1,41 @@
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../../settingsService';
 import { formatCurrency } from '../../formatters';
+import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
+import { escapeDanfeHtml, formatDanfeDecimal, formatDanfeMoney } from './danfeHtmlUtils';
 
-export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings): string {
-  const itemsRows = (order.items || [])
+export function buildDanfeItemsOfficialHtml(
+  order: Order,
+  settings: AppSettings,
+  fiscalDetails?: ParsedFiscalDetails
+): string {
+  const itemsRows = fiscalDetails
+    ? fiscalDetails.items
+        .map(
+          (item) => `
+            <tr>
+                <td style="text-align:center;">${escapeDanfeHtml(item.code) || '&nbsp;'}</td>
+                <td style="text-align:left;">${escapeDanfeHtml(item.description)}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(item.ncm) || '&nbsp;'}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(item.cst) || '&nbsp;'}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(item.cfop) || '&nbsp;'}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(item.unit) || '&nbsp;'}</td>
+                <td style="text-align:right;">${formatDanfeDecimal(item.quantity)}</td>
+                <td style="text-align:right;">${formatDanfeDecimal(item.unitValue)}</td>
+                <td style="text-align:right;">${formatDanfeMoney(item.total)}</td>
+                <td style="text-align:right;">${formatDanfeMoney(item.icmsBase)}</td>
+                <td style="text-align:right;">${formatDanfeMoney(item.icmsValue)}</td>
+                <td style="text-align:right;">${formatDanfeMoney(item.ipiValue)}</td>
+                <td style="text-align:right;">${formatDanfeDecimal(item.icmsRate)}</td>
+                <td style="text-align:right;">${formatDanfeDecimal(item.ipiRate)}</td>
+            </tr>
+        `
+        )
+        .join('')
+    : (order.items || [])
     .map((item, idx) => {
       const itemIndex = idx + 1;
-      const cProd = item.code || item.productId || String(itemIndex).padStart(4, '0');
+      const cProd = escapeDanfeHtml(item.code || item.productId || String(itemIndex).padStart(4, '0'));
       const qCom = item.quantity || 1;
       const vUnCom = Number(item.unitPrice || 0);
       const itemDiscount = Number(item.unitDiscount || 0) * qCom;
@@ -19,10 +48,10 @@ export function buildDanfeItemsOfficialHtml(order: Order, settings: AppSettings)
       return `
             <tr>
                 <td style="text-align:center;">${cProd}</td>
-                <td style="text-align:left;">${item.description}</td>
-                <td style="text-align:center;">${ncm}</td>
-                <td style="text-align:center;">${cst}</td>
-                <td style="text-align:center;">${cfop}</td>
+                <td style="text-align:left;">${escapeDanfeHtml(item.description)}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(ncm)}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(cst)}</td>
+                <td style="text-align:center;">${escapeDanfeHtml(cfop)}</td>
                 <td style="text-align:center;">UN</td>
                 <td style="text-align:right;">${qCom.toFixed(2)}</td>
                 <td style="text-align:right;">${formatCurrency(vUnCom).replace('R$', '').trim()}</td>

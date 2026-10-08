@@ -20,6 +20,10 @@ import OrderEditModal from '../modals/OrderEditModal';
 import NewSaleOrder from '../pages/NewSaleOrder';
 import Order from '@/pages/types/order.type';
 
+const { mockUseAuth } = vi.hoisted(() => ({
+  mockUseAuth: vi.fn((): { isAdministrator: boolean } => ({ isAdministrator: false })),
+}));
+
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: '123' }),
   useNavigate: () => vi.fn(),
@@ -48,8 +52,17 @@ vi.mock('@/pages/utils/orderHistoryService', () => ({
 }));
 
 vi.mock('../SalesOrderFormSection', () => ({
-  default: () => <div data-testid="mock-sales-order-form-section">Form Section</div>,
+  default: (props: any) => (
+    <div
+      data-testid="mock-sales-order-form-section"
+      data-show-test-mode={String(Boolean(props.showTestMode))}
+    >
+      Form Section
+    </div>
+  ),
 }));
+
+vi.mock('@/context/AuthContext', () => ({ useAuth: mockUseAuth }));
 
 vi.mock('../useSalesOrderForm', () => ({
   useSalesOrderForm: () => ({
@@ -78,6 +91,7 @@ vi.mock('../useSalesOrderForm', () => ({
 describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', () => {
   beforeEach(() => {
     document.body.style.overflow = 'auto';
+    mockUseAuth.mockReturnValue({ isAdministrator: false });
   });
 
   afterEach(() => {
@@ -128,5 +142,36 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
     unmount();
 
     expect(document.body.style.overflow).toBe('auto');
+  });
+
+  it('mostra o modo teste somente para administrador em nova venda', () => {
+    mockUseAuth.mockReturnValue({ isAdministrator: true });
+    const adminView = render(<NewSaleOrder onClose={vi.fn()} />);
+    expect(adminView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
+      'true'
+    );
+    adminView.unmount();
+
+    mockUseAuth.mockReturnValue({ isAdministrator: false });
+    const regularView = render(<NewSaleOrder onClose={vi.fn()} />);
+    expect(regularView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
+      'false'
+    );
+  });
+
+  it('oculta o modo teste ao editar ou criar outro tipo de pedido', () => {
+    mockUseAuth.mockReturnValue({ isAdministrator: true });
+    const editingView = render(
+      <NewSaleOrder onClose={vi.fn()} initialOrder={{ id: 'sale-1', orderType: 'sale' } as Order} />
+    );
+    expect(editingView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
+      'false'
+    );
+    editingView.unmount();
+
+    const budgetView = render(<NewSaleOrder onClose={vi.fn()} orderType="budget" />);
+    expect(budgetView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
+      'false'
+    );
   });
 });

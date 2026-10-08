@@ -11,6 +11,8 @@ import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productK
 
 export interface ProductRowProps {
   readonly product: Product;
+  readonly readOnly?: boolean;
+  readonly showCatalogControl?: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
@@ -38,6 +40,8 @@ export interface ProductRowProps {
 
 export const ProductRow: React.FC<ProductRowProps> = ({
   product,
+  readOnly = false,
+  showCatalogControl = true,
   onEdit,
   onDelete,
   onRestore,
@@ -95,7 +99,8 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     isExpanded,
     onToggleExpand,
     categoryTree,
-    canManageCatalog,
+    showCatalogControl,
+    canManageCatalog: canManageCatalog && !readOnly,
     isDraft,
     onToggleActive,
     onDeactivateCatalog,
@@ -128,6 +133,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
         <ProductRowActionsCell
           key="actions"
           product={product}
+          readOnly={readOnly}
           isChildVar={isChildVar}
           showTrash={showTrash}
           onEdit={onEdit}
@@ -153,9 +159,11 @@ export const ProductRow: React.FC<ProductRowProps> = ({
       onClick={() => {
         if (hasVariations && onToggleExpand) {
           onToggleExpand();
+        } else if (readOnly) {
+          onEdit(product);
         }
       }}
-      className={`transition-colors group ${hasVariations ? 'cursor-pointer' : ''} ${
+      className={`transition-colors group ${hasVariations || readOnly ? 'cursor-pointer' : ''} ${
         isDeactivated
           ? 'bg-slate-100/90 dark:bg-slate-800/70'
           : product.isParent
@@ -179,7 +187,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
       )}
 
       <ProductRowModals
-        product={product}
+          product={product}
         labelModal={labelModal}
         onCloseLabelModal={() => setLabelModal((prev) => ({ ...prev, open: false }))}
         isSalesModalOpen={isSalesModalOpen}

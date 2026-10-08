@@ -109,7 +109,6 @@ export function useNfeEmission(
     manualFiscalFields,
     finalConsumer,
     recipientIeIndicator,
-    recipientTaxId,
     model: currentModel,
   });
 

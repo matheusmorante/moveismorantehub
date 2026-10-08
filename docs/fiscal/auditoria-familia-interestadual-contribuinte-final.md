@@ -1,72 +1,73 @@
-# Auditoria de conteúdo — contribuinte ICMS consumidor final
+# Auditoria — destinatário contribuinte do ICMS e consumidor final
 
-**Estado:** revisão preliminar; a família executável permanece `DRAFT`.
+**Estado:** auditoria de regra em andamento; família executável permanece `DRAFT`.
 **Família:** `INTERSTATE-TAXPAYER-FINAL-BASE`.
-**Escopo atual da regra:** emitente PR, CRT 1, venda interestadual de mercadoria de terceiros, NF-e 55; destinatário contribuinte (`indIEDest=1`) e `indFinal=1`. A regra ainda usa curingas para destino e mercadoria.
-**Caso usado para iniciar a revisão:** pedido HML #4268, produto descrito como forno micro-ondas, NCM `85165000`, PR → SC.
+**Escopo modelado:** emitente PR, CRT 1, NF-e 55, destinatário contribuinte (`indIEDest=1`) e consumidor final (`indFinal=1`); a regra ainda usa curingas para UF de destino e mercadoria.
+**Caso concreto:** pendente. O pedido HML #4268 foi descartado pelo usuário como cadastro incorreto e não é uma fixture fiscal válida.
 
-## Fatos observados e limites
+## Decisão sobre o pedido #4268
 
-- O destinatário é PJ em SC, classificado na tela como contribuinte do ICMS, com IE informada.
-- O produto está cadastrado como forno micro-ondas, NCM `85165000`, origem `0`, sem CEST registrado.
-- Na auditoria inicial, o pedido não persistia a finalidade da compra e o modal assumia `indFinal=true`. Em 07/10/2026, o usuário definiu explicitamente o cenário de teste #4268 como **uso/consumo (`indFinal=1`)**. A decisão está registrada nesta auditoria; o pedido remoto ainda não foi alterado nesta etapa.
-- A tela permitia CFOP `6102` e mostrava CSOSN `103`. A classificação de CFOP não decide o tratamento completo de ICMS.
-- Não há dado explícito sobre retenção/recolhimento de ICMS-ST na aquisição do produto.
+Não usar os dados de #4268, do destinatário ou do produto cadastrado nele para concluir CFOP, CSOSN, ICMS, ST, DIFAL/FCP ou qualquer outro campo da saída. Não alterar o pedido, o produto ou os documentos ligados a eles. O usuário criará novos produtos de teste manualmente; a auditoria concreta será retomada com esses dados.
 
-## O que as fontes oficiais sustentam
+O pedido não foi usado para transmissão e não houve gravação remota nesta etapa. Os dados observados anteriormente pertencem a um registro que o usuário declarou incorreto, portanto não sustentam uma decisão de emissão. A finalidade fiscal persistida permanece ausente nesse registro e não deve ser completada artificialmente.
 
-### CFOP
+## Comportamento implementado no código local
 
-A tabela oficial do CONFAZ descreve `6102` como venda interestadual de mercadoria adquirida ou recebida de terceiros e `6108` como venda dessa mercadoria a não contribuinte. Isso sustenta `6102` como candidato classificatório para os fatos da tela; não comprova CSOSN, ICMS próprio, ST ou DIFAL.
+- `fiscalContext.acquisitionPurpose` distingue `resale`, `use_consumption` e `fixed_asset` e é salvo pelo fluxo transacional de atualização do pedido.
+- Na emissão interestadual, `indFinal` é derivado dessa finalidade persistida. Um booleano legado `finalConsumer=true` sem finalidade explícita não completa a decisão.
+- O backend rejeita finalidade ausente ou divergente antes da consulta à matriz; o validador e o construtor do XML também impedem preparar XML sem finalidade válida.
+- A matriz continua bloqueando famílias em `DRAFT`; não há aprovação ampla PR→SC nem liberação de emissão interestadual.
 
-### Santa Catarina: ST de eletrodomésticos
+## Fundamentos oficiais já verificados — limites de aplicação
 
-O Decreto SC nº 104/2019 revogou, com efeitos a partir de 1º de maio de 2019, a Seção XX do Anexo 1-A do RICMS/SC, que tratava dos produtos eletrônicos, eletroeletrônicos e eletrodomésticos. A versão vigente consultada do Anexo 1-A continua marcando essa seção como revogada, e a busca no Anexo 3 vigente não encontrou o NCM `8516.50`. Assim, a antiga listagem de eletrodomésticos não sustenta cobrança de ST em SC para este caso.
+### Classificação da operação e CFOP
 
-Esse achado é restrito ao destino SC e à categoria pesquisada. Não prova ausência de ST para todos os destinos, mercadorias, outras bases legais ou fatos anteriores da cadeia. O CEST ausente e a falta do documento fiscal de aquisição ainda impedem concluir o histórico tributário desta unidade.
+A tabela CFOP do CONFAZ distingue `6.101` (venda interestadual de produção do estabelecimento) de `6.102` (venda interestadual de mercadoria adquirida ou recebida de terceiros). Logo, o CFOP depende da natureza real da mercadoria e da operação. Sem cadastro de teste confiável e classificação de propriedade/produção, não se escolhe um dos dois para uma emissão concreta.
 
-### Finalidade e DIFAL em SC
+### CSOSN 103 e enquadramento do emitente
 
-O RICMS/SC, art. 3º, XIV, trata como fato gerador a entrada em SC de mercadoria adquirida por contribuinte de outra UF para uso/consumo ou ativo imobilizado. O art. 9º, VII e § 3º, prevê a diferença entre alíquota interna e interestadual para essa hipótese.
+O MOC da NF-e descreve CSOSN `103` como isenção do ICMS no Simples Nacional para faixa de receita bruta. O art. 2º da Lei PR nº 15.562/2007 prevê o benefício para optantes estabelecidas no Paraná com RBT12 de até R$ 360.000, observadas as condições da norma. O usuário confirmou que o emitente está na faixa que permite CSOSN `103`; essa premissa não autoriza trocar automaticamente para `102` só por a operação ser interestadual.
 
-Isso não se aplica automaticamente a mercadoria adquirida para revenda. `indFinal=1` não distingue uso/consumo de ativo imobilizado, e nenhum desses fatos pode ser deduzido apenas do tipo PJ ou da IE do destinatário. A finalidade efetiva precisa ser informada e persistida.
+Para o caso concreto ainda será necessário validar os fatos da emissão e a aplicabilidade do enquadramento ao período/operação. A regra candidata `103` não aprova, por si só, uma família interestadual nem define tratamento de ICMS-ST ou outros campos.
 
-### CSOSN e crédito do Simples Nacional
+### Consumidor final contribuinte, DIFAL e grupo XML
 
-O usuário definiu `103` como preferência única da matriz interestadual, sem variação por UF de destino. Esse código permanece como candidato comum e não cria override estadual. O MOC da NF-e define `103` como isenção do ICMS no Simples Nacional para faixa de receita bruta. A Resolução CGSN nº 140/2018 exige que a isenção esteja estabelecida pelo Estado/DF competente e abranja a faixa de receita da optante no mês da operação. Portanto, a configuração comum não substitui a comprovação de que o emitente no PR está abrangido; CRT 1, por si só, não fundamenta CSOSN `103`.
+O MOC da NF-e restringe o grupo `ICMSUFDest` à operação interestadual destinada a consumidor final **não contribuinte** (`indIEDest=9`); para destinatário contribuinte (`indIEDest=1`), esse grupo não deve ser emitido. O eventual diferencial devido pelo destinatário contribuinte na entrada para uso/consumo ou ativo é analisado segundo a legislação do estado de destino e não se confunde com o grupo `ICMSUFDest` da NF-e do vendedor.
 
-O crédito indicado em `CSOSN 101` depende das condições da LC 123/2006 e da Resolução CGSN nº 140/2018; entre outros pontos, não se aplica quando o destinatário não é optante pelo Simples mas adquire a mercadoria para uso/consumo. `CSOSN 102` não substitui o candidato `103`: representa operação tributada pelo Simples sem permissão de crédito e exclui hipóteses próprias como isenção, ST, imunidade e não tributação.
+No caso de SC, os arts. 3º, XIV, e 9º do RICMS/SC tratam da entrada de mercadoria para uso/consumo ou ativo e da diferença de alíquotas. A finalidade específica precisa ser conhecida: `indFinal=1` sozinho não diferencia uso/consumo de ativo imobilizado, e não deve ser inferido a partir do tipo de pessoa ou da inscrição estadual.
 
-## Registro da finalidade no fluxo
+### ICMS-ST e classificação de mercadoria
 
-O modal registra `fiscalContext.acquisitionPurpose` no pedido pelo serviço transacional de atualização existente, junto com o `finalConsumer` correspondente. As opções distinguem revenda, uso/consumo e ativo imobilizado. Na operação interestadual, um booleano legado sem essa finalidade explícita não basta para preparar a emissão. O backend lê a finalidade do snapshot persistido e rejeita `indFinal` incompatível antes de consultar a matriz. HML e Produção usam a mesma validação.
+O Convênio ICMS 142/2018 associa CEST a combinações de NCM/descrição e determina sua informação nos casos previstos, mas a existência de CEST não prova que a operação esteja sujeita à ST. PR e SC alteram suas listas e regras ao longo do tempo; para cada produto novo será necessário confirmar NCM, CEST, descrição comercial, origem, papel na cadeia e vigência da regra aplicável. Nenhuma classificação fiscal do produto de #4268 será reutilizada.
 
-Salvar a finalidade não movimenta mercadoria nem cria nova emissão; a atualização mantém o estado comercial e usa a reconciliação transacional existente do pedido. A tela só aceita a nova finalidade após a atualização concluir. Falha de persistência mantém o cenário anterior e não libera a emissão. Nenhuma chamada à SEFAZ faz parte dessa atualização.
+## Campos a decidir para a próxima fixture
 
-## Decisão sobre a família
+| Campo | Situação antes de receber a nova fixture | Fundamento / evidência necessária | Estado |
+|---|---|---|---|
+| `indIEDest` | Usar o cadastro fiscal real do destinatário | Cadastro/IE e enquadramento estadual | Pendente |
+| `indFinal` e finalidade | Persistir uma escolha explícita: revenda, uso/consumo ou ativo | Pedido/ordem de compra; finalidade ausente bloqueia | Pendente |
+| CFOP | Depende de produção própria ou mercadoria de terceiros e da operação | Tabela CFOP CONFAZ + origem comercial real | Pendente |
+| NCM, CEST, `orig` | Não herdar do #4268 | Cadastro validado, ficha do produto e documentos de aquisição como evidência auxiliar | Pendente |
+| CSOSN | `103` é candidato sob a premissa do emitente; ainda precisa ser validado no cenário completo | MOC NF-e + Lei PR 15.562/2007 + fatos do período | Parcial |
+| ICMS próprio e grupos CSOSN | Não calculados | Regra aplicável à combinação concreta e ao regime do emitente | Pendente |
+| ICMS-ST / retido anteriormente | Não determinado | Legislação vigente por UF, classificação e histórico da unidade | Pendente |
+| `ICMSUFDest` / DIFAL / FCP no XML do vendedor | Grupo `ICMSUFDest` não se aplica a destinatário contribuinte; outros campos dependem do caso | MOC NF-e + legislação do destino e perfil do destinatário | Parcial |
+| Demais campos fiscais | Não determinados | Modelo/documento, operação e regra vigente | Pendente |
 
-**Não aprovar nem alterar o tratamento nesta etapa.** As fontes sustentam a classificação candidata de CFOP e algumas regras de enquadramento, mas não fecham a combinação fiscal do pedido nem a família executável ampla.
+XML de entrada pode apoiar a identificação e o histórico do produto, mas não é autoridade para a tributação da saída.
 
-O cenário #4268 foi definido como compra para uso/consumo e cobre somente uma combinação de destino, produto e finalidade. A família atual alcança todas as UFs e produtos; uma confirmação pontual de SC não sustenta os curingas nacionais. O runtime continua bloqueando corretamente essa família em `DRAFT`.
+## Aprovação da matriz
 
-## Dados ainda necessários para fechar o caso #4268
-
-1. Persistir no pedido a finalidade já definida pelo usuário: uso/consumo, `indFinal=1`.
-2. Identificação comercial completa do micro-ondas e capacidade, para confirmar a descrição/classificação do produto.
-3. XML/documento de aquisição e ficha fiscal do estoque como evidência de origem, NCM/CEST, eventual retenção anterior e CST/CSOSN de entrada. Esses documentos não determinam sozinhos a tributação da saída: o tratamento da nova operação PR→SC depende da legislação aplicável a ela.
-4. Situação do destinatário perante o Simples Nacional e regime de apuração, além da finalidade informada na ordem de compra.
-5. Dados fiscais do emitente necessários ao enquadramento da saída, inclusive faixa/receita e percentual aplicável no Simples no período; comprovação legal seria necessária se houver proposta de CSOSN `103`.
-6. Para aprovar a família geral: cobertura das combinações de destino e mercadorias que os curingas atuais alcançam, com tratamento de CFOP/CSOSN/ICMS, ST, DIFAL, FCP e respectivas vigências.
+**Manter `DRAFT`.** A premissa de CSOSN `103` e os fundamentos gerais acima não fecham os vetores por produto, UF, propriedade/produção, ST, finalidade e demais campos. Não generalizar um caso futuro para todas as UFs ou mercadorias enquanto qualquer vetor relevante não tiver fundamento suficiente.
 
 ## Fontes oficiais
 
-- [Tabela CFOP do CONFAZ](https://www.confaz.fazenda.gov.br/legislacao/ajustes/sinief/cfop_cvsn_1-6.24)
-- [Decreto SC nº 104/2019](https://legislacao.sef.sc.gov.br/html/decretos/2019/dec_19_0104.htm)
-- [RICMS/SC — Anexo 1-A](https://legislacao.sef.sc.gov.br/html/regulamentos/icms/ricms_01_01_a.htm)
-- [RICMS/SC — Regulamento, arts. 3º e 9º](https://legislacao.sef.sc.gov.br/html/regulamentos/icms/ricms_01_00.htm)
-- [RICMS/SC — Anexo 3](https://legislacao.sef.sc.gov.br/html/regulamentos/icms/ricms_01_03.htm)
-- [MOC NF-e 7.0, Anexo I](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)
-- [Resolução CGSN nº 140/2018, texto compilado](https://normas.receita.fazenda.gov.br/sijut2consulta/normas.receisulta/link.action?idAto=92278&visao=compilado)
-- [LC nº 123/2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm)
+Consultadas em 07/10/2026; as regras estaduais devem ser revalidadas quando a nova fixture for definida.
 
-O catálogo guarda `103` como candidato comum das cinco famílias DRAFT, sem seletor ou override por UF de destino. Esta revisão não aprovou tratamento tributário e não transmitiu documento fiscal.
+- [Tabela CFOP do CONFAZ](https://www.confaz.fazenda.gov.br/legislacao/ajustes/sinief/cfop_cvsn_1-6.24)
+- [MOC NF-e 7.0 — Anexo I](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)
+- [Lei PR nº 15.562/2007, art. 2º, texto compilado](https://www.legislacao.pr.gov.br/legislacao/pesquisarAto.do?action=exibir&codAto=553)
+- [Convênio ICMS 142/2018 — CONFAZ](https://www.confaz.fazenda.gov.br/legislacao/convenios/2018/CV142_18)
+- [RICMS/SC — Regulamento, arts. 3º e 9º](https://legislacao.sef.sc.gov.br/legtrib_internet/html/regulamentos/icms/ricms_01_00.htm)
+
+Esta auditoria não transmitiu documento fiscal, não aprovou a família e não alterou registros remotos.

@@ -8,6 +8,7 @@ import {
   type NfeDocumentRecord,
 } from '../types/fiscalDocuments.types';
 import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
+import { parseNfeApiResponse } from '@/pages/utils/nfe/parseNfeApiResponse';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -174,10 +175,15 @@ export async function fetchFiscalDocumentsList({
         },
         body: JSON.stringify({ documentIds: documents.map((doc) => doc.id) }),
       });
-      if (eligibilityResponse.ok) {
-        const eligibilityResult = await eligibilityResponse.json();
-        cancellationEligibility = eligibilityResult.documents || {};
-      }
+      const eligibilityResult = await parseNfeApiResponse<{
+        documents?: Record<string, CancellationEligibility>;
+        error?: string;
+      }>(eligibilityResponse, 'Não foi possível consultar a elegibilidade fiscal.');
+      if (!eligibilityResponse.ok)
+        throw new Error(
+          eligibilityResult.error || 'Não foi possível consultar a elegibilidade fiscal.'
+        );
+      cancellationEligibility = eligibilityResult.documents || {};
     } catch (err) {
       console.warn('Falha ao consultar política de cancelamento:', err);
     }

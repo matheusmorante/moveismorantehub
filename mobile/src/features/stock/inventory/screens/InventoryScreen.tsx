@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { ClipboardList } from 'lucide-react-native';
+import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 import { InventoryCard } from '../components/InventoryCard';
 import { useInventory } from '../hooks/useInventory';
 import { InventorySession } from '../../types/stock.types';
@@ -314,23 +315,16 @@ export const InventoryScreen: React.FC<Props> = ({
             )}
             {!loading && visibleSessions.length > 0 && (
               <View style={styles.pagination}>
-                <TouchableOpacity
-                  disabled={currentPage <= 1}
-                  onPress={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  style={[styles.pageButton, currentPage <= 1 && styles.pageButtonDisabled]}
-                >
-                  <Text style={styles.pageButtonText}>‹</Text>
-                </TouchableOpacity>
                 <Text style={[styles.pageText, isDarkMode && styles.periodLabelDark]}>
                   Página {currentPage} de {pageCount}
                 </Text>
-                <TouchableOpacity
-                  disabled={currentPage >= pageCount}
-                  onPress={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
-                  style={[styles.pageButton, currentPage >= pageCount && styles.pageButtonDisabled]}
-                >
-                  <Text style={styles.pageButtonText}>›</Text>
-                </TouchableOpacity>
+                <FixedPageSlots
+                  label="Paginação de inventários"
+                  currentPage={currentPage}
+                  totalPages={pageCount}
+                  onPageChange={setCurrentPage}
+                  dark={isDarkMode}
+                />
               </View>
             )}
           </>

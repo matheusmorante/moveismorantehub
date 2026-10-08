@@ -27,6 +27,7 @@ import {
   getFiscalFormXmlDefaults,
   getFiscalFormRules,
   suggestReturnCfopForSourceItem,
+  ESTORNO_NATURE_OF_OPERATION,
 } from '../../shared-utils/fiscalOperationContext';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -250,7 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const { data: draftForReview, error: draftForReviewError } = await db
         .from('nfe_operation_drafts')
-        .select('id,operation_kind,finalidade,original_document_id,return_order_id,environment,status')
+        .select('id,operation_kind,finalidade,original_document_id,return_order_id,environment,status,reason,nature_of_operation')
         .eq('id', draftId)
         .maybeSingle();
       if (draftForReviewError) throw draftForReviewError;
@@ -375,6 +376,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({
               error:
                 'A revisão alterou campos estruturais ou tributos fora do cálculo proporcional permitido para a devolução.',
+            });
+          }
+        }
+      }
+      if (draftForReview.operation_kind === 'estorno') {
+        const reason = String(reviewData.reason || draftForReview.reason || '').trim();
+        if (
+          Number(draftForReview.finalidade) !== 3 ||
+          String(reviewData.nature_of_operation || '').trim() !== ESTORNO_NATURE_OF_OPERATION ||
+          reason.length < 15 ||
+          Array.from(reason).length > 255 ||
+          reviewData.item_taxes_confirmed !== true ||
+          reviewData.totals_confirmed !== true
+        ) {
+          return res.status(409).json({
+            error: 'Estorno exige natureza e finalidade fixas, justificativa válida e revisão fiscal confirmada.',
+          });
+        }
+        const { data: draftLines, error: draftLinesError } = await db
+          .from('nfe_operation_draft_lines')
+          .select('id,original_document_item_id,quantity,gross_value,discount_value')
+          .eq('draft_id', draftId);
+        if (draftLinesError || !draftLines?.length || draftLines.length !== normalizedLines.length) {
+          return res.status(409).json({ error: 'A revisão deve cobrir todos os itens do estorno.' });
+        }
+        const { data: sourceItems, error: sourceItemsError } = await db
+          .from('nfe_document_items')
+          .select('id,document_id,billed_quantity,gross_value,discount_value,product_xml,taxes_xml')
+          .in('id', draftLines.map((line) => line.original_document_item_id));
+        const { data: settingsRow, error: settingsError } = await db
+          .from('settings')
+          .select('data')
+          .eq('id', 'app')
+          .maybeSingle();
+        if (
+          sourceItemsError ||
+          settingsError ||
+          !sourceItems ||
+          sourceItems.length !== draftLines.length
+        ) {
+          return res.status(409).json({ error: 'Não foi possível conferir todos os itens originais do estorno.' });
+        }
+        const fiscalDefaults = settingsRow?.data?.fiscalDefaults as FiscalCfopConfiguration | undefined;
+        const draftLinesById = new Map(draftLines.map((line) => [line.id, line]));
+        const sourceItemsById = new Map(sourceItems.map((line) => [line.id, line]));
+        const allSourceItems = await db
+          .from('nfe_document_items')
+          .select('id')
+          .eq('document_id', draftForReview.original_document_id);
+        if (allSourceItems.error || !allSourceItems.data || allSourceItems.data.length !== draftLines.length) {
+          return res.status(409).json({ error: 'O estorno precisa conter todos os itens fiscais originais.' });
+        }
+        for (const reviewed of normalizedLines) {
+          const draftLine = draftLinesById.get(reviewed.draft_line_id);
+          const sourceLine = draftLine && sourceItemsById.get(draftLine.original_document_item_id);
+          if (!draftLine || !sourceLine || sourceLine.document_id !== draftForReview.original_document_id) {
+            return res.status(409).json({ error: 'Item fiscal do estorno não pertence à NF-e original.' });
+          }
+          const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
+          const configuredInverse = suggestEstornoCfop(sourceCfop, fiscalDefaults);
+          const cfopIsValid = configuredInverse
+            ? reviewed.cfop === configuredInverse
+            : /^[12]\d{3}$/.test(reviewed.cfop);
+          if (
+            !/^[56]\d{3}$/.test(sourceCfop || '') ||
+            !cfopIsValid ||
+            Math.abs(Number(draftLine.quantity) - Number(sourceLine.billed_quantity)) > 0.00005 ||
+            Math.abs(Number(draftLine.gross_value) - Number(sourceLine.gross_value)) > 0.005 ||
+            Math.abs(Number(draftLine.discount_value) - Number(sourceLine.discount_value)) > 0.005
+          ) {
+            return res.status(409).json({
+              error: 'Item do estorno diverge da origem ou não usa o CFOP inverso fiscalmente conferido.',
+            });
+          }
+          const expectedProduct = buildReturnProductXml({
+            originalProductXml: String(sourceLine.product_xml),
+            quantity: Number(sourceLine.billed_quantity),
+            originalQuantity: Number(sourceLine.billed_quantity),
+            grossValue: Number(sourceLine.gross_value),
+            discountValue: Number(sourceLine.discount_value),
+            cfop: reviewed.cfop,
+          });
+          if (
+            normalizeReviewedFiscalBlock(reviewed.product_xml, 'prod') !==
+            normalizeReviewedFiscalBlock(expectedProduct, 'prod')
+          ) {
+            return res.status(409).json({
+              error: 'O item do estorno precisa preservar os dados fiscais e valores originais.',
             });
           }
         }

@@ -33,10 +33,7 @@ export async function loadNormalSaleInputs(
       .select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted')
       .eq('id', String(customerId || ''))
       .maybeSingle(),
-    db
-      .from('settings')
-      .select('id,data')
-      .in('id', [normalSaleContributionSettingsId('55'), normalSaleContributionSettingsId('65')]),
+    db.from('settings').select('id,data').in('id', [normalSaleContributionSettingsId()]),
   ]);
   if (catalog.error || customer.error || decision.error || !customer.data || customer.data.deleted)
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
@@ -52,15 +49,12 @@ export async function loadNormalSaleInputs(
       ie: customer.data.rg_ie,
       personType: customer.data.person_type_pf_pj,
     },
-    contributionDecisions: Object.fromEntries(
-      (['55', '65'] as const).map((model) => [
-        model,
-        decision.data?.find((row) => row.id === normalSaleContributionSettingsId(model))?.data ||
-          null,
-      ])
-    ) as FiscalJsonValue,
+    contributionDecision: (decision.data?.find(
+      (row) => row.id === normalSaleContributionSettingsId()
+    )?.data || null) as FiscalJsonValue,
     fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue,
   };
+  const fiscalInputs = facts.fiscalInputs as Record<string, FiscalJsonValue>;
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
   const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
   if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
@@ -69,7 +63,7 @@ export async function loadNormalSaleInputs(
     .select('code,active,is_active,start_date,end_date')
     .in('code', codes);
   const date = facts.capturedAt.slice(0, 10);
-  const products = obj(facts.fiscalInputs.products);
+  const products = obj(fiscalInputs.products);
   const invalidSelection = Object.entries(selections).some(([itemNumber, selection]) => {
     const item = items.filter((candidate) => candidate.itemType !== 'service')[
       Number(itemNumber) - 1

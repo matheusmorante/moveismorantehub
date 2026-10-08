@@ -49,49 +49,24 @@ const enabledCfops = (decision: ReturnType<typeof resolveNfeItemCfopOptions>) =>
   decision.options.filter((option) => !option.disabled).map((option) => option.value);
 
 describe('resolveNfeItemCfopOptions', () => {
-  it('habilita somente 6102 quando o destinatário é contribuinte', () => {
-    const decision = resolve('1', false);
+  it.each([
+    { label: 'contribuinte', recipientIeIndicator: '1' as const, finalConsumer: false },
+    { label: 'contribuinte isento', recipientIeIndicator: '2' as const, finalConsumer: true },
+    {
+      label: 'não contribuinte consumidor final',
+      recipientIeIndicator: '9' as const,
+      finalConsumer: true,
+    },
+  ])('mantém CFOPs candidatos bloqueados para $label enquanto não há regra aprovada', (facts) => {
+    const decision = resolve(facts.recipientIeIndicator, facts.finalConsumer);
 
-    expect(decision.defaultCfop).toBe('6102');
-    expect(enabledCfops(decision)).toEqual(['6102']);
-    expect(decision.options.find((option) => option.value === '6108')?.disabled).toBe(true);
-  });
-
-  it('habilita somente 6102 para contribuinte isento aceito pela UF', () => {
-    const decision = resolve('2', true);
-
-    expect(decision.defaultCfop).toBe('6102');
-    expect(enabledCfops(decision)).toEqual(['6102']);
-    expect(decision.options.find((option) => option.value === '6108')?.disabled).toBe(true);
-  });
-
-  it('habilita somente 6108 quando o destinatário é não contribuinte e consumidor final', () => {
-    const decision = resolve('9', true);
-
-    expect(decision.defaultCfop).toBe('6108');
-    expect(
-      decision.options.find((option) => option.value === '6108')?.diagnostic?.conflicts
-    ).toEqual([]);
-    expect(enabledCfops(decision)).toEqual(['6108']);
-    const incompatibleCfop = decision.options.find((option) => option.value === '6102');
-    expect(incompatibleCfop?.disabled).toBe(true);
-    expect(incompatibleCfop?.diagnostic?.recommendedCfop).toBe('6108');
-    expect(incompatibleCfop?.diagnostic?.source).toBe('matrix');
-    expect(incompatibleCfop?.diagnostic?.context).toEqual(
-      expect.arrayContaining([
-        { label: 'Modelo fiscal', value: 'NF-e 55' },
-        { label: 'indIEDest', value: '9' },
-        { label: 'UF de origem', value: 'PR' },
-        { label: 'UF de destino', value: 'SC' },
-        { label: 'Presença / indPres', value: '9' },
-      ])
+    expect(decision.defaultCfop).toBe('');
+    expect(enabledCfops(decision)).toEqual([]);
+    expect(decision.options.map((option) => option.value)).toEqual(
+      expect.arrayContaining(['6102', '6108'])
     );
-    expect(incompatibleCfop?.diagnostic?.conflicts).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('indIEDest'),
-        expect.stringContaining('seleciona CFOP 6108'),
-      ])
-    );
+    expect(decision.options.every((option) => option.disabled)).toBe(true);
+    expect(decision.options.every((option) => option.diagnostic?.source === 'matrix')).toBe(true);
   });
 
   it('mantém os CFOPs visíveis e desabilitados quando a matriz bloqueia a combinação', () => {

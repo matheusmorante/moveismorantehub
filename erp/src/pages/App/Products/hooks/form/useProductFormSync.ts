@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import Product from '@/pages/types/product.type';
-import { computeVariationName } from '@/pages/utils/productVariationDefaults';
+import {
+  computeVariationName,
+  getVariationNameAttributes,
+} from '@/pages/utils/productVariationDefaults';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 
 interface UseProductFormSyncParams {
@@ -78,11 +81,24 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
         updated = true;
       }
 
-      const variationName =
-        computeVariationName(formData.name || formData.description || '', v.attributes || []) ||
-        'Variação';
+      const parentName = formData.name || formData.description || '';
+      const variationNameAttributes = getVariationNameAttributes(
+        v.attributes || [],
+        formData.technicalValues || {},
+        v.technicalValues || {}
+      );
+      const variationName = computeVariationName(parentName, variationNameAttributes);
+      const defaultName = computeVariationName(parentName, []);
+      const nameFromVariationAttributes = computeVariationName(parentName, v.attributes || []);
 
-      if (newV.name !== variationName && (!isDraft || !newV.name || newV.name === 'Variação')) {
+      if (
+        newV.name !== variationName &&
+        (!isDraft ||
+          !newV.name ||
+          newV.name === 'Variação' ||
+          newV.name === defaultName ||
+          newV.name === nameFromVariationAttributes)
+      ) {
         newV.name = variationName;
         updated = true;
       }
@@ -112,6 +128,7 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
     isDraft,
     formData.name,
     formData.description,
+    formData.technicalValues,
     formData.unitPrice,
     formData.costPrice,
     formData.promoPrice,

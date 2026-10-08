@@ -251,10 +251,10 @@ describe('UnavailabilitiesPage', () => {
     );
   });
 
-  it('loads the next server page and can undo an active record', async () => {
+  it('loads the selected server page and can undo an active record', async () => {
     renderPage();
     await screen.findByText(/Variação azul/);
-    fireEvent.click(screen.getByRole('button', { name: 'Próxima página' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));
     await waitFor(() =>
       expect(fetchStockUnavailabilities).toHaveBeenLastCalledWith(
         expect.objectContaining({ page: 2 })

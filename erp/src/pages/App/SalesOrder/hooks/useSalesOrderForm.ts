@@ -52,6 +52,7 @@ export const useSalesOrderForm = (
   const [linkedOrderId, setLinkedOrderId] = useState('');
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isTestMode, setIsTestMode] = useState(false);
 
   // Estado React só é refletido após o próximo render. Esta trava síncrona
   // protege o intervalo entre o clique e a confirmação do insert no banco.
@@ -96,6 +97,7 @@ export const useSalesOrderForm = (
       linkedOrderId,
       isButtonsClicked,
       currentStep,
+      isTestMode,
     };
   });
 
@@ -139,6 +141,7 @@ export const useSalesOrderForm = (
         assistanceCost: s.assistanceCost,
         linkedOrderId: s.linkedOrderId || undefined,
         isButtonsClicked: s.isButtonsClicked,
+        ...(s.isTestMode ? { is_test: true } : {}),
       };
     },
     [orderIndex]
@@ -165,7 +168,10 @@ export const useSalesOrderForm = (
     (order: Order) => {
       const migratedOrder = migrateOrderHandlings(order);
       const existingIndex = getOrderIndex(order);
-      setIsDraftAutoSaveEnabled(!(order.id && existingIndex));
+      const isExistingOrder = Boolean(order.id && existingIndex);
+      const loadedStatus = order.status || 'draft';
+      // Rascunhos existentes continuam salvando alterações automaticamente.
+      setIsDraftAutoSaveEnabled(!isExistingOrder || loadedStatus === 'draft');
 
       if (order.id && existingIndex) {
         setOrderIndex(existingIndex);
@@ -263,8 +269,11 @@ export const useSalesOrderForm = (
       setSeller((order as any).seller || '');
       setSellerId((order as any).sellerId || undefined);
       setMarketingOrigin(order.marketingOrigin || 'organic');
-      setStatus(order.status || 'draft');
+      setStatus(loadedStatus);
       setOrderType(order.orderType || 'sale');
+      const loadedTestMode = Boolean(order.id && order.is_test === true);
+      setIsTestMode(loadedTestMode);
+      latestState.current.isTestMode = loadedTestMode;
       setAssistanceItems(order.assistanceItems || []);
       setAssistanceServiceValue(order.assistanceServiceValue || 0);
       setAssistanceCost(order.assistanceCost || 0);
@@ -461,6 +470,7 @@ export const useSalesOrderForm = (
       assistanceCost,
       linkedOrderId,
       isButtonsClicked,
+      ...(isTestMode ? { is_test: true } : {}),
     };
   }, [
     currentOrderId,
@@ -482,6 +492,7 @@ export const useSalesOrderForm = (
     linkedOrderId,
     isButtonsClicked,
     orderType,
+    isTestMode,
   ]);
 
   const isValidForCompletion = useMemo(
@@ -515,6 +526,7 @@ export const useSalesOrderForm = (
       errors,
       orderDate,
       currentStep,
+      isTestMode,
     }),
     [
       items,
@@ -541,8 +553,16 @@ export const useSalesOrderForm = (
       errors,
       orderDate,
       currentStep,
+      isTestMode,
     ]
   );
+
+  const setTestMode = useCallback((enabled: boolean) => {
+    // Atualiza a referência síncrona para que salvar imediatamente após o clique
+    // não perca o marcador antes do próximo render.
+    latestState.current.isTestMode = enabled;
+    setIsTestMode(enabled);
+  }, []);
 
   const actions = useMemo(
     () => ({
@@ -609,6 +629,7 @@ export const useSalesOrderForm = (
           return next;
         });
       },
+      setTestMode,
       setMarketingOrigin,
       setOrderIndex,
       loadOrderForEditing,
@@ -649,6 +670,7 @@ export const useSalesOrderForm = (
       handleItemChange,
       setSeller,
       setSellerId,
+      setTestMode,
       setMarketingOrigin,
       setOrderIndex,
       loadOrderForEditing,

@@ -16,6 +16,10 @@ export type AssistanceItem = {
 };
 
 export type Order = {
+  /** Marcador de rastreabilidade exclusivo de pedidos sintéticos de teste. */
+  syntheticFixture?: { scenarioKey: string; version: 1 };
+  /** Marcador explícito do domínio já persistido em order_data.is_test. */
+  is_test?: boolean;
   fiscalContext?: {
     acquisitionPurpose?: FiscalAcquisitionPurpose;
     finalConsumer?: boolean;

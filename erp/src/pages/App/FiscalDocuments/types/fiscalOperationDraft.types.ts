@@ -55,6 +55,7 @@ export interface DraftLine {
   originalDiscountValue: number;
   originalProductXml: string;
   originalTaxesXml: string;
+  originalCfop?: string | null;
   suggestedCfop: string | null;
   allowedCfops?: Array<{ value: string; label: string }>;
   reviewed_cfop?: string | null;

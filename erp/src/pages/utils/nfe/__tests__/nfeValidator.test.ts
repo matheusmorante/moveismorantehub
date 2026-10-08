@@ -35,4 +35,18 @@ describe('outbound fiscal preflight', () => {
       'Item 1 (Produto avulso): informe um NCM válido de 8 dígitos antes da emissão.'
     );
   });
+
+  it('does not infer indFinal from a legacy boolean when interstate purpose is missing', () => {
+    const order = orderWithNcm('85165000');
+    order.shipping = { deliveryMethod: 'delivery', value: 0 } as any;
+    order.customerData = { fullAddress: { state: 'SC' } } as any;
+    order.fiscalContext = { finalConsumer: true };
+
+    const validation = validateOrderForNfe(order, settings);
+
+    expect(validation.errors).toContain(
+      'Registre no pedido se a compra é para revenda, uso/consumo ou ativo imobilizado.'
+    );
+    expect(validation.errors).toContain('Informe se o adquirente é consumidor final.');
+  });
 });

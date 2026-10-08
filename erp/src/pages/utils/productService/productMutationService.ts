@@ -31,7 +31,11 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
   if (isTestProductCatalogPublicationBlocked(product)) {
     throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
   }
-  validateProductImageLimits(product);
+  const products = getLocalProducts();
+  const existingProduct = !forceInsert
+    ? products.find((item) => String(item.id) === String(product.id))
+    : undefined;
+  validateProductImageLimits(product, existingProduct);
   formatProductTextData(product);
   Object.assign(product, ensureDefaultVariation(product));
   const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -97,8 +101,6 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     });
   }
 
-  const products = getLocalProducts();
-
   if (
     resolvedId &&
     !forceInsert &&
@@ -132,7 +134,16 @@ export const updateProduct = async (
   id: string,
   productToUpdate: Partial<Product>
 ): Promise<void> => {
-  validateProductImageLimits(productToUpdate);
+  const products = getLocalProducts();
+  const index = products.findIndex((p) => String(p.id) === String(id));
+  const existingProduct = index === -1 ? undefined : products[index];
+  const productForValidation: Partial<Product> = {
+    ...existingProduct,
+    ...productToUpdate,
+    images: productToUpdate.images ?? existingProduct?.images,
+    variations: productToUpdate.variations ?? existingProduct?.variations,
+  };
+  validateProductImageLimits(productForValidation, existingProduct);
   formatProductTextData(productToUpdate as Product);
   if (productToUpdate.id && String(productToUpdate.id) !== String(id)) {
     throw new Error('Não é permitido alterar o ID de um produto existente.');
@@ -160,8 +171,6 @@ export const updateProduct = async (
     }
   }
 
-  const products = getLocalProducts();
-  const index = products.findIndex((p) => String(p.id) === String(resolvedId));
   const requestsCatalogPublication =
     productToUpdate.status === 'published' ||
     productToUpdate.variations?.some((variation) => variation.status === 'published');

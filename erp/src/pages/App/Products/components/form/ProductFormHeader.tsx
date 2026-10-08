@@ -8,6 +8,7 @@ export type { ProductFormTabId, ProductTabItem } from './ProductFormTabsNavigati
 interface ProductFormHeaderProps {
   readonly product?: Product | null;
   readonly isDraftProduct?: boolean;
+  readonly isStockistOnly?: boolean;
   readonly formData: Partial<Product>;
   readonly ecomStatus: { isLegible: boolean; checks: Record<string, boolean> };
   readonly isService: boolean;
@@ -21,6 +22,7 @@ interface ProductFormHeaderProps {
 export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
   product,
   isDraftProduct = false,
+  isStockistOnly = false,
   formData,
   ecomStatus,
   isService,
@@ -34,12 +36,16 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
   const isComposition = formData.itemType === 'composition' || legacyItemType === 'composition';
 
   const formTabs: readonly ProductTabItem[] = [
-    { id: 'geral', label: 'Cadastro Geral', icon: '' },
+    { id: 'geral', label: 'Informações Básicas', icon: '' },
     ...(!isService
       ? [
-          { id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' },
+          ...(!isStockistOnly
+            ? [{ id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' }]
+            : []),
           { id: 'technical' as const, label: 'Características', icon: 'bi-info-circle' },
-          { id: 'description' as const, label: 'Descrição', icon: 'bi-file-text' },
+          ...(!isStockistOnly
+            ? [{ id: 'description' as const, label: 'Descrição', icon: 'bi-file-text' }]
+            : []),
           { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
           { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
         ]
@@ -67,6 +73,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
             formData={formData}
             ecomStatus={ecomStatus}
             isService={isService}
+            isStockistOnly={isStockistOnly}
             navigateToRequirementField={navigateToRequirementField}
           />
         </div>

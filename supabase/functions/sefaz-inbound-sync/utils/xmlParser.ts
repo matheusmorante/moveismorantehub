@@ -14,7 +14,7 @@ export function extractAllXmlTags(xml: string, tag: string): string[] {
   return blocks;
 }
 
-export function parseNfeXml(xmlString: string, nsu: string) {
+export function parseNfeXml(xmlString: string, nsu: string, environment: number) {
   // Caso seja XML completo de NF-e
   if (xmlString.includes("<infNFe") || xmlString.includes("<nfeProc")) {
     const infNfeIdMatch = xmlString.match(/<infNFe[^>]*Id=["']([^"']+)["']/i);
@@ -82,6 +82,8 @@ export function parseNfeXml(xmlString: string, nsu: string) {
 
     return {
       chave_acesso: chaveAcesso,
+      modelo: extractXmlTag(ideBlock, "mod") || chaveAcesso.substring(20, 22),
+      ambiente: environment,
       numero_nfe: nNF,
       serie,
       data_emissao: dataEmissao,
@@ -121,6 +123,8 @@ export function parseNfeXml(xmlString: string, nsu: string) {
 
     return {
       chave_acesso: chaveAcesso,
+      modelo: chaveAcesso.substring(20, 22),
+      ambiente: environment,
       numero_nfe: nNF,
       serie,
       data_emissao: rawData ? new Date(rawData).toISOString() : new Date().toISOString(),

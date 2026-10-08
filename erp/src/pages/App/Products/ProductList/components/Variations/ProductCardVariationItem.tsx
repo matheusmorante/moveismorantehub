@@ -1,18 +1,26 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import {
+  canPrintProductIdentificationLabels,
+  isProductIdentificationLabelOnlyProfile,
+} from '@/pages/utils/accessRoles';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import {
+  getSelectedProductDisplayName,
+  normalizeVariationSku,
+} from '@/pages/utils/productVariationDefaults';
 import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
-import DropdownPortal from '@/components/shared/DropdownPortal';
 import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
-import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
 import type { CardVariationItem } from './ProductCardVariationList';
 import { VariationItemActions } from './VariationItemActions';
 
 interface ProductCardVariationItemProps {
   readonly product: Product;
+  readonly readOnly?: boolean;
+  readonly showCatalogControl?: boolean;
   readonly variation: CardVariationItem;
   readonly index: number;
   readonly canManageCatalog: boolean;
@@ -34,6 +42,8 @@ interface ProductCardVariationItemProps {
 
 export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> = ({
   product,
+  readOnly = false,
+  showCatalogControl = true,
   variation: v,
   index,
   canManageCatalog,
@@ -52,8 +62,11 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   onMergeWithAnotherVariation,
   onCheckAndAskDelete,
 }) => {
+  const { profile } = useAuth();
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
+  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
   const varMenuRef = useRef<HTMLButtonElement | null>(null);
-  const varName = getVariationDisplayName(v, `Variação #${index + 1}`);
+  const varName = getSelectedProductDisplayName(product, v) || `Variação #${index + 1}`;
   const targetVarCatalogId = v.id || '';
 
   const effectiveUnitPrice =
@@ -111,7 +124,8 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               isParent={false}
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
               isSalvado={getProductKind(product) === 'salvado'}
-              canManageCatalog={canManageCatalog}
+              canManageCatalog={canManageCatalog && !readOnly}
+              showCatalogControl={showCatalogControl}
               isDraft={isDraft}
               onToggleActive={(e) => {
                 e.stopPropagation();
@@ -132,7 +146,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[9px] font-mono text-slate-400">
-              {normalizeVariationSku(v.sku)}
+              {normalizeVariationSku(v.sku || undefined)}
             </span>
             {v.mergedToVariationId && (
               <span
@@ -164,7 +178,36 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
           </span>
         </div>
 
-        <div className="relative">
+        {readOnly && !isLabelOnlyProfile ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit({
+                ...product,
+                ...v,
+                id: v.id || v.variationId || product.id,
+                name: v.name || v.displayName || product.name,
+                code: v.sku || product.code,
+                sku: v.sku || product.sku,
+                description: product.description,
+                unitPrice: v.unitPrice ?? product.unitPrice,
+                promoPrice: v.promoPrice,
+                stock: v.stock ?? product.stock,
+                active: v.active ?? product.active,
+                isVariation: true,
+                isParent: false,
+                parentId: product.id,
+                attributes: v.attributes,
+              } as Product);
+            }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            aria-label={`Ver detalhes de ${varName}`}
+            title="Ver detalhes da variação"
+          >
+            <i className="bi bi-eye" />
+          </button>
+        ) : (isLabelOnlyProfile && !canPrintIdentificationLabel) ? null : <div className="relative">
           <button
             ref={varMenuRef}
             type="button"
@@ -196,7 +239,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               onCheckAndAskDelete={onCheckAndAskDelete}
             />
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

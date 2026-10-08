@@ -12,7 +12,7 @@ export const LIGHT_COLUMNS =
   'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
 export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
-  ', product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:category_id(id, name)';
+  ', product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:categories!products_category_id_fkey(id, name)';
 
 // Helper to initialize products from Supabase
 export const initializeProductsIfEmpty = async (): Promise<Product[]> => {

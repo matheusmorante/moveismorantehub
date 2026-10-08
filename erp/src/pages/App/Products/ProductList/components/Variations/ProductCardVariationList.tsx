@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Product from '@/pages/types/product.type';
+import type { ProductListVariationAttribute } from '../../types';
 import { useDeleteVariation } from '../../hooks/actions/useDeleteVariation';
 import { ProductCardVariationItem } from './ProductCardVariationItem';
 
@@ -12,15 +13,22 @@ export interface CardVariationItem {
   displayName?: string;
   unitPrice?: number;
   promoPrice?: number;
+  price?: number;
   stock?: number;
+  minStock?: number;
+  unit?: string;
+  syncUnitPrice?: boolean;
+  syncPromoPrice?: boolean;
   active?: boolean;
   status?: Product['status'];
   images?: string[];
-  attributes?: unknown[];
+  attributes?: readonly ProductListVariationAttribute[];
 }
 
 export interface ProductCardVariationListProps {
   readonly product: Product;
+  readonly readOnly?: boolean;
+  readonly showCatalogControl?: boolean;
   readonly variations: readonly CardVariationItem[];
   readonly showVariations: boolean;
   readonly canManageCatalog: boolean;
@@ -41,6 +49,8 @@ export interface ProductCardVariationListProps {
  */
 export const ProductCardVariationList: React.FC<ProductCardVariationListProps> = ({
   product,
+  readOnly = false,
+  showCatalogControl = true,
   variations,
   showVariations,
   canManageCatalog,
@@ -71,6 +81,8 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
         <ProductCardVariationItem
           key={v.id || index}
           product={product}
+          readOnly={readOnly}
+          showCatalogControl={showCatalogControl}
           variation={v}
           index={index}
           canManageCatalog={canManageCatalog}

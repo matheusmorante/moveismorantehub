@@ -7,6 +7,7 @@ import {
   getFiscalFormXmlDefaults,
   getFiscalFormRules,
   validateReturnTaxScenario,
+  ESTORNO_NATURE_OF_OPERATION,
   type FiscalFormScenario,
   type FiscalReturnMethod,
 } from '../../../../../shared-utils/fiscalOperationContext';
@@ -51,6 +52,8 @@ export interface ReviewedFiscalOperationXmlInput {
   issuedAt: string;
   settings: AppSettings;
   natureOfOperation: string;
+  /** The original sale's destination indicator, preserved for an estorno. */
+  destinationIndicator?: 1 | 2 | 3;
   /** Reviewed destination; never filled with the sale builder's placeholder address. */
   recipientXml: string;
   totalsXml: string;
@@ -71,7 +74,6 @@ function parseBlock(xml: string, expected: string): Element {
     parseError ||= message;
   };
   const document = new DOMParser({
-    onError: onParseError,
     errorHandler: onParseError,
   }).parseFromString(`<wrapper xmlns="${namespace}">${xml}</wrapper>`, 'application/xml');
   if (parseError || !document?.documentElement)
@@ -186,6 +188,13 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
   }
   if (!input.natureOfOperation?.trim() || input.natureOfOperation.length > 60) {
     throw new Error('Natureza da operação fiscal deve ser conferida.');
+  }
+  if (
+    input.kind === 'estorno' &&
+    (input.natureOfOperation !== ESTORNO_NATURE_OF_OPERATION ||
+      ![1, 2, 3].includes(Number(input.destinationIndicator)))
+  ) {
+    throw new Error('Estorno requer natureza e indicador de destino fiscal da nota original.');
   }
   if (input.kind === 'estorno' && (!input.reason || input.reason.trim().length < 15)) {
     throw new Error('Estorno requer justificativa específica.');
@@ -374,7 +383,7 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
     natureOfOperation: input.natureOfOperation,
     operationType: 0,
     finalidade: input.kind === 'estorno' ? 3 : 4,
-    destinationIndicator: 1,
+    destinationIndicator: input.kind === 'estorno' ? input.destinationIndicator! : 1,
     presenceIndicator: 0,
     municipalityCode: settings.companyCMun,
     referencedAccessKey: input.kind === 'estorno' ? input.originalAccessKey : undefined,

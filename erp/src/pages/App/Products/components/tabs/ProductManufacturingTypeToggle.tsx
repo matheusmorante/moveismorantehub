@@ -34,18 +34,6 @@ export const ProductManufacturingTypeToggle: React.FC<ProductManufacturingTypeTo
             <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
               Origem Comercial do Produto
             </span>
-            <span
-              data-testid="origin-status-badge"
-              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                isOwnProduction
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                  : 'bg-blue-100 text-blue-800 dark:bg-blue-955/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800'
-              }`}
-            >
-              {isOwnProduction
-                ? 'Produção do Próprio Estabelecimento (Fabricação Própria)'
-                : 'Adquirido ou Recebido de Terceiros (Padrão)'}
-            </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
             {isOwnProduction
@@ -55,32 +43,12 @@ export const ProductManufacturingTypeToggle: React.FC<ProductManufacturingTypeTo
         </div>
       </div>
 
-      <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-        {/* Botão de Ligar / Desligar (Switch Toggle) */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isOwnProduction}
-          aria-label="Alternar entre adquirido de terceiros e fabricação própria"
-          onClick={() => onChange(!isOwnProduction)}
-          className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-            isOwnProduction ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-          }`}
-        >
-          <span
-            aria-hidden="true"
-            className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-              isOwnProduction ? 'translate-x-7' : 'translate-x-0'
-            }`}
-          />
-        </button>
-
-        {/* Botões Segmentados Alternativos para Seleção Direta */}
-        <div className="hidden sm:inline-flex rounded-xl bg-slate-200/70 dark:bg-slate-800 p-0.5 text-xs font-bold">
+      <div className="flex w-full items-center gap-3 self-end sm:w-auto sm:self-center shrink-0">
+        <div className="inline-flex w-full rounded-xl bg-slate-200/70 p-0.5 text-xs font-bold dark:bg-slate-800 sm:w-auto">
           <button
             type="button"
             onClick={() => onChange(false)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`flex-1 whitespace-normal rounded-lg px-2 py-1.5 transition-all sm:flex-none sm:px-3 ${
               !isOwnProduction
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm font-black'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -91,7 +59,7 @@ export const ProductManufacturingTypeToggle: React.FC<ProductManufacturingTypeTo
           <button
             type="button"
             onClick={() => onChange(true)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`flex-1 whitespace-normal rounded-lg px-2 py-1.5 transition-all sm:flex-none sm:px-3 ${
               isOwnProduction
                 ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-black'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

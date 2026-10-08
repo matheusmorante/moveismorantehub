@@ -1,10 +1,10 @@
-import Order from '@/pages/types/order.type';
-import { AppSettings } from '../settingsService';
-import { buildIdeXml, buildEmitXml } from './xml/xmlEmitterBlock';
+import type Order from '@/pages/types/order.type';
+import { fiscalPresence } from '../../../../../shared-utils/fiscalDocumentModel';
+import type { AppSettings } from '../settingsService';
 import { buildDestXml } from './xml/xmlDestBlock';
+import { buildEmitXml, buildIdeXml } from './xml/xmlEmitterBlock';
 import { buildItemsXml } from './xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from './xml/xmlTotalsBlock';
-import { fiscalPresence } from '../../../../../shared-utils/fiscalDocumentModel';
 
 export interface NfeXmlBuilderParams {
   order: Order;
@@ -78,6 +78,17 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
   } = params;
   const isHomologacao = environment === 2;
   const dhEmi = formatNfeDateTime(issuedAt || new Date());
+  const acquisitionPurpose = String(order.fiscalContext?.acquisitionPurpose || '');
+  if (!['resale', 'use_consumption', 'fixed_asset'].includes(acquisitionPurpose)) {
+    throw new Error('Registre a finalidade da compra no pedido antes de montar o XML fiscal.');
+  }
+  const finalConsumer = acquisitionPurpose !== 'resale';
+  if (
+    typeof order.fiscalContext?.finalConsumer === 'boolean' &&
+    order.fiscalContext.finalConsumer !== finalConsumer
+  ) {
+    throw new Error('O indFinal persistido não corresponde à finalidade da compra no pedido.');
+  }
 
   // 1. Bloco de Identificação (<ide>)
   const ideXml = buildIdeXml({
@@ -90,7 +101,7 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
     environment,
     dhEmi,
     municipalityCode: settings.companyCMun,
-    finalConsumer: order.fiscalContext?.finalConsumer === false ? 0 : 1,
+    finalConsumer: finalConsumer ? 1 : 0,
     presenceIndicator: Number(
       fiscalPresence(model, order.shipping?.deliveryMethod, order.fiscalContext?.presence)
     ) as 0 | 1 | 2 | 3 | 4 | 5 | 9,

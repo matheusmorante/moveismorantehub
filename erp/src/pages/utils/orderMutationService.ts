@@ -5,8 +5,11 @@ import { executeUpdateOrder } from './orderMutation/orderUpdateService';
 /**
  * Criação atômica e persistência de pedidos com resolução de cliente, regras de estoque e notificações.
  */
-export const saveOrder = async (order: Order): Promise<string> => {
-  return executeSaveOrder(order, updateOrder);
+export const saveOrder = async (
+  order: Order,
+  options: { idempotencyKey?: string } = {}
+): Promise<string> => {
+  return executeSaveOrder(order, updateOrder, options);
 };
 
 /**

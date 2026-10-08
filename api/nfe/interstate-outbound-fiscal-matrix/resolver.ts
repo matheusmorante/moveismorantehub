@@ -206,7 +206,7 @@ const approvalIsComplete = (rule: InterstateOutboundFiscalMatrixRule): boolean =
   );
 
 // ============================================================================
-// RESOLVEDORES DESACOPLADOS (ST, CSOSN e IE ISENTO)
+// RESOLVEDORES DESACOPLADOS (ST e IE ISENTO)
 // ============================================================================
 
 /**
@@ -231,11 +231,9 @@ export function validateInterstateExemptIe(
 }
 
 /**
- * Resolvedor Desacoplado de Substituição Tributária (ST) para saída interestadual.
- * Papéis:
- * - NONE: mercadoria não sujeita a ST. Segue fluxo base aprovado.
- * - SUBSTITUTE / SUBSTITUTED: como regras de acordos/protocolos interestaduais
- *   são específicas por NCM e UF, retornam DRAFT (não configurado) até parametrização explícita.
+ * Resolve apenas o papel explicitamente informado. hasSt/CST 500 indicam contexto
+ * de ST, mas não bastam para decidir se o emitente é substituto ou substituído.
+ * Papéis sujeitos a ST permanecem bloqueados até existir regra aprovada para o cenário.
  */
 export function resolveInterstateStRole(params: {
   stRole?: InterstateStRole;
@@ -262,26 +260,34 @@ export function resolveInterstateStRole(params: {
       reason: string;
     } {
   const { stRole, hasSt, catalogCst, itemFiscalCst, ncm, issuerUf, destinationUf } = params;
+  const suggestsPriorSt = catalogCst === '500' || itemFiscalCst === '500';
+  const incomplete = (reason: string) => ({
+    role: null,
+    isSt: null,
+    status: 'UNCONFIGURED' as const,
+    errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE' as const,
+    reason,
+  });
 
-  let effectiveRole: InterstateStRole;
-  if (stRole !== undefined) {
-    effectiveRole = stRole;
-  } else if (hasSt === true || catalogCst === '500' || itemFiscalCst === '500') {
-    effectiveRole = 'SUBSTITUTED';
-  } else if (hasSt === false) {
-    effectiveRole = 'NONE';
-  } else {
-    return {
-      role: null,
-      isSt: null,
-      status: 'UNCONFIGURED',
-      errorCode: 'INTERSTATE_TAX_PROFILE_INCOMPLETE',
-      reason:
-        'O enquadramento de ST não foi informado; CEST vazio ou ausente no cadastro não comprova ausência de enquadramento.',
-    };
+  if (stRole === undefined) {
+    if (hasSt === false && !suggestsPriorSt)
+      return {
+        role: 'NONE',
+        isSt: false,
+        status: 'RESOLVED',
+      };
+    return incomplete(
+      hasSt === true || suggestsPriorSt
+        ? 'O produto indica contexto de ST, mas o papel do emitente na saída interestadual não foi informado; hasSt ou CST 500 não determinam substituto/substituído.'
+        : 'O enquadramento de ST não foi informado; CEST vazio ou ausente no cadastro não comprova ausência de enquadramento.'
+    );
   }
 
-  if (effectiveRole === 'NONE') {
+  if (stRole === 'NONE') {
+    if (suggestsPriorSt)
+      return incomplete(
+        'CST 500 conflita com o papel NONE; revise o enquadramento fiscal do item.'
+      );
     return {
       role: 'NONE',
       isSt: false,
@@ -289,84 +295,17 @@ export function resolveInterstateStRole(params: {
     };
   }
 
+  if (hasSt === false)
+    return incomplete(
+      'O papel informado na ST conflita com hasSt=false; revise os fatos fiscais do item.'
+    );
+
   return {
-    role: effectiveRole,
+    role: stRole,
     isSt: true,
     status: 'UNCONFIGURED',
     errorCode: 'INTERSTATE_ST_RULE_NOT_CONFIGURED',
-    reason: `Regra de Substituição Tributária interestadual (papel ${effectiveRole}) ainda não parametrizada para NCM ${ncm || 'não informado'} e par ${issuerUf || 'origem'}→${destinationUf || 'destino'}.`,
-  };
-}
-
-/**
- * Resolvedor Desacoplado de CSOSN para saída interestadual de emitente Simples Nacional (CRT 1).
- * Não amarra fixamente 101/102 na matriz: decide com base na permissão de crédito do adquirente.
- */
-export function resolveInterstateCsosn(params: {
-  issuerCrt: string;
-  stRole: InterstateStRole;
-  allowsIcmsCredit?: boolean;
-  configuredHmlCsosn?: string;
-  catalogCsosn?: string;
-  manualOverride?: string;
-}): {
-  csosn: string;
-  xmlGroup: string;
-  framework: string;
-  allowsCredit: boolean;
-  status: 'RESOLVED' | 'UNRESOLVED';
-  errorCode?: 'INTERSTATE_CSOSN_NOT_RESOLVED';
-  reason?: string;
-} {
-  const { issuerCrt, stRole, allowsIcmsCredit, configuredHmlCsosn, catalogCsosn, manualOverride } =
-    params;
-
-  if (issuerCrt !== '1') {
-    return {
-      csosn: '900',
-      xmlGroup: 'ICMSSN900',
-      framework: 'Regime Normal ou outros regimes',
-      allowsCredit: false,
-      status: 'UNRESOLVED',
-      errorCode: 'INTERSTATE_CSOSN_NOT_RESOLVED',
-      reason: 'Apenas emitentes Simples Nacional (CRT 1) são cobertos por este resolvedor.',
-    };
-  }
-
-  // Se houver ST retido anteriormente
-  if (stRole === 'SUBSTITUTED') {
-    return {
-      csosn: '500',
-      xmlGroup: 'ICMSSN500',
-      framework: 'Simples Nacional - ICMS cobrado anteriormente por ST (Substituído)',
-      allowsCredit: false,
-      status: 'RESOLVED',
-    };
-  }
-
-  // Se a operação permitir aproveitamento de crédito pelo destinatário contribuinte
-  if (allowsIcmsCredit === true) {
-    return {
-      csosn: '101',
-      xmlGroup: 'ICMSSN101',
-      framework: 'Simples Nacional - Com permissão de crédito',
-      allowsCredit: true,
-      status: 'RESOLVED',
-    };
-  }
-
-  // Sem permissão de crédito: usa CSOSN configurado no sistema (padrão 102 ou 103 para faixa de isenção)
-  const candidate = manualOverride || configuredHmlCsosn || catalogCsosn || '102';
-  const effectiveCsosn = ['102', '103', '300', '400'].includes(candidate) ? candidate : '102';
-  return {
-    csosn: effectiveCsosn,
-    xmlGroup: 'ICMSSN102',
-    framework:
-      effectiveCsosn === '103'
-        ? 'Simples Nacional - Isenção de ICMS por faixa de receita bruta'
-        : 'Simples Nacional - Sem permissão de crédito',
-    allowsCredit: false,
-    status: 'RESOLVED',
+    reason: `Regra de Substituição Tributária interestadual (papel ${stRole}) ainda não parametrizada para NCM ${ncm || 'não informado'} e par ${issuerUf || 'origem'}→${destinationUf || 'destino'}.`,
   };
 }
 
@@ -530,23 +469,41 @@ export function resolveInterstateOutboundFiscalMatrix(
   }
 
   const effectiveAt = Date.parse(String(facts.effectiveAt));
-  const specificity = (rule: InterstateOutboundFiscalMatrixRule): number[] => [
-    ...(
+  const specificity = (rule: InterstateOutboundFiscalMatrixRule): number[] => {
+    const criteria = rule.criteria;
+    const specified = (key: keyof InterstateOutboundFiscalMatrixFacts) =>
+      !isMissing(criteria[key], key);
+    const routePairSpecific = specified('issuerUf') && specified('destinationUf');
+    const operationCriteria = (
       [
-        'productId',
-        'ncm',
-        'cest',
-        'destinationUf',
-        'hasSt',
-        'recipientIeStatus',
+        'environment',
+        'model',
+        'issuerRegime',
+        'destinationScope',
+        'operationType',
+        'purpose',
         'recipientPersonType',
+        'recipientIeStatus',
         'finalConsumer',
-        'productOrigin',
         'merchandiseOrigin',
+        'productOrigin',
+        'hasSt',
+        'stRole',
+        'allowsIcmsCredit',
+        'recipientTaxRegime',
       ] as const
-    ).map((key) => (!isMissing(rule.criteria[key], key) ? 1 : 0)),
-    rule.priority,
-  ];
+    ).filter((key) => specified(key)).length;
+
+    return [
+      Number(specified('productId')),
+      Number(specified('ncm')),
+      Number(specified('cest')),
+      Number(routePairSpecific),
+      Number(specified('destinationUf')),
+      Number(specified('issuerUf')),
+      operationCriteria,
+    ];
+  };
 
   const compare = (a: number[], b: number[]) => {
     for (let index = 0; index < a.length; index++) {
@@ -610,23 +567,6 @@ export function resolveInterstateOutboundFiscalMatrix(
     }
 
     const best = matchingApproved[0];
-    // Resolver CSOSN determinístico e compor tratamento final
-    const csosnResult = resolveInterstateCsosn({
-      issuerCrt: String(facts.issuerRegime || '1'),
-      stRole: stResult.role,
-      allowsIcmsCredit: facts.allowsIcmsCredit,
-      catalogCsosn: undefined,
-    });
-
-    const treatment: InterstateTaxTreatment = {
-      ...best.treatment,
-      csosn: csosnResult.csosn,
-      icms: {
-        ...best.treatment.icms,
-        xmlGroup: csosnResult.xmlGroup,
-        framework: csosnResult.framework,
-      },
-    };
 
     return {
       status: 'approved',
@@ -635,7 +575,9 @@ export function resolveInterstateOutboundFiscalMatrix(
       reason: `Regra aprovada vigente (${best.id}) aplicada sem conflito.`,
       sources: [...best.sourceReferences],
       normativeSources: [...best.normativeSources],
-      treatment,
+      // A regra APPROVED é uma decisão completa. Não reescrever CSOSN ou
+      // grupos de ICMS a partir de outro resolvedor depois da seleção.
+      treatment: best.treatment,
     };
   }
 

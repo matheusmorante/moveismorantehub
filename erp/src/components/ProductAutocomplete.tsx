@@ -232,7 +232,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             suggestions.map((item, index) => {
               const { product: p, variation: v } = item;
               const fullName = getVariationDisplayName(p, v);
-              const displayName = v?.name?.trim() || fullName;
+              const displayName = fullName;
 
               const displayCode = v?.sku || p.code || '';
               const displayPrice = v

@@ -5,7 +5,8 @@ const { mkdir, writeFile } = require('node:fs/promises');
 const root = resolve(__dirname, '../..');
 const outdir = resolve(root, 'erp/server/nfe');
 const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
-  'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number'];
+  'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy',
+  'inbound-manifestation'];
 
 async function main() {
   // Bundle only our fiscal source graph. Explicit .cjs files create a stable

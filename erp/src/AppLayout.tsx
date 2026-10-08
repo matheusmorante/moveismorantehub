@@ -15,6 +15,7 @@ import AIChatAssistant from './components/shared/AIChatAssistant';
 import AiQuotaHeaderNotice from './components/shared/AiQuotaHeaderNotice';
 import logoMoranteHorizontal from './assets/logo-morante-horizontal.svg';
 import logoMoranteMark from './assets/brand-mark.svg';
+import { roleLabel } from './pages/utils/accessRoles';
 
 export type MenuKey =
   | 'products'
@@ -34,9 +35,9 @@ export default function AppLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAgentOpen, setIsAgentOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const profileCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const profileCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { theme, toggleTheme } = useTheme();
-  const { user, profile, logout, isAdmin } = useAuth();
+  const { user, profile, logout, isAdmin, activeRoleMode, setActiveRoleMode } = useAuth();
   const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
   const [assistanceInitialData, setAssistanceInitialData] = useState<any>(null);
   const [anomaly, setAnomaly] = useState<any>(null);
@@ -225,9 +226,6 @@ export default function AppLayout() {
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
                       {profile?.full_name || user?.email?.split('@')[0]}
                     </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">
-                      {isAdmin ? 'Administrador' : 'Usuário'}
-                    </span>
                   </div>
                   <i
                     className={`bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}
@@ -339,6 +337,28 @@ export default function AppLayout() {
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
         />
+      )}
+
+      {activeRoleMode && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky top-14 xl:top-16 z-[99998] flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/95 dark:text-amber-100 sm:px-6"
+        >
+          <div className="flex min-w-0 items-center gap-2 text-xs font-bold">
+            <i className="bi bi-person-badge-fill shrink-0 text-amber-600 dark:text-amber-300" />
+            <span className="truncate">
+              Modo {roleLabel(activeRoleMode)}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveRoleMode(null)}
+            className="shrink-0 rounded-lg border border-amber-400/70 px-3 py-1.5 text-[11px] font-black transition-colors hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+          >
+            Sair do modo
+          </button>
+        </div>
       )}
 
       <main

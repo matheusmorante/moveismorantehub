@@ -30,8 +30,8 @@ async function linkAttributes() {
     'Cristaleiras': ['Estrutura', 'Cor', 'Quantidade de portas', 'Tipo de Porta', 'Quantidade de gavetas', 'Sistema de deslizamento da gaveta', 'Espelhos', 'Tipo de Pés', 'Tipo de Puxador', 'Acabamento', 'Complexidade da Montagem'],
 
     // Estofados / Sofás / Poltronas
-    'Sofás': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Tipo de Pés', 'Complexidade da Montagem'],
-    'Poltronas': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Tipo de Pés', 'Complexidade da Montagem'],
+    'Sofás': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Complexidade da Montagem'],
+    'Poltronas': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Complexidade da Montagem'],
 
     // Cozinha
     'Cozinhas Moduladas e Compactas': ['Estrutura', 'Cor', 'Quantidade de portas', 'Tipo de Porta', 'Quantidade de gavetas', 'Sistema de deslizamento da gaveta', 'Tipo de Pés', 'Tipo de Puxador', 'Acabamento', 'Complexidade da Montagem'],
@@ -52,17 +52,17 @@ async function linkAttributes() {
 
     // Escritório
     'Mesas para Escritório': ['Estrutura', 'Cor', 'Quantidade de gavetas', 'Sistema de deslizamento da gaveta', 'Tipo de Pés', 'Tipo de Puxador', 'Acabamento', 'Complexidade da Montagem'],
-    'Cadeiras para Escritório': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Tipo de Pés', 'Complexidade da Montagem'],
+    'Cadeiras para Escritório': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Complexidade da Montagem'],
 
-    // Sala de Jantar
-    'Mesa para Sala de Jantar': ['Estrutura', 'Cor', 'Tipo de Pés', 'Acabamento', 'Complexidade da Montagem'],
-    'Cadeiras para Sala de Jantar': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Tipo de Pés', 'Complexidade da Montagem'],
-    'Conjunto para Sala de Jantar': ['Estrutura', 'Cor', 'Tecido', 'Tipo de Pés', 'Acabamento', 'Complexidade da Montagem'],
+    // Cozinha / Sala de Jantar
+    'Mesas para Cozinha/Sala de Jantar': ['Estrutura', 'Cor', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Acabamento', 'Complexidade da Montagem'],
+    'Cadeiras para Cozinha/Sala de Jantar': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Complexidade da Montagem'],
+    'Conjunto Mesa e Cadeiras': ['Estrutura', 'Cor', 'Tecido', 'Nível de firmeza do estofamento', 'Tipo de Pés', 'Acabamento', 'Complexidade da Montagem'],
 
     // Quarto / Dormitório
-    'Cabeceiras': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Complexidade da Montagem'],
-    'Colchões': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma'],
-    'Camas/Bases Box': ['Estrutura', 'Cor', 'Tecido', 'Tipo de Pés'],
+    'Cabeceiras': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento', 'Complexidade da Montagem'],
+    'Colchões': ['Estrutura', 'Cor', 'Tecido', 'Densidade da Espuma', 'Nível de firmeza do estofamento'],
+    'Camas/Bases Box': ['Estrutura', 'Cor', 'Tecido', 'Nível de firmeza do estofamento', 'Tipo de Pés'],
     'Beliches': ['Estrutura', 'Cor', 'Complexidade da Montagem'],
     'Treliches': ['Estrutura', 'Cor', 'Quantidade de portas', 'Tipo de Porta', 'Complexidade da Montagem'],
     'Berços': ['Estrutura', 'Cor', 'Acabamento', 'Complexidade da Montagem'],

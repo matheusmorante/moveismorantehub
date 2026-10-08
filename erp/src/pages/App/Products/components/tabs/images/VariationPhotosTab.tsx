@@ -39,11 +39,9 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
           </p>
         </div>
 
-        {images.length > 0 && (
-          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-100 dark:border-blue-800">
-            {images.length} de {MAX_VARIATION_IMAGES} foto(s) vinculada(s)
-          </span>
-        )}
+        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-100 dark:border-blue-800">
+          {images.length} de {MAX_VARIATION_IMAGES} foto(s) vinculada(s)
+        </span>
       </div>
 
       {/* Grid com Input 1:1 + Fotos Vinculadas */}

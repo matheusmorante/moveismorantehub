@@ -6,6 +6,7 @@ interface ProductFormReadinessIndicatorsProps {
   readonly formData: Partial<Product>;
   readonly ecomStatus: { isLegible: boolean; checks: Record<string, boolean> };
   readonly isService: boolean;
+  readonly isStockistOnly?: boolean;
   readonly navigateToRequirementField: (fieldKey: string) => void;
 }
 
@@ -13,6 +14,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
   formData,
   ecomStatus,
   isService,
+  isStockistOnly = false,
   navigateToRequirementField,
 }) => {
   const erpStatus = checkERPLegibility(formData);
@@ -143,8 +145,9 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
         </div>
       </div>
 
-      {/* Pílula de Requisitos do Catálogo */}
-      <div className="relative group cursor-help">
+      {/* Estoquista não edita fotos; os requisitos do catálogo incluem a foto principal. */}
+      {!isStockistOnly && (
+        <div className="relative group cursor-help">
         <div
           className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${formData.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}
         >
@@ -262,7 +265,8 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
             )}
           </ul>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,6 +15,7 @@ export interface SefazSyncStatus {
 
 export interface SefazSyncResult {
   success: boolean;
+  environment?: 'production' | 'homologation';
   cStat?: string;
   xMotivo?: string;
   ultNSU?: string;
@@ -29,6 +30,17 @@ export interface SefazSyncResult {
     kind: 'full' | 'summary';
     xml: string;
   } | null;
+}
+
+export interface InboundManifestationResult {
+  success: boolean;
+  pending?: boolean;
+  alreadyProcessed?: boolean;
+  cStat?: string | null;
+  xMotivo?: string | null;
+  protocolNumber?: string | null;
+  protocolDate?: string | null;
+  error?: string;
 }
 
 /**
@@ -148,10 +160,12 @@ export async function consultInvoiceByAccessKey(
     };
   }
 
+  const status = options?.environment ? null : await fetchSefazSyncStatus();
+  const environment = options?.environment || status?.environment || 'production';
   const { data, error } = await supabase.functions.invoke('sefaz-inbound-sync', {
     body: {
       accessKey: cleanKey,
-      environment: options?.environment || 'production',
+      environment,
     },
   });
 
@@ -163,4 +177,52 @@ export async function consultInvoiceByAccessKey(
   }
 
   return data as SefazSyncResult;
+}
+
+/** Envia uma Ciência da Emissão apenas após ação explícita do operador na tela de entrada. */
+export async function sendInboundScienceOfEmission(
+  accessKey: string,
+  productionConfirmed: boolean
+): Promise<InboundManifestationResult> {
+  const cleanKey = accessKey.replace(/\D/g, '');
+  if (cleanKey.length !== 44)
+    return { success: false, error: 'A chave de acesso deve conter exatamente 44 dígitos.' };
+
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (sessionError || !token)
+    return { success: false, error: 'Faça login novamente antes de enviar a Ciência da Emissão.' };
+
+  try {
+    const response = await fetch('/api/nfe/inbound-manifestation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        accessKey: cleanKey,
+        requestId: crypto.randomUUID(),
+        productionConfirmed,
+      }),
+      cache: 'no-store',
+    });
+    const result = await response.json().catch(() => ({}));
+    return {
+      success: response.ok && result.success === true,
+      pending: result.pending === true,
+      alreadyProcessed: result.alreadyProcessed === true,
+      cStat: typeof result.cStat === 'string' ? result.cStat : null,
+      xMotivo: typeof result.xMotivo === 'string' ? result.xMotivo : null,
+      protocolNumber: typeof result.protocolNumber === 'string' ? result.protocolNumber : null,
+      protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : null,
+      error: typeof result.error === 'string' ? result.error : undefined,
+    };
+  } catch {
+    return {
+      success: false,
+      pending: true,
+      error: 'Não foi possível confirmar a resposta. Confira o histórico fiscal antes de tentar novamente.',
+    };
+  }
 }

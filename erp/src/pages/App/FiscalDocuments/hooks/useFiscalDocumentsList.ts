@@ -7,7 +7,7 @@ import type {
 } from '../types/fiscalDocuments.types';
 import { fetchFiscalDocumentsList } from '../services/fiscalDocumentsService';
 
-export function useFiscalDocumentsList(canOperateFiscal: boolean) {
+export function useFiscalDocumentsList(canViewFiscal: boolean) {
   const [searchParams] = useSearchParams();
   const targetDocumentId = searchParams.get('documentId');
 
@@ -29,7 +29,6 @@ export function useFiscalDocumentsList(canOperateFiscal: boolean) {
   const [seriesFilter, setSeriesFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const filters: FiscalDocumentFilters = {
     search,
@@ -84,12 +83,12 @@ export function useFiscalDocumentsList(canOperateFiscal: boolean) {
   ]);
 
   useEffect(() => {
-    if (!canOperateFiscal) {
+    if (!canViewFiscal) {
       setLoading(false);
       return;
     }
     loadDocuments();
-  }, [canOperateFiscal, loadDocuments]);
+  }, [canViewFiscal, loadDocuments]);
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -132,7 +131,5 @@ export function useFiscalDocumentsList(canOperateFiscal: boolean) {
       setPageIndex(0);
       setDateTo(date);
     },
-    showMoreFilters,
-    setShowMoreFilters,
   };
 }

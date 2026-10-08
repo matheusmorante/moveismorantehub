@@ -47,6 +47,8 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
   const ideBlock = extractTag(xmlString, 'ide');
   const nfeNumber = extractTag(ideBlock, 'nNF');
   const model = extractTag(ideBlock, 'mod');
+  const rawEnvironment = Number(extractTag(ideBlock, 'tpAmb') || extractTag(xmlString, 'tpAmb'));
+  const environment = rawEnvironment === 1 || rawEnvironment === 2 ? rawEnvironment : undefined;
   if (model === '65') {
     throw new Error(
       'NFC-e (modelo 65) não pode ser importada como NF de Entrada. Envie uma NF-e de fornecedor, modelo 55.'
@@ -265,6 +267,7 @@ export const parseInboundNfeXml = (xmlString: string): InboundInvoice => {
     nfeNumber,
     series,
     model,
+    environment,
     issuedAt,
     emitterCnpj,
     emitterName,

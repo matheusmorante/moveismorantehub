@@ -13,7 +13,6 @@ function parseElement(xml: string, expectedName: string): Element {
     error ||= message;
   };
   const document = new DOMParser({
-    onError: onParseError,
     errorHandler: onParseError,
   }).parseFromString(xml, 'application/xml');
   if (

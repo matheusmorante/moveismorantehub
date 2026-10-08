@@ -1,7 +1,6 @@
 /**
  * Interstate Outbound Fiscal Matrix (Matriz de Decisão Fiscal de Saída Interestadual).
- * Modelada em 6 cenários-base para saídas de mercadorias adquiridas de terceiros,
- * com desacoplamento de Substituição Tributária (ST) e CSOSN do Simples Nacional (CRT 1).
+ * Modelada em 6 cenários-base para saídas de mercadorias adquiridas de terceiros.
  *
  * Normativas:
  * - Ajuste SINIEF 01/24 (Tabela de CFOP: 6.102 e 6.108)
@@ -21,7 +20,6 @@ export type InterstateOutboundErrorCode =
   | 'INTERSTATE_RULE_INVALID_COMBINATION'
   | 'INTERSTATE_EXEMPT_IE_NOT_ALLOWED'
   | 'INTERSTATE_ST_RULE_NOT_CONFIGURED'
-  | 'INTERSTATE_CSOSN_NOT_RESOLVED'
   | 'INTERSTATE_TAX_PROFILE_INCOMPLETE'
   | 'HML_INTERSTATE_MATRIX_AMBIGUOUS'
   | 'HML_INTERSTATE_MATRIX_INVALID';

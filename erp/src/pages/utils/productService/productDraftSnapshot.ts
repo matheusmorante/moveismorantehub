@@ -36,6 +36,7 @@ export function restoreProductDraft(product: Product): Product {
   return {
     ...product,
     ...snapshot,
+    category: product.category || snapshot.category || '',
     id: product.id,
     updatedAt: product.updatedAt,
     createdAt: product.createdAt,

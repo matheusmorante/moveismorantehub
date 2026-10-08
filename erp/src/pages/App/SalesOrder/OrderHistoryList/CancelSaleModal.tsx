@@ -7,6 +7,7 @@ interface CancelSaleModalProps {
     action: 'none' | 'cancel' | 'estorno' | 'manual_review';
     hasAuthorizedInvoice: boolean;
     model?: string;
+    environment?: 1 | 2;
     reason?: string;
   };
   readonly onCancel: () => void;
@@ -17,6 +18,12 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   const [secondsLeft, setSecondsLeft] = useState(3);
   const [confirmed, setConfirmed] = useState(false);
   const confirmedRef = useRef(false);
+  const fiscalEnvironmentLabel =
+    preview.environment === 1
+      ? 'Produção'
+      : preview.environment === 2
+        ? 'Homologação'
+        : 'ambiente não identificado';
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,12 +79,16 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
               <li>Não há saída de estoque registrada para reverter.</li>
             )}
             {preview.action === 'cancel' && (
-              <li>A NF-e modelo {preview.model || ''} autorizada será cancelada junto à SEFAZ.</li>
+              <li>
+                A NF-e modelo {preview.model || ''} autorizada em{' '}
+                {fiscalEnvironmentLabel} será cancelada junto à SEFAZ.
+              </li>
             )}
             {preview.action === 'estorno' && (
               <li>
-                A NF-e original permanecerá no histórico e será preparado um documento fiscal de
-                estorno para revisão.
+                A NF-e original de {fiscalEnvironmentLabel} permanecerá autorizada no histórico.
+                Será preparado um rascunho de NF-e modelo 55 de estorno para revisão fiscal; a
+                transmissão à SEFAZ acontece somente depois dessa revisão.
               </li>
             )}
             {preview.action === 'manual_review' && (

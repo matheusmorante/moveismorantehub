@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 type NcmFilter =
   | 'all'
@@ -586,31 +587,13 @@ export function NcmManagementPanel() {
                   {previewChangesTotal.toLocaleString('pt-BR')} mudanças · página{' '}
                   {previewChangesPage + 1}
                 </span>
-                <span className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={previewChangesPage === 0 || isLoadingPreviewChanges}
-                    onClick={() =>
-                      void loadPreviewChanges(preview.sync_run_id, previewChangesPage - 1)
-                    }
-                    className="disabled:opacity-40"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      (previewChangesPage + 1) * PAGE_SIZE >= previewChangesTotal ||
-                      isLoadingPreviewChanges
-                    }
-                    onClick={() =>
-                      void loadPreviewChanges(preview.sync_run_id, previewChangesPage + 1)
-                    }
-                    className="disabled:opacity-40"
-                  >
-                    Próxima
-                  </button>
-                </span>
+                <FixedPageSlots
+                  ariaLabel="Paginação das mudanças da sincronização NCM"
+                  currentPage={previewChangesPage + 1}
+                  totalPages={Math.max(1, Math.ceil(previewChangesTotal / PAGE_SIZE))}
+                  onPageChange={(nextPage) => void loadPreviewChanges(preview.sync_run_id, nextPage - 1)}
+                  loading={isLoadingPreviewChanges}
+                />
               </div>
             </div>
           )}
@@ -812,29 +795,18 @@ export function NcmManagementPanel() {
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-          <span>{total.toLocaleString('pt-BR')} resultados</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page === 0 || isLoading}
-              onClick={() => setPage((value) => Math.max(value - 1, 0))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40 dark:border-slate-700"
-            >
-              Anterior
-            </button>
-            <span>
-              {page + 1} / {pageCount}
-            </span>
-            <button
-              type="button"
-              disabled={(page + 1) * PAGE_SIZE >= total || isLoading}
-              onClick={() => setPage((value) => value + 1)}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 disabled:opacity-40 dark:border-slate-700"
-            >
-              Próxima
-            </button>
-          </div>
+          <div className="mt-3 flex flex-col items-center justify-between gap-2 text-xs text-slate-500 sm:flex-row">
+            <span>{total.toLocaleString('pt-BR')} resultados</span>
+            <div className="flex flex-col items-center gap-2 sm:flex-row">
+              <span>{page + 1} / {pageCount}</span>
+              <FixedPageSlots
+                ariaLabel="Paginação da tabela NCM"
+                currentPage={page + 1}
+                totalPages={pageCount}
+                onPageChange={(nextPage) => setPage(nextPage - 1)}
+                loading={isLoading}
+              />
+            </div>
         </div>
       </div>
 
@@ -943,24 +915,12 @@ export function NcmManagementPanel() {
                           Página {productPage + 1} de{' '}
                           {Math.max(1, Math.ceil(productsTotal / PAGE_SIZE))}
                         </span>
-                        <span className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={productPage === 0}
-                            onClick={() => void changeProductPage(productPage - 1)}
-                            className="disabled:opacity-40"
-                          >
-                            Anterior
-                          </button>
-                          <button
-                            type="button"
-                            disabled={(productPage + 1) * PAGE_SIZE >= productsTotal}
-                            onClick={() => void changeProductPage(productPage + 1)}
-                            className="disabled:opacity-40"
-                          >
-                            Próxima
-                          </button>
-                        </span>
+                        <FixedPageSlots
+                          ariaLabel="Paginação de produtos vinculados ao NCM"
+                          currentPage={productPage + 1}
+                          totalPages={Math.max(1, Math.ceil(productsTotal / PAGE_SIZE))}
+                          onPageChange={(nextPage) => void changeProductPage(nextPage - 1)}
+                        />
                       </div>
                     </div>
                   )}

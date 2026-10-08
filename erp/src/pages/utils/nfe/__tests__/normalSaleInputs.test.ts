@@ -8,12 +8,12 @@ import {
   resolveNormalSaleContribution,
 } from '../../../../../../api/nfe/simplesNormalSaleContribution';
 
-const contribution = (model: '55' | '65') => ({
-  scope: { model, operation: 'normal_sale', issuerCrt: '1' },
+const contribution = () => ({
+  scope: { models: ['55', '65'], operation: 'normal_sale', issuerCrt: '1' },
   pis: { cst: '99', base: 0, rate: 0, value: 0 },
   cofins: { cst: '99', base: 0, rate: 0, value: 0 },
   confirmedAt: '2026-09-01T00:00:00Z',
-  confirmedBy: `TEST_UNIT_MODEL_${model}`,
+  confirmedBy: 'TEST_UNIT_SHARED_DECISION',
 });
 
 const facts = (): FiscalSnapshotCandidate => ({
@@ -40,7 +40,7 @@ const facts = (): FiscalSnapshotCandidate => ({
   },
 });
 
-function database(include65: boolean) {
+function database(includeDecision: boolean) {
   const requestedSettings = vi.fn();
   const from = vi.fn((table: string) => ({
     select: vi.fn(() => ({
@@ -63,10 +63,9 @@ function database(include65: boolean) {
           requestedSettings(ids);
           return {
             error: null,
-            data: (include65 ? (['55', '65'] as const) : (['55'] as const)).map((model) => ({
-              id: normalSaleContributionSettingsId(model),
-              data: contribution(model),
-            })),
+            data: includeDecision
+              ? [{ id: normalSaleContributionSettingsId(), data: contribution() }]
+              : [],
           };
         }
         return {
@@ -90,29 +89,29 @@ function database(include65: boolean) {
   return { db: { from } as unknown as SupabaseClient<FiscalDatabase>, requestedSettings };
 }
 
-describe('carregamento das decisões de venda normal', () => {
-  it('busca as duas linhas próprias e mantém a identidade de cada modelo', async () => {
+describe('carregamento da decisão de venda normal', () => {
+  it('busca uma decisão compartilhada e valida separadamente os dois modelos', async () => {
     const { db, requestedSettings } = database(true);
     const candidate = facts();
     await loadNormalSaleInputs(db, candidate, { fiscalDefaults: { pisCst: '99' } });
     expect(requestedSettings).toHaveBeenCalledWith([
-      normalSaleContributionSettingsId('55'),
-      normalSaleContributionSettingsId('65'),
+      normalSaleContributionSettingsId(),
     ]);
     expect(resolveNormalSaleContribution(candidate.fiscalInputs!, '55').confirmedBy).toBe(
-      'TEST_UNIT_MODEL_55'
+      'TEST_UNIT_SHARED_DECISION'
     );
     expect(resolveNormalSaleContribution(candidate.fiscalInputs!, '65').confirmedBy).toBe(
-      'TEST_UNIT_MODEL_65'
+      'TEST_UNIT_SHARED_DECISION'
     );
   });
-  it('não fabrica uma decisão 65 quando só a 55 está persistida', async () => {
+  it('bloqueia ambos os modelos quando falta a decisão compartilhada', async () => {
     const { db } = database(false);
     const candidate = facts();
     await loadNormalSaleInputs(db, candidate, {});
-    expect(() => resolveNormalSaleContribution(candidate.fiscalInputs!, '65')).toThrow(
-      'CONTRIBUTION_MODEL_SCOPE_REQUIRED'
-    );
-    expect(resolveNormalSaleContribution(candidate.fiscalInputs!, '55').model).toBe('55');
+    for (const model of ['55', '65'] as const) {
+      expect(() => resolveNormalSaleContribution(candidate.fiscalInputs!, model)).toThrow(
+        'CONTRIBUTION_MODEL_SCOPE_REQUIRED'
+      );
+    }
   });
 });

@@ -3,6 +3,8 @@ import { evaluateDocumentEligibility } from '../../../../../../api/nfe/order-can
 
 const now = Date.parse('2026-10-05T15:00:00.000Z');
 const order = { id: 'order-1', status: 'scheduled', order_data: {} };
+const authorizedAt = (timestamp: number) =>
+  `<protNFe><infProt><dhRecbto>${new Date(timestamp).toISOString()}</dhRecbto></infProt></protNFe>`;
 
 function document(overrides: Record<string, unknown> = {}) {
   return {
@@ -14,7 +16,7 @@ function document(overrides: Record<string, unknown> = {}) {
     modelo: '55',
     chave_acesso: '1'.repeat(44),
     numero_protocolo: '141260000000001',
-    xml_protocolo: '',
+    xml_protocolo: authorizedAt(now - 60 * 60 * 1000),
     created_at: new Date(now - 60 * 60 * 1000).toISOString(),
     ...overrides,
   };
@@ -103,7 +105,10 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
   it('escolhe estorno após o prazo da NF-e 55 sem oferecer cancelamento SEFAZ', () => {
     expect(
       evaluateDocumentEligibility(
-        document({ created_at: new Date(now - 169 * 60 * 60 * 1000).toISOString() }),
+        document({
+          created_at: new Date(now - 60 * 60 * 1000).toISOString(),
+          xml_protocolo: authorizedAt(now - 169 * 60 * 60 * 1000),
+        }),
         order,
         null,
         now
@@ -111,10 +116,28 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
     ).toMatchObject({ canProceed: true, action: 'estorno' });
   });
 
+  it('exige revisão quando falta a data de autorização no protocolo, sem usar created_at', () => {
+    expect(
+      evaluateDocumentEligibility(
+        document({
+          xml_protocolo: '',
+          created_at: new Date(now - 169 * 60 * 60 * 1000).toISOString(),
+        }),
+        order,
+        null,
+        now
+      )
+    ).toMatchObject({ canProceed: false, action: 'manual_review', authorizedAt: '' });
+  });
+
   it('exige revisão após o prazo da NFC-e e não oferece cancelamento', () => {
     expect(
       evaluateDocumentEligibility(
-        document({ modelo: '65', created_at: new Date(now - 31 * 60 * 1000).toISOString() }),
+        document({
+          modelo: '65',
+          created_at: new Date(now - 31 * 60 * 1000).toISOString(),
+          xml_protocolo: authorizedAt(now - 31 * 60 * 1000),
+        }),
         order,
         null,
         now

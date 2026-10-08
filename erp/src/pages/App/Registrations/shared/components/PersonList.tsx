@@ -3,6 +3,7 @@ import PersonTable from './PersonTable';
 import { usePeople } from '../hooks/usePeople';
 import Person, { PersonVisibilitySettings } from '../../../../types/person.type';
 import ConfirmModal from '@/components/shared/ConfirmModal';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 interface PersonListProps {
@@ -205,22 +206,6 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
       refresh,
     }));
 
-    const getPageButtons = () => {
-      const buttons: number[] = [];
-      const maxVisible = 5;
-      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-      const end = Math.min(totalPages, start + maxVisible - 1);
-
-      if (end - start + 1 < maxVisible) {
-        start = Math.max(1, end - maxVisible + 1);
-      }
-
-      for (let i = start; i <= end; i++) {
-        buttons.push(i);
-      }
-      return buttons;
-    };
-
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -285,8 +270,7 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
             customerOrderCounts={customerOrderCounts}
           />
 
-          {totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
+          <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
               <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
                   Mostrando {people.length} de {totalItems} registros
@@ -305,70 +289,13 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
                   </select>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
-                  title="Página Anterior"
-                >
-                  <i className="bi bi-chevron-left text-xs"></i>
-                </button>
-
-                {/* Slot Esquerdo: Página Anterior */}
-                <div className="w-8 h-8 flex items-center justify-center">
-                  {currentPage > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      className="w-8 h-8 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
-                    >
-                      {currentPage - 1}
-                    </button>
-                  ) : (
-                    <div className="w-8 h-8 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
-                  )}
-                </div>
-
-                {/* Slot do Meio: Página Atual (Azul, Desativado) */}
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-8 h-8 rounded-xl text-xs font-black bg-blue-600 text-white shadow-md shadow-blue-500/20 cursor-default"
-                  >
-                    {currentPage}
-                  </button>
-                </div>
-
-                {/* Slot Direito: Página Seguinte */}
-                <div className="w-8 h-8 flex items-center justify-center">
-                  {currentPage < totalPages ? (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      className="w-8 h-8 rounded-xl text-xs font-black border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all cursor-pointer"
-                    >
-                      {currentPage + 1}
-                    </button>
-                  ) : (
-                    <div className="w-8 h-8 rounded-xl border border-slate-100 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/30 opacity-20 pointer-events-none" />
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all"
-                  title="Próxima Página"
-                >
-                  <i className="bi bi-chevron-right text-xs"></i>
-                </button>
-              </div>
-            </div>
-          )}
+              <FixedPageSlots
+                ariaLabel="Paginação de cadastros"
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+          </div>
         </div>
 
         <ConfirmModal

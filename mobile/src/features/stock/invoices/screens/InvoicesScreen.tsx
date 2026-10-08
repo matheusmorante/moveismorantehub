@@ -15,7 +15,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import {
-  ArrowLeft,
   Calendar,
   ChevronDown,
   FilePlus2,
@@ -26,6 +25,7 @@ import {
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useInvoices } from '../hooks/useInvoices';
+import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 import { InvoiceCard } from '../components/InvoiceCard';
 import { SefazSyncStatusBadge } from '../components/SefazSyncStatusBadge';
 import { InvoiceActionModal } from '../modals/InvoiceActionModal';
@@ -449,31 +449,15 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
                 </Text>
               </View>
               <View style={styles.paginationControls}>
-                <TouchableOpacity
-                  style={[styles.pageButton, isDarkMode && styles.pageButtonDark]}
-                  disabled={page <= 1 || loading}
-                  onPress={() => goToPage(page - 1)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Página anterior"
-                >
-                  <ArrowLeft size={16} color={page <= 1 ? '#cbd5e1' : '#475569'} />
-                </TouchableOpacity>
-                <Text style={styles.pageCount}>
-                  {page} / {totalPages}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.pageButton, isDarkMode && styles.pageButtonDark]}
-                  disabled={page >= totalPages || loading}
-                  onPress={() => goToPage(page + 1)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Próxima página"
-                >
-                  <ChevronDown
-                    size={16}
-                    color={page >= totalPages ? '#cbd5e1' : '#475569'}
-                    style={{ transform: [{ rotate: '-90deg' }] }}
-                  />
-                </TouchableOpacity>
+                <Text style={styles.pageCount}>{page} / {totalPages}</Text>
+                <FixedPageSlots
+                  label="Paginação de notas fiscais de entrada"
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                  loading={loading}
+                  dark={isDarkMode}
+                />
               </View>
             </View>
           ) : null

@@ -2,7 +2,6 @@ import type {
   ParsedFiscalDetails,
   ParsedFiscalDeliveryAddress,
   ParsedFiscalInstallment,
-  ParsedFiscalTransport,
 } from '../types/fiscalDocuments.types';
 import {
   getCardBrandLabel,
@@ -48,6 +47,8 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
     const infNfeNode = descendants(parsed, 'infNFe')[0] || parsed.documentElement;
     const totalsNode = descendants(parsed, 'ICMSTot')[0];
     const ideNode = descendants(infNfeNode, 'ide')[0];
+    const issuerNode = descendants(infNfeNode, 'emit')[0];
+    const issuerAddressNode = issuerNode ? descendants(issuerNode, 'enderEmit')[0] : undefined;
     const recipientNode = descendants(infNfeNode, 'dest')[0];
     const recipientAddressNode = recipientNode
       ? descendants(recipientNode, 'enderDest')[0]
@@ -55,6 +56,8 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
     const deliveryNode = descendants(parsed, 'entrega')[0];
     const totalNode = descendants(infNfeNode, 'total')[0];
     const additionalInfoNode = descendants(infNfeNode, 'infAdic')[0];
+    const billingNode = descendants(infNfeNode, 'cobr')[0];
+    const invoiceNode = billingNode ? descendants(billingNode, 'fat')[0] : undefined;
     const transportNode = descendants(parsed, 'transp')[0];
     const carrierNode = transportNode ? descendants(transportNode, 'transporta')[0] : undefined;
     const vehicleNode = transportNode ? descendants(transportNode, 'veicTransp')[0] : undefined;
@@ -120,6 +123,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
       vICMS: 'ICMS',
       vBCST: 'Base ICMS-ST',
       vST: 'ICMS-ST',
+      vIPI: 'IPI',
       vPIS: 'PIS',
       vCOFINS: 'COFINS',
       vTotTrib: 'Tributos aproximados',
@@ -144,10 +148,25 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
     const trocoVal = value(parsed, 'vTroco');
 
     return {
+      issuer: {
+        name: issuerNode ? value(issuerNode, 'xNome') : '',
+        taxId: issuerNode ? value(issuerNode, 'CNPJ') || value(issuerNode, 'CPF') : '',
+        stateRegistration: issuerNode ? value(issuerNode, 'IE') : '',
+        stateRegistrationSubstitute: issuerNode ? value(issuerNode, 'IEST') : '',
+        street: issuerAddressNode ? value(issuerAddressNode, 'xLgr') : '',
+        number: issuerAddressNode ? value(issuerAddressNode, 'nro') : '',
+        complement: issuerAddressNode ? value(issuerAddressNode, 'xCpl') : '',
+        district: issuerAddressNode ? value(issuerAddressNode, 'xBairro') : '',
+        municipality: issuerAddressNode ? value(issuerAddressNode, 'xMun') : '',
+        state: issuerAddressNode ? value(issuerAddressNode, 'UF') : '',
+        postalCode: issuerAddressNode ? value(issuerAddressNode, 'CEP') : '',
+        phone: issuerAddressNode ? value(issuerAddressNode, 'fone') : '',
+      },
       general: {
         natureOperation: ideNode ? value(ideNode, 'natOp') : '',
         issueDate: ideNode ? value(ideNode, 'dhEmi') || value(ideNode, 'dEmi') : '',
         exitDate: ideNode ? value(ideNode, 'dhSaiEnt') || value(ideNode, 'dSaiEnt') : '',
+        environment: ideNode ? value(ideNode, 'tpAmb') : '',
         model: ideNode ? value(ideNode, 'mod') : '',
         series: ideNode ? value(ideNode, 'serie') : '',
         number: ideNode ? value(ideNode, 'nNF') : '',
@@ -159,6 +178,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         referencedKey: value(parsed, 'refNFe') || (ideNode ? value(ideNode, 'refNFe') : ''),
         total: totalNode ? value(totalNode, 'vNF') : '',
         additionalInfo: additionalInfoNode ? value(additionalInfoNode, 'infCpl') : '',
+        taxAuthorityInfo: additionalInfoNode ? value(additionalInfoNode, 'infAdFisco') : '',
       },
       recipient: {
         name: recipientNode ? value(recipientNode, 'xNome') : '',
@@ -221,6 +241,20 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
           cofinsValue: cofinsVariant ? value(cofinsVariant, 'vCOFINS') : '',
         };
       }),
+      summary: {
+        products: totalsNode ? value(totalsNode, 'vProd') : '',
+        freight: totalsNode ? value(totalsNode, 'vFrete') : '',
+        insurance: totalsNode ? value(totalsNode, 'vSeg') : '',
+        discount: totalsNode ? value(totalsNode, 'vDesc') : '',
+        otherExpenses: totalsNode ? value(totalsNode, 'vOutro') : '',
+        importTax: totalsNode ? value(totalsNode, 'vII') : '',
+        icmsBase: totalsNode ? value(totalsNode, 'vBC') : '',
+        icmsValue: totalsNode ? value(totalsNode, 'vICMS') : '',
+        icmsSubstitutionBase: totalsNode ? value(totalsNode, 'vBCST') : '',
+        icmsSubstitutionValue: totalsNode ? value(totalsNode, 'vST') : '',
+        ipiValue: totalsNode ? value(totalsNode, 'vIPI') : '',
+        invoiceTotal: totalsNode ? value(totalsNode, 'vNF') : '',
+      },
       totals: totalsList,
       transport: transportNode
         ? {
@@ -247,6 +281,14 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
             grossWeight: volumeNode ? value(volumeNode, 'pesoB') : value(transportNode, 'pesoB'),
           }
         : null,
+      billing: invoiceNode
+        ? {
+            number: value(invoiceNode, 'nFat'),
+            originalValue: value(invoiceNode, 'vOrig'),
+            discount: value(invoiceNode, 'vDesc'),
+            netValue: value(invoiceNode, 'vLiq'),
+          }
+        : undefined,
       payments: descendants(parsed, 'detPag').map((payment) => {
         const method = value(payment, 'tPag');
         const indicator = value(payment, 'indPag');

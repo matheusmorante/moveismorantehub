@@ -3,9 +3,9 @@ import type Product from '../../../../../types/product.type';
 import type { ProductCategoryTree, ProductListRow } from '../../types';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import ProductSalesModal from '../../../components/modals/product/ProductSalesModal';
-import { SendWhatsAppModal } from '@/components/shared/SendWhatsAppModal';
 import { useProductMetadata } from '../../hooks/data/useProductMetadata';
 import { getVariationDisplayName } from '../../utils/presentation/getVariationDisplayName';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import { CardThumbnail } from './CardThumbnail';
 import { CardPriceStock } from './CardPriceStock';
 import { ProductCardVariationList } from '../Variations/ProductCardVariationList';
@@ -14,6 +14,8 @@ import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface ProductCardProps {
   readonly product: ProductListRow;
+  readonly readOnly?: boolean;
+  readonly showCatalogControl?: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
@@ -35,6 +37,8 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
+  readOnly = false,
+  showCatalogControl = true,
   onEdit,
   onLaunchStock,
   onDelete,
@@ -53,36 +57,48 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
   const [showVariations, setShowVariations] = React.useState(false);
-  const [whatsAppModal, setWhatsAppModal] = React.useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
-  });
 
-  const isLowStock = (product.stock || 0) <= (product.minStock || 0);
   const isParent = Boolean(product.isParent);
   const isVariation = product.isVariation || !!product.parentId;
-  const isDraft = Boolean(product.isDraft);
+  const singleVariation =
+    isParent && product.allVariations?.length === 1 ? product.allVariations[0] : undefined;
+  const isSingleVariationCard = Boolean(singleVariation);
+  const isDraft = Boolean(
+    product.isDraft ||
+      product.status === 'draft' ||
+      (product as ProductListRow & { is_draft?: boolean }).is_draft
+  );
   const isNonConventional = isNonConventionalProduct(product);
-  const canManageCatalog = !isDraft && (product.active !== false || isNonConventional);
+  const canManageCatalog = !readOnly && !isDraft && (product.active !== false || isNonConventional);
 
   const { oppName, supplierNames } = useProductMetadata(product);
   const variationName = isVariation ? getVariationDisplayName(product) : '';
-  const hasParentVariations = Boolean(
-    isParent && product.allVariations && product.allVariations.length > 0
-  );
+  const hasParentVariations = isParent && (product.allVariations?.length || 0) > 1;
 
-  const displayTitle = isVariation
-    ? variationName || product.name || product.title || '-'
-    : product.name ||
-      product.title ||
-      (product.description ? product.description.split('\n')[0].substring(0, 120) : '-');
+  const displayTitle = isSingleVariationCard
+    ? getSelectedProductDisplayName(product, singleVariation)
+    : isVariation
+      ? variationName || product.name || product.title || '-'
+      : product.name ||
+        product.title ||
+        (product.description ? product.description.split('\n')[0].substring(0, 120) : '-');
+
+  const cardUnitPrice = singleVariation?.unitPrice ?? product.unitPrice ?? 0;
+  const cardPromoPrice = singleVariation ? singleVariation.promoPrice : product.promoPrice;
+  const cardStock = singleVariation?.stock ?? product.stock ?? 0;
+  const cardMinStock = singleVariation?.minStock ?? product.minStock ?? 0;
+  const cardImages =
+    singleVariation?.images && singleVariation.images.length > 0
+      ? singleVariation.images
+      : product.images;
 
   const hasPromo = Boolean(
-    product.promoPrice &&
-    Number(product.promoPrice) > 0 &&
-    Number(product.promoPrice) < Number(product.unitPrice)
+    cardPromoPrice &&
+      Number(cardPromoPrice) > 0 &&
+      Number(cardPromoPrice) < Number(cardUnitPrice)
   );
-  const currentPrice = Number(hasPromo ? product.promoPrice : product.unitPrice || 0);
+  const currentPrice = Number(hasPromo ? cardPromoPrice : cardUnitPrice);
+  const isLowStock = Number(cardStock) <= Number(cardMinStock);
 
   return (
     <div
@@ -105,7 +121,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 ${
                   isSelected
                     ? 'border-blue-500 ring-1 ring-blue-500'
-                    : isParent
+                    : isParent && !isSingleVariationCard
                       ? 'border-slate-300 dark:border-slate-700 bg-slate-200/70 dark:bg-slate-800/80 shadow-xs'
                       : isVariation
                         ? 'border-slate-200 dark:border-slate-800 ml-2.5 sm:ml-5 bg-white dark:bg-slate-900 shadow-2xs'
@@ -114,11 +130,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
     >
       <ProductCardHeader
         product={product}
+        readOnly={readOnly}
+        showCatalogControl={showCatalogControl}
         isParent={isParent}
         isVariation={isVariation}
         isDraft={isDraft}
         canManageCatalog={canManageCatalog}
         hasParentVariations={hasParentVariations}
+        singleVariation={singleVariation}
         showVariations={showVariations}
         setShowVariations={setShowVariations}
         oppName={oppName ?? undefined}
@@ -130,14 +149,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onDeactivateCatalog={onDeactivateCatalog}
         onShowHistory={onShowHistory}
         onDuplicate={onDuplicate}
+        onMoveToAnotherFamily={onMoveToAnotherFamily}
+        onMergeWithAnotherVariation={onMergeWithAnotherVariation}
         onOpenSalesModal={() => setIsSalesModalOpen(true)}
-        onOpenWhatsApp={(msg) => setWhatsAppModal({ open: true, message: msg })}
       />
 
       {/* Corpo do Card: Imagem e Título */}
       <div className="mb-3 flex items-center gap-3">
-        {!isParent && (
-          <CardThumbnail images={product.images} name={product.name} title={product.title} />
+        {(!isParent || isSingleVariationCard) && (
+          <CardThumbnail images={cardImages} name={displayTitle} title={product.title} />
         )}
         <div className="flex-1 min-w-0">
           <h3
@@ -198,15 +218,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Rodapé do Card: Preço e Estoque */}
-      {!isParent && (
+      {(!isParent || isSingleVariationCard) && (
         <CardPriceStock
           hasPromo={hasPromo || false}
-          unitPrice={product.unitPrice || 0}
+          unitPrice={cardUnitPrice}
           currentPrice={currentPrice}
           itemType={product.itemType}
           isLowStock={isLowStock}
-          stock={product.stock}
-          unit={product.unit}
+          stock={cardStock}
+          unit={singleVariation?.unit || product.unit}
         />
       )}
 
@@ -229,9 +249,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
       )}
 
       {/* Variações Filhas Expandidas (Apenas para Pai) */}
-      {isParent && (
+      {isParent && hasParentVariations && (
         <ProductCardVariationList
           product={product}
+          readOnly={readOnly}
+          showCatalogControl={showCatalogControl}
           variations={(product as any).allVariations || []}
           showVariations={showVariations}
           canManageCatalog={canManageCatalog}
@@ -247,14 +269,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
           onRefresh={onRefresh}
         />
       )}
-
-      {/* Modal de Envio via WhatsApp */}
-      <SendWhatsAppModal
-        isOpen={whatsAppModal.open}
-        onClose={() => setWhatsAppModal((prev) => ({ ...prev, open: false }))}
-        initialMessage={whatsAppModal.message}
-        title={`Enviar "${product.name || product.title || product.description}" via WhatsApp`}
-      />
     </div>
   );
 };

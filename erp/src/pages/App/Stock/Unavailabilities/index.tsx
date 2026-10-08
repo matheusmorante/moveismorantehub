@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import {
@@ -73,6 +74,7 @@ export default function UnavailabilitiesPage() {
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / STOCK_UNAVAILABILITIES_PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
   return (
     <div className="p-4 max-w-7xl mx-auto">
@@ -277,35 +279,19 @@ export default function UnavailabilitiesPage() {
       {!isLoading && totalCount > 0 && (
         <nav
           aria-label="Paginação de indisponibilidades"
-          className="flex items-center justify-between gap-3 py-4 text-sm text-gray-600"
+          className="flex flex-col items-center justify-between gap-3 py-4 text-sm text-gray-600 sm:flex-row"
         >
           <span>
-            Exibindo {(currentPage - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE + 1}–
-            {Math.min(currentPage * STOCK_UNAVAILABILITIES_PAGE_SIZE, totalCount)} de {totalCount}
+            Exibindo {totalCount > 0 ? (safeCurrentPage - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE + 1 : 0}–
+            {Math.min(safeCurrentPage * STOCK_UNAVAILABILITIES_PAGE_SIZE, totalCount)} de {totalCount}
           </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              aria-label="Página anterior"
-              disabled={isLoading || currentPage <= 1}
-              onClick={() => setCurrentPage((page) => page - 1)}
-              className="px-3 py-1 border rounded disabled:opacity-40"
-            >
-              Anterior
-            </button>
-            <span>
-              Página {currentPage} de {totalPages}
-            </span>
-            <button
-              type="button"
-              aria-label="Próxima página"
-              disabled={isLoading || currentPage >= totalPages}
-              onClick={() => setCurrentPage((page) => page + 1)}
-              className="px-3 py-1 border rounded disabled:opacity-40"
-            >
-              Próxima
-            </button>
-          </div>
+          <FixedPageSlots
+            ariaLabel="Paginação de indisponibilidades"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            loading={isLoading}
+          />
         </nav>
       )}
 

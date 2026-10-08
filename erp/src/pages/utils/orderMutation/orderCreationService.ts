@@ -14,7 +14,8 @@ import { removeNonStockItemLinks } from '../saleInventoryRules';
  */
 export const executeSaveOrder = async (
   order: Order,
-  updateOrderFn: (id: string, partial: Partial<Order>, current?: Order) => Promise<void>
+  updateOrderFn: (id: string, partial: Partial<Order>, current?: Order) => Promise<void>,
+  options: { idempotencyKey?: string } = {}
 ): Promise<string> => {
   if (order.id) {
     await updateOrderFn(order.id, order);
@@ -58,7 +59,9 @@ export const executeSaveOrder = async (
     // Em caso de erro, não há fallback parcial que grave somente o pedido.
     const isReturn = orderToSave.orderType === 'return' && Boolean(orderToSave.linkedOrderId);
     const requestOrderId =
-      isReturn && orderToSave.returnRequestId ? orderToSave.returnRequestId : crypto.randomUUID();
+      isReturn && orderToSave.returnRequestId
+        ? orderToSave.returnRequestId
+        : options.idempotencyKey || crypto.randomUUID();
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       isReturn
         ? Array.isArray((orderToSave as any).fiscalReturnAllocations) &&
@@ -91,15 +94,18 @@ export const executeSaveOrder = async (
 
     orderToSave = { ...orderToSave, ...((rpcData as any)?.order_data || {}) };
 
-    // 4. Sincronização em background do cliente no CRM
-    syncCustomerToCrmBackground(
-      orderToSave.customerData?.id,
-      orderToSave.customerData?.phone,
-      orderToSave.marketingOrigin
-    );
+    // Pedidos explicitamente sintéticos preservam estoque e histórico pela RPC,
+    // mas não sincronizam dados de contato nem notificam equipes operacionais.
+    if (!orderToSave.is_test) {
+      syncCustomerToCrmBackground(
+        orderToSave.customerData?.id,
+        orderToSave.customerData?.phone,
+        orderToSave.marketingOrigin
+      );
+    }
 
-    // 5. Disparo de notificações
-    if (!(rpcData as any)?.idempotent_replay) {
+    // 5. Disparo de notificações apenas para pedidos operacionais.
+    if (!orderToSave.is_test && !(rpcData as any)?.idempotent_replay) {
       dispatchOrderCreationNotifications(rowId, orderToSave);
     }
 

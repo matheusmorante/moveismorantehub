@@ -9,6 +9,7 @@ import {
 
 export type FiscalOperationContext = 'normal_sale' | 'return' | 'estorno';
 export type FiscalReturnMethod = 'CLIENT_DELIVERED' | 'COMPANY_PICKUP';
+export const ESTORNO_NATURE_OF_OPERATION = 'Nota Fiscal de Estorno';
 export type FiscalRuleCategory =
   | 'SEFAZ_REQUIRED'
   | 'FISCAL_RULE'
@@ -351,16 +352,33 @@ export function getFiscalFormRules(
         'payment',
         'totals',
       ],
-      readOnlyFields: ['purpose', 'model', 'environment', 'items', 'originalDocumentReference'],
+      readOnlyFields: [
+        'purpose',
+        'model',
+        'environment',
+        'natureOfOperation',
+        'items',
+        'originalDocumentReference',
+      ],
       hiddenFields: ['salePaymentMethods', 'recipientSelection', 'transportSelection'],
-      requiredFields: ['origin', 'purpose', 'model', 'environment', 'items', 'reason'],
+      requiredFields: [
+        'origin',
+        'purpose',
+        'model',
+        'environment',
+        'natureOfOperation',
+        'items',
+        'reason',
+      ],
       allowedModels: ['55'],
       allowedFinalidades: [3],
       allowedCfops: [],
       allowedPaymentOptions: [],
       allowedTransportModes: [],
-      natureOptions: [],
-      fixedValues: { finalidade: 3, tpNF: 0 },
+      natureOptions: [
+        { value: ESTORNO_NATURE_OF_OPERATION, label: ESTORNO_NATURE_OF_OPERATION },
+      ],
+      fixedValues: { finalidade: 3, tpNF: 0, natOp: ESTORNO_NATURE_OF_OPERATION },
       availability: 'READY',
       taxReviewMode: 'proportional_original_only',
     };

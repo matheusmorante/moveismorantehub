@@ -1,5 +1,5 @@
 import Product, { Variation } from '../../types/product.type';
-import { MAX_PARENT_PRODUCT_IMAGES } from './productImageHelpers';
+import { MAX_WHATSAPP_PRODUCT_IMAGES } from '../productImageLimits';
 import { getLocalProducts } from './productLocalCache';
 import { saveProduct, updateProduct } from './productMutationService';
 
@@ -35,7 +35,7 @@ export const syncFromWhatsApp = async (whatsappProduct: any): Promise<string> =>
       if (whatsappProduct.image_url && !currentImages.includes(whatsappProduct.image_url)) {
         currentImages = [whatsappProduct.image_url, ...currentImages].slice(
           0,
-          MAX_PARENT_PRODUCT_IMAGES
+          MAX_WHATSAPP_PRODUCT_IMAGES
         );
       }
 

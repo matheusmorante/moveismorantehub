@@ -176,9 +176,6 @@ export function InboundInvoiceReceiptPickerModal({
               >
                 Usar Nota Fiscal de Entrada
               </h3>
-              <p className="text-xs text-slate-400">
-                Selecione uma NF-e para importar fornecedor, chave e itens automaticamente
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -188,7 +185,7 @@ export function InboundInvoiceReceiptPickerModal({
               className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-emerald-700 transition-colors"
             >
               <i className="bi bi-plus-lg mr-1.5" aria-hidden="true" />
-              Cadastrar nova NF de entrada
+              Importar nova NF
             </button>
             <button
               type="button"
@@ -330,13 +327,6 @@ export function InboundInvoiceReceiptPickerModal({
               <p className="mt-2 text-xs font-bold">
                 Nenhuma nota fiscal encontrada para os filtros selecionados.
               </p>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(true)}
-                className="mt-3 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors"
-              >
-                Cadastrar nova NF de entrada
-              </button>
             </div>
           ) : (
             available.map((inv) => {

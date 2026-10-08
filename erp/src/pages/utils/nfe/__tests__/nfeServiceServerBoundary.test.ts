@@ -197,6 +197,33 @@ describe('emissão NF-e no ERP', () => {
     ).rejects.toThrow('Dados de autorização incompletos');
     expect(mocks.print).not.toHaveBeenCalled();
   });
+  it('não imprime DANFE de pedido sem o XML fiscal original', async () => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: mocks.maybeSingle,
+    };
+    mocks.from.mockReturnValue(chain);
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    const { printOrderDanfe } = await import('../nfeService');
+
+    await expect(
+      printOrderDanfe({
+        id: 'TEST_AUT_DANFE_ORDER',
+        nfeData: {
+          accessKey: '1'.repeat(44),
+          protocolNumber: '1'.repeat(15),
+          protocolDate: '2026-10-01T15:20:30-03:00',
+          series: '1',
+          nfeNumber: 10,
+          model: '55',
+          environment: 2,
+          status: 'homologada',
+        },
+      } as any)
+    ).rejects.toThrow('XML fiscal original');
+    expect(mocks.print).not.toHaveBeenCalled();
+  });
   it('resolve documento somente pela intenção, pedido e ambiente originais', async () => {
     const chain: any = {
       select: vi.fn(() => chain),
@@ -312,7 +339,6 @@ describe('emissão NF-e no ERP', () => {
     expect(Object.keys(JSON.parse(String(request.body))).sort()).toEqual([
       'emissionRequestId',
       'environment',
-      'finalConsumer',
       'orderId',
       'productionConfirmed',
     ]);

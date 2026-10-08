@@ -6,9 +6,11 @@ import {
   getApplicableTechnicalFields,
   getAvailableAdditionalFields,
   groupTechnicalFields,
+  NAME_COMPOSING_CHARACTERISTIC_TOPIC,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
+import NameCompositionInfo from './NameCompositionInfo';
 import { AttributeManagementModal } from '../../modals/attributes/AttributeManagementModal';
 
 interface ProductTechnicalTabProps {
@@ -16,6 +18,7 @@ interface ProductTechnicalTabProps {
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly handleImproveDescriptionWithAI?: () => void;
   readonly isImprovingDescription?: boolean;
+  readonly requiredFieldsOnly?: boolean;
   readonly validationErrors?: Record<string, boolean>;
 }
 
@@ -24,6 +27,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   setFormData,
   handleImproveDescriptionWithAI,
   isImprovingDescription,
+  requiredFieldsOnly = false,
   validationErrors,
 }) => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -116,22 +120,26 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   }, [refreshKey]);
 
   // Só exibe características globais ou vinculadas às categorias selecionadas.
-  const visibleFields = getApplicableTechnicalFields(
+  const applicableFields = getApplicableTechnicalFields(
     allTechnicalFields,
     formData.categoryIds || [],
     formData.technicalValues || {},
     manualFieldNames
   );
+  const visibleFields = requiredFieldsOnly
+    ? applicableFields.filter((field) => field.isRequired)
+    : applicableFields;
   const fieldGroups = groupTechnicalFields(visibleFields);
-
-  const availableAdditionalFields = getAvailableAdditionalFields(allTechnicalFields, visibleFields);
 
   // Filtrar campos adicionais por busca
   const filteredAdditionalFields = React.useMemo(() => {
+    const availableAdditionalFields = requiredFieldsOnly
+      ? []
+      : getAvailableAdditionalFields(allTechnicalFields, visibleFields);
     const term = addSearchTerm.trim().toLowerCase();
     if (!term) return availableAdditionalFields;
     return availableAdditionalFields.filter((f) => f.name.toLowerCase().includes(term));
-  }, [availableAdditionalFields, addSearchTerm]);
+  }, [requiredFieldsOnly, allTechnicalFields, visibleFields, addSearchTerm]);
 
   const handleTechnicalValueChange = (fieldName: string, value: any) => {
     setFormData((prev) => {
@@ -223,9 +231,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
               >
                 <h4
                   id={`technical-group-${group.title}`}
-                  className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
                 >
                   {group.title}
+                  {group.title === NAME_COMPOSING_CHARACTERISTIC_TOPIC && <NameCompositionInfo />}
                 </h4>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
                   {group.fields.map((field) => {

@@ -53,7 +53,7 @@ export const ProductFormTabsNavigation: React.FC<ProductFormTabsNavigationProps>
             onClick={() => !isTabDisabled && setActiveTab(tab.id)}
             title={
               isTabDisabled
-                ? 'Selecione pelo menos uma categoria no Cadastro Geral para habilitar as Características'
+                ? 'Selecione pelo menos uma categoria em Informações Básicas para habilitar as Características'
                 : undefined
             }
             className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all shrink-0 ${

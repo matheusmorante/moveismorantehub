@@ -9,7 +9,7 @@ afterEach(cleanup);
 describe('ReceiptsPagination [TESTE_AUT]', () => {
   it('deve renderizar contagem e botões corretamente com 15 itens por página', () => {
     const onPageChange = vi.fn();
-    render(
+    const { container } = render(
       <ReceiptsPagination
         currentPage={1}
         totalPages={3}
@@ -24,26 +24,29 @@ describe('ReceiptsPagination [TESTE_AUT]', () => {
     expect(screen.getByText('38')).toBeDefined();
     expect(screen.getByText('(15 por página)')).toBeDefined();
 
-    const nextButton = screen.getByTitle('Próxima Página') as HTMLButtonElement;
-    fireEvent.click(nextButton);
-    expect(onPageChange).toHaveBeenCalledWith(2);
+    expect(container.querySelectorAll('[data-page-slot]')).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: 'Página 3' }));
+    expect(onPageChange).toHaveBeenCalledWith(3);
   });
 
-  it('deve desabilitar botão anterior na primeira página e botão próximo na última', () => {
-    const { rerender } = render(
+  it('preserva os espaços vazios nas bordas e desloca a página atual ao navegar', () => {
+    const onPageChange = vi.fn();
+    const { container, rerender } = render(
       <ReceiptsPagination
         currentPage={1}
         totalPages={2}
         totalItems={25}
         itemsPerPage={15}
-        onPageChange={vi.fn()}
+        onPageChange={onPageChange}
       />
     );
 
-    const prevBtn1 = screen.getByTitle('Página Anterior') as HTMLButtonElement;
-    const nextBtn1 = screen.getByTitle('Próxima Página') as HTMLButtonElement;
-    expect(prevBtn1.disabled).toBe(true);
-    expect(nextBtn1.disabled).toBe(false);
+    expect(container.querySelectorAll('[data-page-slot]')).toHaveLength(5);
+    expect(container.querySelector('[data-page-slot="1"] button')).toBeNull();
+    expect(container.querySelector('[data-page-slot="2"] button')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Página 2' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
 
     rerender(
       <ReceiptsPagination
@@ -51,18 +54,17 @@ describe('ReceiptsPagination [TESTE_AUT]', () => {
         totalPages={2}
         totalItems={25}
         itemsPerPage={15}
-        onPageChange={vi.fn()}
+        onPageChange={onPageChange}
       />
     );
 
-    const prevBtn2 = screen.getByTitle('Página Anterior') as HTMLButtonElement;
-    const nextBtn2 = screen.getByTitle('Próxima Página') as HTMLButtonElement;
-    expect(prevBtn2.disabled).toBe(false);
-    expect(nextBtn2.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Página 2, atual' }).getAttribute('aria-current')).toBe('page');
+    expect(container.querySelector('[data-page-slot="4"] button')).toBeNull();
+    expect(container.querySelector('[data-page-slot="5"] button')).toBeNull();
   });
 
-  it('não deve renderizar nada se totalItems for 0', () => {
-    const { container } = render(
+  it('continua mostrando a página única quando a lista não tem itens', () => {
+    render(
       <ReceiptsPagination
         currentPage={1}
         totalPages={0}
@@ -72,6 +74,6 @@ describe('ReceiptsPagination [TESTE_AUT]', () => {
       />
     );
 
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByRole('button', { name: 'Página 1, atual' })).toBeTruthy();
   });
 });

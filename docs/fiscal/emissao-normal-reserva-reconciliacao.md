@@ -130,9 +130,10 @@ Ambos não possuem caminho de emissão para a SEFAZ.
 
 ## Limites atuais
 
-- A configuração própria `fiscal_decision_simples_nfce65_normal_sale_v1` continua
-  pendente. O pipeline aceita 65 com decisão própria válida; não usa a decisão 55
-  como fallback. A decisão temporária do pgTAP foi revertida.
+- A venda normal usa a decisão compartilhada `fiscal_decision_simples_normal_sale_v1`
+  com escopo explícito para os modelos 55/65. O registro legado do modelo 55 é
+  mantido para compatibilidade com históricos, sem fallback para novas emissões.
+  Veja [a decisão e seus limites](decisoes-contribuicoes-venda-normal.md).
 - A regra de venda normal cobre o escopo já implementado. Operações que exigem
   outra matriz tributária continuam bloqueadas antes da reserva.
 - Correção/substituição de XML rejeitado, tratamento de NFC-e expirada,

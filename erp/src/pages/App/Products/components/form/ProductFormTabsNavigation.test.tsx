@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProductFormTabsNavigation, type ProductTabItem } from './ProductFormTabsNavigation';
 
 const tabs: ProductTabItem[] = [
-  { id: 'geral', label: 'Cadastro Geral', icon: '' },
+  { id: 'geral', label: 'Informações Básicas', icon: '' },
   { id: 'technical', label: 'Características', icon: 'bi-info-circle' },
   { id: 'description', label: 'Descrição', icon: 'bi-file-text' },
   { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },

@@ -1,6 +1,6 @@
-import { UserRole } from '../../context/AuthContext';
+import type { UserRole } from '../../context/AuthContext';
 import { getSettings } from '@/pages/utils/settingsService';
-import { PERMISSION_AREAS } from './permissionConfig';
+import { findPermissionAction, isFinanceAdminOnlyAction } from './permissionConfig';
 
 export type PermissionAction =
   | 'viewOrders'
@@ -8,11 +8,15 @@ export type PermissionAction =
   | 'deleteOrders'
   | 'startDelivery'
   | 'viewProducts'
+  | 'viewStock'
+  | 'viewSuppliers'
   | 'productConfig'
   | 'manualStockMovement'
   | 'deleteProducts'
   | 'viewFinancials'
   | 'exportReports'
+  | 'viewFiscal'
+  | 'viewMarketing'
   | 'viewPeople'
   | 'createEditPeople'
   | 'deletePeople'
@@ -31,6 +35,8 @@ export const canPerform = (action: PermissionAction, role?: UserRole | UserRole[
   const roles = Array.isArray(role) ? role : [role];
   if (roles.length === 0 || (roles.length === 1 && roles[0] === 'pending')) return false;
 
+  if (isFinanceAdminOnlyAction(action)) return roles.includes('administrator');
+
   // Administrators always have full access
   if (roles.includes('administrator')) return true;
   if (action === 'manageSettings') return false;
@@ -43,13 +49,6 @@ export const canPerform = (action: PermissionAction, role?: UserRole | UserRole[
     return rolesWithPermission.some((r) => roles.includes(r as UserRole));
   }
 
-  // Default fallback from PERMISSION_AREAS definitions if action isn't saved yet
-  for (const area of PERMISSION_AREAS) {
-    const actDef = area.actions.find((a) => a.id === action);
-    if (actDef) {
-      return actDef.defaultRoles.some((r) => roles.includes(r));
-    }
-  }
-
-  return false;
+  // Default fallback for actions not initialized in older settings records.
+  return findPermissionAction(action)?.defaultRoles.some((allowedRole) => roles.includes(allowedRole)) ?? false;
 };

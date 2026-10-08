@@ -6,7 +6,8 @@
   "functions": {
     "api/nfe/emit.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
     "api/nfe/consult.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
-    "api/nfe/operations.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 }
+    "api/nfe/operations.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
+    "api/nfe/inbound-manifestation.ts": { "maxDuration": 120 }
   },
   "rewrites": [
     { "source": "/api/nfe/cancel", "destination": "/api/nfe/operations?operation=cancel" },

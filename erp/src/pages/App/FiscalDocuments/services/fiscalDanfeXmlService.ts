@@ -6,8 +6,9 @@ import {
   type DanfeData,
 } from '@/pages/utils/nfe/danfeGenerator';
 import { getSettings } from '@/pages/utils/settingsService';
-import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
+import { parseSefazAuthorization } from '@/pages/utils/nfe/sefazResponseParser';
 import type Order from '@/pages/types/order.type';
+import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 
 function createDanfeFallbackOrder(document: NfeDocumentRecord): Order {
@@ -70,30 +71,49 @@ function createDanfeFallbackOrder(document: NfeDocumentRecord): Order {
 
 async function buildDanfeData(doc: NfeDocumentRecord): Promise<DanfeData> {
   const settings = await getSettings();
-  let order = createDanfeFallbackOrder(doc);
+  let xml = doc.xml_nfe || '';
+  let protocolXml = doc.xml_protocolo || '';
+  let protocolNumber = doc.numero_protocolo || '';
 
-  if (doc.order_id) {
-    const { data: orderRow } = await supabase
-      .from('orders')
-      .select('id, status, order_type, customer_name, total_amount, order_data')
-      .eq('id', doc.order_id)
+  if (!xml || !protocolXml || !protocolNumber) {
+    const { data, error } = await supabase
+      .from('nfe_documents')
+      .select('xml_nfe,xml_protocolo,numero_protocolo')
+      .eq('id', doc.id)
       .maybeSingle();
-    if (orderRow) {
-      order = mapOrderFromDatabase(orderRow);
-    }
+    if (error) throw new Error('Não foi possível carregar o XML autorizado para impressão.');
+    xml ||= data?.xml_nfe || '';
+    protocolXml ||= data?.xml_protocolo || '';
+    protocolNumber ||= data?.numero_protocolo || '';
   }
 
+  const fiscalDetails = parseFiscalXmlDetails(xml);
+  if (!fiscalDetails) throw new Error('O XML autorizado não está disponível para montar o DANFE.');
+  if (
+    fiscalDetails.general.model !== doc.modelo ||
+    (fiscalDetails.general.environment && Number(fiscalDetails.general.environment) !== doc.ambiente)
+  ) {
+    throw new Error('O XML não corresponde ao modelo e ambiente deste documento fiscal.');
+  }
+
+  const authorization = parseSefazAuthorization(protocolXml);
+  const protocolDate = authorization.protocolDate
+    ? `${formatToBRDate(authorization.protocolDate)} ${authorization.protocolDate.match(/T(\d{2}:\d{2}:\d{2})/)?.[1] || ''}`.trim()
+    : '';
+
   return {
-    order,
+    order: createDanfeFallbackOrder(doc),
     settings,
     accessKey: doc.chave_acesso,
-    nfeNumber: doc.numero_nfe,
-    series: doc.serie || '1',
-    protocolNumber: doc.numero_protocolo || `141${Date.now()}`,
-    protocolDate: formatToBRDate(doc.created_at),
+    nfeNumber: Number(fiscalDetails.general.number) || doc.numero_nfe,
+    series: fiscalDetails.general.series || doc.serie || '1',
+    protocolNumber: authorization.protocolNumber || protocolNumber || '',
+    protocolDate,
     model: doc.modelo,
     environment: doc.ambiente,
-    status: doc.status === 'autorizada' ? 'autorizada' : 'homologada',
+    status: doc.status === 'autorizada' ? 'autorizada' : doc.status === 'homologada' ? 'homologada' : 'pendente',
+    natOp: fiscalDetails.general.natureOperation,
+    fiscalDetails,
   };
 }
 

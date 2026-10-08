@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   from: vi.fn(),
   recordHistory: vi.fn(),
+  syncCustomer: vi.fn(),
+  dispatchNotifications: vi.fn(),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -25,10 +27,10 @@ vi.mock('../../orderSnapshotResolution', () => ({
 }));
 vi.mock('../orderCrmSyncService', () => ({
   ensureCustomerInCrm: async () => undefined,
-  syncCustomerToCrmBackground: vi.fn(),
+  syncCustomerToCrmBackground: mocks.syncCustomer,
 }));
 vi.mock('../orderNotificationDispatcher', () => ({
-  dispatchOrderCreationNotifications: vi.fn(),
+  dispatchOrderCreationNotifications: mocks.dispatchNotifications,
   dispatchOrderUpdateNotifications: vi.fn(),
 }));
 vi.mock('../orderStatusWorkflowService', () => ({ recordOrderStatusHistory: mocks.recordHistory }));
@@ -70,6 +72,36 @@ describe('cadastro de pedido com estoque atômico', () => {
       expect.objectContaining({ p_order_id: expect.any(String), p_items: scheduledSale.items })
     );
     expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('usa uma chave estável de idempotência quando a fixture a fornece', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { id: '550e8400-e29b-41d4-a716-446655440010', order_index: 123, order_data: scheduledSale },
+      error: null,
+    });
+
+    await executeSaveOrder(scheduledSale as any, vi.fn(), {
+      idempotencyKey: '550e8400-e29b-41d4-a716-446655440010',
+    });
+
+    expect(mocks.rpc.mock.calls[0][1].p_order_id).toBe('550e8400-e29b-41d4-a716-446655440010');
+  });
+
+  it('mantém estoque/RPC do pedido de teste e suprime somente sincronização CRM e avisos operacionais', async () => {
+    const syntheticOrder = { ...scheduledSale, is_test: true, syntheticFixture: { scenarioKey: 'SCENARIO_001', version: 1 } };
+    mocks.rpc.mockResolvedValue({
+      data: { id: '550e8400-e29b-41d4-a716-446655440011', order_index: 123, order_data: syntheticOrder },
+      error: null,
+    });
+
+    await executeSaveOrder(syntheticOrder as any, vi.fn(), {
+      idempotencyKey: '550e8400-e29b-41d4-a716-446655440011',
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data.is_test).toBe(true);
+    expect(mocks.syncCustomer).not.toHaveBeenCalled();
+    expect(mocks.dispatchNotifications).not.toHaveBeenCalled();
   });
 
   it('envia somente itens normais vinculados à RPC ao criar ou atender a venda', async () => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-react-native';
+import { Calendar, ChevronDown } from 'lucide-react-native';
 import { useStockMoves } from '../hooks/useStockMoves';
 import { useStockMoveActions } from '../hooks/useStockMoveActions';
 import { styles } from './stockMovesStyles';
@@ -9,6 +9,7 @@ import { StockMove } from '../../types/stock.types';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { StockMoveCard, StockProductSearchFilter, StockBalanceBadge } from '../components';
 import { InventoryMoveDeleteModal, InventoryMoveEditModal, StockPeriodModal } from '../modals';
+import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 
 interface Props {
   isDarkMode: boolean;
@@ -163,55 +164,16 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
               <ActivityIndicator size="small" color="#2563eb" />
             ) : (
               <View style={styles.paginationRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.pageBtn,
-                    page === 0 && styles.pageBtnDisabled,
-                    isDarkMode && styles.pageBtnDark,
-                  ]}
-                  disabled={page === 0}
-                  onPress={() => goToPage(page - 1)}
-                >
-                  <ChevronLeft
-                    size={20}
-                    color={
-                      page === 0
-                        ? isDarkMode
-                          ? '#475569'
-                          : '#94a3b8'
-                        : isDarkMode
-                          ? '#cbd5e1'
-                          : '#334155'
-                    }
-                  />
-                </TouchableOpacity>
-
                 <Text style={[styles.pageText, isDarkMode && styles.textDark]}>
                   Página {page + 1} de {Math.max(1, totalPages)}
                 </Text>
-
-                <TouchableOpacity
-                  style={[
-                    styles.pageBtn,
-                    page >= totalPages - 1 && styles.pageBtnDisabled,
-                    isDarkMode && styles.pageBtnDark,
-                  ]}
-                  disabled={page >= totalPages - 1}
-                  onPress={() => goToPage(page + 1)}
-                >
-                  <ChevronRight
-                    size={20}
-                    color={
-                      page >= totalPages - 1
-                        ? isDarkMode
-                          ? '#475569'
-                          : '#94a3b8'
-                        : isDarkMode
-                          ? '#cbd5e1'
-                          : '#334155'
-                    }
-                  />
-                </TouchableOpacity>
+                <FixedPageSlots
+                  label="Paginação de movimentações de estoque"
+                  currentPage={page + 1}
+                  totalPages={Math.max(1, totalPages)}
+                  onPageChange={(nextPage) => goToPage(nextPage - 1)}
+                  dark={isDarkMode}
+                />
               </View>
             )}
           </View>

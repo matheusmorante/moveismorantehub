@@ -1,6 +1,8 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
+config.watchFolders = [...(config.watchFolders || []), path.resolve(__dirname, '../shared-utils')];
 // expo-sqlite loads this asset from its web worker; Metro must serve WASM as an asset.
 config.resolver.assetExts = [...new Set([...config.resolver.assetExts, 'wasm'])];
 

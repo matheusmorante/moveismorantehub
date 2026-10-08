@@ -23,7 +23,6 @@ export interface UseNfeItemEnrichmentProps {
   environment: 1 | 2;
   finalConsumer?: boolean;
   recipientIeIndicator?: '1' | '2' | '9';
-  recipientTaxId?: string;
   model?: '55' | '65';
   manualFiscalFields: React.MutableRefObject<Map<string, Record<number, Partial<NfeItemFiscal>>>>;
 }
@@ -44,7 +43,6 @@ export function useNfeItemEnrichment({
   environment,
   finalConsumer,
   recipientIeIndicator,
-  recipientTaxId,
   model,
   manualFiscalFields,
 }: UseNfeItemEnrichmentProps) {
@@ -67,7 +65,6 @@ export function useNfeItemEnrichment({
     model,
     finalConsumer,
     recipientIeIndicator,
-    recipientTaxId,
     getSettings().companyUF,
     order?.orderType,
     order?.fiscalContext,

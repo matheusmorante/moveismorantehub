@@ -17,8 +17,10 @@ interface RawVariationItem {
   syncWeight?: boolean;
   syncCostPrice?: boolean;
   unitPrice?: number;
+  promoPrice?: number;
   costPrice?: number;
   stock?: number;
+  minStock?: number;
   active?: boolean;
   status?: Product['status'];
   image_url?: string;
@@ -96,6 +98,7 @@ function buildVariationListRow(
     productId: product.id,
     sku,
     code: sku,
+    name: variation.name || product.name,
     description: variation.name || product.description,
     displayName: variation.name,
     attributes: variation.attributes || [],
@@ -113,6 +116,12 @@ function buildVariationListRow(
       variation.unitPrice === 0
         ? product.unitPrice
         : variation.unitPrice,
+    promoPrice:
+      variation.syncPromoPrice !== false ||
+      typeof variation.promoPrice === 'undefined' ||
+      variation.promoPrice === null
+        ? product.promoPrice
+        : variation.promoPrice,
     costPrice:
       variation.syncCostPrice ||
       typeof variation.costPrice === 'undefined' ||
@@ -121,6 +130,10 @@ function buildVariationListRow(
         ? product.costPrice
         : variation.costPrice,
     stock: typeof variation.stock !== 'undefined' && variation.stock !== null ? variation.stock : 0,
+    minStock:
+      typeof variation.minStock !== 'undefined' && variation.minStock !== null
+        ? variation.minStock
+        : product.minStock,
     active: variation.active !== false,
     status: variation.status || product.status,
     images: parseVariationImages(variation.image_url, variation.images),

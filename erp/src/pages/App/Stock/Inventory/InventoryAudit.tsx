@@ -4,6 +4,7 @@ import { ActionConfirmModal } from './modals/ActionConfirmModal';
 import { StatusBadge, AdjustmentBadge } from './components/InventoryAuditBadges';
 import { InventoryAuditContextMenu } from './components/InventoryAuditContextMenu';
 import { useInventoryAuditSessions } from './hooks/useInventoryAuditSessions';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 interface InventoryAuditProps {
   readonly onCopy: (items: readonly InventorySnapshotItem[]) => void;
@@ -54,28 +55,16 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
             <option value={0}>Todos os períodos</option>
           </select>
         </label>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
-            aria-label="Página anterior"
-          >
-            <i className="bi bi-chevron-left" />
-          </button>
+        <div className="flex flex-col items-center gap-2 sm:flex-row">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
             Página {page} de {pageCount}
           </span>
-          <button
-            type="button"
-            disabled={page >= pageCount}
-            onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
-            aria-label="Próxima página"
-          >
-            <i className="bi bi-chevron-right" />
-          </button>
+          <FixedPageSlots
+            ariaLabel="Paginação de inventários"
+            currentPage={page}
+            totalPages={pageCount}
+            onPageChange={setPage}
+          />
         </div>
       </div>
       {/* ── Cards: telas menores que xl ── */}

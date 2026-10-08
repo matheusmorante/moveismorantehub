@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { generateNfeAccessKey, formatAccessKey } from './nfeAccessKey';
-import { buildNfeXml } from './nfeXmlBuilder';
+import type Order from '@/pages/types/order.type';
+import { formatAccessKey, generateNfeAccessKey } from './nfeAccessKey';
 import { validateOrderForNfe } from './nfeValidator';
-import Order from '@/pages/types/order.type';
+import { buildNfeXml } from './nfeXmlBuilder';
 
 describe('NF-e Access Key Calculation (SEFAZ)', () => {
   it('calculates 44-digit access key with valid mod 11 check digit', () => {
@@ -70,6 +70,7 @@ describe('NF-e Validator', () => {
           postalCode: '83400-000',
         },
       },
+      fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
       seller: 'Matheus',
       payments: [],
       paymentsSummary: { totalOrderValue: 1250, totalPaid: 1250, remainingBalance: 0 },
@@ -133,6 +134,7 @@ describe('NF-e XML Builder (Homologação)', () => {
       ],
       itemsSummary: { totalQuantity: 1, itemsSubtotal: 850 },
       shipping: { deliveryMethod: 'pickup', value: 0 },
+      fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
       seller: 'Matheus',
       payments: [{ method: 'PIX', totalValue: 850 }],
       paymentsSummary: { totalOrderValue: 850, totalPaid: 850, remainingBalance: 0 },
@@ -149,7 +151,7 @@ describe('NF-e XML Builder (Homologação)', () => {
       companyCMun: '4105805',
     };
 
-    const xml = buildNfeXml({
+    const params = {
       order: mockOrder,
       settings: mockSettings,
       accessKey: '41260944512248000107650010000001001123456784',
@@ -159,7 +161,13 @@ describe('NF-e XML Builder (Homologação)', () => {
       series: '1',
       model: '65',
       environment: 2,
-    });
+    } as const;
+
+    expect(() =>
+      buildNfeXml({ ...params, order: { ...mockOrder, fiscalContext: undefined } as Order })
+    ).toThrow(/finalidade da compra/);
+
+    const xml = buildNfeXml(params);
 
     expect(xml).toContain('<NFe xmlns="http://www.portalfiscal.inf.br/nfe">');
     expect(xml).toContain('<tpAmb>2</tpAmb>');

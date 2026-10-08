@@ -1,6 +1,7 @@
 import React from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 
 interface ProductSearchItemProps {
   product: Product;
@@ -23,7 +24,7 @@ export const ProductSearchItem = ({
       ? product.costPrice || 0
       : product.unitPrice || 0;
 
-  const title = variation ? `${product.description} - ${variation.name}` : product.description;
+  const title = getSelectedProductDisplayName(product, variation);
 
   return (
     <div

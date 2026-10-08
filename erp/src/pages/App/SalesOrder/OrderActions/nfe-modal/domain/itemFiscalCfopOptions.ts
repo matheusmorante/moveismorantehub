@@ -95,7 +95,8 @@ const formatMerchandiseOrigin = (value: string) => {
 const formatBoolean = (value: boolean | undefined) =>
   value === undefined ? 'não informado' : value ? 'sim' : 'não';
 
-const formatStRole = (role: string) => {
+const formatStRole = (role: string | null | undefined) => {
+  if (!role) return 'não informado';
   if (role === 'NONE') return 'sem ST';
   if (role === 'SUBSTITUTE') return 'substituto tributário';
   if (role === 'SUBSTITUTED') return 'substituído tributário';

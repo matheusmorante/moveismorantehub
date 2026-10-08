@@ -211,7 +211,9 @@ describe('mapeamento do estado físico de entrega do pedido', () => {
       deliveryStatus: 'in_transit',
       deliveryStartedAt: '2026-10-01T12:00:00Z',
     });
-    expect(hasGoodsCirculated(order)).toBe(true);
+    expect(
+      hasGoodsCirculated(order as unknown as Parameters<typeof hasGoodsCirculated>[0])
+    ).toBe(true);
   });
 
   it('infere personType PF para CPF (11 dígitos) e PJ para CNPJ (14 dígitos) no customerData', () => {
@@ -247,5 +249,21 @@ describe('mapeamento do estado físico de entrega do pedido', () => {
       },
     });
     expect(explicitOrder.customerData.personType).toBe('PJ');
+  });
+});
+
+describe('marcador explícito de pedido de teste', () => {
+  it('recupera order_data.is_test e mantém ausente o marcador em pedidos normais', () => {
+    const testOrder = mapOrderFromDatabase({
+      id: 'test-order-marker',
+      order_data: { is_test: true },
+    });
+    const normalOrder = mapOrderFromDatabase({
+      id: 'normal-order-marker',
+      order_data: {},
+    });
+
+    expect(testOrder.is_test).toBe(true);
+    expect(normalOrder.is_test).toBeUndefined();
   });
 });

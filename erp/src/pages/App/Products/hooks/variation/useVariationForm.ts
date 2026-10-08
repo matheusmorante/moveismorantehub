@@ -7,8 +7,11 @@ import {
   parseVariationImages,
 } from '@/pages/utils/productService';
 import {
+  buildProductVariationName,
   computeVariationName,
   getVariationAttributeValuesInNameOrder,
+  getVariationNameAttributes,
+  isVariationNamePlaceholderSuffix,
 } from '@/pages/utils/productVariationDefaults';
 import { toast } from 'react-toastify';
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
@@ -30,6 +33,7 @@ interface UseVariationFormOptions {
   onSave?: (updatedVariation: Variation) => void;
   onDraftChange?: (updatedVariation: Variation) => void;
   onDraftSave?: (updatedVariation: Variation) => Promise<boolean>;
+  isStockistOnly?: boolean;
 }
 
 export function useVariationForm({
@@ -42,6 +46,7 @@ export function useVariationForm({
   onSave,
   onDraftChange,
   onDraftSave,
+  isStockistOnly = false,
 }: UseVariationFormOptions) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<VariationTabId>('identificacao');
@@ -196,9 +201,13 @@ export function useVariationForm({
   ]);
 
   const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
-    return (
-      computeVariationName(parentProduct.name || parentProduct.description || '', attributes) ||
-      'Variação'
+    const nameAttributes = getVariationNameAttributes(
+      attributes,
+      parentProduct.technicalValues || {}
+    );
+    return computeVariationName(
+      parentProduct.name || parentProduct.description || '',
+      nameAttributes
     );
   };
 
@@ -210,11 +219,15 @@ export function useVariationForm({
       parentProduct.description ||
       ''
     ).trim();
-    const attributeValues = getVariationAttributeValuesInNameOrder(attributes);
+    const nameAttributes = getVariationNameAttributes(
+      attributes,
+      parentProduct.technicalValues || {}
+    );
+    const attributeValues = getVariationAttributeValuesInNameOrder(nameAttributes);
     if (attributeValues.length > 0) {
-      return toTitleCase([parentTitle, ...attributeValues].filter(Boolean).join(' '));
+      return toTitleCase(buildProductVariationName(parentTitle, attributeValues.join(' ')));
     }
-    return toTitleCase(parentTitle || 'Variação');
+    return toTitleCase(parentTitle);
   };
 
   const fetchDbAttributes = async () => {
@@ -258,7 +271,9 @@ export function useVariationForm({
   useEffect(() => {
     if (isOpen) {
       fetchDbAttributes();
-      setActiveTab('identificacao');
+      setActiveTab(
+        isSingleVariation && Boolean(variation) && !isStockistOnly ? 'fotos' : 'identificacao'
+      );
       if (variation) {
         setFormData({
           ...variation,
@@ -342,7 +357,7 @@ export function useVariationForm({
     // A inicialização deve ocorrer apenas ao abrir ou trocar a variação (pelo ID).
     // Alterar o pai durante a edição é tratado pelos efeitos de sincronização acima,
     // sem apagar os atributos que já foram informados.
-  }, [variation?.id, isOpen]);
+  }, [variation?.id, isOpen, isStockistOnly]);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
     updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
@@ -381,16 +396,29 @@ export function useVariationForm({
       }))
       .filter((attr) => attr.name.trim() && attr.value.trim());
     const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
+    const nameAttributes = getVariationNameAttributes(
+      cleanAttributes,
+      parentProduct.technicalValues || {},
+      formData.technicalValues || {}
+    );
+    const generatedName = computeVariationName(parentPrefix, nameAttributes);
     let variationName = isSingleVariation
-      ? parentPrefix
+      ? generatedName
       : (formData.name || '').trim();
+    const nameSuffix =
+      parentPrefix && variationName.toLowerCase().startsWith(parentPrefix.toLowerCase())
+        ? variationName.slice(parentPrefix.length).replace(/^[\s\-_:]+/, '')
+        : variationName;
+    if (isVariationNamePlaceholderSuffix(nameSuffix)) {
+      variationName = generatedName;
+    }
+    if (!variationName || variationName.toLocaleLowerCase() === parentPrefix.toLocaleLowerCase()) {
+      variationName = generatedName;
+    }
     if (parentPrefix) {
       if (!variationName.toLowerCase().startsWith(parentPrefix.toLowerCase())) {
-        variationName = `${parentPrefix} ${variationName}`.trim();
+        variationName = buildProductVariationName(parentPrefix, variationName);
       }
-    }
-    if (!variationName) {
-      variationName = parentPrefix || 'Variação';
     }
 
     const finalVariation: Variation = {

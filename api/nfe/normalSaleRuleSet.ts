@@ -334,11 +334,10 @@ export async function createNormalSaleRuleSet(
       if (
         snapshot.emissionRequest.environment !== environment ||
         snapshot.order.deleted ||
-        snapshot.order.id.startsWith('TEST_AUT_') ||
         snapshot.order.type !== 'sale' ||
         ['draft', 'cancelled', 'cancelado'].includes(snapshot.order.status.toLowerCase())
       )
-        throw new Error('Pedido real não elegível para venda normal neste ambiente.');
+        throw new Error('Pedido não elegível para venda normal neste ambiente.');
       const data = snapshot.order.data;
       const snapshotShipping = data.shipping ? obj(data.shipping) : {};
       const snapshotCustomer = data.customerData ? obj(data.customerData) : {};

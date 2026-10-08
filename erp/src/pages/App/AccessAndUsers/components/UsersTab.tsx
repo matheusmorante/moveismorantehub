@@ -5,6 +5,7 @@ import { roleLabel } from '@/pages/utils/accessRoles';
 import PersonFormModal from '../../Registrations/shared/modals/PersonFormModal';
 import { updatePerson } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 interface Props {
   people: Person[];
@@ -118,7 +119,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   ) => {
     if (data.length === 0) return null;
 
-    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+    const totalPages = Math.max(1, Math.ceil(data.length / ITEMS_PER_PAGE));
     const paginatedData = data.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     return (
@@ -243,31 +244,15 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
           </table>
         </div>
         {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
-            <span className="text-xs text-slate-500 font-medium">
-              Página {page} de {totalPages}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/50 sm:flex-row">
+          <span className="text-xs font-medium text-slate-500">Página {page} de {totalPages}</span>
+          <FixedPageSlots
+            ariaLabel="Paginação de usuários"
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </div>
       </div>
     );
   };

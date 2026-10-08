@@ -34,8 +34,10 @@ export interface UseProductFormModalProps {
   readonly initialTab?: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal';
   readonly openAddVariationOnOpen?: boolean;
   readonly onSuccess?: (newProduct: Product) => void;
+  readonly onDraftSaved?: () => void;
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly isQuickRegister?: boolean;
+  readonly isStockistOnly?: boolean;
 }
 
 export function useProductFormModal({
@@ -46,8 +48,10 @@ export function useProductFormModal({
   initialTab,
   openAddVariationOnOpen,
   onSuccess,
+  onDraftSaved,
   onSave,
   isQuickRegister = false,
+  isStockistOnly = false,
 }: UseProductFormModalProps) {
   const [activeTab, setActiveTab] = useState<ProductFormTabKey>('geral');
   const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<
@@ -144,6 +148,12 @@ export function useProductFormModal({
       setActiveTab('geral');
     }
   }, [isService, activeTab]);
+
+  useEffect(() => {
+    if (isStockistOnly && (activeTab === 'ecommerce' || activeTab === 'description')) {
+      setActiveTab('geral');
+    }
+  }, [isStockistOnly, activeTab]);
 
   useEffect(() => {
     if (isOpen) {
@@ -264,6 +274,7 @@ export function useProductFormModal({
         const saved = await autoSaveDraft(latestFormDataRef.current);
         if (!saved) return;
       }
+      onDraftSaved?.();
       onClose();
       return;
     }
@@ -277,6 +288,7 @@ export function useProductFormModal({
   }, [
     hasChanged,
     onClose,
+    onDraftSaved,
     isProductCreation,
     isDraftProduct,
     formData,
@@ -408,7 +420,7 @@ export function useProductFormModal({
 
   const isComposition =
     formData.itemType === 'composition' || (formData as any).item_type === 'composition';
-  const formTabs = getProductFormTabs(isService, isComposition);
+  const formTabs = getProductFormTabs(isService, isComposition, isStockistOnly);
   const currentTabIndex = formTabs.findIndex((t) => t.id === activeTab);
   const isLastStep = currentTabIndex === formTabs.length - 1;
   const handleNextStep = useCallback(() => {

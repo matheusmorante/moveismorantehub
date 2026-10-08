@@ -72,6 +72,7 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
   issuedAt,
   settings,
   natureOfOperation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
+  destinationIndicator: kind === 'estorno' ? 1 : undefined,
   recipientXml:
     '<dest><CPF>12345678901</CPF><xNome>Cliente</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>',
   totalsXml:
@@ -104,9 +105,26 @@ describe('prévia estrutural do XML fiscal revisado', () => {
     const xml = buildReviewedFiscalOperationXml(input('estorno'));
     expect(xml).toContain('<finNFe>3</finNFe>');
     expect(xml).toContain('<tpNF>0</tpNF>');
+    expect(xml).toContain('<natOp>Nota Fiscal de Estorno</natOp>');
+    expect(xml).toContain('<idDest>1</idDest>');
     expect(xml).toContain(`<NFref><refNFe>${sourceKey}</refNFe></NFref>`);
     expect(xml).not.toContain('<DFeReferenciado>');
     expect(xml).toContain('art. 298 do RICMS');
+  });
+
+  it('preserva o indicador de destino da NF-e original e bloqueia natureza divergente', () => {
+    const interstate = buildReviewedFiscalOperationXml({
+      ...input('estorno'),
+      destinationIndicator: 2,
+    });
+    expect(interstate).toContain('<idDest>2</idDest>');
+
+    expect(() =>
+      buildReviewedFiscalOperationXml({
+        ...input('estorno'),
+        natureOfOperation: 'Estorno de NF-e não cancelada no prazo legal',
+      })
+    ).toThrow(/natureza e indicador de destino/);
   });
 
   it('devolução usa finalidade 4 e referência da origem por item, sem NFref', () => {

@@ -6,6 +6,8 @@ import {
 
 export type TechnicalFieldUnitPolicy = 'product-form' | 'variation-form';
 
+const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
+
 interface TechnicalAttributeRow {
   readonly id: string;
   readonly name: string;
@@ -51,21 +53,29 @@ export const fetchTechnicalFieldDefinitions = async (
   return (attributes ?? [])
     .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
     .map((attribute) => {
+      const normalizedName = String(attribute.name).toLocaleLowerCase('pt-BR');
+      const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
       const options = (values ?? [])
         .filter((value) => value.attribute_id === attribute.id)
         .map((value) => ({ id: value.id, value: value.value }))
-        .sort((left, right) =>
-          left.value.localeCompare(right.value, 'pt-BR', {
+        .sort((left, right) => {
+          if (isFirmnessField) {
+            return (
+              FIRMNESS_OPTION_ORDER.indexOf(left.value.trim().toLocaleLowerCase('pt-BR')) -
+              FIRMNESS_OPTION_ORDER.indexOf(right.value.trim().toLocaleLowerCase('pt-BR'))
+            );
+          }
+
+          return left.value.localeCompare(right.value, 'pt-BR', {
             numeric: true,
             sensitivity: 'base',
-          })
-        );
+          });
+        });
       const categoryIds = categoryLinksError
         ? []
         : (categoryLinks ?? [])
             .filter((link) => link.attribute_id === attribute.id)
             .map((link) => link.category_id);
-      const normalizedName = String(attribute.name).toLocaleLowerCase('pt-BR');
       const dimensionUnit =
         unitPolicy === 'product-form'
           ? ['altura', 'largura', 'profundidade'].includes(normalizedName)

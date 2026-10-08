@@ -259,7 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error:
           'A operação comercial do pedido vinculado ainda não foi cancelada; nenhum evento fiscal foi transmitido.',
       });
-    const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), doc.created_at);
+    const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), '');
     const cancellationPolicy = getFiscalCancellationPolicy({
       model: String(doc.modelo),
       authorizedAt,

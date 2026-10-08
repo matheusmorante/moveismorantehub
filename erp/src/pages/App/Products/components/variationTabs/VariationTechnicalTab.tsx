@@ -11,9 +11,11 @@ import {
   setVariationOverride,
   removeVariationOverride,
   groupTechnicalFields,
+  NAME_COMPOSING_CHARACTERISTIC_TOPIC,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
+import NameCompositionInfo from '../tabs/technical/NameCompositionInfo';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
 
 interface VariationTechnicalTabProps {
@@ -22,6 +24,7 @@ interface VariationTechnicalTabProps {
   readonly parentProduct: Product & { readonly attributes?: Variation['attributes'] };
   readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
   readonly showDescription?: boolean;
+  readonly requiredFieldsOnly?: boolean;
   readonly isSingleVariation?: boolean;
 }
 
@@ -30,6 +33,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   parentProduct,
   handleChange,
   showDescription = false,
+  requiredFieldsOnly = false,
   isSingleVariation = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
@@ -116,12 +120,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   }, [parentNormalizedValues, variationAttributeValues, formData?.technicalValues]);
 
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
-  const visibleFields = getApplicableTechnicalFields(
+  const applicableFields = getApplicableTechnicalFields(
     allTechnicalFields,
     parentProduct.categoryIds || [],
     combinedValues,
     manualFieldNames
   );
+  const visibleFields = requiredFieldsOnly
+    ? applicableFields.filter((field) => field.isRequired)
+    : applicableFields;
   const fieldGroups = groupTechnicalFields(visibleFields);
 
   const availableAdditionalFields: TechnicalFieldDefinition[] = [];
@@ -265,9 +272,10 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
               >
                 <h4
                   id={`variation-technical-group-${group.title}`}
-                  className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
                 >
                   {group.title}
+                  {group.title === NAME_COMPOSING_CHARACTERISTIC_TOPIC && <NameCompositionInfo />}
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {group.fields.map((field) => {

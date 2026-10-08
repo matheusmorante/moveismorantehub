@@ -1,5 +1,6 @@
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../../settingsService';
+import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
 
 export interface DanfeData {
   order: Order;
@@ -13,4 +14,5 @@ export interface DanfeData {
   environment: 1 | 2;
   status: 'autorizada' | 'homologada' | 'pendente';
   natOp?: string;
+  fiscalDetails?: ParsedFiscalDetails;
 }

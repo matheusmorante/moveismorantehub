@@ -1,5 +1,10 @@
 import React from 'react';
 import Product, { Variation } from '../../../../types/product.type';
+import {
+  buildProductVariationName,
+  getVariationAttributeValuesInNameOrder,
+  isVariationNamePlaceholderSuffix,
+} from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 
 export interface DbAttributeItem {
@@ -76,21 +81,20 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             </button>}
           </div>
           {(() => {
-            const parentPrefix = (
-              parentProduct.name ||
-              parentProduct.description ||
-              'Produto'
-            ).trim();
+            const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
             const currentFullName = formData.name || '';
-            const currentSuffix = currentFullName
+            const rawSuffix = currentFullName
               .toLowerCase()
               .startsWith(parentPrefix.toLowerCase())
               ? currentFullName.slice(parentPrefix.length).replace(/^[\s\-_:]+/, '')
               : currentFullName;
+            const currentSuffix = isVariationNamePlaceholderSuffix(rawSuffix)
+              ? getVariationAttributeValuesInNameOrder(formData.attributes).join(' ')
+              : rawSuffix;
 
             const handleSuffixChange = (newSuffix: string) => {
               const trimmedSuffix = newSuffix.trimStart();
-              const newFullName = trimmedSuffix ? `${parentPrefix} ${trimmedSuffix}` : parentPrefix;
+              const newFullName = buildProductVariationName(parentPrefix, trimmedSuffix);
               setFormData((prev) => {
                 if (!prev) return null;
                 const next: Variation = { ...prev, name: newFullName };
@@ -107,9 +111,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 className="w-full flex items-center border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400 transition-colors py-1.5"
                 title="O nome do produto pai é imutável no início. Você pode editar livremente o que vem após o nome do pai."
               >
-                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none mr-2 border border-slate-200 dark:border-slate-700">
-                  {parentPrefix}
-                </span>
+                {parentPrefix && (
+                  <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none mr-2 border border-slate-200 dark:border-slate-700">
+                    {parentPrefix}
+                  </span>
+                )}
                 <input
                   type="text"
                   disabled={isSingleVariation}

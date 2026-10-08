@@ -4,7 +4,10 @@ import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
 import QRScannerModal from '@/components/shared/QRScannerModal';
-import { consultInvoiceByAccessKey } from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
+import {
+  consultInvoiceByAccessKey,
+  sendInboundScienceOfEmission,
+} from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 
 interface InboundDocumentImportModalProps {
   readonly isOpen: boolean;
@@ -57,12 +60,40 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     setIsDirectSyncing(true);
     try {
       const res = await consultInvoiceByAccessKey(clean);
-      if (res.success && res.document?.xml) {
+      if (res.success && res.document?.kind === 'full' && res.document.xml) {
         toast.success('XML oficial obtido diretamente do Web Service SEFAZ!');
         await handleXmlString(res.document.xml);
+      } else if (res.success && res.document?.kind === 'summary') {
+        const isProduction = res.environment !== 'homologation';
+        const confirmed = window.confirm(
+          `A SEFAZ retornou apenas o resumo desta NF-e. Enviar Ciência da Emissão em ${isProduction ? 'Produção' : 'Homologação'} para tentar liberar o XML completo?\n\nA Ciência registra conhecimento da emissão. Ela não confirma a compra nem o recebimento da mercadoria.`
+        );
+        if (!confirmed) {
+          toast.info('Nenhuma manifestação foi enviada.');
+          return;
+        }
+
+        const manifestation = await sendInboundScienceOfEmission(clean, true);
+        if (!manifestation.success) {
+          toast.warn(
+            manifestation.error || 'Não foi possível confirmar a Ciência da Emissão. Não reenvie enquanto houver uma tentativa pendente.'
+          );
+          return;
+        }
+
+        const refreshed = await consultInvoiceByAccessKey(clean, {
+          environment: res.environment || 'production',
+        });
+        if (refreshed.success && refreshed.document?.kind === 'full' && refreshed.document.xml) {
+          toast.success('Ciência registrada e XML oficial completo obtido.');
+          await handleXmlString(refreshed.document.xml);
+        } else {
+          toast.info(
+            'Ciência registrada. O XML completo ainda não foi disponibilizado; consulte a nota novamente mais tarde.'
+          );
+        }
       } else if (res.success) {
         toast.info(res.message || 'Dados da NF-e processados com sucesso no Ambiente Nacional.');
-        onClose();
       } else {
         toast.error(
           res.message || 'Documento não localizado no Ambiente Nacional para esta chave.'
@@ -162,13 +193,15 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                   >
                     <i className="bi bi-upc-scan" aria-hidden="true" />
                   </button>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    disabled={accessKey.length !== 44 || isDirectSyncing || isLoading}
+                    disabled={isDirectSyncing || isLoading}
                     onClick={handleDirectSefazQuery}
                     title="Buscar e importar NF-e diretamente pelo Web Service do Ambiente Nacional"
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition-all ${
-                      accessKey.length === 44 && !isDirectSyncing && !isLoading
+                      !isDirectSyncing && !isLoading
                         ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-sm'
                         : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500 dark:text-slate-400 opacity-60'
                     }`}

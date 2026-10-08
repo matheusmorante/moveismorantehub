@@ -164,10 +164,11 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                                 e.stopPropagation();
                                 onFetchXml(inv);
                               }}
+                              title="Consultar a nota e, com confirmação, enviar Ciência da Emissão para tentar liberar o XML completo"
                               className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
                             >
                               <i className="bi bi-cloud-arrow-down-fill text-[10px]" />
-                              Obter XML
+                              Ciência + XML
                             </button>
                           )}
                         </>
@@ -349,10 +350,11 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                         e.stopPropagation();
                         onFetchXml(inv);
                       }}
+                      title="Consultar a nota e, com confirmação, enviar Ciência da Emissão para tentar liberar o XML completo"
                       className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700 transition-colors cursor-pointer"
                     >
                       <i className="bi bi-cloud-arrow-down-fill text-[10px]" />
-                      Obter XML
+                      Ciência + XML
                     </button>
                   )}
                   <span className="font-black text-emerald-600 dark:text-emerald-400">

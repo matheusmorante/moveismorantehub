@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateNfeAccessKey } from '../nfeAccessKey';
+import { buildReturnProductXml } from '../fiscalOperationReview';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
+  authorizeFiscalOperator: vi.fn(),
   validateNfeAgainstOfficialSchema: vi.fn(),
   validateUnsignedNfeStructure: vi.fn(),
   extractCertificateAndKey: vi.fn(),
@@ -14,6 +16,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../../../node_modules/@supabase/supabase-js/dist/index.mjs', () => ({
   createClient: mocks.createClient,
+}));
+vi.mock('../../../../../../api/nfe/fiscalAuthorization', () => ({
+  authorizeFiscalOperator: mocks.authorizeFiscalOperator,
 }));
 vi.mock('../../../../../../api/nfe/schemaValidator', () => ({
   validateNfeAgainstOfficialSchema: mocks.validateNfeAgainstOfficialSchema,
@@ -50,6 +55,8 @@ const reviewedTaxes =
   '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>';
 const sourceDestination =
   '<dest><CPF>12345678901</CPF><xNome>Cliente Teste</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>';
+const originalProduct =
+  '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>5102</CFOP><qCom>2.0000</qCom><qTrib>2.0000</qTrib><vUnCom>100.0000</vUnCom><vProd>200.00</vProd></prod>';
 const authReply =
   '<retEnviNFe><cStat>104</cStat><xMotivo>Lote processado</xMotivo><protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>141260000123456</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe></retEnviNFe>';
 const rejectedReply =
@@ -59,26 +66,36 @@ const notFoundReply =
 const uncertainReply =
   '<retConsSitNFe><cStat>105</cStat><xMotivo>Lote em processamento</xMotivo></retConsSitNFe>';
 
-function createDatabase() {
+function createDatabase(kind: 'return' | 'estorno' = 'return') {
+  const estornoProduct = buildReturnProductXml({
+    originalProductXml: originalProduct,
+    quantity: 2,
+    originalQuantity: 2,
+    grossValue: 200,
+    discountValue: 0,
+    cfop: '1949',
+  });
   const state = {
     draft: {
       id: '11111111-1111-4111-8111-111111111111',
-      operation_kind: 'return',
-      finalidade: 4,
+      operation_kind: kind,
+      finalidade: kind === 'estorno' ? 3 : 4,
       original_document_id: '22222222-2222-4222-8222-222222222222',
       original_access_key: sourceKey,
-      return_order_id: '33333333-3333-4333-8333-333333333333',
+      return_order_id: kind === 'estorno' ? null : '33333333-3333-4333-8333-333333333333',
       environment: 1,
       status: 'ready',
-      reason: null,
-      nature_of_operation: 'Devolução de mercadoria',
+      reason: kind === 'estorno' ? 'Operação não realizada e prazo legal expirado.' : null,
+      nature_of_operation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
       review_data: {
-        nature_of_operation: 'Devolução de mercadoria',
+        nature_of_operation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
         recipient_xml: sourceDestination,
         totals_xml: '<total/>',
         transport_xml: '<transp><modFrete>4</modFrete></transp>',
         payment_xml: '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
-        reason: '',
+        reason: kind === 'estorno' ? 'Operação não realizada e prazo legal expirado.' : '',
+        item_taxes_confirmed: true,
+        totals_confirmed: true,
       },
       reviewed_at: '2026-09-26T12:00:00.000Z',
       access_key: null as string | null,
@@ -98,18 +115,18 @@ function createDatabase() {
       serie: '1',
       numero_protocolo: '141260000654321',
       xml_protocolo: `<protNFe><infProt><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${sourceKey}</chNFe><nProt>141260000654321</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe>`,
-      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ><CRT>1</CRT></emit>${sourceDestination}</infNFe></NFe>`,
+      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><idDest>1</idDest><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ><CRT>1</CRT></emit>${sourceDestination}</infNFe></NFe>`,
     },
     lines: [
       {
         id: '55555555-5555-4555-8555-555555555555',
         original_document_item_id: '66666666-6666-4666-8666-666666666666',
         fiscal_item_number: 1,
-        quantity: 1,
-        gross_value: 100,
+        quantity: kind === 'estorno' ? 2 : 1,
+        gross_value: kind === 'estorno' ? 200 : 100,
         discount_value: 0,
-        reviewed_cfop: '1202',
-        reviewed_product_xml: reviewedProduct,
+        reviewed_cfop: kind === 'estorno' ? '1949' : '1202',
+        reviewed_product_xml: kind === 'estorno' ? estornoProduct : reviewedProduct,
         reviewed_taxes_xml: reviewedTaxes,
       },
     ],
@@ -124,7 +141,7 @@ function createDatabase() {
         product_code: 'SKU-1',
         description: 'Cadeira',
         unit_value: 100,
-        product_xml: '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>5102</CFOP><qCom>2.0000</qCom><qTrib>2.0000</qTrib><vUnCom>100.0000</vUnCom><vProd>200.00</vProd></prod>',
+        product_xml: originalProduct,
         taxes_xml: reviewedTaxes,
       },
     ],
@@ -149,6 +166,13 @@ function createDatabase() {
       deleted: false,
       linked_order_id: '44444444-4444-4444-8444-444444444444',
       order_data: { returnMethod: 'store_delivery' } as { returnMethod?: string },
+    },
+    saleOrder: {
+      id: '44444444-4444-4444-8444-444444444444',
+      status: 'cancelled',
+      delivery_status: '',
+      delivery_method: 'delivery',
+      order_data: {},
     },
     returnAllocations: [
       {
@@ -189,7 +213,9 @@ function createDatabase() {
         : table === 'profiles'
                   ? state.profile
                   : table === 'orders'
-                    ? state.returnOrder
+                    ? kind === 'estorno'
+                      ? state.saleOrder
+                      : state.returnOrder
                     : table === 'nfe_return_item_allocations'
                       ? state.returnAllocations
                       : table === 'nfe_operation_draft_allocations'
@@ -292,6 +318,7 @@ async function getHandler() {
 describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: 'test-fiscal-operator' });
     vi.stubEnv('NFE_RESP_TECH_CNPJ', '12345678000195');
     vi.stubEnv('NFE_RESP_TECH_CONTACT', 'TEST_AUT');
     vi.stubEnv('NFE_RESP_TECH_EMAIL', 'test@example.invalid');
@@ -381,9 +408,86 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     );
   });
 
+  it('revalida o pedido cancelado e prepara uma NF-e de estorno modelo 55 após o prazo', async () => {
+    const { db, state } = createDatabase('estorno');
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(mocks.buildReviewedFiscalOperationXml).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'estorno',
+        natureOfOperation: 'Nota Fiscal de Estorno',
+        destinationIndicator: 1,
+        originalAccessKey: sourceKey,
+      })
+    );
+    expect(state.draft.access_key).not.toBe(sourceKey);
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it('bloqueia transmissão do estorno se houver evidência de circulação', async () => {
+    const { db, state } = createDatabase('estorno');
+    state.saleOrder.delivery_status = 'delivered';
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/circula/i);
+    expect(state.rpcCalls).toEqual([]);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia transmissão do estorno se o prazo de cancelamento ainda estiver aberto', async () => {
+    const { db, state } = createDatabase('estorno');
+    state.source.xml_protocolo = `<protNFe><infProt><dhRecbto>${new Date().toISOString()}</dhRecbto></infProt></protNFe>`;
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/cancelamento|prazo/i);
+    expect(state.rpcCalls).toEqual([]);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
   it('nega transmissão a usuário autenticado fora dos papéis fiscais permitidos', async () => {
     const { db, state } = createDatabase();
-    state.profile = { role: 'accountant', roles: ['accountant'] };
+    mocks.authorizeFiscalOperator.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      message: 'Usuário sem permissão fiscal.',
+    });
     mocks.createClient.mockReturnValue(db);
     const handler = await getHandler();
     const res = createResponse();

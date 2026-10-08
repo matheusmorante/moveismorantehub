@@ -16,6 +16,7 @@ import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResp
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
   decideOperationDraftRecovery,
+  getAuthorizedAt,
   parseSefazNfeSituation,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { validateUnsignedNfeStructure, validateNfeAgainstOfficialSchema } from './schemaValidator';
@@ -38,8 +39,15 @@ import {
   getFiscalFormRules,
   getFiscalFormXmlDefaults,
   getReturnCfopOptionsForSourceItem,
+  ESTORNO_NATURE_OF_OPERATION,
 } from '../../shared-utils/fiscalOperationContext';
-import { originalItemCfop } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
+import {
+  originalItemCfop,
+  suggestEstornoCfop,
+  type FiscalCfopConfiguration,
+} from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
+import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -220,10 +228,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
     const isStoredAttempt = draft.status === 'transmitting' || draft.status === 'unknown';
+    const sourceDestinationIndicator = Number(readTag(String(source.xml_nfe || ''), 'idDest'));
     let returnFiscalContext: Awaited<ReturnType<typeof loadReturnFiscalSourceContext>> | null = null;
     let returnFormRules: ReturnType<typeof getFiscalFormRules> | null = null;
     let returnXmlDefaults: ReturnType<typeof getFiscalFormXmlDefaults> = null;
     if (!isStoredAttempt) {
+      if (draft.operation_kind === 'estorno') {
+        if (![1, 2, 3].includes(sourceDestinationIndicator)) {
+          return res.status(409).json({
+            success: false,
+            error: 'A NF-e original não informa um indicador de destino válido para o estorno.',
+          });
+        }
+        if (
+          Number(draft.finalidade) !== 3 ||
+          draft.nature_of_operation !== ESTORNO_NATURE_OF_OPERATION ||
+          String(draft.review_data.nature_of_operation || '') !== ESTORNO_NATURE_OF_OPERATION ||
+          Array.from(String(draft.review_data.reason || draft.reason || '').trim()).length < 15 ||
+          Array.from(String(draft.review_data.reason || draft.reason || '').trim()).length > 255 ||
+          draft.review_data.item_taxes_confirmed !== true ||
+          draft.review_data.totals_confirmed !== true
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'O rascunho de estorno não contém natureza, finalidade ou revisão fiscal obrigatória.',
+          });
+        }
+        const { data: order, error: orderError } = await db
+          .from('orders')
+          .select('id,status,delivery_status,delivery_method,order_data')
+          .eq('id', String(source.order_id || ''))
+          .maybeSingle();
+        if (orderError || !order || !['cancelled', 'cancelado'].includes(String(order.status))) {
+          return res.status(409).json({
+            success: false,
+            error: 'O pedido precisa permanecer cancelado para transmitir a NF-e de estorno.',
+          });
+        }
+        if (hasGoodsCirculated(order)) {
+          return res.status(409).json({
+            success: false,
+            error: 'Há evidência de circulação; o estorno está bloqueado e a NF-e original deve ser preservada.',
+          });
+        }
+        const policy = getFiscalCancellationPolicy({
+          model: String(source.modelo),
+          authorizedAt: getAuthorizedAt(source.xml_protocolo || '', ''),
+          status: String(source.status),
+          environment,
+          goodsCirculated: false,
+          operationDidNotOccur: true,
+        });
+        if (policy.action !== 'estorno') {
+          return res.status(409).json({
+            success: false,
+            error: policy.reason || 'O prazo normal de cancelamento ainda está aberto; não transmita o estorno.',
+          });
+        }
+      }
       const sourceAuthorizationError = validateAuthorizedOutboundNfe(
         source,
         String(source.order_id || ''),
@@ -355,6 +417,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(503).json({ success: false, error: 'Configuração fiscal indisponível.' });
     const settings = asFiscalSettings(settingsRow.data || settingsRow) as AppSettings &
       Record<string, unknown>;
+    const fiscalDefaults = settings.fiscalDefaults as FiscalCfopConfiguration | undefined;
+    if (draft.operation_kind === 'estorno') {
+      const { data: sourceItems, error: sourceItemsError } = await db
+        .from('nfe_document_items')
+        .select('id')
+        .eq('document_id', source.id);
+      if (sourceItemsError || !sourceItems || sourceItems.length !== lines.length) {
+        return res.status(409).json({
+          success: false,
+          error: 'O estorno precisa incluir todos os itens da NF-e original.',
+        });
+      }
+      for (const line of lines) {
+        const original = originalById.get(line.original_document_item_id);
+        const sourceCfop = original ? originalItemCfop(String(original.product_xml)) : null;
+        const configuredInverse = suggestEstornoCfop(sourceCfop, fiscalDefaults);
+        const reviewedCfop = String(line.reviewed_cfop);
+        const cfopIsValid = configuredInverse
+          ? reviewedCfop === configuredInverse
+          : /^[12]\d{3}$/.test(reviewedCfop);
+        if (
+          !original ||
+          !/^[56]\d{3}$/.test(sourceCfop || '') ||
+          !cfopIsValid ||
+          Math.abs(Number(line.quantity) - Number(original.billed_quantity)) > 0.00005 ||
+          Math.abs(Number(line.gross_value) - Number(original.gross_value)) > 0.005 ||
+          Math.abs(Number(line.discount_value) - Number(original.discount_value)) > 0.005
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'Item do estorno diverge da origem ou não usa o CFOP inverso fiscalmente conferido.',
+          });
+        }
+        const expectedProduct = buildReturnProductXml({
+          originalProductXml: String(original.product_xml),
+          quantity: Number(original.billed_quantity),
+          originalQuantity: Number(original.billed_quantity),
+          grossValue: Number(original.gross_value),
+          discountValue: Number(original.discount_value),
+          cfop: reviewedCfop,
+        });
+        if (
+          normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), 'prod') !==
+          normalizeReviewedFiscalBlock(expectedProduct, 'prod')
+        ) {
+          return res.status(409).json({
+            success: false,
+            error: 'O item do estorno precisa preservar os dados fiscais e valores originais.',
+          });
+        }
+      }
+    }
     const pfx = process.env.NFE_CERTIFICATE_BASE64;
     const password = process.env.NFE_CERTIFICATE_PASSWORD;
     if (!pfx)
@@ -657,6 +771,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         issuedAt,
         settings,
         natureOfOperation: draft.nature_of_operation,
+        destinationIndicator:
+          draft.operation_kind === 'estorno'
+            ? (sourceDestinationIndicator as 1 | 2 | 3)
+            : undefined,
         recipientXml: String(review.recipient_xml || ''),
         totalsXml: String(review.totals_xml || ''),
         transportXml: String(review.transport_xml || ''),

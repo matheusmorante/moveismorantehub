@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { canPerform } from '@/pages/utils/permissionService';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
 import { FiscalIssueCard } from '@/pages/App/shared/components/FiscalIssueCard';
@@ -22,6 +24,8 @@ import { IssuedFiscalDocumentDetailsModal } from './modals/IssuedFiscalDocumentD
 
 export default function FiscalDocumentsPage() {
   const { profile } = useAuth();
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canViewFiscal = canPerform('viewFiscal', roles);
   const canOperateFiscal = hasFiscalOperationRole(profile);
 
   React.useEffect(() => {
@@ -53,9 +57,7 @@ export default function FiscalDocumentsPage() {
     setSeriesFilter,
     setDateFrom,
     setDateTo,
-    showMoreFilters,
-    setShowMoreFilters,
-  } = useFiscalDocumentsList(canOperateFiscal);
+  } = useFiscalDocumentsList(canViewFiscal);
 
   // Hook de Detalhes Fiscais
   const {
@@ -84,16 +86,16 @@ export default function FiscalDocumentsPage() {
     onCancelledConfirmed: cancelModal.closeCancel,
   });
 
-  if (!canOperateFiscal) {
+  if (!canViewFiscal) {
     return (
       <div className="p-8 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
-        Seu perfil não pode operar documentos fiscais.
+        Seu perfil não tem acesso às notas fiscais de saída.
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1700px] space-y-4 p-3 pb-16 md:p-5">
+    <div className="mx-auto max-w-[1700px] space-y-4 px-3 pt-4 pb-16 md:px-5 md:pt-4 md:pb-5">
       <FiscalDocumentsHeader />
 
       {sefaz.fiscalIssueFeedback && (
@@ -105,7 +107,7 @@ export default function FiscalDocumentsPage() {
           technicalDetails={sefaz.fiscalIssueFeedback.technicalDetails}
           onClose={() => sefaz.setFiscalIssueFeedback(null)}
         >
-          {sefaz.fiscalIssueFeedback.presentation.action === 'consult' && (
+          {canOperateFiscal && sefaz.fiscalIssueFeedback.presentation.action === 'consult' && (
             <button
               type="button"
               onClick={() => void sefaz.handleConsultSituation(sefaz.fiscalIssueFeedback!.document)}
@@ -115,7 +117,7 @@ export default function FiscalDocumentsPage() {
               {sefaz.isConsulting ? 'Consultando a SEFAZ…' : 'Consultar SEFAZ agora'}
             </button>
           )}
-          {sefaz.fiscalIssueFeedback.presentation.action === 'retransmit-same-document' && (
+          {canOperateFiscal && sefaz.fiscalIssueFeedback.presentation.action === 'retransmit-same-document' && (
             <button
               type="button"
               onClick={() => void sefaz.handleRetryHmlDocument(sefaz.fiscalIssueFeedback!.document)}
@@ -132,7 +134,7 @@ export default function FiscalDocumentsPage() {
                 : 'Retomar esta tentativa confirmada'}
             </button>
           )}
-          {sefaz.fiscalIssueFeedback.presentation.action === 'configure-certificate' && (
+          {canOperateFiscal && sefaz.fiscalIssueFeedback.presentation.action === 'configure-certificate' && (
             <a
               href="/settings/fiscal"
               className="inline-flex rounded-xl bg-blue-700 px-4 py-2 font-black text-white transition-colors hover:bg-blue-800"
@@ -154,8 +156,6 @@ export default function FiscalDocumentsPage() {
         onSeriesChange={setSeriesFilter}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
-        showMoreFilters={showMoreFilters}
-        onToggleMoreFilters={() => setShowMoreFilters((v) => !v)}
       />
 
       <div className="bg-white dark:bg-slate-900/70 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -183,11 +183,12 @@ export default function FiscalDocumentsPage() {
           onRetryHml={sefaz.handleRetryHmlDocument}
         />
 
-        {!loading && documents.length > 0 && (
+        {documentCount > 0 && (
           <FiscalDocumentsPagination
             documentCount={documentCount}
             pageIndex={pageIndex}
             onPageChange={setPageIndex}
+            loading={loading}
           />
         )}
       </div>
