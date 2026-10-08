@@ -202,8 +202,7 @@ export function useVariationForm({
 
   const getDefaultVariationName = (attributes: Variation['attributes'] = []) => {
     const nameAttributes = getVariationNameAttributes(
-      attributes,
-      parentProduct.technicalValues || {}
+      attributes
     );
     return computeVariationName(
       parentProduct.name || parentProduct.description || '',
@@ -220,8 +219,7 @@ export function useVariationForm({
       ''
     ).trim();
     const nameAttributes = getVariationNameAttributes(
-      attributes,
-      parentProduct.technicalValues || {}
+      attributes
     );
     const attributeValues = getVariationAttributeValuesInNameOrder(nameAttributes);
     if (attributeValues.length > 0) {
@@ -397,22 +395,18 @@ export function useVariationForm({
       .filter((attr) => attr.name.trim() && attr.value.trim());
     const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
     const nameAttributes = getVariationNameAttributes(
-      cleanAttributes,
-      parentProduct.technicalValues || {},
-      formData.technicalValues || {}
+      cleanAttributes
     );
     const generatedName = computeVariationName(parentPrefix, nameAttributes);
-    let variationName = isSingleVariation
-      ? generatedName
-      : (formData.name || '').trim();
+    let variationName = (formData.name || '').trim();
     const nameSuffix =
       parentPrefix && variationName.toLowerCase().startsWith(parentPrefix.toLowerCase())
         ? variationName.slice(parentPrefix.length).replace(/^[\s\-_:]+/, '')
         : variationName;
-    if (isVariationNamePlaceholderSuffix(nameSuffix)) {
+    if (!variationName || isVariationNamePlaceholderSuffix(nameSuffix)) {
       variationName = generatedName;
     }
-    if (!variationName || variationName.toLocaleLowerCase() === parentPrefix.toLocaleLowerCase()) {
+    if (variationName.toLocaleLowerCase() === parentPrefix.toLocaleLowerCase()) {
       variationName = generatedName;
     }
     if (parentPrefix) {

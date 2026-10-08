@@ -1,5 +1,7 @@
-import React from 'react';
+import { ArrowLeftRight, Edit3, GitMerge, QrCode, X } from 'lucide-react-native';
+import type React from 'react';
 import {
+  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -7,28 +9,33 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Edit3, QrCode, X } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
   dark: boolean;
   variationName: string;
+  isMerged?: boolean;
   onClose: () => void;
   onEdit?: () => void;
-  onHistory?: () => void;
-  onStock?: () => void;
   onPrintLabel?: () => void;
+  onMoveToAnotherFamily?: () => void;
+  onMergeWithAnotherVariation?: () => void;
+  hasSupplier?: boolean;
+  hasValidAttributes?: boolean;
 }
 
 export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   visible,
   dark,
   variationName,
+  isMerged = false,
   onClose,
   onEdit,
-  onHistory,
-  onStock,
   onPrintLabel,
+  onMoveToAnotherFamily,
+  onMergeWithAnotherVariation,
+  hasSupplier = true,
+  hasValidAttributes = true,
 }) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <TouchableWithoutFeedback onPress={onClose}>
@@ -39,10 +46,21 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
               <Text style={[styles.title, dark && styles.textDark]} numberOfLines={1}>
                 {variationName}
               </Text>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar ações da variação"
+              >
                 <X size={18} color={dark ? '#cbd5e1' : '#64748b'} />
               </TouchableOpacity>
             </View>
+            {isMerged ? (
+              <Text style={[styles.mergedNotice, dark && styles.mergedNoticeDark]}>
+                Esta variação foi mesclada e é mantida apenas para histórico. Nenhuma ação está
+                disponível.
+              </Text>
+            ) : null}
             {onPrintLabel ? (
               <TouchableOpacity
                 style={styles.item}
@@ -66,7 +84,52 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                 }}
               >
                 <Edit3 size={16} color="#2563eb" />
-                <Text style={[styles.itemText, dark && styles.textDark]}>Editar Variação</Text>
+                <Text style={[styles.itemText, dark && styles.textDark]}>Editar Produto</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onMoveToAnotherFamily && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  if (!hasSupplier) {
+                    Alert.alert(
+                      'Fornecedor obrigatório',
+                      'Selecione um fornecedor no produto antes de mover ou mesclar suas variações.'
+                    );
+                    return;
+                  }
+                  if (!hasValidAttributes) {
+                    Alert.alert(
+                      'Atributo obrigatório',
+                      'Defina ao menos um atributo e valor para mover esta variação.'
+                    );
+                    return;
+                  }
+                  onMoveToAnotherFamily();
+                }}
+              >
+                <ArrowLeftRight size={16} color="#4f46e5" />
+                <Text style={[styles.itemText, styles.moveText]}>Mover para Outro Pai</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onMergeWithAnotherVariation && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  if (!hasSupplier) {
+                    Alert.alert(
+                      'Fornecedor obrigatório',
+                      'Selecione um fornecedor no produto antes de mover ou mesclar suas variações.'
+                    );
+                    return;
+                  }
+                  onMergeWithAnotherVariation();
+                }}
+              >
+                <GitMerge size={16} color="#7c3aed" />
+                <Text style={[styles.itemText, styles.mergeText]}>Mesclar Variação</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -104,6 +167,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: { flex: 1, marginRight: 8, color: '#0f172a', fontSize: 13, fontWeight: '900' },
   item: {
     minHeight: 44,
@@ -114,6 +183,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   itemText: { color: '#0f172a', fontSize: 13, fontWeight: '800' },
+  moveText: { color: '#4f46e5' },
+  mergeText: { color: '#7c3aed' },
+  mergedNotice: {
+    margin: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  mergedNoticeDark: {
+    backgroundColor: '#0f172a',
+    color: '#cbd5e1',
+  },
   textDark: { color: '#f8fafc' },
-  stockIcon: { width: 16, color: '#059669', fontSize: 18, fontWeight: '900', textAlign: 'center' },
 });

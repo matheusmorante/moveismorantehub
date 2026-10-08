@@ -56,7 +56,7 @@ describe('getSelectedProductDisplayName', () => {
         { name: 'Sofá Capri' },
         { name: 'Sofá Capri', attributes: [{ name: 'Cor', value: 'Azul' }] }
       )
-    ).toBe('Sofá Capri - Azul');
+    ).toBe('Sofá Capri Azul');
   });
 
   it('usa o nome do produto quando não há variação', () => {

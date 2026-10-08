@@ -1,6 +1,3 @@
-import type React from 'react';
-import { useState } from 'react';
-import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   ChevronDown,
   ChevronRight,
@@ -11,18 +8,50 @@ import {
   Pencil,
   Truck,
 } from 'lucide-react-native';
-import { useMobileProductMetadata } from '../hooks/useMobileProductMetadata';
-import { WEB_URL } from '../../../services/supabaseClient';
+import type React from 'react';
+import { useState } from 'react';
+import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { toTitleCase } from '../../../../../shared-utils/productText';
-import { MobileProductVariationList } from './MobileProductVariationList';
+import { WEB_URL } from '../../../services/supabaseClient';
+import {
+  getMobileProductCardActionAvailability,
+  isMobileProductStockLow,
+} from '../domain/mobileProductCardRules';
+import { containsProductVariationNamePhrase } from '../domain/productVariationName';
+import { useMobileProductMetadata } from '../hooks/useMobileProductMetadata';
+import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
+import { MobileProductVariationList } from './MobileProductVariationList';
 
 const normalizeVariationNamePart = (value: string) =>
-  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
-const getVariationAttributeValues = (variation: any): string[] => {
+const getTechnicalColor = (technicalValues: any): string | undefined => {
+  if (!technicalValues || typeof technicalValues !== 'object') return undefined;
+  const values =
+    technicalValues.technicalValues || technicalValues.technical_values || technicalValues;
+  const entries = Array.isArray(values)
+    ? values.map((entry: any) => [entry?.name || entry?.key, entry])
+    : Object.entries(values);
+  const colorEntry = entries.find(
+    ([name]) => normalizeVariationNamePart(String(name || '')) === 'cor'
+  );
+  if (!colorEntry) return undefined;
+  const rawValue = colorEntry[1];
+  const structuredValue =
+    rawValue && typeof rawValue === 'object' ? (rawValue as Record<string, any>) : null;
+  const color = structuredValue ? (structuredValue.value ?? structuredValue.val) : rawValue;
+  return color === null || color === undefined || String(color).trim() === ''
+    ? undefined
+    : String(color).trim();
+};
+
+const getVariationAttributeValues = (product: any, variation: any): string[] => {
   let attributes = variation?.attributes;
   if (typeof attributes === 'string') {
     try {
@@ -32,7 +61,7 @@ const getVariationAttributeValues = (variation: any): string[] => {
     }
   }
 
-  const pairs = Array.isArray(attributes)
+  const pairs: { name: any; value: any; showName: boolean }[] = Array.isArray(attributes)
     ? attributes.map((attribute: any) => ({
         name: attribute?.name || attribute?.attribute || attribute?.key,
         value: attribute?.value || attribute?.val,
@@ -40,7 +69,8 @@ const getVariationAttributeValues = (variation: any): string[] => {
       }))
     : attributes && typeof attributes === 'object'
       ? Object.entries(attributes).map(([name, rawValue]) => {
-          const structured = rawValue && typeof rawValue === 'object' ? rawValue : null;
+          const structured =
+            rawValue && typeof rawValue === 'object' ? (rawValue as Record<string, any>) : null;
           return {
             name,
             value: structured?.value ?? structured?.val ?? rawValue,
@@ -48,6 +78,21 @@ const getVariationAttributeValues = (variation: any): string[] => {
           };
         })
       : [];
+
+  const hasVariationColor = pairs.some(
+    ({ name }) => normalizeVariationNamePart(String(name || '')) === 'cor'
+  );
+  if (!hasVariationColor) {
+    const color =
+      getTechnicalColor(variation?.technicalValues || variation?.technical_values) ||
+      getTechnicalColor(
+        product?.technicalValues ||
+          product?.technical_values ||
+          product?.technicalSpecs ||
+          product?.technical_specs
+      );
+    if (color) pairs.push({ name: 'Cor', value: color, showName: true });
+  }
 
   return pairs
     .filter(({ name, value, showName }) => showName && name && value)
@@ -58,15 +103,14 @@ const getVariationAttributeValues = (variation: any): string[] => {
 const getSingleVariationDisplayName = (product: any, variation: any): string => {
   const parentName = String(product?.name || product?.title || product?.description || '').trim();
   const variationName = String(variation?.displayName || variation?.name || '').trim();
-  const attributeValues = getVariationAttributeValues(variation);
+  const attributeValues = getVariationAttributeValues(product, variation);
 
   if (attributeValues.length === 0) return toTitleCase(variationName || parentName);
 
-  const normalizedVariationName = normalizeVariationNamePart(variationName);
   const includesParent =
-    !parentName || normalizedVariationName.includes(normalizeVariationNamePart(parentName));
+    !parentName || containsProductVariationNamePhrase(variationName, parentName);
   const includesAttributes = attributeValues.every((value) =>
-    normalizedVariationName.includes(normalizeVariationNamePart(value))
+    containsProductVariationNamePhrase(variationName, value)
   );
   if (variationName && includesParent && includesAttributes) return toTitleCase(variationName);
 
@@ -97,16 +141,18 @@ interface Props {
   onLaunchStock?: (product: any) => void;
   onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
+  onMoveVariation?: (variation: any, parentProduct: any) => void;
+  onMergeVariation?: (variation: any, parentProduct: any) => void;
 }
 
 export const MobileProductCard: React.FC<Props> = ({
   product,
   dark,
-  canEdit = true,
-  canDelete = true,
-  canChangeCatalog = true,
+  canEdit = false,
+  canDelete = false,
+  canChangeCatalog = false,
   showCatalogStatus = true,
-  canPrintLabels = true,
+  canPrintLabels = false,
   canViewDetails = false,
   isLabelOnlyProfile = false,
   onEdit,
@@ -118,6 +164,8 @@ export const MobileProductCard: React.FC<Props> = ({
   onLaunchStock,
   onShowHistory,
   onShowOrders,
+  onMoveVariation,
+  onMergeVariation,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -133,10 +181,13 @@ export const MobileProductCard: React.FC<Props> = ({
     singleVariation?.merged_to_variation_id || singleVariation?.mergedToVariationId
   );
   const isDraft = Boolean(product.isDraft || product.is_draft || product.status === 'draft');
+  const cardActionAvailability = getMobileProductCardActionAvailability(product);
   const cardStatus = singleVariation?.status || product.status || 'hidden';
   const isPublished = !isDraft && cardStatus === 'published';
   const isActive =
-    !isDraft && (singleVariation ? singleVariation.active !== false : product.active !== false) && !product.deleted;
+    !isDraft &&
+    (singleVariation ? singleVariation.active !== false : product.active !== false) &&
+    !product.deleted;
   const displayTitle = singleVariation
     ? getSingleVariationDisplayName(product, singleVariation)
     : product.name || product.description || 'Produto sem título';
@@ -151,23 +202,25 @@ export const MobileProductCard: React.FC<Props> = ({
       ? product.images.split(',').find(Boolean)
       : null;
   const cardImage = variationProductImage || parentProductImage;
-  const cardUnitPrice = Number(singleVariation?.unitPrice ?? singleVariation?.price ?? product.unitPrice ?? 0);
-  const cardPromoPrice = Number(singleVariation?.promoPrice ?? singleVariation?.promo_price ?? product.promoPrice ?? 0);
+  const cardUnitPrice = Number(
+    singleVariation?.unitPrice ?? singleVariation?.price ?? product.unitPrice ?? 0
+  );
+  const cardPromoPrice = Number(
+    singleVariation?.promoPrice ?? singleVariation?.promo_price ?? product.promoPrice ?? 0
+  );
   const hasCardPromo = cardPromoPrice > 0 && cardPromoPrice < cardUnitPrice;
   const cardPrice = hasCardPromo ? cardPromoPrice : cardUnitPrice;
   const cardStock = Number(singleVariation?.stock ?? product.stock ?? 0);
+  const cardMinStock = Number(
+    singleVariation?.minStock ??
+      singleVariation?.min_stock ??
+      product.minStock ??
+      product.min_stock ??
+      0
+  );
+  const isLowStock = isMobileProductStockLow(cardStock, cardMinStock);
   const cardUnit = singleVariation?.unit || product.unit || 'UN';
-  const canShowVariationMenu = isLabelOnlyProfile
-    ? canPrintLabels
-    : canEdit;
-  const variationMenuProduct = singleVariation
-    ? {
-        ...product,
-        selectedVariationId: singleVariation.id,
-        selectedVariation: singleVariation,
-      }
-    : product;
-
+  const canShowVariationMenu = isLabelOnlyProfile ? canPrintLabels : canEdit;
   const { oppName, supplierNames } = useMobileProductMetadata(product);
 
   const parentCode = product.code || product.sku || '-';
@@ -220,7 +273,7 @@ export const MobileProductCard: React.FC<Props> = ({
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
         <View style={styles.headerActions}>
-          {canEdit && !isLabelOnlyProfile && (
+          {canEdit && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={(e) => {
@@ -271,19 +324,19 @@ export const MobileProductCard: React.FC<Props> = ({
           ) : (
             !isLabelOnlyProfile &&
             (canEdit || canDelete || onLaunchStock || onShowHistory || onShowOrders) && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={(e) => {
-                e.stopPropagation();
-                setMenuVisible(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Opções de ${product.name || 'produto'}`}
-              style={[styles.actionIconBtn, dark && styles.darkBtn]}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
-            </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setMenuVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Opções de ${product.name || 'produto'}`}
+                style={[styles.actionIconBtn, dark && styles.darkBtn]}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
+              </TouchableOpacity>
             )
           )}
         </View>
@@ -295,47 +348,53 @@ export const MobileProductCard: React.FC<Props> = ({
           (cardImage ? (
             <Image source={{ uri: cardImage }} style={styles.productImage} resizeMode="cover" />
           ) : (
-            <View style={[styles.productImagePlaceholder, dark && styles.darkProductImagePlaceholder]}>
+            <View
+              style={[styles.productImagePlaceholder, dark && styles.darkProductImagePlaceholder]}
+            >
               <Package size={17} color="#94a3b8" />
             </View>
           ))}
         <View style={styles.titleCol}>
-        <Text
-          style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
-          numberOfLines={2}
-        >
-          {displayTitle}
-        </Text>
+          <Text
+            style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
+            numberOfLines={isSingleVariationCard ? 3 : 2}
+          >
+            {displayTitle}
+          </Text>
 
-        <View style={styles.tagsRow}>
-          {product.itemType === 'composition' ? (
-            <View style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}>
-              <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composição</Text>
-            </View>
-          ) : null}
-          {product.itemType === 'service' ? (
-            <View style={[styles.oppBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}>
-              <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
-            </View>
-          ) : null}
-          {oppName ? (
-            <View style={styles.oppBadge}>
-              <Flame size={10} color="#d97706" />
-              <Text style={styles.oppText}>{oppName}</Text>
-            </View>
-          ) : null}
-          {supplierNames.map((sName) => (
-            <View key={sName} style={[styles.supplierBadge, dark && styles.darkBadge]}>
-              <Truck size={10} color="#64748b" />
-              <Text style={styles.supplierText}>{sName}</Text>
-            </View>
-          ))}
-          {product.category ? (
-            <Text style={[styles.categoryBadge, dark && styles.darkCategory]}>
-              {product.category}
-            </Text>
-          ) : null}
-        </View>
+          <View style={styles.tagsRow}>
+            {product.itemType === 'composition' ? (
+              <View
+                style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}
+              >
+                <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composição</Text>
+              </View>
+            ) : null}
+            {product.itemType === 'service' ? (
+              <View
+                style={[styles.oppBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}
+              >
+                <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
+              </View>
+            ) : null}
+            {oppName ? (
+              <View style={styles.oppBadge}>
+                <Flame size={10} color="#d97706" />
+                <Text style={styles.oppText}>{oppName}</Text>
+              </View>
+            ) : null}
+            {supplierNames.map((sName) => (
+              <View key={sName} style={[styles.supplierBadge, dark && styles.darkBadge]}>
+                <Truck size={10} color="#64748b" />
+                <Text style={styles.supplierText}>{sName}</Text>
+              </View>
+            ))}
+            {product.category ? (
+              <Text style={[styles.categoryBadge, dark && styles.darkCategory]}>
+                {product.category}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -344,9 +403,7 @@ export const MobileProductCard: React.FC<Props> = ({
         {(!isParent || isSingleVariationCard) && (
           <View style={styles.priceCol}>
             {hasCardPromo && (
-              <Text style={styles.oldPrice}>
-                R$ {cardUnitPrice.toFixed(2).replace('.', ',')}
-              </Text>
+              <Text style={styles.oldPrice}>R$ {cardUnitPrice.toFixed(2).replace('.', ',')}</Text>
             )}
             <Text style={[styles.price, dark && styles.priceDark]}>
               R$ {cardPrice.toFixed(2).replace('.', ',')}
@@ -354,7 +411,12 @@ export const MobileProductCard: React.FC<Props> = ({
             {product.itemType !== 'service' && (
               <Text style={styles.stockText}>
                 Estoque:{' '}
-                <Text style={styles.stockVal}>
+                <Text
+                  style={[
+                    styles.stockVal,
+                    isLowStock && (dark ? styles.stockValLowDark : styles.stockValLow),
+                  ]}
+                >
                   {cardStock} {cardUnit}
                 </Text>
               </Text>
@@ -405,6 +467,8 @@ export const MobileProductCard: React.FC<Props> = ({
           onToggleActive={canDelete ? (varId, act) => onToggleActive(varId, act) : undefined}
           parentProduct={product}
           onEdit={canEdit && !isLabelOnlyProfile ? onEdit : undefined}
+          onMoveVariation={canEdit && !isLabelOnlyProfile ? onMoveVariation : undefined}
+          onMergeVariation={canEdit && !isLabelOnlyProfile ? onMergeVariation : undefined}
           onShowHistory={onShowHistory}
           onLaunchStock={onLaunchStock}
           canChangeCatalog={canChangeCatalog}
@@ -426,10 +490,14 @@ export const MobileProductCard: React.FC<Props> = ({
         onEdit={onEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
-        onDuplicate={canEdit && !isLabelOnlyProfile ? onDuplicate : undefined}
+        onDuplicate={
+          canEdit && !isLabelOnlyProfile && cardActionAvailability.canDuplicate
+            ? onDuplicate
+            : undefined
+        }
         onLaunchStock={onLaunchStock}
         onShowHistory={onShowHistory}
-        onShowOrders={onShowOrders}
+        onShowOrders={cardActionAvailability.canShowLinkedOrders ? onShowOrders : undefined}
       />
       {singleVariation && (
         <MobileProductVariationActionsMenu
@@ -456,9 +524,33 @@ export const MobileProductCard: React.FC<Props> = ({
           }
           onEdit={
             canEdit && !isLabelOnlyProfile && !isSingleVariationMerged
-              ? () => onEdit(variationMenuProduct)
+              ? () => onEdit(product)
               : undefined
           }
+          onMoveToAnotherFamily={
+            canEdit &&
+            !isLabelOnlyProfile &&
+            !isSingleVariationMerged &&
+            !singleVariation.isVirtual &&
+            onMoveVariation
+              ? () => onMoveVariation(singleVariation, product)
+              : undefined
+          }
+          onMergeWithAnotherVariation={
+            canEdit &&
+            !isLabelOnlyProfile &&
+            !isSingleVariationMerged &&
+            !singleVariation.isVirtual &&
+            onMergeVariation
+              ? () => onMergeVariation(singleVariation, product)
+              : undefined
+          }
+          hasSupplier={Boolean(
+            product.supplierId || product.supplier_id || product.main_supplier_id
+          )}
+          hasValidAttributes={toMobileVariationAttributes(singleVariation.attributes).some(
+            (attribute) => attribute.name.trim() && attribute.value.trim()
+          )}
         />
       )}
     </TouchableOpacity>
@@ -501,6 +593,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   varToggleBtn: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
@@ -576,8 +669,8 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   actionIconBtn: {
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
     borderRadius: 8,
     backgroundColor: '#f8fafc',
     borderWidth: 1,
@@ -590,7 +683,31 @@ const styles = StyleSheet.create({
     borderColor: '#475569',
   },
   titleCol: {
+    flex: 1,
+    minWidth: 0,
     gap: 4,
+  },
+  productInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  productImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  productImagePlaceholder: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkProductImagePlaceholder: {
+    backgroundColor: '#334155',
   },
   title: {
     fontSize: 13,
@@ -665,8 +782,10 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
@@ -696,5 +815,11 @@ const styles = StyleSheet.create({
   stockVal: {
     fontWeight: '800',
     color: '#0f172a',
+  },
+  stockValLow: {
+    color: '#ef4444',
+  },
+  stockValLowDark: {
+    color: '#f87171',
   },
 });

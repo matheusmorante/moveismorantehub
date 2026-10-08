@@ -98,6 +98,22 @@ describe('resolveOrderFiscalBadgePair', () => {
     expect(result.cancellationState).toBe('verify');
   });
 
+  it('expõe falha e confirmação pendente separadamente para NF e NFH', () => {
+    const result = resolveOrderFiscalBadgePair(
+      [
+        { id: 'prod', order_id: 'order', status: 'autorizada', ambiente: 1, cancellationEventStatus: 'rejected' },
+        { id: 'hml', order_id: 'order', status: 'homologada', ambiente: 2, cancellationEventStatus: 'unknown' },
+      ],
+      [],
+      true
+    );
+
+    expect(result.cancellationDocuments).toEqual([
+      { documentId: 'prod', environment: 1, state: 'failed' },
+      { documentId: 'hml', environment: 2, state: 'verify' },
+    ]);
+  });
+
   it('mostra pendência quando o pedido foi cancelado comercialmente e não há efeito fiscal persistido', () => {
     const result = resolveOrderFiscalBadgePair([outbound('autorizada', 1)], [], true);
     expect(result.production).toBe('issued');

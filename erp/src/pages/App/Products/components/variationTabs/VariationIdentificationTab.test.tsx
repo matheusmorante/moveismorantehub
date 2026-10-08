@@ -44,7 +44,6 @@ const Harness = () => {
         setFormData={setFormData}
         parentProduct={parentProduct}
         diferenciarTitulo={false}
-        setDiferenciarTitulo={vi.fn()}
         dbAttributes={[
           { id: 'attr-cor', name: 'Cor' },
           { id: 'attr-portas', name: 'Quantidade de portas' },
@@ -69,7 +68,7 @@ describe('VariationIdentificationTab - nome da variação com prefixo imutável 
     expect(screen.getByText('Guarda-Roupa')).toBeDefined();
 
     // O input de sufixo reflete o complemento da variação
-    const suffixInput = screen.getByLabelText('Sufixo do nome da variação') as HTMLInputElement;
+    const suffixInput = screen.getByLabelText('Nome da variação') as HTMLInputElement;
     expect(suffixInput.value).toBe('Branco 6 Portas');
 
     // Alteração manual do sufixo atualiza o nome da variação

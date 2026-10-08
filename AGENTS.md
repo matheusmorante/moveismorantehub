@@ -18,6 +18,7 @@
 - Não leia nem liste todas as skills antes de escolher uma.
 - Para tarefas simples (`git`, execução local, inspeção pontual), não carregue skill especializada.
 - Se mais de uma skill parecer aplicável, use a menor combinação que cubra a tarefa.
+- Para criar, alterar, substituir, remover ou aplicar migrations do Supabase, siga obrigatoriamente [`supabase-migration-lifecycle`](.agents/skills/supabase-migration-lifecycle/SKILL.md). Classifique e registre o destino de cada migration antes de concluir.
 - Leia referências adicionais de uma skill somente quando a tarefa exigir.
 - Ao escolher, inserir, trocar ou adaptar responsivamente logos, favicons ou splash screens, siga obrigatoriamente `morante-responsive-logo-usage`.
 
@@ -53,7 +54,7 @@
 ## Roteamento rápido
 
 - Código/arquitetura: `design-patterns`, `modularizacao_codigo`, `modelagem-negocio-arquitetura`.
-- Banco/Supabase: `database-supabase`, `supabase-egress-guard`.
+- Banco/Supabase: `database-supabase`, `supabase-egress-guard`; lifecycle de migrations: `supabase-migration-lifecycle` (obrigatória).
 - ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`; para fontes oficiais de NF-e/NFC-e, consulte os links em `docs/fiscal/manuais/README.md`.
 - Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
 - Refatoração/limpeza: `safe-refactor`, `surgical-patch`, `limpeza-projeto-segura`.

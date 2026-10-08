@@ -179,6 +179,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         total: totalNode ? value(totalNode, 'vNF') : '',
         additionalInfo: additionalInfoNode ? value(additionalInfoNode, 'infCpl') : '',
         taxAuthorityInfo: additionalInfoNode ? value(additionalInfoNode, 'infAdFisco') : '',
+        qrCode: value(parsed, 'qrCode'),
       },
       recipient: {
         name: recipientNode ? value(recipientNode, 'xNome') : '',
@@ -217,6 +218,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         return {
           code: value(product, 'cProd'),
           description: value(product, 'xProd'),
+          additionalInfo: value(product, 'infAdProd') || undefined,
           quantity: value(product, 'qCom'),
           unit: value(product, 'uCom'),
           unitValue: value(product, 'vUnCom'),

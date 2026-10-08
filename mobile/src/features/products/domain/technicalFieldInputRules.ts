@@ -18,13 +18,10 @@ export const getTechnicalFieldTextPlaceholder = (name: string) => {
   return undefined;
 };
 
-export const getTechnicalFieldMaxLength = (name: string, dataType: string) => {
-  if (/^(linha|marca|modelo)$/i.test(name.trim())) return 30;
+export const getTechnicalFieldMaxLength = (dataType: string) => {
+  if (dataType === 'text_long') return 4000;
   return dataType === 'text_short' || dataType === 'text' ? 120 : undefined;
 };
-
-export const getTechnicalFieldIntegerLimit = (name: string) =>
-  /lugar(es)?/i.test(name) ? 100 : 50;
 
 export const getTechnicalFieldIntegerPlaceholder = (name: string) => {
   if (/lugar(es)?/i.test(name)) return 'Digite o número de quantidades';
@@ -44,12 +41,7 @@ export const getTechnicalFieldInputMode = (
     return 'inline';
   }
 
-  if (
-    dataType === 'radio' ||
-    dataType === 'multi_select' ||
-    dataType === 'list' ||
-    dataType === 'boolean'
-  ) {
+  if (dataType === 'radio' || dataType === 'multi_select' || dataType === 'list') {
     return 'searchable';
   }
 

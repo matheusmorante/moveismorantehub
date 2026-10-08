@@ -7,7 +7,9 @@ import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';
 import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
-import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { getProductKind } from '@/pages/utils/productKindRules';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import type { ProductListRow } from '../../types';
 
 export interface ProductRowProps {
   readonly product: Product;
@@ -35,6 +37,7 @@ export interface ProductRowProps {
   readonly isExpanded?: boolean;
   readonly onToggleExpand?: () => void;
   readonly variationsCount?: number;
+  readonly singleVariation?: ProductListRow;
   readonly onMoveToAnotherFamily?: (product: Product) => void;
   readonly onMergeWithAnotherVariation?: (product: Product) => void;
 }
@@ -61,6 +64,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   isExpanded,
   onToggleExpand,
   variationsCount,
+  singleVariation,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
   onRefresh,
@@ -77,19 +81,28 @@ export const ProductRow: React.FC<ProductRowProps> = ({
 
   const isDraft = Boolean(product.isDraft) || Boolean((product as { is_draft?: boolean }).is_draft);
   const isSalvado = getProductKind(product) === 'salvado';
-  const isNonConventional = isNonConventionalProduct(product);
   const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
   const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);
-  const isDeactivated = product.active === false || product.status === 'hidden';
+  const isDeactivated =
+    (singleVariation
+      ? singleVariation.active === false || singleVariation.status === 'hidden'
+      : product.active === false || product.status === 'hidden' || product.deleted) && !isDraft;
 
   const { oppName, supplierNames } = useProductMetadata(product);
+  const rowBackground = isDeactivated
+    ? 'bg-slate-100/90 dark:bg-slate-800/70'
+    : product.isParent && !singleVariation
+      ? 'bg-slate-200/70 dark:bg-slate-800/80 font-bold'
+      : 'bg-white dark:bg-slate-900';
 
   // Resolução segura de nome para exibição
   let displayName =
     product.name ||
     product.title ||
     (product.description ? product.description.split('\n')[0].substring(0, 120) : '-');
-  if (isChildVar) {
+  if (singleVariation) {
+    displayName = getSelectedProductDisplayName(product, singleVariation);
+  } else if (isChildVar) {
     displayName = getVariationDisplayName(product, displayName);
   }
 
@@ -98,6 +111,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     visibilitySettings,
     isChildVar,
     hasVariations,
+    singleVariation,
     isExpanded,
     onToggleExpand,
     categoryTree,
@@ -116,6 +130,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
         <ProductRowDescriptionCell
           key="description"
           product={product}
+          singleVariation={singleVariation}
           displayName={displayName}
           hasVariations={hasVariations}
           isExpanded={isExpanded}
@@ -136,6 +151,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
         <ProductRowActionsCell
           key="actions"
           product={product}
+          singleVariation={singleVariation}
           readOnly={readOnly}
           canDeleteProducts={canDeleteProducts}
           isChildVar={isChildVar}
@@ -167,15 +183,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           onEdit(product);
         }
       }}
-      className={`transition-colors group ${hasVariations || readOnly ? 'cursor-pointer' : ''} ${
-        isDeactivated
-          ? 'bg-slate-100/90 dark:bg-slate-800/70'
-          : product.isParent
-            ? 'bg-slate-200/70 dark:bg-slate-800/80 font-bold'
-            : isChildVar
-              ? 'bg-white dark:bg-slate-900'
-              : 'bg-white dark:bg-slate-900'
-      } hover:bg-slate-300/60 dark:hover:bg-slate-700/60`}
+      className={`transition-colors group ${hasVariations || readOnly ? 'cursor-pointer' : ''} ${rowBackground} hover:bg-slate-300/60 dark:hover:bg-slate-700/60`}
     >
       {orderedColumnKeys ? (
         orderedColumnKeys.map((key) => renderCell(key))

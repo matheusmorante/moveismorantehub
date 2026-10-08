@@ -29,6 +29,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  getProductProfileRoles,
+  isStockistOnlyProductProfile,
+  normalizePermissionRoles,
+  shouldHideProductCatalogPublicationStatus,
+} from '../../../../../shared-utils/productPermissions';
+import { useAuth } from '../../../contexts/AuthContext';
+import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
@@ -37,6 +44,7 @@ import {
   getTechnicalValue,
   hasTechnicalValue,
 } from '../domain/productCharacteristics';
+import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import {
   getMobileVariationRegistrationIssue,
   isMobileEcommerceLegible,
@@ -44,7 +52,6 @@ import {
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
-import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
@@ -54,11 +61,6 @@ import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab'
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
-import { useAuth } from '../../../contexts/AuthContext';
-import {
-  isStockistOnlyProductProfile,
-  shouldHideProductCatalogPublicationStatus,
-} from '../../../../../shared-utils/productPermissions';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -185,6 +187,10 @@ export const ProductFormScreen: React.FC<Props> = ({
 }) => {
   const { userProfile, canUseProductPermission } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
+  const productProfileRoles = normalizePermissionRoles(getProductProfileRoles(userProfile));
+  const canConfigureProductTaxes = productProfileRoles.some(
+    (role) => role !== 'seller' && role !== 'stockist'
+  );
   const canManageCategories = canUseProductPermission('viewProductCategories');
   const hideCatalogPublicationStatus = shouldHideProductCatalogPublicationStatus(userProfile);
   const [activeTab, setActiveTab] = useState<TabId>('geral');
@@ -232,7 +238,14 @@ export const ProductFormScreen: React.FC<Props> = ({
   useEffect(() => {
     if (isTabDisabled(activeTab)) setActiveTab('geral');
     else if (!visibleTabs.some((tab) => tab.id === activeTab)) setActiveTab('geral');
-  }, [activeTab, formData.itemType, hasCategory, hasProductName, hasMissingRequiredTechnical, isStockistOnly]);
+  }, [
+    activeTab,
+    formData.itemType,
+    hasCategory,
+    hasProductName,
+    hasMissingRequiredTechnical,
+    isStockistOnly,
+  ]);
 
   // Wrapper estável para setFormData (aceita função ou objeto)
   const setFormData = useCallback((fn: any) => {
@@ -413,21 +426,20 @@ export const ProductFormScreen: React.FC<Props> = ({
       void (async () => {
         try {
           const defaults = await fetchMobileProductFiscalDefaults();
-          if (!defaults) return;
           setFormDataRaw((prev: any) =>
             Object.keys(prev.fiscal || {}).length > 0
               ? prev
               : {
                   ...prev,
                   fiscal: {
-                    ncm: defaults.ncm || '',
-                    cest: defaults.cest || '',
-                    cst: defaults.cst || '102',
-                    cfop: prev.itemType === 'service' ? '5933' : defaults.cfop || '5102',
-                    origem: defaults.origem || '0',
-                    icmsPercent: defaults.icmsPercent ?? 0,
-                    pisCst: defaults.pisCst || '49',
-                    cofinsCst: defaults.cofinsCst || '49',
+                    ncm: defaults?.ncm || '',
+                    cest: defaults?.cest || '',
+                    cst: prev.itemType === 'service' ? defaults?.cst || '103' : '103',
+                    cfop: prev.itemType === 'service' ? '5933' : defaults?.cfop || '5102',
+                    origem: defaults?.origem || '0',
+                    icmsPercent: defaults?.icmsPercent ?? 0,
+                    pisCst: defaults?.pisCst || '99',
+                    cofinsCst: defaults?.cofinsCst || '99',
                   },
                 }
           );
@@ -719,7 +731,9 @@ export const ProductFormScreen: React.FC<Props> = ({
           />
         );
       case 'fotos':
-        return isStockistOnly ? null : <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />;
+        return isStockistOnly ? null : (
+          <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />
+        );
       case 'technical':
         return (
           <ProductFormTechnicalTab
@@ -730,8 +744,8 @@ export const ProductFormScreen: React.FC<Props> = ({
           />
         );
       case 'description':
-        return (
-          isStockistOnly ? null : <ProductFormDescriptionTab formData={formData} setFormData={setFormData} dark={dark} />
+        return isStockistOnly ? null : (
+          <ProductFormDescriptionTab formData={formData} setFormData={setFormData} dark={dark} />
         );
       case 'estoque':
         return <ProductFormPricesTab formData={formData} setFormData={setFormData} dark={dark} />;
@@ -745,7 +759,14 @@ export const ProductFormScreen: React.FC<Props> = ({
           />
         );
       case 'fiscal':
-        return <ProductFormFiscalTab formData={formData} setFormData={setFormData} dark={dark} />;
+        return (
+          <ProductFormFiscalTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            canConfigureProductTaxes={canConfigureProductTaxes}
+          />
+        );
     }
   };
 
@@ -798,23 +819,25 @@ export const ProductFormScreen: React.FC<Props> = ({
                     ERP: {erpReady ? 'Ativo' : 'Pendente'}
                   </Text>
                 </View>
-                {!hideCatalogPublicationStatus && <View
-                  style={[
-                    styles.statusBadge,
-                    catalogPublished ? styles.catalogStatusPublished : styles.catalogStatusHidden,
-                  ]}
-                >
-                  <Text
+                {!hideCatalogPublicationStatus && (
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      catalogPublished
-                        ? styles.catalogStatusTextPublished
-                        : styles.catalogStatusTextHidden,
+                      styles.statusBadge,
+                      catalogPublished ? styles.catalogStatusPublished : styles.catalogStatusHidden,
                     ]}
                   >
-                    CATÁLOGO: {catalogPublished ? 'Publicado' : 'Ocultado'}
-                  </Text>
-                </View>}
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        catalogPublished
+                          ? styles.catalogStatusTextPublished
+                          : styles.catalogStatusTextHidden,
+                      ]}
+                    >
+                      CATÁLOGO: {catalogPublished ? 'Publicado' : 'Ocultado'}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
             {!product?.id && (

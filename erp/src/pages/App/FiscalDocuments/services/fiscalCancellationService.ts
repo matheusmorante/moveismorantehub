@@ -14,6 +14,8 @@ export interface ExecuteCancellationParams {
 export interface CancellationExecutionResult {
   action: string;
   commercialCommitted: boolean;
+  error?: string;
+  results?: Array<{ documentId: string; environment?: number; action: string; error?: string }>;
   protocolNumber?: string;
   cStat?: string;
   protocolDate?: string;
@@ -49,14 +51,23 @@ export async function executeFiscalCancellation({
     await updateOrder(order.id!, { status: 'cancelled' }, order);
   }
 
-  const result = await processOrderCancellationFiscalEffects(
-    document.order_id,
-    String(order.orderIndex || order.orderNumber || document.numero_nfe),
-    {
-      reason: isCancelEvent && reason ? reason.trim() : undefined,
-      productionConfirmed,
-    }
-  );
+  let result;
+  try {
+    result = await processOrderCancellationFiscalEffects(
+      document.order_id,
+      String(order.orderIndex || order.orderNumber || document.numero_nfe),
+      {
+        reason: isCancelEvent && reason ? reason.trim() : undefined,
+        productionConfirmed,
+      }
+    );
+  } catch (error) {
+    return {
+      action: 'failed',
+      commercialCommitted: true,
+      error: error instanceof Error ? error.message : 'Falha na tentativa de cancelamento fiscal.',
+    };
+  }
 
   return {
     ...result,

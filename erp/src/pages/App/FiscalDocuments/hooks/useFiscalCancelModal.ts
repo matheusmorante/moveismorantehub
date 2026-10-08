@@ -77,7 +77,22 @@ export function useFiscalCancelModal({
 
       commercialCommitted = result.commercialCommitted;
 
-      if (result.action === 'cancel') {
+      if (result.action === 'failed') {
+        toast.warning(
+          `Pedido cancelado e estoque atualizado. Falha na tentativa de cancelamento fiscal: ${result.error || 'consulte a NF no pedido.'}`
+        );
+      } else if (result.action === 'batch') {
+        const outcomes = result.results || [];
+        const failed = outcomes.filter((item) => item.action === 'failed').length;
+        const pending = outcomes.filter((item) => item.action === 'reconcile').length;
+        if (failed || pending) {
+          toast.warning(
+            `Pedido cancelado e estoque atualizado. ${failed} nota(s) com falha e ${pending} pendente(s) de confirmação. Atualize a lista para ver o estado de cada NF/NFH.`
+          );
+        } else {
+          toast.success('Pedido cancelado; tratamento fiscal das notas autorizadas concluído.');
+        }
+      } else if (result.action === 'cancel') {
         const fiscalEvidence = [
           result.protocolNumber ? `protocolo ${result.protocolNumber}` : '',
           result.cStat ? `cStat ${result.cStat}` : '',

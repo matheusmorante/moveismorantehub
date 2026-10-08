@@ -1,16 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Product } from '../../../../../types/product.type';
 import { syncVariationsWithParent } from '../../../domain/variationParentSync';
 import {
   TechnicalFieldDefinition,
   getApplicableTechnicalFields,
-  getAvailableAdditionalFields,
   groupTechnicalFields,
-  NAME_COMPOSING_CHARACTERISTIC_TOPIC,
 } from '@/pages/utils/technicalValuesService';
+import { buildProductVariationName } from '@/pages/utils/productVariationDefaults';
+import { toTitleCase } from '@/pages/utils/textUtils';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
-import NameCompositionInfo from './NameCompositionInfo';
 import { AttributeManagementModal } from '../../modals/attributes/AttributeManagementModal';
 
 interface ProductTechnicalTabProps {
@@ -21,6 +20,69 @@ interface ProductTechnicalTabProps {
   readonly requiredFieldsOnly?: boolean;
   readonly validationErrors?: Record<string, boolean>;
 }
+
+type VariationNameState = {
+  name?: string;
+  title?: string;
+  marketplaceTitle?: string;
+  attributes?: Array<{ name?: string; value?: unknown; showName?: boolean }>;
+  technicalValues?: Record<string, unknown>;
+};
+
+const normalizeTechnicalName = (value: string): string =>
+  value.trim().toLocaleLowerCase('pt-BR');
+
+const normalizeSearchTerm = (value: string): string =>
+  value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+const getCharacteristicText = (value: unknown): string => {
+  const rawValue =
+    value && typeof value === 'object'
+      ? ((value as { value?: unknown; val?: unknown }).value ??
+        (value as { val?: unknown }).val ??
+        '')
+      : value;
+  return String(rawValue ?? '').trim();
+};
+
+const getTechnicalCharacteristicText = (
+  values: Record<string, unknown> | undefined,
+  characteristicName: string
+): string => {
+  const entry = Object.entries(values || {}).find(
+    ([name]) => normalizeTechnicalName(name) === normalizeTechnicalName(characteristicName)
+  );
+  return getCharacteristicText(entry?.[1]);
+};
+
+const getVariationCharacteristicText = (
+  variation: VariationNameState,
+  characteristicName: string,
+  fallbackValue: string
+): string => {
+  const attribute = (variation.attributes || []).find(
+    ({ name }) => normalizeTechnicalName(name || '') === normalizeTechnicalName(characteristicName)
+  );
+  return (
+    getCharacteristicText(attribute?.value) ||
+    getTechnicalCharacteristicText(variation.technicalValues, characteristicName) ||
+    fallbackValue
+  );
+};
+
+const getVariationNameComplement = (variationName: string, parentName: string): string => {
+  if (
+    !parentName ||
+    !variationName.toLocaleLowerCase('pt-BR').startsWith(parentName.toLocaleLowerCase('pt-BR'))
+  ) {
+    return variationName.trim();
+  }
+  return variationName.slice(parentName.length).replace(/^[\s\-–—_:]+/u, '').trim();
+};
 
 const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   formData,
@@ -35,9 +97,8 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [addSearchTerm, setAddSearchTerm] = useState('');
-  const addDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
+  const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
 
   // Campos clássicos que as variações podem herdar do pai
   const SYNCED_FIELDS = new Set<keyof Product>([
@@ -64,22 +125,13 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     });
   };
 
-  // Fechar dropdown de adicionar campo ao clicar fora
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (addDropdownRef.current && !addDropdownRef.current.contains(event.target as Node)) {
-        setIsAddMenuOpen(false);
-        setAddSearchTerm('');
-      }
-    };
-
-    if (isAddMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isAddMenuOpen]);
+    const timeoutId = window.setTimeout(
+      () => setDebouncedCharacteristicSearchTerm(characteristicSearchTerm),
+      300
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [characteristicSearchTerm]);
 
   // Carregar Informações Técnicas cadastradas e seus vínculos de categoria
   useEffect(() => {
@@ -96,7 +148,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           const technicalValues = { ...(prev.technicalValues || {}) };
           let changed = false;
           mapped
-            .filter((field) => field.isRequired)
+            .filter((field) => field.isRequired && field.active !== false)
             .forEach((field) => {
               if (!Object.prototype.hasOwnProperty.call(technicalValues, field.name)) {
                 technicalValues[field.name] = '';
@@ -119,7 +171,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     };
   }, [refreshKey]);
 
-  // Só exibe características globais ou vinculadas às categorias selecionadas.
+  // Exibe características vinculadas às categorias selecionadas, preservando dados existentes.
   const applicableFields = getApplicableTechnicalFields(
     allTechnicalFields,
     formData.categoryIds || [],
@@ -129,17 +181,26 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const visibleFields = requiredFieldsOnly
     ? applicableFields.filter((field) => field.isRequired)
     : applicableFields;
-  const fieldGroups = groupTechnicalFields(visibleFields);
-
-  // Filtrar campos adicionais por busca
-  const filteredAdditionalFields = React.useMemo(() => {
-    const availableAdditionalFields = requiredFieldsOnly
-      ? []
-      : getAvailableAdditionalFields(allTechnicalFields, visibleFields);
-    const term = addSearchTerm.trim().toLowerCase();
-    if (!term) return availableAdditionalFields;
-    return availableAdditionalFields.filter((f) => f.name.toLowerCase().includes(term));
-  }, [requiredFieldsOnly, allTechnicalFields, visibleFields, addSearchTerm]);
+  const requiredFieldGroups = groupTechnicalFields(
+    visibleFields.filter((field) => field.isRequired)
+  );
+  const optionalFields = visibleFields.filter((field) => !field.isRequired);
+  const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
+  const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
+  const matchingOptionalFields =
+    !requiredFieldsOnly &&
+    normalizedSearchTerm.length >= 3 &&
+    normalizedSearchTerm === normalizedDebouncedSearchTerm
+      ? optionalFields
+          .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
+          .slice(0, 3)
+      : [];
+  const fieldGroups = [
+    ...requiredFieldGroups,
+    ...(matchingOptionalFields.length > 0
+      ? [{ title: 'Resultados da busca', fields: matchingOptionalFields }]
+      : []),
+  ];
 
   const handleTechnicalValueChange = (fieldName: string, value: any) => {
     setFormData((prev) => {
@@ -163,8 +224,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const handleAddManualField = (field: TechnicalFieldDefinition) => {
     setManualFieldNames((prev) => Array.from(new Set([...prev, field.name])));
     handleTechnicalValueChange(field.name, '');
-    setIsAddMenuOpen(false);
-    setAddSearchTerm('');
+    setCharacteristicSearchTerm('');
   };
 
   const handleRemoveManualField = (fieldName: string) => {
@@ -205,6 +265,106 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     });
   };
 
+  const handleUseCharacteristicInVariationName = (
+    characteristicName: string,
+    selectedValue: unknown
+  ) => {
+    const fallbackValue = getCharacteristicText(selectedValue);
+    setFormData((previous) => {
+      const parentName = previous.name || previous.description || '';
+      const variations = previous.variations || [];
+      let changed = false;
+
+      const nextVariations = variations.map((variation) => {
+        const attributes = [...(variation.attributes || [])];
+        const normalizedName = normalizeTechnicalName(characteristicName);
+        const attributeIndex = attributes.findIndex(
+          ({ name }) => normalizeTechnicalName(name || '') === normalizedName
+        );
+        const existingAttribute = attributeIndex >= 0 ? attributes[attributeIndex] : undefined;
+        const value =
+          getCharacteristicText(existingAttribute?.value) ||
+          getTechnicalCharacteristicText(variation.technicalValues, characteristicName) ||
+          fallbackValue;
+        if (!value) return variation;
+
+        const nextAttribute = {
+          name: existingAttribute?.name || toTitleCase(characteristicName),
+          value,
+          showName: true,
+        };
+        if (attributeIndex >= 0) {
+          attributes[attributeIndex] = nextAttribute;
+        } else {
+          attributes.push(nextAttribute);
+        }
+
+        const currentName = variation.name || '';
+        const currentComplement = getVariationNameComplement(currentName, parentName);
+        const colorAlreadyIncluded = normalizeSearchTerm(currentComplement).includes(
+          normalizeSearchTerm(value)
+        );
+        const nextComplement = colorAlreadyIncluded
+          ? currentComplement
+          : [currentComplement, value].filter(Boolean).join(' ');
+        const nextName = buildProductVariationName(parentName, nextComplement);
+        const attributeChanged =
+          !existingAttribute ||
+          existingAttribute.value !== value ||
+          existingAttribute.showName === false;
+        const nameChanged = nextName !== currentName;
+        if (!attributeChanged && !nameChanged) return variation;
+
+        changed = true;
+        return {
+          ...variation,
+          attributes,
+          name: nextName,
+          ...(variation.title === currentName ? { title: nextName } : {}),
+          ...(variation.marketplaceTitle === currentName ? { marketplaceTitle: nextName } : {}),
+        };
+      });
+
+      return changed ? { ...previous, variations: nextVariations } : previous;
+    });
+  };
+
+  const characteristicSearchControl = !requiredFieldsOnly ? (
+    <div className="w-full max-w-xl space-y-1.5">
+      <label
+        htmlFor="technical-characteristic-search"
+        className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+      >
+        Pesquisar característica
+      </label>
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+        <i className="bi bi-search text-slate-400" aria-hidden="true" />
+        <input
+          id="technical-characteristic-search"
+          type="search"
+          value={characteristicSearchTerm}
+          onChange={(event) => setCharacteristicSearchTerm(event.target.value)}
+          placeholder="Digite pelo menos 3 caracteres"
+          aria-describedby="technical-characteristic-search-hint"
+          className="w-full bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+        />
+      </div>
+      <p
+        id="technical-characteristic-search-hint"
+        className="text-[10px] text-slate-400 dark:text-slate-500"
+        aria-live="polite"
+      >
+        {normalizedSearchTerm.length < 3
+          ? 'Digite pelo menos 3 caracteres para pesquisar.'
+          : normalizedSearchTerm !== normalizedDebouncedSearchTerm
+            ? 'Buscando características...'
+            : matchingOptionalFields.length === 0
+              ? 'Nenhuma característica encontrada.'
+              : 'Exibindo até 3 características correspondentes.'}
+      </p>
+    </div>
+  ) : null;
+
   const hasCategory = (formData.categoryIds || []).length > 0;
 
   return (
@@ -223,18 +383,18 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-6 pt-2">
-            {fieldGroups.map((group) => (
-              <section
-                key={group.title}
-                aria-labelledby={`technical-group-${group.title}`}
-                className="flex flex-col gap-3"
-              >
+            {fieldGroups.map((group, index) => (
+              <React.Fragment key={group.title}>
+                {index === requiredFieldGroups.length && characteristicSearchControl}
+                <section
+                  aria-labelledby={`technical-group-${group.title}`}
+                  className="flex flex-col gap-3"
+                >
                 <h4
                   id={`technical-group-${group.title}`}
                   className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
                 >
                   {group.title}
-                  {group.title === NAME_COMPOSING_CHARACTERISTIC_TOPIC && <NameCompositionInfo />}
                 </h4>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
                   {group.fields.map((field) => {
@@ -255,6 +415,38 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                       (hasConfiguredValue && !isNotApplicable);
                     const isFieldInvalid =
                       isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
+                    const isColorField = normalizeTechnicalName(field.name) === 'cor';
+                    const variations = formData.variations || [];
+                    const parentName = formData.name || formData.description || '';
+                    const parentCharacteristicValue = getCharacteristicText(rawValue);
+                    const canUseInVariationName =
+                      variations.length > 0 &&
+                      variations.some((variation) =>
+                        Boolean(
+                          getVariationCharacteristicText(
+                            variation,
+                            field.name,
+                            parentCharacteristicValue
+                          )
+                        )
+                      );
+                    const isIncludedInVariationName =
+                      variations.length > 0 &&
+                      variations.every((variation) => {
+                        const value = getVariationCharacteristicText(
+                          variation,
+                          field.name,
+                          parentCharacteristicValue
+                        );
+                        const complement = getVariationNameComplement(
+                          variation.name || '',
+                          parentName
+                        );
+                        return (
+                          Boolean(value) &&
+                          normalizeSearchTerm(complement).includes(normalizeSearchTerm(value))
+                        );
+                      });
 
                     return (
                       <div
@@ -286,30 +478,65 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                 Manual
                               </span>
                             )}
-                            {field.name.toLowerCase() === 'cor' && (
-                              <button
-                                type="button"
-                                title="Gerenciar cores"
-                                aria-label="Gerenciar cores"
-                                onClick={() => setIsAttributeModalOpen(true)}
-                                className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/40"
-                              >
-                                Gerenciar
-                              </button>
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            {isColorField && (
+                              <>
+                                <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+                                  <button
+                                    type="button"
+                                    title="Gerenciar cores"
+                                    aria-label="Gerenciar cores"
+                                    onClick={() => setIsAttributeModalOpen(true)}
+                                    className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+                                  >
+                                    Gerenciar
+                                  </button>
+                                </span>
+                                <span
+                                  className={`inline-flex shrink-0 rounded-lg border p-0.5 transition-colors ${
+                                    isIncludedInVariationName
+                                      ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
+                                      : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    title={
+                                      canUseInVariationName
+                                        ? 'Adicionar a cor ao complemento do nome das variações'
+                                        : 'Selecione a cor e crie ao menos uma variação'
+                                    }
+                                    aria-label="Usar cor no nome da variação"
+                                    disabled={!canUseInVariationName}
+                                    onClick={() =>
+                                      handleUseCharacteristicInVariationName(field.name, rawValue)
+                                    }
+                                    className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      isIncludedInVariationName
+                                        ? 'text-emerald-700 dark:text-emerald-300'
+                                        : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    {isIncludedInVariationName && (
+                                      <i className="bi bi-check2" aria-hidden="true" />
+                                    )}
+                                    Usar no nome
+                                  </button>
+                                </span>
+                              </>
                             )}
-                            {(field.name.toLowerCase() === 'profundidade' ||
-                              field.name.toLowerCase() === 'comprimento') && (
+                            {(normalizeTechnicalName(field.name) === 'profundidade' ||
+                              normalizeTechnicalName(field.name) === 'comprimento') && (
                               <button
                                 type="button"
-                                title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                                title={`Alternar para ${normalizeTechnicalName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
                                 onClick={() => handleToggleDepthLength(field)}
                                 className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
                               >
                                 <i className="bi bi-arrow-left-right" />
                               </button>
                             )}
-                          </label>
-                          <div className="flex items-center gap-1.5">
                             {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
                             {!field.isRequired && (
                               <button
@@ -370,8 +597,10 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     );
                   })}
                 </div>
-              </section>
+                </section>
+              </React.Fragment>
             ))}
+            {fieldGroups.length === requiredFieldGroups.length && characteristicSearchControl}
           </div>
         )}
       </div>

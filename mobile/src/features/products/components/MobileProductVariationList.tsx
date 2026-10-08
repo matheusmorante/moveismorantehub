@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MobileProductVariationCard } from './MobileProductVariationCard';
 
@@ -10,6 +10,8 @@ interface Props {
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
   onEdit?: (product: any) => void;
+  onMoveVariation?: (variation: any, parentProduct: any) => void;
+  onMergeVariation?: (variation: any, parentProduct: any) => void;
   onShowHistory?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   parentProduct?: any;
@@ -26,12 +28,14 @@ export const MobileProductVariationList: React.FC<Props> = ({
   onToggleCatalog,
   onToggleActive,
   onEdit,
+  onMoveVariation,
+  onMergeVariation,
   onShowHistory,
   onLaunchStock,
   parentProduct,
-  canChangeCatalog = true,
+  canChangeCatalog = false,
   showCatalogStatus = true,
-  canPrintLabel = true,
+  canPrintLabel = false,
 }) => {
   if (!variations || variations.length === 0) return null;
 
@@ -53,6 +57,8 @@ export const MobileProductVariationList: React.FC<Props> = ({
           onToggleCatalog={onToggleCatalog}
           parentProduct={parentProduct}
           onEdit={onEdit}
+          onMoveVariation={onMoveVariation}
+          onMergeVariation={onMergeVariation}
           onShowHistory={onShowHistory}
           onLaunchStock={onLaunchStock}
           canChangeCatalog={canChangeCatalog}

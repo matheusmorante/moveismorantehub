@@ -188,7 +188,18 @@ export const createOrderHistoryOperations = ({
           String(currentOrder.orderIndex || currentOrder.orderNumber || id),
           { productionConfirmed: fiscalOptions.productionConfirmed }
         );
-        if (result.action === 'reconcile') {
+        if (result.action === 'batch') {
+          const outcomes = result.results || [];
+          const failed = outcomes.filter((item) => item.action === 'failed');
+          const pending = outcomes.filter((item) => item.action === 'reconcile');
+          if (failed.length || pending.length) {
+            toast.warning(
+              `Pedido cancelado e estoque atualizado. ${failed.length} nota(s) com falha e ${pending.length} pendente(s) de confirmação. Consulte NF/NFH no card para resolver cada documento.`
+            );
+          } else {
+            toast.success('Pedido cancelado; tratamento fiscal de todas as notas autorizadas concluído.');
+          }
+        } else if (result.action === 'reconcile') {
           toast.warning(
             result.reconciliationState === 'authorized'
               ? 'Pedido cancelado e estoque restituído. A consulta confirmou a NF autorizada; o cancelamento não foi registrado nem retransmitido.'
@@ -224,13 +235,14 @@ export const createOrderHistoryOperations = ({
     }
   };
 
-  const retryFiscalCancellation = async (order: Order) => {
+  const retryFiscalCancellation = async (order: Order, documentId?: string) => {
     if (!order.id || order.status !== 'cancelled') return;
     try {
       const result = await processOrderCancellationFiscalEffects(
         order.id,
         String(order.orderIndex || order.orderNumber || order.id),
         {
+          ...(documentId ? { documentId } : {}),
           confirmProduction: () =>
             window.confirm(
               'Confirmo o reprocessamento do cancelamento fiscal desta nota em Produção na SEFAZ.'
@@ -258,6 +270,12 @@ export const createOrderHistoryOperations = ({
       toast.error(
         `Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`
       );
+    } finally {
+      try {
+        await refresh();
+      } catch {
+        toast.warning('A nota foi processada, mas a tela não pôde ser atualizada.');
+      }
     }
   };
 

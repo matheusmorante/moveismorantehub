@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MobileChannelBadgesProps {
@@ -25,8 +25,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   isPublished,
   isDraft,
   showCatalog = true,
-  canToggleActive = true,
-  canToggleCatalog = true,
+  canToggleActive = false,
+  canToggleCatalog = false,
   onToggleActive,
   onToggleCatalog,
 }) => {
@@ -155,6 +155,7 @@ const styles = StyleSheet.create({
   bipartiteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
     overflow: 'hidden',

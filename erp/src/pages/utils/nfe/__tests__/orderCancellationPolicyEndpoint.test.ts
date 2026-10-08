@@ -459,7 +459,7 @@ describe('API de pré-validação do cancelamento fiscal por documento', () => {
     });
   });
 
-  it('não libera a ação quando outra NF-e autorizada está ligada ao mesmo pedido', async () => {
+  it('avalia a nota solicitada mesmo quando outras NF-e autorizadas estão ligadas ao mesmo pedido', async () => {
     let documentQueryCount = 0;
     mocks.createClient.mockReturnValue({
       from: (table: string) => {
@@ -489,8 +489,8 @@ describe('API de pré-validação do cancelamento fiscal por documento', () => {
     );
 
     expect(result.body.documents[documentId]).toMatchObject({
-      canProceed: false,
-      action: 'manual_review',
+      canProceed: true,
+      action: 'cancel',
     });
   });
 });

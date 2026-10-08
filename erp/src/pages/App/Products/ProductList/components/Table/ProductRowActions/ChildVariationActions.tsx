@@ -6,6 +6,11 @@ import {
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
 } from '@/pages/utils/accessRoles';
+import {
+  buildProductVariationName,
+  getSelectedProductDisplayName,
+  normalizeProductVariationName,
+} from '@/pages/utils/productVariationDefaults';
 import type { ActionProductLike } from '../ProductRowActionsCell';
 
 export interface ChildVariationActionsProps {
@@ -32,10 +37,10 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
   const handlePrintIdentificationLabel = () => {
     const parentTitle = (product as any).name || (product as any).title || '';
     const varName = product.displayName || (product as any).variation || product.description;
-    const fullName =
-      parentTitle && varName && !parentTitle.includes(varName)
-        ? `${parentTitle} - ${varName}`
-        : varName || parentTitle;
+    const variationName = getSelectedProductDisplayName(product, product) || varName || parentTitle;
+    const fullName = variationName.toLowerCase().includes(parentTitle.toLowerCase())
+      ? normalizeProductVariationName(parentTitle, variationName)
+      : buildProductVariationName(parentTitle, variationName);
 
     navigate('/estoque/etiquetas?cat=identificacao', {
       state: {

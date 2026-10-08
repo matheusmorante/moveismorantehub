@@ -12,13 +12,15 @@ interface CancelSaleModalProps {
       | 'manual_review'
       | 'blocked'
       | 'pending'
-      | 'reconcile';
+      | 'reconcile'
+      | 'batch';
     hasAuthorizedInvoice: boolean;
     model?: string;
     environment?: 1 | 2;
     reason?: string;
     returnOrderId?: string;
     returnOrderStatus?: string;
+    operations?: Array<{ action: string; documentId: string; environment?: 1 | 2; model?: string; reason?: string }>;
   };
   readonly onCancel: () => void;
   readonly onConfirm: (options: { productionConfirmed: boolean }) => void;
@@ -30,7 +32,9 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   const [productionConfirmed, setProductionConfirmed] = useState(false);
   const confirmedRef = useRef(false);
   const requiresProductionConfirmation =
-    preview.action === 'cancel' && preview.environment === 1;
+    (preview.action === 'cancel' && preview.environment === 1) ||
+    (preview.action === 'batch' &&
+      Boolean(preview.operations?.some((operation) => operation.action === 'cancel' && operation.environment === 1)));
   const fiscalEnvironmentLabel =
     preview.environment === 1
       ? 'Produção'
@@ -48,7 +52,9 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
       ? 'Devolução necessária'
       : fiscalProcedureBlocked
         ? 'Cancelamento indisponível'
-        : preview.action === 'cancel'
+        : preview.action === 'batch'
+          ? 'Notas fiscais para tratamento'
+          : preview.action === 'cancel'
           ? 'Cancelamento fiscal disponível'
           : preview.action === 'estorno'
             ? 'Estorno fiscal necessário'
@@ -151,6 +157,17 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
                 tributação.
               </li>
             )}
+            {preview.action === 'batch' &&
+              preview.operations?.map((operation) => (
+                <li key={operation.documentId}>
+                  {operation.environment === 2 ? 'NFH' : 'NF'} —{' '}
+                  {operation.action === 'cancel'
+                    ? `cancelamento fiscal do modelo ${operation.model || ''} (${operation.environment === 1 ? 'Produção' : 'Homologação'})`
+                    : operation.action === 'estorno'
+                      ? `rascunho de estorno para o modelo ${operation.model || ''}`
+                      : operation.reason || 'revisão fiscal necessária'}
+                </li>
+              ))}
             {preview.action === 'none' && (
               <li>Não há NF-e autorizada vinculada; o cancelamento será somente comercial.</li>
             )}

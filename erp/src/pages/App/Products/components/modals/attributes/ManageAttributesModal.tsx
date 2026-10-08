@@ -5,7 +5,7 @@ import { useVariations } from '../../../../Variations/useVariations';
 import {
   saveVariation,
   updateVariation,
-  checkVariationUsage,
+  getVariationErrorMessage,
 } from '../../../../../utils/variationService';
 import { toast } from 'react-toastify';
 import { normalizeSearchTerm } from '../../../../../utils/textUtils';
@@ -28,8 +28,9 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [newAttrName, setNewAttrName] = useState('');
-  const [newDataType, setNewDataType] = useState<VariationType['dataType']>('list');
-  const [newUnit, setNewUnit] = useState('');
+  const [newDataType, setNewDataType] = useState<VariationType['dataType']>('radio');
+  const [newDecimalPlaces, setNewDecimalPlaces] = useState<1 | 2 | 3>(2);
+  const [newUnit, setNewUnit] = useState('cm');
   const [tempValues, setTempValues] = useState<string[]>([]);
   const [currentValInput, setCurrentValInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -75,8 +76,9 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
     const finalValues = finalizeAttributeDraftValues(tempValues, currentValInput);
 
-    if (newDataType === 'list' && finalValues.length === 0) {
-      toast.error('Adicione pelo menos um valor/rótulo!');
+    const isChoiceType = newDataType === 'list' || newDataType === 'radio' || newDataType === 'multi_select';
+    if (isChoiceType && finalValues.length === 0) {
+      toast.error('Adicione pelo menos uma opção!');
       return;
     }
 
@@ -86,19 +88,28 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
         name: newAttrName.trim(),
         active: true,
         dataType: newDataType,
-        unit: newDataType === 'measure' ? newUnit.trim() : '',
-        options: newDataType === 'list' ? finalValues.map((val) => ({ id: '', value: val })) : [],
+        unit:
+          newDataType === 'weight'
+            ? 'kg'
+            : newDataType === 'percentage'
+              ? '%'
+              : newDataType === 'measure'
+                ? newUnit
+                : '',
+        decimalPlaces: newDataType === 'decimal' ? newDecimalPlaces : undefined,
+        options: isChoiceType ? finalValues.map((val) => ({ id: '', value: val })) : [],
       });
 
       toast.success('Atributo criado com sucesso!');
       setNewAttrName('');
-      setNewDataType('list');
-      setNewUnit('');
+      setNewDataType('radio');
+      setNewDecimalPlaces(2);
+      setNewUnit('cm');
       setTempValues([]);
       setCurrentValInput('');
       refresh();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido ao salvar atributo';
+      const message = getVariationErrorMessage(err, 'Erro desconhecido ao salvar atributo.');
       toast.error(`Erro ao salvar: ${message}`);
     } finally {
       setIsSaving(false);
@@ -112,20 +123,12 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       return;
 
     try {
-      const isUsed = await checkVariationUsage(attr.name, opt.value);
-      if (isUsed) {
-        toast.warning(
-          `Não é possível excluir o valor "${opt.value}" pois ele está em uso em uma ou mais variações de produtos.`
-        );
-        return;
-      }
-
       const updatedOptions = attr.options.filter((o) => o.id !== opt.id);
       await updateVariation(attr.id!, { options: updatedOptions });
       toast.success('Valor removido com sucesso!');
       refresh();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao remover valor';
+      const message = getVariationErrorMessage(err, 'Erro ao remover valor.');
       toast.error(`Erro ao remover valor: ${message}`);
     }
   };
@@ -146,7 +149,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       setExistingValInputs((prev) => ({ ...prev, [attr.id!]: '' }));
       refresh();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao adicionar valor';
+      const message = getVariationErrorMessage(err, 'Erro ao adicionar valor.');
       toast.error(`Erro ao adicionar valor: ${message}`);
     }
   };
@@ -256,30 +259,54 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                     onChange={(e) => setNewDataType(e.target.value as VariationType['dataType'])}
                     className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
                   >
-                    <option value="list">Lista de Valores</option>
-                    <option value="text">Texto Livre</option>
+                    <option value="radio">Escolha única</option>
+                    <option value="multi_select">Múltiplas escolhas</option>
+                    <option value="text_short">Texto curto</option>
+                    <option value="text_long">Texto longo</option>
                     <option value="integer">Número Inteiro</option>
                     <option value="decimal">Número Decimal</option>
-                    <option value="boolean">Booleano (Sim/Não)</option>
-                    <option value="measure">Medida (com unidade)</option>
+                    <option value="weight">Peso (kg)</option>
+                    <option value="percentage">Porcentagem</option>
+                    <option value="measure">Medida</option>
+                    <option value="boolean">Sim ou não</option>
                   </select>
                 </div>
 
                 {newDataType === 'measure' && (
                   <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      Unidade (Ex: cm, kg, L)
+                      Unidade de medida
                     </label>
-                    <input
-                      placeholder="Unidade..."
+                    <select
                       value={newUnit}
                       onChange={(e) => setNewUnit(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
-                    />
+                    >
+                      <option value="cm">Centímetros (cm)</option>
+                      <option value="mm">Milímetros (mm)</option>
+                      <option value="m">Metros (m)</option>
+                    </select>
                   </div>
                 )}
 
-                {newDataType === 'list' && (
+                {newDataType === 'decimal' && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Casas decimais
+                    </label>
+                    <select
+                      value={newDecimalPlaces}
+                      onChange={(event) => setNewDecimalPlaces(Number(event.target.value) as 1 | 2 | 3)}
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-slate-300"
+                    >
+                      <option value={1}>1 casa • prévia 28,5</option>
+                      <option value={2}>2 casas • prévia 28,50</option>
+                      <option value={3}>3 casas • prévia 28,500</option>
+                    </select>
+                  </div>
+                )}
+
+                {(newDataType === 'list' || newDataType === 'radio' || newDataType === 'multi_select') && (
                   <div className="space-y-1.5 animate-in fade-in zoom-in-95 duration-200">
                     <label
                       htmlFor="new-attr-tags-input"

@@ -198,7 +198,21 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
       expect(valido.valid).toBe(true);
       expect(valido.formattedName).toBe('Voltagem');
 
-      for (const dataType of ['list', 'text', 'integer', 'decimal', 'boolean', 'measure']) {
+      for (const dataType of [
+        'list',
+        'text',
+        'integer',
+        'decimal',
+        'boolean',
+        'measure',
+        'text_short',
+        'text_long',
+        'radio',
+        'multi_select',
+        'number',
+        'weight',
+        'percentage',
+      ]) {
         expect(
           validateAttribute(`Campo ${dataType}`, mockAttributes, undefined, dataType).valid
         ).toBe(true);

@@ -34,6 +34,11 @@ export interface OrderFiscalBadgeStatuses {
   productionDocumentId?: string;
   homologationDocumentId?: string;
   cancellationState?: OrderFiscalCancellationState;
+  cancellationDocuments?: Array<{
+    documentId: string;
+    environment: 1 | 2;
+    state: OrderFiscalCancellationState;
+  }>;
   estornoStatus?: OrderFiscalOperationBadgeStatus;
   estornoDocumentId?: string;
   estornoEnvironment?: 1 | 2;
@@ -242,7 +247,31 @@ export const resolveOrderFiscalBadgePair = (
               outboundDocs.some(isAuthorized) &&
               !operationDrafts.some((draft) => draft.operation_kind === 'estorno')
             ? 'pending'
-            : undefined;
+          : undefined;
+  const cancellationDocuments = outboundDocs
+    .filter((document) => Boolean(document.id) && isAuthorized(document))
+    .flatMap((document) => {
+      const state = String(document.cancellationEventStatus || '').toLowerCase();
+      const cancellationStatus: OrderFiscalCancellationState | undefined =
+        state === 'rejected'
+          ? 'failed'
+          : state === 'unknown' || state === 'registered'
+            ? 'verify'
+            : state === 'transmitting'
+              ? (() => {
+                  const requestedAt = new Date(document.cancellationEventRequestedAt || '').getTime();
+                  return Number.isFinite(requestedAt) && now - requestedAt < 30_000 ? 'pending' : 'verify';
+                })()
+              : orderCancelled &&
+                  !operationDrafts.some(
+                    (draft) => draft.operation_kind === 'estorno' && draft.original_document_id === document.id
+                  )
+                ? 'pending'
+                : undefined;
+      return cancellationStatus
+        ? [{ documentId: document.id!, environment: document.ambiente === 2 ? 2 as const : 1 as const, state: cancellationStatus }]
+        : [];
+    });
   const findDocumentId = (
     environmentDocuments: readonly FiscalDocumentStatusRow[],
     status: OrderFiscalBadgeStatus
@@ -276,6 +305,7 @@ export const resolveOrderFiscalBadgePair = (
     homologationDocumentId:
       homologation !== 'not_issued' ? findDocumentId(hmlDocs, homologation) : undefined,
     ...(cancellationState ? { cancellationState } : {}),
+    ...(cancellationDocuments.length ? { cancellationDocuments } : {}),
     ...resolveOrderFiscalEstornoBadge(documents, operationDrafts),
     ...resolveOrderFiscalDevolucaoBadge(documents, operationDrafts),
   };

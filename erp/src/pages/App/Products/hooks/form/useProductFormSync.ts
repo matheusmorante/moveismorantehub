@@ -3,8 +3,8 @@ import Product from '@/pages/types/product.type';
 import {
   computeVariationName,
   getVariationNameAttributes,
+  getVariationAttributeValuesInNameOrder,
 } from '@/pages/utils/productVariationDefaults';
-import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 
 interface UseProductFormSyncParams {
   readonly formData: Partial<Product>;
@@ -18,7 +18,6 @@ interface UseProductFormSyncParams {
  * 3. Agregação dos valores das variações filhas de volta para o produto pai (estoque total e custo médio).
  */
 export function useProductFormSync({ formData, setFormData }: UseProductFormSyncParams): void {
-  const isDraft = isProductDraft(formData);
   // 1. Cálculo do preço final de compra
   useEffect(() => {
     let final = formData.costPrice || 0;
@@ -83,22 +82,33 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
 
       const parentName = formData.name || formData.description || '';
       const variationNameAttributes = getVariationNameAttributes(
-        v.attributes || [],
-        formData.technicalValues || {},
-        v.technicalValues || {}
+        v.attributes || []
       );
       const variationName = computeVariationName(parentName, variationNameAttributes);
       const defaultName = computeVariationName(parentName, []);
       const nameFromVariationAttributes = computeVariationName(parentName, v.attributes || []);
+      const currentNameSuffix = newV.name
+        .toLocaleLowerCase('pt-BR')
+        .startsWith(parentName.toLocaleLowerCase('pt-BR'))
+          ? newV.name.slice(parentName.length).replace(/^[\s\-–—_:]+/u, '').trim()
+          : newV.name.trim();
+      const attributeNameSuffix = getVariationAttributeValuesInNameOrder(
+        v.attributes || []
+      ).join(' ');
+      const normalizeNamePart = (value: string) =>
+        value
+          .trim()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLocaleLowerCase('pt-BR');
+      const nameIsGenerated =
+        !newV.name ||
+        newV.name === 'Variação' ||
+        newV.name === defaultName ||
+        newV.name === nameFromVariationAttributes ||
+        normalizeNamePart(currentNameSuffix) === normalizeNamePart(attributeNameSuffix);
 
-      if (
-        newV.name !== variationName &&
-        (!isDraft ||
-          !newV.name ||
-          newV.name === 'Variação' ||
-          newV.name === defaultName ||
-          newV.name === nameFromVariationAttributes)
-      ) {
+      if (newV.name !== variationName && nameIsGenerated) {
         newV.name = variationName;
         updated = true;
       }
@@ -125,10 +135,8 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
       setFormData((prev) => ({ ...prev, variations: nextVariations }));
     }
   }, [
-    isDraft,
     formData.name,
     formData.description,
-    formData.technicalValues,
     formData.unitPrice,
     formData.costPrice,
     formData.promoPrice,

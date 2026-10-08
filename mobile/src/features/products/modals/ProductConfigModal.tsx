@@ -1,10 +1,10 @@
+import { ChevronRight, Layers, Sliders, X } from 'lucide-react-native';
 import type React from 'react';
-import { useState } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { X, Layers, Sliders, ChevronRight } from 'lucide-react-native';
-import { CategoriesManagerModal } from './CategoriesManagerModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttributesManagerModal } from './AttributesManagerModal';
+import { CategoriesManagerModal } from './CategoriesManagerModal';
 import { ProductTypesManagerModal } from './ProductTypesManagerModal';
 
 interface Props {
@@ -13,8 +13,8 @@ interface Props {
   onClose: () => void;
   onCategoriesUpdated?: () => void;
   onNavigateToCategories?: () => void;
-  canManageCategories?: boolean;
-  canManageCharacteristics?: boolean;
+  canManageCategories: boolean;
+  canManageCharacteristics: boolean;
 }
 
 export const ProductConfigModal: React.FC<Props> = ({
@@ -23,13 +23,21 @@ export const ProductConfigModal: React.FC<Props> = ({
   onClose,
   onCategoriesUpdated,
   onNavigateToCategories,
-  canManageCategories = true,
-  canManageCharacteristics = true,
+  canManageCategories,
+  canManageCharacteristics,
 }) => {
   const insets = useSafeAreaInsets();
   const [showCategories, setShowCategories] = useState(false);
   const [showAttributes, setShowAttributes] = useState(false);
   const [showProductTypes, setShowProductTypes] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !canManageCategories) {
+      setShowCategories(false);
+      setShowProductTypes(false);
+    }
+    if (!visible || !canManageCharacteristics) setShowAttributes(false);
+  }, [visible, canManageCategories, canManageCharacteristics]);
 
   const handleOpenCategories = () => {
     if (onNavigateToCategories) {
@@ -106,7 +114,9 @@ export const ProductConfigModal: React.FC<Props> = ({
                   <Sliders size={22} color="#7c3aed" />
                 </View>
                 <View style={styles.cardTexts}>
-                  <Text style={[styles.cardTitle, dark && styles.light]}>Atributos e Variações</Text>
+                  <Text style={[styles.cardTitle, dark && styles.light]}>
+                    Atributos e Variações
+                  </Text>
                   <Text style={styles.cardDesc}>
                     Criar atributos globais (Cor, Tamanho, etc.) e opções
                   </Text>
@@ -119,7 +129,7 @@ export const ProductConfigModal: React.FC<Props> = ({
       </View>
 
       <CategoriesManagerModal
-        visible={showCategories}
+        visible={visible && canManageCategories && showCategories}
         dark={dark}
         onCategoriesUpdated={onCategoriesUpdated}
         onClose={() => {
@@ -129,12 +139,12 @@ export const ProductConfigModal: React.FC<Props> = ({
       />
 
       <AttributesManagerModal
-        visible={showAttributes}
+        visible={visible && canManageCharacteristics && showAttributes}
         dark={dark}
         onClose={() => setShowAttributes(false)}
       />
       <ProductTypesManagerModal
-        visible={showProductTypes}
+        visible={visible && canManageCategories && showProductTypes}
         dark={dark}
         onClose={() => setShowProductTypes(false)}
       />

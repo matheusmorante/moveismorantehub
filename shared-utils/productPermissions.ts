@@ -128,7 +128,7 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
       label: 'Acessar',
       description: 'Consultar e configurar ambientes, categorias e tipos.',
       icon: 'bi-tags-fill',
-      defaultRoles: ['manager', 'stockist', 'seller'],
+      defaultRoles: ['manager', 'seller'],
     },
     {
       id: 'viewProductCompositions',
@@ -137,7 +137,7 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
       label: 'Acessar',
       description: 'Consultar e configurar composições e kits.',
       icon: 'bi-diagram-3-fill',
-      defaultRoles: ['manager', 'stockist', 'seller'],
+      defaultRoles: ['manager', 'seller'],
     },
     {
       id: 'viewProductReconciliation',
@@ -146,7 +146,7 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
       label: 'Acessar',
       description: 'Consultar e executar conciliação de produtos de fornecedores.',
       icon: 'bi-arrow-left-right',
-      defaultRoles: ['manager', 'stockist', 'seller'],
+      defaultRoles: ['manager', 'seller'],
     },
   ],
 };

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Link, Trash2, Unlink } from 'lucide-react-native';
+import { ArrowLeftRight, Check, Link, Search, Trash2, Unlink } from 'lucide-react-native';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -25,6 +25,11 @@ import {
   upsertProductCharacteristicAttribute,
 } from '../../domain/productCharacteristics';
 import {
+  applyProductCharacteristicToVariationNames,
+  canUseProductCharacteristicInVariationName,
+  isProductCharacteristicIncludedInVariationNames,
+} from '../../domain/productVariationName';
+import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
 } from '../../services/mobileProductTechnicalService';
@@ -39,6 +44,12 @@ interface Props {
 }
 
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
+const normalizeSearchTerm = (value: string) =>
+  value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
 
 const getDimensionField = (name: string) => {
   const normalized = normalizeName(name);
@@ -70,6 +81,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   const [showAdditionalAttributes, setShowAdditionalAttributes] = useState(false);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [optionSearch, setOptionSearch] = useState('');
+  const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
+  const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
   const parentTechnicalValues = useMemo(
     () => (parentData ? getEffectiveProductTechnicalValues(parentData) : {}),
     [parentData?.attributes, parentData?.technicalValues, parentData?.technical_specs]
@@ -113,9 +126,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     const existingNames = new Set(visible.map((field) => normalizeName(field.name)));
     const preservedLegacyFields = Object.keys(values)
       .filter(
-        (name) =>
-          !isExcludedProductTechnicalField(name) &&
-          !existingNames.has(normalizeName(name))
+        (name) => !isExcludedProductTechnicalField(name) && !existingNames.has(normalizeName(name))
       )
       .map((name) => ({
         id: `legacy:${name}`,
@@ -140,9 +151,47 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     requiredFieldsOnly,
   ]);
 
-  const visibleFieldGroups = useMemo(() => {
-    return groupProductTechnicalFields(visibleTechnicalFields);
-  }, [visibleTechnicalFields]);
+  const requiredFieldGroups = useMemo(
+    () =>
+      groupProductTechnicalFields(
+        visibleTechnicalFields.filter(
+          (field) => field.isRequired ?? isRequiredCharacteristicName(field.name)
+        )
+      ),
+    [visibleTechnicalFields]
+  );
+  const optionalTechnicalFields = useMemo(
+    () =>
+      visibleTechnicalFields.filter(
+        (field) => !(field.isRequired ?? isRequiredCharacteristicName(field.name))
+      ),
+    [visibleTechnicalFields]
+  );
+  const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
+  const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
+  const matchingOptionalFields =
+    !requiredFieldsOnly &&
+    normalizedSearchTerm.length >= 3 &&
+    normalizedSearchTerm === normalizedDebouncedSearchTerm
+      ? optionalTechnicalFields
+          .filter((field) =>
+            normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm)
+          )
+          .slice(0, 3)
+      : [];
+  const fieldGroups = [
+    ...requiredFieldGroups,
+    ...(matchingOptionalFields.length > 0
+      ? [{ title: 'Resultados da busca', fields: matchingOptionalFields }]
+      : []),
+  ];
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCharacteristicSearchTerm(characteristicSearchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [characteristicSearchTerm]);
 
   const setTechnicalValue = (name: string, value: any) =>
     setFormData((prev: any) => {
@@ -229,6 +278,34 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       return next;
     });
 
+  const characteristicSearchControl =
+    !requiredFieldsOnly && optionalTechnicalFields.length > 0 ? (
+      <View style={styles.searchControl}>
+        <Text style={[styles.searchLabel, dark && styles.dimText]}>Pesquisar característica</Text>
+        <View style={[styles.searchInputWrap, dark && styles.darkInput]}>
+          <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
+          <TextInput
+            value={characteristicSearchTerm}
+            onChangeText={setCharacteristicSearchTerm}
+            placeholder="Digite pelo menos 3 caracteres"
+            placeholderTextColor="#94a3b8"
+            accessibilityLabel="Pesquisar característica técnica"
+            returnKeyType="search"
+            style={[styles.searchInput, dark && styles.lightText]}
+          />
+        </View>
+        <Text style={[styles.searchHint, dark && styles.dimText]} accessibilityLiveRegion="polite">
+          {normalizedSearchTerm.length < 3
+            ? 'Digite pelo menos 3 caracteres para pesquisar.'
+            : normalizedSearchTerm !== normalizedDebouncedSearchTerm
+              ? 'Buscando características...'
+              : matchingOptionalFields.length === 0
+                ? 'Nenhuma característica encontrada.'
+                : 'Exibindo até 3 características correspondentes.'}
+        </Text>
+      </View>
+    ) : null;
+
   return (
     <View style={styles.container}>
       {loadingFields ? (
@@ -240,133 +317,201 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           </Text>
         </View>
       ) : (
-        visibleFieldGroups.map((group) => (
-          <View key={group.title} style={[styles.card, dark && styles.darkCard]}>
-            <Text style={[styles.groupTitle, dark && styles.dimText]}>{group.title}</Text>
-            {group.fields.map((field: any) => {
-              const hasOwnValue = hasTechnicalValue(ownTechnicalValues, field.name);
-              const ownValue = getTechnicalValue(ownTechnicalValues, field.name);
-              const parentValue = getTechnicalValue(parentTechnicalValues, field.name);
-              const storedValue = hasOwnValue ? ownValue : (parentValue ?? '');
-              const currentValue = Array.isArray(storedValue)
-                ? storedValue.join(', ')
-                : String(storedValue ?? '');
-              const alwaysApplicable = isRequiredCharacteristicName(field.name);
-              const isPhysicalDimension = getDimensionField(field.name) !== null;
-              const hasConfiguredParentValue =
-                Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
-              const applicable =
-                alwaysApplicable ||
-                (isPhysicalDimension
-                  ? (hasOwnValue || hasConfiguredParentValue) &&
-                    currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
-                  : currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica');
-              const isManual = manualFieldNames.includes(field.name);
-              const parentText = String(parentValue ?? '').trim();
-              const parentIsZero =
-                ['integer', 'number', 'decimal', 'measure'].includes(field.data_type) &&
-                Number(parentText.replace(',', '.')) === 0;
-              const hasMeaningfulParentValue =
-                parentText !== '' &&
-                parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
-                !parentIsZero;
-              const isInheritedFromParent = Boolean(
-                parentData && !hasOwnValue && hasMeaningfulParentValue
-              );
+        <>
+          {fieldGroups.map((group, groupIndex) => (
+            <View key={group.title}>
+              {groupIndex === requiredFieldGroups.length && characteristicSearchControl}
+              <View style={[styles.card, dark && styles.darkCard]}>
+                <Text style={[styles.groupTitle, dark && styles.dimText]}>{group.title}</Text>
+                {group.fields.map((field: any) => {
+                  const hasOwnValue = hasTechnicalValue(ownTechnicalValues, field.name);
+                  const ownValue = getTechnicalValue(ownTechnicalValues, field.name);
+                  const parentValue = getTechnicalValue(parentTechnicalValues, field.name);
+                  const storedValue = hasOwnValue ? ownValue : (parentValue ?? '');
+                  const currentValue = Array.isArray(storedValue)
+                    ? storedValue.join(', ')
+                    : String(storedValue ?? '');
+                  const alwaysApplicable = isRequiredCharacteristicName(field.name);
+                  const isPhysicalDimension = getDimensionField(field.name) !== null;
+                  const hasConfiguredParentValue =
+                    Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
+                  const applicable =
+                    alwaysApplicable ||
+                    (isPhysicalDimension
+                      ? (hasOwnValue || hasConfiguredParentValue) &&
+                        currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
+                      : currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica');
+                  const isManual = manualFieldNames.includes(field.name);
+                  const parentText = String(parentValue ?? '').trim();
+                  const parentIsZero =
+                    ['integer', 'number', 'decimal', 'measure'].includes(field.data_type) &&
+                    Number(parentText.replace(',', '.')) === 0;
+                  const hasMeaningfulParentValue =
+                    parentText !== '' &&
+                    parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
+                    !parentIsZero;
+                  const isInheritedFromParent = Boolean(
+                    parentData && !hasOwnValue && hasMeaningfulParentValue
+                  );
+                  const productVariations =
+                    !parentData && Array.isArray(formData.variations) ? formData.variations : [];
+                  const nameSource = String(formData.name || formData.description || '').trim();
+                  const isColorField = normalizeName(field.name) === 'cor';
+                  const parentColor = getTechnicalValue(ownTechnicalValues, field.name);
+                  const canUseInVariationName =
+                    isColorField &&
+                    canUseProductCharacteristicInVariationName(
+                      productVariations,
+                      field.name,
+                      parentColor
+                    );
+                  const isIncludedInVariationName =
+                    canUseInVariationName &&
+                    isProductCharacteristicIncludedInVariationNames(
+                      productVariations,
+                      nameSource,
+                      field.name,
+                      parentColor
+                    );
 
-              return (
-                <View key={field.id} style={styles.attributeField}>
-                  <View style={styles.attributeHeading}>
-                    <View style={styles.attributeLabelWrap}>
-                      <Text style={[styles.label, dark && styles.dimText]}>
-                        {field.name}
-                        {field.unit ? ` (${field.unit})` : ''}
-                        {applicable && (
-                          <Text style={{ color: '#ef4444' }}> *</Text>
-                        )}
-                      </Text>
-                      {isManual && <Text style={styles.manualBadge}>Manual</Text>}
-                    </View>
-                    <View style={styles.attributeActions}>
-                      {['profundidade', 'comprimento'].includes(normalizeName(field.name)) && (
-                        <TouchableOpacity
-                          onPress={() => toggleDepthLength(field)}
-                          style={styles.inheritanceButton}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Alternar para ${normalizeName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
-                        >
-                          <ArrowLeftRight size={15} color="#64748b" />
-                        </TouchableOpacity>
-                      )}
-                      {!alwaysApplicable && (
-                        <Switch
-                          value={applicable}
-                          disabled={Boolean(parentData && !hasOwnValue)}
-                          onValueChange={(value) =>
-                            setTechnicalValue(
-                              field.name,
-                              value ? (hasOwnValue ? '' : currentValue) : 'Não se aplica'
-                            )
-                          }
-                          accessibilityLabel={`Se aplica: ${field.name}`}
-                          trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-                        />
-                      )}
-                      {parentData && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (hasOwnValue) resetVariationOverride(field.name);
-                            else
-                              setTechnicalValue(
-                                field.name,
-                                parentTechnicalValues[field.name] ?? ''
-                              );
-                          }}
-                          style={styles.inheritanceButton}
-                          accessibilityLabel={
-                            hasOwnValue
-                              ? `Herdar ${field.name} do produto pai`
-                              : `Personalizar ${field.name}`
-                          }
-                        >
-                          {hasOwnValue ? (
-                            <Unlink size={15} color="#64748b" />
-                          ) : (
-                            <Link size={15} color="#10b981" />
+                  return (
+                    <View key={field.id} style={styles.attributeField}>
+                      <View style={styles.attributeHeading}>
+                        <View style={styles.attributeLabelWrap}>
+                          <Text style={[styles.label, dark && styles.dimText]}>
+                            {field.name}
+                            {field.unit ? ` (${field.unit})` : ''}
+                            {applicable && <Text style={{ color: '#ef4444' }}> *</Text>}
+                          </Text>
+                          {isManual && <Text style={styles.manualBadge}>Manual</Text>}
+                        </View>
+                        <View style={styles.attributeActions}>
+                          {['profundidade', 'comprimento'].includes(normalizeName(field.name)) && (
+                            <TouchableOpacity
+                              onPress={() => toggleDepthLength(field)}
+                              style={styles.inheritanceButton}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Alternar para ${normalizeName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                            >
+                              <ArrowLeftRight size={15} color="#64748b" />
+                            </TouchableOpacity>
                           )}
-                        </TouchableOpacity>
-                      )}
-                      {isManual && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            setManualFieldNames((previous) =>
-                              previous.filter((name) => name !== field.name)
-                            );
-                            setFormData((previous: any) => {
-                              const technicalValues = { ...(previous.technicalValues || {}) };
-                              delete technicalValues[field.name];
-                              return { ...previous, technicalValues };
-                            });
-                          }}
-                          accessibilityLabel={`Remover característica ${field.name}`}
-                        >
-                          <Trash2 size={16} color="#ef4444" />
-                        </TouchableOpacity>
-                      )}
+                          {!alwaysApplicable && (
+                            <Switch
+                              value={applicable}
+                              disabled={Boolean(parentData && !hasOwnValue)}
+                              onValueChange={(value) =>
+                                setTechnicalValue(
+                                  field.name,
+                                  value ? (hasOwnValue ? '' : currentValue) : 'Não se aplica'
+                                )
+                              }
+                              accessibilityLabel={`Se aplica: ${field.name}`}
+                              trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
+                            />
+                          )}
+                          {parentData && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (hasOwnValue) resetVariationOverride(field.name);
+                                else
+                                  setTechnicalValue(
+                                    field.name,
+                                    parentTechnicalValues[field.name] ?? ''
+                                  );
+                              }}
+                              style={styles.inheritanceButton}
+                              accessibilityLabel={
+                                hasOwnValue
+                                  ? `Herdar ${field.name} do produto pai`
+                                  : `Personalizar ${field.name}`
+                              }
+                            >
+                              {hasOwnValue ? (
+                                <Unlink size={15} color="#64748b" />
+                              ) : (
+                                <Link size={15} color="#10b981" />
+                              )}
+                            </TouchableOpacity>
+                          )}
+                          {isManual && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setManualFieldNames((previous) =>
+                                  previous.filter((name) => name !== field.name)
+                                );
+                                setFormData((previous: any) => {
+                                  const technicalValues = { ...(previous.technicalValues || {}) };
+                                  delete technicalValues[field.name];
+                                  return { ...previous, technicalValues };
+                                });
+                              }}
+                              accessibilityLabel={`Remover característica ${field.name}`}
+                            >
+                              <Trash2 size={16} color="#ef4444" />
+                            </TouchableOpacity>
+                          )}
+                          {!parentData && isColorField && (
+                            <TouchableOpacity
+                              disabled={!canUseInVariationName}
+                              onPress={() =>
+                                setFormData((previous: any) => {
+                                  const variations = Array.isArray(previous.variations)
+                                    ? previous.variations
+                                    : [];
+                                  const updatedVariations =
+                                    applyProductCharacteristicToVariationNames(
+                                      variations,
+                                      String(previous.name || previous.description || '').trim(),
+                                      field.name,
+                                      getTechnicalValue(
+                                        previous.technicalValues || {},
+                                        field.name
+                                      ) ?? parentColor
+                                    );
+                                  return updatedVariations === variations
+                                    ? previous
+                                    : { ...previous, variations: updatedVariations };
+                                })
+                              }
+                              style={[
+                                styles.nameAction,
+                                !canUseInVariationName && styles.disabledNameAction,
+                                isIncludedInVariationName && styles.nameActionSelected,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel="Usar cor no nome da variação"
+                              accessibilityState={{ disabled: !canUseInVariationName }}
+                              accessibilityHint="Inclui a cor no nome e nos atributos das variações que têm um valor disponível."
+                            >
+                              {isIncludedInVariationName && <Check size={12} color="#15803d" />}
+                              <Text
+                                style={[
+                                  styles.nameActionText,
+                                  isIncludedInVariationName && styles.nameActionTextSelected,
+                                ]}
+                              >
+                                Usar no nome
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                      <ProductTechnicalFieldInput
+                        field={field}
+                        value={currentValue === 'Não se aplica' ? '' : storedValue}
+                        disabled={!applicable || isInheritedFromParent}
+                        dark={dark}
+                        onChange={(value) => setTechnicalValue(field.name, value)}
+                      />
                     </View>
-                  </View>
-                  <ProductTechnicalFieldInput
-                    field={field}
-                    value={currentValue === 'Não se aplica' ? '' : storedValue}
-                    disabled={!applicable || isInheritedFromParent}
-                    dark={dark}
-                    onChange={(value) => setTechnicalValue(field.name, value)}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        ))
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+          {fieldGroups.length === requiredFieldGroups.length && characteristicSearchControl}
+        </>
       )}
       {!parentData && !requiredFieldsOnly && visibleTechnicalFields.length > 0 && (
         <View>
@@ -409,6 +554,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                 .filter(
                   (field: any) =>
                     !isExcludedProductTechnicalField(field.name) &&
+                    field.active !== false &&
                     !visibleTechnicalFields.some(
                       (visible) => normalizeName(visible.name) === normalizeName(field.name)
                     ) &&
@@ -468,12 +614,34 @@ const styles = StyleSheet.create({
   lightText: { color: '#f1f5f9' },
   dimText: { color: '#94a3b8' },
   helper: { fontSize: 11, color: '#64748b', lineHeight: 16 },
+  searchControl: { gap: 7, paddingHorizontal: 2, paddingTop: 4, paddingBottom: 2 },
+  searchLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  searchInputWrap: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  searchInput: { flex: 1, minWidth: 0, paddingVertical: 9, color: '#0f172a', fontSize: 13 },
+  searchHint: { fontSize: 10, lineHeight: 15, color: '#94a3b8' },
   attributeField: { gap: 7 },
   attributeHeading: {
     minHeight: 34,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 8,
   },
   attributeLabelWrap: {
@@ -483,7 +651,30 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  attributeActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  attributeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 7,
+    maxWidth: '100%',
+  },
+  nameAction: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
+  },
+  disabledNameAction: { opacity: 0.45 },
+  nameActionSelected: { borderColor: '#86efac', backgroundColor: '#f0fdf4' },
+  nameActionText: { color: '#475569', fontSize: 9, fontWeight: '800' },
+  nameActionTextSelected: { color: '#15803d' },
   inheritanceButton: {
     minWidth: 28,
     minHeight: 28,

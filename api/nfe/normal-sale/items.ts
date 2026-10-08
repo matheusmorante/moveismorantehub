@@ -127,7 +127,8 @@ export function determineNormalSaleItems(params: {
       return {
         itemNumber: index + 1,
         product: {
-          code: String(item.productId || item.orderItemId || `ITEM-${index + 1}`).slice(0, 60),
+          // The selected variation SKU is stored in `code`; productId is an internal UUID.
+          code: String(item.code || item.sku || `ITEM-${index + 1}`).slice(0, 60),
           description: required(item.description, 'Descrição comercial'),
           gtin: 'SEM GTIN',
           quantity: item.quantity,

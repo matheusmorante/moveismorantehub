@@ -24,9 +24,10 @@ export function serializeFiscalItems(document: FiscalDocument): string {
       if (!cfopMatch.valid)
         throw new Error(`CFOP do item ${item.itemNumber} inválido: ${cfopMatch.reason}`);
       requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
+      const isHomologationFirstItem = document.environment === 2 && item.itemNumber === 1;
       const product =
         `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +
-        `${tag('xProd', document.environment === 2 && item.itemNumber === 1 ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
+        `${tag('xProd', isHomologationFirstItem ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
         `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
         `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
         `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +
@@ -37,7 +38,7 @@ export function serializeFiscalItems(document: FiscalDocument): string {
         `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
         `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +
         `${p.otherExpenses ? tag('vOutro', money(p.otherExpenses)) : ''}` +
-        `${tag('indTot', '1')}</prod>`;
+        `${tag('indTot', '1')}${isHomologationFirstItem ? tag('infAdProd', p.description) : ''}</prod>`;
       return `<det nItem="${item.itemNumber}">${product}${serializeFiscalTaxes(item.taxes, c.origin)}</det>`;
     })
     .join('');

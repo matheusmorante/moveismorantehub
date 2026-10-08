@@ -904,9 +904,20 @@ export async function processOrderCancellationFiscalEffects(
     reason?: string;
     productionConfirmed?: boolean;
     confirmProduction?: () => boolean;
+    documentId?: string;
   } = {}
 ): Promise<{
-  action: 'none' | 'cancel' | 'estorno' | 'reconcile';
+  action: 'none' | 'cancel' | 'estorno' | 'reconcile' | 'batch';
+  results?: Array<{
+    documentId: string;
+    environment?: number;
+    model?: string;
+    action: 'cancel' | 'estorno' | 'reconcile' | 'failed' | 'none';
+    reconciliationState?: 'authorized' | 'pending' | 'unknown';
+    error?: string;
+    draftId?: string;
+    reconciliationRequired?: boolean;
+  }>;
   reconciliationState?: 'authorized' | 'pending' | 'unknown';
   error?: string;
   draftId?: string;
@@ -926,7 +937,7 @@ export async function processOrderCancellationFiscalEffects(
   const policyResponse = await fetch('/api/nfe/order-cancellation-policy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ orderId }),
+    body: JSON.stringify({ orderId, ...(options.documentId ? { documentId: options.documentId } : {}) }),
   });
   const policy = await parseNfeApiResponse<{
     action:
@@ -937,14 +948,77 @@ export async function processOrderCancellationFiscalEffects(
       | 'blocked'
       | 'pending'
       | 'reconcile'
-      | 'return';
+      | 'return'
+      | 'batch';
     documentId?: string;
     environment?: number;
     reason?: string;
     error?: string;
+    operations?: Array<{
+      action: string;
+      documentId: string;
+      environment?: number;
+      model?: string;
+      reason?: string;
+    }>;
   }>(policyResponse, 'Não foi possível decidir o efeito fiscal.');
   if (!policyResponse.ok && policy.action !== 'reconcile')
     throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
+  if (policy.action === 'batch') {
+    const operations = policy.operations || [];
+    const needsProductionConfirmation = operations.some(
+      (operation) => operation.action === 'cancel' && operation.environment === 1
+    );
+    const productionConfirmed =
+      !needsProductionConfirmation ||
+      options.productionConfirmed === true ||
+      options.confirmProduction?.() === true;
+    const results = [] as NonNullable<Awaited<ReturnType<typeof processOrderCancellationFiscalEffects>>['results']>;
+    for (const operation of operations) {
+      if (operation.action === 'cancel' && operation.environment === 1 && !productionConfirmed) {
+        results.push({
+          documentId: operation.documentId,
+          environment: operation.environment,
+          model: operation.model,
+          action: 'failed',
+          error: 'Confirme explicitamente o cancelamento fiscal em Produção.',
+        });
+        continue;
+      }
+      if (!['cancel', 'estorno', 'reconcile'].includes(operation.action)) {
+        results.push({
+          documentId: operation.documentId,
+          environment: operation.environment,
+          model: operation.model,
+          action: 'failed',
+          error: operation.reason || 'Esta nota exige revisão fiscal.',
+        });
+        continue;
+      }
+      try {
+        const result = await processOrderCancellationFiscalEffects(orderId, orderCode, {
+          ...options,
+          documentId: operation.documentId,
+          productionConfirmed,
+        });
+        results.push({
+          documentId: operation.documentId,
+          environment: operation.environment,
+          model: operation.model,
+          ...result,
+        });
+      } catch (error) {
+        results.push({
+          documentId: operation.documentId,
+          environment: operation.environment,
+          model: operation.model,
+          action: 'failed',
+          error: error instanceof Error ? error.message : 'Falha na tentativa de cancelamento.',
+        });
+      }
+    }
+    return { action: 'batch', results };
+  }
   if (policy.action === 'none') return { action: 'none' };
   if (policy.action === 'reconcile') {
     if (!policy.documentId)

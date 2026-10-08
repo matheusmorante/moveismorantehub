@@ -141,6 +141,7 @@ export interface ParsedFiscalBilling {
 export interface ParsedFiscalItem {
   code: string;
   description: string;
+  additionalInfo?: string;
   quantity: string;
   unit: string;
   unitValue: string;
@@ -179,6 +180,7 @@ export interface ParsedFiscalGeneral {
   referencedKey?: string;
   total: string;
   additionalInfo: string;
+  qrCode?: string;
   taxAuthorityInfo?: string;
 }
 

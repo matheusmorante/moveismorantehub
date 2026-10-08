@@ -5,6 +5,7 @@ import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
+import type { ProductListRow } from '../../types';
 
 export interface CellProductLike extends Product {
   readonly category_name?: string;
@@ -18,6 +19,7 @@ export interface CellContext {
   readonly product: CellProductLike;
   readonly visibilitySettings: ProductVisibilitySettings;
   readonly isChildVar: boolean;
+  readonly singleVariation?: ProductListRow;
   readonly hasVariations?: boolean;
   readonly isExpanded?: boolean;
   readonly onToggleExpand?: () => void;
@@ -35,6 +37,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
     product,
     visibilitySettings,
     isChildVar,
+    singleVariation,
     hasVariations,
     isExpanded,
     onToggleExpand,
@@ -136,10 +139,12 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
       );
 
     case 'unitPrice': {
+      const unitPrice = singleVariation?.unitPrice ?? product.unitPrice;
+      const promoPrice = singleVariation ? singleVariation.promoPrice : product.promoPrice;
       const hasPromo = Boolean(
-        product.promoPrice &&
-          Number(product.promoPrice) > 0 &&
-          Number(product.promoPrice) < Number(product.unitPrice)
+        promoPrice &&
+          Number(promoPrice) > 0 &&
+          Number(promoPrice) < Number(unitPrice)
       );
       return (
         <td key="unitPrice" className="px-3 py-3 text-right">
@@ -147,15 +152,15 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
             {hasPromo ? (
               <>
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(product.promoPrice || 0)}
+                  {formatCurrency(promoPrice || 0)}
                 </span>
                 <span className="text-[10px] text-slate-400 line-through">
-                  {formatCurrency(product.unitPrice || 0)}
+                  {formatCurrency(unitPrice || 0)}
                 </span>
               </>
             ) : (
               <span className="text-xs font-black text-slate-700 dark:text-slate-300">
-                {formatCurrency(product.unitPrice || 0)}
+                {formatCurrency(unitPrice || 0)}
               </span>
             )}
           </div>
@@ -167,20 +172,22 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
       return (
         <td key="costPrice" className="px-3 py-3 text-right">
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-            {formatCurrency(product.costPrice || 0)}
+            {formatCurrency(singleVariation?.costPrice ?? product.costPrice ?? 0)}
           </span>
         </td>
       );
 
     case 'stock': {
-      if (product.isParent) return <td key="stock" className="px-3 py-3" />;
-      const isLowStock = (product.stock || 0) <= (product.minStock || 0);
+      if (product.isParent && !singleVariation) return <td key="stock" className="px-3 py-3" />;
+      const stock = singleVariation?.stock ?? product.stock ?? 0;
+      const minStock = singleVariation?.minStock ?? product.minStock ?? 0;
+      const isLowStock = stock <= minStock;
       return (
         <td key="stock" className="px-3 py-3 text-center">
           <span
             className={`text-sm font-black ${isLowStock ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}
           >
-            {product.itemType === 'service' ? '-' : (product.stock ?? 0)}
+            {product.itemType === 'service' ? '-' : stock}
           </span>
         </td>
       );
@@ -230,28 +237,37 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
       );
 
     case 'status': {
-      const targetCatalogId = product.isVariation
-        ? product.variationId || product.id || ''
+      const targetCatalogId = singleVariation
+        ? singleVariation.variationId || singleVariation.id || product.id || ''
+        : product.isVariation
+          ? product.variationId || product.id || ''
         : product.id || '';
+      const active = singleVariation ? singleVariation.active !== false : product.active !== false;
 
       return (
         <td key="status" className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-center">
             <ChannelStatusBadges
-              active={product.active !== false}
-              catalogStatus={product.status}
-              isParent={product.isParent}
+              active={active}
+              catalogStatus={singleVariation?.status || product.status}
+              isParent={Boolean(product.isParent && !singleVariation)}
               isNonConventional={isNonConventionalProduct(product as any)}
               isSalvado={getProductKind(product) === 'salvado'}
               canManageCatalog={canManageCatalog}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}
               isDraft={isDraft}
-              activeVariationsCount={product.activeVariationsCount}
-              totalVariationsCount={product.totalVariationsCount}
+              activeVariationsCount={singleVariation ? undefined : product.activeVariationsCount}
+              totalVariationsCount={singleVariation ? undefined : product.totalVariationsCount}
+              disabled={Boolean(singleVariation?.mergedToVariationId)}
+              disabledReason={
+                singleVariation?.mergedToVariationId
+                  ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+                  : undefined
+              }
               onToggleActive={(e) => {
                 e.stopPropagation();
-                if (product.id) onToggleActive(product.id, product.active !== false);
+                if (targetCatalogId) onToggleActive(targetCatalogId, active);
               }}
               onToggleCatalog={(e) => {
                 e.stopPropagation();

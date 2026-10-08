@@ -13,8 +13,11 @@ export interface TechnicalFieldDefinition {
     | 'multi_select'
     | 'boolean'
     | 'measure'
-    | 'number';
-  unit?: string; // Ex: "cm", "kg", "lugares"
+    | 'number'
+    | 'weight'
+    | 'percentage';
+  unit?: string; // Ex.: "g", "cm", "mm" ou "m"
+  decimalPlaces?: 1 | 2 | 3;
   active?: boolean;
   isRequired?: boolean;
   isCustom?: boolean;
@@ -35,8 +38,7 @@ export interface CharacteristicGroup<T extends { name: string }> {
   fields: T[];
 }
 
-export const NAME_COMPOSING_CHARACTERISTIC_TOPIC =
-  'Característica que compõe o nome do produto';
+export const REQUIRED_CHARACTERISTICS_TOPIC = 'Obrigatórios';
 
 const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
   { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
@@ -58,12 +60,12 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => {
   const groups = new Map<string, T[]>();
-  const nameComposingFields: T[] = [];
+  const requiredCharacteristicFields: T[] = [];
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
     if (isRequiredCharacteristicName(field.name)) {
-      nameComposingFields.push(field);
+      requiredCharacteristicFields.push(field);
       return;
     }
 
@@ -82,8 +84,8 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   });
 
   return [
-    ...(nameComposingFields.length > 0
-      ? [{ title: NAME_COMPOSING_CHARACTERISTIC_TOPIC, fields: nameComposingFields }]
+    ...(requiredCharacteristicFields.length > 0
+      ? [{ title: REQUIRED_CHARACTERISTICS_TOPIC, fields: requiredCharacteristicFields }]
       : []),
     ...CHARACTERISTIC_TOPICS.flatMap((topic) => {
       const groupedFields = groups.get(topic.title);
@@ -322,7 +324,11 @@ export const formatValueForName = (field: TechnicalFieldDefinition, value: any):
     return '';
   }
 
-  const strVal = String(value).trim();
+  const rawValue = String(value).trim();
+  const strVal =
+    field.dataType === 'decimal' && Number.isFinite(Number(value))
+      ? Number(value).toFixed(field.decimalPlaces ?? 2).replace('.', ',')
+      : rawValue;
   if (!strVal) return '';
 
   if (field.unit) {
@@ -368,7 +374,7 @@ export const computeEffectiveVariationName = (
  * Determina a lista de campos técnicos que devem ser exibidos no formulário do produto.
  *
  * Regras:
- * 1. Especificações globais obrigatórias e campos vinculados a qualquer categoria atual são incluídos automaticamente.
+ * 1. Requisitos obrigatórios do sistema e campos vinculados às categorias atuais são incluídos automaticamente.
  * 2. Qualquer campo que já tenha valor cadastrado/ativo no produto (mesmo vazio intencional ou manual)
  *    é preservado e incluído, garantindo que dados nunca se percam ao mudar categorias.
  * 3. Campos adicionados manualmente pelo usuário no produto atual são incluídos.
@@ -385,11 +391,18 @@ export const getApplicableTechnicalFields = (
 
   let applicable = allFields.filter((field) => {
     if (/^reclin[aá]vel$/i.test(field.name.trim())) return false;
-    // Uma especificação global obrigatória sempre aparece, independentemente da categoria.
+    const hasExistingValue = Object.prototype.hasOwnProperty.call(productTechnicalValues, field.name);
+
+    // Campos inativos deixam de ser oferecidos em novos produtos, mas continuam visíveis
+    // quando já possuem um valor no cadastro em edição para preservar o dado existente.
+    if (field.active === false) {
+      return hasExistingValue || manualSet.has(field.name);
+    }
+    // Requisitos obrigatórios do sistema continuam visíveis, independentemente da categoria.
     if (field.isRequired) return true;
 
     // Se já está ativo ou preenchido no produto atual, SEMPRE inclui para preservar dados
-    if (Object.prototype.hasOwnProperty.call(productTechnicalValues, field.name)) {
+    if (hasExistingValue) {
       return true;
     }
 
@@ -455,6 +468,7 @@ export const getAvailableAdditionalFields = (
   const visibleNames = new Set(currentlyVisibleFields.map((f) => f.name.toLowerCase().trim()));
   return allFields.filter(
     (f) =>
+      f.active !== false &&
       !visibleNames.has(f.name.toLowerCase().trim()) &&
       !/^reclin[aá]vel$/i.test(f.name.trim())
   );

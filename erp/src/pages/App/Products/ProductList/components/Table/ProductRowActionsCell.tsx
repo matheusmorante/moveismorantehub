@@ -1,6 +1,5 @@
 import React from 'react';
 import Product from '@/pages/types/product.type';
-import type { Variation } from '@/pages/types/product.type';
 import { useAuth } from '@/context/AuthContext';
 import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import { LabelPrintType } from '../../../components/modals/product/LabelPrintSelectionModal';
@@ -12,11 +11,16 @@ export interface ActionProductLike extends Product {
   readonly variationId?: string;
   readonly mergedToVariationId?: string;
   readonly displayName?: string;
-  readonly attributes?: Variation['attributes'];
+  readonly attributes?: readonly {
+    readonly name?: string;
+    readonly value?: string;
+    readonly showName?: boolean;
+  }[];
 }
 
 export interface ProductRowActionsCellProps {
   readonly product: ActionProductLike;
+  readonly singleVariation?: ActionProductLike;
   readonly readOnly?: boolean;
   readonly canDeleteProducts: boolean;
   readonly isChildVar: boolean;
@@ -39,6 +43,7 @@ export interface ProductRowActionsCellProps {
  */
 export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   product,
+  singleVariation,
   readOnly = false,
   canDeleteProducts,
   isChildVar,
@@ -78,6 +83,29 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
           onMergeWithAnotherVariation={onMergeWithAnotherVariation}
           onRefresh={onRefresh}
         />
+      ) : singleVariation && !showTrash ? (
+        <div className="flex items-center justify-center gap-2">
+          <ParentProductActions
+            product={product}
+            showTrash={showTrash && !isLabelOnlyProfile}
+            canDeleteProducts={canDeleteProducts}
+            showEditButton={!readOnly}
+            isDraft={isDraft}
+            onEdit={onEdit}
+            onRestore={onRestore}
+            onDelete={onDelete}
+            onDuplicate={onDuplicate}
+            onLaunchStock={onLaunchStock}
+            onOpenSalesModal={onOpenSalesModal}
+            onOpenLabelModal={onOpenLabelModal}
+          />
+          <ChildVariationActions
+            product={singleVariation}
+            onMoveToAnotherFamily={onMoveToAnotherFamily}
+            onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+            onRefresh={onRefresh}
+          />
+        </div>
       ) : (
         <ParentProductActions
           product={product}

@@ -40,7 +40,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
     ...(!isService
       ? [
           ...(!isStockistOnly
-            ? [{ id: 'ecommerce' as const, label: 'Fotos', icon: 'bi-images' }]
+            ? [{ id: 'ecommerce' as const, label: 'Galeria', icon: 'bi-images' }]
             : []),
           { id: 'technical' as const, label: 'Características', icon: 'bi-info-circle' },
           ...(!isStockistOnly

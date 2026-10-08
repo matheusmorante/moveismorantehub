@@ -26,7 +26,8 @@ type PreviewAction =
   | 'manual_review'
   | 'blocked'
   | 'pending'
-  | 'reconcile';
+  | 'reconcile'
+  | 'batch';
 
 const CancelScheduledSaleButton = ({
   order,
@@ -44,6 +45,7 @@ const CancelScheduledSaleButton = ({
     reason?: string;
     returnOrderId?: string;
     returnOrderStatus?: string;
+    operations?: Array<{ action: string; documentId: string; environment?: 1 | 2; model?: string; reason?: string }>;
   }>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -84,6 +86,7 @@ const CancelScheduledSaleButton = ({
         reason?: string;
         returnOrderId?: string;
         returnOrderStatus?: string;
+        operations?: Array<{ action: string; documentId: string; environment?: 1 | 2; model?: string; reason?: string }>;
         error?: string;
       }>(response, 'Não foi possível consultar as consequências fiscais.');
       if (!response.ok)

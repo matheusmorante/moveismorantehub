@@ -155,31 +155,60 @@ const ProductTable = ({
     }));
   }, []);
 
-  // Identifica quais produtos pais possuem variações filhas na lista
-  const parentIdsWithVariations = React.useMemo(() => {
-    const ids = new Set<string>();
-    products.forEach((p) => {
-      if (
-        p.isParent &&
-        Array.isArray((p as any).allVariations) &&
-        (p as any).allVariations.length > 0
-      ) {
-        ids.add(p.id!);
-      } else if (p.parentId) {
-        ids.add(p.parentId);
+  const variationRowsByParent = React.useMemo(() => {
+    const rowsByParent = new Map<string, ProductListRow[]>();
+
+    products.forEach((product) => {
+      if (!product.parentId) return;
+      const rows = rowsByParent.get(product.parentId) ?? [];
+      rows.push(product as ProductListRow);
+      rowsByParent.set(product.parentId, rows);
+    });
+
+    return rowsByParent;
+  }, [products]);
+
+  const variationCountsByParent = React.useMemo(() => {
+    const counts = new Map<string, number>();
+
+    products.forEach((product) => {
+      if (!product.id) return;
+      const embeddedCount = (product as ProductListRow).allVariations?.length ?? 0;
+      const rowCount = variationRowsByParent.get(product.id)?.length ?? 0;
+      if (product.isParent || embeddedCount > 0 || rowCount > 0) {
+        counts.set(product.id, embeddedCount || rowCount);
       }
     });
-    return ids;
-  }, [products]);
+
+    return counts;
+  }, [products, variationRowsByParent]);
+
+  const singleVariationsByParent = React.useMemo(() => {
+    const singleVariations = new Map<string, ProductListRow>();
+
+    products.forEach((product) => {
+      if (!product.isParent || !product.id || variationCountsByParent.get(product.id) !== 1) {
+        return;
+      }
+
+      const embeddedVariation = (product as ProductListRow).allVariations?.[0];
+      const variationRow = variationRowsByParent.get(product.id)?.[0];
+      const singleVariation = embeddedVariation ?? variationRow;
+      if (singleVariation) singleVariations.set(product.id, singleVariation);
+    });
+
+    return singleVariations;
+  }, [products, variationCountsByParent, variationRowsByParent]);
 
   // Para a tabela: variações filhas só aparecem se o pai estiver expandido (fechado por padrão!)
   const visibleTableProducts = React.useMemo(() => {
     return products.filter((product) => {
       const isChild = product.isVariation || Boolean(product.parentId);
       if (!isChild) return true;
+      if (product.parentId && singleVariationsByParent.has(product.parentId)) return false;
       return Boolean(product.parentId && expandedParents[product.parentId]);
     });
-  }, [products, expandedParents]);
+  }, [products, expandedParents, singleVariationsByParent]);
 
   const finalProducts = React.useMemo(() => {
     return products;
@@ -275,11 +304,11 @@ const ProductTable = ({
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
             {visibleTableProducts.map((product) => {
-              const hasVars = parentIdsWithVariations.has(product.id!);
+              const productId = product.id || '';
+              const variationsCount = variationCountsByParent.get(productId) ?? 0;
+              const singleVariation = singleVariationsByParent.get(productId);
+              const hasVars = variationsCount > (singleVariation ? 1 : 0);
               const isExp = Boolean(expandedParents[product.id!]);
-              const vCount =
-                (product as any).allVariations?.length ||
-                (product.isParent ? products.filter((p) => p.parentId === product.id).length : 0);
               return (
                 <ProductRow
                   key={product.id}
@@ -307,9 +336,10 @@ const ProductTable = ({
                   hasVariations={hasVars}
                   isExpanded={isExp}
                   onToggleExpand={() => toggleExpandParent(product.id!)}
-                  variationsCount={vCount}
+                  variationsCount={variationsCount}
                   onMoveToAnotherFamily={setVariationToMove}
                   onMergeWithAnotherVariation={setVariationToMerge}
+                  singleVariation={singleVariation}
                 />
               );
             })}

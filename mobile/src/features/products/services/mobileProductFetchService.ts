@@ -1,5 +1,6 @@
-import { supabase } from '../../../services/supabaseClient';
 import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
+import { supabase } from '../../../services/supabaseClient';
+import { buildMobileProductSearchTerms } from '../domain/mobileProductSearch';
 
 export interface MobileProductFilterOptions {
   search?: string;
@@ -12,8 +13,6 @@ export interface MobileProductFilterOptions {
   generalType?: 'all' | 'product' | 'service';
   throwOnError?: boolean;
 }
-
-const removeAccents = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').trim();
 
@@ -86,18 +85,15 @@ export const fetchMobileProductsPage = async (
       query = query.or(conditions.join(','));
     }
 
-    const rawSearch = options?.search?.trim();
-    if (rawSearch) {
-      const safeSearch = escapePostgrestValue(rawSearch);
-      const normalizedSearch = removeAccents(safeSearch);
-      const terms = Array.from(new Set([safeSearch, normalizedSearch])).filter(Boolean);
+    const searchTerms = buildMobileProductSearchTerms(options?.search || '');
+    if (searchTerms.searchTerms.length > 0) {
       let matchedParentIds: string[] = [];
 
       try {
         const { data: matchedVars, error: variationsError } = await supabase
           .from('product_variations')
           .select('product_id')
-          .or(terms.map((term) => `name.ilike.%${term}%`).join(','))
+          .or(searchTerms.searchTerms.map((term) => `name.ilike.%${term}%`).join(','))
           .limit(100);
         if (variationsError && options?.throwOnError) throw variationsError;
         if (variationsError)
@@ -115,10 +111,15 @@ export const fetchMobileProductsPage = async (
 
       // Paridade com productFilterBuilder do ERP: a busca textual da lista
       // considera nome do produto e nome da variação, não descrição/código.
-      const orConditions = terms.map((term) => `name.ilike.%${term}%`);
-      const words = normalizedSearch.split(/\s+/).filter(Boolean);
-      if (words.length > 1)
-        orConditions.push(`and(${words.map((word) => `name.ilike.%${word}%`).join(',')})`);
+      const orConditions = searchTerms.searchTerms.map((term) => `name.ilike.%${term}%`);
+      if (searchTerms.wordTerms.length > 0) {
+        const wordConditions = searchTerms.wordTerms.map(({ value, alternative }) =>
+          alternative
+            ? `or(name.ilike.%${value}%,name.ilike.%${alternative}%)`
+            : `name.ilike.%${value}%`
+        );
+        orConditions.push(`and(${wordConditions.join(',')})`);
+      }
 
       if (matchedParentIds.length > 0) {
         matchedParentIds.forEach((id) => {
@@ -251,6 +252,7 @@ export const fetchMobileProductsPage = async (
         allVars = [
           {
             id: `${p.id}_${parentCode}-01`,
+            isVirtual: true,
             sku: `${parentCode}-01`,
             name: p.name || 'Padrão',
             stock: Number(p.stock ?? 0),
@@ -305,9 +307,9 @@ export const fetchMobileProductsPage = async (
           ? p.supplier_ids
           : p.supplier_id
             ? [p.supplier_id]
-              : p.main_supplier_id
-                ? [p.main_supplier_id]
-                : [],
+            : p.main_supplier_id
+              ? [p.main_supplier_id]
+              : [],
       };
       const restoredProduct = restoreProductDraftSnapshot(baseProduct);
       const restoredVariations = Array.isArray(restoredProduct.variations)
@@ -329,7 +331,8 @@ export const fetchMobileProductsPage = async (
               price,
               unitPrice: Number(variation.unitPrice ?? price),
               promo_price: promoPrice,
-              promoPrice: promoPrice === null || promoPrice === undefined ? undefined : Number(promoPrice),
+              promoPrice:
+                promoPrice === null || promoPrice === undefined ? undefined : Number(promoPrice),
               stock: Number(variation.stock ?? 0),
               active: variation.active !== false,
               status: variation.status || restoredProduct.status || 'published',
@@ -355,10 +358,13 @@ export const fetchMobileProductsPage = async (
             : Boolean(p.active),
         activeVariationsCount: restoredActiveVariationsCount,
         totalVariationsCount: restoredVariations.length || 1,
-        isParent: Boolean(restoredProduct.isParent || isProductItem || restoredProduct.hasVariations),
+        isParent: Boolean(
+          restoredProduct.isParent || isProductItem || restoredProduct.hasVariations
+        ),
         itemType: restoredProduct.itemType || p.item_type || 'product',
         isDraft: Boolean(restoredProduct.isDraft || p.is_draft || p.status === 'draft'),
-        mainSupplierId: restoredProduct.mainSupplierId || p.main_supplier_id || p.supplier_id || null,
+        mainSupplierId:
+          restoredProduct.mainSupplierId || p.main_supplier_id || p.supplier_id || null,
         supplierId: restoredProduct.supplierId || p.supplier_id || p.main_supplier_id || null,
         supplierIds: restoredProduct.supplierIds || baseProduct.supplierIds,
       };

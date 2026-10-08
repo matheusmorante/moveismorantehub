@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { ArrowDown, ArrowUp, Check, ImagePlus, Link2, X } from 'lucide-react-native';
+import type React from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Image,
@@ -9,9 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ArrowDown, ArrowUp, Check, ImagePlus, Link2, X } from 'lucide-react-native';
-
-const MAX_VARIATION_IMAGES = 15;
+import { MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
 
 interface Props {
   images: string[];
@@ -74,8 +74,8 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
 
       {images.length > 0 ? (
         <View style={styles.selectedList}>
-          {images.map((url, index) => (
-            <View key={`${url}-${index}`} style={[styles.selectedPhoto, dark && styles.darkPhoto]}>
+          {images.map((url) => (
+            <View key={url} style={[styles.selectedPhoto, dark && styles.darkPhoto]}>
               <Image
                 source={{ uri: url }}
                 style={styles.thumbnail}
@@ -175,11 +175,11 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.imageGrid}>
-              {availableParentImages.map((url, index) => {
+              {availableParentImages.map((url) => {
                 const selected = draftImages.includes(url);
                 return (
                   <TouchableOpacity
-                    key={`${url}-${index}`}
+                    key={url}
                     onPress={() => toggleImage(url)}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: selected }}

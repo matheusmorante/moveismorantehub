@@ -54,17 +54,27 @@ export function AttributeCard({
   const getSubtitle = () => {
     switch (attribute.dataType) {
       case 'measure':
-        return 'Número Decimal';
+        return `Medida${attribute.unit ? ` • ${attribute.unit}` : ''}`;
+      case 'weight':
+        return 'Peso • kg';
+      case 'percentage':
+        return 'Porcentagem';
       case 'integer':
         return 'Número Inteiro';
       case 'number':
         return 'Número Inteiro';
       case 'decimal':
-        return 'Número Decimal';
-      case 'text':
+        return `Número decimal • ${attribute.decimalPlaces ?? 2} ${
+          (attribute.decimalPlaces ?? 2) === 1 ? 'casa' : 'casas'
+        }`;
       case 'text_short':
+        return 'Texto curto';
       case 'text_long':
-        return 'Texto';
+        return 'Texto longo';
+      case 'text':
+        return 'Texto curto';
+      case 'boolean':
+        return 'Sim ou não';
       case 'radio':
         return `Escolha única • ${attribute.options.length} ${attribute.options.length === 1 ? 'opção' : 'opções'}`;
       case 'multi_select':
@@ -87,6 +97,9 @@ export function AttributeCard({
             </span>
             <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
               {getSubtitle()}
+              {!attribute.active && (
+                <span className="ml-2 text-amber-600 dark:text-amber-400">• Inativa</span>
+              )}
             </span>
           </span>
         </div>
@@ -148,7 +161,7 @@ export function AttributeCard({
                 className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 cursor-pointer"
               >
                 <i className="bi bi-trash mr-2" aria-hidden="true" />
-                Excluir atributo
+                Excluir ou desativar
               </button>
             </div>
           )}

@@ -66,7 +66,7 @@ const SalesOrder = () => {
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, isAdministrator } = useAuth();
   const canOperateFiscal = hasFiscalOperationRole(profile);
   const isBudgetRoute = location.pathname === '/budgets';
   const isAssistanceRoute = location.pathname === '/assistance-orders';
@@ -204,6 +204,10 @@ const SalesOrder = () => {
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  React.useEffect(() => {
+    if (!isAdministrator) setShowTestOrders(false);
+  }, [isAdministrator]);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
   const orderListRef = useRef<OrderHistoryListRef>(null);
   const trashListRef = useRef<OrderHistoryListRef>(null);
@@ -251,17 +255,33 @@ const SalesOrder = () => {
     });
   };
 
+  const showTestOrdersForCurrentRole = isAdministrator && showTestOrders;
   const activeFilters = React.useMemo(
-    () => ({ ...filters, showTrash: false, isDraft: false, showTestOrders }),
-    [filters, showTestOrders]
+    () => ({
+      ...filters,
+      showTrash: false,
+      isDraft: false,
+      showTestOrders: showTestOrdersForCurrentRole,
+    }),
+    [filters, showTestOrdersForCurrentRole]
   );
   const trashFilters = React.useMemo(
-    () => ({ ...filters, showTrash: true, isDraft: false, showTestOrders }),
-    [filters, showTestOrders]
+    () => ({
+      ...filters,
+      showTrash: true,
+      isDraft: false,
+      showTestOrders: showTestOrdersForCurrentRole,
+    }),
+    [filters, showTestOrdersForCurrentRole]
   );
   const draftFilters = React.useMemo(
-    () => ({ ...filters, showTrash: false, isDraft: true, showTestOrders }),
-    [filters, showTestOrders]
+    () => ({
+      ...filters,
+      showTrash: false,
+      isDraft: true,
+      showTestOrders: showTestOrdersForCurrentRole,
+    }),
+    [filters, showTestOrdersForCurrentRole]
   );
 
   const handleOrderAction = (key: string, order: Order) => {
@@ -363,7 +383,7 @@ const SalesOrder = () => {
 
             {/* Action Buttons Group (lá no final do lado direito) */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              {hasTestOrders && (
+              {isAdministrator && hasTestOrders && (
                 <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
               )}
 

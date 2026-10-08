@@ -29,6 +29,11 @@ interface OrderHistoryCardProps {
   readonly fiscalDocumentId?: string;
   readonly fiscalHmlDocumentId?: string;
   readonly fiscalCancellationState?: OrderFiscalCancellationState;
+  readonly fiscalCancellationDocuments?: Array<{
+    documentId: string;
+    environment: 1 | 2;
+    state: OrderFiscalCancellationState;
+  }>;
   readonly fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   readonly fiscalEstornoDocumentId?: string;
   readonly fiscalEstornoEnvironment?: 1 | 2;
@@ -73,6 +78,7 @@ const OrderHistoryCard = ({
   fiscalDocumentId,
   fiscalHmlDocumentId,
   fiscalCancellationState,
+  fiscalCancellationDocuments,
   fiscalEstornoBadgeStatus,
   fiscalEstornoDocumentId,
   fiscalEstornoEnvironment,
@@ -288,7 +294,21 @@ const OrderHistoryCard = ({
           {toTitleCase(order.customerData?.fullName || 'Cliente não informado')}
         </h3>
 
-        <OrderCancellationFailureNotice state={fiscalCancellationState} />
+        {fiscalCancellationDocuments?.length ? (
+          <div className="mt-1 flex flex-col items-start gap-1">
+            {fiscalCancellationDocuments.map((item) => (
+              <OrderCancellationFailureNotice
+                key={item.documentId}
+                state={item.state}
+                documentId={item.documentId}
+                environment={item.environment}
+                onRetry={(documentId) => onAction(`retryOrderFiscalCancellation:${documentId}`, order)}
+              />
+            ))}
+          </div>
+        ) : (
+          <OrderCancellationFailureNotice state={fiscalCancellationState} />
+        )}
 
         {order.linkedOrderId && (
           <button

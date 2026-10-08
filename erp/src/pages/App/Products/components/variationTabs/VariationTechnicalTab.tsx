@@ -1,21 +1,18 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
 import {
   TechnicalFieldDefinition,
   getApplicableTechnicalFields,
-  getAvailableAdditionalFields,
   getEffectiveTechnicalValue,
   hasVariationOverride,
   setVariationOverride,
   removeVariationOverride,
   groupTechnicalFields,
-  NAME_COMPOSING_CHARACTERISTIC_TOPIC,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
-import NameCompositionInfo from '../tabs/technical/NameCompositionInfo';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
 
 interface VariationTechnicalTabProps {
@@ -27,6 +24,13 @@ interface VariationTechnicalTabProps {
   readonly requiredFieldsOnly?: boolean;
   readonly isSingleVariation?: boolean;
 }
+
+const normalizeSearchTerm = (value: string): string =>
+  value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
 
 export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   formData,
@@ -42,26 +46,16 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [addSearchTerm, setAddSearchTerm] = useState('');
-  const addDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
+  const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
 
-  // Fechar dropdown de adicionar campo ao clicar fora
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (addDropdownRef.current && !addDropdownRef.current.contains(event.target as Node)) {
-        setIsAddMenuOpen(false);
-        setAddSearchTerm('');
-      }
-    };
-
-    if (isAddMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isAddMenuOpen]);
+    const timeoutId = window.setTimeout(
+      () => setDebouncedCharacteristicSearchTerm(characteristicSearchTerm),
+      300
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [characteristicSearchTerm]);
 
   // Carregar Informações Técnicas cadastradas e vínculos
   useEffect(() => {
@@ -129,15 +123,26 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const visibleFields = requiredFieldsOnly
     ? applicableFields.filter((field) => field.isRequired)
     : applicableFields;
-  const fieldGroups = groupTechnicalFields(visibleFields);
-
-  const availableAdditionalFields: TechnicalFieldDefinition[] = [];
-
-  const filteredAdditionalFields = useMemo(() => {
-    const term = addSearchTerm.trim().toLowerCase();
-    if (!term) return availableAdditionalFields;
-    return availableAdditionalFields.filter((f) => f.name.toLowerCase().includes(term));
-  }, [availableAdditionalFields, addSearchTerm]);
+  const requiredFieldGroups = groupTechnicalFields(
+    visibleFields.filter((field) => field.isRequired)
+  );
+  const optionalFields = visibleFields.filter((field) => !field.isRequired);
+  const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
+  const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
+  const matchingOptionalFields =
+    !requiredFieldsOnly &&
+    normalizedSearchTerm.length >= 3 &&
+    normalizedSearchTerm === normalizedDebouncedSearchTerm
+      ? optionalFields
+          .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
+          .slice(0, 3)
+      : [];
+  const fieldGroups = [
+    ...requiredFieldGroups,
+    ...(matchingOptionalFields.length > 0
+      ? [{ title: 'Resultados da busca', fields: matchingOptionalFields }]
+      : []),
+  ];
 
   const handleSetOverride = (fieldName: string, value: any) => {
     const currentOverrides = formData.technicalValues || {};
@@ -152,7 +157,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       if (existingIdx >= 0) {
         currentAttrs[existingIdx] = { ...currentAttrs[existingIdx], value: String(value) };
       } else {
-        currentAttrs.push({ name: fieldName, value: String(value), showName: true });
+        currentAttrs.push({
+          name: fieldName,
+          value: String(value),
+          showName: !/^cor$/i.test(fieldName.trim()),
+        });
       }
       handleChange('attributes', currentAttrs);
     } else if (existingIdx >= 0) {
@@ -176,8 +185,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const handleAddManualField = (field: TechnicalFieldDefinition) => {
     setManualFieldNames((prev) => Array.from(new Set([...prev, field.name])));
     handleSetOverride(field.name, '');
-    setIsAddMenuOpen(false);
-    setAddSearchTerm('');
+    setCharacteristicSearchTerm('');
   };
 
   const handleRemoveManualField = (fieldName: string) => {
@@ -249,6 +257,42 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     }
   };
 
+  const characteristicSearchControl = !requiredFieldsOnly ? (
+    <div className="w-full max-w-xl space-y-1.5">
+      <label
+        htmlFor="variation-technical-characteristic-search"
+        className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
+      >
+        Pesquisar característica
+      </label>
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+        <i className="bi bi-search text-slate-400" aria-hidden="true" />
+        <input
+          id="variation-technical-characteristic-search"
+          type="search"
+          value={characteristicSearchTerm}
+          onChange={(event) => setCharacteristicSearchTerm(event.target.value)}
+          placeholder="Digite pelo menos 3 caracteres"
+          aria-describedby="variation-technical-characteristic-search-hint"
+          className="w-full bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+        />
+      </div>
+      <p
+        id="variation-technical-characteristic-search-hint"
+        className="text-[10px] text-slate-400 dark:text-slate-500"
+        aria-live="polite"
+      >
+        {normalizedSearchTerm.length < 3
+          ? 'Digite pelo menos 3 caracteres para pesquisar.'
+          : normalizedSearchTerm !== normalizedDebouncedSearchTerm
+            ? 'Buscando características...'
+            : matchingOptionalFields.length === 0
+              ? 'Nenhuma característica encontrada.'
+              : 'Exibindo até 3 características correspondentes.'}
+      </p>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
       {/* Características da Variação */}
@@ -264,18 +308,18 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
           </div>
         ) : (
           <div className="flex flex-col gap-6 pt-1">
-            {fieldGroups.map((group) => (
-              <section
-                key={group.title}
-                aria-labelledby={`variation-technical-group-${group.title}`}
-                className="flex flex-col gap-3"
-              >
+            {fieldGroups.map((group, index) => (
+              <React.Fragment key={group.title}>
+                {index === requiredFieldGroups.length && characteristicSearchControl}
+                <section
+                  aria-labelledby={`variation-technical-group-${group.title}`}
+                  className="flex flex-col gap-3"
+                >
                 <h4
                   id={`variation-technical-group-${group.title}`}
                   className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
                 >
                   {group.title}
-                  {group.title === NAME_COMPOSING_CHARACTERISTIC_TOPIC && <NameCompositionInfo />}
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {group.fields.map((field) => {
@@ -454,8 +498,10 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                     );
                   })}
                 </div>
-              </section>
+                </section>
+              </React.Fragment>
             ))}
+            {fieldGroups.length === requiredFieldGroups.length && characteristicSearchControl}
           </div>
         )}
       </div>

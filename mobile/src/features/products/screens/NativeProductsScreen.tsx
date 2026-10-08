@@ -1,8 +1,10 @@
+import { Package } from 'lucide-react-native';
 import type React from 'react';
-import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Linking } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -12,26 +14,28 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Package } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ProductsHeader } from '../components/ProductsHeader';
-import { MobileProductCard } from '../components/MobileProductCard';
-import { MobileProductPagination } from '../components/MobileProductPagination';
-import { ProductFormModal } from '../modals/ProductFormModal';
-import { ProductConfigModal } from '../modals/ProductConfigModal';
-import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
-import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
-import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
-import { useMobileProducts } from '../hooks/useMobileProducts';
-import { duplicateMobileProduct } from '../services/mobileProductMutationService';
-import { fetchMobileCategories } from '../services/mobileCategoryService';
-import { NativeCategoriesScreen } from '../categories';
-import { useAuth } from '../../../contexts/AuthContext';
-import { WEB_URL } from '../../../services/supabaseClient';
 import {
   isProductIdentificationLabelOnlyProfile,
+  isStockistOnlyProductProfile,
   shouldHideProductCatalogPublicationStatus,
 } from '../../../../../shared-utils/productPermissions';
+import { useAuth } from '../../../contexts/AuthContext';
+import { WEB_URL } from '../../../services/supabaseClient';
+import { NativeCategoriesScreen } from '../categories';
+import { MobileProductCard } from '../components/MobileProductCard';
+import { MobileProductPagination } from '../components/MobileProductPagination';
+import { ProductsHeader } from '../components/ProductsHeader';
+import { useMobileProducts } from '../hooks/useMobileProducts';
+import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
+import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
+import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
+import { ProductConfigModal } from '../modals/ProductConfigModal';
+import { ProductFormModal } from '../modals/ProductFormModal';
+import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
+import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
+import { fetchMobileCategories } from '../services/mobileCategoryService';
+import { duplicateMobileProduct } from '../services/mobileProductMutationService';
 
 interface Props {
   isDarkMode: boolean;
@@ -46,24 +50,22 @@ export const NativeProductsScreen: React.FC<Props> = ({
   onLaunchStock,
 }) => {
   const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
-  const { canUseProductPermission, userProfile } = useAuth();
+  const { canUseProductPermission, userProfile, isAdmin } = useAuth();
+  const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
   const canDeleteProducts = canUseProductPermission('deleteProducts');
-  const canViewCompositions = canUseProductPermission('viewProductCompositions');
-  const canViewCategories = canUseProductPermission('viewProductCategories');
+  const canViewCompositions = !isStockistOnly && canUseProductPermission('viewProductCompositions');
+  const canViewCategories = !isStockistOnly && canUseProductPermission('viewProductCategories');
   const canViewCharacteristics = canUseProductPermission('viewProductCharacteristics');
-  const canViewReconciliation = canUseProductPermission('viewProductReconciliation');
+  const canViewReconciliation =
+    !isStockistOnly && canUseProductPermission('viewProductReconciliation');
   const canPrintLabels = canUseProductPermission('printProductIdentificationLabels');
-  const userRoles = Array.isArray(userProfile?.roles)
-    ? userProfile.roles
-    : [userProfile?.role];
+  const userRoles = Array.isArray(userProfile?.roles) ? userProfile.roles : [userProfile?.role];
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(userRoles);
   const hideCatalogPublicationStatus = shouldHideProductCatalogPublicationStatus(userProfile);
   const canViewDetails =
-    !canEditProducts &&
-    !isLabelOnlyProfile &&
-    (canViewCatalog || canViewCompositions);
+    !canEditProducts && !isLabelOnlyProfile && (canViewCatalog || canViewCompositions);
   const availableModes = useMemo(() => {
     const modes: Array<'standard' | 'composition' | 'categories'> = [];
     if (canViewCatalog) modes.push('standard');
@@ -78,7 +80,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const productsHook = useMobileProducts(
     activeMode === 'composition' ? 'composition' : 'standard',
-    activeMode !== 'categories' && availableModes.includes(activeMode)
+    activeMode !== 'categories' && availableModes.includes(activeMode),
+    isAdmin
   );
 
   const [categories, setCategories] = useState<any[]>([]);
@@ -91,6 +94,14 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [historyProduct, setHistoryProduct] = useState<any | null>(null);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
+  const [variationToMove, setVariationToMove] = useState<{
+    variation: any;
+    parentProduct: any;
+  } | null>(null);
+  const [variationToMerge, setVariationToMerge] = useState<{
+    variation: any;
+    parentProduct: any;
+  } | null>(null);
 
   const topInset =
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
@@ -161,7 +172,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onSearch={() => {}}
             onNewProduct={handleOpenNew}
             canCreateProduct={canEditProducts}
-            canCreateComposition={canEditProducts}
+            canCreateComposition={canEditProducts && !isStockistOnly}
             onOpenConfigs={() => {
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
@@ -232,12 +243,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onNewProduct={handleOpenNew}
             canCreateProduct={canEditProducts}
             onNewComposition={() => {
-              if (!canEditProducts) return;
+              if (!canEditProducts || isStockistOnly) return;
               setEditingProduct({ itemType: 'composition' });
               setNewProductInitialData(undefined);
               setShowFormModal(true);
             }}
-            canCreateComposition={canEditProducts}
+            canCreateComposition={canEditProducts && !isStockistOnly}
             onOpenConfigs={() => {
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
@@ -251,14 +262,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
             generalTypeFilter={productsHook.generalTypeFilter}
             showTestProducts={productsHook.showTestProducts}
             hasTestProducts={productsHook.hasTestProducts}
-            canToggleTestProducts={canEditProducts}
+            canToggleTestProducts={isAdmin}
             onStatusFilterChange={productsHook.setStatusFilter}
             onCategoryFilterChange={productsHook.setCategoryFilter}
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
             onGeneralTypeFilterChange={productsHook.setGeneralTypeFilter}
-            onToggleTestProducts={() =>
-              productsHook.setShowTestProducts((value) => !value)
-            }
+            onToggleTestProducts={() => productsHook.setShowTestProducts((value) => !value)}
             showDeactivated={productsHook.showDeactivated}
             onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
           />
@@ -307,8 +316,17 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 onShowHistory={
                   canEditProducts && !isLabelOnlyProfile ? setHistoryProduct : undefined
                 }
-                onShowOrders={
-                  canEditProducts && !isLabelOnlyProfile ? setOrdersProduct : undefined
+                onShowOrders={canEditProducts && !isLabelOnlyProfile ? setOrdersProduct : undefined}
+                onMoveVariation={
+                  canEditProducts && !isLabelOnlyProfile
+                    ? (variation, parentProduct) => setVariationToMove({ variation, parentProduct })
+                    : undefined
+                }
+                onMergeVariation={
+                  canEditProducts && !isLabelOnlyProfile
+                    ? (variation, parentProduct) =>
+                        setVariationToMerge({ variation, parentProduct })
+                    : undefined
                 }
               />
             ))
@@ -368,6 +386,22 @@ export const NativeProductsScreen: React.FC<Props> = ({
         dark={isDarkMode}
         product={detailsProduct}
         onClose={() => setDetailsProduct(null)}
+      />
+      <MobileMoveVariationModal
+        visible={Boolean(variationToMove) && canEditProducts && !isLabelOnlyProfile}
+        dark={isDarkMode}
+        variation={variationToMove?.variation || null}
+        parentProduct={variationToMove?.parentProduct || null}
+        onClose={() => setVariationToMove(null)}
+        onMoved={productsHook.refresh}
+      />
+      <MobileMergeVariationModal
+        visible={Boolean(variationToMerge) && canEditProducts && !isLabelOnlyProfile}
+        dark={isDarkMode}
+        variation={variationToMerge?.variation || null}
+        parentProduct={variationToMerge?.parentProduct || null}
+        onClose={() => setVariationToMerge(null)}
+        onMerged={productsHook.refresh}
       />
     </View>
   );

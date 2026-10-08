@@ -1,7 +1,8 @@
+import { MoreVertical, Package } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MoreVertical, Package } from 'lucide-react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
+import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 
@@ -15,6 +16,8 @@ interface MobileProductVariationCardProps {
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   parentProduct?: any;
   onEdit?: (product: any) => void;
+  onMoveVariation?: (variation: any, parentProduct: any) => void;
+  onMergeVariation?: (variation: any, parentProduct: any) => void;
   onShowHistory?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   canChangeCatalog?: boolean;
@@ -32,11 +35,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onToggleCatalog,
   parentProduct,
   onEdit,
-  onShowHistory,
-  onLaunchStock,
-  canChangeCatalog = true,
+  onMoveVariation,
+  onMergeVariation,
+  canChangeCatalog = false,
   showCatalogStatus = true,
-  canPrintLabel = true,
+  canPrintLabel = false,
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   let varName = '';
@@ -97,12 +100,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     onToggleCatalog(v.id, v.status || 'published');
   };
 
-  const variationProduct = {
-    ...(parentProduct || {}),
-    selectedVariationId: v.id,
-    selectedVariation: v,
-  };
-
   const handlePrintLabel = () => {
     const parentId = parentProduct?.id || v.productId || v.id;
     const url = `${WEB_URL}/estoque/etiquetas?cat=identificacao&productId=${parentId}&variationId=${v.id}&fillSheet=1`;
@@ -153,7 +150,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           </View>
         </View>
         <TouchableOpacity
-          disabled={isMerged}
           style={styles.menuButton}
           onPress={() => setMenuVisible(true)}
           accessibilityRole="button"
@@ -163,14 +159,29 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         </TouchableOpacity>
       </View>
       <MobileProductVariationActionsMenu
-        visible={menuVisible && !isMerged}
+        visible={menuVisible}
         dark={dark}
         variationName={varName}
+        isMerged={isMerged}
         onClose={() => setMenuVisible(false)}
-        onPrintLabel={canPrintLabel ? handlePrintLabel : undefined}
-        onEdit={onEdit ? () => onEdit(variationProduct) : undefined}
-        onHistory={onShowHistory ? () => onShowHistory(variationProduct) : undefined}
-        onStock={onLaunchStock ? () => onLaunchStock(variationProduct) : undefined}
+        onPrintLabel={canPrintLabel && !isMerged ? handlePrintLabel : undefined}
+        onEdit={onEdit && !isMerged ? () => onEdit(parentProduct || {}) : undefined}
+        onMoveToAnotherFamily={
+          onMoveVariation && !isMerged && !v.isVirtual
+            ? () => onMoveVariation(v, parentProduct || {})
+            : undefined
+        }
+        onMergeWithAnotherVariation={
+          onMergeVariation && !isMerged && !v.isVirtual
+            ? () => onMergeVariation(v, parentProduct || {})
+            : undefined
+        }
+        hasSupplier={Boolean(
+          parentProduct?.supplierId || parentProduct?.supplier_id || parentProduct?.main_supplier_id
+        )}
+        hasValidAttributes={toMobileVariationAttributes(v.attributes).some(
+          (attribute) => attribute.name.trim() && attribute.value.trim()
+        )}
       />
 
       {/* Linha Inferior: Status de Canais Bipartido */}
@@ -232,8 +243,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',

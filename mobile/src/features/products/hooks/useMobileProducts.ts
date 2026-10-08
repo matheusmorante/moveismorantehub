@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
+import {
+  canShowMobileTestProducts,
+  resolveAppliedMobileProductSearch,
+  resolveMobileProductStatusFilter,
+} from '../domain/mobileProductListFilters';
+import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,
@@ -14,13 +19,15 @@ const ITEMS_PER_PAGE = 15;
 
 export function useMobileProducts(
   mode: 'standard' | 'composition' = 'standard',
-  enabled = true
+  enabled = true,
+  isAdministrator = false
 ) {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
   const [showDeactivated, setShowDeactivated] = useState(true);
   const [showTestProducts, setShowTestProducts] = useState(false);
@@ -31,6 +38,26 @@ export function useMobileProducts(
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const showTestProductsForCurrentRole = canShowMobileTestProducts(
+    isAdministrator,
+    showTestProducts
+  );
+
+  useEffect(() => {
+    if (!isAdministrator && showTestProducts) setShowTestProducts(false);
+  }, [isAdministrator, showTestProducts]);
+
+  useEffect(() => {
+    const nextSearch = resolveAppliedMobileProductSearch(searchTerm, appliedSearchTerm);
+    if (nextSearch === appliedSearchTerm) return;
+
+    if (searchTerm.trim().length >= 3) {
+      const timeout = setTimeout(() => setAppliedSearchTerm(nextSearch), 250);
+      return () => clearTimeout(timeout);
+    }
+
+    setAppliedSearchTerm(nextSearch);
+  }, [searchTerm, appliedSearchTerm]);
 
   const loadProducts = useCallback(
     async (pull = false, page = currentPage) => {
@@ -46,12 +73,12 @@ export function useMobileProducts(
       setLoadError(null);
       try {
         const { data, total } = await fetchMobileProductsPage(page, ITEMS_PER_PAGE, {
-          search: searchTerm,
-          statusFilter,
+          search: appliedSearchTerm,
+          statusFilter: resolveMobileProductStatusFilter(statusFilter, appliedSearchTerm),
           // O ERP suspende o filtro de ativo durante uma busca para permitir
           // localizar também itens desativados pelo nome/código/SKU.
           includeDeactivated:
-            showDeactivated || statusFilter === 'disabled' || Boolean(searchTerm.trim()),
+            showDeactivated || statusFilter === 'disabled' || Boolean(appliedSearchTerm),
           // O ERP sempre inclui variações fundidas na lista para preservar o histórico.
           includeMerged: true,
           category: categoryFilter || undefined,
@@ -71,7 +98,7 @@ export function useMobileProducts(
     },
     [
       currentPage,
-      searchTerm,
+      appliedSearchTerm,
       statusFilter,
       categoryFilter,
       catalogStatusFilter,
@@ -96,7 +123,7 @@ export function useMobileProducts(
   useEffect(() => {
     setCurrentPage(1);
   }, [
-    searchTerm,
+    appliedSearchTerm,
     statusFilter,
     categoryFilter,
     catalogStatusFilter,
@@ -206,7 +233,15 @@ export function useMobileProducts(
               );
               return { ...p, allVariations: nextVars };
             }
-            return { ...p, status: next };
+            const nextVars = (p.allVariations || []).map((variation: any) =>
+              variation.isVirtual ? { ...variation, status: next } : variation
+            );
+            return {
+              ...p,
+              status: next,
+              allVariations: nextVars,
+              variations: nextVars,
+            };
           }
           return p;
         })
@@ -227,7 +262,7 @@ export function useMobileProducts(
     const targetVariation = variationParent?.allVariations?.find(
       (v: any) => String(v.id) === String(productId)
     );
-    const isVariation = Boolean(targetVariation);
+    const isVariation = Boolean(targetVariation && !targetVariation.isVirtual);
     if (
       targetProd &&
       (targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft')
@@ -303,6 +338,19 @@ export function useMobileProducts(
       setProducts((prev) =>
         prev.map((p) => {
           if (p.id !== targetProd.id) return p;
+          if (targetVariation?.isVirtual) {
+            const nextVars = (p.allVariations || []).map((variation: any) =>
+              String(variation.id) === String(targetVariation.id)
+                ? { ...variation, active: next }
+                : variation
+            );
+            return {
+              ...p,
+              allVariations: nextVars,
+              variations: nextVars,
+              active: next,
+            };
+          }
           if (isVariation) {
             const nextVars = (p.allVariations || []).map((v: any) =>
               String(v.id) === String(targetVariation.id) ? { ...v, active: next } : v
@@ -313,7 +361,15 @@ export function useMobileProducts(
               active: nextVars.some((v: any) => v.active !== false),
             };
           }
-          return { ...p, active: next };
+          const nextVars = (p.allVariations || []).map((variation: any) =>
+            variation.isVirtual ? { ...variation, active: next } : variation
+          );
+          return {
+            ...p,
+            active: next,
+            allVariations: nextVars,
+            variations: nextVars,
+          };
         })
       );
     } catch (err) {
@@ -338,7 +394,9 @@ export function useMobileProducts(
 
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   const hasTestProducts = products.some(isTestProduct);
-  const visibleProducts = showTestProducts ? products : products.filter((product) => !isTestProduct(product));
+  const visibleProducts = showTestProductsForCurrentRole
+    ? products
+    : products.filter((product) => !isTestProduct(product));
 
   return {
     products: visibleProducts,
@@ -351,7 +409,7 @@ export function useMobileProducts(
     categoryFilter,
     catalogStatusFilter,
     generalTypeFilter,
-    showTestProducts,
+    showTestProducts: showTestProductsForCurrentRole,
     hasTestProducts,
     currentPage,
     totalItems,

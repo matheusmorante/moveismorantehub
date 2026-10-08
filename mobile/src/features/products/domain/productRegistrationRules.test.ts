@@ -38,14 +38,24 @@ describe('productRegistrationRules', () => {
     expect(
       isMobileProductErpLegible({ ...parent, hasVariations: true, variations: [variation] })
     ).toBe(true);
-    expect(
-      isMobileProductErpLegible({ ...parent, hasVariations: true, variations: [] })
-    ).toBe(false);
+    expect(isMobileProductErpLegible({ ...parent, hasVariations: true, variations: [] })).toBe(
+      false
+    );
   });
 
   it('aceita uma variação completa e resolve preço e dimensões herdados', () => {
     expect(getMobileEffectiveVariationPrice(parent, variation)).toBe(1250);
     expect(getMobileVariationRegistrationIssue(parent, variation, [variation])).toBeNull();
+  });
+
+  it('mantém Material da estrutura opcional, como no ERP', () => {
+    expect(
+      getMobileVariationRegistrationIssue(
+        { ...parent, technicalValues: { Cor: 'Azul', 'Material da estrutura': '' } },
+        variation,
+        [variation]
+      )
+    ).toBeNull();
   });
 
   it('bloqueia uma variação sem preço próprio mesmo quando outra está válida', () => {

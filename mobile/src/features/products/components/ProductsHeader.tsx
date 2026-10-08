@@ -1,25 +1,25 @@
+import {
+  ArrowLeftRight,
+  Check,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  PlusCircle,
+  Search,
+  Settings,
+  Tag,
+  X,
+} from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ScrollView,
 } from 'react-native';
-import {
-  Search,
-  MoreVertical,
-  PlusCircle,
-  Settings,
-  X,
-  Tag,
-  ArrowLeftRight,
-  Check,
-  Eye,
-  EyeOff,
-} from 'lucide-react-native';
 
 interface Props {
   mode?: 'standard' | 'composition' | 'categories';
@@ -63,11 +63,11 @@ export function ProductsHeader({
   totalCount,
   onSearch,
   onNewProduct,
-  canCreateProduct = true,
+  canCreateProduct = false,
   onNewComposition,
-  canCreateComposition = true,
+  canCreateComposition = false,
   onOpenConfigs,
-  canOpenConfigs = true,
+  canOpenConfigs = false,
   onOpenReconciliation,
   canViewReconciliation = false,
   showDeactivated,
@@ -136,15 +136,19 @@ export function ProductsHeader({
               { key: 'composition', label: 'Composições' },
               { key: 'categories', label: 'Ambientes e Categorias' },
             ] as const
-          ).filter(({ key }) => availableModes.includes(key)).map(({ key, label }) => (
-            <TouchableOpacity
-              key={key}
-              onPress={() => onModeChange(key)}
-              style={[styles.modeButton, mode === key && styles.modeButtonActive]}
-            >
-              <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+          )
+            .filter(({ key }) => availableModes.includes(key))
+            .map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => onModeChange(key)}
+                style={[styles.modeButton, mode === key && styles.modeButtonActive]}
+              >
+                <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
         </View>
       )}
 
@@ -157,7 +161,9 @@ export function ProductsHeader({
               value={search}
               onChangeText={onSearch}
               placeholder={
-                mode === 'composition' ? 'Buscar composições...' : 'Buscar por nome, código, SKU...'
+                mode === 'composition'
+                  ? 'Buscar composições (mín. 3 caracteres)...'
+                  : 'Buscar produtos por nome (mín. 3 caracteres)...'
               }
               placeholderTextColor="#94a3b8"
               style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
@@ -355,10 +361,7 @@ export function ProductsHeader({
                     <TouchableOpacity
                       key={value}
                       onPress={() => onGeneralTypeFilterChange?.(value)}
-                      style={[
-                        styles.choice,
-                        generalTypeFilter === value && styles.choiceActive,
-                      ]}
+                      style={[styles.choice, generalTypeFilter === value && styles.choiceActive]}
                     >
                       <Text
                         style={[

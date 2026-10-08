@@ -153,7 +153,9 @@ export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File
     await loaded;
 
     const frameDocument = iframe.contentDocument;
-    const danfeElement = frameDocument?.querySelector<HTMLElement>('.danfe-a4');
+    const danfeElement = frameDocument?.querySelector<HTMLElement>(
+      doc.modelo === '65' ? '.danfe-nfce' : '.danfe-a4'
+    );
     if (!frameDocument || !danfeElement) {
       throw new Error('Não foi possível montar a imagem do DANFE.');
     }

@@ -25,7 +25,6 @@ interface VariationIdentificationTabProps {
   readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
   readonly parentProduct: Product;
   readonly diferenciarTitulo: boolean;
-  readonly setDiferenciarTitulo: React.Dispatch<React.SetStateAction<boolean>>;
   readonly dbAttributes?: readonly DbAttributeItem[];
   readonly dbAttributeValues?: readonly DbAttributeValueItem[];
   readonly setIsManageAttributesOpen?: (open: boolean) => void;
@@ -40,46 +39,18 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
   setFormData,
   parentProduct,
   diferenciarTitulo,
-  setDiferenciarTitulo,
   isSingleVariation = false,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
       {/* Linha com Nome (ERP) e Título (Catálogo) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {/* Nome da Variação (ERP) */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between h-6">
-            <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5">
-              <span>Nome</span>
-              <span className="text-red-500 ml-0.5">*</span>
-            </label>
-            {!isSingleVariation && <button
-              type="button"
-              onClick={() => {
-                const newValue = !diferenciarTitulo;
-                setDiferenciarTitulo(newValue);
-                if (!newValue) {
-                  setFormData((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          title: prev.name,
-                          marketplaceTitle: prev.name,
-                        }
-                      : null
-                  );
-                }
-              }}
-              className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors ${
-                diferenciarTitulo
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-955/40 dark:text-purple-300'
-                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 hover:bg-slate-200'
-              }`}
-            >
-              {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
-            </button>}
-          </div>
+          <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+            <span>Nome da variação</span>
+            <span className="text-red-500 ml-0.5">*</span>
+          </label>
           {(() => {
             const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
             const currentFullName = formData.name || '';
@@ -118,12 +89,11 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 )}
                 <input
                   type="text"
-                  disabled={isSingleVariation}
-                  placeholder="Complemento da variação (ex: Branco 6 Portas)..."
+                  placeholder="Ex.: Branco 6 Portas"
                   value={currentSuffix}
                   onChange={(e) => handleSuffixChange(e.target.value)}
                   className="w-full bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70"
-                  aria-label="Sufixo do nome da variação"
+                  aria-label="Nome da variação"
                 />
               </div>
             );

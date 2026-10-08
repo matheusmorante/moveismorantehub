@@ -1,5 +1,5 @@
 /** Características sem opção de desligar, conforme a regra canônica do ERP. */
-export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Material da estrutura'] as const;
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor'] as const;
 
 export interface ProductCharacteristicAttribute {
   name: string;
@@ -9,6 +9,7 @@ export interface ProductCharacteristicAttribute {
 
 export interface ProductTechnicalField {
   name: string;
+  active?: boolean | null;
   isRequired?: boolean;
   is_globally_required?: boolean;
   requiredForCategory?: boolean;
@@ -239,8 +240,11 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
 
   let applicable = allFields.filter((field) => {
     if (isExcludedProductTechnicalField(field.name)) return false;
+    const hasExistingValue = hasTechnicalValue(values, field.name);
+    if (field.active === false)
+      return hasExistingValue || manualNames.has(normalizeName(field.name));
     if (field.isRequired ?? isRequiredCharacteristicName(field.name)) return true;
-    if (hasTechnicalValue(values, field.name)) return true;
+    if (hasExistingValue) return true;
     if (manualNames.has(normalizeName(field.name))) return true;
     return Boolean(field.categoryIds?.some((id) => activeCategories.has(String(id))));
   });

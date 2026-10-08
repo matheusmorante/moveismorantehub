@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import VariationType, { VariationOption } from '../../types/variation.type';
-import { checkVariationUsage, saveVariation, updateVariation } from '../../utils/variationService';
+import { getVariationErrorMessage, updateVariation } from '../../utils/variationService';
 import { normalizeSearchTerm } from '../../utils/textUtils';
 import { groupTechnicalFields } from '../../utils/technicalValuesService';
 import { AttributeCard } from './AttributeCard';
@@ -19,7 +19,6 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
   const characteristicsListRef = useRef<HTMLElement>(null);
   const hasFocusedInitialAttribute = useRef(false);
 
@@ -66,19 +65,13 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
       return;
 
     try {
-      if (await checkVariationUsage(attribute.name, option.value)) {
-        toast.warning(
-          `O valor "${option.value}" não pode ser excluído porque está vinculado a produtos.`
-        );
-        return;
-      }
       await updateVariation(attribute.id!, {
         options: attribute.options.filter((candidate) => candidate.id !== option.id),
       });
       toast.success('Valor removido com sucesso!');
       refresh();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      const message = getVariationErrorMessage(error, 'Erro ao remover valor.');
       toast.error(`Erro ao remover valor: ${message}`);
     }
   };
@@ -103,74 +96,10 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
       refresh();
       return true;
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      const message = getVariationErrorMessage(error, 'Erro ao adicionar valores.');
       toast.error(`Erro ao adicionar valores: ${message}`);
       return false;
     }
-  };
-
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (loadEvent) => {
-      const text = typeof loadEvent.target?.result === 'string' ? loadEvent.target.result : '';
-      if (!text) return;
-
-      try {
-        const rows = text
-          .split(/\r?\n/)
-          .map((row) => row.trim())
-          .filter(Boolean);
-        const imported = new Map<string, Set<string>>();
-        const firstRowIsHeader = rows[0] && /informacao|campo|atributo|valor/i.test(rows[0]);
-
-        rows.slice(firstRowIsHeader ? 1 : 0).forEach((row) => {
-          const [rawName, ...rawValues] = row.split(',');
-          const name = rawName?.replaceAll('"', '').trim();
-          if (!name) return;
-          const values = parseAttributeValueBatch(rawValues.join(','));
-          const entry = imported.get(name) ?? new Set<string>();
-          values.forEach((value) => entry.add(value));
-          imported.set(name, entry);
-        });
-
-        let changed = 0;
-        for (const [name, values] of imported) {
-          const existing = variations.find(
-            (attribute) => normalizeSearchTerm(attribute.name) === normalizeSearchTerm(name)
-          );
-          if (existing) {
-            const additions = parseAttributeValueBatch(
-              [...values].join(','),
-              existing.options.map((option) => option.value)
-            );
-            if (additions.length === 0) continue;
-            await updateVariation(existing.id!, {
-              options: [...existing.options, ...additions.map((value) => ({ id: '', value }))],
-            });
-          } else {
-            await saveVariation({
-              name,
-              active: true,
-              options: [...values].map((value) => ({ id: '', value })),
-            });
-          }
-          changed += 1;
-        }
-
-        toast.success(
-          `Importação concluída: ${changed} ${changed === 1 ? 'campo alterado' : 'campos alterados'}.`
-        );
-        refresh();
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Erro desconhecido';
-        toast.error(`Erro ao importar CSV: ${message}`);
-      }
-    };
-    reader.readAsText(file, 'UTF-8');
-    event.target.value = '';
   };
 
   return (
@@ -200,21 +129,14 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
                 className="w-full pl-9 pr-3 py-2 sm:py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
               />
             </div>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              onChange={handleImportCSV}
-              className="hidden"
-            />
             <button
               type="button"
-              onClick={() => importInputRef.current?.click()}
-              title="Importar CSV"
-              className="px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-center shrink-0"
+              onClick={() => openForm(null)}
+              title="Nova característica"
+              className="px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-xs font-black text-white cursor-pointer flex items-center justify-center gap-2 shrink-0"
             >
-              <i className="bi bi-upload sm:mr-2" aria-hidden="true" />
-              <span className="hidden sm:inline">Importar CSV</span>
+              <i className="bi bi-plus-lg" aria-hidden="true" />
+              <span className="whitespace-nowrap">Nova característica</span>
             </button>
             {onClose && (
               <button

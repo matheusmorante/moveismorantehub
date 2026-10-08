@@ -9,7 +9,9 @@ export type AttributeDataType =
   | 'multi_select'
   | 'boolean'
   | 'measure'
-  | 'number';
+  | 'number'
+  | 'weight'
+  | 'percentage';
 
 export type CategoryAttribute = {
   categoryId: string;
@@ -19,6 +21,7 @@ export type CategoryAttribute = {
 export type VariationOption = {
   id: string;
   value: string; // Ex: "Azul"
+  sortOrder?: number;
 };
 
 export type VariationType = {
@@ -28,6 +31,7 @@ export type VariationType = {
   active: boolean;
   dataType?: AttributeDataType;
   unit?: string;
+  decimalPlaces?: 1 | 2 | 3;
   isGloballyRequired?: boolean;
   isCustom?: boolean;
   categoryAttributes?: CategoryAttribute[];

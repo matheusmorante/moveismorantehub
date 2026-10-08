@@ -281,6 +281,8 @@ const OrderHistoryTable = ({
                 typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
               const fiscalCancellationState =
                 typeof badgeInfo === 'object' ? badgeInfo?.cancellationState : undefined;
+              const fiscalCancellationDocuments =
+                typeof badgeInfo === 'object' ? badgeInfo?.cancellationDocuments : undefined;
               const estornoStatus =
                 typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
               const estornoDocumentId =
@@ -304,6 +306,7 @@ const OrderHistoryTable = ({
                   fiscalDocumentId={prodDocumentId}
                   fiscalHmlDocumentId={hmlDocumentId}
                   fiscalCancellationState={fiscalCancellationState}
+                  fiscalCancellationDocuments={fiscalCancellationDocuments}
                   fiscalEstornoBadgeStatus={estornoStatus}
                   fiscalEstornoDocumentId={estornoDocumentId}
                   fiscalEstornoEnvironment={estornoEnvironment}

@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
+import { Camera, Crop, Info, Plus, RefreshCw, Star, Trash2, X } from 'lucide-react-native';
+import type React from 'react';
+import { useState } from 'react';
 import {
-  Image,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Image,
   Modal,
   Platform,
   StyleSheet,
@@ -10,10 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import { Plus, Trash2, Star, RefreshCw, X, Camera, Crop } from 'lucide-react-native';
+import { getMaxParentProductImages, MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
 
-const MAX_PRODUCT_IMAGES = 75;
 const CATALOG_API_URL = (
   process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
 ).replace(/\/$/, '');
@@ -54,6 +55,8 @@ interface Props {
 
 export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const images: string[] = Array.isArray(formData.images) ? formData.images : [];
+  const variationCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
+  const maxPhotos = getMaxParentProductImages(variationCount);
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -136,11 +139,11 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
 
   const handleAddPhoto = () => {
     const currentCount = images.length;
-    if (currentCount >= MAX_PRODUCT_IMAGES) {
-      Alert.alert('Limite de fotos', `O ERP permite até ${MAX_PRODUCT_IMAGES} fotos por produto.`);
+    if (currentCount >= maxPhotos) {
+      Alert.alert('Limite de fotos', `O ERP permite até ${maxPhotos} fotos neste produto pai.`);
       return;
     }
-    const availableSlots = MAX_PRODUCT_IMAGES - currentCount;
+    const availableSlots = maxPhotos - currentCount;
 
     pickImages({
       multiple: true,
@@ -149,7 +152,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         if (newUrls.length > availableSlots) {
           Alert.alert(
             'Limite de fotos',
-            `Foram adicionadas ${availableSlots} foto(s) respeitando o limite máximo de ${MAX_PRODUCT_IMAGES}.`
+            `Foram adicionadas ${availableSlots} foto(s) respeitando o limite máximo de ${maxPhotos}.`
           );
         }
         setFormData((prev) => ({
@@ -202,9 +205,40 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       <View style={[styles.infoBar, dark && styles.darkInfoBar]}>
         <Camera size={16} color="#2563eb" />
         <Text style={[styles.infoText, dark && styles.lightText]}>
-          Fotos do Produto ({images.length}/{MAX_PRODUCT_IMAGES}) · Armazenamento do catálogo
+          Fotos do Produto ({images.length}/{maxPhotos}) · Armazenamento do catálogo
         </Text>
         {uploading && <ActivityIndicator size="small" color="#2563eb" />}
+      </View>
+      <View style={[styles.photoNote, dark && styles.darkPhotoNote]}>
+        <Info size={16} color={dark ? '#60a5fa' : '#2563eb'} />
+        <View style={styles.photoNoteCopy}>
+          <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
+            Adicione aqui as fotos principais do produto. As variações poderão vincular fotos desta
+            galeria para mostrar imagens específicas de cada modelo.
+          </Text>
+          <Text
+            style={[styles.photoNoteText, styles.photoNoteStrong, dark && styles.photoNoteTextDark]}
+          >
+            Limite do produto pai: {maxPhotos} foto(s).
+          </Text>
+          <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
+            Cada variação acrescenta mais {MAX_VARIATION_IMAGES} espaços para fotos à galeria e pode
+            vincular até {MAX_VARIATION_IMAGES} fotos.
+          </Text>
+          {images.length > maxPhotos && (
+            <Text
+              style={[
+                styles.photoNoteText,
+                styles.photoNoteOverLimit,
+                dark && styles.photoNoteOverLimitDark,
+              ]}
+            >
+              Este cadastro já possui {images.length} fotos, acima do limite atual. As fotos
+              existentes serão preservadas; remova algumas ou aumente a quantidade de variações até
+              o limite cobrir o total atual antes de incluir novas.
+            </Text>
+          )}
+        </View>
       </View>
 
       {/* Grade de Fotos (2 fotos por linha, aspecto 1:1) */}
@@ -213,7 +247,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleAddPhoto}
-          disabled={uploading || images.length >= MAX_PRODUCT_IMAGES}
+          disabled={uploading || images.length >= maxPhotos}
           style={[styles.addCard, dark && styles.darkAddCard]}
         >
           <View style={styles.addIconCircle}>
@@ -226,7 +260,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         {/* Cards de Fotos do Produto (1:1) */}
         {images.map((url, idx) => (
           <TouchableOpacity
-            key={idx}
+            key={url}
             activeOpacity={0.88}
             onPress={() => setSelectedPhotoIdx(idx)}
             style={[styles.photoCard, dark && styles.darkCard]}
@@ -351,6 +385,23 @@ const styles = StyleSheet.create({
   },
   darkInfoBar: { backgroundColor: '#1e3a8a20' },
   infoText: { fontSize: 11, fontWeight: '800', color: '#1d4ed8' },
+  photoNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  darkPhotoNote: { borderColor: '#1e40af', backgroundColor: '#172554' },
+  photoNoteCopy: { flex: 1, minWidth: 0, gap: 5 },
+  photoNoteText: { flex: 1, minWidth: 0, color: '#1e3a8a', fontSize: 11, lineHeight: 16 },
+  photoNoteTextDark: { color: '#bfdbfe' },
+  photoNoteStrong: { fontWeight: '900' },
+  photoNoteOverLimit: { color: '#92400e', fontWeight: '700' },
+  photoNoteOverLimitDark: { color: '#fcd34d' },
   lightText: { color: '#f8fafc' },
   dimText: { color: '#94a3b8' },
 

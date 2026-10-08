@@ -3,7 +3,7 @@ import VariationType from '../../types/variation.type';
 import {
   subscribeToVariations,
   moveToTrash,
-  checkVariationUsage,
+  getVariationErrorMessage,
 } from '../../utils/variationService';
 import { toast } from 'react-toastify';
 
@@ -28,22 +28,23 @@ export const useVariations = () => {
     const variation = variations.find((v) => v.id === id);
     if (!variation) return;
 
-    if (window.confirm(`Tem certeza que deseja apagar o atributo "${variation.name}"?`)) {
+    if (
+      window.confirm(
+        `Excluir "${variation.name}"? Se estiver vinculada a produtos, ela será desativada e os valores existentes serão preservados.`
+      )
+    ) {
       try {
-        // Check if any product is using this attribute
-        const isUsed = await checkVariationUsage(variation.name);
-        if (isUsed) {
-          toast.warning(
-            `Não é possível excluir o atributo "${variation.name}" pois ele está vinculado a um ou mais produtos.`
-          );
-          return;
-        }
-
-        await moveToTrash(id);
-        toast.success('Atributo movido para a lixeira.');
+        const result = await moveToTrash(id);
+        toast.success(
+          result === 'deactivated'
+            ? 'Característica desativada. Os valores já cadastrados foram preservados.'
+            : 'Característica excluída.'
+        );
+        refresh();
       } catch (error) {
         console.error(error);
-        toast.error('Erro ao apagar atributo.');
+        const message = getVariationErrorMessage(error, 'Erro ao excluir característica.');
+        toast.error(message);
       }
     }
   };

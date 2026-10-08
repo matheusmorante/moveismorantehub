@@ -118,10 +118,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
         <div
           role="note"
           aria-label="Limite de fotos do produto"
-          className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/30 dark:text-amber-200"
+          className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900 dark:border-blue-800/70 dark:bg-blue-950/30 dark:text-blue-200"
         >
-          <i className="bi bi-info-circle-fill mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <i className="bi bi-info-circle-fill mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <div className="space-y-1 text-xs">
+            <p>
+              Adicione aqui as fotos principais do produto. As variações poderão vincular fotos desta
+              galeria para mostrar imagens específicas de cada modelo.
+            </p>
             <p className="font-black">
               Limite do produto pai: {maxPhotos} foto(s).
             </p>

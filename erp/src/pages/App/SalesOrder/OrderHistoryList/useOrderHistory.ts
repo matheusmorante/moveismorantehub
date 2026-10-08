@@ -316,6 +316,10 @@ export const useOrderHistory = (filters?: any) => {
       await operations.retryFiscalCancellation(order);
       return;
     }
+    if (actionKey.startsWith('retryOrderFiscalCancellation:')) {
+      await operations.retryFiscalCancellation(order, actionKey.split(':')[1]);
+      return;
+    }
 
     if (actionKey === 'undoReturn') {
       setPendingReturnCancellation(order);

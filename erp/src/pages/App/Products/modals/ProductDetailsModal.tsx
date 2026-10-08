@@ -1,6 +1,7 @@
 import React from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { normalizeProductVariationName } from '@/pages/utils/productVariationDefaults';
 
 type ProductDetailsData = Product & {
   allVariations?: Variation[];
@@ -160,7 +161,9 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                     {variations.map((variation, index) => (
                       <tr key={variation.id || index}>
                         <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">
-                          {variation.name || variation.attributes?.map((item) => item.value).join(' / ') || `Variação ${index + 1}`}
+                          {(variation.name && normalizeProductVariationName(title, variation.name)) ||
+                            variation.attributes?.map((item) => item.value).join(' / ') ||
+                            `Variação ${index + 1}`}
                         </td>
                         <td className="px-3 py-2 font-mono text-slate-500">{variation.sku || '-'}</td>
                         <td className="px-3 py-2 text-right font-bold text-slate-700 dark:text-slate-200">

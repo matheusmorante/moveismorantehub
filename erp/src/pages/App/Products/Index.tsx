@@ -35,7 +35,7 @@ interface ProductsProps {
 }
 
 const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
-  const { profile } = useAuth();
+  const { profile, isAdministrator } = useAuth();
   const roles = profile ? getProfileRoles(profile) : [];
   const canManageProducts = canPerform('productConfig', roles);
   const readOnly = !canManageProducts;
@@ -50,6 +50,10 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = React.useState<Product | null>(null);
   const [initialFormData, setInitialFormData] = React.useState<Partial<Product> | null>(null);
+
+  React.useEffect(() => {
+    if (!isAdministrator) setShowTestProducts(false);
+  }, [isAdministrator]);
 
   const [isVariationModalOpen, setIsVariationModalOpen] = React.useState(false);
   const [editingVariation, setEditingVariation] = React.useState<Variation | null>(null);
@@ -163,15 +167,16 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     // Ordenação gerenciada internamente pela ProductList
   };
 
+  const showTestProductsForCurrentRole = isAdministrator && showTestProducts;
   const currentFilters = React.useMemo(
     () => ({
       ...filters,
       showTrash: false,
       activeOnly: filters.activeOnly,
       isDraft: filters.isDraft,
-      showTestProducts,
+      showTestProducts: showTestProductsForCurrentRole,
     }),
-    [filters, showTestProducts]
+    [filters, showTestProductsForCurrentRole]
   );
   const currentTitle = filters.isDraft
     ? mode === 'composition'
@@ -206,7 +211,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 />
               </div>
 
-              {canManageProducts && hasTestProducts && (
+              {isAdministrator && hasTestProducts && (
                 <ShowTestDataToggle
                   checked={showTestProducts}
                   onChange={setShowTestProducts}

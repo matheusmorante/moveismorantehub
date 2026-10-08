@@ -204,50 +204,30 @@ export const getVariationAttributeValuesInNameOrder = (
     .filter(({ showName }) => showName)
     .map(({ value }) => String(value).trim());
 
-const getCharacteristicValue = (
-  values: Record<string, any> | undefined,
-  characteristicName: string
-): { found: boolean; value: string } => {
-  const entry = Object.entries(values || {}).find(
-    ([name]) => normalizeAttributePart(name) === normalizeAttributePart(characteristicName)
-  );
-  if (!entry) return { found: false, value: '' };
-
-  const rawValue = entry[1];
-  const value =
-    rawValue && typeof rawValue === 'object'
-      ? ((rawValue as { value?: unknown; val?: unknown }).value ??
-        (rawValue as { val?: unknown }).val ??
-        '')
-      : rawValue;
-  return { found: true, value: String(value ?? '').trim() };
-};
-
-/** Inclui a Cor herdada do pai no nome, exceto quando a variação já define sua própria Cor. */
+/** Usa somente atributos explicitamente incluídos no complemento do nome. */
 export const getVariationNameAttributes = (
-  attributes: Variation['attributes'] = [],
-  parentTechnicalValues: Record<string, any> = {},
-  variationTechnicalValues: Record<string, any> = {}
-): Variation['attributes'] => {
-  const hasVariationColorAttribute = getVariationAttributePairs({ attributes }).some(
-    ({ name }) => normalizeAttributePart(name) === 'cor'
-  );
-  if (hasVariationColorAttribute) return attributes;
-
-  const variationColor = getCharacteristicValue(variationTechnicalValues, 'Cor');
-  const parentColor = getCharacteristicValue(parentTechnicalValues, 'Cor');
-  const color = variationColor.found ? variationColor.value : parentColor.value;
-  if (!color) return attributes;
-
-  return [...attributes, { name: 'Cor', value: color, showName: true }];
-};
+  attributes: Variation['attributes'] = []
+): Variation['attributes'] => attributes;
 
 export const buildProductVariationName = (parentName: string, suffix: string): string => {
   const parent = parentName.trim();
   const variationSuffix = suffix.trim();
   if (!parent) return variationSuffix;
   if (!variationSuffix) return parent;
-  return `${parent} - ${variationSuffix}`;
+  return `${parent} ${variationSuffix}`;
+};
+
+export const normalizeProductVariationName = (
+  parentName: string,
+  variationName: string
+): string => {
+  const parent = parentName.trim();
+  const name = variationName.trim();
+  if (!parent || name.slice(0, parent.length).toLowerCase() !== parent.toLowerCase()) return name;
+
+  const suffix = name.slice(parent.length);
+  if (!/^\s*[-–—]\s*/u.test(suffix)) return name;
+  return `${name.slice(0, parent.length)} ${suffix.replace(/^\s*[-–—]\s*/u, '')}`.trim();
 };
 
 export const isVariationNamePlaceholderSuffix = (suffix: string): boolean =>
@@ -293,15 +273,14 @@ export const getSelectedProductDisplayName = (
   variation?: Partial<Variation> | any
 ): string => {
   const parentName = String(product?.name || product?.title || product?.description || '').trim();
-  const variationName = String(variation?.displayName || variation?.name || '').trim();
+  const variationName = normalizeProductVariationName(
+    parentName,
+    String(variation?.displayName || variation?.name || '')
+  );
   if (!variation) return toTitleCase(parentName);
 
   const attributes = variation.attributes ?? [];
-  const nameAttributes = getVariationNameAttributes(
-    attributes,
-    product?.technicalValues || {},
-    variation?.technicalValues || {}
-  );
+  const nameAttributes = getVariationNameAttributes(attributes);
   const visibleAttributeValues = getVariationAttributeValuesInNameOrder(nameAttributes);
   if (visibleAttributeValues.length === 0) {
     return toTitleCase(variationName || parentName);

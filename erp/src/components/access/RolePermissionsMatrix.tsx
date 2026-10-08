@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { UserRole } from '@/context/AuthContext';
 import type { AppSettings } from '@/pages/utils/settingsService';
 import {
@@ -15,6 +15,44 @@ interface RolePermissionsMatrixProps {
   onPermissionsChange: (permissions: Record<string, string[]>) => void;
 }
 
+interface PermissionCheckboxProps {
+  checked: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
+  label: string;
+  title?: string;
+  onChange: (checked: boolean) => void;
+}
+
+const PermissionCheckbox: React.FC<PermissionCheckboxProps> = ({
+  checked,
+  indeterminate = false,
+  disabled = false,
+  label,
+  title,
+  onChange,
+}) => {
+  const checkboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (checkboxRef.current) checkboxRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  return (
+    <input
+      ref={checkboxRef}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      aria-label={label}
+      aria-checked={indeterminate ? 'mixed' : checked}
+      title={title}
+      onChange={(event) => onChange(event.currentTarget.checked)}
+      className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 accent-blue-600 focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+    />
+  );
+};
+
 const capabilityLabels: Record<PermissionActionDef['capability'], string> = {
   view: 'Acessar',
   edit: 'Criar e editar',
@@ -26,21 +64,36 @@ const capabilityLabels: Record<PermissionActionDef['capability'], string> = {
 const moduleViewChildren: Record<string, string[]> = {
   viewStock: [
     'viewStockMovements',
+    'manualStockMovement',
     'viewStockInventory',
     'viewStockUnavailabilities',
     'viewStockPurchases',
     'viewStockReceipts',
     'viewStockLabels',
     'viewBlingStock',
+    'viewSuppliers',
   ],
-  viewPeople: ['viewCustomers', 'viewEmployees', 'viewServices', 'viewCustomerDesires'],
+  viewPeople: [
+    'viewCustomers',
+    'createEditPeople',
+    'deletePeople',
+    'viewEmployees',
+    'viewServices',
+    'viewCustomerDesires',
+  ],
   viewFinancials: [
     'viewFinanceTransactions',
     'viewFinancePayables',
     'viewFinanceReceivables',
     'viewFinanceSettings',
+    'exportReports',
   ],
-  viewMarketing: ['viewMarketingPosts', 'viewChannelCatalog', 'viewMetaCatalog'],
+  viewMarketing: [
+    'viewMarketingPosts',
+    'viewChannelCatalog',
+    'viewMetaCatalog',
+    'viewWhatsAppMarketplace',
+  ],
 };
 
 export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
@@ -60,6 +113,40 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
   const countGranted = (actions: PermissionActionDef[], role: UserRole) =>
     actions.filter((permission) => isGranted(permission.id, role)).length;
 
+  const getEffectiveRoles = (
+    permissionId: string,
+    updates: Record<string, string[]>
+  ): string[] => {
+    const savedRoles = updates[permissionId] ?? settings.rolePermissions?.[permissionId];
+    return savedRoles ?? [...(findPermissionAction(permissionId)?.defaultRoles ?? [])];
+  };
+
+  const applyRole = (
+    updates: Record<string, string[]>,
+    permission: PermissionActionDef,
+    role: UserRole,
+    enabled: boolean
+  ) => {
+    if (isFinanceAdminOnlyAction(permission.id)) return;
+    const currentRoles = updates[permission.id] ?? settings.rolePermissions?.[permission.id] ?? [
+      ...permission.defaultRoles,
+    ];
+    updates[permission.id] = enabled
+      ? [...new Set([...currentRoles, role])]
+      : currentRoles.filter((assignedRole) => assignedRole !== role);
+  };
+
+  const syncModuleViewParents = (updates: Record<string, string[]>, role: UserRole) => {
+    Object.entries(moduleViewChildren).forEach(([parentId, childIds]) => {
+      if (!childIds.some((childId) => updates[childId] !== undefined)) return;
+      const hasGrantedChild = childIds.some((childId) =>
+        getEffectiveRoles(childId, updates).includes(role)
+      );
+      const parentAction = findPermissionAction(parentId);
+      if (parentAction) applyRole(updates, parentAction, role, hasGrantedChild);
+    });
+  };
+
   const updatePermission = (actionId: string, role: UserRole, enabled: boolean) => {
     if (role === 'administrator' || isFinanceAdminOnlyAction(actionId)) return;
 
@@ -75,66 +162,47 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
     const viewAction = relatedActions.find((permission) => permission.capability === 'view');
     const updates: Record<string, string[]> = {};
 
-    const applyRole = (permission: PermissionActionDef, nextEnabled: boolean) => {
-      const currentRoles = updates[permission.id] ?? settings.rolePermissions?.[permission.id];
-      const roleList = currentRoles ?? [...permission.defaultRoles];
-      const nextRoles = nextEnabled
-        ? [...new Set([...roleList, role])]
-        : roleList.filter((assignedRole) => assignedRole !== role);
-      updates[permission.id] = nextRoles;
-    };
-
-    applyRole(selectedAction, enabled);
+    applyRole(updates, selectedAction, role, enabled);
 
     if (selectedAction.capability === 'view' && !enabled) {
       relatedActions
         .filter((permission) => permission.capability !== 'view')
-        .forEach((permission) => applyRole(permission, false));
+        .forEach((permission) => applyRole(updates, permission, role, false));
     } else if (selectedAction.capability !== 'view' && enabled && viewAction) {
-      applyRole(viewAction, true);
+      applyRole(updates, viewAction, role, true);
     }
 
     const childIds = moduleViewChildren[selectedAction.id];
     if (childIds) {
       childIds.forEach((childId) => {
         const childAction = findPermissionAction(childId);
-        if (childAction) applyRole(childAction, enabled);
+        if (childAction) applyRole(updates, childAction, role, enabled);
       });
-    } else if (selectedAction.capability === 'view') {
-      const [parentId, siblingIds] = Object.entries(moduleViewChildren).find(([, childIds]) =>
-        childIds.includes(selectedAction.id)
-      ) ?? [];
-      if (parentId && siblingIds) {
-        if (enabled) {
-          const parentAction = findPermissionAction(parentId);
-          if (parentAction) applyRole(parentAction, true);
-        } else {
-          const anySiblingGranted = siblingIds.some((siblingId) => {
-            const nextRoles = updates[siblingId] ?? settings.rolePermissions?.[siblingId];
-            return nextRoles !== undefined
-              ? nextRoles.includes(role)
-              : (findPermissionAction(siblingId)?.defaultRoles.includes(role) ?? false);
-          });
-          if (!anySiblingGranted) {
-            const parentAction = findPermissionAction(parentId);
-            if (parentAction) applyRole(parentAction, false);
-          }
-        }
-      }
     }
 
-    Object.entries(moduleViewChildren).forEach(([parentId, childIds]) => {
-      if (!childIds.some((childId) => updates[childId] !== undefined)) return;
-      const hasGrantedChild = childIds.some((childId) => {
-        const nextRoles = updates[childId] ?? settings.rolePermissions?.[childId];
-        return nextRoles !== undefined
-          ? nextRoles.includes(role)
-          : (findPermissionAction(childId)?.defaultRoles.includes(role) ?? false);
-      });
-      const parentAction = findPermissionAction(parentId);
-      if (parentAction) applyRole(parentAction, hasGrantedChild);
-    });
+    syncModuleViewParents(updates, role);
     onPermissionsChange(updates);
+  };
+
+  const updateActionGroup = (
+    actions: PermissionActionDef[],
+    role: UserRole,
+    enabled: boolean
+  ) => {
+    if (role === 'administrator') return;
+
+    const updates: Record<string, string[]> = {};
+    const applyWithChildren = (permission: PermissionActionDef) => {
+      applyRole(updates, permission, role, enabled);
+      moduleViewChildren[permission.id]?.forEach((childId) => {
+        const childAction = findPermissionAction(childId);
+        if (childAction) applyRole(updates, childAction, role, enabled);
+      });
+    };
+
+    actions.forEach(applyWithChildren);
+    syncModuleViewParents(updates, role);
+    if (Object.keys(updates).length > 0) onPermissionsChange(updates);
   };
 
   const updateArea = (area: PermissionAreaDef, role: UserRole, enabled: boolean) => {
@@ -142,15 +210,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
       role === 'administrator' ||
       area.actions.some((permission) => isFinanceAdminOnlyAction(permission.id))
     ) return;
-    const updates: Record<string, string[]> = {};
-    area.actions.forEach((permission) => {
-      const currentRoles = updates[permission.id] ?? settings.rolePermissions?.[permission.id] ?? [...permission.defaultRoles];
-      const nextRoles = enabled
-        ? [...new Set([...currentRoles, role])]
-        : currentRoles.filter((assignedRole) => assignedRole !== role);
-      updates[permission.id] = nextRoles;
-    });
-    onPermissionsChange(updates);
+    updateActionGroup(area.actions, role, enabled);
   };
 
   const allActions = useMemo(() => PERMISSION_AREAS.flatMap((area) => area.actions), []);
@@ -240,6 +300,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
           {PERMISSION_AREAS.map((area) => {
             const grantedCount = countGranted(area.actions, selectedRole);
             const allGranted = grantedCount === area.actions.length;
+            const partiallyGranted = grantedCount > 0 && !allGranted;
             const financeArea = area.actions.some((permission) => isFinanceAdminOnlyAction(permission.id));
             const submodules = Array.from(new Set(area.actions.map((permission) => permission.submodule)));
 
@@ -266,15 +327,16 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                     <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                       {grantedCount}/{area.actions.length}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => updateArea(area, selectedRole, !allGranted)}
+                    <PermissionCheckbox
+                      checked={allGranted}
+                      indeterminate={partiallyGranted}
                       disabled={financeArea}
-                      title={financeArea ? 'O Financeiro em beta está disponível somente para administradores.' : undefined}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      {allGranted ? 'Revogar módulo' : 'Liberar módulo'}
-                    </button>
+                      label={`${allGranted ? 'Desmarcar' : 'Marcar'} todas as permissões do módulo ${area.name}`}
+                      title={financeArea
+                        ? 'O Financeiro em beta está disponível somente para administradores.'
+                        : `${allGranted ? 'Desmarcar' : 'Marcar'} todas as permissões deste módulo`}
+                      onChange={(checked) => updateArea(area, selectedRole, checked)}
+                    />
                   </div>
                 </header>
 
@@ -283,8 +345,12 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                     const submoduleActions = area.actions.filter(
                       (permission) => permission.submodule === submodule
                     );
-                    const hasAccess = submoduleActions.some((permission) =>
-                      isGranted(permission.id, selectedRole)
+                    const submoduleGrantedCount = countGranted(submoduleActions, selectedRole);
+                    const allSubmoduleActionsGranted = submoduleGrantedCount === submoduleActions.length;
+                    const partiallyGranted = submoduleGrantedCount > 0 && !allSubmoduleActionsGranted;
+                    const hasAccess = submoduleGrantedCount > 0;
+                    const submoduleLocked = submoduleActions.every((permission) =>
+                      isFinanceAdminOnlyAction(permission.id)
                     );
 
                     return (
@@ -297,9 +363,21 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                         }`}
                       >
                         <div className="mb-2.5 flex items-center justify-between gap-2">
-                          <h5 className="text-xs font-black text-slate-800 dark:text-slate-100">
-                            {submodule}
-                          </h5>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <PermissionCheckbox
+                              checked={allSubmoduleActionsGranted}
+                              indeterminate={partiallyGranted}
+                              disabled={submoduleLocked}
+                              label={`${allSubmoduleActionsGranted ? 'Desmarcar' : 'Marcar'} todas as permissões de ${submodule}`}
+                              title={submoduleLocked
+                                ? 'O Financeiro em beta está disponível somente para administradores.'
+                                : `${allSubmoduleActionsGranted ? 'Desmarcar' : 'Marcar'} todas as permissões deste submódulo`}
+                              onChange={(checked) => updateActionGroup(submoduleActions, selectedRole, checked)}
+                            />
+                            <h5 className="truncate text-xs font-black text-slate-800 dark:text-slate-100">
+                              {submodule}
+                            </h5>
+                          </div>
                           <span
                             className={`text-[9px] font-black uppercase tracking-wide ${
                               hasAccess ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
@@ -312,18 +390,12 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                           {submoduleActions.map((permission) => {
                             const granted = isGranted(permission.id, selectedRole);
                             return (
-                              <button
+                              <label
                                 key={permission.id}
-                                type="button"
-                                disabled={isFinanceAdminOnlyAction(permission.id)}
-                                onClick={() =>
-                                  updatePermission(permission.id, selectedRole, !granted)
-                                }
-                                aria-pressed={granted}
                                 title={isFinanceAdminOnlyAction(permission.id)
                                   ? 'O Financeiro em beta está disponível somente para administradores.'
                                   : permission.description}
-                                className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-transparent dark:hover:bg-slate-900/80"
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/80 dark:hover:bg-slate-900/80 ${isFinanceAdminOnlyAction(permission.id) ? 'cursor-not-allowed opacity-55 hover:bg-transparent dark:hover:bg-transparent' : 'cursor-pointer'}`}
                               >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <i
@@ -333,18 +405,16 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                                     {capabilityLabels[permission.capability]}
                                   </span>
                                 </span>
-                                <span
-                                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                                    granted ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
-                                  }`}
-                                >
-                                  <span
-                                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                                      granted ? 'translate-x-[18px]' : 'translate-x-0.5'
-                                    }`}
-                                  />
-                                </span>
-                              </button>
+                                <PermissionCheckbox
+                                  checked={granted}
+                                  disabled={isFinanceAdminOnlyAction(permission.id)}
+                                  label={`${capabilityLabels[permission.capability]}: ${permission.label} (${submodule})`}
+                                  title={isFinanceAdminOnlyAction(permission.id)
+                                    ? 'O Financeiro em beta está disponível somente para administradores.'
+                                    : permission.description}
+                                  onChange={(checked) => updatePermission(permission.id, selectedRole, checked)}
+                                />
+                              </label>
                             );
                           })}
                         </div>

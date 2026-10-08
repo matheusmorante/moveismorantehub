@@ -429,17 +429,20 @@ const migrateSettings = (settings: any): AppSettings => {
       viewProductCompositions: 'productConfig',
       viewProductReconciliation: 'productConfig',
       viewStockMovements: 'viewStock',
+      manualStockMovement: 'viewStock',
       viewStockInventory: 'viewStock',
       viewStockUnavailabilities: 'viewStock',
       viewStockPurchases: 'viewStock',
       viewStockReceipts: 'viewStock',
       viewStockLabels: 'viewStock',
       viewBlingStock: 'viewStock',
+      viewSuppliers: 'viewStock',
       viewMarketingPosts: 'viewMarketing',
       viewChannelCatalog: 'viewMarketing',
       viewMetaCatalog: 'viewMarketing',
       viewWhatsAppMarketplace: 'viewMarketing',
       viewCustomers: 'viewPeople',
+      deletePeople: 'viewPeople',
       viewEmployees: 'viewPeople',
       viewServices: 'viewPeople',
       viewCustomerDesires: 'viewPeople',
@@ -449,6 +452,7 @@ const migrateSettings = (settings: any): AppSettings => {
       viewFinancePayables: 'viewFinancials',
       viewFinanceReceivables: 'viewFinancials',
       viewFinanceSettings: 'viewFinancials',
+      exportReports: 'viewFinancials',
     };
     const nextPermissions = { ...rolePermissions };
 
@@ -513,6 +517,23 @@ const migrateSettings = (settings: any): AppSettings => {
       viewNcmCatalog: [...fiscalModuleRoles],
     };
     settings.rolePermissionsMigrationVersion = 7;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 8) {
+    const rolePermissions = settings.rolePermissions || {};
+    const removeStockistDefault = (action: string): string[] => {
+      const defaults = PERMISSION_ACTIONS.find((permission) => permission.id === action)?.defaultRoles || [];
+      const roles = Array.isArray(rolePermissions[action]) ? rolePermissions[action] : defaults;
+      return roles.filter((role: string) => role !== 'stockist');
+    };
+
+    settings.rolePermissions = {
+      ...rolePermissions,
+      viewProductCategories: removeStockistDefault('viewProductCategories'),
+      viewProductCompositions: removeStockistDefault('viewProductCompositions'),
+      viewProductReconciliation: removeStockistDefault('viewProductReconciliation'),
+    };
+    settings.rolePermissionsMigrationVersion = 8;
   }
 
   // Migração de manuseio: string[] -> HandlingOption[]

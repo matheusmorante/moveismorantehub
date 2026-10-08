@@ -67,12 +67,6 @@ export function evaluateDocumentEligibility(
     return blocked('A nota não tem uma chave de acesso válida para o evento fiscal.', 'none');
   if (String(document.chave_acesso).slice(20, 22) !== String(document.modelo))
     return blocked('O modelo gravado diverge do modelo informado na chave de acesso.', 'none');
-  if (authorizedDocumentCount !== 1)
-    return blocked(
-      'Mais de uma NF-e autorizada está vinculada ao pedido; é necessária revisão fiscal.',
-      'manual_review'
-    );
-
   const orderStatus = String(order.status || '').toLowerCase();
   const circulation = getGoodsCirculationState(order);
   if (circulation === 'completed')
@@ -277,9 +271,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: 'Não foi possível consultar as NF-e do pedido.' });
 
   const circulation = getGoodsCirculationState(order);
-  const authorizedDocuments = (documents || []).filter((document: any) =>
+  const allAuthorizedDocuments = (documents || []).filter((document: any) =>
     ['autorizada', 'homologada'].includes(String(document.status || '').toLowerCase())
   );
+  const requestedDocumentId = String(req.body?.documentId || '');
+  if (requestedDocumentId && !uuid.test(requestedDocumentId))
+    return res.status(400).json({ error: 'Documento inválido.' });
+  if (
+    requestedDocumentId &&
+    !allAuthorizedDocuments.some((document: any) => String(document.id) === requestedDocumentId)
+  )
+    return res.status(404).json({ error: 'A nota autorizada não pertence a este pedido.' });
+  const authorizedDocuments = requestedDocumentId
+    ? allAuthorizedDocuments.filter((document: any) => String(document.id) === requestedDocumentId)
+    : allAuthorizedDocuments;
   const terminalWithoutAuthorization = new Set([
     'cancelada',
     'cancelled',
@@ -294,7 +299,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'abandoned',
     'inutilizada',
   ]);
-  const unresolvedDocuments = (documents || []).filter((document: any) => {
+  const policyDocuments = requestedDocumentId
+    ? (documents || []).filter((document: any) => String(document.id) === requestedDocumentId)
+    : documents || [];
+  const unresolvedDocuments = policyDocuments.filter((document: any) => {
     const status = String(document.status || '').toLowerCase();
     return (
       !['autorizada', 'homologada'].includes(status) && !terminalWithoutAuthorization.has(status)
@@ -398,45 +406,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(409).json({ action: 'blocked', error: 'A circulação impede o cancelamento fiscal.' });
   if (!authorizedDocuments.length)
     return res.status(200).json({ action: 'none', hasAuthorizedInvoice: false });
-  if (authorizedDocuments.length !== 1) {
-    const result = {
-      action: 'manual_review',
-      hasAuthorizedInvoice: true,
-      reason: 'Mais de um documento fiscal autorizado está vinculado ao pedido; nenhum será alterado automaticamente.',
-    };
-    return preview ? res.status(200).json(result) : res.status(409).json(result);
-  }
-
-  const document = authorizedDocuments[0];
   const { data: events, error: eventsError } = await db
     .from('nfe_document_events')
-    .select('status,requested_at,attempt_number')
-    .eq('document_id', document.id)
+    .select('document_id,status,requested_at,attempt_number')
+    .in('document_id', authorizedDocuments.map((document: any) => String(document.id)))
     .eq('event_type', '110111')
-    .order('attempt_number', { ascending: false })
-    .limit(1);
+    .order('attempt_number', { ascending: false });
   if (eventsError)
     return res.status(503).json({ error: 'Não foi possível conferir tentativas fiscais anteriores.' });
-  const decision = evaluateDocumentEligibility(
-    document,
-    order,
-    events?.[0] || null,
-    Date.now(),
-    authorizedDocuments.length
-  );
-  if (!preview && !decision.canProceed)
-    return res.status(409).json({
-      action: decision.action,
-      error: decision.reason || 'O efeito fiscal não pode ser aplicado com segurança.',
-    });
-
+  const latestEventByDocumentId = new Map<string, any>();
+  for (const event of events || []) {
+    if (!latestEventByDocumentId.has(String(event.document_id)))
+      latestEventByDocumentId.set(String(event.document_id), event);
+  }
+  const operations = authorizedDocuments.map((document: any) => {
+    const decision = evaluateDocumentEligibility(
+      document,
+      order,
+      latestEventByDocumentId.get(String(document.id)) || null,
+      Date.now(),
+      authorizedDocuments.length
+    );
+    return {
+      ...decision,
+      hasAuthorizedInvoice: true,
+      model: document.modelo,
+      status: document.status,
+      documentId: document.id,
+      environment: document.ambiente,
+      requestedBy: authorization.userId,
+    };
+  });
+  if (operations.length === 1) return res.status(200).json(operations[0]);
   return res.status(200).json({
-    ...decision,
-    hasAuthorizedInvoice: true,
-    model: document.modelo,
-    status: document.status,
-    documentId: document.id,
-    environment: document.ambiente,
-    requestedBy: authorization.userId,
+    action: 'batch',
+    hasAuthorizedInvoice: operations.length > 0,
+    operations,
   });
 }

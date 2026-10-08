@@ -20,7 +20,7 @@ import ProductInventoryTab from '../components/tabs/ProductInventoryTab';
 import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
 import ProductTechnicalTab from '../components/tabs/technical/ProductTechnicalTab';
 import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
-import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
+import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/accessRoles';
 
 // Orchestrator Hook
 import { useProductFormModal } from '../hooks/form/useProductFormModal';
@@ -49,6 +49,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   const { isOpen, onClose, product, onSuccess } = props;
   const { profile } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
+  const profileRoles = profile ? getProfileRoles(profile) : [];
+  const canConfigureProductTaxes = profileRoles.some(
+    (role) => role !== 'seller' && role !== 'stockist'
+  );
 
   const {
     activeTab,
@@ -267,6 +271,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
             <ProductFiscalTab
               formData={formData}
               setFormData={setFormData}
+              canConfigureProductTaxes={canConfigureProductTaxes}
               ncmSuggestion={jev.suggestion}
               onAcceptNcmSuggestion={jev.acceptSuggestion}
               onRejectNcmSuggestion={jev.rejectSuggestion}

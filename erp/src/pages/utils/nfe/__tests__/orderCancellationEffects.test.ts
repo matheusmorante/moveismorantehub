@@ -61,6 +61,37 @@ describe('efeitos fiscais do cancelamento comercial', () => {
     expect(result).toMatchObject({ action: 'cancel', cStat: '135' });
   });
 
+  it('processa cada nota autorizada individualmente e mantém o ID no retry', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          action: 'batch',
+          operations: [
+            { action: 'cancel', documentId: 'TEST_AUT_prod', environment: 2, model: '55' },
+            { action: 'cancel', documentId: 'TEST_AUT_hml', environment: 2, model: '65' },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ action: 'cancel', documentId: 'TEST_AUT_prod', environment: 2 }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, cStat: '135' }))
+      .mockResolvedValueOnce(jsonResponse({ action: 'cancel', documentId: 'TEST_AUT_hml', environment: 2 }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, cStat: '135' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { processOrderCancellationFiscalEffects } = await import('../nfeService');
+    const result = await processOrderCancellationFiscalEffects('TEST_AUT_order', '4268');
+
+    expect(result.action).toBe('batch');
+    expect(result.results?.map((item) => [item.documentId, item.action])).toEqual([
+      ['TEST_AUT_prod', 'cancel'],
+      ['TEST_AUT_hml', 'cancel'],
+    ]);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/nfe/cancel')).toHaveLength(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ documentId: 'TEST_AUT_prod' });
+    expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toMatchObject({ documentId: 'TEST_AUT_hml' });
+  });
+
   it('exige confirmação explícita antes de solicitar cancelamento em Produção', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({

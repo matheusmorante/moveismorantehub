@@ -1,4 +1,5 @@
-import React from 'react';
+import { Copy, Eye, EyeOff, Link2, Pencil, Trash2 } from 'lucide-react-native';
+import type React from 'react';
 import {
   Alert,
   Modal,
@@ -8,7 +9,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Copy, Eye, EyeOff, Link2, Pencil, Trash2 } from 'lucide-react-native';
 
 interface MobileProductActionsMenuProps {
   visible: boolean;
@@ -34,8 +34,8 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   product,
   isDraft,
   isActive,
-  canEdit = true,
-  canDelete = true,
+  canEdit = false,
+  canDelete = false,
   onClose,
   onEdit,
   onToggleActive,
@@ -117,15 +117,19 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
               )}
 
               {/* Se RASCUNHO: Apenas opção de Descartar Rascunho */}
-              {isDraft ? canDelete ? (
-                <>
-                  <View style={[styles.menuDivider, dark && styles.darkDivider]} />
-                  <TouchableOpacity style={styles.menuItem} onPress={handleDiscardDraft}>
-                    <Trash2 size={16} color="#ef4444" />
-                    <Text style={[styles.menuItemText, styles.dangerText]}>Descartar Rascunho</Text>
-                  </TouchableOpacity>
-                </>
-              ) : null : canDelete ? (
+              {isDraft ? (
+                canDelete ? (
+                  <>
+                    <View style={[styles.menuDivider, dark && styles.darkDivider]} />
+                    <TouchableOpacity style={styles.menuItem} onPress={handleDiscardDraft}>
+                      <Trash2 size={16} color="#ef4444" />
+                      <Text style={[styles.menuItemText, styles.dangerText]}>
+                        Descartar Rascunho
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null
+              ) : canDelete ? (
                 <>
                   {/* Desativar / Reativar */}
                   <TouchableOpacity style={styles.menuItem} onPress={handleToggleActiveClick}>

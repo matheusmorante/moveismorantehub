@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   getTechnicalFieldInputMode,
-  getTechnicalFieldIntegerLimit,
   getTechnicalFieldIntegerPlaceholder,
   getTechnicalFieldMaxLength,
   getTechnicalFieldTextPlaceholder,
@@ -21,7 +20,7 @@ describe('technical field choice input parity', () => {
     expect(getTechnicalFieldInputMode('radio', 9)).toBe('searchable');
     expect(getTechnicalFieldInputMode('radio', 0)).toBe('searchable');
     expect(getTechnicalFieldInputMode('multi_select', 3)).toBe('searchable');
-    expect(getTechnicalFieldInputMode('boolean', 2)).toBe('searchable');
+    expect(getTechnicalFieldInputMode('boolean', 2)).toBe('text');
     expect(getTechnicalFieldInputMode('text', 9)).toBe('text');
   });
 });
@@ -34,14 +33,12 @@ describe('technical field overrides from ERP', () => {
     }
   );
 
-  it('uses numeric input and the ERP limit for seat and door counts', () => {
+  it('uses numeric input and the ERP placeholder for seat and door counts', () => {
     expect(resolveTechnicalFieldDataType('Quantidade de lugares', 'radio')).toBe('integer');
-    expect(getTechnicalFieldIntegerLimit('Quantidade de lugares')).toBe(100);
     expect(getTechnicalFieldIntegerPlaceholder('Quantidade de lugares')).toBe(
       'Digite o número de quantidades'
     );
     expect(resolveTechnicalFieldDataType('Quantidade de portas', 'list')).toBe('integer');
-    expect(getTechnicalFieldIntegerLimit('Quantidade de portas')).toBe(50);
     expect(getTechnicalFieldIntegerPlaceholder('Quantidade de gavetas')).toBe(
       'Insira a quantidade de portas'
     );
@@ -52,8 +49,8 @@ describe('technical field overrides from ERP', () => {
     expect(getTechnicalFieldTextPlaceholder('Modelo')).toBe('Digite o modelo');
     expect(getTechnicalFieldTextPlaceholder('Linha')).toBe('Digite a linha');
     expect(getTechnicalFieldTextPlaceholder('Acabamento')).toBeUndefined();
-    expect(getTechnicalFieldMaxLength('Linha', 'text_short')).toBe(30);
-    expect(getTechnicalFieldMaxLength('Cor', 'text_short')).toBe(120);
-    expect(getTechnicalFieldMaxLength('Cor', 'integer')).toBeUndefined();
+    expect(getTechnicalFieldMaxLength('text_short')).toBe(120);
+    expect(getTechnicalFieldMaxLength('text_long')).toBe(4000);
+    expect(getTechnicalFieldMaxLength('integer')).toBeUndefined();
   });
 });

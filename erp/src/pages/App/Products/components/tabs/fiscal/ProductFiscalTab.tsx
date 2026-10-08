@@ -4,7 +4,6 @@ import { getSettings } from '@/pages/utils/settingsService';
 import ConfirmModal from '@/components/shared/ConfirmModal';
 import {
   CEST_OPTIONS,
-  CFOP_OPTIONS,
   CSOSN_OPTIONS,
   ORIGEM_OPTIONS,
   PIS_COFINS_OPTIONS,
@@ -16,6 +15,7 @@ import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevCl
 interface ProductFiscalTabProps {
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  readonly canConfigureProductTaxes?: boolean;
   readonly ncmSuggestion?: PendingNcmSuggestion | null;
   readonly onAcceptNcmSuggestion?: () => void;
   readonly onRejectNcmSuggestion?: () => void;
@@ -24,6 +24,7 @@ interface ProductFiscalTabProps {
 const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
   formData,
   setFormData,
+  canConfigureProductTaxes = true,
   ncmSuggestion,
   onAcceptNcmSuggestion,
   onRejectNcmSuggestion,
@@ -182,7 +183,12 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
           Configurações de Imposto por Produto
         </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <fieldset
+          disabled={!canConfigureProductTaxes}
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 border-0 p-0 m-0 min-w-0 ${
+            canConfigureProductTaxes ? '' : 'opacity-50'
+          }`}
+        >
           {formData.itemType !== 'service' && (
             <div className="flex flex-col gap-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -244,14 +250,11 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
             </select>
           </div>
 
-          {/* CFOP como Select */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-              {formData.itemType === 'service'
-                ? 'CFOP Padrão (Municipal)'
-                : 'CFOP Padrão (Estadual)'}
-            </label>
-            {formData.itemType === 'service' ? (
+          {formData.itemType === 'service' && (
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                CFOP Padrão (Municipal)
+              </label>
               <select
                 value={formData.fiscal?.cfop || '5933'}
                 onChange={(e) =>
@@ -265,25 +268,8 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
                 <option value="5933">5933 - Prestação de serviço dentro do Estado</option>
                 <option value="6933">6933 - Prestação de serviço para fora do Estado</option>
               </select>
-            ) : (
-              <select
-                value={formData.fiscal?.cfop || '5102'}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    fiscal: { ...formData.fiscal!, cfop: e.target.value },
-                  })
-                }
-                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
-              >
-                {CFOP_OPTIONS.map((cf) => (
-                  <option key={cf.value} value={cf.value}>
-                    {cf.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -358,7 +344,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
               ))}
             </select>
           </div>
-        </div>
+        </fieldset>
       </div>
 
       <ConfirmModal

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import Product from '@/pages/types/product.type';
-import Tooltip from '@/components/Tooltip';
 import ProductImage from '@/components/ProductImage';
-import { getProductImageFallback } from '../../../utils/productUtils';
+import type { ProductListRow } from '../../types';
 
 export interface ProductRowDescriptionCellProps {
   readonly product: Product & {
@@ -11,6 +10,7 @@ export interface ProductRowDescriptionCellProps {
     readonly variationId?: string;
   };
   readonly displayName: string;
+  readonly singleVariation?: ProductListRow;
   readonly hasVariations?: boolean;
   readonly isExpanded?: boolean;
   readonly onToggleExpand?: () => void;
@@ -27,6 +27,7 @@ export interface ProductRowDescriptionCellProps {
  */
 export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps> = ({
   product,
+  singleVariation,
   displayName,
   hasVariations,
   isExpanded,
@@ -40,13 +41,16 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
 }) => {
   const [imageError, setImageError] = useState(false);
   const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
-  const isDeactivated = (product.active === false || product.deleted) && !isDraft;
+  const isDeactivated =
+    (singleVariation
+      ? singleVariation.active === false || singleVariation.status === 'hidden'
+      : product.active === false || product.status === 'hidden' || product.deleted) && !isDraft;
 
   const count = variationsCount ?? product.allVariations?.length ?? 0;
   const parentImages = (product as any).parentImages as string[] | undefined;
   const fallbackImage = parentImages && parentImages.length > 0 ? parentImages[0] : null;
-  const primaryImage =
-    product.images && product.images.length > 0 ? product.images[0] : fallbackImage;
+  const variationImage = singleVariation?.images?.[0];
+  const primaryImage = variationImage || product.images?.[0] || fallbackImage;
   const hasImage = Boolean(!imageError && primaryImage);
 
   return (
@@ -79,7 +83,7 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
         )}
 
         <div className="flex items-center gap-3 transition-all duration-300">
-          {!product.isParent && (
+          {(!product.isParent || singleVariation) && (
             <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/60 dark:border-slate-800">
               {hasImage ? (
                 <ProductImage
@@ -133,7 +137,7 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
             {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedores */}
             {(product.isParent || oppName || supplierNames.length > 0) && (
               <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                {product.isParent && count > 0 && (
+                {product.isParent && !singleVariation && count > 0 && (
                   <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 select-none">
                     <i className="bi bi-layers text-[9px]" />
                     {`${count} ${count === 1 ? 'variação' : 'variações'}`}
@@ -167,7 +171,10 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
 
             {/* Selos de Triagem e Tipo */}
             <div className="flex items-center gap-2 mt-1">
-              {isChildVariation && exitedVariationIds?.has(String(product.variationId)) && (
+              {(singleVariation || isChildVariation) &&
+                exitedVariationIds?.has(
+                  String(singleVariation?.variationId || singleVariation?.id || product.variationId)
+                ) && (
                 <span className="flex items-center gap-1 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-orange-200 dark:border-orange-900/30 select-none">
                   <i className="bi bi-box-arrow-right" /> Saída Lançada
                 </span>

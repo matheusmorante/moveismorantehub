@@ -195,6 +195,8 @@ export function validateAttribute(
     'radio',
     'multi_select',
     'number',
+    'weight',
+    'percentage',
   ];
   if (!validTypes.includes(dataType)) {
     return {

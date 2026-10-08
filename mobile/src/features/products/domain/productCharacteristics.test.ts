@@ -14,10 +14,10 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
-  it('exige Cor e Material da estrutura como características obrigatórias', () => {
+  it('exige Cor como característica obrigatória, como no ERP', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
-    expect(isRequiredCharacteristicName('Material da Estrutura')).toBe(true);
-    expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual(['Material da estrutura']);
+    expect(isRequiredCharacteristicName('Material da Estrutura')).toBe(false);
+    expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual([]);
   });
 
   it('considera variação própria e herança do produto pai com precedência da variação', () => {
@@ -39,7 +39,7 @@ describe('productCharacteristics', () => {
         ],
       }
     );
-    expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual(['Material da estrutura']);
+    expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual([]);
   });
 
   it('combina características legadas do produto pai com os valores técnicos atuais', () => {
@@ -88,18 +88,20 @@ describe('productCharacteristics', () => {
   it('exibe características obrigatórias, já preenchidas e ligadas à categoria atual', () => {
     const fields = [
       { name: 'Cor' },
-      { name: 'Material da estrutura' },
       { name: 'Campo global extra', is_globally_required: true },
       { name: 'Da categoria', categoryIds: ['category-1'] },
       { name: 'De outra categoria', categoryIds: ['category-2'] },
       { name: 'Legado preenchido' },
+      { name: 'Campo inativo sem valor', active: false, categoryIds: ['category-1'] },
+      { name: 'Campo legado inativo', active: false, categoryIds: ['category-2'] },
     ];
 
     expect(
       getApplicableProductTechnicalFields(fields, ['category-1'], {
         'Legado preenchido': 'valor',
+        'Campo legado inativo': 'valor antigo',
       }).map(({ name }) => name)
-    ).toEqual(['Cor', 'Material da estrutura', 'Da categoria', 'Legado preenchido']);
+    ).toEqual(['Cor', 'Da categoria', 'Legado preenchido', 'Campo legado inativo']);
   });
 
   it('mantém Reclinável fora dos campos técnicos aplicáveis, como no ERP', () => {

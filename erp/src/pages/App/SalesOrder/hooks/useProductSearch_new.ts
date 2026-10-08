@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { parseVariationAttributes } from '@/pages/utils/productService/productVariationMapper';
 import type { SelectableCatalogItem } from './productSearchDeepFetch';
 
 export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
@@ -39,6 +40,41 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
         }
 
         if (isMounted && data && !controller.signal.aborted) {
+          const variationIds = Array.from(
+            new Set(
+              data
+                .filter(
+                  (row: any) =>
+                    row.entity_type.includes('variation') &&
+                    !row.entity_type.startsWith('composition') &&
+                    row.variation_id
+                )
+                .map((row: any) => row.variation_id)
+            )
+          );
+          const attributesByVariationId = new Map<string, any>();
+
+          if (variationIds.length > 0) {
+            try {
+              const { data: variationRows, error: variationError } = await supabase
+                .from('product_variations')
+                .select('id, attributes')
+                .in('id', variationIds)
+                .abortSignal(controller.signal);
+
+              if (!variationError) {
+                for (const variationRow of variationRows ?? []) {
+                  attributesByVariationId.set(variationRow.id, variationRow.attributes);
+                }
+              }
+            } catch {
+              if (controller.signal.aborted) return;
+              // Os atributos enriquecem o rótulo; uma falha aqui não deve ocultar os resultados.
+            }
+          }
+
+          if (!isMounted || controller.signal.aborted) return;
+
           const mapped: SelectableCatalogItem[] = data.map((row: any) => {
             const isComp = row.entity_type.startsWith('composition');
             const hasVar = row.entity_type.includes('variation');
@@ -62,6 +98,9 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
                 sku: row.sku,
                 unitPrice: Number(row.unit_price || 0),
                 costPrice: Number(row.cost_price || 0),
+                attributes: isComp
+                  ? []
+                  : parseVariationAttributes(attributesByVariationId.get(row.variation_id)),
               };
             }
 

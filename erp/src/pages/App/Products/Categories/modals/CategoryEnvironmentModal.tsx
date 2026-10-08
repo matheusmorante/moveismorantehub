@@ -152,7 +152,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                 Características da Categoria
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Selecione as características aplicáveis aos produtos desta categoria.
+                Selecione quais características devem aparecer nos produtos desta categoria.
               </p>
               {isLoadingAttributes && (
                 <p className="flex items-center gap-2 text-xs text-slate-500" role="status">

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import {
   getTechnicalFieldInputMode,
-  getTechnicalFieldIntegerLimit,
   getTechnicalFieldIntegerPlaceholder,
   getTechnicalFieldMaxLength,
   getTechnicalFieldTextPlaceholder,
@@ -21,7 +20,12 @@ import {
 type TechnicalOption = { id?: string; value: string };
 
 type Props = {
-  field: { name: string; data_type?: string; options?: TechnicalOption[] };
+  field: {
+    name: string;
+    data_type?: string;
+    decimal_places?: 1 | 2 | 3 | null;
+    options?: TechnicalOption[];
+  };
   value: unknown;
   disabled?: boolean;
   dark?: boolean;
@@ -33,26 +37,14 @@ const normalizeValue = (value: unknown) =>
     .trim()
     .toLocaleLowerCase('pt-BR');
 
-const formatDecimal = (value: unknown) => {
+const formatDecimal = (value: unknown, decimalPlaces: 1 | 2 | 3) => {
   if (value === '' || value === null || value === undefined) return '';
-  const raw = String(value).trim();
-  const comma = raw.lastIndexOf(',');
-  const dot = raw.lastIndexOf('.');
-  let normalized = raw;
-  if (comma >= 0 && dot >= 0) {
-    const decimalSeparator = comma > dot ? ',' : '.';
-    normalized = raw
-      .replace(decimalSeparator === ',' ? /\./g : /,/g, '')
-      .replace(decimalSeparator, '.');
-  } else if (comma >= 0) {
-    normalized = raw.replace(/\./g, '').replace(',', '.');
-  } else if ((raw.match(/\./g) || []).length > 1) {
-    const lastDot = raw.lastIndexOf('.');
-    normalized = `${raw.slice(0, lastDot).replace(/\./g, '')}${raw.slice(lastDot)}`;
-  }
-  const numeric = Number(normalized);
-  return Number.isFinite(numeric) ? numeric.toFixed(2).replace('.', ',') : '';
+  const numeric = Number(String(value).trim().replace(',', '.'));
+  return Number.isFinite(numeric) ? numeric.toFixed(decimalPlaces).replace('.', ',') : '';
 };
+
+const formatPercentage = (value: unknown) =>
+  value === '' || value === null || value === undefined ? '' : String(value).replace('.', ',');
 
 const getSelectedValues = (value: unknown) =>
   (Array.isArray(value) ? value : value ? String(value).split(',') : [])
@@ -66,31 +58,46 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   dark = false,
   onChange,
 }) => {
+  const type = resolveTechnicalFieldDataType(field.name, field.data_type);
+  const decimalPlaces = type === 'decimal' ? (field.decimal_places ?? 2) : 2;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [search, setSearch] = useState('');
-  const [decimalDraft, setDecimalDraft] = useState(() => formatDecimal(value));
-  const type = resolveTechnicalFieldDataType(field.name, field.data_type);
+  const [decimalDraft, setDecimalDraft] = useState(() =>
+    type === 'percentage' ? formatPercentage(value) : formatDecimal(value, decimalPlaces)
+  );
   const options = field.options || [];
   const inputMode = getTechnicalFieldInputMode(type, options.length);
   const selectedValues = useMemo(() => getSelectedValues(value), [value]);
   const stringValue = Array.isArray(value) ? value.join(', ') : String(value ?? '');
 
-  useEffect(() => setDecimalDraft(formatDecimal(value)), [value]);
+  useEffect(() => {
+    setDecimalDraft(
+      type === 'percentage' ? formatPercentage(value) : formatDecimal(value, decimalPlaces)
+    );
+  }, [value, decimalPlaces, type]);
 
-  if (type === 'integer' || type === 'number') {
+  if (type === 'integer' || type === 'number' || type === 'weight') {
     return (
       <TextInput
         editable={!disabled}
         value={stringValue}
+        maxLength={15}
         onChangeText={(text) => {
-          const digits = text.replace(/\D/g, '');
-          const parsed = digits
-            ? Math.min(Number(digits), getTechnicalFieldIntegerLimit(field.name))
-            : '';
-          onChange(parsed);
+          if (text === '') {
+            onChange('');
+            return;
+          }
+          if (!/^\d+$/.test(text)) return;
+          const numeric = Number(text);
+          if (!Number.isSafeInteger(numeric)) return;
+          onChange(numeric);
         }}
         keyboardType="number-pad"
-        placeholder={getTechnicalFieldIntegerPlaceholder(field.name)}
+        placeholder={
+          type === 'weight'
+            ? 'Informe o peso em quilogramas'
+            : getTechnicalFieldIntegerPlaceholder(field.name)
+        }
         placeholderTextColor="#94a3b8"
         style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
       />
@@ -102,22 +109,133 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       <TextInput
         editable={!disabled}
         value={decimalDraft}
+        maxLength={18}
         onChangeText={(text) => {
-          const digits = text.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
-          if (!digits) {
+          const raw = text.replace('.', ',');
+          if (!raw) {
             setDecimalDraft('');
             onChange('');
             return;
           }
-          const numeric = Number(digits) / 100;
-          setDecimalDraft(numeric.toFixed(2).replace('.', ','));
+          const precisionPattern = new RegExp(`^\\d*(?:,\\d{0,${decimalPlaces}})?$`);
+          if (!precisionPattern.test(raw)) return;
+          setDecimalDraft(raw);
+          if (raw.endsWith(',')) return;
+          const numeric = Number(raw.replace(',', '.'));
+          if (!Number.isFinite(numeric)) return;
+          onChange(numeric);
+        }}
+        onBlur={() => {
+          if (!decimalDraft || decimalDraft.endsWith(',')) return;
+          const numeric = Number(decimalDraft.replace(',', '.'));
+          if (!Number.isFinite(numeric)) return;
+          setDecimalDraft(formatDecimal(numeric, decimalPlaces));
           onChange(numeric);
         }}
         keyboardType="decimal-pad"
-        placeholder="0,00"
+        placeholder={formatDecimal(0, type === 'decimal' ? decimalPlaces : 2)}
         placeholderTextColor="#94a3b8"
         style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
       />
+    );
+  }
+
+  if (type === 'percentage') {
+    return (
+      <TextInput
+        editable={!disabled}
+        value={decimalDraft}
+        onChangeText={(text) => {
+          const raw = text.replace('.', ',');
+          if (raw === '') {
+            setDecimalDraft('');
+            onChange('');
+            return;
+          }
+          if (!/^\d{0,3}(?:,\d{0,2})?$/.test(raw)) return;
+          const numeric = Number(raw.replace(',', '.'));
+          if (!Number.isFinite(numeric) || numeric > 100) return;
+          setDecimalDraft(raw);
+          if (!raw.endsWith(',')) onChange(numeric);
+        }}
+        onBlur={() => {
+          if (!decimalDraft || decimalDraft.endsWith(',')) return;
+          const numeric = Number(decimalDraft.replace(',', '.'));
+          if (!Number.isFinite(numeric) || numeric > 100) return;
+          const formatted = String(numeric).replace('.', ',');
+          setDecimalDraft(formatted);
+          onChange(numeric);
+        }}
+        keyboardType="decimal-pad"
+        maxLength={6}
+        placeholder="0 a 100"
+        placeholderTextColor="#94a3b8"
+        style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
+      />
+    );
+  }
+
+  if (type === 'boolean') {
+    const currentValue =
+      value === true || value === 'true'
+        ? 'true'
+        : value === false || value === 'false'
+          ? 'false'
+          : '';
+    return (
+      <View>
+        <TouchableOpacity
+          disabled={disabled}
+          onPress={() => {
+            setSearch('');
+            setPickerVisible(true);
+          }}
+          style={[
+            styles.input,
+            styles.pickerButton,
+            dark && styles.darkInput,
+            disabled && styles.disabled,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Selecionar sim ou não para ${field.name}`}
+        >
+          <Text style={[styles.pickerText, dark && styles.lightText]}>
+            {currentValue === 'true' ? 'Sim' : currentValue === 'false' ? 'Não' : 'Selecione'}
+          </Text>
+        </TouchableOpacity>
+        <Modal
+          visible={pickerVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPickerVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, dark && styles.darkModalCard]}>
+              <Text style={[styles.modalTitle, dark && styles.lightText]}>
+                {`Escolher ${field.name}`}
+              </Text>
+              {[
+                { label: 'Selecione', value: '' },
+                { label: 'Sim', value: 'true' },
+                { label: 'Não', value: 'false' },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.value || 'empty'}
+                  onPress={() => {
+                    onChange(option.value === '' ? '' : option.value === 'true');
+                    setPickerVisible(false);
+                  }}
+                  style={[styles.option, dark && styles.darkOption]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: currentValue === option.value }}
+                >
+                  <Text style={[styles.optionText, dark && styles.lightText]}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Modal>
+      </View>
     );
   }
 
@@ -269,10 +387,10 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       editable={!disabled}
       value={stringValue}
       onChangeText={(text) => onChange(text)}
-      maxLength={getTechnicalFieldMaxLength(field.name, type)}
+      maxLength={getTechnicalFieldMaxLength(type)}
       placeholder={
         type === 'text_long'
-          ? 'Informe os detalhes'
+          ? 'Digite a descrição detalhada'
           : getTechnicalFieldTextPlaceholder(field.name) || 'Informe o valor'
       }
       placeholderTextColor="#94a3b8"

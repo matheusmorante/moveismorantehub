@@ -152,6 +152,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(503)
         .json({ success: false, error: 'Não foi possível conferir eventos fiscais anteriores.' });
     const priorEvent = priorEvents?.[0];
+    const recordPreflightFailure = async (message: string) => {
+      if (!['cancelled', 'cancelado'].includes(commercialOrderStatus || '')) return;
+      await supabase.from('nfe_document_events').insert({
+        document_id: doc.id,
+        event_type: '110111',
+        event_sequence: 1,
+        attempt_number: Number(priorEvent?.attempt_number || 0) + 1,
+        environment: Number(doc.ambiente),
+        status: 'rejected',
+        justification: reason,
+        signed_xml: '',
+        xmotivo: `Falha local antes do envio à SEFAZ: ${message}`.slice(0, 1000),
+        requested_by: fiscalAuthorization.userId,
+      });
+    };
     if (priorEvent) {
       if (
         priorEvent.status === 'transmitting' &&
@@ -283,6 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (Number(doc.ambiente) === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
+      await recordPreflightFailure('Eventos fiscais em Produção estão desabilitados no servidor.');
       return res.status(503).json({
         success: false,
         error:
@@ -292,16 +308,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;
     const pfxPassword = process.env.NFE_CERTIFICATE_PASSWORD;
-    if (!pfxBase64)
+    if (!pfxBase64) {
+      await recordPreflightFailure('Certificado digital do emitente não configurado.');
       return res
         .status(503)
         .json({ success: false, error: 'Certificado digital do emitente não configurado.' });
-    const certificate = extractCertificateAndKey(pfxBase64, pfxPassword || '');
+    }
+    let certificate;
+    try {
+      certificate = extractCertificateAndKey(pfxBase64, pfxPassword || '');
+    } catch {
+      await recordPreflightFailure('Não foi possível carregar o certificado digital do emitente.');
+      return res.status(503).json({ success: false, error: 'Não foi possível carregar o certificado digital do emitente.' });
+    }
     const issuerCnpj = doc.xml_nfe.match(/<emit\b[^>]*>[\s\S]*?<CNPJ>(\d{14})<\/CNPJ>/i)?.[1];
-    if (!issuerCnpj)
+    if (!issuerCnpj) {
+      await recordPreflightFailure('CNPJ do emitente não encontrado no XML original.');
       return res
         .status(409)
         .json({ success: false, error: 'CNPJ do emitente não encontrado no XML original.' });
+    }
     const environment = Number(doc.ambiente);
     const timestamp = formatNfeDateTime(new Date());
     const eventXml = `<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>${Date.now().toString().slice(-15)}</idLote><evento versao="1.00"><infEvento Id="ID110111${doc.chave_acesso}01"><cOrgao>41</cOrgao><tpAmb>${environment}</tpAmb><CNPJ>${issuerCnpj}</CNPJ><chNFe>${doc.chave_acesso}</chNFe><dhEvento>${timestamp}</dhEvento><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Cancelamento</descEvento><nProt>${escapeXml(String(doc.numero_protocolo))}</nProt><xJust>${escapeXml(reason)}</xJust></detEvento></infEvento></evento></envEvento>`;
