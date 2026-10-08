@@ -6,6 +6,7 @@ interface OrderMenuDraftActionsProps {
   onEdit: (order: Order) => void;
   onDelete: (id: string) => void;
   onCloseMenu: () => void;
+  hideResumeAction?: boolean;
 }
 
 export const OrderMenuDraftActions: React.FC<OrderMenuDraftActionsProps> = ({
@@ -13,22 +14,25 @@ export const OrderMenuDraftActions: React.FC<OrderMenuDraftActionsProps> = ({
   onEdit,
   onDelete,
   onCloseMenu,
+  hideResumeAction = false,
 }) => {
   return (
     <>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit(order);
-          onCloseMenu();
-        }}
-        className="flex items-center gap-3 w-full p-2.5 rounded-xl text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-all text-left cursor-pointer group/item"
-        title="Retomar cadastramento do pedido"
-      >
-        <i className="bi bi-arrow-repeat text-lg" />
-        <span className="text-xs font-black uppercase tracking-widest">Retomar Cadastramento</span>
-      </button>
+      {!hideResumeAction && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(order);
+            onCloseMenu();
+          }}
+          className="flex items-center gap-3 w-full p-2.5 rounded-xl text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-all text-left cursor-pointer group/item"
+          title="Retomar cadastramento do pedido"
+        >
+          <i className="bi bi-play-fill text-lg" />
+          <span className="text-xs font-black uppercase tracking-widest">Retomar Cadastramento</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={(e) => {

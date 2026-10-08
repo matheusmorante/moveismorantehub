@@ -24,21 +24,19 @@ const PROD_BADGE_PRESENTATION: Record<OrderFiscalBadgeStatus, BadgeConfig> = {
     icon: 'bi-check',
     iconBadgeClassName: 'bg-emerald-600 text-white',
   },
+  failed: {
+    label: 'NF',
+    title: 'Nota fiscal com erro ou rejeitada',
+    className: 'border-red-700 bg-red-600 text-white',
+    icon: 'bi-exclamation',
+    iconBadgeClassName: 'bg-red-700 text-white',
+  },
   cancelled: {
     label: 'NF',
     title: 'Nota fiscal cancelada',
-    className:
-      'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300',
+    className: 'border-rose-700 bg-rose-600 text-white hover:bg-rose-700',
     icon: 'bi-x',
-    iconBadgeClassName: 'bg-rose-600 text-white',
-  },
-  reversed: {
-    label: 'NF',
-    title: 'Nota fiscal de devolução ou estorno',
-    className:
-      'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300',
-    icon: 'bi-arrow-counterclockwise',
-    iconBadgeClassName: 'bg-orange-600 text-white',
+    iconBadgeClassName: 'bg-rose-700 text-white',
   },
 };
 
@@ -55,28 +53,26 @@ const HML_BADGE_PRESENTATION: Record<OrderFiscalBadgeStatus, BadgeConfig> = {
     icon: 'bi-check',
     iconBadgeClassName: 'bg-emerald-600 text-white',
   },
+  failed: {
+    label: 'NFH',
+    title: 'Nota fiscal de homologação com erro ou rejeitada',
+    className: 'border-red-700 bg-red-600 text-white',
+    icon: 'bi-exclamation',
+    iconBadgeClassName: 'bg-red-700 text-white',
+  },
   cancelled: {
     label: 'NFH',
     title: 'Nota fiscal de homologação cancelada',
-    className:
-      'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300',
+    className: 'border-rose-700 bg-rose-600 text-white hover:bg-rose-700',
     icon: 'bi-x',
-    iconBadgeClassName: 'bg-rose-600 text-white',
-  },
-  reversed: {
-    label: 'NFH',
-    title: 'Nota fiscal de homologação de devolução ou estorno',
-    className:
-      'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300',
-    icon: 'bi-arrow-counterclockwise',
-    iconBadgeClassName: 'bg-orange-600 text-white',
+    iconBadgeClassName: 'bg-rose-700 text-white',
   },
 };
 
 interface OrderFiscalBadgeProps {
   readonly status?: OrderFiscalBadgeStatus;
-  readonly reversed?: boolean;
   readonly variant?: 'production' | 'homologation';
+  readonly loading?: boolean;
   readonly documentId?: string;
   readonly onOpenDocument?: (documentId: string, environment: 1 | 2) => void;
   readonly onIssue?: (environment: 1 | 2) => void;
@@ -84,32 +80,41 @@ interface OrderFiscalBadgeProps {
 
 export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
   status,
-  reversed = false,
   variant = 'production',
+  loading = false,
   documentId,
   onOpenDocument,
   onIssue,
 }) => {
   const navigate = useNavigate();
-  const resolvedStatus = reversed ? 'reversed' : status || 'not_issued';
+  const resolvedStatus = status || 'not_issued';
   if (!resolvedStatus) return null;
 
   const targetEnvironment: 1 | 2 = variant === 'homologation' ? 2 : 1;
   const isHomologation = variant === 'homologation';
+  if (isHomologation && resolvedStatus === 'not_issued' && !loading) return null;
 
   const renderBadge = (presentation: BadgeConfig) => {
     const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-1.5 text-[9px] font-black leading-none ${presentation.className}`;
+    const title = loading ? 'Atualizando status fiscal do pedido' : presentation.title;
     const contents = (
       <>
         {presentation.label}
-        {presentation.icon && (
+        {loading ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white bg-blue-600 text-white dark:border-slate-900"
+          >
+            <i className="bi bi-arrow-repeat animate-spin text-[9px]" />
+          </span>
+        ) : presentation.icon ? (
           <span
             aria-hidden="true"
             className={`absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white dark:border-slate-900 ${presentation.iconBadgeClassName}`}
           >
             <i className={`bi ${presentation.icon} text-[9px]`} />
           </span>
-        )}
+        ) : null}
       </>
     );
 
@@ -117,9 +122,11 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
       return (
         <button
           type="button"
-          title={`${presentation.title} · Abrir documento fiscal`}
-          aria-label={`${presentation.title} · Abrir documento fiscal`}
-          className={`${className} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+          title={loading ? title : `${title} · Abrir documento fiscal`}
+          aria-label={loading ? title : `${title} · Abrir documento fiscal`}
+          aria-busy={loading}
+          disabled={loading}
+          className={`${className} ${loading ? 'cursor-wait' : 'cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'}`}
           onClick={(event) => {
             event.stopPropagation();
             if (onOpenDocument) {
@@ -134,7 +141,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
       );
     }
 
-    if (resolvedStatus === 'not_issued' && onIssue) {
+    if (resolvedStatus === 'not_issued' && onIssue && !loading) {
       const issueActionTitle = `${presentation.title} · Clique para emitir em ${isHomologation ? 'homologação' : 'produção'}`;
       return (
         <button
@@ -153,7 +160,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
     }
 
     return (
-      <span title={presentation.title} aria-label={presentation.title} className={className}>
+      <span title={title} aria-label={title} aria-busy={loading} className={className}>
         {contents}
       </span>
     );

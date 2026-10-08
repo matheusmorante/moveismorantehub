@@ -39,7 +39,10 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const roles = profile ? getProfileRoles(profile) : [];
   const canManageProducts = canPerform('productConfig', roles);
   const readOnly = !canManageProducts;
+  const [hasTestProducts, setHasTestProducts] = React.useState(false);
   const [filters, setFilters] = React.useState<Partial<ProductFiltersData>>({});
+  const [searchInput, setSearchInput] = React.useState('');
+  const searchBlurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTestProducts, setShowTestProducts] = React.useState(false);
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
@@ -114,6 +117,41 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   }, [fetchStats]);
 
   const productListRef = React.useRef<{ refresh: () => void }>(null);
+  const clearSearchBlurTimer = React.useCallback(() => {
+    if (searchBlurTimer.current) {
+      clearTimeout(searchBlurTimer.current);
+      searchBlurTimer.current = null;
+    }
+  }, []);
+
+  React.useEffect(
+    () => () => {
+      clearSearchBlurTimer();
+    },
+    [clearSearchBlurTimer]
+  );
+
+  const handleSearchBlur = () => {
+    const search = searchInput.trim();
+    if (search.length > 0 && search.length < 3) {
+      setSearchInput(filters.search || '');
+      return;
+    }
+
+    clearSearchBlurTimer();
+    searchBlurTimer.current = setTimeout(() => {
+      setFilters((previous) =>
+        (previous.search || '').trim() === search ? previous : { ...previous, search }
+      );
+      searchBlurTimer.current = null;
+    }, 300);
+  };
+
+  const clearSearchInput = () => {
+    clearSearchBlurTimer();
+    setSearchInput('');
+  };
+
   const toggleVisibility = (column: keyof ProductVisibilitySettings) => {
     setVisibilitySettings((prev) => ({
       ...prev,
@@ -156,15 +194,19 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                 <input
                   type="text"
                   placeholder={
-                    mode === 'composition' ? 'Pesquisar composições...' : 'Pesquisar produtos...'
+                    mode === 'composition'
+                      ? 'Pesquisar composições (mín. 3 caracteres)...'
+                      : 'Pesquisar produtos (mín. 3 caracteres)...'
                   }
-                  value={filters.search || ''}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onFocus={clearSearchBlurTimer}
+                  onBlur={handleSearchBlur}
                   className="w-full pl-12 pr-4 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 />
               </div>
 
-              {canManageProducts && (
+              {canManageProducts && hasTestProducts && (
                 <ShowTestDataToggle
                   checked={showTestProducts}
                   onChange={setShowTestProducts}
@@ -289,6 +331,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   productListRef.current?.refresh();
                   fetchStats();
                 }}
+                onTestDataAvailabilityChange={setHasTestProducts}
               />
             </div>
 
@@ -466,7 +509,11 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
 
                 {accordionOpen.filters && (
                   <div className="mt-3 animate-fade-in">
-                    <ProductFilters filters={filters} setFilters={setFilters} />
+                    <ProductFilters
+                      filters={filters}
+                      setFilters={setFilters}
+                      onResetSearch={clearSearchInput}
+                    />
                   </div>
                 )}
               </div>
@@ -524,7 +571,11 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
               </button>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar">
-              <ProductFilters filters={filters} setFilters={setFilters} />
+              <ProductFilters
+                filters={filters}
+                setFilters={setFilters}
+                onResetSearch={clearSearchInput}
+              />
             </div>
             <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/50">
               <button

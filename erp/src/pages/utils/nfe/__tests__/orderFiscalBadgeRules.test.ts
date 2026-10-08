@@ -25,10 +25,10 @@ describe('resolveOrderFiscalBadgeStatus', () => {
     expect(resolveOrderFiscalBadgeStatus([outbound('cancelada')])).toBe('cancelled');
   });
 
-  it.each(['return', 'estorno'])('marks authorized %s documents as reversed', (document_type) => {
+  it.each(['return', 'estorno'])('does not use authorized %s documents as NF status', (document_type) => {
     expect(
       resolveOrderFiscalBadgeStatus([{ order_id: 'order-1', status: 'autorizada', document_type }])
-    ).toBe('reversed');
+    ).toBe('not_issued');
   });
 
   it('keeps issued state when one of several outbound documents was canceled', () => {
@@ -47,10 +47,10 @@ describe('resolveOrderFiscalBadgePair', () => {
     });
   });
 
-  it('mantém homologação como not_issued se não houver nota autorizada/emitida em homologação', () => {
+  it('exibe rejeição de homologação como failed e mantém ausência de documento como not_issued', () => {
     const result = resolveOrderFiscalBadgePair([outbound('rejeitada', 2), outbound('rascunho', 2)]);
     expect(result.production).toBe('not_issued');
-    expect(result.homologation).toBe('not_issued');
+    expect(result.homologation).toBe('failed');
   });
 
   it('exibe NFH quando homologação estiver autorizada e NF permanece not_issued se produção não tiver nota', () => {
@@ -74,13 +74,20 @@ describe('resolveOrderFiscalBadgePair', () => {
     expect(result.homologation).toBe('issued');
   });
 
-  it('exibe cancelamento e estorno de homologação no NFH', () => {
+  it('mantém cancelamento no NFH e separa devolução e estorno dos rótulos NF/NFH', () => {
     const cancelledHml = resolveOrderFiscalBadgePair([outbound('cancelada', 2)]);
     expect(cancelledHml.homologation).toBe('cancelled');
 
-    const reversedHml = resolveOrderFiscalBadgePair([
+    const returnHml = resolveOrderFiscalBadgePair([
       { order_id: 'order-1', status: 'autorizada', document_type: 'return', ambiente: 2 },
     ]);
-    expect(reversedHml.homologation).toBe('reversed');
+    expect(returnHml.homologation).toBe('not_issued');
+    expect(returnHml.devolucaoStatus).toBe('issued');
+
+    const estornoHml = resolveOrderFiscalBadgePair([
+      { order_id: 'order-1', status: 'autorizada', document_type: 'estorno', ambiente: 2 },
+    ]);
+    expect(estornoHml.homologation).toBe('not_issued');
+    expect(estornoHml.estornoStatus).toBe('issued');
   });
 });

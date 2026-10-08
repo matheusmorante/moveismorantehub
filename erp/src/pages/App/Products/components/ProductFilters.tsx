@@ -15,9 +15,14 @@ export interface ProductFiltersData {
 export interface ProductFiltersProps {
   readonly filters: Partial<ProductFiltersData>;
   readonly setFilters: React.Dispatch<React.SetStateAction<Partial<ProductFiltersData>>>;
+  readonly onResetSearch?: () => void;
 }
 
-export const ProductFilters: React.FC<ProductFiltersProps> = ({ filters, setFilters }) => {
+export const ProductFilters: React.FC<ProductFiltersProps> = ({
+  filters,
+  setFilters,
+  onResetSearch,
+}) => {
   const [availableCategories, setAvailableCategories] = useState<{ id: string; name: string }[]>(
     []
   );
@@ -47,6 +52,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({ filters, setFilt
   );
 
   const resetFilters = () => {
+    onResetSearch?.();
     setFilters((prev) => ({
       ...prev,
       search: '',

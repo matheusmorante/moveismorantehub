@@ -22,6 +22,7 @@ interface ProductListProps {
   onCloseTrash?: () => void;
   onRefresh?: () => void;
   onDuplicate?: (product: Product) => void;
+  onTestDataAvailabilityChange?: (hasTestData: boolean) => void;
 }
 
 export interface ProductListRef {
@@ -45,6 +46,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       onCloseTrash,
       onRefresh,
       onDuplicate,
+      onTestDataAvailabilityChange,
     },
     ref
   ) => {
@@ -63,6 +65,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
     const {
       products,
       paginatedProducts,
+      hasTestProducts,
       loading,
       isServerPagination,
       totalItems,
@@ -85,6 +88,10 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       deactivateCatalog,
       refresh,
     } = useProducts(listFilters);
+
+    React.useEffect(() => {
+      onTestDataAvailabilityChange?.(!loading && hasTestProducts);
+    }, [hasTestProducts, loading, onTestDataAvailabilityChange]);
 
     const { exitedVariationIds } = useVariationExitFlags();
 

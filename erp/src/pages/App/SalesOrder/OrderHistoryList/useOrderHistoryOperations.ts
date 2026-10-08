@@ -16,7 +16,7 @@ interface OrderHistoryOperationsParams {
   selectedOrders: string[];
   setSelectedOrders: React.Dispatch<React.SetStateAction<string[]>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  refresh: () => void;
+  refresh: () => Promise<void>;
 }
 
 export const createOrderHistoryOperations = ({

@@ -12,14 +12,25 @@ import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
-import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
+import type {
+  OrderFiscalBadgeStatus,
+  OrderFiscalOperationBadgeStatus,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryRowProps {
   order: Order;
   fiscalBadgeStatus?: OrderFiscalBadgeStatus;
   fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
+  fiscalBadgeLoading?: boolean;
   fiscalDocumentId?: string;
   fiscalHmlDocumentId?: string;
+  fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  fiscalEstornoDocumentId?: string;
+  fiscalEstornoEnvironment?: 1 | 2;
+  fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  fiscalDevolucaoDocumentId?: string;
+  fiscalDevolucaoEnvironment?: 1 | 2;
   onEdit: (
     order: Order,
     initialStep?: number,
@@ -56,8 +67,15 @@ const OrderHistoryRow = ({
   order,
   fiscalBadgeStatus,
   fiscalHmlBadgeStatus,
+  fiscalBadgeLoading,
   fiscalDocumentId,
   fiscalHmlDocumentId,
+  fiscalEstornoBadgeStatus,
+  fiscalEstornoDocumentId,
+  fiscalEstornoEnvironment,
+  fiscalDevolucaoBadgeStatus,
+  fiscalDevolucaoDocumentId,
+  fiscalDevolucaoEnvironment,
   onEdit,
   onDelete,
   onRestore,
@@ -246,18 +264,32 @@ const OrderHistoryRow = ({
               <div className="flex flex-wrap items-center gap-1">
                 <OrderFiscalBadge
                   status={fiscalBadgeStatus}
+                  loading={fiscalBadgeLoading}
                   documentId={fiscalDocumentId}
                   onOpenDocument={onViewFiscalDocument}
                   onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
                 />
                 <OrderFiscalBadge
                   variant="homologation"
                   status={fiscalHmlBadgeStatus}
+                  loading={fiscalBadgeLoading}
                   documentId={fiscalHmlDocumentId}
                   onOpenDocument={onViewFiscalDocument}
                   onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                  reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+                />
+                <OrderFiscalOperationBadge
+                  kind="estorno"
+                  status={fiscalEstornoBadgeStatus}
+                  documentId={fiscalEstornoDocumentId}
+                  environment={fiscalEstornoEnvironment}
+                  onOpenDocument={onViewFiscalDocument}
+                />
+                <OrderFiscalOperationBadge
+                  kind="devolucao"
+                  status={fiscalDevolucaoBadgeStatus}
+                  documentId={fiscalDevolucaoDocumentId}
+                  environment={fiscalDevolucaoEnvironment}
+                  onOpenDocument={onViewFiscalDocument}
                 />
                 <OrderOperationalBadges
                   order={order}

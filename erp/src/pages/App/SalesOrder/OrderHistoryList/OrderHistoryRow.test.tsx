@@ -63,7 +63,7 @@ describe('OrderHistoryRow', () => {
     actions: true,
   };
 
-  it('exibe ambos os rótulos NF e NFH mesmo quando não há nota de homologação emitida e permite emissão ao clicar', () => {
+  it('oculta NFH sem documento de homologação e mantém a emissão de produção no rótulo NF', () => {
     const order = { id: 'order-1', status: 'fulfilled', orderType: 'sale' } as any;
     const noop = vi.fn();
     const onIssueNfe = vi.fn();
@@ -91,13 +91,12 @@ describe('OrderHistoryRow', () => {
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
-    expect(screen.getByText('NFH')).toBeTruthy();
+    expect(screen.queryByText('NFH')).toBeNull();
 
     const row = screen.getByText('NF').closest('tr');
     expect(screen.getByText('NF').closest('td')).toBe(row?.children[1]);
 
-    fireEvent.click(screen.getByText('NFH'));
-    expect(onIssueNfe).toHaveBeenCalledWith(order, 2);
+    expect(onIssueNfe).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('NF'));
     expect(onIssueNfe).toHaveBeenCalledWith(order, 1);

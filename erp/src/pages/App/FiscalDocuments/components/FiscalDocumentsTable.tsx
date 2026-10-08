@@ -4,7 +4,9 @@ import type {
   FiscalDocumentDetails,
   NfeDocumentRecord,
 } from '../types/fiscalDocuments.types';
+import { FiscalDocumentCard } from './FiscalDocumentCard';
 import { FiscalDocumentRow } from './FiscalDocumentRow';
+import type { FiscalDocumentRowProps } from './FiscalDocumentRow';
 
 interface FiscalDocumentsTableProps {
   documents: NfeDocumentRecord[];
@@ -70,48 +72,57 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
     );
   }
 
+  const getDocumentViewProps = (doc: NfeDocumentRecord): FiscalDocumentRowProps => ({
+    document: doc,
+    allDocuments,
+    orderNumber: doc.order_id ? orderNumbers[doc.order_id] : undefined,
+    eligibility: cancellationEligibility[doc.id],
+    isDetailsOpen: detailsDocumentId === doc.id,
+    isDetailsLoading: detailsLoadingId === doc.id,
+    details: fiscalDetails[doc.id],
+    canOperateFiscal,
+    retryingHmlDocumentId,
+    onViewDetails: () => onViewDetails(doc),
+    onToggleDetails: () => onToggleDetails(doc),
+    onPrintDanfe: () => onPrintDanfe(doc),
+    onDownloadXml: () => onDownloadXml(doc),
+    onConsultSituation: () => onConsultSituation(doc),
+    onOpenCce: () => onOpenCce(doc),
+    onOpenFiscalTreatment: () => onOpenFiscalTreatment(doc),
+    onPrepareLinkedOperation: () => onPrepareLinkedOperation(doc),
+    onRetryHml: () => onRetryHml(doc),
+  });
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/70 text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Documento</th>
-            <th className="px-3 py-2">Emissão</th>
-            <th className="px-3 py-2">Destinatário</th>
-            <th className="px-3 py-2">Pedido</th>
-            <th className="px-3 py-2 text-right">Total</th>
-            <th className="px-3 py-2">Ambiente</th>
-            <th className="px-3 py-2">Último retorno</th>
-            <th className="px-3 py-2 text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-[11px] dark:divide-slate-800/60">
-          {documents.map((doc) => (
-            <FiscalDocumentRow
-              key={doc.id}
-              document={doc}
-              allDocuments={allDocuments}
-              orderNumber={doc.order_id ? orderNumbers[doc.order_id] : undefined}
-              eligibility={cancellationEligibility[doc.id]}
-              isDetailsOpen={detailsDocumentId === doc.id}
-              isDetailsLoading={detailsLoadingId === doc.id}
-              details={fiscalDetails[doc.id]}
-              canOperateFiscal={canOperateFiscal}
-              retryingHmlDocumentId={retryingHmlDocumentId}
-              onViewDetails={() => onViewDetails(doc)}
-              onToggleDetails={() => onToggleDetails(doc)}
-              onPrintDanfe={() => onPrintDanfe(doc)}
-              onDownloadXml={() => onDownloadXml(doc)}
-              onConsultSituation={() => onConsultSituation(doc)}
-              onOpenCce={() => onOpenCce(doc)}
-              onOpenFiscalTreatment={() => onOpenFiscalTreatment(doc)}
-              onPrepareLinkedOperation={() => onPrepareLinkedOperation(doc)}
-              onRetryHml={() => onRetryHml(doc)}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="space-y-3 p-3 xl:hidden">
+        {documents.map((doc) => (
+          <FiscalDocumentCard key={doc.id} {...getDocumentViewProps(doc)} />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto xl:block">
+        <table className="w-full min-w-[1120px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50/70 text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Documento</th>
+              <th className="px-3 py-2">Emissão</th>
+              <th className="px-3 py-2">Destinatário</th>
+              <th className="px-3 py-2">Pedido</th>
+              <th className="px-3 py-2 text-right">Total</th>
+              <th className="px-3 py-2">Ambiente</th>
+              <th className="px-3 py-2">Último retorno</th>
+              <th className="px-3 py-2 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-[11px] dark:divide-slate-800/60">
+            {documents.map((doc) => (
+              <FiscalDocumentRow key={doc.id} {...getDocumentViewProps(doc)} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 };

@@ -92,9 +92,10 @@ export async function fetchFiscalDocumentsList({
   if (filters.status !== 'all') query = query.eq('status', filters.status);
   if (filters.model !== 'all') query = query.eq('modelo', filters.model);
   if (filters.environment !== 'all') query = query.eq('ambiente', Number(filters.environment));
-  if (filters.series.trim()) query = query.eq('serie', filters.series.trim());
-  if (filters.dateFrom) query = query.gte('created_at', `${filters.dateFrom}T00:00:00-03:00`);
-  if (filters.dateTo) {
+  if (!targetDocumentId && filters.dateFrom) {
+    query = query.gte('created_at', `${filters.dateFrom}T00:00:00-03:00`);
+  }
+  if (!targetDocumentId && filters.dateTo) {
     const endExclusive = Date.parse(`${filters.dateTo}T00:00:00-03:00`) + 24 * 60 * 60 * 1000;
     query = query.lt('created_at', new Date(endExclusive).toISOString());
   }

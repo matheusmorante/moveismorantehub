@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Order, { IsButtonsClicked } from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -20,18 +20,41 @@ import { isTestOrder } from '@/pages/utils/hmlTestData';
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
 
+const resolveFiscalBadgeRefreshWaiters = (
+  waitersBySignal: Map<number, Array<() => void>>,
+  throughSignal: number
+) => {
+  for (const [signal, waiters] of waitersBySignal) {
+    if (signal > throughSignal) continue;
+    waitersBySignal.delete(signal);
+    waiters.forEach((resolve) => resolve());
+  }
+};
+
 export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const refreshSignalRef = useRef(0);
+  const fiscalBadgeRefreshWaiters = useRef(new Map<number, Array<() => void>>());
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
   const [fiscalBadgeStatusByOrderId, setFiscalBadgeStatusByOrderId] = useState<
     Partial<Record<string, OrderFiscalBadgeStatuses>>
   >({});
+  const [fiscalBadgeLoadingByOrderId, setFiscalBadgeLoadingByOrderId] = useState<
+    Partial<Record<string, boolean>>
+  >({});
+  const fiscalBadgeRefreshVersionByOrderId = useRef<Record<string, number>>({});
+
+  const bumpFiscalBadgeRefreshVersion = (orderId: string) => {
+    const nextVersion = (fiscalBadgeRefreshVersionByOrderId.current[orderId] || 0) + 1;
+    fiscalBadgeRefreshVersionByOrderId.current[orderId] = nextVersion;
+    return nextVersion;
+  };
 
   const { width } = useWindowSize();
   const isMobile = width < CARD_VIEW_BREAKPOINT;
@@ -42,7 +65,25 @@ export const useOrderHistory = (filters?: any) => {
         window.location.pathname.includes('/mobile') ||
         Boolean((window as any).ReactNativeWebView)));
 
-  const refresh = () => setRefreshSignal((prev) => prev + 1);
+  const refresh = () => {
+    const nextSignal = refreshSignalRef.current + 1;
+    refreshSignalRef.current = nextSignal;
+    const refreshComplete = new Promise<void>((resolve) => {
+      const waiters = fiscalBadgeRefreshWaiters.current.get(nextSignal) || [];
+      fiscalBadgeRefreshWaiters.current.set(nextSignal, [...waiters, resolve]);
+    });
+    setRefreshSignal(nextSignal);
+    return refreshComplete;
+  };
+
+  useEffect(
+    () => () =>
+      resolveFiscalBadgeRefreshWaiters(
+        fiscalBadgeRefreshWaiters.current,
+        Number.POSITIVE_INFINITY
+      ),
+    []
+  );
 
   useEffect(() => {
     let active = true;
@@ -56,22 +97,46 @@ export const useOrderHistory = (filters?: any) => {
         setTotalDatabaseItems(total);
         setLoading(false);
         autoFulfillExpiredOrders(pageOrders);
-        void fetchOrderFiscalBadgeStatuses(
-          pageOrders.map((order) => order.id).filter((id): id is string => Boolean(id))
-        )
+        const orderIds = pageOrders
+          .map((order) => order.id)
+          .filter((id): id is string => Boolean(id));
+        const requestVersions = Object.fromEntries(
+          orderIds.map((orderId) => [
+            orderId,
+            fiscalBadgeRefreshVersionByOrderId.current[orderId] || 0,
+          ])
+        );
+        void fetchOrderFiscalBadgeStatuses(orderIds)
           .then((statuses) => {
-            if (active) setFiscalBadgeStatusByOrderId(statuses);
+            if (!active) return;
+            setFiscalBadgeStatusByOrderId((previous) => {
+              const next = { ...previous };
+              for (const [orderId, status] of Object.entries(statuses)) {
+                if (
+                  fiscalBadgeRefreshVersionByOrderId.current[orderId] ===
+                  requestVersions[orderId]
+                ) {
+                  next[orderId] = status;
+                }
+              }
+              return next;
+            });
           })
           .catch(() => {
             console.error(
               '[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.'
             );
+          })
+          .finally(() => {
+            if (active)
+              resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
           });
       })
       .catch((err) => {
         if (!active) return;
         console.error('[useOrderHistory] Erro ao buscar pedidos paginados:', err);
         setLoading(false);
+        resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
       });
 
     return () => {
@@ -153,7 +218,20 @@ export const useOrderHistory = (filters?: any) => {
       setPendingReturnFulfillment(currentOrder);
       return;
     }
-    await operations.commitStatusUpdate(currentOrder, newStatus);
+    if (newStatus !== 'cancelled') {
+      await operations.commitStatusUpdate(currentOrder, newStatus);
+      return;
+    }
+
+    bumpFiscalBadgeRefreshVersion(id);
+    setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [id]: true }));
+    try {
+      await operations.commitStatusUpdate(currentOrder, newStatus);
+    } catch (error) {
+      console.error('[useOrderHistory] Erro inesperado ao cancelar o pedido.', error);
+    } finally {
+      setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [id]: false }));
+    }
   };
 
   const confirmReturnFulfillment = async () => {
@@ -280,7 +358,9 @@ export const useOrderHistory = (filters?: any) => {
 
   return {
     orders: filteredOrders,
+    hasTestOrders: orders.some(isTestOrder),
     fiscalBadgeStatusByOrderId,
+    fiscalBadgeLoadingByOrderId,
     totalItems,
     currentPage,
     itemsPerPage: PAGE_SIZE,

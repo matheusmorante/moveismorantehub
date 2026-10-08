@@ -240,7 +240,14 @@ export type FiscalDocumentFilters = {
   status: string;
   model: string;
   environment: string;
-  series: string;
   dateFrom: string;
   dateTo: string;
 };
+
+export type FiscalDocumentPeriod =
+  | 'last_30_days'
+  | 'this_month'
+  | 'last_month'
+  | 'last_3_months'
+  | 'this_year'
+  | 'custom';

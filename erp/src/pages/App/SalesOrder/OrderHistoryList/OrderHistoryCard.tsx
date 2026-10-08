@@ -13,14 +13,25 @@ import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
-import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
+import type {
+  OrderFiscalBadgeStatus,
+  OrderFiscalOperationBadgeStatus,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryCardProps {
   readonly order: Order;
   readonly fiscalBadgeStatus?: OrderFiscalBadgeStatus;
   readonly fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
+  readonly fiscalBadgeLoading?: boolean;
   readonly fiscalDocumentId?: string;
   readonly fiscalHmlDocumentId?: string;
+  readonly fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  readonly fiscalEstornoDocumentId?: string;
+  readonly fiscalEstornoEnvironment?: 1 | 2;
+  readonly fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
+  readonly fiscalDevolucaoDocumentId?: string;
+  readonly fiscalDevolucaoEnvironment?: 1 | 2;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -55,8 +66,15 @@ const OrderHistoryCard = ({
   order,
   fiscalBadgeStatus,
   fiscalHmlBadgeStatus,
+  fiscalBadgeLoading,
   fiscalDocumentId,
   fiscalHmlDocumentId,
+  fiscalEstornoBadgeStatus,
+  fiscalEstornoDocumentId,
+  fiscalEstornoEnvironment,
+  fiscalDevolucaoBadgeStatus,
+  fiscalDevolucaoDocumentId,
+  fiscalDevolucaoEnvironment,
   onEdit,
   onDelete,
   onRestore,
@@ -207,18 +225,32 @@ const OrderHistoryCard = ({
         <div className="ml-auto flex items-center gap-1.5">
           <OrderFiscalBadge
             status={fiscalBadgeStatus}
+            loading={fiscalBadgeLoading}
             documentId={fiscalDocumentId}
             onOpenDocument={onViewFiscalDocument}
             onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-            reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
           />
           <OrderFiscalBadge
             variant="homologation"
             status={fiscalHmlBadgeStatus}
+            loading={fiscalBadgeLoading}
             documentId={fiscalHmlDocumentId}
             onOpenDocument={onViewFiscalDocument}
             onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-            reversed={order.orderType === 'return' && Boolean(order.returnStockReversed)}
+          />
+          <OrderFiscalOperationBadge
+            kind="estorno"
+            status={fiscalEstornoBadgeStatus}
+            documentId={fiscalEstornoDocumentId}
+            environment={fiscalEstornoEnvironment}
+            onOpenDocument={onViewFiscalDocument}
+          />
+          <OrderFiscalOperationBadge
+            kind="devolucao"
+            status={fiscalDevolucaoBadgeStatus}
+            documentId={fiscalDevolucaoDocumentId}
+            environment={fiscalDevolucaoEnvironment}
+            onOpenDocument={onViewFiscalDocument}
           />
           <div
             className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
@@ -355,8 +387,24 @@ const OrderHistoryCard = ({
         </div>
 
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {isDraft && !showTrash && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(order);
+              }}
+              className="w-8 h-8 rounded-xl transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer flex items-center justify-center border border-blue-100 dark:border-blue-900/30 shadow-sm"
+              title="Retomar cadastramento do pedido"
+              aria-label="Retomar cadastramento do pedido"
+            >
+              <i className="bi bi-play-fill text-lg" aria-hidden="true" />
+            </button>
+          )}
+
           {!isEditLocked && !isCancelled && !isDraft && !showTrash && (
             <button
+              type="button"
               onClick={() => onEdit(order)}
               className="w-8 h-8 rounded-xl transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer flex items-center justify-center border border-blue-100 dark:border-blue-900/30 shadow-sm"
               title="Editar pedido"
@@ -375,6 +423,7 @@ const OrderHistoryCard = ({
             onAction={onAction}
             onStatusUpdate={onStatusUpdate}
             onShowPostSaleActions={onShowPostSaleActions}
+            hideResumeDraftAction={isDraft && !showTrash}
             hideEditAction={!isEditLocked && !isCancelled && !isDraft && !showTrash}
             buttonClassName="w-8 h-8"
           />

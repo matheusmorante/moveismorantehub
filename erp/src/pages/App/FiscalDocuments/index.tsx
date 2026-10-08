@@ -54,9 +54,12 @@ export default function FiscalDocumentsPage() {
     setStatusFilter,
     setModelFilter,
     setEnvironmentFilter,
-    setSeriesFilter,
-    setDateFrom,
-    setDateTo,
+    period,
+    setPeriod,
+    customDateFrom,
+    customDateTo,
+    setCustomDateFrom,
+    setCustomDateTo,
   } = useFiscalDocumentsList(canViewFiscal);
 
   // Hook de Detalhes Fiscais
@@ -153,9 +156,12 @@ export default function FiscalDocumentsPage() {
         onModelChange={setModelFilter}
         onStatusChange={setStatusFilter}
         onEnvironmentChange={setEnvironmentFilter}
-        onSeriesChange={setSeriesFilter}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
+        period={period}
+        onPeriodChange={setPeriod}
+        customDateFrom={customDateFrom}
+        customDateTo={customDateTo}
+        onCustomDateFromChange={setCustomDateFrom}
+        onCustomDateToChange={setCustomDateTo}
       />
 
       <div className="bg-white dark:bg-slate-900/70 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">

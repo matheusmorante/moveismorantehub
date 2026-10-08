@@ -110,6 +110,45 @@ const SalesOrder = () => {
     multiSort: [{ key: 'date', order: 'desc' }] as { key: string; order: 'asc' | 'desc' }[],
     searchId: '',
   });
+  const [customerSearchInput, setCustomerSearchInput] = useState(filters.customerName);
+  const customerSearchBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCustomerSearchBlurTimer = React.useCallback(() => {
+    if (customerSearchBlurTimer.current) {
+      clearTimeout(customerSearchBlurTimer.current);
+      customerSearchBlurTimer.current = null;
+    }
+  }, []);
+
+  React.useEffect(
+    () => () => {
+      clearCustomerSearchBlurTimer();
+    },
+    [clearCustomerSearchBlurTimer]
+  );
+
+  React.useEffect(() => {
+    clearCustomerSearchBlurTimer();
+    setCustomerSearchInput(filters.customerName || '');
+  }, [clearCustomerSearchBlurTimer, filters.customerName]);
+
+  const handleCustomerSearchBlur = (value: string) => {
+    const customerName = value.trim();
+    if (customerName.length > 0 && customerName.length < 3) {
+      setCustomerSearchInput(filters.customerName || '');
+      return;
+    }
+
+    clearCustomerSearchBlurTimer();
+    customerSearchBlurTimer.current = setTimeout(() => {
+      setFilters((previous) =>
+        (previous.customerName || '').trim() === customerName
+          ? previous
+          : { ...previous, customerName }
+      );
+      customerSearchBlurTimer.current = null;
+    }, 300);
+  };
 
   // Sincronizar filtro quando a rota mudar
   React.useEffect(() => {
@@ -160,6 +199,7 @@ const SalesOrder = () => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showTestOrders, setShowTestOrders] = useState(false);
+  const [hasTestOrders, setHasTestOrders] = useState(false);
   // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
@@ -276,7 +316,7 @@ const SalesOrder = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
+    <div className="flex min-h-screen transition-colors duration-300 relative pb-16">
       {/* Main Content Area */}
       <div
         className={`flex-1 flex flex-col min-w-0 ${
@@ -291,9 +331,11 @@ const SalesOrder = () => {
             {isSalesOrderRoute ? (
               <div className="flex-1 max-w-sm sm:max-w-md min-w-0">
                 <OrderCustomerSearchBar
-                  value={filters.customerName}
-                  onChange={(name) => setFilters((prev) => ({ ...prev, customerName: name }))}
-                  placeholder="Buscar pedido pelo nome do cliente..."
+                  value={customerSearchInput}
+                  onChange={setCustomerSearchInput}
+                  onSearchFocus={clearCustomerSearchBlurTimer}
+                  onSearchBlur={handleCustomerSearchBlur}
+                  placeholder="Buscar pedido pelo nome do cliente (mín. 3 caracteres)..."
                 />
               </div>
             ) : (
@@ -321,7 +363,9 @@ const SalesOrder = () => {
 
             {/* Action Buttons Group (lá no final do lado direito) */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
+              {hasTestOrders && (
+                <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
+              )}
 
               {/* Visualizacao Dropdown */}
               {!isReturnRoute && !isSalesOrderRoute && (
@@ -494,6 +538,7 @@ const SalesOrder = () => {
                   onAction={handleOrderAction}
                   onIssueNfe={handleDirectIssueNfe}
                   onShowPostSaleActions={setPostOrderDetails}
+                  onTestDataAvailabilityChange={setHasTestOrders}
                 />
               </div>
             </div>

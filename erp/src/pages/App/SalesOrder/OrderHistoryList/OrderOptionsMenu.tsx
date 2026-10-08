@@ -22,6 +22,7 @@ interface OrderOptionsMenuProps {
   onShowPostSaleActions?: (order: Order) => void;
   onCloseOtherPopovers?: () => void;
   hideEditAction?: boolean;
+  hideResumeDraftAction?: boolean;
   buttonClassName?: string;
 }
 
@@ -37,6 +38,7 @@ export const OrderOptionsMenu = ({
   onShowPostSaleActions,
   onCloseOtherPopovers,
   hideEditAction,
+  hideResumeDraftAction,
   buttonClassName,
 }: OrderOptionsMenuProps) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -138,6 +140,7 @@ export const OrderOptionsMenu = ({
                   order={order}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  hideResumeAction={hideResumeDraftAction}
                   onCloseMenu={() => setShowMenu(false)}
                 />
               ) : showTrash ? (

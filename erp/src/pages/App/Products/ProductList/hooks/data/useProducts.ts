@@ -143,6 +143,10 @@ export const useProducts = (filters?: ProductListFilters) => {
   const totalItems = serverTotal;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const paginatedProducts = serverTransformed;
+  const hasTestProducts = useMemo(
+    () => flattenProductsForList(serverProducts).some(isTestProduct),
+    [serverProducts]
+  );
 
   // ─── Ações de exclusão e ativação ───────────────────
   const handleDelete = async (id: string) => {
@@ -291,6 +295,7 @@ export const useProducts = (filters?: ProductListFilters) => {
   return {
     products: serverProducts,
     paginatedProducts,
+    hasTestProducts,
     totalItems,
     currentPage,
     itemsPerPage,

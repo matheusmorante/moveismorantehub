@@ -94,7 +94,7 @@ describe('OrderCardAndMenuActions', () => {
     expect(screen.queryByText('Editar Venda')).toBeNull();
   });
 
-  it('exibe o rótulo NFH no card mesmo quando não houver nota fiscal de homologação emitida e permite emitir ao clicar', () => {
+  it('oculta NFH sem documento de homologação e mantém a emissão de produção no rótulo NF', () => {
     const onIssueNfe = vi.fn();
     const onViewFiscalDocument = vi.fn();
     const { rerender } = render(
@@ -116,10 +116,8 @@ describe('OrderCardAndMenuActions', () => {
     );
 
     expect(screen.getByText('NF')).toBeTruthy();
-    expect(screen.getByText('NFH')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('NFH'));
-    expect(onIssueNfe).toHaveBeenCalledWith(baseOrder, 2);
+    expect(screen.queryByText('NFH')).toBeNull();
+    expect(onIssueNfe).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText('NF'));
     expect(onIssueNfe).toHaveBeenCalledWith(baseOrder, 1);

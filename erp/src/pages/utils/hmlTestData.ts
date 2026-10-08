@@ -26,11 +26,13 @@ export const isTestOrder = (value: unknown): boolean => {
   const customerData =
     asRecord(orderData.customerData) ?? asRecord(orderData.customer_data) ?? {};
   return [
+    row.id,
     row.order_number,
     row.orderNumber,
     row.customer_name,
     row.notes,
     row.observation,
+    orderData.id,
     orderData.orderNumber,
     orderData.customerName,
     orderData.notes,
@@ -86,7 +88,11 @@ export const isTestProduct = (value: unknown): boolean => {
   }
   if (isHmlFiscalTestProduct(product.observations)) return true;
 
-  if ([product.code, product.sku, product.name, product.title].some(hasExplicitTestIdentifier)) {
+  if (
+    [product.id, product.code, product.sku, product.name, product.title].some(
+      hasExplicitTestIdentifier
+    )
+  ) {
     return true;
   }
 

@@ -11,7 +11,7 @@ import { FiscalDocumentRowActions } from './FiscalDocumentRowActions';
 import { FiscalDocumentDetailsRow } from './FiscalDocumentDetailsRow';
 import { getCancellationDeadlineLabel } from '../utils/fiscalFormatters';
 
-interface FiscalDocumentRowProps {
+export interface FiscalDocumentRowProps {
   document: NfeDocumentRecord;
   allDocuments: NfeDocumentRecord[];
   orderNumber?: number;

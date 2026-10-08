@@ -18,6 +18,7 @@ export interface OrderHistoryTableProps {
   readonly fiscalBadgeStatusByOrderId?: Partial<
     Record<string, OrderFiscalBadgeStatuses | OrderFiscalBadgeStatus>
   >;
+  readonly fiscalBadgeLoadingByOrderId?: Partial<Record<string, boolean>>;
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -59,6 +60,7 @@ export interface OrderHistoryTableProps {
 const OrderHistoryTable = ({
   orders,
   fiscalBadgeStatusByOrderId,
+  fiscalBadgeLoadingByOrderId,
   onEdit,
   onViewDetails,
   onViewFiscalDocument,
@@ -192,6 +194,7 @@ const OrderHistoryTable = ({
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {orders.map((order) => {
                 const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
+                const fiscalBadgeLoading = Boolean(fiscalBadgeLoadingByOrderId?.[order.id!]);
                 const prodStatus =
                   typeof badgeInfo === 'string' ? badgeInfo : (badgeInfo?.production ?? 'not_issued');
                 const hmlStatus =
@@ -200,6 +203,18 @@ const OrderHistoryTable = ({
                   typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
                 const hmlDocumentId =
                   typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+                const estornoStatus =
+                  typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
+                const estornoDocumentId =
+                  typeof badgeInfo === 'object' ? badgeInfo?.estornoDocumentId : undefined;
+                const estornoEnvironment =
+                  typeof badgeInfo === 'object' ? badgeInfo?.estornoEnvironment : undefined;
+                const devolucaoStatus =
+                  typeof badgeInfo === 'object' ? badgeInfo?.devolucaoStatus : undefined;
+                const devolucaoDocumentId =
+                  typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocumentId : undefined;
+                const devolucaoEnvironment =
+                  typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
 
                 return (
                   <OrderHistoryRow
@@ -207,8 +222,15 @@ const OrderHistoryTable = ({
                     order={order}
                     fiscalBadgeStatus={prodStatus}
                     fiscalHmlBadgeStatus={hmlStatus}
+                    fiscalBadgeLoading={fiscalBadgeLoading}
                     fiscalDocumentId={prodDocumentId}
                     fiscalHmlDocumentId={hmlDocumentId}
+                    fiscalEstornoBadgeStatus={estornoStatus}
+                    fiscalEstornoDocumentId={estornoDocumentId}
+                    fiscalEstornoEnvironment={estornoEnvironment}
+                    fiscalDevolucaoBadgeStatus={devolucaoStatus}
+                    fiscalDevolucaoDocumentId={devolucaoDocumentId}
+                    fiscalDevolucaoEnvironment={devolucaoEnvironment}
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
                     onViewFiscalDocument={onViewFiscalDocument}
@@ -247,12 +269,25 @@ const OrderHistoryTable = ({
           ) : (
             orders.map((order) => {
               const badgeInfo = fiscalBadgeStatusByOrderId?.[order.id!];
+              const fiscalBadgeLoading = Boolean(fiscalBadgeLoadingByOrderId?.[order.id!]);
               const prodStatus = typeof badgeInfo === 'string' ? badgeInfo : (badgeInfo?.production ?? 'not_issued');
               const hmlStatus = typeof badgeInfo === 'object' ? (badgeInfo?.homologation ?? 'not_issued') : 'not_issued';
               const prodDocumentId =
                 typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
               const hmlDocumentId =
                 typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+              const estornoStatus =
+                typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
+              const estornoDocumentId =
+                typeof badgeInfo === 'object' ? badgeInfo?.estornoDocumentId : undefined;
+              const estornoEnvironment =
+                typeof badgeInfo === 'object' ? badgeInfo?.estornoEnvironment : undefined;
+              const devolucaoStatus =
+                typeof badgeInfo === 'object' ? badgeInfo?.devolucaoStatus : undefined;
+              const devolucaoDocumentId =
+                typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocumentId : undefined;
+              const devolucaoEnvironment =
+                typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
 
               return (
                 <OrderHistoryCard
@@ -260,8 +295,15 @@ const OrderHistoryTable = ({
                   order={order}
                   fiscalBadgeStatus={prodStatus}
                   fiscalHmlBadgeStatus={hmlStatus}
+                  fiscalBadgeLoading={fiscalBadgeLoading}
                   fiscalDocumentId={prodDocumentId}
                   fiscalHmlDocumentId={hmlDocumentId}
+                  fiscalEstornoBadgeStatus={estornoStatus}
+                  fiscalEstornoDocumentId={estornoDocumentId}
+                  fiscalEstornoEnvironment={estornoEnvironment}
+                  fiscalDevolucaoBadgeStatus={devolucaoStatus}
+                  fiscalDevolucaoDocumentId={devolucaoDocumentId}
+                  fiscalDevolucaoEnvironment={devolucaoEnvironment}
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
                   onViewFiscalDocument={onViewFiscalDocument}
