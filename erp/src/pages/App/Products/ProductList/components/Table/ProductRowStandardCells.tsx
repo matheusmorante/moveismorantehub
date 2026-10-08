@@ -24,6 +24,7 @@ export interface CellContext {
   readonly categoryTree?: unknown;
   readonly showCatalogControl?: boolean;
   readonly canManageCatalog: boolean;
+  readonly canDeleteProducts: boolean;
   readonly isDraft: boolean;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
   readonly onDeactivateCatalog: (id: string) => void;
@@ -40,6 +41,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
     categoryTree,
     showCatalogControl = true,
     canManageCatalog,
+    canDeleteProducts,
     isDraft,
     onToggleActive,
     onDeactivateCatalog,
@@ -242,6 +244,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               isNonConventional={isNonConventionalProduct(product as any)}
               isSalvado={getProductKind(product) === 'salvado'}
               canManageCatalog={canManageCatalog}
+              canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}
               isDraft={isDraft}
               activeVariationsCount={product.activeVariationsCount}

@@ -6,7 +6,9 @@ import {
   getAuthorizedAt,
   getCancellationWindow,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
-import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import {
+  getGoodsCirculationState,
+} from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { canCancelOrderDirectly } from '../../erp/src/pages/utils/orderStatusTransitionRules';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 
@@ -63,6 +65,8 @@ export function evaluateDocumentEligibility(
     return blocked('A nota não tem protocolo original para referenciar o evento.', 'none');
   if (!/^\d{44}$/.test(String(document.chave_acesso || '')))
     return blocked('A nota não tem uma chave de acesso válida para o evento fiscal.', 'none');
+  if (String(document.chave_acesso).slice(20, 22) !== String(document.modelo))
+    return blocked('O modelo gravado diverge do modelo informado na chave de acesso.', 'none');
   if (authorizedDocumentCount !== 1)
     return blocked(
       'Mais de uma NF-e autorizada está vinculada ao pedido; é necessária revisão fiscal.',
@@ -70,10 +74,16 @@ export function evaluateDocumentEligibility(
     );
 
   const orderStatus = String(order.status || '').toLowerCase();
-  if (hasGoodsCirculated(order))
+  const circulation = getGoodsCirculationState(order);
+  if (circulation === 'completed')
     return blocked(
-      'Mercadoria circulou; preserve a NF-e original e use o fluxo de devolução.',
+      'Pedido entregue ou retirado; preserve a NF-e original e encaminhe ao fluxo de devolução.',
       'return'
+    );
+  if (circulation === 'in_progress')
+    return blocked(
+      'Há evidência de saída ou trânsito sem confirmação de entrega; não cancele nem classifique como estorno. Confirme recusa ou retorno da mercadoria antes de decidir.',
+      'blocked'
     );
   const orderType = String(order.order_type || order.order_data?.orderType || 'sale').toLowerCase();
   if (!['sale', 'showroom'].includes(orderType))
@@ -85,7 +95,7 @@ export function evaluateDocumentEligibility(
     !['cancelled', 'cancelado'].includes(orderStatus) &&
     !canCancelOrderDirectly({ ...order, status: orderStatus })
   )
-    return blocked('O estado atual do pedido não permite cancelamento comercial.', 'none');
+    return blocked('O estado atual do pedido não permite cancelamento comercial.', 'blocked');
 
   if (priorEvent?.status === 'registered' || priorEvent?.status === 'unknown')
     return blocked(
@@ -113,6 +123,7 @@ export function evaluateDocumentEligibility(
     environment: Number(document.ambiente) as 1 | 2,
     goodsCirculated: false,
     operationDidNotOccur: true,
+    issuerUf: String(document.chave_acesso).slice(0, 2) === '41' ? 'PR' : '',
     now,
   });
   return {
@@ -178,7 +189,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: orders, error: ordersError } = linkedOrderIds.length
       ? await db
           .from('orders')
-          .select('id,status,delivery_status,delivery_method,order_type,order_data')
+          .select(
+            'id,status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_type,order_data'
+          )
           .in('id', linkedOrderIds)
       : { data: [], error: null };
     if (ordersError)
@@ -229,67 +242,201 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data: order, error: orderError } = await db
     .from('orders')
-    .select('id,status,delivery_status,order_data')
+    .select(
+      'id,status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_type,order_data,return_order_id'
+    )
     .eq('id', orderId)
     .maybeSingle();
   if (orderError) return res.status(503).json({ error: 'Não foi possível validar o pedido.' });
-  const orderStatus = String(order?.status || '').toLowerCase();
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+
+  const orderStatus = String(order.status || '').toLowerCase();
+  const orderType = String(order.order_type || order.order_data?.orderType || 'sale').toLowerCase();
+  if (!['sale', 'showroom'].includes(orderType))
+    return res.status(409).json({ error: 'O tratamento fiscal está disponível somente para venda.' });
   if (
-    !order ||
-    (preview
-      ? !['scheduled', 'agendado', 'aguardando retirada'].includes(orderStatus)
-      : !['cancelled', 'cancelado'].includes(orderStatus))
+    preview
+      ? ['cancelled', 'cancelado', 'draft'].includes(orderStatus)
+      : !['cancelled', 'cancelado'].includes(orderStatus)
   )
     return res.status(409).json({
       error: preview
-        ? 'O pedido não está em um estado cancelável.'
+        ? 'O pedido não está em um estado que permita iniciar cancelamento ou devolução.'
         : 'O fluxo comercial do pedido precisa estar confirmado antes de aplicar o tratamento fiscal.',
     });
-  if (hasGoodsCirculated(order))
-    return res.status(409).json({ error: 'Mercadoria circulou; o fluxo correto é devolução.' });
 
   const { data: documents, error: documentsError } = await db
     .from('nfe_documents')
-    .select('id,status,ambiente,modelo,xml_protocolo,created_at')
+    .select(
+      'id,order_id,document_type,status,ambiente,modelo,chave_acesso,numero_protocolo,xml_protocolo,created_at'
+    )
     .eq('order_id', orderId)
     .eq('document_type', 'outbound')
-    .in('status', ['autorizada', 'homologada'])
     .order('created_at', { ascending: false });
   if (documentsError)
     return res.status(503).json({ error: 'Não foi possível consultar as NF-e do pedido.' });
-  if (!documents?.length)
+
+  const circulation = getGoodsCirculationState(order);
+  const authorizedDocuments = (documents || []).filter((document: any) =>
+    ['autorizada', 'homologada'].includes(String(document.status || '').toLowerCase())
+  );
+  const terminalWithoutAuthorization = new Set([
+    'cancelada',
+    'cancelled',
+    'canceled',
+    'rejeitada',
+    'rejeitado',
+    'denegada',
+    'rejected',
+    'erro',
+    'error',
+    'abandonada',
+    'abandoned',
+    'inutilizada',
+  ]);
+  const unresolvedDocuments = (documents || []).filter((document: any) => {
+    const status = String(document.status || '').toLowerCase();
+    return (
+      !['autorizada', 'homologada'].includes(status) && !terminalWithoutAuthorization.has(status)
+    );
+  });
+  const pendingDocuments = unresolvedDocuments.filter((document: any) =>
+    ['pendente', 'processando', 'transmitting', 'unknown'].includes(
+      String(document.status || '').toLowerCase()
+    )
+  );
+  const unknownFiscalDocuments = unresolvedDocuments.filter((document: any) =>
+    !['pendente', 'processando', 'transmitting', 'unknown'].includes(
+      String(document.status || '').toLowerCase()
+    )
+  );
+  const hasAuthorizedInvoice = authorizedDocuments.length > 0;
+  if (circulation === 'completed') {
+    if (orderType !== 'sale')
+      return res.status(preview ? 200 : 409).json({
+        action: 'blocked',
+        hasAuthorizedInvoice,
+        reason:
+          'A mercadoria foi entregue ou retirada, mas este tipo de pedido ainda não possui fluxo de devolução fiscal habilitado.',
+      });
+
+    let returnOrderId =
+      String(order.return_order_id || order.order_data?.returnOrderId || '') || undefined;
+    let returnOrderStatus: string | undefined;
+    if (!returnOrderId) {
+      const { data: returnOrders, error: returnError } = await db
+        .from('orders')
+        .select('id,status,order_index')
+        .eq('order_type', 'return')
+        .eq('linked_order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (returnError)
+        return res.status(503).json({
+          error: 'Não foi possível conferir se já existe devolução vinculada ao pedido.',
+        });
+      const existingReturn = returnOrders?.[0];
+      if (existingReturn) {
+        returnOrderId = String(existingReturn.id);
+        returnOrderStatus = String(existingReturn.status || '');
+      }
+    }
+    return res.status(200).json({
+      action: 'return',
+      hasAuthorizedInvoice,
+      reason: returnOrderId
+        ? 'Este pedido já foi entregue. Continue a devolução vinculada existente para controlar os itens e quantidades.'
+        : 'Este pedido já foi entregue. Inicie a devolução e selecione os itens e quantidades; o cancelamento da venda não será feito por este fluxo.',
+      returnOrderId,
+      returnOrderStatus,
+    });
+  }
+  if (circulation === 'in_progress') {
+    const result = {
+      action: 'blocked',
+      hasAuthorizedInvoice,
+      reason:
+        'Há evidência de saída ou trânsito sem confirmação de entrega; não cancele nem classifique como estorno. Confirme recusa ou retorno da mercadoria antes de decidir.',
+    };
+    return preview ? res.status(200).json(result) : res.status(409).json(result);
+  }
+
+  if (pendingDocuments.length) {
+    const result = {
+      action: 'pending',
+      hasAuthorizedInvoice,
+      reason:
+        'Há uma NF-e/NFC-e em emissão ou sem resultado final. Consulte e reconcilie a situação fiscal antes de cancelar a venda.',
+    };
+    return preview ? res.status(200).json(result) : res.status(409).json(result);
+  }
+  if (unknownFiscalDocuments.length) {
+    const result = {
+      action: 'reconcile',
+      hasAuthorizedInvoice,
+      reason:
+        'Há um documento fiscal vinculado com status não reconhecido. Consulte o documento e reconcilie a situação antes de cancelar a venda.',
+    };
+    return preview ? res.status(200).json(result) : res.status(409).json(result);
+  }
+
+  if (
+    preview &&
+    !canCancelOrderDirectly({
+      ...order,
+      orderType,
+      status: orderStatus,
+    })
+  ) {
+    return res.status(200).json({
+      action: 'blocked',
+      hasAuthorizedInvoice,
+      reason: 'O estado atual do pedido não permite cancelamento comercial.',
+    });
+  }
+  if (!preview && circulation !== 'none')
+    return res.status(409).json({ action: 'blocked', error: 'A circulação impede o cancelamento fiscal.' });
+  if (!authorizedDocuments.length)
     return res.status(200).json({ action: 'none', hasAuthorizedInvoice: false });
-  if (documents.length !== 1)
-    return res.status(409).json({
+  if (authorizedDocuments.length !== 1) {
+    const result = {
       action: 'manual_review',
-      error: 'Mais de uma NF-e autorizada está vinculada ao pedido.',
+      hasAuthorizedInvoice: true,
+      reason: 'Mais de um documento fiscal autorizado está vinculado ao pedido; nenhum será alterado automaticamente.',
+    };
+    return preview ? res.status(200).json(result) : res.status(409).json(result);
+  }
+
+  const document = authorizedDocuments[0];
+  const { data: events, error: eventsError } = await db
+    .from('nfe_document_events')
+    .select('status,requested_at,attempt_number')
+    .eq('document_id', document.id)
+    .eq('event_type', '110111')
+    .order('attempt_number', { ascending: false })
+    .limit(1);
+  if (eventsError)
+    return res.status(503).json({ error: 'Não foi possível conferir tentativas fiscais anteriores.' });
+  const decision = evaluateDocumentEligibility(
+    document,
+    order,
+    events?.[0] || null,
+    Date.now(),
+    authorizedDocuments.length
+  );
+  if (!preview && !decision.canProceed)
+    return res.status(409).json({
+      action: decision.action,
+      error: decision.reason || 'O efeito fiscal não pode ser aplicado com segurança.',
     });
 
-  const document = documents[0];
-  if (![1, 2].includes(Number(document.ambiente)))
-    return res
-      .status(409)
-      .json({ action: 'manual_review', error: 'Ambiente fiscal da NF-e inválido.' });
-  const policy = getFiscalCancellationPolicy({
-    model: String(document.modelo),
-    authorizedAt: getAuthorizedAt(document.xml_protocolo || '', ''),
-    status: String(document.status),
-    environment: Number(document.ambiente) as 1 | 2,
-    goodsCirculated: false,
-    operationDidNotOccur: true,
-  });
-  if (policy.action === 'manual_review' && !preview)
-    return res.status(409).json({ action: policy.action, error: policy.reason });
-
   return res.status(200).json({
-    action: policy.action,
+    ...decision,
     hasAuthorizedInvoice: true,
     model: document.modelo,
     status: document.status,
-    reason: policy.reason,
     documentId: document.id,
     environment: document.ambiente,
-    deadline: policy.deadline?.toISOString() || null,
     requestedBy: authorization.userId,
   });
 }

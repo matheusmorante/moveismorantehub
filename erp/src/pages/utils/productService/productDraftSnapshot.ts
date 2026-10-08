@@ -1,5 +1,6 @@
 import type Product from '../../types/product.type';
 import type { Variation } from '../../types/product.type';
+import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
 
 export const isProductDraft = (product: Partial<Product>): boolean =>
   Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
@@ -30,28 +31,7 @@ export function createProductDraftSnapshot(product: Product): Product {
 }
 
 export function restoreProductDraft(product: Product): Product {
-  const snapshot = product.technicalSpecs?.draftProduct as Partial<Product> | undefined;
-  if (!isProductDraft(product) || !snapshot || String(snapshot.id) !== product.id) return product;
-  const stocks = new Map(product.variations?.map((variation) => [variation.id, variation.stock]));
-  return {
-    ...product,
-    ...snapshot,
-    category: product.category || snapshot.category || '',
-    id: product.id,
-    updatedAt: product.updatedAt,
-    createdAt: product.createdAt,
-    technicalSpecs: product.technicalSpecs,
-    stock: product.stock,
-    isDraft: true,
-    active: false,
-    status: 'draft',
-    variations: snapshot.variations?.map((variation) => ({
-      ...removeInitialStockFields(variation),
-      stock: stocks.get(variation.id) ?? 0,
-      active: false,
-      status: variation.status || 'draft',
-    })),
-  };
+  return restoreProductDraftSnapshot(product);
 }
 
 /** Fields without dedicated columns survive completion of a draft, by variation UUID. */

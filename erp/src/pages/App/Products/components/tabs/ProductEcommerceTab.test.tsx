@@ -55,7 +55,7 @@ describe('ProductEcommerceTab image limits', () => {
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('possui 16 fotos, acima do limite atual');
-    expect(screen.getByText('Fotos do Produto (16/15)')).toBeTruthy();
+    expect(screen.getByText('Galeria (16/15)')).toBeTruthy();
     expect(screen.queryByText('Adicionar')).toBeNull();
   });
 });

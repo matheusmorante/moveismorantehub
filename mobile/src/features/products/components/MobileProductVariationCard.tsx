@@ -17,6 +17,9 @@ interface MobileProductVariationCardProps {
   onEdit?: (product: any) => void;
   onShowHistory?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
+  canChangeCatalog?: boolean;
+  showCatalogStatus?: boolean;
+  canPrintLabel?: boolean;
 }
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
@@ -31,6 +34,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onEdit,
   onShowHistory,
   onLaunchStock,
+  canChangeCatalog = true,
+  showCatalogStatus = true,
+  canPrintLabel = true,
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   let varName = '';
@@ -161,8 +167,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         dark={dark}
         variationName={varName}
         onClose={() => setMenuVisible(false)}
-        onPrintLabel={handlePrintLabel}
-        onEdit={onEdit ? () => onEdit(variationProduct) : () => setMenuVisible(false)}
+        onPrintLabel={canPrintLabel ? handlePrintLabel : undefined}
+        onEdit={onEdit ? () => onEdit(variationProduct) : undefined}
         onHistory={onShowHistory ? () => onShowHistory(variationProduct) : undefined}
         onStock={onLaunchStock ? () => onLaunchStock(variationProduct) : undefined}
       />
@@ -176,7 +182,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}
           disabled={isMerged}
-          showCatalog={true}
+          showCatalog={showCatalogStatus}
+          canToggleActive={Boolean(onToggleActive)}
+          canToggleCatalog={canChangeCatalog}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />

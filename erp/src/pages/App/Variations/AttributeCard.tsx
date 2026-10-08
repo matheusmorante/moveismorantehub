@@ -75,7 +75,10 @@ export function AttributeCard({
   };
 
   return (
-    <article className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-sm overflow-visible">
+    <article
+      data-attribute-name={normalizeSearchTerm(attribute.name)}
+      className="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-3xl shadow-sm overflow-visible"
+    >
       <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
         <div className="min-w-0 flex-1 flex items-center justify-between gap-4 text-left">
           <span className="min-w-0">

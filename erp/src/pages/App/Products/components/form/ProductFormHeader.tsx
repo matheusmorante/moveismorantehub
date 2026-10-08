@@ -57,9 +57,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
 
   return (
     <>
-      <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-900">
-        <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+      <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4 flex-wrap">
+          <h2 className="min-w-0 text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
             {isDraftProduct
               ? product?.id
                 ? 'Continuar Cadastramento'
@@ -81,7 +81,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
           type="button"
           onClick={handleCloseWithAutoSave}
           aria-label="Fechar formulário"
-          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto cursor-pointer"
+          className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto cursor-pointer"
         >
           <i className="bi bi-x-lg text-lg" aria-hidden="true" />
         </button>

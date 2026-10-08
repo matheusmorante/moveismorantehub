@@ -4,8 +4,10 @@ import {
   getMissingRequiredCharacteristics,
   getProductCharacteristicAttributes,
   getTechnicalValue,
+  hasTechnicalValue,
 } from './productCharacteristics';
 import { parseLocalizedNumber } from './productNumbers';
+import { checkProductErpLegibility } from '../../../../../shared-utils/productErpLegibility';
 
 export type MobileVariationRegistrationIssue = {
   message: string;
@@ -31,6 +33,19 @@ export const getMobileEffectiveVariationPrice = (parent: any = {}, variation: an
       ? (parent.unitPrice ?? parent.unit_price ?? parent.price)
       : (variation.price ?? variation.unitPrice ?? variation.unit_price)
   );
+
+/** Mantém o estado de prontidão do App igual a checkERPLegibility do ERP. */
+export const isMobileProductErpLegible = (product: any = {}) => {
+  const unitPrice = parseLocalizedNumber(product.unitPrice ?? product.unit_price ?? product.price);
+  const promoPrice = parseLocalizedNumber(product.promoPrice ?? product.promo_price);
+  return checkProductErpLegibility({
+    ...product,
+    hasVariations: product.hasVariations ?? product.has_variations,
+    productKind: product.productKind ?? product.product_kind,
+    unitPrice,
+    promoPrice,
+  }).isLegible;
+};
 
 const getEffectiveVariationPromoPrice = (parent: any = {}, variation: any = {}) =>
   parseLocalizedNumber(
@@ -161,14 +176,29 @@ export const getMobileVariationRegistrationIssue = (
   return null;
 };
 
-const hasPositiveDimension = (
+const getDimensionState = (
   product: any,
   field: 'width' | 'height' | 'depth',
   names: string[]
 ) => {
-  if (parseLocalizedNumber(product?.[field]) > 0) return true;
   const values = getEffectiveProductTechnicalValues(product);
-  return names.some((name) => parseLocalizedNumber(getTechnicalValue(values, name)) > 0);
+  const configuredNames = names.filter((name) => hasTechnicalValue(values, name));
+  if (configuredNames.length > 0) {
+    const enabledNames = configuredNames.filter((name) => {
+      const value = String(getTechnicalValue(values, name) ?? '')
+        .trim()
+        .toLocaleLowerCase('pt-BR');
+      return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+    });
+    return {
+      enabled: enabledNames.length > 0,
+      hasPositiveValue:
+        enabledNames.length > 0 &&
+        enabledNames.every((name) => parseLocalizedNumber(getTechnicalValue(values, name)) > 0),
+    };
+  }
+  const hasPositiveDirectValue = parseLocalizedNumber(product?.[field]) > 0;
+  return { enabled: hasPositiveDirectValue, hasPositiveValue: hasPositiveDirectValue };
 };
 
 /** Requisitos que o ERP preserva enquanto o produto já está publicado. */
@@ -194,6 +224,17 @@ export const isMobileEcommerceLegible = (product: any = {}) => {
   );
   const promoPrice = parseLocalizedNumber(product.promoPrice ?? product.promo_price);
   const isService = product.itemType === 'service' || product.item_type === 'service';
+  const dimensionStates = [
+    getDimensionState(product, 'width', ['Largura']),
+    getDimensionState(product, 'height', ['Altura']),
+    getDimensionState(product, 'depth', ['Profundidade', 'Comprimento']),
+  ];
+  const hasValidDimensions =
+    isService ||
+    (dimensionStates.some((dimension) => dimension.enabled) &&
+      dimensionStates.every(
+        (dimension) => !dimension.enabled || dimension.hasPositiveValue
+      ));
 
   return (
     title.length >= 2 &&
@@ -202,10 +243,7 @@ export const isMobileEcommerceLegible = (product: any = {}) => {
     Array.isArray(images) &&
     images.length > 0 &&
     (hasVariations ? variations.length > 0 : parentPrice > 0) &&
-    (isService ||
-      (hasPositiveDimension(product, 'width', ['Largura']) &&
-        hasPositiveDimension(product, 'height', ['Altura']) &&
-        hasPositiveDimension(product, 'depth', ['Profundidade', 'Comprimento']))) &&
+    hasValidDimensions &&
     (promoPrice <= 0 || promoPrice < parentPrice)
   );
 };

@@ -28,7 +28,7 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
   const isBusy = loading || isAiProcessing;
 
   return (
-    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+    <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 shrink-0">
       <div className="flex items-center gap-2 w-full md:w-auto">
         {isDraftProduct && (
           <div

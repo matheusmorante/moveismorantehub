@@ -46,14 +46,14 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
   return (
     <div
       id="field-product-categories"
-      className="md:col-span-2 flex flex-col gap-3 transition-all p-2 rounded-2xl"
+      className="md:col-span-2 flex w-full min-w-0 flex-col gap-3 transition-all p-2 rounded-2xl"
     >
-      <div className="flex flex-col gap-2 w-full">
-        <div className="flex items-center justify-between h-6">
-          <div className="flex items-center gap-2">
+      <div className="flex w-full min-w-0 flex-col gap-2">
+        <div className="flex min-h-6 w-full flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <label
               htmlFor="input-search-product-categories"
-              className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${hasValidationError ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
+              className={`shrink-0 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${hasValidationError ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
             >
               <span>Categoria(s)</span>
               <span className="text-red-500 ml-0.5">*</span>
@@ -67,12 +67,11 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
                   window.focus();
                 }
               }}
-              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-0.5 rounded"
+              className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/40"
               title="Gerenciar Categorias"
               aria-label="Gerenciar Categorias de Produtos"
             >
-              <span>GERENCIAR</span>
-              <i className="bi bi-gear-fill text-xs" />
+              Gerenciar
             </button>
             {isGeneratingCategory && (
               <span className="inline-flex items-center gap-1 text-[9px] font-black bg-amber-100 text-amber-800 dark:bg-amber-955/80 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-300/80 dark:border-amber-700/80 animate-pulse select-none">
@@ -83,7 +82,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
           </div>
 
           {selectedCategories.length > 0 && (
-            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
+            <span className="max-w-full shrink-0 whitespace-nowrap text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
               {selectedCategories.length} selecionada{selectedCategories.length > 1 ? 's' : ''}
             </span>
           )}
@@ -104,19 +103,19 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
                 return (
                   <span
                     key={category.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
+                    className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-sm"
                   >
                     <i className="bi bi-check2 text-blue-600 dark:text-blue-400 font-bold" />
-                    <span>{category.name}</span>
+                    <span className="min-w-0 break-words">{category.name}</span>
                     {parentNames && (
-                      <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">
+                      <span className="min-w-0 break-words text-[10px] font-normal text-slate-400 dark:text-slate-500">
                         ({parentNames})
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => onToggleCategory(category.id, false)}
-                      className="ml-1 text-slate-400 hover:text-red-500 transition-colors p-0.5 rounded focus:outline-none"
+                      className="ml-1 shrink-0 text-slate-400 hover:text-red-500 transition-colors p-0.5 rounded focus:outline-none"
                       title={`Remover ${category.name}`}
                       aria-label={`Remover categoria ${category.name}`}
                     >
@@ -128,7 +127,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
             </div>
           )}
 
-          <div className="relative flex items-center flex-1 min-w-[180px]">
+          <div className="relative flex basis-full min-w-0 flex-1 items-center sm:basis-[180px] sm:min-w-[180px]">
             <i className="bi bi-search absolute left-3 text-slate-400 text-xs pointer-events-none" />
             <input
               id="input-search-product-categories"

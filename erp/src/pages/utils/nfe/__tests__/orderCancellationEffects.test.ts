@@ -55,10 +55,53 @@ describe('efeitos fiscais do cancelamento comercial', () => {
     ]);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
       documentId: 'TEST_AUT_document',
-      productionConfirmed: true,
+      productionConfirmed: false,
       viaOrderCancellation: true,
     });
     expect(result).toMatchObject({ action: 'cancel', cStat: '135' });
+  });
+
+  it('exige confirmação explícita antes de solicitar cancelamento em Produção', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        action: 'cancel',
+        documentId: 'TEST_AUT_document',
+        environment: 1,
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const confirmProduction = vi.fn(() => false);
+
+    const { processOrderCancellationFiscalEffects } = await import('../nfeService');
+    await expect(
+      processOrderCancellationFiscalEffects('TEST_AUT_order', '4268', { confirmProduction })
+    ).rejects.toThrow('Confirme explicitamente o cancelamento fiscal');
+
+    expect(confirmProduction).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('envia a confirmação de Produção somente após o usuário aceitá-la', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          action: 'cancel',
+          documentId: 'TEST_AUT_document',
+          environment: 1,
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, cStat: '135' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const confirmProduction = vi.fn(() => true);
+
+    const { processOrderCancellationFiscalEffects } = await import('../nfeService');
+    await processOrderCancellationFiscalEffects('TEST_AUT_order', '4268', { confirmProduction });
+
+    expect(confirmProduction).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+      productionConfirmed: true,
+    });
   });
 
   it('prepara rascunho de estorno para revisão quando a política indica estorno', async () => {
@@ -90,5 +133,39 @@ describe('efeitos fiscais do cancelamento comercial', () => {
       viaOrderCancellation: true,
     });
     expect(result).toEqual({ action: 'estorno', draftId: 'TEST_AUT_draft' });
+  });
+
+  it('consulta antes e não retransmite quando a política exige reconciliação', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            action: 'reconcile',
+            documentId: 'TEST_AUT_document',
+            reason: 'Consulte a SEFAZ antes de qualquer nova ação.',
+          },
+          409
+        )
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          state: 'authorized',
+          cancellationAttemptState: 'not_registered',
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { processOrderCancellationFiscalEffects } = await import('../nfeService');
+    const result = await processOrderCancellationFiscalEffects('TEST_AUT_order', '4268');
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/nfe/order-cancellation-policy',
+      '/api/nfe/consult',
+    ]);
+    expect(result).toMatchObject({ action: 'reconcile', reconciliationState: 'authorized' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].body).toBe(JSON.stringify({ documentId: 'TEST_AUT_document' }));
   });
 });

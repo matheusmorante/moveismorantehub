@@ -12,6 +12,7 @@ import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productK
 export interface ProductRowProps {
   readonly product: Product;
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly showCatalogControl?: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onDelete: (id: string) => void;
@@ -41,6 +42,7 @@ export interface ProductRowProps {
 export const ProductRow: React.FC<ProductRowProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   showCatalogControl = true,
   onEdit,
   onDelete,
@@ -101,6 +103,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     categoryTree,
     showCatalogControl,
     canManageCatalog: canManageCatalog && !readOnly,
+    canDeleteProducts,
     isDraft,
     onToggleActive,
     onDeactivateCatalog,
@@ -134,6 +137,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           key="actions"
           product={product}
           readOnly={readOnly}
+          canDeleteProducts={canDeleteProducts}
           isChildVar={isChildVar}
           showTrash={showTrash}
           onEdit={onEdit}

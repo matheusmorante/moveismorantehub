@@ -68,6 +68,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       hasTestProducts,
       loading,
       isServerPagination,
+      canDeleteProducts,
       totalItems,
       currentPage,
       itemsPerPage,
@@ -165,6 +166,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
           <ProductTable
             products={paginatedProducts}
             readOnly={readOnly}
+            canDeleteProducts={canDeleteProducts}
             onEdit={onEdit}
             onShowHistory={onShowHistory}
             onLaunchStock={onLaunchStock}

@@ -29,6 +29,10 @@ const normalizeName = (name: string) =>
     .trim()
     .toLocaleLowerCase('pt-BR');
 
+/** Mantém o campo operacional Reclinável oculto, conforme a regra canônica do ERP. */
+export const isExcludedProductTechnicalField = (name: string) =>
+  /^reclin[aá]vel$/i.test(String(name || '').trim());
+
 const parseJson = (value: unknown): unknown => {
   if (typeof value !== 'string' || !value.trim()) return value;
   try {
@@ -234,6 +238,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const manualNames = new Set(manuallyAddedFieldNames.map(normalizeName));
 
   let applicable = allFields.filter((field) => {
+    if (isExcludedProductTechnicalField(field.name)) return false;
     if (field.isRequired ?? isRequiredCharacteristicName(field.name)) return true;
     if (hasTechnicalValue(values, field.name)) return true;
     if (manualNames.has(normalizeName(field.name))) return true;

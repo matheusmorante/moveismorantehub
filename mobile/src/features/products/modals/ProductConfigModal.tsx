@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { X, Layers, Sliders, ChevronRight } from 'lucide-react-native';
 import { CategoriesManagerModal } from './CategoriesManagerModal';
 import { AttributesManagerModal } from './AttributesManagerModal';
-import { EnvironmentsManagerModal } from './EnvironmentsManagerModal';
 import { ProductTypesManagerModal } from './ProductTypesManagerModal';
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   onCategoriesUpdated?: () => void;
   onNavigateToCategories?: () => void;
+  canManageCategories?: boolean;
+  canManageCharacteristics?: boolean;
 }
 
 export const ProductConfigModal: React.FC<Props> = ({
@@ -21,11 +23,12 @@ export const ProductConfigModal: React.FC<Props> = ({
   onClose,
   onCategoriesUpdated,
   onNavigateToCategories,
+  canManageCategories = true,
+  canManageCharacteristics = true,
 }) => {
   const insets = useSafeAreaInsets();
   const [showCategories, setShowCategories] = useState(false);
   const [showAttributes, setShowAttributes] = useState(false);
-  const [showEnvironments, setShowEnvironments] = useState(false);
   const [showProductTypes, setShowProductTypes] = useState(false);
 
   const handleOpenCategories = () => {
@@ -34,15 +37,6 @@ export const ProductConfigModal: React.FC<Props> = ({
       onNavigateToCategories();
     } else {
       setShowCategories(true);
-    }
-  };
-
-  const handleOpenEnvironments = () => {
-    if (onNavigateToCategories) {
-      onClose();
-      onNavigateToCategories();
-    } else {
-      setShowEnvironments(true);
     }
   };
 
@@ -66,50 +60,60 @@ export const ProductConfigModal: React.FC<Props> = ({
           </View>
 
           <View style={styles.optionsList}>
-            <TouchableOpacity
-              style={[styles.cardOption, dark && styles.darkCard]}
-              onPress={() => setShowProductTypes(true)}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: '#fff7ed' }]}>
-                <Layers size={22} color="#ea580c" />
-              </View>
-              <View style={styles.cardTexts}>
-                <Text style={[styles.cardTitle, dark && styles.light]}>Tipos de Produto</Text>
-                <Text style={styles.cardDesc}>Padronizar nomes e prefixos usados nos produtos</Text>
-              </View>
-              <ChevronRight size={18} color="#94a3b8" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cardOption, dark && styles.darkCard]}
-              onPress={handleOpenCategories}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
-                <Layers size={22} color="#2563eb" />
-              </View>
-              <View style={styles.cardTexts}>
-                <Text style={[styles.cardTitle, dark && styles.light]}>Ambientes e Categorias</Text>
-                <Text style={styles.cardDesc}>
-                  Organizar ambientes, categorias, vínculos e características
-                </Text>
-              </View>
-              <ChevronRight size={18} color="#94a3b8" />
-            </TouchableOpacity>
+            {canManageCategories && (
+              <>
+                <TouchableOpacity
+                  style={[styles.cardOption, dark && styles.darkCard]}
+                  onPress={() => setShowProductTypes(true)}
+                >
+                  <View style={[styles.iconWrapper, { backgroundColor: '#fff7ed' }]}>
+                    <Layers size={22} color="#ea580c" />
+                  </View>
+                  <View style={styles.cardTexts}>
+                    <Text style={[styles.cardTitle, dark && styles.light]}>Tipos de Produto</Text>
+                    <Text style={styles.cardDesc}>
+                      Padronizar nomes e prefixos usados nos produtos
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94a3b8" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cardOption, dark && styles.darkCard]}
+                  onPress={handleOpenCategories}
+                >
+                  <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
+                    <Layers size={22} color="#2563eb" />
+                  </View>
+                  <View style={styles.cardTexts}>
+                    <Text style={[styles.cardTitle, dark && styles.light]}>
+                      Ambientes e Categorias
+                    </Text>
+                    <Text style={styles.cardDesc}>
+                      Organizar ambientes, categorias, vínculos e características
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94a3b8" />
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity
-              style={[styles.cardOption, dark && styles.darkCard]}
-              onPress={() => setShowAttributes(true)}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: '#f5f3ff' }]}>
-                <Sliders size={22} color="#7c3aed" />
-              </View>
-              <View style={styles.cardTexts}>
-                <Text style={[styles.cardTitle, dark && styles.light]}>Atributos e Variações</Text>
-                <Text style={styles.cardDesc}>
-                  Criar atributos globais (Cor, Tamanho, etc.) e opções
-                </Text>
-              </View>
-              <ChevronRight size={18} color="#94a3b8" />
-            </TouchableOpacity>
+            {canManageCharacteristics && (
+              <TouchableOpacity
+                style={[styles.cardOption, dark && styles.darkCard]}
+                onPress={() => setShowAttributes(true)}
+              >
+                <View style={[styles.iconWrapper, { backgroundColor: '#f5f3ff' }]}>
+                  <Sliders size={22} color="#7c3aed" />
+                </View>
+                <View style={styles.cardTexts}>
+                  <Text style={[styles.cardTitle, dark && styles.light]}>Atributos e Variações</Text>
+                  <Text style={styles.cardDesc}>
+                    Criar atributos globais (Cor, Tamanho, etc.) e opções
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -117,6 +121,7 @@ export const ProductConfigModal: React.FC<Props> = ({
       <CategoriesManagerModal
         visible={showCategories}
         dark={dark}
+        onCategoriesUpdated={onCategoriesUpdated}
         onClose={() => {
           setShowCategories(false);
           onCategoriesUpdated?.();
@@ -127,11 +132,6 @@ export const ProductConfigModal: React.FC<Props> = ({
         visible={showAttributes}
         dark={dark}
         onClose={() => setShowAttributes(false)}
-      />
-      <EnvironmentsManagerModal
-        visible={showEnvironments}
-        dark={dark}
-        onClose={() => setShowEnvironments(false)}
       />
       <ProductTypesManagerModal
         visible={showProductTypes}

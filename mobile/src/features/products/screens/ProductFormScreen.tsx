@@ -38,9 +38,9 @@ import {
   hasTechnicalValue,
 } from '../domain/productCharacteristics';
 import {
-  getMobileEffectiveVariationPrice,
   getMobileVariationRegistrationIssue,
   isMobileEcommerceLegible,
+  isMobileProductErpLegible,
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
@@ -54,6 +54,11 @@ import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab'
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
+import { useAuth } from '../../../contexts/AuthContext';
+import {
+  isStockistOnlyProductProfile,
+  shouldHideProductCatalogPublicationStatus,
+} from '../../../../../shared-utils/productPermissions';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
@@ -62,7 +67,7 @@ interface Tab {
   id: TabId;
   label: string;
   Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-  condition?: (formData: any) => boolean;
+  condition?: (formData: any, isStockistOnly: boolean) => boolean;
 }
 
 const TABS: Tab[] = [
@@ -71,7 +76,7 @@ const TABS: Tab[] = [
     id: 'fotos',
     label: 'Fotos',
     Icon: Images,
-    condition: (formData) => formData.itemType !== 'service',
+    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
   },
   {
     id: 'technical',
@@ -83,7 +88,7 @@ const TABS: Tab[] = [
     id: 'description',
     label: 'Descrição',
     Icon: FileText,
-    condition: (formData) => formData.itemType !== 'service',
+    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
   },
   {
     id: 'estoque',
@@ -178,6 +183,10 @@ export const ProductFormScreen: React.FC<Props> = ({
   onClose,
   onSave,
 }) => {
+  const { userProfile, canUseProductPermission } = useAuth();
+  const isStockistOnly = isStockistOnlyProductProfile(userProfile);
+  const canManageCategories = canUseProductPermission('viewProductCategories');
+  const hideCatalogPublicationStatus = shouldHideProductCatalogPublicationStatus(userProfile);
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
@@ -215,12 +224,15 @@ export const ProductFormScreen: React.FC<Props> = ({
     return false;
   };
 
-  const visibleTabs = TABS.filter((tab) => !tab.condition || tab.condition(formData));
+  const visibleTabs = TABS.filter(
+    (tab) => !tab.condition || tab.condition(formData, isStockistOnly)
+  );
   const enabledTabs = visibleTabs.filter((tab) => !isTabDisabled(tab.id));
 
   useEffect(() => {
     if (isTabDisabled(activeTab)) setActiveTab('geral');
-  }, [activeTab, hasCategory, hasProductName, hasMissingRequiredTechnical]);
+    else if (!visibleTabs.some((tab) => tab.id === activeTab)) setActiveTab('geral');
+  }, [activeTab, formData.itemType, hasCategory, hasProductName, hasMissingRequiredTechnical, isStockistOnly]);
 
   // Wrapper estável para setFormData (aceita função ou objeto)
   const setFormData = useCallback((fn: any) => {
@@ -691,42 +703,46 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   const varCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
   const photoCount = Array.isArray(formData.images) ? formData.images.length : 0;
-  const hasValidName = String(formData.name || '').trim().length >= 2;
-  const hasValidCategories = Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0;
-  const isOwnProduction =
-    formData.merchandiseOrigin === 'own_production' ||
-    (formData as any).isOwnProduction === true ||
-    formData.fiscal?.merchandiseOrigin === 'own_production';
-  const hasValidSupplier = isOwnProduction || Boolean(formData.mainSupplierId);
-  const hasValidPrice = formData.hasVariations
-    ? varCount > 0 &&
-      Array.isArray(formData.variations) &&
-      formData.variations.some(
-        (variation: any) => getMobileEffectiveVariationPrice(formData, variation) > 0
-      )
-    : parseLocalizedPrice(formData.unitPrice) > 0;
-  const erpReady = hasValidName && hasValidCategories && hasValidSupplier && hasValidPrice;
+  const erpReady = isMobileProductErpLegible(formData);
   const catalogPublished = formData.status === 'published';
 
   const renderTab = () => {
     switch (activeTab) {
       case 'geral':
-        return <ProductFormBasicTab formData={formData} setFormData={setFormData} dark={dark} />;
+        return (
+          <ProductFormBasicTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            isStockistOnly={isStockistOnly}
+            canManageCategories={canManageCategories}
+          />
+        );
       case 'fotos':
-        return <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />;
+        return isStockistOnly ? null : <ProductFormPhotosTab formData={formData} setFormData={setFormData} dark={dark} />;
       case 'technical':
         return (
-          <ProductFormTechnicalTab formData={formData} setFormData={setFormData} dark={dark} />
+          <ProductFormTechnicalTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            requiredFieldsOnly={isStockistOnly}
+          />
         );
       case 'description':
         return (
-          <ProductFormDescriptionTab formData={formData} setFormData={setFormData} dark={dark} />
+          isStockistOnly ? null : <ProductFormDescriptionTab formData={formData} setFormData={setFormData} dark={dark} />
         );
       case 'estoque':
         return <ProductFormPricesTab formData={formData} setFormData={setFormData} dark={dark} />;
       case 'variacoes':
         return (
-          <ProductFormVariationsTab formData={formData} setFormData={setFormData} dark={dark} />
+          <ProductFormVariationsTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            isStockistOnly={isStockistOnly}
+          />
         );
       case 'fiscal':
         return <ProductFormFiscalTab formData={formData} setFormData={setFormData} dark={dark} />;
@@ -782,7 +798,7 @@ export const ProductFormScreen: React.FC<Props> = ({
                     ERP: {erpReady ? 'Ativo' : 'Pendente'}
                   </Text>
                 </View>
-                <View
+                {!hideCatalogPublicationStatus && <View
                   style={[
                     styles.statusBadge,
                     catalogPublished ? styles.catalogStatusPublished : styles.catalogStatusHidden,
@@ -798,7 +814,7 @@ export const ProductFormScreen: React.FC<Props> = ({
                   >
                     CATÁLOGO: {catalogPublished ? 'Publicado' : 'Ocultado'}
                   </Text>
-                </View>
+                </View>}
               </View>
             </View>
             {!product?.id && (

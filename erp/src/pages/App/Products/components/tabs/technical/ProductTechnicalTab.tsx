@@ -262,9 +262,9 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         id={`technical-field-${field.name}`}
                         className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all"
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex w-full items-center justify-between gap-2">
                           <label
-                            className={`text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
+                            className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
                               isFieldInvalid
                                 ? 'text-red-600 dark:text-red-400'
                                 : isNotApplicable
@@ -276,7 +276,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                               {field.name}
                               {field.unit ? ` (${field.unit})` : ''}
                             </span>
-                            {field.isRequired && isApplicable && (
+                            {isApplicable && (
                               <span className="text-red-500" aria-label="Obrigatório">
                                 *
                               </span>
@@ -290,10 +290,11 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                               <button
                                 type="button"
                                 title="Gerenciar cores"
+                                aria-label="Gerenciar cores"
                                 onClick={() => setIsAttributeModalOpen(true)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                                className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/40"
                               >
-                                <i className="bi bi-gear-fill" />
+                                Gerenciar
                               </button>
                             )}
                             {(field.name.toLowerCase() === 'profundidade' ||
@@ -377,6 +378,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
       <AttributeManagementModal
         isOpen={isAttributeModalOpen}
+        focusAttributeName="Cor"
         onClose={() => {
           setIsAttributeModalOpen(false);
           setRefreshKey((prev) => prev + 1);

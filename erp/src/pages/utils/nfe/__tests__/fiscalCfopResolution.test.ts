@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   confirmedOperationCfop,
+  getEstornoCfopOptions,
   originalItemCfop,
   suggestEstornoCfop,
   suggestReturnCfop,
@@ -81,6 +82,17 @@ describe('CFOP configurável das operações fiscais', () => {
       ['5405', '1405', null],
     ]);
     expect(originalItemCfop(source.lines[0].productXml)).toBe('5102');
+  });
+
+  it('oferece somente os CFOPs alternativos da orientação da SEFA/PR quando falta mapa inverso', () => {
+    expect(getEstornoCfopOptions('5102')).toEqual([
+      { value: '5949', label: '5.949 · outra saída não especificada' },
+      { value: '6949', label: '6.949 · outra saída não especificada' },
+      { value: '7949', label: '7.949 · outra saída não especificada' },
+    ]);
+    expect(
+      getEstornoCfopOptions('5102', { inverseCfopMappings: { '5102': '1102' } })
+    ).toEqual([{ value: '1102', label: '1.102 · CFOP inverso configurado' }]);
   });
 
   it('sem mapa, com mapa inválido ou após mudança de config, não troca CFOP confirmado', () => {

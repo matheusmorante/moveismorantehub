@@ -24,10 +24,13 @@ import {
 } from 'lucide-react-native';
 import {
   fetchMobileAttributes,
+  createMobileAttributeWithOptions,
   saveMobileAttribute,
   deleteMobileAttribute,
   addMobileAttributeValue,
   deleteMobileAttributeValue,
+  checkMobileAttributeUsage,
+  MobileAttributeDataType,
   MobileAttribute,
 } from '../services/mobileAttributeService';
 import {
@@ -47,10 +50,11 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newDataType, setNewDataType] = useState('text_short');
+  const [newDataType, setNewDataType] = useState<MobileAttributeDataType>('list');
   const [newUnit, setNewUnit] = useState('');
-  const [newRequired, setNewRequired] = useState(false);
   const [newAttrName, setNewAttrName] = useState('');
+  const [newOptionInput, setNewOptionInput] = useState('');
+  const [newOptions, setNewOptions] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,15 +83,43 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
       Alert.alert('Atenção', validation.error || 'Nome inválido.');
       return;
     }
-    await saveMobileAttribute(validation.formattedName!, undefined, {
-      dataType: newDataType,
-      unit: newUnit.trim(),
-      isGloballyRequired: newRequired,
-    });
-    setNewAttrName('');
-    setNewUnit('');
-    setNewRequired(false);
-    load();
+
+    const options = [...newOptions];
+    if (newDataType === 'list' && newOptionInput.trim()) {
+      const optionValidation = validateAttributeOption(
+        newOptionInput,
+        options.map((value, index) => ({ id: String(index), value }))
+      );
+      if (!optionValidation.valid) {
+        Alert.alert('Atenção', optionValidation.error || 'Valor inválido.');
+        return;
+      }
+      options.push(optionValidation.formattedName!);
+    }
+
+    if (newDataType === 'list' && options.length === 0) {
+      Alert.alert('Atenção', 'Adicione pelo menos um valor/rótulo.');
+      return;
+    }
+
+    try {
+      await createMobileAttributeWithOptions(
+        validation.formattedName!,
+        newDataType,
+        newDataType === 'measure' ? newUnit : '',
+        newDataType === 'list' ? options : []
+      );
+      setNewAttrName('');
+      setNewUnit('');
+      setNewOptionInput('');
+      setNewOptions([]);
+      void load();
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível criar',
+        error instanceof Error ? error.message : 'A característica não foi salva.'
+      );
+    }
   };
 
   const handleDeleteAttr = (id: string, name: string) => {
@@ -100,8 +132,22 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            await deleteMobileAttribute(id);
-            load();
+            try {
+              if (await checkMobileAttributeUsage(name)) {
+                Alert.alert(
+                  'Exclusão bloqueada',
+                  `Não é possível excluir "${name}" pois está vinculada a um ou mais produtos.`
+                );
+                return;
+              }
+              await deleteMobileAttribute(id);
+              void load();
+            } catch (error) {
+              Alert.alert(
+                'Não foi possível verificar',
+                error instanceof Error ? error.message : 'A característica não foi excluída.'
+              );
+            }
           },
         },
       ]
@@ -121,9 +167,45 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     load();
   };
 
-  const handleDeleteValue = async (valId: string) => {
-    await deleteMobileAttributeValue(valId);
-    load();
+  const handleDeleteValue = (attributeName: string, valId: string, value: string) => {
+    Alert.alert('Remover valor', `Deseja remover "${value}" de "${attributeName}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (await checkMobileAttributeUsage(attributeName, value)) {
+              Alert.alert(
+                'Remoção bloqueada',
+                `O valor "${value}" não pode ser removido porque está vinculado a produtos.`
+              );
+              return;
+            }
+            await deleteMobileAttributeValue(valId);
+            void load();
+          } catch (error) {
+            Alert.alert(
+              'Não foi possível verificar',
+              error instanceof Error ? error.message : 'O valor não foi removido.'
+            );
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleAddNewOption = () => {
+    const validation = validateAttributeOption(
+      newOptionInput,
+      newOptions.map((value, index) => ({ id: String(index), value }))
+    );
+    if (!validation.valid) {
+      Alert.alert('Atenção', validation.error || 'Valor inválido.');
+      return;
+    }
+    setNewOptions((previous) => [...previous, validation.formattedName!]);
+    setNewOptionInput('');
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -175,31 +257,29 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
             </TouchableOpacity>
           </View>
 
-          <View style={styles.metaRow}>
-            <TextInput
-              value={newUnit}
-              onChangeText={setNewUnit}
-              placeholder="Unidade (opcional)"
-              placeholderTextColor="#94a3b8"
-              style={[styles.metaInput, dark && styles.darkInput, dark && styles.light]}
-            />
-            <TouchableOpacity
-              onPress={() => setNewRequired((value) => !value)}
-              style={[styles.requiredBtn, newRequired && styles.requiredBtnActive]}
-            >
-              <Text style={styles.requiredText}>{newRequired ? 'Obrigatória' : 'Opcional'}</Text>
-            </TouchableOpacity>
-          </View>
+          {newDataType === 'measure' && (
+            <View style={styles.measureInputRow}>
+              <TextInput
+                value={newUnit}
+                onChangeText={setNewUnit}
+                placeholder="Unidade (ex.: cm, kg, L)"
+                placeholderTextColor="#94a3b8"
+                style={[styles.metaInput, dark && styles.darkInput, dark && styles.light]}
+              />
+            </View>
+          )}
           <View style={styles.typeRow}>
             {[
-              ['text_short', 'Texto'],
+              ['list', 'Lista de valores'],
+              ['text', 'Texto livre'],
               ['integer', 'Inteiro'],
               ['decimal', 'Decimal'],
-              ['radio', 'Lista'],
+              ['boolean', 'Sim/Não'],
+              ['measure', 'Medida'],
             ].map(([value, label]) => (
               <TouchableOpacity
                 key={value}
-                onPress={() => setNewDataType(value)}
+                onPress={() => setNewDataType(value as MobileAttributeDataType)}
                 style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}
               >
                 <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>
@@ -208,6 +288,54 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               </TouchableOpacity>
             ))}
           </View>
+          {newDataType === 'list' && (
+            <View style={styles.newValuesArea}>
+              <Text style={[styles.newValuesLabel, dark && styles.light]}>
+                Valores (Enter ou adicionar)
+              </Text>
+              <View style={styles.addValRow}>
+                <TextInput
+                  value={newOptionInput}
+                  onChangeText={setNewOptionInput}
+                  onSubmitEditing={handleAddNewOption}
+                  placeholder="Ex.: Azul, Preto..."
+                  placeholderTextColor="#94a3b8"
+                  style={[styles.valInput, dark && styles.darkInput, dark && styles.light]}
+                  returnKeyType="done"
+                  accessibilityLabel="Novo valor da lista"
+                />
+                <TouchableOpacity
+                  onPress={handleAddNewOption}
+                  style={styles.addValBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Adicionar valor à nova lista"
+                >
+                  <Plus size={14} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.valuesList}>
+                {newOptions.map((value) => (
+                  <View
+                    key={value.toLocaleLowerCase('pt-BR')}
+                    style={[styles.valBadge, dark && styles.darkBadge]}
+                  >
+                    <Tag size={10} color="#7c3aed" />
+                    <Text style={[styles.valText, dark && styles.light]}>{value}</Text>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setNewOptions((previous) => previous.filter((item) => item !== value))
+                      }
+                      style={styles.valueRemoveButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remover valor ${value}`}
+                    >
+                      <X size={12} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
           <View style={[styles.searchBox, dark && styles.darkInput]}>
             <TextInput
               value={searchTerm}
@@ -269,8 +397,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                               </Text>
                             )}
                             <Text style={styles.valCount}>
-                              ({attr.options.length} opções · {attr.dataType || 'text_short'}
-                              {attr.isGloballyRequired ? ' · obrigatória' : ''})
+                              ({attr.options.length} opções · {attr.dataType || 'text_short'})
                             </Text>
                           </View>
                           <View style={styles.attrActions}>
@@ -286,9 +413,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                                 onPress={() => {
                                   setEditingId(attr.id);
                                   setEditName(attr.name);
-                                  setNewDataType(attr.dataType || 'text_short');
-                                  setNewUnit(attr.unit || '');
-                                  setNewRequired(Boolean(attr.isGloballyRequired));
                                 }}
                                 style={styles.trashBtn}
                               >
@@ -316,7 +440,12 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                                   <Text style={[styles.valText, dark && styles.light]}>
                                     {opt.value}
                                   </Text>
-                                  <TouchableOpacity onPress={() => handleDeleteValue(opt.id)}>
+                                  <TouchableOpacity
+                                    onPress={() => handleDeleteValue(attr.name, opt.id, opt.value)}
+                                    style={styles.valueRemoveButton}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Remover valor ${opt.value}`}
+                                  >
                                     <X size={12} color="#ef4444" />
                                   </TouchableOpacity>
                                 </View>
@@ -371,8 +500,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '900', color: '#0f172a' },
   light: { color: '#f8fafc' },
   closeBtn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
@@ -382,7 +511,7 @@ const styles = StyleSheet.create({
   addBar: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,
-    height: 42,
+    height: 44,
     backgroundColor: '#f8fafc',
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -392,14 +521,14 @@ const styles = StyleSheet.create({
   },
   darkInput: { backgroundColor: '#1e293b', borderColor: '#334155' },
   addBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#7c3aed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  list: { maxHeight: 380 },
+  list: { flexShrink: 1, maxHeight: 380 },
   emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 12, marginVertical: 20 },
   attrCard: {
     borderRadius: 16,
@@ -413,13 +542,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+    minHeight: 52,
     padding: 12,
   },
-  attrTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  attrName: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
-  valCount: { fontSize: 11, color: '#64748b', fontWeight: '600' },
-  trashBtn: { padding: 4 },
-  attrActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  attrTitleRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  attrName: { flexShrink: 1, fontSize: 14, fontWeight: '800', color: '#0f172a' },
+  valCount: { flexShrink: 1, fontSize: 11, color: '#64748b', fontWeight: '600' },
+  trashBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attrActions: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   editInput: {
     minWidth: 120,
     height: 32,
@@ -439,20 +582,22 @@ const styles = StyleSheet.create({
   },
   valuesList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   valBadge: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#f3e8ff',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 0,
     borderRadius: 8,
   },
+  valueRemoveButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   darkBadge: { backgroundColor: '#3b0764' },
-  valText: { fontSize: 12, fontWeight: '700', color: '#6b21a8' },
-  addValRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  valText: { flexShrink: 1, fontSize: 12, fontWeight: '700', color: '#6b21a8' },
+  addValRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   valInput: {
     flex: 1,
-    height: 34,
+    height: 44,
     backgroundColor: '#ffffff',
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -461,17 +606,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   addValBtn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     backgroundColor: '#7c3aed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metaRow: { flexDirection: 'row', gap: 8 },
+  measureInputRow: { flexDirection: 'row', gap: 8 },
+  newValuesArea: { gap: 8 },
+  newValuesLabel: { color: '#64748b', fontSize: 11, fontWeight: '800' },
   metaInput: {
     flex: 1,
-    height: 36,
+    height: 44,
     backgroundColor: '#f8fafc',
     borderRadius: 10,
     paddingHorizontal: 10,
@@ -479,18 +626,11 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     fontSize: 12,
   },
-  requiredBtn: {
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
-  },
-  requiredBtnActive: { backgroundColor: '#ede9fe' },
-  requiredText: { color: '#6d28d9', fontSize: 11, fontWeight: '800' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   typeBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 9,
     backgroundColor: '#f1f5f9',
   },
@@ -498,7 +638,7 @@ const styles = StyleSheet.create({
   typeText: { color: '#64748b', fontSize: 11, fontWeight: '700' },
   typeTextActive: { color: '#ffffff' },
   searchBox: {
-    height: 38,
+    height: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',

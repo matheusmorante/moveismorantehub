@@ -15,6 +15,7 @@ import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 interface ProductCardProps {
   readonly product: ProductListRow;
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly showCatalogControl?: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
@@ -38,6 +39,7 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   showCatalogControl = true,
   onEdit,
   onLaunchStock,
@@ -131,6 +133,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <ProductCardHeader
         product={product}
         readOnly={readOnly}
+        canDeleteProducts={canDeleteProducts}
         showCatalogControl={showCatalogControl}
         isParent={isParent}
         isVariation={isVariation}
@@ -253,6 +256,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <ProductCardVariationList
           product={product}
           readOnly={readOnly}
+          canDeleteProducts={canDeleteProducts}
           showCatalogControl={showCatalogControl}
           variations={(product as any).allVariations || []}
           showVariations={showVariations}

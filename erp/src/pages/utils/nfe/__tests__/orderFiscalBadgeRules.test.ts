@@ -47,10 +47,10 @@ describe('resolveOrderFiscalBadgePair', () => {
     });
   });
 
-  it('exibe rejeição de homologação como failed e mantém ausência de documento como not_issued', () => {
+  it('exibe rejeição de homologação como rejected e mantém ausência de documento como not_issued', () => {
     const result = resolveOrderFiscalBadgePair([outbound('rejeitada', 2), outbound('rascunho', 2)]);
     expect(result.production).toBe('not_issued');
-    expect(result.homologation).toBe('failed');
+    expect(result.homologation).toBe('rejected');
   });
 
   it('exibe NFH quando homologação estiver autorizada e NF permanece not_issued se produção não tiver nota', () => {
@@ -72,6 +72,36 @@ describe('resolveOrderFiscalBadgePair', () => {
     ]);
     expect(result.production).toBe('issued');
     expect(result.homologation).toBe('issued');
+  });
+
+  it('mantém a NF autorizada quando o cancelamento falha e sinaliza a falha em separado', () => {
+    const result = resolveOrderFiscalBadgePair([
+      {
+        ...outbound('autorizada', 1),
+        id: 'source-document',
+        cancellationEventStatus: 'rejected',
+      },
+    ]);
+    expect(result.production).toBe('issued');
+    expect(result.cancellationState).toBe('failed');
+  });
+
+  it('mantém a NF autorizada e pede verificação quando o resultado do cancelamento é incerto', () => {
+    const result = resolveOrderFiscalBadgePair([
+      {
+        ...outbound('homologada', 2),
+        id: 'source-document',
+        cancellationEventStatus: 'unknown',
+      },
+    ]);
+    expect(result.homologation).toBe('issued');
+    expect(result.cancellationState).toBe('verify');
+  });
+
+  it('mostra pendência quando o pedido foi cancelado comercialmente e não há efeito fiscal persistido', () => {
+    const result = resolveOrderFiscalBadgePair([outbound('autorizada', 1)], [], true);
+    expect(result.production).toBe('issued');
+    expect(result.cancellationState).toBe('pending');
   });
 
   it('mantém cancelamento no NFH e separa devolução e estorno dos rótulos NF/NFH', () => {

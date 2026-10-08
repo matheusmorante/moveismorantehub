@@ -7,6 +7,7 @@ export interface ChannelStatusBadgesProps {
   readonly catalogStatus?: 'published' | 'hidden' | 'draft' | string;
   readonly onToggleActive?: (e: React.MouseEvent) => void;
   readonly onToggleCatalog?: (e: React.MouseEvent) => void;
+  readonly canToggleActive?: boolean;
   readonly canManageCatalog?: boolean;
   readonly isParent?: boolean;
   readonly isNonConventional?: boolean;
@@ -28,6 +29,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   catalogStatus = 'hidden',
   onToggleActive,
   onToggleCatalog,
+  canToggleActive = true,
   canManageCatalog = true,
   isParent = false,
   isNonConventional = false,
@@ -48,7 +50,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const isCatalogPublished = !isDraft && catalogStatus === 'published';
   const isERPActive = !isDraft && !isNonConventional && active !== false;
-  const isERPDisabled = disabled || isNonConventional || isDraft;
+  const isERPDisabled = disabled || isNonConventional || isDraft || !canToggleActive;
   const isCatalogDisabled =
     disabled || isDraft || (!canManageCatalog && !onToggleCatalog);
 
@@ -60,6 +62,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const handleERPClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canToggleActive) return;
     if (isNonConventional) {
       toast.warning(
         isSalvado
@@ -227,6 +230,8 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                 ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
                 : isDraft
                   ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
+                  : !canToggleActive
+                    ? 'Seu perfil não permite excluir ou desativar produtos.'
                   : disabled
                     ? undefined
                     : isERPActive
@@ -234,7 +239,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
                       : 'Clique para ativar esta variação no ERP'
             }
             className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isNonConventional || isDraft
+              isNonConventional || isDraft || !canToggleActive
                 ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
                 : disabled
                   ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'

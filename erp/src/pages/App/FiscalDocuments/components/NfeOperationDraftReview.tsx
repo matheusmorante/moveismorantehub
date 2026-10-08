@@ -128,9 +128,9 @@ export function NfeOperationDraftReview({
                   {Number(line.gross_value).toFixed(2)} · desconto R$ {Number(line.discount_value).toFixed(2)}
                 </p>
               </div>
-          {formRules.context === 'return' ? (
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase">
-                  CFOP de devolução
+          {formRules.context === 'return' || line.allowedCfops?.length ? (
+            <label className="flex items-center gap-2 text-[10px] font-black uppercase">
+                  {isReturn ? 'CFOP de devolução' : 'CFOP do estorno'}
                   <select
                     value={reviewedLines[index]?.cfop || ''}
                     required={formRules.requiredFields.includes('cfop')}
@@ -139,7 +139,9 @@ export function NfeOperationDraftReview({
                     disabled={!line.allowedCfops?.length}
                     className="max-w-64 rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                   >
-                    <option value="">Selecione CFOP permitido</option>
+                    <option value="">
+                      {isReturn ? 'Selecione CFOP permitido' : 'Selecione o inverso ou CFOP alternativo'}
+                    </option>
                     {(line.allowedCfops || []).map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -162,8 +164,8 @@ export function NfeOperationDraftReview({
             </div>
             {!isReturn && (
               <p className="text-[10px] text-slate-500">
-                CFOP original {line.originalCfop || 'não identificado'} · use o inverso configurado;
-                sem mapeamento, informe e confirme o CFOP inverso com a revisão fiscal.
+                  CFOP original {line.originalCfop || 'não identificado'} · use o inverso configurado;
+                sem mapeamento, escolha 5.949, 6.949 ou 7.949 conforme o cenário e confirme com a revisão fiscal.
               </p>
             )}
             <div className="grid gap-2 sm:grid-cols-2">
@@ -314,6 +316,33 @@ export function NfeOperationDraftReview({
             />
             Revisei totais, valores e referências fiscais da operação.
           </label>
+          {!isReturn && (
+            <>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={review.apportionment_review_confirmed}
+                  onChange={(event) =>
+                    onReviewChange('apportionment_review_confirmed', event.target.checked)
+                  }
+                />
+                Conferi o período de apuração e avaliei diferenças e acréscimos do art. 298, §2º, quando aplicáveis.
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                  Diferenças/acréscimos do art. 298, §2º (ou justificativa de não aplicação)
+                </span>
+                <textarea
+                  value={review.period_adjustment_text}
+                  onChange={(event) => onReviewChange('period_adjustment_text', event.target.value)}
+                  rows={2}
+                  maxLength={1200}
+                  placeholder="Preencha quando o estorno for emitido em período posterior e houver diferenças ou acréscimos a informar."
+                  className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+                />
+              </label>
+            </>
+          )}
         </div>}
       </section>
 

@@ -203,6 +203,8 @@ const OrderHistoryTable = ({
                   typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
                 const hmlDocumentId =
                   typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+                const fiscalCancellationState =
+                  typeof badgeInfo === 'object' ? badgeInfo?.cancellationState : undefined;
                 const estornoStatus =
                   typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
                 const estornoDocumentId =
@@ -225,6 +227,7 @@ const OrderHistoryTable = ({
                     fiscalBadgeLoading={fiscalBadgeLoading}
                     fiscalDocumentId={prodDocumentId}
                     fiscalHmlDocumentId={hmlDocumentId}
+                    fiscalCancellationState={fiscalCancellationState}
                     fiscalEstornoBadgeStatus={estornoStatus}
                     fiscalEstornoDocumentId={estornoDocumentId}
                     fiscalEstornoEnvironment={estornoEnvironment}
@@ -276,6 +279,8 @@ const OrderHistoryTable = ({
                 typeof badgeInfo === 'object' ? badgeInfo?.productionDocumentId : undefined;
               const hmlDocumentId =
                 typeof badgeInfo === 'object' ? badgeInfo?.homologationDocumentId : undefined;
+              const fiscalCancellationState =
+                typeof badgeInfo === 'object' ? badgeInfo?.cancellationState : undefined;
               const estornoStatus =
                 typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
               const estornoDocumentId =
@@ -298,6 +303,7 @@ const OrderHistoryTable = ({
                   fiscalBadgeLoading={fiscalBadgeLoading}
                   fiscalDocumentId={prodDocumentId}
                   fiscalHmlDocumentId={hmlDocumentId}
+                  fiscalCancellationState={fiscalCancellationState}
                   fiscalEstornoBadgeStatus={estornoStatus}
                   fiscalEstornoDocumentId={estornoDocumentId}
                   fiscalEstornoEnvironment={estornoEnvironment}

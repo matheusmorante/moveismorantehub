@@ -30,7 +30,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-1.5 h-6">
-            <span>Fotos da Variação</span>
+            <span>Fotos vinculadas</span>
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {isSingleVariation

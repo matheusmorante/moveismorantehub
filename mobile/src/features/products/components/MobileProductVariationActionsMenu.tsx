@@ -7,14 +7,14 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Clock3, Edit3, QrCode, X } from 'lucide-react-native';
+import { Edit3, QrCode, X } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
   dark: boolean;
   variationName: string;
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onHistory?: () => void;
   onStock?: () => void;
   onPrintLabel?: () => void;
@@ -57,16 +57,18 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                 </Text>
               </TouchableOpacity>
             ) : null}
-            <TouchableOpacity
-              style={styles.item}
-              onPress={() => {
-                onClose();
-                onEdit();
-              }}
-            >
-              <Edit3 size={16} color="#2563eb" />
-              <Text style={[styles.itemText, dark && styles.textDark]}>Editar Variação</Text>
-            </TouchableOpacity>
+            {onEdit ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onEdit();
+                }}
+              >
+                <Edit3 size={16} color="#2563eb" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Editar Variação</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </TouchableWithoutFeedback>
       </View>

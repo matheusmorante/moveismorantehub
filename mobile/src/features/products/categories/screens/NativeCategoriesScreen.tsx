@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -33,6 +33,7 @@ export const NativeCategoriesScreen: React.FC<Props> = ({ dark, onCategoriesUpda
     selectedAttributes,
     setSelectedAttributes,
     isLoadingAttributes,
+    attributeLoadFailed,
     closeForm,
     handleSave,
     handleDelete,
@@ -121,6 +122,7 @@ export const NativeCategoriesScreen: React.FC<Props> = ({ dark, onCategoriesUpda
         selectedAttributes={selectedAttributes}
         setSelectedAttributes={setSelectedAttributes}
         isLoadingAttributes={isLoadingAttributes}
+        attributeLoadFailed={attributeLoadFailed}
         categories={categories}
         environments={environments}
         isSubmitting={isSubmitting}

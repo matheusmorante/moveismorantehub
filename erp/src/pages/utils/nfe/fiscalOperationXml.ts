@@ -11,6 +11,7 @@ import {
   type FiscalFormScenario,
   type FiscalReturnMethod,
 } from '../../../../../shared-utils/fiscalOperationContext';
+import { ESTORNO_FALLBACK_CFOPS } from './fiscalCfopResolution';
 
 type FiscalEnvironment = 1 | 2;
 type FiscalOperationKind = 'estorno' | 'return';
@@ -54,12 +55,14 @@ export interface ReviewedFiscalOperationXmlInput {
   natureOfOperation: string;
   /** The original sale's destination indicator, preserved for an estorno. */
   destinationIndicator?: 1 | 2 | 3;
+  originalOperationType?: 0 | 1;
   /** Reviewed destination; never filled with the sale builder's placeholder address. */
   recipientXml: string;
   totalsXml: string;
   transportXml: string;
   paymentXml: string;
   reason?: string;
+  periodAdjustmentText?: string;
   lines: ReviewedFiscalOperationLine[];
 }
 
@@ -192,12 +195,19 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
   if (
     input.kind === 'estorno' &&
     (input.natureOfOperation !== ESTORNO_NATURE_OF_OPERATION ||
-      ![1, 2, 3].includes(Number(input.destinationIndicator)))
+      ![1, 2, 3].includes(Number(input.destinationIndicator)) ||
+      ![0, 1].includes(Number(input.originalOperationType)))
   ) {
-    throw new Error('Estorno requer natureza e indicador de destino fiscal da nota original.');
+    throw new Error('Estorno requer natureza, tpNF e indicador de destino fiscal da nota original.');
   }
   if (input.kind === 'estorno' && (!input.reason || input.reason.trim().length < 15)) {
     throw new Error('Estorno requer justificativa específica.');
+  }
+  if (
+    input.kind === 'estorno' &&
+    Array.from(String(input.periodAdjustmentText || '')).length > 1200
+  ) {
+    throw new Error('A revisão de diferenças e acréscimos excede o limite fiscal.');
   }
   if (!input.lines.length || input.lines.length > 990)
     throw new Error('Operação fiscal sem itens conferidos.');
@@ -245,7 +255,11 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
         !Number.isFinite(line.quantity) ||
         line.quantity <= 0 ||
         line.quantity > line.billedQuantity ||
-        !/^[12]\d{3}$/.test(line.cfop)
+        !(
+          /^[12]\d{3}$/.test(line.cfop) ||
+          (input.kind === 'estorno' &&
+            ESTORNO_FALLBACK_CFOPS.includes(line.cfop as (typeof ESTORNO_FALLBACK_CFOPS)[number]))
+        )
       ) {
         throw new Error(
           `Item ${index + 1}: origem, quantidade ou CFOP interno de entrada inválido.`
@@ -367,9 +381,16 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
       throw new Error('Pagamento e transporte fiscal não correspondem ao contexto da devolução.');
     }
   }
+  const estornoInfAdFisco = [
+    input.reason?.trim(),
+    input.periodAdjustmentText?.trim(),
+    'Nota Fiscal emitida de acordo com inciso VII do caput do art. 298 do RICMS',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const information =
     input.kind === 'estorno'
-      ? `<infAdic><infAdFisco>${escapeXml(`${input.reason!.trim()} Nota Fiscal emitida de acordo com inciso VII do caput do art. 298 do RICMS`)}</infAdFisco></infAdic>`
+      ? `<infAdic><infAdFisco>${escapeXml(estornoInfAdFisco)}</infAdFisco></infAdic>`
       : `<infAdic><infCpl>Devolucao referente a NF-e ${input.originalAccessKey}; itens e quantidades identificados por item.</infCpl></infAdic>`;
   const ide = buildIdeXml({
     accessKey: input.accessKey,
@@ -381,7 +402,8 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
     environment: input.environment,
     dhEmi: input.issuedAt,
     natureOfOperation: input.natureOfOperation,
-    operationType: 0,
+    operationType:
+      input.kind === 'estorno' ? (input.originalOperationType === 1 ? 0 : 1) : 0,
     finalidade: input.kind === 'estorno' ? 3 : 4,
     destinationIndicator: input.kind === 'estorno' ? input.destinationIndicator! : 1,
     presenceIndicator: 0,

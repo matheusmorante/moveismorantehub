@@ -8,6 +8,7 @@ import {
   getProductCharacteristicAttributes,
   groupProductTechnicalFields,
   hasTechnicalValue,
+  isExcludedProductTechnicalField,
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
 } from './productCharacteristics';
@@ -99,6 +100,23 @@ describe('productCharacteristics', () => {
         'Legado preenchido': 'valor',
       }).map(({ name }) => name)
     ).toEqual(['Cor', 'Material da estrutura', 'Da categoria', 'Legado preenchido']);
+  });
+
+  it('mantém Reclinável fora dos campos técnicos aplicáveis, como no ERP', () => {
+    const fields = [
+      { name: 'Reclinável', categoryIds: ['category-1'] },
+      { name: 'reclinavel', isRequired: true },
+      { name: 'Reclinável manual', categoryIds: ['category-1'] },
+      { name: 'Cor' },
+    ];
+
+    expect(
+      getApplicableProductTechnicalFields(fields, ['category-1'], { Reclinável: 'Sim' }, [
+        'reclinavel',
+      ]).map(({ name }) => name)
+    ).toEqual(['Reclinável manual', 'Cor']);
+    expect(isExcludedProductTechnicalField(' RECLINÁVEL ')).toBe(true);
+    expect(isExcludedProductTechnicalField('Reclinável manual')).toBe(false);
   });
 
   it('mantém Profundidade e Comprimento exclusivos e prioriza a opção preenchida', () => {

@@ -4,6 +4,8 @@ export interface FiscalCfopConfiguration {
   inverseCfopMappings?: Record<string, string>;
 }
 
+export const ESTORNO_FALLBACK_CFOPS = ['5949', '6949', '7949'] as const;
+
 export const DEFAULT_RETURN_CFOP = '1202';
 
 export function normalizeCfop(value: unknown): string | null {
@@ -24,6 +26,19 @@ export function suggestEstornoCfop(
   const mapped = normalizeCfop(config?.inverseCfopMappings?.[originalCfop]);
   const requiredEntryPrefix = originalCfop[0] === '5' ? '1' : '2';
   return mapped?.startsWith(requiredEntryPrefix) ? mapped : null;
+}
+
+export function getEstornoCfopOptions(
+  originalCfop: string | null,
+  config?: FiscalCfopConfiguration
+): Array<{ value: string; label: string }> {
+  const inverse = suggestEstornoCfop(originalCfop, config);
+  if (inverse) return [{ value: inverse, label: `${inverse.slice(0, 1)}.${inverse.slice(1)} · CFOP inverso configurado` }];
+
+  return ESTORNO_FALLBACK_CFOPS.map((value) => ({
+    value,
+    label: `${value.slice(0, 1)}.${value.slice(1)} · outra saída não especificada`,
+  }));
 }
 
 /** An absent setting gets the project default; an invalid saved setting fails closed. */

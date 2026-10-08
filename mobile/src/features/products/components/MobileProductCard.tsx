@@ -1,15 +1,90 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronRight, Flame, MoreVertical, Pencil, Truck } from 'lucide-react-native';
+import type React from 'react';
+import { useState } from 'react';
+import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Flame,
+  MoreVertical,
+  Package,
+  Pencil,
+  Truck,
+} from 'lucide-react-native';
 import { useMobileProductMetadata } from '../hooks/useMobileProductMetadata';
+import { WEB_URL } from '../../../services/supabaseClient';
+import { toTitleCase } from '../../../../../shared-utils/productText';
 import { MobileProductVariationList } from './MobileProductVariationList';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
+import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
+
+const normalizeVariationNamePart = (value: string) =>
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const getVariationAttributeValues = (variation: any): string[] => {
+  let attributes = variation?.attributes;
+  if (typeof attributes === 'string') {
+    try {
+      attributes = JSON.parse(attributes);
+    } catch {
+      return [];
+    }
+  }
+
+  const pairs = Array.isArray(attributes)
+    ? attributes.map((attribute: any) => ({
+        name: attribute?.name || attribute?.attribute || attribute?.key,
+        value: attribute?.value || attribute?.val,
+        showName: attribute?.showName !== false,
+      }))
+    : attributes && typeof attributes === 'object'
+      ? Object.entries(attributes).map(([name, rawValue]) => {
+          const structured = rawValue && typeof rawValue === 'object' ? rawValue : null;
+          return {
+            name,
+            value: structured?.value ?? structured?.val ?? rawValue,
+            showName: structured?.showName !== false,
+          };
+        })
+      : [];
+
+  return pairs
+    .filter(({ name, value, showName }) => showName && name && value)
+    .map(({ value }) => String(value).trim())
+    .filter(Boolean);
+};
+
+const getSingleVariationDisplayName = (product: any, variation: any): string => {
+  const parentName = String(product?.name || product?.title || product?.description || '').trim();
+  const variationName = String(variation?.displayName || variation?.name || '').trim();
+  const attributeValues = getVariationAttributeValues(variation);
+
+  if (attributeValues.length === 0) return toTitleCase(variationName || parentName);
+
+  const normalizedVariationName = normalizeVariationNamePart(variationName);
+  const includesParent =
+    !parentName || normalizedVariationName.includes(normalizeVariationNamePart(parentName));
+  const includesAttributes = attributeValues.every((value) =>
+    normalizedVariationName.includes(normalizeVariationNamePart(value))
+  );
+  if (variationName && includesParent && includesAttributes) return toTitleCase(variationName);
+
+  return toTitleCase([parentName, attributeValues.join(' ')].filter(Boolean).join(' - '));
+};
 
 interface Props {
   product: any;
   dark: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canChangeCatalog?: boolean;
+  showCatalogStatus?: boolean;
+  canPrintLabels?: boolean;
+  canViewDetails?: boolean;
+  isLabelOnlyProfile?: boolean;
   onEdit: (product: any) => void;
+  onViewDetails?: (product: any) => void;
   onToggleCatalog: (
     productId: string,
     currentStatus: string,
@@ -19,7 +94,6 @@ interface Props {
   onToggleActive: (productId: string, currentActive: boolean) => void;
   onDelete: (productId: string, isDraft?: boolean) => void;
   onDuplicate?: (product: any) => void;
-  onShare?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
@@ -28,25 +102,71 @@ interface Props {
 export const MobileProductCard: React.FC<Props> = ({
   product,
   dark,
+  canEdit = true,
+  canDelete = true,
+  canChangeCatalog = true,
+  showCatalogStatus = true,
+  canPrintLabels = true,
+  canViewDetails = false,
+  isLabelOnlyProfile = false,
   onEdit,
+  onViewDetails,
   onToggleCatalog,
   onToggleActive,
   onDelete,
   onDuplicate,
-  onShare,
   onLaunchStock,
   onShowHistory,
   onShowOrders,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [variationMenuVisible, setVariationMenuVisible] = useState(false);
 
   const variations = product.allVariations || [];
   const hasVars = variations.length > 0;
   const isParent = Boolean(product.isParent || hasVars);
+  const singleVariation = isParent && variations.length === 1 ? variations[0] : null;
+  const isSingleVariationCard = Boolean(singleVariation);
+  const hasExpandableVars = isParent && variations.length > 1;
+  const isSingleVariationMerged = Boolean(
+    singleVariation?.merged_to_variation_id || singleVariation?.mergedToVariationId
+  );
   const isDraft = Boolean(product.isDraft || product.is_draft || product.status === 'draft');
-  const isPublished = !isDraft && product.status === 'published';
-  const isActive = !isDraft && product.active !== false && !product.deleted;
+  const cardStatus = singleVariation?.status || product.status || 'hidden';
+  const isPublished = !isDraft && cardStatus === 'published';
+  const isActive =
+    !isDraft && (singleVariation ? singleVariation.active !== false : product.active !== false) && !product.deleted;
+  const displayTitle = singleVariation
+    ? getSingleVariationDisplayName(product, singleVariation)
+    : product.name || product.description || 'Produto sem título';
+  const variationProductImage = Array.isArray(singleVariation?.images)
+    ? singleVariation.images[0]
+    : typeof singleVariation?.images === 'string'
+      ? singleVariation.images.split(',').find(Boolean)
+      : singleVariation?.image_url || singleVariation?.imageUrl;
+  const parentProductImage = Array.isArray(product.images)
+    ? product.images[0]
+    : typeof product.images === 'string'
+      ? product.images.split(',').find(Boolean)
+      : null;
+  const cardImage = variationProductImage || parentProductImage;
+  const cardUnitPrice = Number(singleVariation?.unitPrice ?? singleVariation?.price ?? product.unitPrice ?? 0);
+  const cardPromoPrice = Number(singleVariation?.promoPrice ?? singleVariation?.promo_price ?? product.promoPrice ?? 0);
+  const hasCardPromo = cardPromoPrice > 0 && cardPromoPrice < cardUnitPrice;
+  const cardPrice = hasCardPromo ? cardPromoPrice : cardUnitPrice;
+  const cardStock = Number(singleVariation?.stock ?? product.stock ?? 0);
+  const cardUnit = singleVariation?.unit || product.unit || 'UN';
+  const canShowVariationMenu = isLabelOnlyProfile
+    ? canPrintLabels
+    : canEdit;
+  const variationMenuProduct = singleVariation
+    ? {
+        ...product,
+        selectedVariationId: singleVariation.id,
+        selectedVariation: singleVariation,
+      }
+    : product;
 
   const { oppName, supplierNames } = useMobileProductMetadata(product);
 
@@ -55,18 +175,18 @@ export const MobileProductCard: React.FC<Props> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.88}
-      onPress={() => hasVars && setExpanded((prev) => !prev)}
+      onPress={() => hasExpandableVars && setExpanded((prev) => !prev)}
       style={[
         styles.card,
         dark && styles.darkCard,
-        isParent && (dark ? styles.darkParentCard : styles.parentCard),
+        isParent && !isSingleVariationCard && (dark ? styles.darkParentCard : styles.parentCard),
         !isActive && !isDraft && styles.deactivatedCard,
       ]}
     >
       {/* Linha Superior: Botão Variações + Código + Atalhos de Ação */}
       <View style={styles.topRow}>
         <View style={styles.codeRow}>
-          {hasVars && (
+          {hasExpandableVars && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setExpanded((prev) => !prev)}
@@ -100,124 +220,176 @@ export const MobileProductCard: React.FC<Props> = ({
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={(e) => {
-              e.stopPropagation();
-              onEdit(product);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Editar ${product.name || 'produto'}`}
-            style={[styles.actionIconBtn, dark && styles.darkBtn]}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Pencil size={14} color={dark ? '#cbd5e1' : '#64748b'} />
-          </TouchableOpacity>
+          {canEdit && !isLabelOnlyProfile && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                onEdit(product);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Editar ${product.name || 'produto'}`}
+              style={[styles.actionIconBtn, dark && styles.darkBtn]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Pencil size={14} color={dark ? '#cbd5e1' : '#64748b'} />
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={(e) => {
-              e.stopPropagation();
-              setMenuVisible(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Opções de ${product.name || 'produto'}`}
-            style={[styles.actionIconBtn, dark && styles.darkBtn]}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
-          </TouchableOpacity>
+          {!canEdit && !isLabelOnlyProfile && canViewDetails && onViewDetails && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                onViewDetails(product);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver detalhes de ${product.name || 'produto'}`}
+              style={[styles.actionIconBtn, dark && styles.darkBtn]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Eye size={15} color={dark ? '#93c5fd' : '#2563eb'} />
+            </TouchableOpacity>
+          )}
+
+          {isSingleVariationCard ? (
+            canShowVariationMenu ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setVariationMenuVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Ações da variação ${displayTitle}`}
+                style={[styles.actionIconBtn, dark && styles.darkBtn]}
+                hitSlop={{ top: 2, bottom: 2, left: 2, right: 2 }}
+              >
+                <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
+              </TouchableOpacity>
+            ) : null
+          ) : (
+            !isLabelOnlyProfile &&
+            (canEdit || canDelete || onLaunchStock || onShowHistory || onShowOrders) && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                setMenuVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Opções de ${product.name || 'produto'}`}
+              style={[styles.actionIconBtn, dark && styles.darkBtn]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
+            </TouchableOpacity>
+            )
+          )}
         </View>
       </View>
 
       {/* Título do Produto Pai / Simples */}
-      <View style={styles.titleCol}>
+      <View style={styles.productInfoRow}>
+        {(!isParent || isSingleVariationCard) &&
+          (cardImage ? (
+            <Image source={{ uri: cardImage }} style={styles.productImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.productImagePlaceholder, dark && styles.darkProductImagePlaceholder]}>
+              <Package size={17} color="#94a3b8" />
+            </View>
+          ))}
+        <View style={styles.titleCol}>
         <Text
           style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
           numberOfLines={2}
         >
-          {product.name || product.description || 'Produto sem título'}
+          {displayTitle}
         </Text>
 
         <View style={styles.tagsRow}>
-          {product.itemType === 'composition' && (
+          {product.itemType === 'composition' ? (
             <View style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}>
               <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composição</Text>
             </View>
-          )}
-
-          {product.itemType === 'service' && (
+          ) : null}
+          {product.itemType === 'service' ? (
             <View style={[styles.oppBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}>
               <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
             </View>
-          )}
-
-          {oppName && (
+          ) : null}
+          {oppName ? (
             <View style={styles.oppBadge}>
               <Flame size={10} color="#d97706" />
               <Text style={styles.oppText}>{oppName}</Text>
             </View>
-          )}
-
-          {supplierNames.map((sName, sIdx) => (
-            <View key={sIdx} style={[styles.supplierBadge, dark && styles.darkBadge]}>
+          ) : null}
+          {supplierNames.map((sName) => (
+            <View key={sName} style={[styles.supplierBadge, dark && styles.darkBadge]}>
               <Truck size={10} color="#64748b" />
               <Text style={styles.supplierText}>{sName}</Text>
             </View>
           ))}
-
-          {product.category && (
+          {product.category ? (
             <Text style={[styles.categoryBadge, dark && styles.darkCategory]}>
               {product.category}
             </Text>
-          )}
+          ) : null}
+        </View>
         </View>
       </View>
 
       {/* Linha Inferior: Preço/Estoque e Status de Canais Bipartido */}
       <View style={styles.bottomRow}>
-        <View style={styles.priceCol}>
-          {!isParent && (
-            <>
-              {product.promoPrice > 0 && product.promoPrice < product.unitPrice && (
-                <Text style={styles.oldPrice}>
-                  R$ {product.unitPrice.toFixed(2).replace('.', ',')}
-                </Text>
-              )}
-              <Text style={[styles.price, dark && styles.priceDark]}>
-                R${' '}
-                {(product.promoPrice > 0 ? product.promoPrice : product.unitPrice)
-                  .toFixed(2)
-                  .replace('.', ',')}
+        {(!isParent || isSingleVariationCard) && (
+          <View style={styles.priceCol}>
+            {hasCardPromo && (
+              <Text style={styles.oldPrice}>
+                R$ {cardUnitPrice.toFixed(2).replace('.', ',')}
               </Text>
-              {product.itemType !== 'service' && (
-                <Text style={styles.stockText}>
-                  Estoque:{' '}
-                  <Text style={styles.stockVal}>
-                    {product.stock ?? 0} {product.unit || 'UN'}
-                  </Text>
+            )}
+            <Text style={[styles.price, dark && styles.priceDark]}>
+              R$ {cardPrice.toFixed(2).replace('.', ',')}
+            </Text>
+            {product.itemType !== 'service' && (
+              <Text style={styles.stockText}>
+                Estoque:{' '}
+                <Text style={styles.stockVal}>
+                  {cardStock} {cardUnit}
                 </Text>
-              )}
-            </>
-          )}
-        </View>
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Status de Canais Bipartido */}
         <MobileChannelBadges
           dark={dark}
-          isParent={isParent}
+          isParent={isParent && !isSingleVariationCard}
           isSalvado={product.productKind === 'salvado' || product.product_kind === 'salvado'}
           isActive={isActive}
           isPublished={isPublished}
           isDraft={isDraft}
-          showCatalog={!isParent}
-          onToggleActive={() => onToggleActive(product.id, isActive)}
-          onToggleCatalog={() => onToggleCatalog(product.id, product.status || 'published')}
+          showCatalog={(!isParent || isSingleVariationCard) && showCatalogStatus}
+          canToggleActive={canDelete}
+          canToggleCatalog={canChangeCatalog}
+          disabled={isSingleVariationMerged}
+          onToggleActive={() =>
+            onToggleActive(
+              singleVariation && !singleVariation.isVirtual ? singleVariation.id : product.id,
+              isActive
+            )
+          }
+          onToggleCatalog={() =>
+            singleVariation && !singleVariation.isVirtual
+              ? onToggleCatalog(product.id, cardStatus, true, singleVariation.id)
+              : onToggleCatalog(product.id, cardStatus)
+          }
         />
       </View>
 
       {/* Variações Filhas Expandidas */}
-      {hasVars && expanded && (
+      {hasExpandableVars && expanded && (
         <MobileProductVariationList
           variations={variations}
           dark={dark}
@@ -230,31 +402,65 @@ export const MobileProductCard: React.FC<Props> = ({
           }
           isParentDraft={isDraft}
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
-          onToggleActive={(varId, act) => onToggleActive(varId, act)}
+          onToggleActive={canDelete ? (varId, act) => onToggleActive(varId, act) : undefined}
           parentProduct={product}
-          onEdit={onEdit}
+          onEdit={canEdit && !isLabelOnlyProfile ? onEdit : undefined}
           onShowHistory={onShowHistory}
           onLaunchStock={onLaunchStock}
+          canChangeCatalog={canChangeCatalog}
+          showCatalogStatus={showCatalogStatus}
+          canPrintLabel={canPrintLabels}
         />
       )}
 
       {/* Modal de Ações dos 3 Pontinhos */}
       <MobileProductActionsMenu
-        visible={menuVisible}
+        visible={menuVisible && !isSingleVariationCard}
         dark={dark}
         product={product}
         isDraft={isDraft}
         isActive={isActive}
+        canEdit={canEdit && !isLabelOnlyProfile}
+        canDelete={canDelete && !isLabelOnlyProfile}
         onClose={() => setMenuVisible(false)}
         onEdit={onEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
-        onDuplicate={onDuplicate}
-        onShare={onShare}
+        onDuplicate={canEdit && !isLabelOnlyProfile ? onDuplicate : undefined}
         onLaunchStock={onLaunchStock}
         onShowHistory={onShowHistory}
         onShowOrders={onShowOrders}
       />
+      {singleVariation && (
+        <MobileProductVariationActionsMenu
+          visible={variationMenuVisible}
+          dark={dark}
+          variationName={displayTitle}
+          isMerged={isSingleVariationMerged}
+          onClose={() => setVariationMenuVisible(false)}
+          onPrintLabel={
+            canPrintLabels && !isSingleVariationMerged
+              ? () => {
+                  const parentId = product.id || singleVariation.productId || singleVariation.id;
+                  const variationQuery =
+                    !singleVariation.isVirtual && singleVariation.id
+                      ? `&variationId=${encodeURIComponent(singleVariation.id)}`
+                      : '';
+                  const url = `${WEB_URL}/estoque/etiquetas?cat=identificacao&productId=${encodeURIComponent(parentId)}${variationQuery}&fillSheet=1`;
+                  Linking.openURL(url).catch((error) => {
+                    console.warn('Falha ao abrir tela de etiquetas:', error);
+                    Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
+                  });
+                }
+              : undefined
+          }
+          onEdit={
+            canEdit && !isLabelOnlyProfile && !isSingleVariationMerged
+              ? () => onEdit(variationMenuProduct)
+              : undefined
+          }
+        />
+      )}
     </TouchableOpacity>
   );
 };

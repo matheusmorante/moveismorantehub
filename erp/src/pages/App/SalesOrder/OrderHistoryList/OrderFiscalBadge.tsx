@@ -26,10 +26,17 @@ const PROD_BADGE_PRESENTATION: Record<OrderFiscalBadgeStatus, BadgeConfig> = {
   },
   failed: {
     label: 'NF',
-    title: 'Nota fiscal com erro ou rejeitada',
+    title: 'Nota fiscal com erro',
     className: 'border-red-700 bg-red-600 text-white',
     icon: 'bi-exclamation',
     iconBadgeClassName: 'bg-red-700 text-white',
+  },
+  rejected: {
+    label: 'NF',
+    title: 'Nota fiscal rejeitada ou denegada',
+    className: 'border-amber-700 bg-amber-500 text-white',
+    icon: 'bi-exclamation-triangle-fill',
+    iconBadgeClassName: 'bg-amber-700 text-white',
   },
   cancelled: {
     label: 'NF',
@@ -55,10 +62,17 @@ const HML_BADGE_PRESENTATION: Record<OrderFiscalBadgeStatus, BadgeConfig> = {
   },
   failed: {
     label: 'NFH',
-    title: 'Nota fiscal de homologação com erro ou rejeitada',
+    title: 'Nota fiscal de homologação com erro',
     className: 'border-red-700 bg-red-600 text-white',
     icon: 'bi-exclamation',
     iconBadgeClassName: 'bg-red-700 text-white',
+  },
+  rejected: {
+    label: 'NFH',
+    title: 'Nota fiscal de homologação rejeitada ou denegada',
+    className: 'border-amber-700 bg-amber-500 text-white',
+    icon: 'bi-exclamation-triangle-fill',
+    iconBadgeClassName: 'bg-amber-700 text-white',
   },
   cancelled: {
     label: 'NFH',

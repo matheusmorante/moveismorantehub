@@ -79,6 +79,8 @@ export interface ReviewData {
   payment_xml: string;
   item_taxes_confirmed: boolean;
   totals_confirmed: boolean;
+  apportionment_review_confirmed: boolean;
+  period_adjustment_text: string;
 }
 
 export interface DraftPayload {

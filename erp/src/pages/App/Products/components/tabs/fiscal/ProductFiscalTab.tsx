@@ -103,7 +103,10 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
           {formData.itemType === 'service' ? (
             <div className="flex flex-col gap-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                Código Municipal / Serviço (LC 116/03) *
+                Código Municipal / Serviço (LC 116/03){' '}
+                <span className="text-red-500 ml-0.5" aria-hidden="true">
+                  *
+                </span>
               </label>
               <input
                 value={formData.fiscal?.codigoServico || ''}

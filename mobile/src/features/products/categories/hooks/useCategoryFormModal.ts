@@ -11,7 +11,11 @@ import {
   ModalType,
   EditingNode,
 } from '../types/mobileCategory.types';
-import { validateNodeName, toggleNodeLink } from '../domain/categoryEnvironmentRules';
+import {
+  canSaveCategoryAttributes,
+  validateNodeName,
+  toggleNodeLink,
+} from '../domain/categoryEnvironmentRules';
 
 interface Props {
   environments: EnvironmentNode[];
@@ -26,6 +30,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
   const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
+  const [attributeLoadFailed, setAttributeLoadFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const closeForm = useCallback(() => {
@@ -35,12 +40,15 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setSelectedLinks([]);
     setSelectedAttributes([]);
     setIsLoadingAttributes(false);
+    setAttributeLoadFailed(false);
   }, []);
 
   const openNewEnvironment = useCallback(() => {
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks([]);
+    setIsLoadingAttributes(false);
+    setAttributeLoadFailed(false);
     setShowModal('ambiente');
   }, []);
 
@@ -50,6 +58,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setSelectedLinks(preSelectedEnvId ? [preSelectedEnvId] : []);
     setSelectedAttributes([]);
     setIsLoadingAttributes(false);
+    setAttributeLoadFailed(false);
     setShowModal('categoria');
   }, []);
 
@@ -57,6 +66,8 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setEditingNode({ id: env.id, type: 'ambiente' });
     setNameInput(env.name);
     setSelectedLinks(env.categories || []);
+    setIsLoadingAttributes(false);
+    setAttributeLoadFailed(false);
     setShowModal('ambiente');
   }, []);
 
@@ -65,6 +76,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     setNameInput(cat.name);
     setSelectedLinks(cat.parents || []);
     setSelectedAttributes([]);
+    setAttributeLoadFailed(false);
     setIsLoadingAttributes(true);
     setShowModal('categoria');
 
@@ -73,6 +85,11 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
       setSelectedAttributes(attrs);
     } catch (err) {
       console.warn('Erro ao carregar atributos da categoria:', err);
+      setAttributeLoadFailed(true);
+      Alert.alert(
+        'Não foi possível carregar',
+        'A configuração atual da categoria não foi carregada. Feche e reabra antes de editar.'
+      );
     } finally {
       setIsLoadingAttributes(false);
     }
@@ -84,6 +101,14 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
 
   const handleSave = useCallback(async () => {
     const isEnv = showModal === 'ambiente';
+    if (!canSaveCategoryAttributes(!isEnv, isLoadingAttributes, attributeLoadFailed)) {
+      Alert.alert(
+        'Salvamento bloqueado',
+        'Aguarde o carregamento dos atributos ou feche e reabra a categoria para tentar novamente.'
+      );
+      return;
+    }
+
     const validation = validateNodeName(
       nameInput,
       isEnv ? environments : categories,
@@ -124,6 +149,8 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     editingNode,
     selectedLinks,
     selectedAttributes,
+    isLoadingAttributes,
+    attributeLoadFailed,
     closeForm,
     onSuccess,
   ]);
@@ -137,6 +164,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
     selectedAttributes,
     setSelectedAttributes,
     isLoadingAttributes,
+    attributeLoadFailed,
     isSubmitting,
     closeForm,
     openNewEnvironment,

@@ -10,6 +10,8 @@ interface MobileChannelBadgesProps {
   isPublished: boolean;
   isDraft: boolean;
   showCatalog?: boolean;
+  canToggleActive?: boolean;
+  canToggleCatalog?: boolean;
   onToggleActive: () => void;
   onToggleCatalog?: () => void;
 }
@@ -23,6 +25,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   isPublished,
   isDraft,
   showCatalog = true,
+  canToggleActive = true,
+  canToggleCatalog = true,
   onToggleActive,
   onToggleCatalog,
 }) => {
@@ -65,8 +69,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {/* Botão ERP */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={handleToggleERP}
-        disabled={(isParent || disabled) && !isSalvado}
+        onPress={canToggleActive ? handleToggleERP : undefined}
+        disabled={!canToggleActive || ((isParent || disabled) && !isSalvado)}
         style={[
           styles.bipartiteBtn,
           erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
@@ -98,8 +102,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {showCatalog && onToggleCatalog && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={handleToggleCat}
-          disabled={disabled}
+          onPress={canToggleCatalog ? handleToggleCat : undefined}
+          disabled={!canToggleCatalog || disabled}
           style={[
             styles.bipartiteBtn,
             isPublished && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,

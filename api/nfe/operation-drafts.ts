@@ -6,6 +6,7 @@ import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import {
+  getEstornoCfopOptions,
   originalItemCfop,
   suggestEstornoCfop,
   type FiscalCfopConfiguration,
@@ -121,6 +122,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           draft.operation_kind === 'return'
             ? getReturnCfopOptionsForSourceItem(originalCfop || '', original.taxes_xml)
             : [];
+        const allowedEstornoCfops =
+          draft.operation_kind === 'estorno'
+            ? getEstornoCfopOptions(originalCfop, fiscalSettings)
+            : [];
         return {
           ...line,
           originalItemNumber: original.item_number,
@@ -133,7 +138,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           originalProductXml: original.product_xml,
           originalTaxesXml: original.taxes_xml,
           originalCfop,
-          allowedCfops: allowedReturnCfops.map(({ value, label }) => ({ value, label })),
+          allowedCfops:
+            draft.operation_kind === 'estorno'
+              ? allowedEstornoCfops
+              : allowedReturnCfops.map(({ value, label }) => ({ value, label })),
           suggestedCfop:
             draft.operation_kind === 'estorno'
               ? suggestEstornoCfop(originalCfop, fiscalSettings)
@@ -388,7 +396,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           reason.length < 15 ||
           Array.from(reason).length > 255 ||
           reviewData.item_taxes_confirmed !== true ||
-          reviewData.totals_confirmed !== true
+          reviewData.totals_confirmed !== true ||
+          reviewData.apportionment_review_confirmed !== true ||
+          typeof reviewData.period_adjustment_text !== 'string' ||
+          Array.from(reviewData.period_adjustment_text).length > 1200
         ) {
           return res.status(409).json({
             error: 'Estorno exige natureza e finalidade fixas, justificativa válida e revisão fiscal confirmada.',
@@ -435,10 +446,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'Item fiscal do estorno não pertence à NF-e original.' });
           }
           const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
-          const configuredInverse = suggestEstornoCfop(sourceCfop, fiscalDefaults);
-          const cfopIsValid = configuredInverse
-            ? reviewed.cfop === configuredInverse
-            : /^[12]\d{3}$/.test(reviewed.cfop);
+          const allowedEstornoCfops = getEstornoCfopOptions(sourceCfop, fiscalDefaults);
+          const cfopIsValid = allowedEstornoCfops.some((option) => option.value === reviewed.cfop);
           if (
             !/^[56]\d{3}$/.test(sourceCfop || '') ||
             !cfopIsValid ||
@@ -513,7 +522,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sourceAuthorizationError = validateAuthorizedOutboundNfe(
       source,
       String(source?.order_id || ''),
-      environment as 1 | 2
+      environment as 1 | 2,
+      { allowNfceSource: kind === 'estorno' }
     );
     if (sourceAuthorizationError)
       return res.status(409).json({ error: sourceAuthorizationError });
@@ -529,7 +539,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       const { data: order, error: orderError } = await db
         .from('orders')
-        .select('id,status,delivery_status,delivery_method,order_data')
+        .select(
+          'id,status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_data'
+        )
         .eq('id', source.order_id)
         .maybeSingle();
       if (orderError) throw orderError;
@@ -551,6 +563,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         environment: source.ambiente as 1 | 2,
         goodsCirculated: false,
         operationDidNotOccur: true,
+        issuerUf: String(source.chave_acesso || '').slice(0, 2) === '41' ? 'PR' : '',
       });
       if (policy.action !== 'estorno') {
         return res.status(409).json({

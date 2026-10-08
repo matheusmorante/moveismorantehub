@@ -9,6 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  getTechnicalFieldInputMode,
+  getTechnicalFieldIntegerLimit,
+  getTechnicalFieldIntegerPlaceholder,
+  getTechnicalFieldMaxLength,
+  getTechnicalFieldTextPlaceholder,
+  resolveTechnicalFieldDataType,
+} from '../../domain/technicalFieldInputRules';
 
 type TechnicalOption = { id?: string; value: string };
 
@@ -60,12 +68,10 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 }) => {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [search, setSearch] = useState('');
-  const [listFocused, setListFocused] = useState(false);
   const [decimalDraft, setDecimalDraft] = useState(() => formatDecimal(value));
-  const type = /quantidade de (portas?|gavetas?)/i.test(field.name)
-    ? 'integer'
-    : field.data_type || 'list';
+  const type = resolveTechnicalFieldDataType(field.name, field.data_type);
   const options = field.options || [];
+  const inputMode = getTechnicalFieldInputMode(type, options.length);
   const selectedValues = useMemo(() => getSelectedValues(value), [value]);
   const stringValue = Array.isArray(value) ? value.join(', ') : String(value ?? '');
 
@@ -78,13 +84,13 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
         value={stringValue}
         onChangeText={(text) => {
           const digits = text.replace(/\D/g, '');
-          const parsed = digits ? Math.min(Number(digits), 50) : '';
+          const parsed = digits
+            ? Math.min(Number(digits), getTechnicalFieldIntegerLimit(field.name))
+            : '';
           onChange(parsed);
         }}
         keyboardType="number-pad"
-        placeholder={
-          /porta|gaveta/i.test(field.name) ? 'Insira a quantidade' : 'Insira um número inteiro'
-        }
+        placeholder={getTechnicalFieldIntegerPlaceholder(field.name)}
         placeholderTextColor="#94a3b8"
         style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
       />
@@ -115,7 +121,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }
 
-  if ((type === 'radio' || type === 'list') && options.length > 0 && options.length < 5) {
+  if (inputMode === 'inline') {
     return (
       <View style={styles.chips}>
         {options.map((option) => {
@@ -148,7 +154,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }
 
-  if (type === 'radio' || type === 'multi_select') {
+  if (inputMode === 'searchable') {
     const multiple = type === 'multi_select';
     return (
       <View style={styles.selectionWrap}>
@@ -258,52 +264,17 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }
 
-  if (type === 'list' && options.length >= 5) {
-    const query = normalizeValue(stringValue);
-    const filteredOptions = options.filter((option) =>
-      normalizeValue(option.value).includes(query)
-    );
-    return (
-      <View>
-        <TextInput
-          editable={!disabled}
-          value={stringValue}
-          onFocus={() => setListFocused(true)}
-          onBlur={() => setTimeout(() => setListFocused(false), 120)}
-          onChangeText={(text) => onChange(text)}
-          placeholder="Selecione ou digite..."
-          placeholderTextColor="#94a3b8"
-          style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
-        />
-        {listFocused && query.length >= 2 && filteredOptions.length > 0 && (
-          <View style={[styles.suggestions, dark && styles.darkModalCard]}>
-            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 180 }}>
-              {filteredOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id || option.value}
-                  onPress={() => {
-                    onChange(option.value);
-                    setListFocused(false);
-                  }}
-                  style={[styles.option, dark && styles.darkOption]}
-                >
-                  <Text style={[styles.optionText, dark && styles.lightText]}>{option.value}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    );
-  }
-
   return (
     <TextInput
       editable={!disabled}
       value={stringValue}
       onChangeText={(text) => onChange(text)}
-      maxLength={['text_short', 'text'].includes(type) ? 120 : undefined}
-      placeholder={type === 'text_long' ? 'Informe os detalhes' : 'Informe o valor'}
+      maxLength={getTechnicalFieldMaxLength(field.name, type)}
+      placeholder={
+        type === 'text_long'
+          ? 'Informe os detalhes'
+          : getTechnicalFieldTextPlaceholder(field.name) || 'Informe o valor'
+      }
       placeholderTextColor="#94a3b8"
       multiline={type === 'text_long'}
       style={[
@@ -330,6 +301,8 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 16,
@@ -362,6 +335,8 @@ const styles = StyleSheet.create({
   modalTitle: { color: '#0f172a', fontSize: 15, fontWeight: '600' },
   optionList: { maxHeight: 300 },
   option: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 10,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -370,18 +345,14 @@ const styles = StyleSheet.create({
   darkOption: { borderBottomColor: '#334155' },
   optionText: { color: '#0f172a', fontSize: 13 },
   emptyText: { padding: 12, color: '#64748b', fontSize: 12 },
-  doneButton: { alignItems: 'center', borderRadius: 8, padding: 10, backgroundColor: '#2563eb' },
-  doneText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  suggestions: {
-    position: 'absolute',
-    zIndex: 20,
-    top: 42,
-    left: 0,
-    right: 0,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
+  doneButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    padding: 10,
+    backgroundColor: '#2563eb',
   },
+  doneText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   multiline: { minHeight: 84, textAlignVertical: 'top' },
 });

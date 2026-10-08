@@ -110,13 +110,13 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
   }, [formData.variations, formData.hasVariations]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="mx-auto grid w-full max-w-7xl min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
-      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="md:col-span-2 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {/* Nome do Produto (ERP) */}
         <div
           id="field-product-name"
-          className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl"
+          className="flex min-w-0 flex-col gap-1.5 transition-all p-2 rounded-2xl"
         >
           <div className="flex items-center h-6">
             <label
@@ -222,7 +222,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         </div>
 
         {!isService && (
-          <div id="field-product-kind" className="flex flex-col gap-1.5 p-2 rounded-2xl">
+          <div id="field-product-kind" className="flex min-w-0 flex-col gap-1.5 p-2 rounded-2xl">
             <label
               htmlFor="product-kind"
               className={`text-[10px] uppercase font-black tracking-widest ${validationErrors?.productKind ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
@@ -238,7 +238,12 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 const selectedKind = event.target.value as Product['productKind'] | '';
                 const productKind = selectedKind || undefined;
                 if (!productKind) {
-                  setFormData((prev) => ({ ...prev, productKind: undefined, condition: '' }));
+                  setFormData((prev) => ({
+                    ...prev,
+                    productKind: undefined,
+                    condition: '',
+                    opportunityId: null,
+                  }));
                   return;
                 }
                 const salvadoOpp = opportunities.find((o) =>
@@ -299,7 +304,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
         {diferenciarTitulo ? (
           <div
             id="field-marketplace-title"
-            className="flex flex-col gap-1.5 transition-all p-2 rounded-2xl animate-in slide-in-from-right-2 duration-200"
+            className="flex min-w-0 flex-col gap-1.5 transition-all p-2 rounded-2xl animate-in slide-in-from-right-2 duration-200"
           >
             <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
               <span>Título no Catálogo</span>
@@ -345,39 +350,60 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
       )}
       {/* Oportunidade */}
       {!isStockistOnly && (
-        <div className="md:col-span-2">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
-            <span>Oportunidade</span>
-          </label>
-          <select
-            value={formData.opportunityId || ''}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, opportunityId: e.target.value || null }))
-            }
-            className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            disabled={formData.productKind === 'salvado'}
-          >
-            <option value="">Nenhuma</option>
-            {opportunities
-              .filter((opp) => {
-                if (formData.productKind === 'normal' || !formData.productKind) {
-                  return !opp.name.toLowerCase().includes('salvado');
-                }
-                return true;
-              })
-              .map((opp) => (
-                <option key={opp.id} value={opp.id}>
-                  {opp.name}
-                </option>
-              ))}
-          </select>
-        </div>
+        <div id="field-product-opportunity" className="md:col-span-2 w-full min-w-0">
+          <div className="flex w-full flex-col gap-1.5">
+            <label className="flex w-full h-6 items-center gap-1.5 text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">
+              <span>Oportunidade</span>
+              <span className="text-red-500" aria-label="Obrigatório">*</span>
+            </label>
+            <select
+              value={formData.opportunityId || ''}
+              aria-required="true"
+              aria-invalid={Boolean(validationErrors.opportunityId)}
+              onChange={(event) => {
+                setFormData((prev) => ({ ...prev, opportunityId: event.target.value || null }));
+                setValidationErrors?.((prev) => {
+                  const next = { ...prev };
+                  delete next.opportunityId;
+                  return next;
+                });
+              }}
+              className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-70 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+              disabled={!isService && (!formData.productKind || formData.productKind === 'salvado')}
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              {opportunities
+                .filter((opp) => {
+                  if (formData.productKind === 'normal' || !formData.productKind) {
+                    return !opp.name.toLowerCase().includes('salvado');
+                  }
+                  return true;
+                })
+                .map((opp) => (
+                  <option key={opp.id} value={opp.id}>
+                    {opp.name}
+                  </option>
+                ))}
+            </select>
+            {!isService && !formData.productKind && (
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                Selecione primeiro a origem do estoque.
+              </span>
+            )}
+            {validationErrors.opportunityId &&
+              (isService || Boolean(formData.productKind)) && (
+                <span className="text-[10px] text-red-600 dark:text-red-400">
+                  Selecione uma oportunidade.
+                </span>
+              )}
+          </div>
         </div>
       )}
 
       {/* Observations */}
-      <div className="md:col-span-2">
+      <div className="md:col-span-2 w-full min-w-0">
         <div className="flex flex-col gap-2.5">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5 h-6">
             <span>Observações Internas</span>

@@ -118,18 +118,20 @@ export function readXmlTag(xml: string, name: string): string {
 export function validateAuthorizedOutboundNfe(
   source: OriginalOutboundNfeProof | null | undefined,
   linkedSaleOrderId: string,
-  expectedEnvironment?: 1 | 2
+  expectedEnvironment?: 1 | 2,
+  options: { allowNfceSource?: boolean } = {}
 ): string | null {
+  const allowedSourceModels = options.allowNfceSource ? ['55', '65'] : ['55'];
   if (
     !source ||
     source.document_type !== 'outbound' ||
     source.order_id !== linkedSaleOrderId ||
-    source.modelo !== '55' ||
+    !allowedSourceModels.includes(String(source.modelo)) ||
     ![1, 2].includes(Number(source.ambiente)) ||
     (expectedEnvironment !== undefined && Number(source.ambiente) !== expectedEnvironment) ||
     source.status !== (Number(source.ambiente) === 1 ? 'autorizada' : 'homologada') ||
     !/^\d{44}$/.test(source.chave_acesso || '') ||
-    source.chave_acesso.slice(20, 22) !== '55' ||
+    source.chave_acesso.slice(20, 22) !== String(source.modelo) ||
     source.chave_acesso.slice(22, 25) !== String(Number(source.serie)).padStart(3, '0') ||
     source.chave_acesso.slice(25, 34) !== String(Number(source.numero_nfe)).padStart(9, '0') ||
     source.chave_acesso.slice(6, 20) === '00000000000000' ||
@@ -158,7 +160,7 @@ export function validateAuthorizedOutboundNfe(
   if (
     !infNfe ||
     !new RegExp(`\\bId=["']NFe${source.chave_acesso}["']`, 'i').test(infNfe) ||
-    readXmlTag(ide, 'mod') !== '55' ||
+    readXmlTag(ide, 'mod') !== String(source.modelo) ||
     readXmlTag(ide, 'tpAmb') !== String(source.ambiente) ||
     readXmlTag(ide, 'serie') !== String(Number(source.serie)) ||
     readXmlTag(ide, 'nNF') !== String(Number(source.numero_nfe)) ||

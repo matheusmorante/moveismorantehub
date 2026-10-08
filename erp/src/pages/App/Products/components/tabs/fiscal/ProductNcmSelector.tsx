@@ -90,7 +90,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   return (
     <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-        NCM *
+        NCM <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
       </label>
       <div className="relative overflow-hidden rounded-2xl transition-all">
         <input

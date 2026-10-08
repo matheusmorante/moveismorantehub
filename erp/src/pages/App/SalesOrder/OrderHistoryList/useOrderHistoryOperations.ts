@@ -112,7 +112,11 @@ export const createOrderHistoryOperations = ({
     }
   };
 
-  const commitStatusUpdate = async (currentOrder: Order, newStatus: Order['status']) => {
+  const commitStatusUpdate = async (
+    currentOrder: Order,
+    newStatus: Order['status'],
+    fiscalOptions: { productionConfirmed?: boolean } = {}
+  ) => {
     const id = currentOrder.id!;
     const isCancelled = newStatus === 'cancelled';
     const expectedStockProcessed = isCancelled ? false : currentOrder.stockProcessed;
@@ -181,15 +185,28 @@ export const createOrderHistoryOperations = ({
       try {
         const result = await processOrderCancellationFiscalEffects(
           id,
-          String(currentOrder.orderIndex || currentOrder.orderNumber || id)
+          String(currentOrder.orderIndex || currentOrder.orderNumber || id),
+          { productionConfirmed: fiscalOptions.productionConfirmed }
         );
-        toast.success(
-          result.action === 'cancel'
-            ? 'Pedido cancelado e cancelamento fiscal enviado à SEFAZ.'
-            : result.action === 'estorno'
-              ? 'Pedido cancelado; estorno fiscal preparado para conferência.'
-              : 'Pedido cancelado sem documento fiscal autorizado.'
-        );
+        if (result.action === 'reconcile') {
+          toast.warning(
+            result.reconciliationState === 'authorized'
+              ? 'Pedido cancelado e estoque restituído. A consulta confirmou a NF autorizada; o cancelamento não foi registrado nem retransmitido.'
+              : 'Pedido cancelado e estoque restituído. O resultado fiscal ainda precisa ser verificado; nenhum novo evento foi enviado.'
+          );
+        } else if (result.action === 'cancel' && result.reconciliationRequired) {
+          toast.warning(
+            'A SEFAZ confirmou o cancelamento, mas a situação local precisa ser reconciliada.'
+          );
+        } else {
+          toast.success(
+            result.action === 'cancel'
+              ? 'Pedido cancelado; cancelamento fiscal confirmado pela SEFAZ.'
+              : result.action === 'estorno'
+                ? 'Pedido cancelado; estorno fiscal preparado para conferência.'
+                : 'Pedido cancelado sem documento fiscal autorizado.'
+          );
+        }
       } catch (error) {
         console.error('Pedido cancelado; efeito fiscal pendente de reconciliação:', error);
         toast.error(
@@ -212,15 +229,31 @@ export const createOrderHistoryOperations = ({
     try {
       const result = await processOrderCancellationFiscalEffects(
         order.id,
-        String(order.orderIndex || order.orderNumber || order.id)
+        String(order.orderIndex || order.orderNumber || order.id),
+        {
+          confirmProduction: () =>
+            window.confirm(
+              'Confirmo o reprocessamento do cancelamento fiscal desta nota em Produção na SEFAZ.'
+            ),
+        }
       );
-      toast.success(
-        result.action === 'cancel'
-          ? 'Cancelamento fiscal enviado à SEFAZ.'
-          : result.action === 'estorno'
-            ? 'Estorno fiscal preparado para conferência.'
-            : 'Não há documento fiscal autorizado pendente neste pedido.'
-      );
+      if (result.action === 'reconcile') {
+        toast.warning(
+          result.reconciliationState === 'authorized'
+            ? 'Consulta confirmou a NF autorizada; o cancelamento não foi registrado. Clique novamente para iniciar outra tentativa, se ainda elegível.'
+            : 'A consulta não confirmou o resultado final. Nenhum novo evento foi enviado; consulte novamente antes de tentar cancelar.'
+        );
+      } else if (result.action === 'cancel' && result.reconciliationRequired) {
+        toast.warning('Cancelamento confirmado pela SEFAZ; reconciliação local ainda necessária.');
+      } else {
+        toast.success(
+          result.action === 'cancel'
+            ? 'Cancelamento fiscal confirmado pela SEFAZ.'
+            : result.action === 'estorno'
+              ? 'Estorno fiscal preparado para conferência.'
+              : 'Não há documento fiscal autorizado pendente neste pedido.'
+        );
+      }
     } catch (error) {
       toast.error(
         `Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`

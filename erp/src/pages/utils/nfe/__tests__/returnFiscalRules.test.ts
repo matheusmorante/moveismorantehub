@@ -82,6 +82,37 @@ describe('regras fiscais centralizadas da NF-e de devolução', () => {
       .toBe(MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE);
   });
 
+  it('aceita NFC-e como origem somente na validação específica de estorno', () => {
+    const nfceKey = generateNfeAccessKey({
+      ufCode: '41',
+      yearMonth: '2610',
+      cnpj: companyCnpj,
+      model: '65',
+      series: '1',
+      number: 700,
+      emissionType: '1',
+      randomCode: '12345678',
+    }).accessKey;
+    const source = authorizedSource();
+    const nfceSource = {
+      ...source,
+      modelo: '65',
+      chave_acesso: nfceKey,
+      xml_protocolo: source.xml_protocolo.replace(accessKey, nfceKey),
+      xml_nfe: source.xml_nfe
+        .replace('NFe' + accessKey, 'NFe' + nfceKey)
+        .replace(accessKey, nfceKey)
+        .replace('<mod>55</mod>', '<mod>65</mod>'),
+    };
+
+    expect(validateAuthorizedOutboundNfe(nfceSource, orderId, 1)).toBe(
+      MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE
+    );
+    expect(
+      validateAuthorizedOutboundNfe(nfceSource, orderId, 1, { allowNfceSource: true })
+    ).toBeNull();
+  });
+
   it('distingue bloqueios de capacidade do ERP e não infere método logístico pelo status', () => {
     expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'CLIENT_DELIVERED', companyTaxRegime)).toBeNull();
     expect(validateSupportedReturnEntryScenario(sameStateNonTaxpayerFinalConsumer, 'PR', 'COMPANY_PICKUP', companyTaxRegime)).toBeNull();

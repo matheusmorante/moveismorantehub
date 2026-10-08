@@ -251,7 +251,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         <View style={styles.supplierHeading}>
           <View style={styles.cardHeader}>
             <Truck size={16} color="#2563eb" />
-            <Text style={[styles.cardTitle, dark && styles.lightText]}>Fornecedores *</Text>
+            <Text style={[styles.cardTitle, dark && styles.lightText]}>
+              Fornecedores <Text style={{ color: '#ef4444' }}>*</Text>
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowSupplierForm(true)}
@@ -367,7 +369,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
 
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Preço de Venda (R$) *</Text>
+            <Text style={[styles.label, dark && styles.dimText]}>
+              Preço de Venda (R$) <Text style={{ color: '#ef4444' }}>*</Text>
+            </Text>
             <TextInput
               value={f(formData.unitPrice)}
               onChangeText={handleUnitPriceChange}

@@ -21,6 +21,7 @@ import { shouldHideCatalogPublicationStatus } from '@/pages/utils/accessRoles';
 interface ProductTableProps {
   readonly products: readonly Product[];
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
@@ -50,6 +51,7 @@ interface ProductTableProps {
 const ProductTable = ({
   products,
   readOnly = false,
+  canDeleteProducts,
   onEdit,
   onShowHistory,
   onLaunchStock,
@@ -186,7 +188,7 @@ const ProductTable = ({
   return (
     <div className="flex flex-col gap-4">
       {/* Bulk Actions Toolbar */}
-      {!readOnly && selectedProducts.length > 0 && (
+      {!readOnly && canDeleteProducts && selectedProducts.length > 0 && (
         <ProductBulkActionsToolbar
           selectedCount={selectedProducts.length}
           onClearSelection={onClearSelection}
@@ -283,6 +285,7 @@ const ProductTable = ({
                   key={product.id}
                   product={product}
                   readOnly={readOnly}
+                  canDeleteProducts={canDeleteProducts}
                   showCatalogControl={showCatalogControl}
                   onEdit={onEdit}
                   onShowHistory={onShowHistory}
@@ -293,7 +296,7 @@ const ProductTable = ({
                   onToggleActive={onToggleActive}
                   onDeactivateCatalog={onDeactivateCatalog}
                   visibilitySettings={visibilitySettings}
-                  showTrash={showTrash}
+                  showTrash={showTrash && canDeleteProducts}
                   orderedColumnKeys={orderedColumns.map((c) => c.key as string)}
                   isSelected={selectedProducts.includes(product.id || '')}
                   onToggleSelection={() => onToggleSelection(product.id || '')}
@@ -331,6 +334,7 @@ const ProductTable = ({
                 key={product.id}
                 product={product as ProductListRow}
                 readOnly={readOnly}
+                canDeleteProducts={canDeleteProducts}
                 showCatalogControl={showCatalogControl}
                 onEdit={onEdit}
                 onShowHistory={onShowHistory}
@@ -340,7 +344,7 @@ const ProductTable = ({
                 onPermanentDelete={onPermanentDelete}
                 onToggleActive={onToggleActive}
                 onDeactivateCatalog={onDeactivateCatalog}
-                showTrash={showTrash}
+                showTrash={showTrash && canDeleteProducts}
                 isSelected={selectedProducts.includes(product.id!)}
                 onToggleSelection={() => onToggleSelection(product.id!)}
                 categoryTree={categoryTree}

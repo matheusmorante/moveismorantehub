@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -8,52 +8,83 @@ import {
   View,
   ScrollView,
 } from 'react-native';
-import { Search, MoreVertical, PlusCircle, Settings, X, Tag } from 'lucide-react-native';
+import {
+  Search,
+  MoreVertical,
+  PlusCircle,
+  Settings,
+  X,
+  Tag,
+  ArrowLeftRight,
+  Check,
+  Eye,
+  EyeOff,
+} from 'lucide-react-native';
 
 interface Props {
   mode?: 'standard' | 'composition' | 'categories';
+  availableModes?: Array<'standard' | 'composition' | 'categories'>;
   onModeChange?: (mode: 'standard' | 'composition' | 'categories') => void;
   dark: boolean;
   search: string;
   totalCount: number;
   onSearch: (value: string) => void;
   onNewProduct: () => void;
+  canCreateProduct?: boolean;
   onNewComposition?: () => void;
+  canCreateComposition?: boolean;
   onOpenConfigs: () => void;
+  canOpenConfigs?: boolean;
+  onOpenReconciliation?: () => void;
+  canViewReconciliation?: boolean;
   showDeactivated: boolean;
-  showMerged: boolean;
   onToggleDeactivated: () => void;
-  onToggleMerged: () => void;
   categories: any[];
   statusFilter: 'all' | 'active' | 'disabled' | 'draft';
   categoryFilter: string;
   catalogStatusFilter: 'all' | 'published' | 'hidden';
+  generalTypeFilter?: 'all' | 'product' | 'service';
+  showTestProducts?: boolean;
+  hasTestProducts?: boolean;
+  canToggleTestProducts?: boolean;
   onStatusFilterChange: (value: 'all' | 'active' | 'disabled' | 'draft') => void;
   onCategoryFilterChange: (value: string) => void;
   onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
+  onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
+  onToggleTestProducts?: () => void;
 }
 
 export function ProductsHeader({
   mode = 'standard',
+  availableModes = ['standard', 'composition', 'categories'],
   onModeChange,
   dark,
   search,
   totalCount,
   onSearch,
   onNewProduct,
+  canCreateProduct = true,
   onNewComposition,
+  canCreateComposition = true,
   onOpenConfigs,
+  canOpenConfigs = true,
+  onOpenReconciliation,
+  canViewReconciliation = false,
   showDeactivated,
-  showMerged,
   onToggleDeactivated,
-  onToggleMerged,
   categories,
   statusFilter,
   categoryFilter,
   catalogStatusFilter,
+  generalTypeFilter = 'all',
+  showTestProducts = false,
+  hasTestProducts = false,
+  canToggleTestProducts = false,
   onStatusFilterChange,
   onCategoryFilterChange,
   onCatalogStatusFilterChange,
+  onGeneralTypeFilterChange,
+  onToggleTestProducts,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -61,7 +92,7 @@ export function ProductsHeader({
   const menuBtnRef = useRef<View>(null);
 
   const handleOpenMenu = () => {
-    menuBtnRef.current?.measure((_x, _y, width, height, pageX, pageY) => {
+    menuBtnRef.current?.measure((_x, _y, _width, height, _pageX, pageY) => {
       // Dropdown logo abaixo do botão, ancorado à direita da tela
       setMenuAnchor({ top: pageY + height + 4, right: 16 });
       setShowMenu(true);
@@ -105,7 +136,7 @@ export function ProductsHeader({
               { key: 'composition', label: 'Composições' },
               { key: 'categories', label: 'Ambientes e Categorias' },
             ] as const
-          ).map(({ key, label }) => (
+          ).filter(({ key }) => availableModes.includes(key)).map(({ key, label }) => (
             <TouchableOpacity
               key={key}
               onPress={() => onModeChange(key)}
@@ -164,21 +195,24 @@ export function ProductsHeader({
                 { position: 'absolute', top: menuAnchor.top, right: menuAnchor.right },
               ]}
             >
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  if (mode === 'composition' && onNewComposition) onNewComposition();
-                  else onNewProduct();
-                }}
-              >
-                <PlusCircle size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
-                </Text>
-              </TouchableOpacity>
+              {((mode === 'composition' && canCreateComposition) ||
+                (mode === 'standard' && canCreateProduct)) && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    if (mode === 'composition' && onNewComposition) onNewComposition();
+                    else onNewProduct();
+                  }}
+                >
+                  <PlusCircle size={18} color="#2563eb" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-              {onNewComposition && mode === 'standard' && (
+              {canCreateComposition && onNewComposition && mode === 'standard' && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -193,7 +227,7 @@ export function ProductsHeader({
 
               <View style={styles.menuDivider} />
 
-              {onModeChange && (
+              {onModeChange && availableModes.includes('categories') && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -208,18 +242,53 @@ export function ProductsHeader({
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  onOpenConfigs();
-                }}
-              >
-                <Settings size={18} color="#475569" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  Configurações de Produto
-                </Text>
-              </TouchableOpacity>
+              {canOpenConfigs && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onOpenConfigs();
+                  }}
+                >
+                  <Settings size={18} color="#475569" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    Configurações de Produto
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {canViewReconciliation && onOpenReconciliation && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onOpenReconciliation();
+                  }}
+                >
+                  <ArrowLeftRight size={18} color="#2563eb" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    Conciliação de Fornecedores
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onToggleDeactivated();
+                  }}
+                >
+                  {showDeactivated ? (
+                    <EyeOff size={18} color="#64748b" />
+                  ) : (
+                    <Eye size={18} color="#64748b" />
+                  )}
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    {showDeactivated ? 'Ocultar Inativos' : 'Mostrar Inativos'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -272,6 +341,51 @@ export function ProductsHeader({
                 </TouchableOpacity>
               ))}
             </View>
+            {mode === 'standard' && (
+              <>
+                <Text style={[styles.filterLabel, dark && styles.light]}>Tipo geral</Text>
+                <View style={styles.choiceRow}>
+                  {(
+                    [
+                      ['all', 'Todos'],
+                      ['product', 'Somente Produtos'],
+                      ['service', 'Somente Serviços'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <TouchableOpacity
+                      key={value}
+                      onPress={() => onGeneralTypeFilterChange?.(value)}
+                      style={[
+                        styles.choice,
+                        generalTypeFilter === value && styles.choiceActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          generalTypeFilter === value && styles.choiceTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+            {mode === 'standard' && canToggleTestProducts && hasTestProducts && (
+              <TouchableOpacity
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: showTestProducts }}
+                onPress={onToggleTestProducts}
+                style={styles.testToggleRow}
+              >
+                <View style={[styles.testCheckbox, showTestProducts && styles.testCheckboxChecked]}>
+                  {showTestProducts && <Check size={14} color="#ffffff" />}
+                </View>
+                <Text style={[styles.choiceText, dark && styles.light]}>Mostrar testes</Text>
+              </TouchableOpacity>
+            )}
             <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>
             <View style={styles.choiceRow}>
               {(
@@ -508,6 +622,18 @@ const styles = StyleSheet.create({
   choiceActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
   choiceText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   choiceTextActive: { color: '#1d4ed8' },
+  testToggleRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  testCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  testCheckboxChecked: { borderColor: '#2563eb', backgroundColor: '#2563eb' },
   applyButton: {
     alignItems: 'center',
     backgroundColor: '#2563eb',

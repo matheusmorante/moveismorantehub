@@ -347,10 +347,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                               <button
                                 type="button"
                                 title="Gerenciar cores"
+                                aria-label="Gerenciar cores"
                                 onClick={() => setIsAttributeModalOpen(true)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+                                className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/40"
                               >
-                                <i className="bi bi-gear-fill" />
+                                Gerenciar
                               </button>
                             )}
                             {(field.name.toLowerCase() === 'profundidade' ||
@@ -527,6 +528,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
       <AttributeManagementModal
         isOpen={isAttributeModalOpen}
+        focusAttributeName="Cor"
         onClose={() => {
           setIsAttributeModalOpen(false);
           setRefreshKey((prev) => prev + 1);

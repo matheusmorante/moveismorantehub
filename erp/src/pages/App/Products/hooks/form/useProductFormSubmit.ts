@@ -13,6 +13,7 @@ interface SubmitProps {
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   product?: Product | null;
   isRegisteredProduct: boolean;
+  isStockistOnly?: boolean;
   setValidationErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setActiveTab: (tab: any) => void;
   variations: any;
@@ -30,6 +31,7 @@ export const useProductFormSubmit = ({
   setFormData,
   product,
   isRegisteredProduct,
+  isStockistOnly = false,
   setValidationErrors,
   setActiveTab,
   variations,
@@ -56,6 +58,11 @@ export const useProductFormSubmit = ({
         ) {
           errors.productKind = true;
         }
+        const opportunityCanBeSelected =
+          formData.itemType === 'service' || Boolean(formData.productKind);
+        if (!isStockistOnly && opportunityCanBeSelected && !formData.opportunityId) {
+          errors.opportunityId = true;
+        }
         const hasVars =
           Boolean(formData.hasVariations) &&
           Array.isArray(formData.variations) &&
@@ -78,7 +85,12 @@ export const useProductFormSubmit = ({
 
         if (Object.keys(errors).length > 0) {
           setValidationErrors(errors);
-          if (errors.name || errors.categoryIds || errors.productKind) {
+          if (
+            errors.name ||
+            errors.categoryIds ||
+            errors.productKind ||
+            errors.opportunityId
+          ) {
             setActiveTab('geral');
           } else if (errors.unitPrice || errors.mainSupplierId) {
             setActiveTab('estoque');
@@ -92,6 +104,8 @@ export const useProductFormSubmit = ({
             );
           } else if (errors.productKind) {
             toast.error('Selecione a origem do estoque do produto.');
+          } else if (errors.opportunityId) {
+            toast.error('Selecione uma oportunidade.');
           } else if (errors.variations) {
             toast.error('Adicione pelo menos uma variação ao produto.');
           } else if (errors.mainSupplierId) {
@@ -219,6 +233,7 @@ export const useProductFormSubmit = ({
       draft,
       variations,
       isRegisteredProduct,
+      isStockistOnly,
       product,
       setValidationErrors,
       setActiveTab,

@@ -13,6 +13,9 @@ interface Props {
   onShowHistory?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   parentProduct?: any;
+  canChangeCatalog?: boolean;
+  showCatalogStatus?: boolean;
+  canPrintLabel?: boolean;
 }
 
 export const MobileProductVariationList: React.FC<Props> = ({
@@ -26,6 +29,9 @@ export const MobileProductVariationList: React.FC<Props> = ({
   onShowHistory,
   onLaunchStock,
   parentProduct,
+  canChangeCatalog = true,
+  showCatalogStatus = true,
+  canPrintLabel = true,
 }) => {
   if (!variations || variations.length === 0) return null;
 
@@ -49,6 +55,9 @@ export const MobileProductVariationList: React.FC<Props> = ({
           onEdit={onEdit}
           onShowHistory={onShowHistory}
           onLaunchStock={onLaunchStock}
+          canChangeCatalog={canChangeCatalog}
+          showCatalogStatus={showCatalogStatus}
+          canPrintLabel={canPrintLabel}
         />
       ))}
     </View>

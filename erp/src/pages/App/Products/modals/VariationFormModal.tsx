@@ -34,7 +34,7 @@ interface TabDefinition {
 const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly TabDefinition[] => {
   const tabs: TabDefinition[] = [
     { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
-    ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos da Variação', icon: 'bi-images' }] : []),
+    ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' }] : []),
     { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
     ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
   ];

@@ -20,6 +20,7 @@ import { VariationItemActions } from './VariationItemActions';
 interface ProductCardVariationItemProps {
   readonly product: Product;
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly showCatalogControl?: boolean;
   readonly variation: CardVariationItem;
   readonly index: number;
@@ -43,6 +44,7 @@ interface ProductCardVariationItemProps {
 export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   showCatalogControl = true,
   variation: v,
   index,
@@ -125,6 +127,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
               isSalvado={getProductKind(product) === 'salvado'}
               canManageCatalog={canManageCatalog && !readOnly}
+              canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}
               isDraft={isDraft}
               onToggleActive={(e) => {

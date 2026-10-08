@@ -258,7 +258,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
                         : 'text-slate-500 dark:text-slate-400 font-bold'
                     }
                   >
-                    Dimensões físicas (L x A x P)
+                    Ao menos uma dimensão ativa; todas as ativas &gt; 0
                   </span>
                 </div>
               </li>

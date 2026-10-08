@@ -123,14 +123,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
           <i className="bi bi-info-circle-fill mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           <div className="space-y-1 text-xs">
             <p className="font-black">
-              Limite do produto pai: {maxPhotos} foto(s)
-              {variationCount > 0 && ` (${variationCount} × ${MAX_VARIATION_IMAGES})`}.
+              Limite do produto pai: {maxPhotos} foto(s).
             </p>
             <p>
-              {variationCount > 0
-                ? `Com ${variationCount} ${variationCount === 1 ? 'variação' : 'variações'}, adicione outra para ampliar o limite em mais ${MAX_VARIATION_IMAGES} fotos.`
-                : `Sem variações, o limite é ${MAX_VARIATION_IMAGES} fotos; com variações, ele acompanha a quantidade, com ${MAX_VARIATION_IMAGES} fotos por variação.`}{' '}
-              Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos.
+              Cada variação acrescenta mais {MAX_VARIATION_IMAGES} espaços para fotos à galeria e
+              pode vincular até {MAX_VARIATION_IMAGES} fotos.
             </p>
             {currentCount > maxPhotos && (
               <p className="font-semibold">
@@ -144,7 +141,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
           <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wider">
             <i className="bi bi-camera text-base text-purple-600 dark:text-purple-400"></i>
             <span>
-              Fotos do Produto ({currentCount}/{maxPhotos})
+              Galeria ({currentCount}/{maxPhotos})
             </span>
           </div>
         </div>

@@ -865,6 +865,7 @@ export async function printOrderDanfe(order: Order): Promise<void> {
 export function canCancelFiscalDocument(doc: {
   status?: string;
   modelo?: '55' | '65';
+  chave_acesso?: string;
   created_at?: string;
   xml_protocolo?: string;
   ambiente?: 1 | 2;
@@ -885,6 +886,7 @@ export function canCancelFiscalDocument(doc: {
     environment,
     goodsCirculated: Boolean(doc.isMerchandiseDelivered),
     operationDidNotOccur: true,
+    issuerUf: String(doc.chave_acesso || '').slice(0, 2) === '41' ? 'PR' : '',
   });
   if (policy.action !== 'cancel') {
     return {
@@ -898,9 +900,15 @@ export function canCancelFiscalDocument(doc: {
 export async function processOrderCancellationFiscalEffects(
   orderId: string,
   orderCode: string,
-  options: { reason?: string; productionConfirmed?: boolean } = {}
+  options: {
+    reason?: string;
+    productionConfirmed?: boolean;
+    confirmProduction?: () => boolean;
+  } = {}
 ): Promise<{
-  action: 'none' | 'cancel' | 'estorno';
+  action: 'none' | 'cancel' | 'estorno' | 'reconcile';
+  reconciliationState?: 'authorized' | 'pending' | 'unknown';
+  error?: string;
   draftId?: string;
   cStat?: string;
   protocolNumber?: string;
@@ -921,14 +929,84 @@ export async function processOrderCancellationFiscalEffects(
     body: JSON.stringify({ orderId }),
   });
   const policy = await parseNfeApiResponse<{
-    action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+    action:
+      | 'none'
+      | 'cancel'
+      | 'estorno'
+      | 'manual_review'
+      | 'blocked'
+      | 'pending'
+      | 'reconcile'
+      | 'return';
     documentId?: string;
     environment?: number;
+    reason?: string;
     error?: string;
   }>(policyResponse, 'Não foi possível decidir o efeito fiscal.');
-  if (!policyResponse.ok)
+  if (!policyResponse.ok && policy.action !== 'reconcile')
     throw new Error(policy.error || 'Não foi possível decidir o efeito fiscal.');
   if (policy.action === 'none') return { action: 'none' };
+  if (policy.action === 'reconcile') {
+    if (!policy.documentId)
+      throw new Error(policy.reason || 'Não foi possível identificar o documento para reconciliação.');
+    const consultResponse = await fetch('/api/nfe/consult', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ documentId: policy.documentId }),
+    });
+    const consultation = await parseNfeApiResponse<{
+      success?: boolean;
+      state?: 'authorized' | 'cancelled' | 'unknown' | 'not_found';
+      pending?: boolean;
+      cancellationAttemptState?: 'not_registered' | 'registered' | 'unknown';
+      reconciliationRequired?: boolean;
+      cStat?: string;
+      protocolNumber?: string;
+      protocolDate?: string;
+      xMotivo?: string;
+      error?: string;
+    }>(consultResponse, 'Não foi possível consultar a situação fiscal na SEFAZ.');
+    if (consultation.state === 'cancelled' && consultation.success === true) {
+      return {
+        action: 'cancel',
+        cStat: consultation.cStat,
+        protocolNumber: consultation.protocolNumber,
+        protocolDate: consultation.protocolDate,
+        xMotivo: consultation.xMotivo,
+        reconciliationRequired: consultation.reconciliationRequired === true,
+      };
+    }
+    if (consultation.state === 'authorized') {
+      return {
+        action: 'reconcile',
+        reconciliationState:
+          consultation.cancellationAttemptState === 'not_registered' ? 'authorized' : 'unknown',
+        reconciliationRequired: consultation.reconciliationRequired === true,
+        error: consultation.error,
+      };
+    }
+    if (consultation.pending || consultation.state === 'unknown') {
+      return {
+        action: 'reconcile',
+        reconciliationState: 'pending',
+        reconciliationRequired: true,
+        error: consultation.error,
+      };
+    }
+    throw new Error(
+      consultation.error || 'A consulta não confirmou a situação fiscal; nenhuma nova tentativa foi enviada.'
+    );
+  }
+  if (policy.action !== 'cancel' && policy.action !== 'estorno')
+    throw new Error(
+      policy.reason || 'A situação comercial ou fiscal bloqueia a aplicação automática do efeito.'
+    );
+
+  const productionConfirmed =
+    options.productionConfirmed === true ||
+    (policy.environment === 1 && options.confirmProduction?.() === true);
+  if (policy.action === 'cancel' && policy.environment === 1 && !productionConfirmed)
+    throw new Error('Confirme explicitamente o cancelamento fiscal no ambiente de Produção.');
 
   const endpoint = policy.action === 'cancel' ? '/api/nfe/cancel' : '/api/nfe/operation-drafts';
   const body =
@@ -936,7 +1014,7 @@ export async function processOrderCancellationFiscalEffects(
       ? {
           documentId: policy.documentId,
           reason,
-          productionConfirmed: options.productionConfirmed ?? true,
+          productionConfirmed,
           viaOrderCancellation: true,
         }
       : {

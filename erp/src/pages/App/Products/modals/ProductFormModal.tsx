@@ -165,7 +165,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           validationErrors={validationErrors}
         />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
           {activeTab === 'geral' && (
             <ProductGeneralTab
               onOpenCategorySearch={() => setIsCategorySearchOpen(true)}

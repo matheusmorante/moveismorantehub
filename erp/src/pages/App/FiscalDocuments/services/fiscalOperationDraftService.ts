@@ -50,8 +50,13 @@ function isReviewData(value: unknown): value is Partial<ReviewData> {
     'totals_xml',
     'transport_xml',
     'payment_xml',
+    'period_adjustment_text',
   ];
-  const booleanKeys: Array<keyof ReviewData> = ['item_taxes_confirmed', 'totals_confirmed'];
+  const booleanKeys: Array<keyof ReviewData> = [
+    'item_taxes_confirmed',
+    'totals_confirmed',
+    'apportionment_review_confirmed',
+  ];
 
   return (
     stringKeys.every((key) => value[key] === undefined || typeof value[key] === 'string') &&

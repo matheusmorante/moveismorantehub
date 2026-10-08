@@ -13,6 +13,7 @@ import {
   validateAttribute,
   validateAttributeOption,
   AttributeRef,
+  canSaveCategoryAttributes,
 } from './categoryEnvironmentRules';
 
 describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e Características', () => {
@@ -28,6 +29,18 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
     { id: 'env-2', name: 'SALA DE JANTAR', categories: ['cat-2'] },
     { id: 'env-3', name: 'VARANDA GOURMET', categories: [] },
   ];
+
+  describe('Proteção dos vínculos de características', () => {
+    it('bloqueia salvamento de categoria durante o carregamento ou depois de erro', () => {
+      expect(canSaveCategoryAttributes(true, true, false)).toBe(false);
+      expect(canSaveCategoryAttributes(true, false, true)).toBe(false);
+    });
+
+    it('permite categoria carregada e não bloqueia ambiente por essa regra', () => {
+      expect(canSaveCategoryAttributes(true, false, false)).toBe(true);
+      expect(canSaveCategoryAttributes(false, true, true)).toBe(true);
+    });
+  });
 
   describe('1. Filtragem e Busca de Categorias e Ambientes', () => {
     it('filtra corretamente categorias com ambiente, sem ambiente (órfãs) e todas', () => {
@@ -184,6 +197,12 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
       const valido = validateAttribute('Voltagem', mockAttributes, undefined, 'radio');
       expect(valido.valid).toBe(true);
       expect(valido.formattedName).toBe('Voltagem');
+
+      for (const dataType of ['list', 'text', 'integer', 'decimal', 'boolean', 'measure']) {
+        expect(
+          validateAttribute(`Campo ${dataType}`, mockAttributes, undefined, dataType).valid
+        ).toBe(true);
+      }
 
       const tipoInvalido = validateAttribute('Peso', mockAttributes, undefined, 'invalid_type');
       expect(tipoInvalido.valid).toBe(false);

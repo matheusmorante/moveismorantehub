@@ -5,6 +5,7 @@ import Variations from '../../../../Variations/Index';
 export interface AttributeManagementModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
+  readonly focusAttributeName?: string;
 }
 
 /**
@@ -13,6 +14,7 @@ export interface AttributeManagementModalProps {
 export const AttributeManagementModal: React.FC<AttributeManagementModalProps> = ({
   isOpen,
   onClose,
+  focusAttributeName,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -31,7 +33,7 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10002] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[10002] flex"
       role="dialog"
       aria-modal="true"
       aria-label="Gerenciamento de Atributos e Variações"
@@ -42,21 +44,9 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
         onClick={onClose}
         aria-label="Fechar modal"
       />
-      <div className="relative bg-white dark:bg-slate-900 w-full max-w-6xl h-[90vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 border border-slate-100 dark:border-slate-800">
-        <div className="absolute top-6 right-8 z-[10003]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-colors rounded-2xl shadow-lg border border-slate-100 dark:border-slate-700 cursor-pointer"
-            title="Fechar modal de atributos (Esc)"
-            aria-label="Fechar modal"
-          >
-            <i className="bi bi-x-lg text-xl" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          <Variations />
+      <div className="relative h-full min-h-0 w-full bg-white shadow-2xl dark:bg-slate-900 flex flex-col overflow-hidden animate-in fade-in duration-300">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <Variations focusAttributeName={focusAttributeName} onClose={onClose} />
         </div>
       </div>
     </div>,

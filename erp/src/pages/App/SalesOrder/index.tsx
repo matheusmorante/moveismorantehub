@@ -857,7 +857,16 @@ const SalesOrder = () => {
             const emittedOrder = nfeModalOrder;
             setNfeModalOrder(null);
             setNfeEmissionOpenedAt(undefined);
-            orderListRef.current?.refresh();
+            const emittedOrderId = emittedOrder?.id || result.orderId;
+            if (emittedOrderId && result.documentId && result.environment) {
+              orderListRef.current?.markFiscalDocumentAuthorized(
+                emittedOrderId,
+                result.environment,
+                result.documentId
+              );
+            } else {
+              orderListRef.current?.refresh();
+            }
             if (emittedOrder) setIssuedFiscalDocument({ result, order: emittedOrder });
           }}
         />

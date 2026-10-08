@@ -24,8 +24,10 @@ async function check() {
     return;
   }
   const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
-    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy'];
-  const directRoutes = ['emit', 'consult', 'document-details', 'item-defaults', 'order-cancellation-policy'];
+    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy',
+    'order-fiscal-badges'];
+  const directRoutes = ['emit', 'consult', 'document-details', 'item-defaults', 'order-cancellation-policy',
+    'order-fiscal-badges'];
   for (const route of routes) {
     const dynamic = !directRoutes.includes(route);
     const source = await readFile(resolve(__dirname, `../api/nfe/${dynamic ? 'operations' : route}.ts`), 'utf8');

@@ -1,5 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Alert, Share } from 'react-native';
+import type React from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { Alert, Linking } from 'react-native';
 import {
   ActivityIndicator,
   Platform,
@@ -20,10 +21,17 @@ import { ProductFormModal } from '../modals/ProductFormModal';
 import { ProductConfigModal } from '../modals/ProductConfigModal';
 import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
 import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
+import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
 import { useMobileProducts } from '../hooks/useMobileProducts';
 import { duplicateMobileProduct } from '../services/mobileProductMutationService';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { NativeCategoriesScreen } from '../categories';
+import { useAuth } from '../../../contexts/AuthContext';
+import { WEB_URL } from '../../../services/supabaseClient';
+import {
+  isProductIdentificationLabelOnlyProfile,
+  shouldHideProductCatalogPublicationStatus,
+} from '../../../../../shared-utils/productPermissions';
 
 interface Props {
   isDarkMode: boolean;
@@ -38,9 +46,40 @@ export const NativeProductsScreen: React.FC<Props> = ({
   onLaunchStock,
 }) => {
   const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
+  const { canUseProductPermission, userProfile } = useAuth();
+  const canViewCatalog = canUseProductPermission('viewProducts');
+  const canEditProducts = canUseProductPermission('productConfig');
+  const canDeleteProducts = canUseProductPermission('deleteProducts');
+  const canViewCompositions = canUseProductPermission('viewProductCompositions');
+  const canViewCategories = canUseProductPermission('viewProductCategories');
+  const canViewCharacteristics = canUseProductPermission('viewProductCharacteristics');
+  const canViewReconciliation = canUseProductPermission('viewProductReconciliation');
+  const canPrintLabels = canUseProductPermission('printProductIdentificationLabels');
+  const userRoles = Array.isArray(userProfile?.roles)
+    ? userProfile.roles
+    : [userProfile?.role];
+  const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(userRoles);
+  const hideCatalogPublicationStatus = shouldHideProductCatalogPublicationStatus(userProfile);
+  const canViewDetails =
+    !canEditProducts &&
+    !isLabelOnlyProfile &&
+    (canViewCatalog || canViewCompositions);
+  const availableModes = useMemo(() => {
+    const modes: Array<'standard' | 'composition' | 'categories'> = [];
+    if (canViewCatalog) modes.push('standard');
+    if (canViewCompositions) modes.push('composition');
+    if (canViewCategories) modes.push('categories');
+    return modes;
+  }, [canViewCatalog, canViewCategories, canViewCompositions]);
+  const activeMode = availableModes.includes(screenMode)
+    ? screenMode
+    : (availableModes[0] ?? screenMode);
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  const productsHook = useMobileProducts(screenMode === 'composition' ? 'composition' : 'standard');
+  const productsHook = useMobileProducts(
+    activeMode === 'composition' ? 'composition' : 'standard',
+    activeMode !== 'categories' && availableModes.includes(activeMode)
+  );
 
   const [categories, setCategories] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -51,18 +90,27 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [historyProduct, setHistoryProduct] = useState<any | null>(null);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
+  const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
 
   const topInset =
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     const cats = await fetchMobileCategories();
     setCategories(cats);
-  };
+  }, []);
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    if (canViewCategories || canEditProducts) {
+      void loadCategories();
+    } else {
+      setCategories([]);
+    }
+  }, [canEditProducts, canViewCategories, loadCategories]);
+
+  useEffect(() => {
+    if (activeMode !== screenMode) setScreenMode(activeMode);
+  }, [activeMode, screenMode]);
 
   const handlePageChange = (page: number) => {
     productsHook.setCurrentPage(page);
@@ -70,17 +118,20 @@ export const NativeProductsScreen: React.FC<Props> = ({
   };
 
   const handleOpenNew = () => {
+    if (!canEditProducts) return;
     setEditingProduct(null);
     setNewProductInitialData(undefined);
     setShowFormModal(true);
   };
 
   const handleOpenEdit = (prod: any) => {
+    if (!canEditProducts) return;
     setEditingProduct(prod);
     setShowFormModal(true);
   };
 
   const handleDuplicate = async (prod: any) => {
+    if (!canEditProducts) return;
     try {
       await duplicateMobileProduct(prod);
       await productsHook.refresh();
@@ -90,29 +141,33 @@ export const NativeProductsScreen: React.FC<Props> = ({
     }
   };
 
-  const handleShare = async (prod: any) => {
-    const price = Number(prod.promoPrice || prod.unitPrice || 0).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-    await Share.share({
-      message: `${prod.name || 'Produto'}\nCódigo: ${prod.code || prod.sku || 'sem código'}\nPreço: ${price}`,
+  const handleOpenReconciliation = () => {
+    Linking.openURL(`${WEB_URL}/products/reconciliation/suppliers`).catch(() => {
+      Alert.alert('Não foi possível abrir a conciliação', 'Tente novamente mais tarde.');
     });
   };
 
   return (
     <View style={[styles.container, isDarkMode && styles.dark, { paddingTop: topInset }]}>
-      {screenMode === 'categories' ? (
+      {activeMode === 'categories' ? (
         <View style={{ flex: 1, paddingHorizontal: 16 }}>
           <ProductsHeader
-            mode={screenMode}
+            mode={activeMode}
+            availableModes={availableModes}
             onModeChange={setScreenMode}
             dark={isDarkMode}
             search=""
             totalCount={0}
             onSearch={() => {}}
             onNewProduct={handleOpenNew}
-            onOpenConfigs={() => setShowConfigModal(true)}
+            canCreateProduct={canEditProducts}
+            canCreateComposition={canEditProducts}
+            onOpenConfigs={() => {
+              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
+            }}
+            canOpenConfigs={canViewCategories || canViewCharacteristics}
+            onOpenReconciliation={handleOpenReconciliation}
+            canViewReconciliation={canViewReconciliation}
             categories={categories}
             statusFilter="all"
             categoryFilter="all"
@@ -121,11 +176,34 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onCategoryFilterChange={() => {}}
             onCatalogStatusFilterChange={() => {}}
             showDeactivated={false}
-            showMerged={false}
             onToggleDeactivated={() => {}}
-            onToggleMerged={() => {}}
           />
           <NativeCategoriesScreen dark={isDarkMode} onCategoriesUpdated={loadCategories} />
+        </View>
+      ) : availableModes.length === 0 ? (
+        <View style={styles.empty}>
+          <Package size={40} color="#2563eb" />
+          <Text style={[styles.emptyText, isDarkMode && styles.loading]}>
+            Recursos de produtos disponíveis para este perfil
+          </Text>
+          {canViewCharacteristics && (
+            <TouchableOpacity
+              onPress={() => setShowConfigModal(true)}
+              style={styles.retryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryButtonText}>Abrir características e atributos</Text>
+            </TouchableOpacity>
+          )}
+          {canViewReconciliation && (
+            <TouchableOpacity
+              onPress={handleOpenReconciliation}
+              style={styles.retryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryButtonText}>Abrir conciliação de fornecedores</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : productsHook.loading && !productsHook.refreshing ? (
         <View style={styles.center}>
@@ -144,30 +222,45 @@ export const NativeProductsScreen: React.FC<Props> = ({
           }
         >
           <ProductsHeader
-            mode={screenMode}
+            mode={activeMode}
+            availableModes={availableModes}
             onModeChange={setScreenMode}
             dark={isDarkMode}
             search={productsHook.searchTerm}
             totalCount={productsHook.totalItems}
             onSearch={productsHook.setSearchTerm}
             onNewProduct={handleOpenNew}
+            canCreateProduct={canEditProducts}
             onNewComposition={() => {
+              if (!canEditProducts) return;
               setEditingProduct({ itemType: 'composition' });
               setNewProductInitialData(undefined);
               setShowFormModal(true);
             }}
-            onOpenConfigs={() => setShowConfigModal(true)}
+            canCreateComposition={canEditProducts}
+            onOpenConfigs={() => {
+              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
+            }}
+            canOpenConfigs={canViewCategories || canViewCharacteristics}
+            onOpenReconciliation={handleOpenReconciliation}
+            canViewReconciliation={canViewReconciliation}
             categories={categories}
             statusFilter={productsHook.statusFilter}
             categoryFilter={productsHook.categoryFilter}
             catalogStatusFilter={productsHook.catalogStatusFilter}
+            generalTypeFilter={productsHook.generalTypeFilter}
+            showTestProducts={productsHook.showTestProducts}
+            hasTestProducts={productsHook.hasTestProducts}
+            canToggleTestProducts={canEditProducts}
             onStatusFilterChange={productsHook.setStatusFilter}
             onCategoryFilterChange={productsHook.setCategoryFilter}
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
+            onGeneralTypeFilterChange={productsHook.setGeneralTypeFilter}
+            onToggleTestProducts={() =>
+              productsHook.setShowTestProducts((value) => !value)
+            }
             showDeactivated={productsHook.showDeactivated}
-            showMerged={productsHook.showMerged}
             onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
-            onToggleMerged={() => productsHook.setShowMerged((value) => !value)}
           />
 
           {productsHook.loadError ? (
@@ -186,7 +279,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
             <View style={styles.empty}>
               <Package size={40} color="#cbd5e1" />
               <Text style={styles.emptyText}>
-                {screenMode === 'composition'
+                {activeMode === 'composition'
                   ? 'Nenhuma composição encontrada'
                   : 'Nenhum produto encontrado'}
               </Text>
@@ -201,11 +294,22 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 onToggleCatalog={productsHook.handleToggleCatalog}
                 onToggleActive={productsHook.handleToggleActive}
                 onDelete={productsHook.handleDelete}
+                canEdit={canEditProducts}
+                canDelete={canDeleteProducts}
+                canChangeCatalog={canEditProducts && !hideCatalogPublicationStatus}
+                showCatalogStatus={!hideCatalogPublicationStatus}
+                canPrintLabels={canPrintLabels}
+                canViewDetails={canViewDetails}
+                isLabelOnlyProfile={isLabelOnlyProfile}
                 onDuplicate={handleDuplicate}
-                onShare={handleShare}
-                onLaunchStock={onLaunchStock}
-                onShowHistory={setHistoryProduct}
-                onShowOrders={setOrdersProduct}
+                onViewDetails={setDetailsProduct}
+                onLaunchStock={canEditProducts && !isLabelOnlyProfile ? onLaunchStock : undefined}
+                onShowHistory={
+                  canEditProducts && !isLabelOnlyProfile ? setHistoryProduct : undefined
+                }
+                onShowOrders={
+                  canEditProducts && !isLabelOnlyProfile ? setOrdersProduct : undefined
+                }
               />
             ))
           )}
@@ -223,7 +327,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
       {/* Tela Fullscreen de Criação / Edição de Produto */}
       <ProductFormModal
-        visible={showFormModal}
+        visible={showFormModal && canEditProducts}
         product={editingProduct}
         initialData={newProductInitialData}
         dark={isDarkMode}
@@ -236,7 +340,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
       {/* Modal de Configurações (Categorias, Atributos e Variações) */}
       <ProductConfigModal
-        visible={showConfigModal}
+        visible={showConfigModal && (canViewCategories || canViewCharacteristics)}
         dark={isDarkMode}
         onClose={() => setShowConfigModal(false)}
         onCategoriesUpdated={loadCategories}
@@ -244,18 +348,26 @@ export const NativeProductsScreen: React.FC<Props> = ({
           setShowConfigModal(false);
           setScreenMode('categories');
         }}
+        canManageCategories={canViewCategories}
+        canManageCharacteristics={canViewCharacteristics}
       />
       <ProductPriceHistoryModal
-        visible={Boolean(historyProduct)}
+        visible={Boolean(historyProduct) && canEditProducts && !isLabelOnlyProfile}
         dark={isDarkMode}
         product={historyProduct}
         onClose={() => setHistoryProduct(null)}
       />
       <ProductLinkedOrdersModal
-        visible={Boolean(ordersProduct)}
+        visible={Boolean(ordersProduct) && canEditProducts && !isLabelOnlyProfile}
         dark={isDarkMode}
         product={ordersProduct}
         onClose={() => setOrdersProduct(null)}
+      />
+      <MobileProductDetailsModal
+        visible={Boolean(detailsProduct) && canViewDetails}
+        dark={isDarkMode}
+        product={detailsProduct}
+        onClose={() => setDetailsProduct(null)}
       />
     </View>
   );

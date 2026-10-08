@@ -3,6 +3,7 @@ import {
   getMobileEffectiveVariationPrice,
   getMobileVariationRegistrationIssue,
   isMobileEcommerceLegible,
+  isMobileProductErpLegible,
 } from './productRegistrationRules';
 
 const parent = {
@@ -30,6 +31,18 @@ const variation = {
 };
 
 describe('productRegistrationRules', () => {
+  it('espelha a prontidão ERP para origem do estoque, preço e variações', () => {
+    expect(isMobileProductErpLegible(parent)).toBe(true);
+    expect(isMobileProductErpLegible({ ...parent, productKind: 'salvado' })).toBe(false);
+    expect(isMobileProductErpLegible({ ...parent, productKind: 'usado' })).toBe(false);
+    expect(
+      isMobileProductErpLegible({ ...parent, hasVariations: true, variations: [variation] })
+    ).toBe(true);
+    expect(
+      isMobileProductErpLegible({ ...parent, hasVariations: true, variations: [] })
+    ).toBe(false);
+  });
+
   it('aceita uma variação completa e resolve preço e dimensões herdados', () => {
     expect(getMobileEffectiveVariationPrice(parent, variation)).toBe(1250);
     expect(getMobileVariationRegistrationIssue(parent, variation, [variation])).toBeNull();
@@ -125,6 +138,14 @@ describe('productRegistrationRules', () => {
   it('mantém publicados apenas produtos que continuam legíveis para o catálogo', () => {
     const catalogProduct = {
       ...parent,
+      width: 0,
+      depth: 0,
+      technicalValues: {
+        ...parent.technicalValues,
+        Altura: '180',
+        Largura: 'Não se aplica',
+        Profundidade: 'Não se aplica',
+      },
       title: 'Armário',
       ecommerceDescription: 'Armário com estrutura de madeira.',
       images: ['https://example.test/armario.jpg'],
@@ -133,5 +154,30 @@ describe('productRegistrationRules', () => {
     };
     expect(isMobileEcommerceLegible(catalogProduct)).toBe(true);
     expect(isMobileEcommerceLegible({ ...catalogProduct, images: [] })).toBe(false);
+    expect(
+      isMobileEcommerceLegible({
+        ...catalogProduct,
+        technicalValues: {
+          ...catalogProduct.technicalValues,
+          Largura: '',
+          Altura: '180',
+          Profundidade: 'Não se aplica',
+        },
+      })
+    ).toBe(false);
+    expect(
+      isMobileEcommerceLegible({
+        ...catalogProduct,
+        width: 80,
+        height: 180,
+        depth: 50,
+        technicalValues: {
+          ...catalogProduct.technicalValues,
+          Largura: 'Não se aplica',
+          Altura: 'Não se aplica',
+          Profundidade: 'Não se aplica',
+        },
+      })
+    ).toBe(false);
   });
 });

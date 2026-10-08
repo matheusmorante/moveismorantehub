@@ -89,6 +89,8 @@ export function buildFiscalOperationDraftReviewState(
     payment_xml: savedReview.payment_xml || data.reviewTemplate.payment_xml,
     item_taxes_confirmed: savedReview.item_taxes_confirmed === true,
     totals_confirmed: savedReview.totals_confirmed === true,
+    apportionment_review_confirmed: savedReview.apportionment_review_confirmed === true,
+    period_adjustment_text: savedReview.period_adjustment_text || '',
   };
 
   let notice: string;

@@ -10,6 +10,9 @@ import { updateProductCatalogState } from '../../utils/catalog/productCatalogSta
 import { validateErpActivationRequirements } from '../activation/useProductsActivationValidation';
 import { persistProductActiveState } from '../activation/useProductsActivePersistence';
 import { isTestProduct } from '@/pages/utils/hmlTestData';
+import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
+import { getProfileRoles } from '@/pages/utils/accessRoles';
 import {
   resolveCatalogEntities,
   validateCatalogPublication,
@@ -25,6 +28,11 @@ import {
 } from '../actions/useProductsDeletionActions';
 
 export const useProducts = (filters?: ProductListFilters) => {
+  const { profile } = useAuth();
+  const canDeleteProducts = canPerform(
+    'deleteProducts',
+    profile ? getProfileRoles(profile) : []
+  );
   // ═══════════════════════════════════════════════
   // SERVER PAGINATION state (Backend Supabase .range)
   // ═══════════════════════════════════════════════
@@ -150,6 +158,10 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   // ─── Ações de exclusão e ativação ───────────────────
   const handleDelete = async (id: string) => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite excluir ou desativar produtos.');
+      return;
+    }
     const targetProduct = serverProducts.find(
       (p) => String(p.id) === String(id) || String((p as any).realId) === String(id)
     );
@@ -163,6 +175,10 @@ export const useProducts = (filters?: ProductListFilters) => {
   };
 
   const handleRestore = async (id: string) => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite reativar produtos.');
+      return;
+    }
     try {
       await activateProduct(id);
       refresh();
@@ -173,14 +189,26 @@ export const useProducts = (filters?: ProductListFilters) => {
   };
 
   const handlePermanentDelete = async (id: string) => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite excluir produtos.');
+      return;
+    }
     await deleteProductPermanently(id, refresh);
   };
 
   const handleBulkTrash = async () => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite excluir ou desativar produtos.');
+      return;
+    }
     await executeBulkTrash(selectedProducts, refresh, setSelectedProducts, setServerLoading);
   };
 
   const handleBulkRestore = async () => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite reativar produtos.');
+      return;
+    }
     await executeBulkRestore(
       selectedProducts,
       refresh,
@@ -191,6 +219,10 @@ export const useProducts = (filters?: ProductListFilters) => {
   };
 
   const handleBulkPermanentDelete = async () => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite excluir produtos.');
+      return;
+    }
     await executeBulkPermanentDelete(
       selectedProducts,
       refresh,
@@ -220,6 +252,10 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   // ─── Alternância de Ativo/Inativo ERP ───────────────────
   const toggleActive = async (id: string, currentStatus: boolean) => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite excluir ou desativar produtos.');
+      return;
+    }
     const newActive = !currentStatus;
 
     if (newActive) {
@@ -304,6 +340,7 @@ export const useProducts = (filters?: ProductListFilters) => {
     setItemsPerPage,
     loading: serverLoading,
     isServerPagination: true,
+    canDeleteProducts,
     handleDelete,
     handleRestore,
     handlePermanentDelete,

@@ -1,4 +1,8 @@
 import type { UserRole } from '@/context/AuthContext';
+import {
+  PRODUCT_ACCESS_ROLES,
+  PRODUCT_PERMISSION_AREA,
+} from '../../../../shared-utils/productPermissions';
 
 export interface RoleOption {
   value: UserRole;
@@ -7,44 +11,7 @@ export interface RoleOption {
   icon: string;
 }
 
-export const ROLES: RoleOption[] = [
-  {
-    value: 'administrator',
-    label: 'Administrador',
-    description: 'Acesso total irrestrito a todas as áreas e ações',
-    icon: 'bi-shield-shaded',
-  },
-  {
-    value: 'manager',
-    label: 'Gestor',
-    description: 'Gestão operacional, estoque, relatórios e vendas',
-    icon: 'bi-briefcase-fill',
-  },
-  {
-    value: 'stockist',
-    label: 'Estoquista',
-    description: 'Controle, contagens e movimentações de estoque',
-    icon: 'bi-boxes',
-  },
-  {
-    value: 'seller',
-    label: 'Vendedor',
-    description: 'Produtos, logística e fornecedores',
-    icon: 'bi-tag-fill',
-  },
-  {
-    value: 'deliverer',
-    label: 'Entregador / Montador',
-    description: 'Rotas, montagens e consulta de produtos e estoque',
-    icon: 'bi-truck',
-  },
-  {
-    value: 'accountant',
-    label: 'Contador',
-    description: 'Acesso financeiro, relatórios fiscais e DRE',
-    icon: 'bi-calculator',
-  },
-];
+export const ROLES: RoleOption[] = PRODUCT_ACCESS_ROLES.map((role) => ({ ...role }));
 
 export type PermissionCapability = 'view' | 'edit' | 'delete' | 'operate' | 'export';
 
@@ -85,8 +52,6 @@ const action = (
 });
 
 const managers: UserRole[] = ['manager'];
-const productManagers: UserRole[] = ['manager', 'stockist', 'seller'];
-const productViewers: UserRole[] = ['manager', 'seller', 'deliverer', 'stockist'];
 const stockViewers: UserRole[] = ['manager', 'deliverer', 'stockist'];
 const stockManagers: UserRole[] = ['manager', 'stockist'];
 const fiscalModuleViewers: UserRole[] = ['administrator', 'manager', 'accountant', 'seller', 'stockist'];
@@ -127,22 +92,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
       action('exportSalesReports', 'Relatórios de vendas', 'export', 'Exportar', 'Baixar relatórios de vendas.', 'bi-download', managers),
     ],
   },
-  {
-    id: 'stockAndProducts',
-    name: 'Produtos',
-    description: 'Catálogo e seus submódulos de cadastro e integração.',
-    icon: 'bi-box-seam-fill',
-    actions: [
-      action('viewProducts', 'Cadastro de produtos', 'view', 'Acessar catálogo', 'Consultar produtos, preços e detalhes.', 'bi-eye-fill', productViewers),
-      action('productConfig', 'Cadastro de produtos', 'edit', 'Criar e editar', 'Cadastrar produtos, editar dados e variações.', 'bi-pencil-square', productManagers),
-      action('deleteProducts', 'Cadastro de produtos', 'delete', 'Excluir e desativar', 'Excluir ou inativar produtos cadastrados.', 'bi-trash-fill', ['manager', 'seller']),
-      action('printProductIdentificationLabels', 'Cadastro de produtos', 'operate', 'Imprimir etiquetas de identificação', 'Imprimir etiquetas de identificação de produtos e variações.', 'bi-upc-scan', ['manager', 'seller', 'stockist', 'deliverer']),
-      action('viewProductCharacteristics', 'Características', 'view', 'Acessar', 'Consultar e configurar características de produtos.', 'bi-sliders2', ['manager', 'stockist', 'seller']),
-      action('viewProductCategories', 'Ambientes e categorias', 'view', 'Acessar', 'Consultar e configurar ambientes, categorias e tipos.', 'bi-tags-fill', ['manager', 'stockist', 'seller']),
-      action('viewProductCompositions', 'Composições', 'view', 'Acessar', 'Consultar e configurar composições e kits.', 'bi-diagram-3-fill', ['manager', 'stockist', 'seller']),
-      action('viewProductReconciliation', 'Conciliação de fornecedores', 'view', 'Acessar', 'Consultar e executar conciliação de produtos de fornecedores.', 'bi-arrow-left-right', ['manager', 'stockist', 'seller']),
-    ],
-  },
+  PRODUCT_PERMISSION_AREA as unknown as PermissionAreaDef,
   {
     id: 'stock',
     name: 'Estoque',

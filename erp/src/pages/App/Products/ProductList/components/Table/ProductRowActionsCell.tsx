@@ -18,6 +18,7 @@ export interface ActionProductLike extends Product {
 export interface ProductRowActionsCellProps {
   readonly product: ActionProductLike;
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly isChildVar: boolean;
   readonly showTrash?: boolean;
   readonly onEdit: (product: Product) => void;
@@ -39,6 +40,7 @@ export interface ProductRowActionsCellProps {
 export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   isChildVar,
   showTrash,
   onEdit,
@@ -80,6 +82,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
         <ParentProductActions
           product={product}
           showTrash={showTrash && !isLabelOnlyProfile}
+          canDeleteProducts={canDeleteProducts}
           showEditButton={!readOnly}
           isDraft={isDraft}
           onEdit={onEdit}

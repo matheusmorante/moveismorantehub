@@ -1,4 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
+import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
 
 export interface MobileProductFilterOptions {
   search?: string;
@@ -8,6 +9,7 @@ export interface MobileProductFilterOptions {
   includeDeactivated?: boolean;
   includeMerged?: boolean;
   itemType?: 'standard' | 'composition';
+  generalType?: 'all' | 'product' | 'service';
   throwOnError?: boolean;
 }
 
@@ -35,7 +37,14 @@ export const fetchMobileProductsPage = async (
     if (options?.itemType === 'composition') {
       query = query.eq('item_type', 'composition');
     } else if (options?.itemType === 'standard') {
-      query = query.neq('item_type', 'composition');
+      // Preserva produtos legados com item_type nulo, como o filtro do ERP.
+      query = query.filter('item_type', 'isdistinct', 'composition');
+    }
+
+    if (options?.generalType === 'product') {
+      query = query.eq('item_type', 'product');
+    } else if (options?.generalType === 'service') {
+      query = query.eq('item_type', 'service');
     }
 
     const status = options?.statusFilter || 'all';
@@ -112,7 +121,9 @@ export const fetchMobileProductsPage = async (
         orConditions.push(`and(${words.map((word) => `name.ilike.%${word}%`).join(',')})`);
 
       if (matchedParentIds.length > 0) {
-        matchedParentIds.forEach((id) => orConditions.push(`id.eq.${id}`));
+        matchedParentIds.forEach((id) => {
+          orConditions.push(`id.eq.${id}`);
+        });
       }
 
       query = query.or(orConditions.join(','));
@@ -143,9 +154,9 @@ export const fetchMobileProductsPage = async (
         .select('id, name')
         .in('id', categoryIds);
       if (categoryError && options?.throwOnError) throw categoryError;
-      (categoryRows || []).forEach((category: any) =>
-        categoryNames.set(String(category.id), category.name)
-      );
+      (categoryRows || []).forEach((category: any) => {
+        categoryNames.set(String(category.id), category.name);
+      });
     }
 
     const formatted = (data || []).map((p: any) => {
@@ -264,7 +275,7 @@ export const fetchMobileProductsPage = async (
       const parentActive = allVars.length > 0 ? activeVariationsCount > 0 : Boolean(p.active);
       const isParent = isProductItem || Boolean(p.has_variations || allVars.length > 0);
 
-      return {
+      const baseProduct = {
         ...p,
         category:
           (p.product_categories || [])
@@ -284,16 +295,72 @@ export const fetchMobileProductsPage = async (
         activeVariationsCount,
         totalVariationsCount,
         isParent,
+        itemType: p.item_type || 'product',
         isDraft: Boolean(p.is_draft || p.status === 'draft'),
+        variations: allVars,
+        technicalSpecs: p.technical_specs || {},
         mainSupplierId: p.main_supplier_id || p.supplier_id || null,
         supplierId: p.supplier_id || p.main_supplier_id || null,
         supplierIds: Array.isArray(p.supplier_ids)
           ? p.supplier_ids
           : p.supplier_id
             ? [p.supplier_id]
-            : p.main_supplier_id
-              ? [p.main_supplier_id]
-              : [],
+              : p.main_supplier_id
+                ? [p.main_supplier_id]
+                : [],
+      };
+      const restoredProduct = restoreProductDraftSnapshot(baseProduct);
+      const restoredVariations = Array.isArray(restoredProduct.variations)
+        ? restoredProduct.variations.map((variation: any, variationIndex: number) => {
+            const fallbackSku = `${parentCode}-${String(variationIndex + 1).padStart(2, '0')}`;
+            const price = Number(
+              variation.price ??
+                variation.unit_price ??
+                variation.unitPrice ??
+                restoredProduct.unitPrice ??
+                p.unit_price ??
+                p.price ??
+                0
+            );
+            const promoPrice = variation.promo_price ?? variation.promoPrice;
+            return {
+              ...variation,
+              sku: variation.sku || fallbackSku,
+              price,
+              unitPrice: Number(variation.unitPrice ?? price),
+              promo_price: promoPrice,
+              promoPrice: promoPrice === null || promoPrice === undefined ? undefined : Number(promoPrice),
+              stock: Number(variation.stock ?? 0),
+              active: variation.active !== false,
+              status: variation.status || restoredProduct.status || 'published',
+              images: Array.isArray(variation.images) ? variation.images : [],
+            };
+          })
+        : [];
+      const restoredActiveVariationsCount = restoredVariations.filter(
+        (variation: any) => variation.active !== false
+      ).length;
+
+      return {
+        ...restoredProduct,
+        allVariations: restoredVariations,
+        unitPrice: Number(restoredProduct.unitPrice ?? p.unit_price ?? p.price ?? 0),
+        promoPrice: Number(restoredProduct.promoPrice ?? p.promo_price ?? 0),
+        costPrice: Number(restoredProduct.costPrice ?? p.cost_price ?? 0),
+        stock: Number(restoredProduct.stock ?? p.stock ?? 0),
+        active: restoredProduct.isDraft
+          ? false
+          : restoredVariations.length > 0
+            ? restoredActiveVariationsCount > 0
+            : Boolean(p.active),
+        activeVariationsCount: restoredActiveVariationsCount,
+        totalVariationsCount: restoredVariations.length || 1,
+        isParent: Boolean(restoredProduct.isParent || isProductItem || restoredProduct.hasVariations),
+        itemType: restoredProduct.itemType || p.item_type || 'product',
+        isDraft: Boolean(restoredProduct.isDraft || p.is_draft || p.status === 'draft'),
+        mainSupplierId: restoredProduct.mainSupplierId || p.main_supplier_id || p.supplier_id || null,
+        supplierId: restoredProduct.supplierId || p.supplier_id || p.main_supplier_id || null,
+        supplierIds: restoredProduct.supplierIds || baseProduct.supplierIds,
       };
     });
 

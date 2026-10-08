@@ -5,6 +5,11 @@ import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
 import {
+  hasProductPermission,
+  normalizePermissionRoles,
+  PRODUCT_PERMISSION_ACTIONS,
+} from '../../../shared-utils/productPermissions';
+import {
   checkCurrentUserHasPassword,
   createCurrentUserPassword,
 } from '../services/authPasswordSetup';
@@ -21,6 +26,12 @@ interface AuthContextProps {
   isSeller: boolean;
   canSeeReports: boolean;
   canSeeProducts: boolean;
+  canUseProductPermission: (actionId: string) => boolean;
+  rolePermissions: Record<string, string[]>;
+  rolePermissionsLoaded: boolean;
+  rolePermissionsLoadFailed: boolean;
+  reloadRolePermissions: () => void;
+  saveRolePermissions: (updates: Record<string, string[]>) => Promise<void>;
   canSeeFinance: boolean;
   canManageStock: boolean;
   passwordCredentialStatus: PasswordCredentialStatus;
@@ -64,6 +75,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [passwordCredentialStatus, setPasswordCredentialStatus] =
     useState<PasswordCredentialStatus>('idle');
   const [passwordRecoveryInProgress, setPasswordRecoveryInProgress] = useState(false);
+  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
+  const [rolePermissionsLoaded, setRolePermissionsLoaded] = useState(false);
+  const [rolePermissionsLoadFailed, setRolePermissionsLoadFailed] = useState(false);
+  const [permissionReloadVersion, setPermissionReloadVersion] = useState(0);
 
   const beginPasswordRecovery = () => setPasswordRecoveryInProgress(true);
   const endPasswordRecovery = () => setPasswordRecoveryInProgress(false);
@@ -86,6 +101,118 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!hasPassword) {
       throw new Error('O Supabase ainda não confirmou a senha. Tente novamente.');
     }
+  };
+
+  const profileAccessKey = userProfile?.id || userProfile?.email || null;
+
+  useEffect(() => {
+    let active = true;
+    if (!profileAccessKey) {
+      setRolePermissions({});
+      setRolePermissionsLoaded(false);
+      setRolePermissionsLoadFailed(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    const loadRolePermissions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('data')
+          .eq('id', 'app')
+          .maybeSingle();
+        if (!active) return;
+        if (error) throw error;
+
+        const saved = data?.data?.rolePermissions;
+        const safePermissions: Record<string, string[]> =
+          saved && typeof saved === 'object' && !Array.isArray(saved)
+            ? Object.fromEntries(
+                Object.entries(saved).map(([actionId, roles]) => [
+                  actionId,
+                  Array.isArray(roles) ? roles.filter((role) => typeof role === 'string') : [],
+                ])
+              )
+            : {};
+
+        // O ERP migra permissões antigas dos submódulos a partir do acesso ao cadastro.
+        // Aplicamos o mesmo fallback antes de a migração do ERP gravar essas chaves.
+        for (const action of PRODUCT_PERMISSION_ACTIONS) {
+          if (
+            action.id.startsWith('viewProduct') &&
+            action.id !== 'viewProducts' &&
+            !Object.prototype.hasOwnProperty.call(safePermissions, action.id)
+          ) {
+            safePermissions[action.id] = safePermissions.productConfig ?? [...action.defaultRoles];
+          }
+        }
+
+        setRolePermissions(safePermissions);
+        setRolePermissionsLoaded(true);
+        setRolePermissionsLoadFailed(false);
+      } catch {
+        if (!active) return;
+        console.warn('[Permissions] Falha ao carregar os acessos configurados.');
+        setRolePermissions({});
+        setRolePermissionsLoadFailed(true);
+      }
+    };
+
+    setRolePermissionsLoaded(false);
+    setRolePermissionsLoadFailed(false);
+    void loadRolePermissions();
+
+    const settingsChannel = supabase
+      .channel('mobile-product-role-permissions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' },
+        () => void loadRolePermissions()
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(settingsChannel);
+    };
+  }, [profileAccessKey, permissionReloadVersion]);
+
+  const reloadRolePermissions = () => setPermissionReloadVersion((version) => version + 1);
+
+  const saveRolePermissions = async (updates: Record<string, string[]>) => {
+    const productActionIds = new Set(PRODUCT_PERMISSION_ACTIONS.map((action) => action.id));
+    const safeUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([actionId]) => productActionIds.has(actionId))
+    );
+    if (Object.keys(safeUpdates).length === 0) return;
+
+    const { data: current, error: readError } = await supabase
+      .from('settings')
+      .select('data')
+      .eq('id', 'app')
+      .maybeSingle();
+    if (readError) throw readError;
+
+    const currentData = current?.data && typeof current.data === 'object' && !Array.isArray(current.data)
+      ? current.data
+      : {};
+    const currentPermissions = currentData.rolePermissions &&
+      typeof currentData.rolePermissions === 'object' &&
+      !Array.isArray(currentData.rolePermissions)
+        ? currentData.rolePermissions
+        : {};
+    const nextPermissions = { ...currentPermissions, ...safeUpdates };
+    const { error: saveError } = await supabase.from('settings').upsert({
+      id: 'app',
+      data: { ...currentData, rolePermissions: nextPermissions },
+    });
+    if (saveError) throw saveError;
+
+    setRolePermissions(nextPermissions as Record<string, string[]>);
+    setRolePermissionsLoaded(true);
+    setRolePermissionsLoadFailed(false);
   };
 
   const handleLogout = async () => {
@@ -141,7 +268,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const handleDeepLinkUrl = async (url: string) => {
     if (!url) return;
-    console.log('[DeepLink] Recebido URL:', url);
     try {
       if (!url.includes('code=') && !url.includes('access_token=') && !url.includes('error='))
         return;
@@ -155,7 +281,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
     } catch (err) {
-      console.warn('[DeepLink] Falha ao processar URL:', err);
+      console.warn('[DeepLink] Falha ao processar URL');
     } finally {
       setLoadingProfile(false);
     }
@@ -227,23 +353,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const isAdmin =
-    userProfile?.role === 'admin' ||
-    userProfile?.role === 'master' ||
-    userProfile?.role === 'administrator';
+  const profileRoleValues = Array.isArray(userProfile?.roles)
+    ? userProfile.roles.filter((role: string) => role !== 'pending')
+    : [];
+  const roles = normalizePermissionRoles(
+    profileRoleValues.length > 0 ? profileRoleValues : [userProfile?.role]
+  );
+  const isAdmin = roles.includes('administrator');
   const isAssemblerDriver =
     userProfile?.role === 'assembler' ||
     userProfile?.role === 'driver' ||
     userProfile?.role === 'entregador' ||
     userProfile?.role === 'deliverer';
-  const isSeller = Boolean(
-    userProfile?.roles?.includes('seller') ||
-      userProfile?.role === 'seller' ||
-      userProfile?.roles?.includes('vendedor') ||
-      userProfile?.role === 'vendedor'
-  );
+  const isSeller = roles.includes('seller');
   const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
-  const canSeeProducts = isAdmin || isSeller || userProfile?.role === 'manager';
+  const canUseProductPermission = (actionId: string) => {
+    if (isAdmin) return hasProductPermission(actionId, roles, rolePermissions);
+    if (!rolePermissionsLoaded) return false;
+    return hasProductPermission(actionId, roles, rolePermissions);
+  };
+  const canSeeProducts = [
+    'viewProducts',
+    'viewProductCharacteristics',
+    'viewProductCategories',
+    'viewProductCompositions',
+    'viewProductReconciliation',
+  ].some(canUseProductPermission);
   const canSeeFinance =
     isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
   const canManageStock =
@@ -263,6 +398,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isSeller,
         canSeeReports,
         canSeeProducts,
+        canUseProductPermission,
+        rolePermissions,
+        rolePermissionsLoaded,
+        rolePermissionsLoadFailed,
+        reloadRolePermissions,
+        saveRolePermissions,
         canSeeFinance,
         canManageStock,
         passwordCredentialStatus,

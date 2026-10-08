@@ -14,6 +14,7 @@ import { ProductCardActions } from './ProductCardActions';
 interface ProductCardHeaderProps {
   product: Product;
   readOnly?: boolean;
+  canDeleteProducts: boolean;
   showCatalogControl?: boolean;
   isParent: boolean;
   isVariation: boolean;
@@ -40,6 +41,7 @@ interface ProductCardHeaderProps {
 export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   showCatalogControl = true,
   isParent,
   isVariation,
@@ -115,6 +117,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           isNonConventional={isNonConventionalProduct(product)}
           isSalvado={getProductKind(product) === 'salvado'}
           canManageCatalog={canManageCatalog}
+          canToggleActive={canDeleteProducts}
           showCatalogControl={showCatalogControl}
           isDraft={isDraft}
           activeVariationsCount={
@@ -231,6 +234,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           <ProductCardActions
             product={product}
             showEditButton={!readOnly}
+            canDeleteProducts={canDeleteProducts}
             onEdit={onEdit}
             onDuplicate={onDuplicate}
             onShowHistory={onShowHistory}

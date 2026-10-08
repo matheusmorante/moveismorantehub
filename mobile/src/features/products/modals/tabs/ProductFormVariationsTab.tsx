@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../../domain/productNumbers';
 import { generateVariationSku } from '../../domain/productSku';
+import { isMobileProductErpLegible } from '../../domain/productRegistrationRules';
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
@@ -40,9 +41,15 @@ interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
+  isStockistOnly?: boolean;
 }
 
-export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+export const ProductFormVariationsTab: React.FC<Props> = ({
+  formData,
+  setFormData,
+  dark,
+  isStockistOnly = false,
+}) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
   const insets = useSafeAreaInsets();
@@ -191,14 +198,26 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
   const isComposition = formData.itemType === 'composition' || formData.item_type === 'composition';
   const variationTabs = [
     { id: 'identificacao' as const, label: 'Identificação', Icon: Info },
+    ...(!isStockistOnly
+      ? [
+          { id: 'fotos' as const, label: 'Fotos da Variação', Icon: Images },
+        ]
+      : []),
     { id: 'tecnico' as const, label: 'Características', Icon: Settings },
-    { id: 'descricao' as const, label: 'Descrição', Icon: FileText },
-    { id: 'fotos' as const, label: 'Fotos da Variação', Icon: Images },
+    ...(!isStockistOnly
+      ? [{ id: 'descricao' as const, label: 'Descrição', Icon: FileText }]
+      : []),
+    { id: 'estoque' as const, label: 'Estoque e Precificação', Icon: Package },
     ...(isComposition
       ? [{ id: 'compostos' as const, label: 'Produtos Componentes', Icon: Network }]
       : []),
-    { id: 'estoque' as const, label: 'Estoque e Precificação', Icon: Package },
   ];
+
+  useEffect(() => {
+    if (!variationTabs.some((tab) => tab.id === activeVariationTab)) {
+      setActiveVariationTab('identificacao');
+    }
+  }, [activeVariationTab, isComposition, isStockistOnly]);
 
   return (
     <View style={styles.container}>
@@ -273,11 +292,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
               setExpanded(idx);
               setActiveVariationTab('identificacao');
             };
-            const erpReady =
-              String(formData.name || formData.description || '').trim().length >= 2 &&
-              parentCategoryIds.length > 0 &&
-              Boolean(formData.mainSupplierId || formData.supplierId) &&
-              variations.length > 0;
+            const erpReady = isMobileProductErpLegible(formData);
             const catalogPublished = formData.status === 'published';
             const discountPercent =
               regularPrice > 0 && promoPrice > 0 && promoPrice < regularPrice
@@ -437,7 +452,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                               ERP: {erpReady ? 'Ativo' : 'Pendente'}
                             </Text>
                           </View>
-                          <View
+                          {!isStockistOnly && <View
                             style={[
                               styles.statusPill,
                               catalogPublished
@@ -455,7 +470,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                             >
                               Catálogo: {catalogPublished ? 'Publicado' : 'Ocultado'}
                             </Text>
-                          </View>
+                          </View>}
                         </View>
                         <ScrollView
                           horizontal
@@ -516,7 +531,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                                   </View>
                                   <View style={styles.cardHeader}>
                                     <Text style={[styles.label, dark && styles.dimText]}>
-                                      Nome *
+                                      Nome <Text style={{ color: '#ef4444' }}>*</Text>
                                     </Text>
                                     <TouchableOpacity
                                       onPress={() => {
@@ -619,11 +634,12 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                               setFormData={setVariationTechnicalData}
                               parentData={formData}
                               dark={dark}
+                              requiredFieldsOnly={isStockistOnly}
                             />
                           </View>
                         )}
 
-                        {activeVariationTab === 'descricao' && (
+                        {!isStockistOnly && activeVariationTab === 'descricao' && (
                           <View style={[styles.card, dark && styles.darkCard]}>
                             <View style={styles.cardHeader}>
                               <View style={styles.flex1}>
@@ -693,7 +709,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({ formData, setFormDat
                           </View>
                         )}
 
-                        {activeVariationTab === 'fotos' && (
+                        {!isStockistOnly && activeVariationTab === 'fotos' && (
                           <ProductVariationPhotosEditor
                             images={Array.isArray(v.images) ? v.images : []}
                             parentImages={Array.isArray(formData.images) ? formData.images : []}

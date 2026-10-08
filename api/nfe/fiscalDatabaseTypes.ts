@@ -23,6 +23,9 @@ export type FiscalDatabase = {
         version: number;
         updated_at: string;
         delivery_status: string | null;
+        delivery_started_at: string | null;
+        delivery_arrived_at: string | null;
+        delivery_finished_at: string | null;
         delivery_method: string | null;
       }>;
       settings: FiscalTable<{

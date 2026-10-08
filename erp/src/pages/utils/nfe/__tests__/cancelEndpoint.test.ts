@@ -29,9 +29,11 @@ const fiscalDocument = {
   ambiente: 2,
   status: 'homologada',
   document_type: 'outbound',
-  chave_acesso: '1'.repeat(44),
+  chave_acesso:
+    '41' + '2610' + '12345678000195' + '55' + '001' + '000000001' + '1' + '00000000' + '0',
   numero_protocolo: '123456789012345',
   xml_nfe: '<NFe><emit><CNPJ>12345678000195</CNPJ></emit></NFe>',
+  xml_protocolo: `<protNFe><infProt><dhRecbto>${new Date(Date.now() - 60 * 60 * 1000).toISOString()}</dhRecbto></infProt></protNFe>`,
   created_at: new Date().toISOString(),
 };
 
@@ -67,6 +69,7 @@ function database(
     priorEvents?: Array<Record<string, unknown>>;
     reservationError?: boolean;
     documentOverrides?: Partial<typeof fiscalDocument>;
+    orderOverrides?: Record<string, unknown>;
   } = {}
 ) {
   const from = vi.fn((table: string) => {
@@ -91,6 +94,7 @@ function database(
                   delivery_status: null,
                   delivery_method: null,
                   order_data: {},
+                  ...options.orderOverrides,
                 }
               : null,
         error: null,
@@ -126,6 +130,23 @@ describe('API de cancelamento de NF-e', () => {
 
   it('rejeita cancelamento após atendimento, sem assinar ou transmitir evento', async () => {
     const db = database('fulfilled');
+    mocks.createClient.mockReturnValue(db);
+    const handler = (await import('../../../../../../api/nfe/cancel')).default;
+    const result = response();
+
+    await handler(request, result.res as any);
+
+    expect(result.statusCode).toBe(409);
+    expect(result.body?.error).toContain('circulação/entrega');
+    expect(mocks.signNfeEventXml).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejeita cancelamento quando há timestamp estruturado de saída para entrega', async () => {
+    const db = database('cancelled', {
+      orderOverrides: { delivery_started_at: new Date().toISOString() },
+    });
     mocks.createClient.mockReturnValue(db);
     const handler = (await import('../../../../../../api/nfe/cancel')).default;
     const result = response();

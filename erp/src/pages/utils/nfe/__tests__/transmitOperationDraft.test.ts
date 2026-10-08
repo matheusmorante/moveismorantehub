@@ -73,7 +73,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
     originalQuantity: 2,
     grossValue: 200,
     discountValue: 0,
-    cfop: '1949',
+    cfop: '5949',
   });
   const state = {
     draft: {
@@ -96,6 +96,11 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
         reason: kind === 'estorno' ? 'Operação não realizada e prazo legal expirado.' : '',
         item_taxes_confirmed: true,
         totals_confirmed: true,
+        apportionment_review_confirmed: kind === 'estorno',
+        period_adjustment_text:
+          kind === 'estorno'
+            ? 'Diferenças e acréscimos fiscais revisados pelo responsável.'
+            : '',
       },
       reviewed_at: '2026-09-26T12:00:00.000Z',
       access_key: null as string | null,
@@ -115,7 +120,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
       serie: '1',
       numero_protocolo: '141260000654321',
       xml_protocolo: `<protNFe><infProt><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${sourceKey}</chNFe><nProt>141260000654321</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe>`,
-      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><idDest>1</idDest><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ><CRT>1</CRT></emit>${sourceDestination}</infNFe></NFe>`,
+      xml_nfe: `<NFe><infNFe Id="NFe${sourceKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>699</nNF><tpNF>1</tpNF><idDest>1</idDest><indFinal>1</indFinal></ide><emit><CNPJ>44512248000107</CNPJ><CRT>1</CRT></emit>${sourceDestination}</infNFe></NFe>`,
     },
     lines: [
       {
@@ -125,7 +130,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
         quantity: kind === 'estorno' ? 2 : 1,
         gross_value: kind === 'estorno' ? 200 : 100,
         discount_value: 0,
-        reviewed_cfop: kind === 'estorno' ? '1949' : '1202',
+        reviewed_cfop: kind === 'estorno' ? '5949' : '1202',
         reviewed_product_xml: kind === 'estorno' ? estornoProduct : reviewedProduct,
         reviewed_taxes_xml: reviewedTaxes,
       },
@@ -280,6 +285,29 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
   return { db, state };
 }
 
+function createNfceEstornoDatabase() {
+  const result = createDatabase('estorno');
+  const nfceKey = generateNfeAccessKey({
+    ufCode: '41',
+    yearMonth: '2609',
+    cnpj: '44512248000107',
+    model: '65',
+    series: '1',
+    number: 699,
+    emissionType: '1',
+    randomCode: '87654321',
+  }).accessKey;
+  result.state.draft.original_access_key = nfceKey;
+  result.state.source.modelo = '65';
+  result.state.source.chave_acesso = nfceKey;
+  result.state.source.xml_protocolo = result.state.source.xml_protocolo.replace(sourceKey, nfceKey);
+  result.state.source.xml_nfe = result.state.source.xml_nfe
+    .replace('NFe' + sourceKey, 'NFe' + nfceKey)
+    .replace(sourceKey, nfceKey)
+    .replace('<mod>55</mod>', '<mod>65</mod>');
+  return result;
+}
+
 function createResponse() {
   let statusCode = 200;
   let body: any;
@@ -429,12 +457,63 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       expect.objectContaining({
         kind: 'estorno',
         natureOfOperation: 'Nota Fiscal de Estorno',
+        originalOperationType: 1,
         destinationIndicator: 1,
+        periodAdjustmentText: 'Diferenças e acréscimos fiscais revisados pelo responsável.',
         originalAccessKey: sourceKey,
       })
     );
     expect(state.draft.access_key).not.toBe(sourceKey);
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it('aceita NFC-e do Paraná como origem do estorno e transmite somente a NFE modelo 55 revisada', async () => {
+    const { db, state } = createNfceEstornoDatabase();
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(mocks.buildReviewedFiscalOperationXml).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'estorno',
+        originalAccessKey: state.source.chave_acesso,
+      })
+    );
+    expect(state.draft.access_key).not.toBe(state.source.chave_acesso);
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it('bloqueia o estorno em período posterior sem texto de diferenças/acréscimos revisado', async () => {
+    const { db, state } = createDatabase('estorno');
+    state.draft.review_data.period_adjustment_text = '';
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true },
+      } as any,
+      res.response
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toContain('diferenças/acréscimos do art. 298, §2º');
+    expect(mocks.buildReviewedFiscalOperationXml).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
   it('bloqueia transmissão do estorno se houver evidência de circulação', async () => {

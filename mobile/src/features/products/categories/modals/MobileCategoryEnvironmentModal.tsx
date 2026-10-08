@@ -19,7 +19,11 @@ import {
   ModalType,
   EditingNode,
 } from '../types/mobileCategory.types';
-import { canDeleteEnvironment, canDeleteCategory } from '../domain/categoryEnvironmentRules';
+import {
+  canDeleteEnvironment,
+  canDeleteCategory,
+  canSaveCategoryAttributes,
+} from '../domain/categoryEnvironmentRules';
 import { CategoryAttributesPicker, CategoryLinksPicker } from '../components';
 
 interface Props {
@@ -34,6 +38,7 @@ interface Props {
   selectedAttributes: { id: string; name: string }[];
   setSelectedAttributes: React.Dispatch<React.SetStateAction<{ id: string; name: string }[]>>;
   isLoadingAttributes: boolean;
+  attributeLoadFailed: boolean;
   categories: CategoryNode[];
   environments: EnvironmentNode[];
   isSubmitting: boolean;
@@ -54,6 +59,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   selectedAttributes,
   setSelectedAttributes,
   isLoadingAttributes,
+  attributeLoadFailed,
   categories,
   environments,
   isSubmitting,
@@ -64,6 +70,11 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   if (!visible || !showModal) return null;
 
   const isEnv = showModal === 'ambiente';
+  const canSaveConfiguration = canSaveCategoryAttributes(
+    !isEnv,
+    isLoadingAttributes,
+    attributeLoadFailed
+  );
   const isEditing = Boolean(editingNode?.id);
   const title = isEditing
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
@@ -156,12 +167,19 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
 
             {/* Características da Categoria (apenas categoria) */}
             {!isEnv && (
-              <CategoryAttributesPicker
-                dark={dark}
-                selectedAttributes={selectedAttributes}
-                setSelectedAttributes={setSelectedAttributes}
-                isLoadingAttributes={isLoadingAttributes}
-              />
+              <>
+                {attributeLoadFailed && (
+                  <Text style={styles.attributeLoadError} accessibilityRole="alert">
+                    Não foi possível carregar a configuração atual. Feche o modal e tente novamente.
+                  </Text>
+                )}
+                <CategoryAttributesPicker
+                  dark={dark}
+                  selectedAttributes={selectedAttributes}
+                  setSelectedAttributes={setSelectedAttributes}
+                  isLoadingAttributes={isLoadingAttributes}
+                />
+              </>
             )}
           </ScrollView>
 
@@ -189,8 +207,12 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
 
             <TouchableOpacity
               onPress={onSave}
-              disabled={isSubmitting}
-              style={[styles.saveBtn, isEnv ? styles.saveBtnEnv : styles.saveBtnCat]}
+              disabled={isSubmitting || !canSaveConfiguration}
+              style={[
+                styles.saveBtn,
+                isEnv ? styles.saveBtnEnv : styles.saveBtnCat,
+                !canSaveConfiguration && styles.saveBtnDisabled,
+              ]}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#ffffff" />
@@ -234,8 +256,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
   textLight: { color: '#f8fafc' },
   closeBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: 16,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
@@ -253,7 +275,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   input: {
-    height: 42,
+    height: 44,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 10,
@@ -276,7 +298,7 @@ const styles = StyleSheet.create({
   footerDark: { borderTopColor: '#334155' },
   cancelBtn: {
     flex: 1,
-    height: 42,
+    minHeight: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -286,7 +308,7 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 12, fontWeight: '800', color: '#475569' },
   saveBtn: {
     flex: 2,
-    height: 42,
+    minHeight: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -294,9 +316,11 @@ const styles = StyleSheet.create({
   saveBtnCat: { backgroundColor: '#2563eb' },
   saveBtnEnv: { backgroundColor: '#059669' },
   saveBtnText: { fontSize: 12, fontWeight: '800', color: '#ffffff' },
+  saveBtnDisabled: { opacity: 0.55 },
+  attributeLoadError: { color: '#dc2626', fontSize: 12, fontWeight: '700', lineHeight: 18 },
   deleteBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

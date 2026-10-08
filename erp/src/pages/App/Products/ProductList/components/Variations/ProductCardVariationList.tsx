@@ -28,6 +28,7 @@ export interface CardVariationItem {
 export interface ProductCardVariationListProps {
   readonly product: Product;
   readonly readOnly?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly showCatalogControl?: boolean;
   readonly variations: readonly CardVariationItem[];
   readonly showVariations: boolean;
@@ -50,6 +51,7 @@ export interface ProductCardVariationListProps {
 export const ProductCardVariationList: React.FC<ProductCardVariationListProps> = ({
   product,
   readOnly = false,
+  canDeleteProducts,
   showCatalogControl = true,
   variations,
   showVariations,
@@ -82,6 +84,7 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
           key={v.id || index}
           product={product}
           readOnly={readOnly}
+          canDeleteProducts={canDeleteProducts}
           showCatalogControl={showCatalogControl}
           variation={v}
           index={index}

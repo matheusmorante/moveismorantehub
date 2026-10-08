@@ -1,6 +1,14 @@
 import { getCancellationWindow } from './nfeEventRules';
 
-export type FiscalCancellationAction = 'cancel' | 'estorno' | 'return' | 'none' | 'manual_review';
+export type FiscalCancellationAction =
+  | 'cancel'
+  | 'estorno'
+  | 'return'
+  | 'none'
+  | 'manual_review'
+  | 'blocked'
+  | 'pending'
+  | 'reconcile';
 
 export interface FiscalCancellationPolicyInput {
   model: string;
@@ -9,6 +17,7 @@ export interface FiscalCancellationPolicyInput {
   environment: 1 | 2;
   goodsCirculated: boolean;
   operationDidNotOccur: boolean;
+  issuerUf?: string;
   now?: number;
 }
 
@@ -39,6 +48,15 @@ export function getFiscalCancellationPolicy(
     };
   }
 
+  if (String(input.issuerUf || '').trim().toUpperCase() !== 'PR') {
+    return {
+      action: 'manual_review',
+      reason:
+        'A UF do emitente não está confirmada como Paraná; não há prazo fiscal específico configurado para decidir automaticamente.',
+      deadline: null,
+    };
+  }
+
   const window = getCancellationWindow(input.model, input.authorizedAt, input.now);
   if (!window.valid) {
     return {
@@ -49,12 +67,29 @@ export function getFiscalCancellationPolicy(
   }
   if (!window.expired) return { action: 'cancel', deadline: window.deadline };
 
-  if (input.model === '55' && input.operationDidNotOccur) {
-    return { action: 'estorno', deadline: window.deadline };
+  if (!input.operationDidNotOccur) {
+    return {
+      action: 'manual_review',
+      reason: 'O prazo expirou e a operação não foi comprovada como não realizada.',
+      deadline: window.deadline,
+    };
+  }
+  if (!['55', '65'].includes(input.model)) {
+    return {
+      action: 'manual_review',
+      reason:
+        'O prazo expirou e o modelo ' +
+        (input.model || 'não identificado') +
+        ' não tem procedimento de estorno configurado.',
+      deadline: window.deadline,
+    };
   }
   return {
-    action: 'manual_review',
-    reason: 'O prazo expirou, mas este modelo ou situação exige validação fiscal.',
+    action: 'estorno',
+    reason:
+      input.model === '65'
+        ? 'O prazo de cancelamento da NFC-e expirou. No Paraná, prepare uma NF-e modelo 55 de ajuste referenciando a NFC-e original.'
+        : 'O prazo de cancelamento da NF-e expirou. Prepare uma NF-e modelo 55 de ajuste referenciando o documento original.',
     deadline: window.deadline,
   };
 }

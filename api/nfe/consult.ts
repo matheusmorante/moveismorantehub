@@ -163,6 +163,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         reconciliationRequired: Boolean(updateError),
       });
     }
+    let cancellationAttemptState: 'not_registered' | 'registered' | 'unknown' | undefined;
+    let cancellationEventSyncError = false;
+    const { data: latestCancellationEvent, error: cancellationEventError } = await supabase
+      .from('nfe_document_events')
+      .select('id,status')
+      .eq('document_id', doc.id)
+      .eq('event_type', '110111')
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cancellationEventError) cancellationEventSyncError = true;
+    else if (latestCancellationEvent?.status === 'registered') {
+      cancellationAttemptState = 'registered';
+      cancellationEventSyncError = true;
+    } else if (
+      latestCancellationEvent &&
+      ['transmitting', 'unknown'].includes(String(latestCancellationEvent.status))
+    ) {
+      const { data: reconciledEvent, error: updateEventError } = await supabase
+        .from('nfe_document_events')
+        .update({
+          status: 'rejected',
+          response_xml: responseXml,
+          xmotivo: 'Consulta confirmou NF-e autorizada, sem registro do evento de cancelamento.',
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', latestCancellationEvent.id)
+        .in('status', ['transmitting', 'unknown'])
+        .select('id')
+        .maybeSingle();
+      cancellationEventSyncError = Boolean(updateEventError || !reconciledEvent?.id);
+      cancellationAttemptState = cancellationEventSyncError ? 'unknown' : 'not_registered';
+    } else if (latestCancellationEvent?.status === 'rejected') {
+      cancellationAttemptState = 'not_registered';
+    }
     const protocolBlock =
       responseXml.match(/<infProt\b[^>]*>[\s\S]*?<\/infProt>/i)?.[0] || responseXml;
     const protocolNumber = protocolBlock.match(/<nProt>([^<]+)<\/nProt>/i)?.[1]?.trim() || null;
@@ -179,13 +214,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', doc.id)
       .in('status', ['pendente', 'processando', 'erro']);
     return res.status(200).json({
-      success: true,
+      success: !cancellationEventSyncError,
       state: 'authorized',
       cStat: situation.cStat,
       xMotivo: situation.xMotivo,
       protocolNumber,
       protocolDate,
-      reconciliationRequired: Boolean(documentSyncError),
+      cancellationAttemptState,
+      reconciliationRequired: Boolean(documentSyncError || cancellationEventSyncError),
     });
   } catch (err: any) {
     const diagnosticId = randomUUID();

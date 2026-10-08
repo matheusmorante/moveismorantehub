@@ -9,6 +9,7 @@ export interface ParentProductActionsProps {
   readonly product: Product;
   readonly showTrash?: boolean;
   readonly showEditButton?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly isDraft: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onRestore: (id: string) => void;
@@ -23,6 +24,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   product,
   showTrash,
   showEditButton = true,
+  canDeleteProducts,
   isDraft,
   onEdit,
   onRestore,
@@ -180,7 +182,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                       </button>
                     </div>
 
-                    {isDraft && (
+                    {isDraft && canDeleteProducts && (
                       <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                         <button
                           type="button"

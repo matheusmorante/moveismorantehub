@@ -106,13 +106,16 @@ describe('productLegibilityRules (Domínio Puro)', () => {
     expect(result.checks.dimensions).toBe(false);
   });
 
-  it('ignora dimensões marcadas como não aplicáveis ao validar a publicação', () => {
+  it('exige ao menos uma dimensão física ativa para publicar no catálogo', () => {
     const product: Partial<Product> = {
       title: 'Mesa lateral',
       description: 'Mesa lateral compacta',
       categoryIds: ['cat-1'],
       unitPrice: 150,
       images: ['https://example.test/product.jpg'],
+      width: 80,
+      height: 90,
+      depth: 100,
       technicalValues: {
         Largura: 'Não se aplica',
         Altura: 'Não se aplica',
@@ -120,7 +123,27 @@ describe('productLegibilityRules (Domínio Puro)', () => {
       },
     };
     const result = checkEcomLegibility(product);
-    expect(result.checks.dimensions).toBe(true);
+    expect(result.checks.dimensions).toBe(false);
+
+    const oneActiveDimension = checkEcomLegibility({
+      ...product,
+      technicalValues: {
+        Largura: 'Não se aplica',
+        Altura: '80',
+        Profundidade: 'Não se aplica',
+      },
+    });
+    expect(oneActiveDimension.checks.dimensions).toBe(true);
+
+    const anotherActiveDimensionWithoutValue = checkEcomLegibility({
+      ...product,
+      technicalValues: {
+        Largura: '',
+        Altura: '80',
+        Profundidade: 'Não se aplica',
+      },
+    });
+    expect(anotherActiveDimensionWithoutValue.checks.dimensions).toBe(false);
   });
 
   it('deve aprovar produto de fabricação própria sem necessidade de fornecedor', () => {

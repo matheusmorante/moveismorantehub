@@ -243,6 +243,7 @@ export function useProductFormModal({
     setFormData,
     product,
     isRegisteredProduct,
+    isStockistOnly,
     setValidationErrors,
     setActiveTab,
     variations,

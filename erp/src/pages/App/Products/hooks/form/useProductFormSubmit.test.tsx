@@ -13,6 +13,7 @@ afterEach(cleanup);
 const complete: Product = {
   id: 'parent', name: 'Armário', description: '', unitPrice: 150, unit: 'UN', itemType: 'product',
   isDraft: true, status: 'draft', active: false, productKind: 'normal', hasVariations: true,
+  opportunityId: 'opportunity-1',
   categoryIds: ['categoria'], mainSupplierId: 'fornecedor', width: 80, height: 180, depth: 50,
   technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
   variations: [{ id: 'v1', sku: '001-01', name: 'Armário Azul', unitPrice: 150, stock: 0,

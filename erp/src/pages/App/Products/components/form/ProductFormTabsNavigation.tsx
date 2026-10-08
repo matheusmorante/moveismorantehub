@@ -25,8 +25,8 @@ export const ProductFormTabsNavigation: React.FC<ProductFormTabsNavigationProps>
   setActiveTab,
   validationErrors,
 }) => (
-  <div className="px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
-    <div className="flex gap-6 min-w-max" role="tablist" aria-label="Abas do formulário de produto">
+  <div className="px-3 sm:px-4 lg:px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-10 overflow-x-auto scrollbar-none">
+    <div className="flex w-max min-w-full gap-4 sm:gap-6" role="tablist" aria-label="Abas do formulário de produto">
       {tabs.map((tab) => {
         const hasTabErrors =
           (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||

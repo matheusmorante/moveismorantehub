@@ -14,6 +14,8 @@ vi.mock('../../../../../../api/nfe/fiscalAuthorization', () => ({
 
 const documentId = '77777777-7777-4777-8777-777777777777';
 const orderId = '88888888-8888-4888-8888-888888888888';
+const accessKey = (model: string) =>
+  '41' + '2610' + '12345678000195' + model + '001' + '000000001' + '1' + '00000000' + '0';
 const document = {
   id: documentId,
   order_id: orderId,
@@ -21,7 +23,7 @@ const document = {
   status: 'homologada',
   ambiente: 2,
   modelo: '55',
-  chave_acesso: '1'.repeat(44),
+  chave_acesso: accessKey('55'),
   numero_protocolo: '141260000000001',
   xml_protocolo: `<protNFe><infProt><dhRecbto>${new Date(Date.now() - 60 * 60 * 1000).toISOString()}</dhRecbto></infProt></protNFe>`,
   created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
@@ -165,10 +167,219 @@ describe('API de pré-validação do cancelamento fiscal por documento', () => {
     expect(result.body).toMatchObject({ action: 'estorno', hasAuthorizedInvoice: true });
   });
 
+  it('indica NF-e de estorno após NFC-e 65 vencer os 30 minutos no Paraná', async () => {
+    const scheduledOrder = { id: orderId, status: 'scheduled', order_type: 'sale', order_data: {} };
+    const expiredNfce = {
+      ...document,
+      modelo: '65',
+      chave_acesso: accessKey('65'),
+      xml_protocolo:
+        '<protNFe><infProt><dhRecbto>' +
+        new Date(Date.now() - 31 * 60 * 1000).toISOString() +
+        '</dhRecbto></infProt></protNFe>',
+    };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? scheduledOrder : table === 'nfe_documents' ? [expiredNfce] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'estorno',
+      hasAuthorizedInvoice: true,
+      model: '65',
+      documentId,
+      environment: 2,
+      reason: expect.stringContaining('NF-e modelo 55 de ajuste'),
+    });
+  });
+
+  it('encaminha venda entregue à devolução sem cancelá-la mesmo dentro do prazo', async () => {
+    const deliveredOrder = { id: orderId, status: 'fulfilled', order_type: 'sale', order_data: {} };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? deliveredOrder : table === 'nfe_documents' ? [document] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'return',
+      hasAuthorizedInvoice: true,
+      reason: expect.stringContaining('pedido já foi entregue'),
+    });
+  });
+
+  it('bloqueia pedido em trânsito sem presumir estorno nem iniciar devolução', async () => {
+    const inTransitOrder = {
+      id: orderId,
+      status: 'scheduled',
+      order_type: 'sale',
+      delivery_status: 'in_transit',
+      order_data: {},
+    };
+    const expiredDocument = {
+      ...document,
+      xml_protocolo:
+        '<protNFe><infProt><dhRecbto>' +
+        new Date(Date.now() - 169 * 60 * 60 * 1000).toISOString() +
+        '</dhRecbto></infProt></protNFe>',
+    };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? inTransitOrder : table === 'nfe_documents' ? [expiredDocument] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'blocked',
+      hasAuthorizedInvoice: true,
+      reason: expect.stringContaining('Confirme recusa ou retorno'),
+    });
+  });
+
   it('mantém o cancelamento somente comercial quando não há NF-e de saída autorizada', async () => {
     const scheduledOrder = { id: orderId, status: 'scheduled', order_data: {} };
     mocks.createClient.mockReturnValue({
       from: (table: string) => query(table === 'orders' ? scheduledOrder : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toEqual({ action: 'none', hasAuthorizedInvoice: false });
+  });
+
+  it('bloqueia o cancelamento comercial enquanto a emissão da NF está pendente', async () => {
+    const scheduledOrder = { id: orderId, status: 'scheduled', order_type: 'sale', order_data: {} };
+    const pendingDocument = { ...document, status: 'pendente' };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? scheduledOrder : table === 'nfe_documents' ? [pendingDocument] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'pending',
+      hasAuthorizedInvoice: false,
+      reason: expect.stringContaining('reconcilie a situação fiscal'),
+    });
+  });
+
+  it('pede reconciliação para status fiscal desconhecido em vez de presumir ausência de nota', async () => {
+    const scheduledOrder = { id: orderId, status: 'scheduled', order_type: 'sale', order_data: {} };
+    const unknownDocument = { ...document, status: 'validando_documento' };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? scheduledOrder : table === 'nfe_documents' ? [unknownDocument] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'reconcile',
+      hasAuthorizedInvoice: false,
+      reason: expect.stringContaining('status não reconhecido'),
+    });
+  });
+
+  it('não aplica os prazos paranaenses quando a chave indica outra UF', async () => {
+    const scheduledOrder = { id: orderId, status: 'scheduled', order_type: 'sale', order_data: {} };
+    const otherUfDocument = {
+      ...document,
+      chave_acesso: '35' + document.chave_acesso.slice(2),
+    };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? scheduledOrder : table === 'nfe_documents' ? [otherUfDocument] : []),
+    });
+    const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: { orderId, preview: true },
+      } as any,
+      result.res as any
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({
+      action: 'manual_review',
+      reason: expect.stringContaining('prazo fiscal específico'),
+    });
+  });
+
+  it('não tenta novo cancelamento fiscal quando o documento já está cancelado', async () => {
+    const scheduledOrder = { id: orderId, status: 'scheduled', order_type: 'sale', order_data: {} };
+    const cancelledDocument = { ...document, status: 'cancelada' };
+    mocks.createClient.mockReturnValue({
+      from: (table: string) =>
+        query(table === 'orders' ? scheduledOrder : table === 'nfe_documents' ? [cancelledDocument] : []),
     });
     const handler = (await import('../../../../../../api/nfe/order-cancellation-policy')).default;
     const result = response();

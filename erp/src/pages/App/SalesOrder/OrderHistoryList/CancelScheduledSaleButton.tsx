@@ -1,30 +1,64 @@
 import React, { useState } from 'react';
 import Order from '../../../types/order.type';
 import CancelSaleModal from './CancelSaleModal';
-import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parseNfeApiResponse } from '@/pages/utils/nfe/parseNfeApiResponse';
+import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
+import { getGoodsCirculationState } from '@/pages/utils/nfe/cancellationEligibility';
 
 type Props = {
   order: Order;
-  onStatusUpdate: (id: string, status: Order['status']) => void;
+  onStatusUpdate: (
+    id: string,
+    status: Order['status'],
+    options?: { productionConfirmed?: boolean }
+  ) => void;
+  onAction: (actionKey: string, order: Order) => void;
+  onEdit: (order: Order) => void;
   onCloseMenu: () => void;
 };
 
-const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props) => {
+type PreviewAction =
+  | 'none'
+  | 'cancel'
+  | 'estorno'
+  | 'return'
+  | 'manual_review'
+  | 'blocked'
+  | 'pending'
+  | 'reconcile';
+
+const CancelScheduledSaleButton = ({
+  order,
+  onStatusUpdate,
+  onAction,
+  onEdit,
+  onCloseMenu,
+}: Props) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [preview, setPreview] = useState<null | {
-    action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+    action: PreviewAction;
     hasAuthorizedInvoice: boolean;
     model?: string;
     environment?: 1 | 2;
     reason?: string;
+    returnOrderId?: string;
+    returnOrderStatus?: string;
   }>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const orderType = order.orderType || 'sale';
   if (!['sale', 'showroom'].includes(orderType)) return null;
-  if (!canCancelOrderDirectly(order) || !order.id) return null;
+  const orderStatus = String(order.status || '').toLowerCase();
+  const canInspectCancellation =
+    ['scheduled', 'agendado', 'aguardando retirada'].includes(orderStatus) ||
+    getGoodsCirculationState(order) !== 'none';
+  if (
+    ['cancelled', 'cancelado', 'draft'].includes(orderStatus) ||
+    !canInspectCancellation ||
+    !order.id
+  )
+    return null;
 
   const prepareCancellation = async () => {
     setPreviewLoading(true);
@@ -43,11 +77,13 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
         body: JSON.stringify({ orderId: order.id, preview: true }),
       });
       const result = await parseNfeApiResponse<{
-        action: 'none' | 'cancel' | 'estorno' | 'manual_review';
+        action: PreviewAction;
         hasAuthorizedInvoice: boolean;
         model?: string;
         environment?: 1 | 2;
         reason?: string;
+        returnOrderId?: string;
+        returnOrderStatus?: string;
         error?: string;
       }>(response, 'Não foi possível consultar as consequências fiscais.');
       if (!response.ok)
@@ -77,7 +113,7 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
         }}
         disabled={previewLoading}
         className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-rose-600 transition-all hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 cursor-pointer"
-        title="Cancelar venda agendada"
+        title="Consultar cancelamento ou devolução da venda"
       >
         <i className="bi bi-x-circle-fill text-lg shrink-0" />
         <span className="text-xs font-black uppercase tracking-widest">
@@ -92,8 +128,40 @@ const CancelScheduledSaleButton = ({ order, onStatusUpdate, onCloseMenu }: Props
             setIsConfirmOpen(false);
             onCloseMenu();
           }}
-          onConfirm={() => {
-            onStatusUpdate(order.id!, 'cancelled');
+          onConfirm={async ({ productionConfirmed }) => {
+            if (preview?.action === 'return') {
+              setIsConfirmOpen(false);
+              onCloseMenu();
+              if (preview.returnOrderId) {
+                const { data, error } = await supabase
+                  .from('orders')
+                  .select('*')
+                  .eq('id', preview.returnOrderId)
+                  .maybeSingle();
+                if (error || !data) {
+                  window.alert('A devolução vinculada não foi encontrada. Atualize a lista e tente novamente.');
+                  return;
+                }
+                const returnOrder = mapOrderFromDatabase(data);
+                if (returnOrder.status === 'fulfilled') {
+                  onAction('openReturnNfe', returnOrder);
+                } else {
+                  onEdit(returnOrder);
+                }
+              } else {
+                onAction('generateReturn', order);
+              }
+              return;
+            }
+            if (
+              !preview ||
+              !['none', 'cancel', 'estorno'].includes(preview.action)
+            ) {
+              setIsConfirmOpen(false);
+              onCloseMenu();
+              return;
+            }
+            onStatusUpdate(order.id!, 'cancelled', { productionConfirmed });
             setIsConfirmOpen(false);
             onCloseMenu();
           }}

@@ -1,19 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import type React from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
-import { fetchMobileCategories, MobileCategory } from '../../services/mobileCategoryService';
+import { fetchMobileCategories, type MobileCategory } from '../../services/mobileCategoryService';
 import {
   fetchMobileOpportunities,
-  MobileOpportunity,
+  type MobileOpportunity,
 } from '../../services/mobileOpportunityService';
 import { OpportunitySelectModal } from '../components/OpportunitySelectModal';
 import { CategoryMultiSelectList } from '../components/CategoryMultiSelectList';
 import { CategoriesManagerModal } from '../CategoriesManagerModal';
+import {
+  keepManualCategorySelection,
+  matchCategoryByRules,
+  rankCategoryCandidates,
+} from '../../../../../../shared-utils/productCategoryResolution';
+import { toTitleCase } from '../../../../../../shared-utils/productText';
 
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
+  isStockistOnly?: boolean;
+  canManageCategories?: boolean;
 }
 
 const FIXED_ENVIRONMENTS = [
@@ -31,7 +40,13 @@ const FIXED_ENVIRONMENTS = [
   'GARAGEM',
 ];
 
-export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+export const ProductFormBasicTab: React.FC<Props> = ({
+  formData,
+  setFormData,
+  dark,
+  isStockistOnly = false,
+  canManageCategories = false,
+}) => {
   const [categories, setCategories] = useState<MobileCategory[]>([]);
   const [opportunities, setOpportunities] = useState<MobileOpportunity[]>([]);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
@@ -72,7 +87,11 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
   const handleToggleCategory = (cat: MobileCategory) => {
     const currentIds: string[] =
-      formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
+      Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
+        ? formData.categoryIds
+        : formData.categoryId
+          ? [formData.categoryId]
+          : [];
     const isChecked = currentIds.includes(cat.id);
     let nextIds: string[];
 
@@ -94,7 +113,34 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
 
   const selectedOpportunity = opportunities.find((o) => o.id === formData.opportunityId);
   const selectedCategoryIds: string[] =
-    formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
+    Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
+      ? formData.categoryIds
+      : formData.categoryId
+        ? [formData.categoryId]
+        : [];
+  const categorySuggestions =
+    typeof formData.name === 'string' && selectedCategoryIds.length === 0
+      ? rankCategoryCandidates(formData.name, filteredCategories)
+      : [];
+
+  const applySuggestedCategory = (category: MobileCategory) => {
+    setFormData((prev) => {
+      const currentIds: string[] =
+        Array.isArray(prev.categoryIds) && prev.categoryIds.length > 0
+          ? prev.categoryIds
+          : prev.categoryId
+            ? [prev.categoryId]
+            : [];
+      if (currentIds.length > 0) return prev;
+      const categoryIds = keepManualCategorySelection(currentIds, category.id);
+      return {
+        ...prev,
+        categoryIds,
+        categoryId: categoryIds[0] || '',
+        category: category.name || '',
+      };
+    });
+  };
 
   const currentOrigin =
     formData.productKind === 'salvado' || formData.condition === 'salvado'
@@ -134,7 +180,9 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
       {/* ORIGEM DO ESTOQUE */}
       {formData.itemType !== 'service' && (
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.lightLabel]}>ORIGEM DO ESTOQUE</Text>
+          <Text style={[styles.label, dark && styles.lightLabel]}>
+            ORIGEM DO ESTOQUE <Text style={styles.required}>*</Text>
+          </Text>
           <View style={styles.originRow}>
             <TouchableOpacity
               onPress={() => handleSelectOrigin('normal')}
@@ -227,40 +275,6 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           <Text style={[styles.label, dark && styles.lightLabel]}>
             NOME <Text style={styles.required}>*</Text>
           </Text>
-          <TouchableOpacity
-            onPress={() => {
-              const nextVal = !diferenciarTitulo;
-              setDiferenciarTitulo(nextVal);
-              if (!nextVal) {
-                setFormData((prev) => ({
-                  ...prev,
-                  title: prev.name || '',
-                  marketplaceTitle: prev.name || '',
-                }));
-              }
-            }}
-            style={[
-              styles.diferenciarBtn,
-              diferenciarTitulo
-                ? styles.diferenciarBtnActive
-                : dark
-                  ? styles.darkDiferenciarBtn
-                  : styles.lightDiferenciarBtn,
-            ]}
-          >
-            <Text
-              style={[
-                styles.diferenciarBtnText,
-                diferenciarTitulo
-                  ? styles.diferenciarBtnTextActive
-                  : dark
-                    ? styles.lightText
-                    : styles.dimText,
-              ]}
-            >
-              {diferenciarTitulo ? 'Usando Título Diferente' : 'Diferenciar Título no Catálogo'}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <TextInput
@@ -272,10 +286,44 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
               ...(!diferenciarTitulo ? { title: val, marketplaceTitle: val } : {}),
             }));
           }}
+          onBlur={() => {
+            if (!formData.name) return;
+            const formatted = toTitleCase(formData.name);
+            if (formatted !== formData.name) {
+              setFormData((prev) => ({
+                ...prev,
+                name: formatted,
+                ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {}),
+              }));
+            }
+            if (selectedCategoryIds.length === 0) {
+              const matchedCategory = matchCategoryByRules(formData.name, filteredCategories);
+              if (matchedCategory) applySuggestedCategory(matchedCategory as MobileCategory);
+            }
+          }}
           placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
           placeholderTextColor="#94a3b8"
           style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
         />
+        {categorySuggestions.length > 0 && (
+          <View style={styles.categorySuggestions}>
+            <Text style={[styles.categorySuggestionLabel, dark && styles.lightLabel]}>
+              Confira a sugestão pelo nome:
+            </Text>
+            {categorySuggestions.map(({ category }) => (
+              <TouchableOpacity
+                key={category.id}
+                accessibilityRole="button"
+                onPress={() => applySuggestedCategory(category as MobileCategory)}
+                style={[styles.categorySuggestionButton, dark && styles.darkCategorySuggestionButton]}
+              >
+                <Text style={[styles.categorySuggestionText, dark && styles.darkCategorySuggestionText]}>
+                  Usar {category.name || category.category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* TÍTULO NO CATÁLOGO */}
@@ -298,6 +346,18 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
                 marketplaceTitle: val,
               }));
             }}
+            onBlur={() => {
+              const currentTitle = formData.title || formData.marketplaceTitle || '';
+              if (!currentTitle) return;
+              const formatted = toTitleCase(currentTitle);
+              if (formatted !== currentTitle) {
+                setFormData((prev) => ({
+                  ...prev,
+                  title: formatted,
+                  marketplaceTitle: formatted,
+                }));
+              }
+            }}
             placeholder="Digite o título no catálogo..."
             placeholderTextColor="#94a3b8"
             style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
@@ -316,15 +376,17 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
               <View style={styles.catalogBadge}>
                 <Text style={styles.catalogBadgeText}>CATÁLOGO</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setShowCategoriesManager(true)}
-                style={styles.manageCategoriesButton}
-                accessibilityRole="button"
-                accessibilityLabel="Gerenciar categorias de produtos"
-              >
-                <Text style={styles.manageCategoriesText}>GERENCIAR</Text>
-                <Settings size={12} color="#64748b" />
-              </TouchableOpacity>
+              {canManageCategories && (
+                <TouchableOpacity
+                  onPress={() => setShowCategoriesManager(true)}
+                  style={styles.manageCategoriesButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Gerenciar categorias de produtos"
+                >
+                  <Text style={styles.manageCategoriesText}>GERENCIAR</Text>
+                  <Settings size={12} color="#64748b" />
+                </TouchableOpacity>
+              )}
             </View>
             {selectedCategoryIds.length > 0 && (
               <Text style={styles.selectedCategoryCount}>
@@ -344,7 +406,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
       )}
 
       {/* OPORTUNIDADE */}
-      <View style={styles.field}>
+      {!isStockistOnly && <View style={styles.field}>
         <View style={styles.labelRow}>
           <View style={styles.labelBadgeRow}>
             <Text style={[styles.label, dark && styles.lightLabel]}>OPORTUNIDADE</Text>
@@ -369,7 +431,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
           </Text>
           {!isSalvado && <ChevronDown size={16} color="#94a3b8" />}
         </TouchableOpacity>
-      </View>
+      </View>}
 
       {/* OBSERVAÇÕES INTERNAS */}
       <View style={styles.field}>
@@ -400,11 +462,14 @@ export const ProductFormBasicTab: React.FC<Props> = ({ formData, setFormData, da
         dark={dark}
       />
       <CategoriesManagerModal
-        visible={showCategoriesManager}
+        visible={showCategoriesManager && canManageCategories}
         dark={dark}
+        onCategoriesUpdated={() => {
+          void fetchMobileCategories().then(setCategories);
+        }}
         onClose={() => {
           setShowCategoriesManager(false);
-          fetchMobileCategories().then(setCategories);
+          void fetchMobileCategories().then(setCategories);
         }}
       />
     </View>
@@ -418,6 +483,37 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 6,
+  },
+  categorySuggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categorySuggestionLabel: {
+    width: '100%',
+    fontSize: 12,
+    color: '#64748b',
+  },
+  categorySuggestionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  darkCategorySuggestionButton: {
+    borderColor: '#1d4ed8',
+  },
+  categorySuggestionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1d4ed8',
+  },
+  darkCategorySuggestionText: {
+    color: '#93c5fd',
   },
   labelRow: {
     flexDirection: 'row',

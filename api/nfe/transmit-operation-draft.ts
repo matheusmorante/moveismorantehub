@@ -43,7 +43,7 @@ import {
 } from '../../shared-utils/fiscalOperationContext';
 import {
   originalItemCfop,
-  suggestEstornoCfop,
+  getEstornoCfopOptions,
   type FiscalCfopConfiguration,
 } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
@@ -199,9 +199,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', draft.original_document_id)
       .maybeSingle();
     const returnModelOptions = getFiscalFormRules('return').allowedModels;
-    const sourceModelAllowed = source && (draft.operation_kind === 'return'
-      ? returnModelOptions.includes(String(source.modelo) as '55' | '65')
-      : source.modelo === '55');
+    const sourceModelAllowed =
+      source &&
+      (draft.operation_kind === 'return'
+        ? returnModelOptions.includes(String(source.modelo) as '55' | '65')
+        : draft.operation_kind === 'estorno' && ['55', '65'].includes(String(source.modelo)));
     if (sourceError || !source || source.document_type !== 'outbound' || !sourceModelAllowed) {
       return res.status(409).json({
         success: false,
@@ -229,15 +231,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const isStoredAttempt = draft.status === 'transmitting' || draft.status === 'unknown';
     const sourceDestinationIndicator = Number(readTag(String(source.xml_nfe || ''), 'idDest'));
+    const sourceOperationTypeText = readTag(String(source.xml_nfe || ''), 'tpNF');
+    const sourceOperationType = Number(sourceOperationTypeText);
     let returnFiscalContext: Awaited<ReturnType<typeof loadReturnFiscalSourceContext>> | null = null;
     let returnFormRules: ReturnType<typeof getFiscalFormRules> | null = null;
     let returnXmlDefaults: ReturnType<typeof getFiscalFormXmlDefaults> = null;
     if (!isStoredAttempt) {
       if (draft.operation_kind === 'estorno') {
-        if (![1, 2, 3].includes(sourceDestinationIndicator)) {
+        if (
+          ![1, 2, 3].includes(sourceDestinationIndicator) ||
+          !sourceOperationTypeText ||
+          !['0', '1'].includes(sourceOperationTypeText)
+        ) {
           return res.status(409).json({
             success: false,
-            error: 'A NF-e original não informa um indicador de destino válido para o estorno.',
+            error: 'A NF-e original não informa tpNF e indicador de destino válidos para o estorno.',
           });
         }
         if (
@@ -256,7 +264,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const { data: order, error: orderError } = await db
           .from('orders')
-          .select('id,status,delivery_status,delivery_method,order_data')
+          .select(
+            'id,status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_data'
+          )
           .eq('id', String(source.order_id || ''))
           .maybeSingle();
         if (orderError || !order || !['cancelled', 'cancelado'].includes(String(order.status))) {
@@ -278,6 +288,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           environment,
           goodsCirculated: false,
           operationDidNotOccur: true,
+          issuerUf: String(source.chave_acesso || '').slice(0, 2) === '41' ? 'PR' : '',
         });
         if (policy.action !== 'estorno') {
           return res.status(409).json({
@@ -289,7 +300,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sourceAuthorizationError = validateAuthorizedOutboundNfe(
         source,
         String(source.order_id || ''),
-        environment
+        environment,
+        { allowNfceSource: draft.operation_kind === 'estorno' }
       );
       if (sourceAuthorizationError)
         return res.status(409).json({ success: false, error: sourceAuthorizationError });
@@ -432,11 +444,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const line of lines) {
         const original = originalById.get(line.original_document_item_id);
         const sourceCfop = original ? originalItemCfop(String(original.product_xml)) : null;
-        const configuredInverse = suggestEstornoCfop(sourceCfop, fiscalDefaults);
         const reviewedCfop = String(line.reviewed_cfop);
-        const cfopIsValid = configuredInverse
-          ? reviewedCfop === configuredInverse
-          : /^[12]\d{3}$/.test(reviewedCfop);
+        const cfopIsValid = getEstornoCfopOptions(sourceCfop, fiscalDefaults).some(
+          (option) => option.value === reviewedCfop
+        );
         if (
           !original ||
           !/^[56]\d{3}$/.test(sourceCfop || '') ||
@@ -704,6 +715,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let nfeNumber: number;
     let series: string;
     if (!accessKey || !signedXml) {
+      const issuedAt = brazilTimestamp(new Date());
+      const sourceAuthorizedAt = getAuthorizedAt(String(source.xml_protocolo || ''), '');
+      const fiscalPeriod = (value: string) => value.match(/^(\d{4}-\d{2})/)?.[1] || '';
+      const periodAdjustmentText = String(review.period_adjustment_text || '').trim();
+      if (
+        draft.operation_kind === 'estorno' &&
+        (review.apportionment_review_confirmed !== true ||
+          !fiscalPeriod(sourceAuthorizedAt) ||
+          !fiscalPeriod(issuedAt) ||
+          (fiscalPeriod(issuedAt) !== fiscalPeriod(sourceAuthorizedAt) &&
+            Array.from(periodAdjustmentText).length < 15))
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Confirme a revisão do período de apuração e informe diferenças/acréscimos do art. 298, §2º, ou justifique por que não se aplicam.',
+        });
+      }
       const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
       if (!responsibleTechnician)
         return res.status(503).json({
@@ -735,8 +764,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       nfeNumber = reservedNumber;
       reservedNfeNumber = reservedNumber;
-      const now = new Date();
-      const issuedAt = brazilTimestamp(now);
       const generatedKey = generateNfeAccessKey({
         ufCode: '41',
         yearMonth: `${issuedAt.slice(2, 4)}${issuedAt.slice(5, 7)}`,
@@ -771,6 +798,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         issuedAt,
         settings,
         natureOfOperation: draft.nature_of_operation,
+        originalOperationType:
+          draft.operation_kind === 'estorno' ? (sourceOperationType as 0 | 1) : undefined,
         destinationIndicator:
           draft.operation_kind === 'estorno'
             ? (sourceDestinationIndicator as 1 | 2 | 3)
@@ -780,6 +809,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         transportXml: String(review.transport_xml || ''),
         paymentXml: String(review.payment_xml || ''),
         reason: String(review.reason || draft.reason || ''),
+        periodAdjustmentText,
         lines: lines.map((line) => {
           const original = originalById.get(line.original_document_item_id);
           if (!original)

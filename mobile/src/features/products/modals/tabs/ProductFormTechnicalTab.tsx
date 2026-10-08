@@ -20,6 +20,7 @@ import {
   getTechnicalValue,
   groupProductTechnicalFields,
   hasTechnicalValue,
+  isExcludedProductTechnicalField,
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
 } from '../../domain/productCharacteristics';
@@ -34,6 +35,7 @@ interface Props {
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
   parentData?: any;
+  requiredFieldsOnly?: boolean;
 }
 
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
@@ -61,6 +63,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   setFormData,
   dark,
   parentData,
+  requiredFieldsOnly = false,
 }) => {
   const [technicalFields, setTechnicalFields] = useState<MobileProductTechnicalField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
@@ -109,15 +112,32 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     );
     const existingNames = new Set(visible.map((field) => normalizeName(field.name)));
     const preservedLegacyFields = Object.keys(values)
-      .filter((name) => !existingNames.has(normalizeName(name)))
-      .map((name) => ({ id: `legacy:${name}`, name, data_type: 'text', unit: '', options: [] }));
-    return [...visible, ...preservedLegacyFields];
+      .filter(
+        (name) =>
+          !isExcludedProductTechnicalField(name) &&
+          !existingNames.has(normalizeName(name))
+      )
+      .map((name) => ({
+        id: `legacy:${name}`,
+        name,
+        data_type: 'text',
+        unit: '',
+        options: [],
+        isRequired: isRequiredCharacteristicName(name),
+      }));
+    const allVisibleFields = [...visible, ...preservedLegacyFields];
+    return requiredFieldsOnly
+      ? allVisibleFields.filter(
+          (field) => field.isRequired ?? isRequiredCharacteristicName(field.name)
+        )
+      : allVisibleFields;
   }, [
     technicalFields,
     categoryIds.join('|'),
     ownTechnicalValues,
     parentTechnicalValues,
     manualFieldNames,
+    requiredFieldsOnly,
   ]);
 
   const visibleFieldGroups = useMemo(() => {
@@ -231,11 +251,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
               const currentValue = Array.isArray(storedValue)
                 ? storedValue.join(', ')
                 : String(storedValue ?? '');
-              const required = field.isRequired ?? isRequiredCharacteristicName(field.name);
               const alwaysApplicable = isRequiredCharacteristicName(field.name);
+              const isPhysicalDimension = getDimensionField(field.name) !== null;
+              const hasConfiguredParentValue =
+                Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
               const applicable =
                 alwaysApplicable ||
-                currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica';
+                (isPhysicalDimension
+                  ? (hasOwnValue || hasConfiguredParentValue) &&
+                    currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
+                  : currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica');
               const isManual = manualFieldNames.includes(field.name);
               const parentText = String(parentValue ?? '').trim();
               const parentIsZero =
@@ -256,7 +281,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                       <Text style={[styles.label, dark && styles.dimText]}>
                         {field.name}
                         {field.unit ? ` (${field.unit})` : ''}
-                        {required && applicable ? ' *' : ''}
+                        {applicable && (
+                          <Text style={{ color: '#ef4444' }}> *</Text>
+                        )}
                       </Text>
                       {isManual && <Text style={styles.manualBadge}>Manual</Text>}
                     </View>
@@ -341,7 +368,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           </View>
         ))
       )}
-      {!parentData && visibleTechnicalFields.length > 0 && (
+      {!parentData && !requiredFieldsOnly && visibleTechnicalFields.length > 0 && (
         <View>
           {technicalFields.some(
             (field: any) => !visibleTechnicalFields.some((visible) => visible.name === field.name)
@@ -381,7 +408,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
               {technicalFields
                 .filter(
                   (field: any) =>
-                    !visibleTechnicalFields.some((visible) => visible.name === field.name) &&
+                    !isExcludedProductTechnicalField(field.name) &&
+                    !visibleTechnicalFields.some(
+                      (visible) => normalizeName(visible.name) === normalizeName(field.name)
+                    ) &&
                     field.name.toLowerCase().includes(optionSearch.trim().toLowerCase())
                 )
                 .map((field: any) => (

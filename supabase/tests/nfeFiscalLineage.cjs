@@ -13,7 +13,8 @@ const { PGlite } = require('@electric-sql/pglite');
     CREATE TABLE orders (
       id text PRIMARY KEY, status text, order_type text, items jsonb, order_data jsonb,
       stock_processed boolean, order_index integer, linked_order_id text, return_order_id text,
-      total_amount numeric DEFAULT 0, updated_at timestamptz DEFAULT now()
+      delivery_status text, delivery_started_at timestamptz, delivery_arrived_at timestamptz,
+      delivery_finished_at timestamptz, total_amount numeric DEFAULT 0, updated_at timestamptz DEFAULT now()
     );
     CREATE TABLE nfe_documents (
       id uuid PRIMARY KEY, order_id text REFERENCES orders(id), numero_nfe integer NOT NULL,
@@ -64,6 +65,9 @@ const { PGlite } = require('@electric-sql/pglite');
   const safeDraftRetryMigration = fs.readFileSync(path.join(__dirname,
     '../migrations/20260926290000_support_safe_nfe_draft_retries_after_rejection.sql'), 'utf8');
   await db.exec(safeDraftRetryMigration);
+  const nfceEstornoMigration = fs.readFileSync(path.join(__dirname,
+    '../migrations/20261008120000_allow_nfce_source_for_nfe_estorno.sql'), 'utf8');
+  await db.exec(nfceEstornoMigration);
   const returnEnvironmentMigration = fs.readFileSync(path.join(__dirname,
     '../migrations/20261001163000_nfe_return_environment_isolation.sql'), 'utf8');
   await db.exec(returnEnvironmentMigration);
@@ -119,7 +123,8 @@ const { PGlite } = require('@electric-sql/pglite');
   ]), /Quantidade acima do saldo faturado/);
   await create(returnId, items);
   assert.equal((await db.query('SELECT count(*) AS count FROM nfe_return_item_allocations')).rows[0].count, 1);
-  await db.query('UPDATE nfe_documents SET chave_acesso=$2 WHERE id=$1', [documentId, '1'.repeat(44)]);
+  const originalAccessKey = '41' + '2610' + '12345678000195' + '55' + '001' + '000000700' + '1' + '00000000' + '0';
+  await db.query('UPDATE nfe_documents SET chave_acesso=$2 WHERE id=$1', [documentId, originalAccessKey]);
   await db.query('UPDATE nfe_documents SET numero_protocolo=$2 WHERE id=$1', [documentId, '141260000123456']);
   const prepare = () => db.query(`SELECT prepare_nfe_operation_draft('return'::text,$1::uuid,$2::text,1::smallint,NULL::text,NULL::uuid) AS id`,
     [documentId, returnId]);
@@ -313,7 +318,7 @@ const { PGlite } = require('@electric-sql/pglite');
 
   await db.query('UPDATE orders SET status=\'fulfilled\' WHERE id=$1', [hmlReturnId]);
   await db.query('UPDATE nfe_documents SET chave_acesso=$2,numero_protocolo=$3 WHERE id=$1',
-    [hmlDocumentId, '3'.repeat(44), '141260000123457']);
+    [hmlDocumentId, '41' + '2610' + '12345678000195' + '55' + '001' + '000000900' + '1' + '00000000' + '0', '141260000123457']);
   const prepareHml = (environment) => db.query(`SELECT prepare_nfe_operation_draft('return'::text,$1::uuid,$2::text,$3::smallint,NULL::text,NULL::uuid) AS id`,
     [hmlDocumentId, hmlReturnId, environment]);
   await assert.rejects(prepareHml(1), /não autorizado no ambiente selecionado/,
@@ -324,6 +329,69 @@ const { PGlite } = require('@electric-sql/pglite');
   const hmlDraftLine = (await db.query('SELECT quantity,gross_value FROM nfe_operation_draft_lines WHERE draft_id=$1', [hmlDraftId])).rows[0];
   assert.equal(Number(hmlDraftLine.quantity), 2, 'devolução parcial mantém quantidade proporcional');
   assert.equal(Number(hmlDraftLine.gross_value), 50, 'total parcial é proporcional à quantidade devolvida');
+
+  const nfceSaleId = '51515151-5151-4151-8151-515151515151';
+  const nfceDocumentId = '52525252-5252-4252-8252-525252525252';
+  const nfceAccessKey = '41' + '2610' + '12345678000195' + '65' + '001' + '000000001' + '1' + '00000000' + '0';
+  const nfceXml = '<NFe><infNFe Id="NFe' + nfceAccessKey + '"><ide><mod>65</mod></ide></infNFe></NFe>';
+  await db.query('INSERT INTO orders(id,status,order_type,items,order_data,delivery_status) VALUES ($1,\'cancelled\',\'sale\',\'[]\'::jsonb,$2::jsonb,\'\')',
+    [nfceSaleId, JSON.stringify({ orderType: 'sale' })]);
+  await db.query('INSERT INTO nfe_documents(id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,document_type,xml_nfe,numero_protocolo) VALUES ($1,$2,901,\'1\',$3,\'65\',2,\'homologada\',\'outbound\',$4,\'141260000000901\')',
+    [nfceDocumentId, nfceSaleId, nfceAccessKey, nfceXml]);
+  await db.query('INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml) VALUES ($1,1,\'SKU-NFC-E\',\'NFC-e estorno\',1,100,100,\'<prod/>\',\'<imposto/>\')',
+    [nfceDocumentId]);
+  const prepareNfceEstorno = () => db.query('SELECT prepare_nfe_operation_draft(\'estorno\'::text,$1::uuid,NULL::text,2::smallint,\'Operação não realizada e prazo legal expirado.\'::text,NULL::uuid) AS id',
+    [nfceDocumentId]);
+  const nfceDraftId = (await prepareNfceEstorno()).rows[0].id;
+  assert.equal((await prepareNfceEstorno()).rows[0].id, nfceDraftId,
+    'estorno de NFC-e deve reaproveitar o rascunho ativo');
+  assert.deepEqual((await db.query('SELECT operation_kind,finalidade,environment,original_access_key FROM nfe_operation_drafts WHERE id=$1',
+    [nfceDraftId])).rows[0], {
+    operation_kind: 'estorno',
+    finalidade: 3,
+    environment: 2,
+    original_access_key: nfceAccessKey,
+  });
+  assert.equal((await db.query('SELECT status FROM nfe_documents WHERE id=$1', [nfceDocumentId])).rows[0].status,
+    'homologada', 'a NF-e/NFC-e original permanece autorizada e preservada');
+  await assert.rejects(
+    db.query('SELECT prepare_nfe_operation_draft(\'return\'::text,$1::uuid,NULL::text,2::smallint,NULL::text,NULL::uuid)',
+      [nfceDocumentId]),
+    /Documento fiscal original não autorizado no ambiente selecionado/,
+    'origem NFC-e não pode ser usada como origem de NF-e de devolução'
+  );
+
+  const transitSaleId = '53535353-5353-4353-8353-535353535353';
+  const transitDocumentId = '54545454-5454-4454-8454-545454545454';
+  const transitAccessKey = nfceAccessKey.replace('000000001', '000000002');
+  await db.query('INSERT INTO orders(id,status,order_type,items,order_data,delivery_status) VALUES ($1,\'cancelled\',\'sale\',\'[]\'::jsonb,$2::jsonb,\'\')',
+    [transitSaleId, JSON.stringify({ orderType: 'sale', deliveryStatus: 'in_transit' })]);
+  await db.query('INSERT INTO nfe_documents(id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,document_type,xml_nfe,numero_protocolo) VALUES ($1,$2,902,\'1\',$3,\'65\',2,\'homologada\',\'outbound\',\'<NFe/>\',\'141260000000902\')',
+    [transitDocumentId, transitSaleId, transitAccessKey]);
+  await db.query('INSERT INTO nfe_document_items(document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,product_xml,taxes_xml) VALUES ($1,1,\'SKU-NFC-E\',\'NFC-e em trânsito\',1,100,100,\'<prod/>\',\'<imposto/>\')',
+    [transitDocumentId]);
+  const blockedCancelOrderId = '55555555-5555-4555-8555-555555555555';
+  await db.query('INSERT INTO orders(id,status,order_type,items,order_data,delivery_status) VALUES ($1,\'scheduled\',\'sale\',\'[]\'::jsonb,$2::jsonb,\'\')',
+    [blockedCancelOrderId, JSON.stringify({ orderType: 'sale', deliveryStatus: 'in_transit' })]);
+  await assert.rejects(
+    db.query('UPDATE orders SET status=\'cancelled\' WHERE id=$1', [blockedCancelOrderId]),
+    /A mercadoria já circulou/,
+    'a proteção transacional também bloqueia cancelamento por status legado em trânsito'
+  );
+  await assert.rejects(
+    db.query('SELECT prepare_nfe_operation_draft(\'estorno\'::text,$1::uuid,NULL::text,2::smallint,\'Operação não realizada e prazo legal expirado.\'::text,NULL::uuid)',
+      [transitDocumentId]),
+    /evidência de circulação/,
+    'o RPC também bloqueia estorno quando há trânsito sem confirmação de entrega'
+  );
+  await db.query('UPDATE orders SET order_data=$1::jsonb, delivery_started_at=$2 WHERE id=$3',
+    [JSON.stringify({ orderType: 'sale' }), '2026-10-08T12:00:00.000Z', transitSaleId]);
+  await assert.rejects(
+    db.query('SELECT prepare_nfe_operation_draft(\'estorno\'::text,$1::uuid,NULL::text,2::smallint,\'Operação não realizada e prazo legal expirado.\'::text,NULL::uuid)',
+      [transitDocumentId]),
+    /evidência de circulação/,
+    'o RPC bloqueia estorno pela data estruturada de saída mesmo com status vazio'
+  );
 
   await db.exec(`ALTER TABLE nfe_documents
     ADD COLUMN fiscal_ruleset_version text, ADD COLUMN fiscal_snapshot_id uuid,

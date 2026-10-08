@@ -46,6 +46,6 @@ describe('ProductFormReadinessIndicators', () => {
       />
     );
 
-    expect(screen.queryByText('Dimensões físicas (L x A x P)')).toBeNull();
+    expect(screen.queryByText('Ao menos uma dimensão ativa; todas as ativas > 0')).toBeNull();
   });
 });

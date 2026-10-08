@@ -1,16 +1,10 @@
 import Product from '@/pages/types/product.type';
+import {
+  checkProductErpLegibility,
+  type ProductErpLegibilityResult,
+} from '../../../../../../shared-utils/productErpLegibility';
 
-export interface ERPLegibilityResult {
-  isLegible: boolean;
-  errors: string[];
-  checks: {
-    description: boolean;
-    unitPrice: boolean;
-    categories: boolean;
-    supplier: boolean;
-    origin: boolean;
-  };
-}
+export type ERPLegibilityResult = ProductErpLegibilityResult;
 
 export interface EcomLegibilityResult {
   isLegible: boolean;
@@ -31,72 +25,7 @@ function isPositiveNumber(value: unknown): boolean {
 }
 
 export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibilityResult {
-  const errors: string[] = [];
-  const hasVars = Boolean(data.hasVariations);
-
-  // Cadastros antigos podem ter apenas description; o nome editado tem prioridade.
-  const internalName = data.name ?? data.description ?? '';
-  const hasValidDescription = internalName.trim().length >= 2;
-  if (!hasValidDescription) {
-    errors.push('Nome do Produto (Interno) deve ter pelo menos 2 caracteres.');
-  }
-
-  const hasValidCategories = Boolean(data.categoryIds && data.categoryIds.length > 0);
-  if (!hasValidCategories) {
-    errors.push('Pelo menos uma categoria deve ser selecionada.');
-  }
-
-  const isOwnProduction =
-    data.merchandiseOrigin === 'own_production' ||
-    data.isOwnProduction === true ||
-    data.fiscal?.merchandiseOrigin === 'own_production';
-  const hasValidSupplier = isOwnProduction || Boolean(data.mainSupplierId || data.supplierId);
-  if (!hasValidSupplier) {
-    errors.push('Selecione pelo menos um fornecedor.');
-  }
-
-  let hasValidPrice: boolean;
-  if (!hasVars) {
-    hasValidPrice = isPositiveNumber(data.unitPrice);
-    if (!hasValidPrice) {
-      errors.push('Preço de Venda deve ser maior que zero.');
-    }
-    if (
-      data.promoPrice !== undefined &&
-      data.promoPrice !== null &&
-      !isNaN(Number(data.promoPrice)) &&
-      Number(data.promoPrice) > 0
-    ) {
-      const up = Number(data.unitPrice) || 0;
-      if (Number(data.promoPrice) >= up) {
-        errors.push('O preço promocional deve ser menor que o preço de venda.');
-      }
-    }
-  } else {
-    hasValidPrice = Boolean(data.variations && data.variations.length > 0);
-    if (!hasValidPrice) {
-      errors.push('Adicione pelo menos uma variação para o produto.');
-    }
-  }
-
-  const isNormalOrigin = data.productKind === 'normal' || !data.productKind;
-  if (!isNormalOrigin) {
-    errors.push(
-      'Origem do estoque deve ser Convencional (produtos com origem diferente de Convencional não podem ser ativados no ERP).'
-    );
-  }
-
-  return {
-    isLegible: errors.length === 0,
-    errors,
-    checks: {
-      description: hasValidDescription,
-      unitPrice: hasValidPrice,
-      categories: hasValidCategories,
-      supplier: hasValidSupplier,
-      origin: isNormalOrigin,
-    },
-  };
+  return checkProductErpLegibility(data);
 }
 
 export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegibilityResult {
@@ -136,32 +65,46 @@ export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegib
   }
 
   const isService = data.itemType === 'service';
-  const getDim = (prop: 'width' | 'height' | 'depth', names: string[]) => {
-    if (isPositiveNumber(data[prop])) return true;
+  const getDimensionState = (prop: 'width' | 'height' | 'depth', names: string[]) => {
     const values = data.technicalValues || {};
-    for (const name of names) {
-      const rawValue = values[name];
-      const val = String(rawValue ?? '').replace(',', '.');
-      const num = Number(val);
-      if (Number.isFinite(num) && num > 0) return true;
+    const configuredNames = names.filter((name) =>
+      Object.prototype.hasOwnProperty.call(values, name)
+    );
+    if (configuredNames.length > 0) {
+      const enabledNames = configuredNames.filter((name) => {
+        const value = String(values[name] ?? '').trim().toLocaleLowerCase('pt-BR');
+        return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+      });
+      return {
+        enabled: enabledNames.length > 0,
+        hasPositiveValue:
+          enabledNames.length > 0 &&
+          enabledNames.every((name) => {
+            const value = String(values[name] ?? '').replace(',', '.');
+            const numericValue = Number(value);
+            return Number.isFinite(numericValue) && numericValue > 0;
+          }),
+      };
     }
-    const isApplicable = names.some((name) => {
-      if (!Object.prototype.hasOwnProperty.call(values, name)) return false;
-      const value = String(values[name] ?? '').trim().toLocaleLowerCase('pt-BR');
-      return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
-    });
-    return !isApplicable;
+    const hasPositiveDirectValue = isPositiveNumber(data[prop]);
+    return { enabled: hasPositiveDirectValue, hasPositiveValue: hasPositiveDirectValue };
   };
 
+  const dimensionStates = [
+    getDimensionState('width', ['Largura']),
+    getDimensionState('height', ['Altura']),
+    getDimensionState('depth', ['Profundidade', 'Comprimento']),
+  ];
   const hasValidDimensions =
     isService ||
-    (getDim('width', ['Largura']) &&
-      getDim('height', ['Altura']) &&
-      getDim('depth', ['Profundidade', 'Comprimento']));
+    (dimensionStates.some((dimension) => dimension.enabled) &&
+      dimensionStates.every(
+        (dimension) => !dimension.enabled || dimension.hasPositiveValue
+      ));
 
   if (!isService && !hasValidDimensions) {
     errors.push(
-      'Informe largura, altura e profundidade maiores que zero para publicar o produto no catálogo.'
+      'Ative pelo menos uma dimensão física (altura, largura ou profundidade/comprimento) e preencha com valor maior que zero todas as dimensões ativadas.'
     );
   }
 

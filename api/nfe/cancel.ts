@@ -119,7 +119,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (doc.order_id) {
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('status,delivery_status,delivery_method,order_type,order_data')
+        .select(
+          'status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_type,order_data'
+        )
         .eq('id', doc.order_id)
         .maybeSingle();
       if (orderError)
@@ -267,6 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       environment: Number(doc.ambiente) as 1 | 2,
       goodsCirculated: physicalCirculationConfirmed,
       operationDidNotOccur: true,
+      issuerUf: String(doc.chave_acesso || '').slice(0, 2) === '41' ? 'PR' : '',
     });
     if (cancellationPolicy.action !== 'cancel') {
       return res.status(409).json({

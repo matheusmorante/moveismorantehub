@@ -73,6 +73,7 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
   settings,
   natureOfOperation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
   destinationIndicator: kind === 'estorno' ? 1 : undefined,
+  originalOperationType: kind === 'estorno' ? 1 : undefined,
   recipientXml:
     '<dest><CPF>12345678901</CPF><xNome>Cliente</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest>',
   totalsXml:
@@ -109,7 +110,9 @@ describe('prévia estrutural do XML fiscal revisado', () => {
     expect(xml).toContain('<idDest>1</idDest>');
     expect(xml).toContain(`<NFref><refNFe>${sourceKey}</refNFe></NFref>`);
     expect(xml).not.toContain('<DFeReferenciado>');
-    expect(xml).toContain('art. 298 do RICMS');
+    expect(xml).toContain(
+      '<infAdFisco>Operacao nao realizada e prazo de cancelamento vencido. Nota Fiscal emitida de acordo com inciso VII do caput do art. 298 do RICMS</infAdFisco>'
+    );
   });
 
   it('preserva o indicador de destino da NF-e original e bloqueia natureza divergente', () => {
@@ -124,7 +127,35 @@ describe('prévia estrutural do XML fiscal revisado', () => {
         ...input('estorno'),
         natureOfOperation: 'Estorno de NF-e não cancelada no prazo legal',
       })
-    ).toThrow(/natureza e indicador de destino/);
+    ).toThrow(/natureza, tpNF e indicador de destino/);
+  });
+
+  it('inverte o tpNF da origem e aceita apenas os CFOPs alternativos informados pela SEFA/PR', () => {
+    const reversedOutbound = buildReviewedFiscalOperationXml({
+      ...input('estorno'),
+      originalOperationType: 0,
+    });
+    expect(reversedOutbound).toContain('<tpNF>1</tpNF>');
+
+    const fallback = input('estorno');
+    fallback.lines[0].cfop = '5949';
+    fallback.lines[0].productXml = fallback.lines[0].productXml.replace('1202', '5949');
+    expect(buildReviewedFiscalOperationXml(fallback)).toContain('<CFOP>5949</CFOP>');
+
+    const invalidFallback = input('estorno');
+    invalidFallback.lines[0].cfop = '5999';
+    invalidFallback.lines[0].productXml = invalidFallback.lines[0].productXml.replace('1202', '5999');
+    expect(() => buildReviewedFiscalOperationXml(invalidFallback)).toThrow(/CFOP interno de entrada inválido/);
+  });
+
+  it('inclui na infAdFisco a revisão de diferenças e acréscimos do período', () => {
+    const xml = buildReviewedFiscalOperationXml({
+      ...input('estorno'),
+      periodAdjustmentText: 'Acréscimos do art. 298, §2º revisados pelo responsável fiscal.',
+    });
+    expect(xml).toContain(
+      'Acréscimos do art. 298, §2º revisados pelo responsável fiscal. Nota Fiscal emitida de acordo com inciso VII do caput do art. 298 do RICMS'
+    );
   });
 
   it('devolução usa finalidade 4 e referência da origem por item, sem NFref', () => {

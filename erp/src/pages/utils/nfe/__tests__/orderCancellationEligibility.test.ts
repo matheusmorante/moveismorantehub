@@ -3,6 +3,8 @@ import { evaluateDocumentEligibility } from '../../../../../../api/nfe/order-can
 
 const now = Date.parse('2026-10-05T15:00:00.000Z');
 const order = { id: 'order-1', status: 'scheduled', order_data: {} };
+const accessKey = (model: string) =>
+  '41' + '2610' + '12345678000195' + model + '001' + '000000001' + '1' + '00000000' + '0';
 const authorizedAt = (timestamp: number) =>
   `<protNFe><infProt><dhRecbto>${new Date(timestamp).toISOString()}</dhRecbto></infProt></protNFe>`;
 
@@ -14,7 +16,7 @@ function document(overrides: Record<string, unknown> = {}) {
     status: 'homologada',
     ambiente: 2,
     modelo: '55',
-    chave_acesso: '1'.repeat(44),
+    chave_acesso: accessKey(String(overrides.modelo || '55')),
     numero_protocolo: '141260000000001',
     xml_protocolo: authorizedAt(now - 60 * 60 * 1000),
     created_at: new Date(now - 60 * 60 * 1000).toISOString(),
@@ -42,6 +44,42 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
     expect(
       evaluateDocumentEligibility(document(), { ...order, status: 'fulfilled' }, null, now)
     ).toMatchObject({ canProceed: false, action: 'return' });
+  });
+
+  it('bloqueia pedido expedido sem confirmação de entrega e não o trata como estorno', () => {
+    expect(
+      evaluateDocumentEligibility(
+        document({
+          xml_protocolo: authorizedAt(now - 169 * 60 * 60 * 1000),
+        }),
+        {
+          ...order,
+          delivery_status: 'in_transit',
+          order_data: { shipping: { deliveryStartedAt: '2026-10-05T13:00:00.000Z' } },
+        },
+        null,
+        now
+      )
+    ).toMatchObject({
+      canProceed: false,
+      action: 'blocked',
+      reason: expect.stringContaining('Confirme recusa ou retorno'),
+    });
+  });
+
+  it('considera status legado de entrega quando a coluna normalizada está vazia', () => {
+    expect(
+      evaluateDocumentEligibility(
+        document({ xml_protocolo: authorizedAt(now - 169 * 60 * 60 * 1000) }),
+        {
+          ...order,
+          delivery_status: '',
+          order_data: { deliveryStatus: 'in_transit' },
+        },
+        null,
+        now
+      )
+    ).toMatchObject({ canProceed: false, action: 'blocked' });
   });
 
   it('não cancela uma devolução pelo fluxo de cancelamento de venda', () => {
@@ -130,7 +168,7 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
     ).toMatchObject({ canProceed: false, action: 'manual_review', authorizedAt: '' });
   });
 
-  it('exige revisão após o prazo da NFC-e e não oferece cancelamento', () => {
+  it('prepara estorno de NF-e 55 após o prazo da NFC-e 65 no Paraná', () => {
     expect(
       evaluateDocumentEligibility(
         document({
@@ -142,6 +180,37 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
         null,
         now
       )
-    ).toMatchObject({ canProceed: false, action: 'manual_review' });
+    ).toMatchObject({ canProceed: true, action: 'estorno' });
+  });
+
+  it('encaminha pedido entregue ao fluxo de devolução dentro ou fora do prazo', () => {
+    const delivered = { ...order, status: 'fulfilled' };
+    expect(
+      evaluateDocumentEligibility(
+        document(),
+        delivered,
+        null,
+        now
+      )
+    ).toMatchObject({ canProceed: false, action: 'return' });
+    expect(
+      evaluateDocumentEligibility(
+        document({ xml_protocolo: authorizedAt(now - 169 * 60 * 60 * 1000) }),
+        delivered,
+        null,
+        now
+      )
+    ).toMatchObject({ canProceed: false, action: 'return' });
+  });
+
+  it('permite retry após rejeição explícita do evento, mantendo a origem autorizada', () => {
+    expect(
+      evaluateDocumentEligibility(
+        document(),
+        order,
+        { status: 'rejected', requested_at: new Date(now - 60_000).toISOString() },
+        now
+      )
+    ).toMatchObject({ canProceed: true, action: 'cancel' });
   });
 });

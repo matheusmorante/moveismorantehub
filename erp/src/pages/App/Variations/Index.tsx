@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import VariationType, { VariationOption } from '../../types/variation.type';
 import { checkVariationUsage, saveVariation, updateVariation } from '../../utils/variationService';
@@ -9,12 +9,19 @@ import { parseAttributeValueBatch } from './attributeValueBatch';
 import VariationFormModal from './VariationFormModal';
 import { useVariations } from './useVariations';
 
-const Variations = () => {
+interface VariationsProps {
+  readonly focusAttributeName?: string;
+  readonly onClose?: () => void;
+}
+
+const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
   const { variations, loading, handleDelete, refresh } = useVariations();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const characteristicsListRef = useRef<HTMLElement>(null);
+  const hasFocusedInitialAttribute = useRef(false);
 
   const filteredVariations = useMemo(() => {
     const search = normalizeSearchTerm(searchTerm);
@@ -30,6 +37,20 @@ const Variations = () => {
     () => groupTechnicalFields(filteredVariations),
     [filteredVariations]
   );
+
+  useEffect(() => {
+    const targetName = normalizeSearchTerm(focusAttributeName ?? '');
+    if (!targetName || loading || hasFocusedInitialAttribute.current) return;
+
+    const targetCard = Array.from(
+      characteristicsListRef.current?.querySelectorAll<HTMLElement>('[data-attribute-name]') ?? []
+    ).find((card) => card.dataset.attributeName === targetName);
+
+    if (targetCard) {
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    hasFocusedInitialAttribute.current = true;
+  }, [focusAttributeName, loading, variations]);
 
   const openForm = (attribute: VariationType | null) => {
     setEditingAttribute(attribute);
@@ -195,11 +216,25 @@ const Variations = () => {
               <i className="bi bi-upload sm:mr-2" aria-hidden="true" />
               <span className="hidden sm:inline">Importar CSV</span>
             </button>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                title="Fechar gerenciamento de características"
+                aria-label="Fechar gerenciamento de características"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-red-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 custom-scrollbar">
+      <main
+        ref={characteristicsListRef}
+        className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 custom-scrollbar"
+      >
         <div className="max-w-7xl mx-auto space-y-4">
           {loading ? (
             <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm">

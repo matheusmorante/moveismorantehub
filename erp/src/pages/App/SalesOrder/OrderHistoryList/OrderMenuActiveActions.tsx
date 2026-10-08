@@ -19,7 +19,11 @@ interface OrderMenuActiveActionsProps {
     reconciliationMode?: boolean
   ) => void;
   onAction: (actionKey: string, order: Order) => void;
-  onStatusUpdate: (id: string, newStatus: Order['status']) => void;
+  onStatusUpdate: (
+    id: string,
+    newStatus: Order['status'],
+    options?: { productionConfirmed?: boolean }
+  ) => void;
   onShowPostSaleActions?: (order: Order) => void;
   onCloseMenu: () => void;
   hideEditAction?: boolean;
@@ -48,11 +52,11 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
             onCloseMenu();
           }}
           className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-sky-700 transition-all hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/30"
-          title="Reprocessar automaticamente o efeito fiscal deste pedido"
+          title="Verificar a situação fiscal; uma nova tentativa só será enviada após confirmação"
         >
           <i className="bi bi-arrow-repeat text-lg" />
           <span className="text-xs font-black uppercase tracking-widest">
-            Reprocessar tratamento fiscal
+            Verificar tratamento fiscal
           </span>
         </button>
       )}
@@ -186,6 +190,8 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
       <CancelScheduledSaleButton
         order={order}
         onStatusUpdate={onStatusUpdate}
+        onAction={onAction}
+        onEdit={onEdit}
         onCloseMenu={onCloseMenu}
       />
     </>

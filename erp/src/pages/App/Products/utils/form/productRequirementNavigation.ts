@@ -21,6 +21,7 @@ export const PRODUCT_REQUIREMENT_FIELD_MAP: Record<
   categories: { tab: 'geral', fieldId: 'field-product-categories' },
   productKind: { tab: 'geral', fieldId: 'field-product-kind' },
   origin: { tab: 'geral', fieldId: 'field-product-kind' },
+  opportunityId: { tab: 'geral', fieldId: 'field-product-opportunity' },
   unitPrice: { tab: 'estoque', fieldId: 'field-unit-price' },
   supplier: { tab: 'estoque', fieldId: 'field-main-supplier' },
   mainSupplierId: { tab: 'estoque', fieldId: 'field-main-supplier' },

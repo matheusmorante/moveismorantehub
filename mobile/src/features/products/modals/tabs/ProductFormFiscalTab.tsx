@@ -139,7 +139,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
           {formData.itemType === 'service' && (
             <>
               <Text style={[styles.label, dark && styles.dimText]}>
-                Código Municipal / Serviço (LC 116/03) *
+                Código Municipal / Serviço (LC 116/03){' '}
+                <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
               <TextInput
                 value={fiscal.codigoServico || ''}
@@ -153,7 +154,12 @@ export const ProductFormFiscalTab: React.FC<Props> = ({ formData, setFormData, d
               />
             </>
           )}
-          <Text style={[styles.label, dark && styles.dimText]}>Código NCM (8 dígitos)</Text>
+          <Text style={[styles.label, dark && styles.dimText]}>
+            Código NCM (8 dígitos)
+            {formData.itemType !== 'service' && (
+              <Text style={{ color: '#ef4444' }}> *</Text>
+            )}
+          </Text>
           <TextInput
             value={ncmSearch}
             onChangeText={(v) => {

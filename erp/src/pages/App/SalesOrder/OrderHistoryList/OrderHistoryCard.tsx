@@ -14,8 +14,10 @@ import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
 import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
+import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
 import type {
   OrderFiscalBadgeStatus,
+  OrderFiscalCancellationState,
   OrderFiscalOperationBadgeStatus,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
@@ -26,6 +28,7 @@ interface OrderHistoryCardProps {
   readonly fiscalBadgeLoading?: boolean;
   readonly fiscalDocumentId?: string;
   readonly fiscalHmlDocumentId?: string;
+  readonly fiscalCancellationState?: OrderFiscalCancellationState;
   readonly fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   readonly fiscalEstornoDocumentId?: string;
   readonly fiscalEstornoEnvironment?: 1 | 2;
@@ -69,6 +72,7 @@ const OrderHistoryCard = ({
   fiscalBadgeLoading,
   fiscalDocumentId,
   fiscalHmlDocumentId,
+  fiscalCancellationState,
   fiscalEstornoBadgeStatus,
   fiscalEstornoDocumentId,
   fiscalEstornoEnvironment,
@@ -284,6 +288,8 @@ const OrderHistoryCard = ({
           {toTitleCase(order.customerData?.fullName || 'Cliente não informado')}
         </h3>
 
+        <OrderCancellationFailureNotice state={fiscalCancellationState} />
+
         {order.linkedOrderId && (
           <button
             type="button"
@@ -425,7 +431,7 @@ const OrderHistoryCard = ({
             onShowPostSaleActions={onShowPostSaleActions}
             hideResumeDraftAction={isDraft && !showTrash}
             hideEditAction={!isEditLocked && !isCancelled && !isDraft && !showTrash}
-            buttonClassName="w-8 h-8"
+            buttonClassName={`w-8 h-8 ${isCancelled ? 'relative z-30' : ''}`}
           />
         </div>
       </div>

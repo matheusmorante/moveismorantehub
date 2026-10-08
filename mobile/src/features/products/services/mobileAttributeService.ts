@@ -6,11 +6,24 @@ export interface MobileAttributeValue {
   attribute_id: string;
 }
 
+export type MobileAttributeDataType =
+  | 'list'
+  | 'integer'
+  | 'decimal'
+  | 'text'
+  | 'text_short'
+  | 'text_long'
+  | 'radio'
+  | 'multi_select'
+  | 'boolean'
+  | 'measure'
+  | 'number';
+
 export interface MobileAttribute {
   id: string;
   name: string;
   active?: boolean;
-  dataType?: string;
+  dataType?: MobileAttributeDataType;
   isGloballyRequired?: boolean;
   unit?: string;
   options: MobileAttributeValue[];
@@ -88,10 +101,44 @@ export const saveMobileAttribute = async (
   return data?.id || null;
 };
 
+export const createMobileAttributeWithOptions = async (
+  name: string,
+  dataType: MobileAttributeDataType,
+  unit: string,
+  values: string[]
+): Promise<string> => {
+  const { data, error } = await supabase.rpc('create_mobile_product_attribute_with_values', {
+    p_name: name.trim(),
+    p_data_type: dataType,
+    p_unit: unit.trim() || null,
+    p_values: values,
+  });
+
+  if (error) throw error;
+  if (typeof data !== 'string' || !data) {
+    throw new Error('O banco não retornou o identificador da característica criada.');
+  }
+  return data;
+};
+
 export const deleteMobileAttribute = async (id: string): Promise<void> => {
-  await supabase.from('attribute_values').delete().eq('attribute_id', id);
   const { error } = await supabase.from('attributes').delete().eq('id', id);
   if (error) throw error;
+};
+
+export const checkMobileAttributeUsage = async (
+  attributeName: string,
+  optionValue?: string
+): Promise<boolean> => {
+  let query = supabase.from('product_variations').select('id', { count: 'exact', head: true });
+
+  query = optionValue
+    ? query.eq(`attributes->>${attributeName}`, optionValue)
+    : query.not(`attributes->>${attributeName}`, 'is', null);
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return (count || 0) > 0;
 };
 
 export const addMobileAttributeValue = async (

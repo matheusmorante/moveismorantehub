@@ -13,8 +13,10 @@ import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
 import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
+import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
 import type {
   OrderFiscalBadgeStatus,
+  OrderFiscalCancellationState,
   OrderFiscalOperationBadgeStatus,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
@@ -25,6 +27,7 @@ interface OrderHistoryRowProps {
   fiscalBadgeLoading?: boolean;
   fiscalDocumentId?: string;
   fiscalHmlDocumentId?: string;
+  fiscalCancellationState?: OrderFiscalCancellationState;
   fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   fiscalEstornoDocumentId?: string;
   fiscalEstornoEnvironment?: 1 | 2;
@@ -70,6 +73,7 @@ const OrderHistoryRow = ({
   fiscalBadgeLoading,
   fiscalDocumentId,
   fiscalHmlDocumentId,
+  fiscalCancellationState,
   fiscalEstornoBadgeStatus,
   fiscalEstornoDocumentId,
   fiscalEstornoEnvironment,
@@ -261,6 +265,7 @@ const OrderHistoryRow = ({
               >
                 {toTitleCase(order.customerData?.fullName || 'Não informado')}
               </span>
+              <OrderCancellationFailureNotice state={fiscalCancellationState} />
               <div className="flex flex-wrap items-center gap-1">
                 <OrderFiscalBadge
                   status={fiscalBadgeStatus}

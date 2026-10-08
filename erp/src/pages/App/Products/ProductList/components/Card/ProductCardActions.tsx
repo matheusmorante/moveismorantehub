@@ -6,6 +6,7 @@ import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRol
 export interface ProductCardActionsProps {
   readonly product: Product;
   readonly showEditButton?: boolean;
+  readonly canDeleteProducts: boolean;
   readonly onEdit: (product: Product) => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
@@ -20,6 +21,7 @@ export interface ProductCardActionsProps {
 export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
   product,
   showEditButton = true,
+  canDeleteProducts,
   onEdit,
   onDuplicate,
   onDelete,
@@ -37,12 +39,12 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
       e.stopPropagation();
       setIsMenuOpen(false);
 
-      if (isDraft) {
+      if (isDraft && canDeleteProducts) {
         if (product.id) onDelete(product.id);
         return;
       }
     },
-    [product.id, isDraft, onDelete]
+    [product.id, isDraft, canDeleteProducts, onDelete]
   );
 
   return (
@@ -136,7 +138,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
               </button>
             )}
 
-            {!isLabelOnlyProfile && isDraft && (
+            {!isLabelOnlyProfile && isDraft && canDeleteProducts && (
               <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                 <button
                   type="button"

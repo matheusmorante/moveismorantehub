@@ -1,5 +1,11 @@
 import { UserRole } from '@/context/AuthContext';
 import { canPerform } from './permissionService';
+import {
+  getProductProfileRoles,
+  isProductIdentificationLabelOnlyProfile as isLabelOnlyProductProfile,
+  isStockistOnlyProductProfile,
+  shouldHideProductCatalogPublicationStatus,
+} from '../../../../shared-utils/productPermissions';
 
 export const SYSTEM_ROLES: Array<[Exclude<UserRole, 'pending'>, string]> = [
   ['administrator', 'Administrador'],
@@ -19,39 +25,27 @@ const priority: UserRole[] = [
   'accountant',
 ];
 
+type ProfileRoleSource = { role?: UserRole; roles?: UserRole[] | null };
+
 export const getProfileRoles = (profile: {
   role?: UserRole;
   roles?: UserRole[] | null;
-}): UserRole[] => {
-  const roles = profile.roles?.filter((role) => role !== 'pending') || [];
-  return roles.length ? roles : profile.role && profile.role !== 'pending' ? [profile.role] : [];
-};
+}): UserRole[] => getProductProfileRoles(profile) as UserRole[];
 
 export const isStockistOnlyProfile = (profile?: {
   role?: UserRole;
   roles?: UserRole[] | null;
 } | null): boolean => {
-  const roles = profile ? getProfileRoles(profile) : [];
-  return roles.length === 1 && roles[0] === 'stockist';
-};
-
-type ProfileRoleSource = { role?: UserRole; roles?: UserRole[] | null };
-
-const hasOnlyRoles = (
-  profile: ProfileRoleSource | null | undefined,
-  allowedRoles: readonly UserRole[]
-): boolean => {
-  const roles = profile ? getProfileRoles(profile) : [];
-  return roles.length > 0 && roles.every((role) => allowedRoles.includes(role));
+  return isStockistOnlyProductProfile(profile);
 };
 
 export const isProductIdentificationLabelOnlyProfile = (
-  profile?: ProfileRoleSource | null
-): boolean => hasOnlyRoles(profile, ['seller', 'stockist', 'deliverer']);
+  profile?: { role?: UserRole; roles?: UserRole[] | null } | null
+): boolean => isLabelOnlyProductProfile(profile ? getProfileRoles(profile) : []);
 
 export const shouldHideCatalogPublicationStatus = (
-  profile?: ProfileRoleSource | null
-): boolean => hasOnlyRoles(profile, ['stockist', 'deliverer']);
+  profile?: { role?: UserRole; roles?: UserRole[] | null } | null
+): boolean => shouldHideProductCatalogPublicationStatus(profile);
 
 export const canPrintProductIdentificationLabels = (
   profile?: ProfileRoleSource | null

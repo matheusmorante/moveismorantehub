@@ -33,6 +33,11 @@ type OrderHistoryListProps = {
 
 export interface OrderHistoryListRef {
   refresh: () => void;
+  markFiscalDocumentAuthorized: (
+    orderId: string,
+    environment: 1 | 2,
+    documentId: string
+  ) => void;
 }
 
 const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
@@ -97,6 +102,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       handleBlingUpdate,
       handleStockCheckUpdate,
       refresh,
+      markFiscalDocumentAuthorized,
       currentPage,
       totalPages,
       setCurrentPage,
@@ -159,6 +165,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
     useImperativeHandle(ref, () => ({
       refresh,
+      markFiscalDocumentAuthorized,
     }));
 
     const [stockModal, setStockModal] = React.useState<{

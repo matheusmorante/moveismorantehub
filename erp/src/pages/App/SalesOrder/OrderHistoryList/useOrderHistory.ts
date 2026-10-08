@@ -76,6 +76,27 @@ export const useOrderHistory = (filters?: any) => {
     return refreshComplete;
   };
 
+  const markFiscalDocumentAuthorized = (
+    orderId: string,
+    environment: 1 | 2,
+    documentId: string
+  ) => {
+    setFiscalBadgeStatusByOrderId((previous) => {
+      const current = previous[orderId] || {
+        production: 'not_issued' as const,
+        homologation: 'not_issued' as const,
+      };
+      return {
+        ...previous,
+        [orderId]:
+          environment === 2
+            ? { ...current, homologation: 'issued', homologationDocumentId: documentId }
+            : { ...current, production: 'issued', productionDocumentId: documentId },
+      };
+    });
+    setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [orderId]: false }));
+  };
+
   useEffect(
     () => () =>
       resolveFiscalBadgeRefreshWaiters(
@@ -113,7 +134,7 @@ export const useOrderHistory = (filters?: any) => {
               const next = { ...previous };
               for (const [orderId, status] of Object.entries(statuses)) {
                 if (
-                  fiscalBadgeRefreshVersionByOrderId.current[orderId] ===
+                  (fiscalBadgeRefreshVersionByOrderId.current[orderId] ?? 0) ===
                   requestVersions[orderId]
                 ) {
                   next[orderId] = status;
@@ -181,7 +202,11 @@ export const useOrderHistory = (filters?: any) => {
     });
   }, [orders, selectedOrders]);
 
-  const handleStatusUpdate = async (id: string, newStatus: Order['status']) => {
+  const handleStatusUpdate = async (
+    id: string,
+    newStatus: Order['status'],
+    options?: { productionConfirmed?: boolean }
+  ) => {
     const currentOrder = orders.find((order) => order.id === id);
     if (!currentOrder) return;
     if (currentOrder.status === 'draft') {
@@ -219,14 +244,14 @@ export const useOrderHistory = (filters?: any) => {
       return;
     }
     if (newStatus !== 'cancelled') {
-      await operations.commitStatusUpdate(currentOrder, newStatus);
+      await operations.commitStatusUpdate(currentOrder, newStatus, options);
       return;
     }
 
     bumpFiscalBadgeRefreshVersion(id);
     setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [id]: true }));
     try {
-      await operations.commitStatusUpdate(currentOrder, newStatus);
+      await operations.commitStatusUpdate(currentOrder, newStatus, options);
     } catch (error) {
       console.error('[useOrderHistory] Erro inesperado ao cancelar o pedido.', error);
     } finally {
@@ -391,5 +416,6 @@ export const useOrderHistory = (filters?: any) => {
     handleBlingUpdate: operations.handleBlingUpdate,
     handleStockCheckUpdate: operations.handleStockCheckUpdate,
     refresh,
+    markFiscalDocumentAuthorized,
   };
 };

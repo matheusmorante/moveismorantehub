@@ -26,6 +26,15 @@ describe('persistência completa do rascunho', () => {
     expect(reopened.status).toBe('draft');
     expect(reopened.variations?.[0]).toMatchObject({ status: 'hidden', active: false });
   });
+  it('preserva o status do catálogo ao restaurar o snapshot de um cadastro em rascunho', () => {
+    const snapshot = createProductDraftSnapshot(product);
+    const reopened = restoreProductDraft({
+      ...product,
+      status: 'published',
+      technicalSpecs: { draftProduct: snapshot },
+    });
+    expect(reopened).toMatchObject({ status: 'published', isDraft: true, active: false });
+  });
   it('reabre todos os campos de variações novas mesmo sem registros normalizados', () => {
     const snapshot = createProductDraftSnapshot(product);
     const record = {
@@ -58,6 +67,47 @@ describe('persistência completa do rascunho', () => {
     });
     expect(result.stock).toBe(7);
     expect(result.variations?.[0].stock).toBe(7);
+  });
+
+  it('restaura variações do snapshot ausentes da relação normalizada e preserva estoque confirmado', () => {
+    const firstVariation = product.variations![0];
+    const secondVariation = {
+      ...firstVariation,
+      id: 'ab5ff0b1-b443-4dd9-9af2-15e6058117a2',
+      name: 'Armário Verde',
+      sku: 'TEST_AUT_DRAFT-02',
+      stock: 0,
+    };
+    const snapshot = createProductDraftSnapshot({
+      ...product,
+      variations: [firstVariation, secondVariation],
+    });
+    const mapped = mapFromDB({
+      id: product.id,
+      code: product.code,
+      name: product.name,
+      item_type: 'product',
+      is_draft: true,
+      status: 'draft',
+      stock: 6,
+      technical_specs: { draftProduct: snapshot },
+      product_variations: [
+        {
+          id: firstVariation.id,
+          product_id: product.id,
+          sku: firstVariation.sku,
+          name: firstVariation.name,
+          stock: 6,
+          active: false,
+          price: firstVariation.unitPrice,
+          use_parent_price: false,
+        },
+      ],
+    });
+
+    expect(mapped.variations).toHaveLength(2);
+    expect(mapped.variations?.[0]).toMatchObject({ id: firstVariation.id, stock: 6 });
+    expect(mapped.variations?.[1]).toMatchObject({ id: secondVariation.id, stock: 0 });
   });
 
   it('preserva detalhes sem coluna própria ao concluir e ignora o snapshot de rascunho', () => {

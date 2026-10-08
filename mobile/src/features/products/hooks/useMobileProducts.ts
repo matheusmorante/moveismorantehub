@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,
@@ -11,17 +12,19 @@ import {
 
 const ITEMS_PER_PAGE = 15;
 
-export function useMobileProducts(mode: 'standard' | 'composition' = 'standard') {
+export function useMobileProducts(
+  mode: 'standard' | 'composition' = 'standard',
+  enabled = true
+) {
   const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
   const [showDeactivated, setShowDeactivated] = useState(true);
-  // O ERP exibe variações fundidas na lista para preservar o histórico;
-  // elas permanecem somente leitura e sem ações operacionais.
-  const [showMerged, setShowMerged] = useState(true);
+  const [showTestProducts, setShowTestProducts] = useState(false);
+  const [generalTypeFilter, setGeneralTypeFilter] = useState<'all' | 'product' | 'service'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<'all' | 'published' | 'hidden'>(
     'all'
@@ -31,6 +34,14 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
 
   const loadProducts = useCallback(
     async (pull = false, page = currentPage) => {
+      if (!enabled) {
+        setProducts([]);
+        setTotalItems(0);
+        setLoadError(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       pull ? setRefreshing(true) : setLoading(true);
       setLoadError(null);
       try {
@@ -41,10 +52,12 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
           // localizar também itens desativados pelo nome/código/SKU.
           includeDeactivated:
             showDeactivated || statusFilter === 'disabled' || Boolean(searchTerm.trim()),
-          includeMerged: showMerged,
+          // O ERP sempre inclui variações fundidas na lista para preservar o histórico.
+          includeMerged: true,
           category: categoryFilter || undefined,
           catalogStatus: catalogStatusFilter,
           itemType: mode,
+          generalType: mode === 'standard' ? generalTypeFilter : 'all',
         });
         setProducts(data);
         setTotalItems(total);
@@ -62,15 +75,23 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
       statusFilter,
       categoryFilter,
       catalogStatusFilter,
+      generalTypeFilter,
       showDeactivated,
-      showMerged,
       mode,
+      enabled,
     ]
   );
 
   useEffect(() => {
-    loadProducts(false, currentPage);
-  }, [currentPage, loadProducts]);
+    if (enabled) {
+      loadProducts(false, currentPage);
+    } else {
+      setProducts([]);
+      setTotalItems(0);
+      setLoadError(null);
+      setLoading(false);
+    }
+  }, [currentPage, enabled, loadProducts]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -79,8 +100,9 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
     statusFilter,
     categoryFilter,
     catalogStatusFilter,
+    generalTypeFilter,
+    showTestProducts,
     showDeactivated,
-    showMerged,
     mode,
   ]);
 
@@ -315,18 +337,22 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
   };
 
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const hasTestProducts = products.some(isTestProduct);
+  const visibleProducts = showTestProducts ? products : products.filter((product) => !isTestProduct(product));
 
   return {
-    products,
+    products: visibleProducts,
     loading,
     loadError,
     refreshing,
     searchTerm,
     statusFilter,
     showDeactivated,
-    showMerged,
     categoryFilter,
     catalogStatusFilter,
+    generalTypeFilter,
+    showTestProducts,
+    hasTestProducts,
     currentPage,
     totalItems,
     totalPages,
@@ -334,9 +360,10 @@ export function useMobileProducts(mode: 'standard' | 'composition' = 'standard')
     setSearchTerm,
     setStatusFilter,
     setShowDeactivated,
-    setShowMerged,
     setCategoryFilter,
     setCatalogStatusFilter,
+    setGeneralTypeFilter,
+    setShowTestProducts,
     setCurrentPage,
     refresh: () => loadProducts(true),
     handleToggleCatalog,

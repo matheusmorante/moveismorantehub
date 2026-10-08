@@ -11,6 +11,13 @@ export interface ValidationResult {
   formattedName?: string;
 }
 
+/** Category attributes must load before saving to avoid dropping persisted links. */
+export const canSaveCategoryAttributes = (
+  isCategory: boolean,
+  isLoading: boolean,
+  loadFailed: boolean
+) => !isCategory || (!isLoading && !loadFailed);
+
 /**
  * Filtra categorias de acordo com o filtro selecionado (todas, com_ambiente, sem_ambiente)
  * e o termo de busca textual (case-insensitive).
@@ -175,7 +182,20 @@ export function validateAttribute(
     return { valid: false, error: 'O nome da característica/atributo não pode estar vazio.' };
   }
 
-  const validTypes = ['text_short', 'integer', 'decimal', 'radio'];
+  const validTypes = [
+    'list',
+    'text',
+    'integer',
+    'decimal',
+    'boolean',
+    'measure',
+    // Legacy values already persisted by the app or normalized by the ERP.
+    'text_short',
+    'text_long',
+    'radio',
+    'multi_select',
+    'number',
+  ];
   if (!validTypes.includes(dataType)) {
     return {
       valid: false,

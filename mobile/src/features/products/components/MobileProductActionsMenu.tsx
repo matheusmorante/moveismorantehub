@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Copy, Pencil, EyeOff, Eye, Trash2, Share2, Clock3 } from 'lucide-react-native';
+import { Copy, Eye, EyeOff, Link2, Pencil, Trash2 } from 'lucide-react-native';
 
 interface MobileProductActionsMenuProps {
   visible: boolean;
@@ -16,12 +16,13 @@ interface MobileProductActionsMenuProps {
   product: any;
   isDraft: boolean;
   isActive: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
   onClose: () => void;
   onEdit: (product: any) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string, isDraft?: boolean) => void;
   onDuplicate?: (product: any) => void;
-  onShare?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
@@ -33,12 +34,13 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   product,
   isDraft,
   isActive,
+  canEdit = true,
+  canDelete = true,
   onClose,
   onEdit,
   onToggleActive,
   onDelete,
   onDuplicate,
-  onShare,
   onLaunchStock,
   onShowHistory,
   onShowOrders,
@@ -76,12 +78,16 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
           <TouchableWithoutFeedback>
             <View style={[styles.menuContainer, dark && styles.darkMenuContainer]}>
               {/* 1. Editar Produto */}
-              <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
-                <Pencil size={16} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.lightText]}>Editar Produto</Text>
-              </TouchableOpacity>
+              {canEdit && (
+                <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+                  <Pencil size={16} color="#2563eb" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Editar Produto
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-              {onDuplicate && (
+              {canEdit && onDuplicate && (
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -95,20 +101,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   </Text>
                 </TouchableOpacity>
               )}
-              {onShare && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onShare(product);
-                  }}
-                >
-                  <Share2 size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Compartilhar Produto
-                  </Text>
-                </TouchableOpacity>
-              )}
               {onShowOrders && (
                 <TouchableOpacity
                   style={styles.menuItem}
@@ -117,7 +109,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     onShowOrders(product);
                   }}
                 >
-                  <Share2 size={16} color="#2563eb" />
+                  <Link2 size={16} color="#2563eb" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
                     Pedidos Vinculados
                   </Text>
@@ -125,7 +117,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
               )}
 
               {/* Se RASCUNHO: Apenas opção de Descartar Rascunho */}
-              {isDraft ? (
+              {isDraft ? canDelete ? (
                 <>
                   <View style={[styles.menuDivider, dark && styles.darkDivider]} />
                   <TouchableOpacity style={styles.menuItem} onPress={handleDiscardDraft}>
@@ -133,7 +125,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     <Text style={[styles.menuItemText, styles.dangerText]}>Descartar Rascunho</Text>
                   </TouchableOpacity>
                 </>
-              ) : (
+              ) : null : canDelete ? (
                 <>
                   {/* Desativar / Reativar */}
                   <TouchableOpacity style={styles.menuItem} onPress={handleToggleActiveClick}>
@@ -154,7 +146,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     )}
                   </TouchableOpacity>
                 </>
-              )}
+              ) : null}
             </View>
           </TouchableWithoutFeedback>
         </View>
