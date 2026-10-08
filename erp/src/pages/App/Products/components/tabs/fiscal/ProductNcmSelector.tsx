@@ -6,6 +6,7 @@ import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevCl
 interface ProductNcmSelectorProps {
   formData: Partial<Product>;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  hasError?: boolean;
   suggestion?: PendingNcmSuggestion | null;
   onAcceptSuggestion?: () => void;
   onRejectSuggestion?: () => void;
@@ -14,6 +15,7 @@ interface ProductNcmSelectorProps {
 export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   formData,
   setFormData,
+  hasError = false,
   suggestion,
   onAcceptSuggestion,
   onRejectSuggestion,
@@ -95,6 +97,9 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
       <div className="relative overflow-hidden rounded-2xl transition-all">
         <input
           type="text"
+          aria-label="NCM do produto"
+          aria-invalid={hasError}
+          aria-describedby={hasError ? 'product-ncm-error' : undefined}
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
@@ -110,12 +115,21 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           }}
           onFocus={() => setIsDropdownOpen(true)}
           placeholder="Digite ou pesquise o NCM..."
-          className="w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors focus:border-blue-600 dark:focus:border-blue-400"
+          className={`w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
+            hasError
+              ? 'border-red-500 focus:border-red-600'
+              : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
+          }`}
         />
         <i
           className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
         />
       </div>
+      {hasError && (
+        <p id="product-ncm-error" role="alert" className="text-[10px] font-bold text-red-500">
+          Informe um NCM válido com 8 dígitos.
+        </p>
+      )}
       {suggestion && !formData.fiscal?.ncm && (
         <div
           role="status"

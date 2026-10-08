@@ -33,7 +33,7 @@ interface TabDefinition {
 
 const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly TabDefinition[] => {
   const tabs: TabDefinition[] = [
-    { id: 'identificacao', label: 'Identificação', icon: 'bi-info-circle' },
+    { id: 'identificacao', label: 'Informações Básicas', icon: 'bi-info-circle' },
     ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' }] : []),
     { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
     ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
@@ -116,10 +116,10 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
   const erpStatus = checkERPLegibility(effectiveProductForValidation);
   const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
   const inheritedDataTabs: readonly VariationTabId[] = [
-    'identificacao',
     'tecnico',
     'descricao',
     'estoque',
+    'compostos',
   ];
   const showInheritedDataNotice =
     isSingleExistingVariation && inheritedDataTabs.includes(activeTab);
@@ -439,10 +439,10 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               >
                 <i className="bi bi-arrow-down-up mb-3 block text-2xl text-blue-600 dark:text-blue-400" aria-hidden="true" />
                 <p className="text-sm font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-                  Como este produto tem apenas uma variação no momento, os campos desta aba são herdados do produto principal.
+                  Como este produto tem apenas uma variação, somente as abas Informações Básicas e Fotos vinculadas permitem edição.
                 </p>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Para alterá-los, edite o produto principal ou adicione outra variação para liberar a edição individual.
+                  Para editar as demais informações, atualize o produto principal ou adicione outra variação.
                 </p>
               </div>
             </div>

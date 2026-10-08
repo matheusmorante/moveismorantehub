@@ -272,6 +272,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               formData={formData}
               setFormData={setFormData}
               canConfigureProductTaxes={canConfigureProductTaxes}
+              isStockistOnly={isStockistOnly}
+              validationErrors={validationErrors}
               ncmSuggestion={jev.suggestion}
               onAcceptNcmSuggestion={jev.acceptSuggestion}
               onRejectNcmSuggestion={jev.rejectSuggestion}

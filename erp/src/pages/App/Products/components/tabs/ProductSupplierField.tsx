@@ -143,44 +143,32 @@ export function ProductSupplierField({
         </button>
       </label>
 
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <i
-            className="bi bi-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none"
-            aria-hidden="true"
-          />
-          <input
-            type="text"
-            role="combobox"
-            aria-expanded={isOpen && visibleSuppliers.length > 0}
-            aria-autocomplete="list"
-            aria-haspopup="listbox"
-            aria-invalid={hasError}
-            aria-label="Buscar fornecedor por nome ou razão social"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            placeholder="Digite 2 ou mais letras para buscar fornecedor..."
-            className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 py-2.5 pl-8 pr-4 text-xs font-bold outline-none transition-all dark:text-slate-200 ${
-              hasError
-                ? 'border-red-500 text-red-600 focus:border-red-600'
-                : 'border-slate-200 focus:border-blue-600 dark:focus:border-blue-400 dark:border-slate-800'
-            }`}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          disabled={selectedIds.length >= MAX_SUPPLIERS}
-          aria-label="Adicionar fornecedor"
-          className="rounded-xl bg-blue-600 px-3 text-xs font-black text-white disabled:opacity-40 hover:bg-blue-700 transition-colors cursor-pointer disabled:cursor-not-allowed"
-          title="Adicionar fornecedor"
-        >
-          <i className="bi bi-plus-lg" aria-hidden="true" />
-        </button>
+      <div className="relative">
+        <i
+          className="bi bi-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none"
+          aria-hidden="true"
+        />
+        <input
+          type="text"
+          role="combobox"
+          aria-expanded={isOpen && visibleSuppliers.length > 0}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-invalid={hasError}
+          aria-label="Buscar fornecedor por nome ou razão social"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Digite 2 ou mais letras para buscar fornecedor..."
+          className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 py-2.5 pl-8 pr-4 text-xs font-bold outline-none transition-all dark:text-slate-200 ${
+            hasError
+              ? 'border-red-500 text-red-600 focus:border-red-600'
+              : 'border-slate-200 focus:border-blue-600 dark:focus:border-blue-400 dark:border-slate-800'
+          }`}
+        />
       </div>
 
       {hasError && (

@@ -42,11 +42,11 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
               <p className="text-[8px] font-bold text-slate-400 uppercase">
                 Organize e configure seus ativos para impressão
               </p>
-            ) : (
+            ) : selectedCategory !== 'precos' ? (
               <p className="text-[10px] font-bold text-slate-500">
                 {totalLabels} etiquetas • {totalProducts} itens
               </p>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

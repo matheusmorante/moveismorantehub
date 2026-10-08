@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +9,7 @@ const tabs: ProductTabItem[] = [
   { id: 'technical', label: 'Características', icon: 'bi-info-circle' },
   { id: 'description', label: 'Descrição', icon: 'bi-file-text' },
   { id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' },
+  { id: 'fiscal', label: 'Tributário / NF', icon: 'bi-receipt' },
 ];
 
 afterEach(cleanup);
@@ -66,6 +67,22 @@ describe('ProductFormTabsNavigation', () => {
     );
 
     expect(screen.getByRole('tab', { name: 'Estoque e Precificação' }).className).toContain(
+      'text-red-500'
+    );
+  });
+
+  it('marca visualmente a aba tributária quando o NCM tem erro', () => {
+    render(
+      <ProductFormTabsNavigation
+        tabs={tabs}
+        formData={{ name: 'Mesa', categoryIds: ['category-1'] }}
+        activeTab="geral"
+        setActiveTab={vi.fn()}
+        validationErrors={{ ncm: true }}
+      />
+    );
+
+    expect(screen.getByRole('tab', { name: 'Tributário / NF' }).className).toContain(
       'text-red-500'
     );
   });

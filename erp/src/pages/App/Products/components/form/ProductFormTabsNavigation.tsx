@@ -32,6 +32,7 @@ export const ProductFormTabsNavigation: React.FC<ProductFormTabsNavigationProps>
           (tab.id === 'geral' && (validationErrors.name || validationErrors.categoryIds)) ||
           (tab.id === 'estoque' &&
             (validationErrors.unitPrice || validationErrors.mainSupplierId)) ||
+          (tab.id === 'fiscal' && validationErrors.ncm) ||
           (tab.id === 'variacoes' && validationErrors.variationsImages);
 
         const hasCategory = (formData.categoryIds || []).length > 0;

@@ -36,13 +36,13 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
   const isComposition = formData.itemType === 'composition' || legacyItemType === 'composition';
 
   const formTabs: readonly ProductTabItem[] = [
-    { id: 'geral', label: 'Informações Básicas', icon: '' },
+    { id: 'geral', label: 'Informações Básicas', icon: 'bi-info-circle' },
     ...(!isService
       ? [
           ...(!isStockistOnly
             ? [{ id: 'ecommerce' as const, label: 'Galeria', icon: 'bi-images' }]
             : []),
-          { id: 'technical' as const, label: 'Características', icon: 'bi-info-circle' },
+          { id: 'technical' as const, label: 'Características', icon: 'bi-gear' },
           ...(!isStockistOnly
             ? [{ id: 'description' as const, label: 'Descrição', icon: 'bi-file-text' }]
             : []),

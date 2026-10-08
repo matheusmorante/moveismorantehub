@@ -25,6 +25,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
   const labelPhysicalSize = calculateLabelPhysicalSize(config || {});
   const isPriceQueue = selectedCategory === 'precos';
+  const shouldShowThumbnail = (item: any) =>
+    selectedCategory === 'identificacao' || !isPriceQueue || item.printingMode !== 'advanced';
 
   const updateItem = (idx: number, updates: any) => {
     const newItems = [...labelItems];
@@ -157,11 +159,10 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
           </div>
 
           {/* Miniatura Interativa */}
-          {selectedCategory !== 'identificacao' &&
-            (!isPriceQueue || item.printingMode !== 'advanced') && (
+          {shouldShowThumbnail(item) && (
               <div className="flex flex-col gap-2 items-center">
                 <div
-                  className={`relative shrink-0 rounded-[1.25rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 flex items-center justify-center overflow-hidden p-1.5 group/thumb shadow-inner ${isPriceQueue ? 'w-32 sm:w-36' : 'w-16 h-16'}`}
+                  className={`relative shrink-0 rounded-xl flex items-center justify-center overflow-hidden group/thumb ${isPriceQueue ? 'w-32 sm:w-36' : 'w-16 h-16'}`}
                   style={
                     isPriceQueue
                       ? {
@@ -179,7 +180,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                         transform: `scale(${item.scale || 1}) rotate(${item.rotation || 0}deg)`,
                         objectFit: item.imageFit || 'contain',
                       }}
-                      className="max-w-full max-h-full transition-all duration-500"
+                      className="w-full h-full rounded-xl transition-all duration-500"
                       alt=""
                     />
                   )}
@@ -327,31 +328,34 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
 
               {/* Quantidade e Lixeira */}
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-1.5 py-1 shrink-0">
-                  <span className="text-[9px] font-black text-slate-400 mr-1 uppercase hidden md:inline">
-                    Qtd
-                  </span>
+                <div className="flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1.5 shrink-0">
                   <button
+                    type="button"
                     onClick={() =>
                       updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })
                     }
-                    className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"
+                    aria-label="Diminuir quantidade de etiquetas"
+                    className="text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
                   >
-                    <i className="bi bi-dash" />
+                    <i className="bi bi-dash text-base" />
                   </button>
                   <input
                     type="number"
                     value={item.quantity || 1}
+                    min={1}
                     onChange={(e) =>
                       updateItem(idx, { quantity: Math.max(1, parseInt(e.target.value) || 1) })
                     }
-                    className="w-8 bg-transparent text-center text-xs font-black outline-none text-slate-700 dark:text-slate-200"
+                    aria-label="Quantidade de etiquetas"
+                    className="w-10 shrink-0 appearance-none bg-transparent text-center text-sm font-black tabular-nums outline-none text-slate-700 dark:text-slate-200"
                   />
                   <button
+                    type="button"
                     onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })}
-                    className="text-slate-500 hover:text-blue-500 w-5 h-5 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-sm"
+                    aria-label="Aumentar quantidade de etiquetas"
+                    className="text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
                   >
-                    <i className="bi bi-plus" />
+                    <i className="bi bi-plus text-base" />
                   </button>
                 </div>
 

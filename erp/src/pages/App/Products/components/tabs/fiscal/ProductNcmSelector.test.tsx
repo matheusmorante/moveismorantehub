@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React, { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -93,4 +93,11 @@ it('não mostra sugestão concorrente quando NCM já está preenchido', () => {
     />
   );
   expect(screen.queryByRole('status')).toBeNull();
+});
+
+it('sinaliza quando o NCM obrigatório está ausente ou inválido', () => {
+  render(<ProductNcmSelector formData={{ fiscal: { ncm: '' } }} setFormData={vi.fn()} hasError />);
+
+  expect(screen.getByLabelText('NCM do produto').getAttribute('aria-invalid')).toBe('true');
+  expect(screen.getByRole('alert').textContent).toContain('8 dígitos');
 });

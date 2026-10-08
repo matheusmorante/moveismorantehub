@@ -53,6 +53,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
           </label>
           {(() => {
             const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
+            const parentPrefixLabel = parentPrefix || 'Nome do pai (ainda vazio)';
             const currentFullName = formData.name || '';
             const rawSuffix = currentFullName
               .toLowerCase()
@@ -82,11 +83,9 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                 className="w-full flex items-center border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400 transition-colors py-1.5"
                 title="O nome do produto pai é imutável no início. Você pode editar livremente o que vem após o nome do pai."
               >
-                {parentPrefix && (
-                  <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none mr-2 border border-slate-200 dark:border-slate-700">
-                    {parentPrefix}
-                  </span>
-                )}
+                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none mr-2 border border-slate-200 dark:border-slate-700">
+                  {parentPrefixLabel}
+                </span>
                 <input
                   type="text"
                   placeholder="Ex.: Branco 6 Portas"

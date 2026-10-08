@@ -20,11 +20,11 @@ const complete: Product = {
     active: false, status: 'draft', attributes: [], syncUnitPrice: true }],
 };
 
-function renderSubmit(formData: Product, isRegisteredProduct = false) {
+function renderSubmit(formData: Product, isRegisteredProduct = false, isStockistOnly = false) {
   const variations = { setEditingVariationId: vi.fn() };
   const setActiveTab = vi.fn();
   const hook = renderHook(() => useProductFormSubmit({
-    formData, setFormData: vi.fn(), product: formData, isRegisteredProduct,
+    formData, setFormData: vi.fn(), product: formData, isRegisteredProduct, isStockistOnly,
     setValidationErrors: vi.fn(), setActiveTab, variations, draft: {},
     setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: { current: true }, onClose: vi.fn(),
   }));
@@ -112,5 +112,30 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     const { result, setActiveTab } = renderSubmit(thirdPartyProduct);
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
     expect(setActiveTab).toHaveBeenCalledWith('estoque');
+  });
+
+  it('exige NCM válido no cadastro do perfil estoquista', async () => {
+    const stockistProduct = { ...complete, fiscal: { ncm: '' } };
+    const { result, setActiveTab } = renderSubmit(stockistProduct, false, true);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
+
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('fiscal');
+  });
+
+  it('permite fabricação própria sem fornecedor quando o NCM válido estiver informado', async () => {
+    const stockistOwnProduction: Product = {
+      ...complete,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'own_production',
+      fiscal: { ncm: '94036000' },
+    };
+    const { result } = renderSubmit(stockistOwnProduction, false, true);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
+
+    expect(mocks.saveProduct).toHaveBeenCalled();
   });
 });

@@ -6,7 +6,11 @@ import type Product from '../../../../../types/product.type';
 import ProductFiscalTab from './ProductFiscalTab';
 
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({}) }));
-vi.mock('./ProductNcmSelector', () => ({ ProductNcmSelector: () => null }));
+vi.mock('./ProductNcmSelector', () => ({
+  ProductNcmSelector: ({ hasError = false }: { hasError?: boolean }) => (
+    <input aria-label="NCM do produto" aria-invalid={hasError} />
+  ),
+}));
 
 const initialProduct = {
   itemType: 'product',
@@ -23,9 +27,22 @@ const initialProduct = {
   },
 } as Partial<Product>;
 
-function ProductFiscalTabHarness() {
+function ProductFiscalTabHarness({
+  isStockistOnly = false,
+  validationErrors = {},
+}: {
+  isStockistOnly?: boolean;
+  validationErrors?: Record<string, boolean>;
+}) {
   const [formData, setFormData] = useState(initialProduct);
-  return <ProductFiscalTab formData={formData} setFormData={setFormData} />;
+  return (
+    <ProductFiscalTab
+      formData={formData}
+      setFormData={setFormData}
+      isStockistOnly={isStockistOnly}
+      validationErrors={validationErrors}
+    />
+  );
 }
 
 describe('confirmação de alteração do CSOSN no cadastro do produto', () => {
@@ -53,5 +70,16 @@ describe('confirmação de alteração do CSOSN no cadastro do produto', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Não, manter atual' }));
 
     expect(csosn.value).toBe('103');
+  });
+
+  it('mantém somente o NCM e sinaliza o erro para o perfil estoquista', () => {
+    render(<ProductFiscalTabHarness isStockistOnly validationErrors={{ ncm: true }} />);
+
+    expect(screen.getByLabelText('NCM do produto').getAttribute('aria-invalid')).toBe('true');
+    const taxSettingsHeading = screen.getByText('Configurações de Imposto por Produto');
+    expect(taxSettingsHeading.parentElement?.hidden).toBe(true);
+    expect(taxSettingsHeading.parentElement?.className).toContain('hidden');
+    expect(screen.queryByRole('combobox', { name: 'CSOSN do produto' })).toBeNull();
+    expect(screen.queryByText(/Código CEST/)).toBeNull();
   });
 });

@@ -16,6 +16,8 @@ interface ProductFiscalTabProps {
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly canConfigureProductTaxes?: boolean;
+  readonly isStockistOnly?: boolean;
+  readonly validationErrors?: Record<string, boolean>;
   readonly ncmSuggestion?: PendingNcmSuggestion | null;
   readonly onAcceptNcmSuggestion?: () => void;
   readonly onRejectNcmSuggestion?: () => void;
@@ -25,6 +27,8 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
   formData,
   setFormData,
   canConfigureProductTaxes = true,
+  isStockistOnly = false,
+  validationErrors = {},
   ncmSuggestion,
   onAcceptNcmSuggestion,
   onRejectNcmSuggestion,
@@ -99,43 +103,50 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
         </div>
 
         <div
-          className={`grid grid-cols-1 ${['201', '202', '500'].includes(formData.fiscal?.cst || '') ? 'md:grid-cols-2' : ''} gap-8`}
+          className={`grid grid-cols-1 ${
+            !isStockistOnly && ['201', '202', '500'].includes(formData.fiscal?.cst || '')
+              ? 'md:grid-cols-2'
+              : ''
+          } gap-8`}
         >
           {formData.itemType === 'service' ? (
-            <div className="flex flex-col gap-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                Código Municipal / Serviço (LC 116/03){' '}
-                <span className="text-red-500 ml-0.5" aria-hidden="true">
-                  *
-                </span>
-              </label>
-              <input
-                value={formData.fiscal?.codigoServico || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    fiscal: {
-                      ...formData.fiscal!,
-                      codigoServico: e.target.value.replace(/\D/g, '').slice(0, 8),
-                    },
-                  })
-                }
-                className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold tracking-[0.2em] focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
-                placeholder="Ex: 0101"
-              />
-            </div>
+            !isStockistOnly && (
+              <div className="flex flex-col gap-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  Código Municipal / Serviço (LC 116/03){' '}
+                  <span className="text-red-500 ml-0.5" aria-hidden="true">
+                    *
+                  </span>
+                </label>
+                <input
+                  value={formData.fiscal?.codigoServico || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      fiscal: {
+                        ...formData.fiscal!,
+                        codigoServico: e.target.value.replace(/\D/g, '').slice(0, 8),
+                      },
+                    })
+                  }
+                  className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold tracking-[0.2em] focus:border-blue-600 dark:focus:border-blue-400 transition-all dark:text-slate-200"
+                  placeholder="Ex: 0101"
+                />
+              </div>
+            )
           ) : (
             <>
               <ProductNcmSelector
                 formData={formData}
                 setFormData={setFormData}
+                hasError={Boolean(validationErrors.ncm)}
                 suggestion={ncmSuggestion}
                 onAcceptSuggestion={onAcceptNcmSuggestion}
                 onRejectSuggestion={onRejectNcmSuggestion}
               />
 
               {/* CEST - Exibido apenas se a operação for sujeita à Substituição Tributária (CSOSN 201, 202, 500) */}
-              {['201', '202', '500'].includes(formData.fiscal?.cst || '') && (
+              {!isStockistOnly && ['201', '202', '500'].includes(formData.fiscal?.cst || '') && (
                 <div className="flex flex-col gap-2">
                   <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                     Código CEST (Substituição Tributária)
@@ -178,7 +189,12 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 pt-2 border-t border-slate-100 dark:border-slate-800">
+      <div
+        className={`flex flex-col gap-6 pt-2 border-t border-slate-100 dark:border-slate-800 ${
+          isStockistOnly ? 'hidden' : ''
+        }`}
+        hidden={isStockistOnly}
+      >
         <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
           Configurações de Imposto por Produto
         </h4>
@@ -348,7 +364,7 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
       </div>
 
       <ConfirmModal
-        isOpen={isCsosnConfirmationOpen && pendingCsosn !== null}
+        isOpen={!isStockistOnly && isCsosnConfirmationOpen && pendingCsosn !== null}
         onClose={closeCsosnConfirmation}
         onConfirm={confirmCsosnChange}
         title="Confirmar alteração de CSOSN?"

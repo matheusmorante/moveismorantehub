@@ -69,6 +69,10 @@ export const useProductFormSubmit = ({
           formData.variations.length > 0;
         if (!hasVars) errors.variations = true;
         if (!formData.categoryIds || formData.categoryIds.length === 0) errors.categoryIds = true;
+        const ncmDigits = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
+        if (isStockistOnly && formData.itemType !== 'service' && ncmDigits.length !== 8) {
+          errors.ncm = true;
+        }
         const isOwnProduction =
           formData.merchandiseOrigin === 'own_production' ||
           formData.isOwnProduction === true ||
@@ -94,6 +98,8 @@ export const useProductFormSubmit = ({
             setActiveTab('geral');
           } else if (errors.unitPrice || errors.mainSupplierId) {
             setActiveTab('estoque');
+          } else if (errors.ncm) {
+            setActiveTab('fiscal');
           } else if (errors.variations || errors.variationRegistration) {
             setActiveTab('variacoes');
           }
@@ -106,6 +112,8 @@ export const useProductFormSubmit = ({
             toast.error('Selecione a origem do estoque do produto.');
           } else if (errors.opportunityId) {
             toast.error('Selecione uma oportunidade.');
+          } else if (errors.ncm) {
+            toast.error('Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
           } else if (errors.variations) {
             toast.error('Adicione pelo menos uma variação ao produto.');
           } else if (errors.mainSupplierId) {
