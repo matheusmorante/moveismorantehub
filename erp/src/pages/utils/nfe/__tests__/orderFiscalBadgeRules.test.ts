@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveOrderFiscalBadgePair,
   resolveOrderFiscalBadgeStatus,
+  resolveReturnFiscalBadgeStatus,
   type FiscalDocumentStatusRow,
+  type ReturnFiscalDocumentSummary,
 } from '../orderFiscalBadgeRules';
 
 const outbound = (status: string, ambiente?: number): FiscalDocumentStatusRow => ({
@@ -135,5 +137,56 @@ describe('resolveOrderFiscalBadgePair', () => {
     ]);
     expect(estornoHml.homologation).toBe('not_issued');
     expect(estornoHml.estornoStatus).toBe('issued');
+  });
+});
+
+describe('resolveReturnFiscalBadgeStatus', () => {
+  const returnDocument = (
+    id: string,
+    status: string,
+    documentType: string = 'return'
+  ): ReturnFiscalDocumentSummary => ({
+    id,
+    order_id: 'return-order',
+    status,
+    document_type: documentType,
+  });
+
+  it('deduplicates persisted return documents and ignores other document types', () => {
+    expect(
+      resolveReturnFiscalBadgeStatus([
+        returnDocument('nfd-1', 'autorizada'),
+        returnDocument('nfd-1', 'autorizada'),
+        returnDocument('outbound-1', 'autorizada', 'outbound'),
+      ])
+    ).toBe('issued');
+  });
+
+  it('shows mixed when authorized and canceled return documents coexist', () => {
+    expect(
+      resolveReturnFiscalBadgeStatus([
+        returnDocument('nfd-1', 'autorizada'),
+        returnDocument('nfd-2', 'cancelada'),
+      ])
+    ).toBe('mixed');
+  });
+
+  it.each([
+    ['all canceled', ['cancelada', 'cancelled'], 'cancelled'],
+    ['all rejected', ['rejeitada', 'denegada'], 'rejected'],
+    ['all processing', ['pendente', 'transmitting'], 'pending'],
+    ['fiscal error', ['autorizada', 'erro'], 'failed'],
+    ['uncertain status', ['autorizada', 'unknown'], 'uncertain'],
+  ] as const)('aggregates %s documents', (_label, statuses, expected) => {
+    expect(
+      resolveReturnFiscalBadgeStatus(
+        statuses.map((status, index) => returnDocument(`nfd-${index}`, status))
+      )
+    ).toBe(expected);
+  });
+
+  it('does not create an NFD state when there is no persisted document', () => {
+    expect(resolveReturnFiscalBadgeStatus([])).toBeUndefined();
+    expect(resolveReturnFiscalBadgeStatus([returnDocument('', 'autorizada')])).toBeUndefined();
   });
 });

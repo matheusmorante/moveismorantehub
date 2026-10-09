@@ -30,6 +30,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [types, setTypes] = useState<MobileProductType[]>([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -40,9 +41,11 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
       setLoading(false);
     }
   };
+
   useEffect(() => {
     if (visible) void load();
   }, [visible]);
+
   const add = async () => {
     if (!name.trim()) return;
     try {
@@ -53,6 +56,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
       Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
     }
   };
+
   const remove = (item: MobileProductType) =>
     Alert.alert('Excluir tipo', `Deseja excluir "${item.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -69,6 +73,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
         },
       },
     ]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View
@@ -83,7 +88,12 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
               <Tag size={20} color="#2563eb" />
               <Text style={[styles.title, dark && styles.light]}>Tipos de Produto</Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar tipos de produto"
+            >
               <X size={20} color={dark ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -96,7 +106,12 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
               style={[styles.input, dark && styles.darkInput, dark && styles.light]}
               autoCapitalize="characters"
             />
-            <TouchableOpacity onPress={() => void add()} style={styles.add}>
+            <TouchableOpacity
+              onPress={() => void add()}
+              style={styles.add}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar tipo de produto"
+            >
               <Plus size={17} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -110,7 +125,12 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
                 types.map((item) => (
                   <View key={item.id} style={[styles.item, dark && styles.darkItem]}>
                     <Text style={[styles.itemText, dark && styles.light]}>{item.name}</Text>
-                    <TouchableOpacity onPress={() => remove(item)}>
+                    <TouchableOpacity
+                      onPress={() => remove(item)}
+                      style={styles.actionBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Excluir tipo ${item.name}`}
+                    >
                       <Trash2 size={16} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
@@ -139,10 +159,17 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   light: { color: '#f8fafc' },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   form: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,
-    height: 42,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 12,
@@ -150,7 +177,8 @@ const styles = StyleSheet.create({
   },
   darkInput: { backgroundColor: '#1e293b', borderColor: '#334155' },
   add: {
-    width: 42,
+    width: 44,
+    minHeight: 44,
     borderRadius: 12,
     backgroundColor: '#2563eb',
     alignItems: 'center',
@@ -160,12 +188,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 14,
     borderRadius: 14,
     backgroundColor: '#f8fafc',
     marginBottom: 8,
   },
   darkItem: { backgroundColor: '#1e293b' },
-  itemText: { fontWeight: '800', color: '#0f172a' },
+  itemText: { flex: 1, fontWeight: '800', color: '#0f172a' },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   empty: { color: '#94a3b8', textAlign: 'center', padding: 24 },
 });

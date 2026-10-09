@@ -7,4 +7,15 @@ describe('geração de devolução', () => {
     expect(canGenerateReturn({ orderType: 'sale', status: 'scheduled' } as any)).toBe(false);
     expect(canGenerateReturn({ orderType: 'sale', status: 'cancelled' } as any)).toBe(false);
   });
+
+  it('mantém a geração disponível após devoluções anteriores vinculadas', () => {
+    expect(
+      canGenerateReturn({
+        orderType: 'sale',
+        status: 'fulfilled',
+        returnOrderId: 'return-1',
+        hasReturn: true,
+      } as any)
+    ).toBe(true);
+  });
 });

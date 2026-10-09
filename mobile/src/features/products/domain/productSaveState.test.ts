@@ -91,4 +91,52 @@ describe('productSaveState', () => {
       ).status
     ).toBe('hidden');
   });
+
+  it('impede publicação de produtos marcados como teste fiscal no catálogo', () => {
+    const data = {
+      title: 'Mesa Teste',
+      code: 'TEST_AUT_999',
+      ecommerceDescription: 'Mesa de madeira para testes.',
+      categoryIds: ['categoria'],
+      images: ['mesa.jpg'],
+      unitPrice: 100,
+      width: 80,
+      height: 75,
+      depth: 60,
+      variations: [{ id: 'v1', status: 'published' }],
+      hasVariations: true,
+    };
+    const state = prepareMobileProductSaveState(
+      { id: 'product-1', status: 'published' },
+      data,
+      false
+    );
+
+    expect(state.status).toBe('hidden');
+    expect(state.variations[0].status).toBe('hidden');
+  });
+
+  it('impede publicação quando observações contêm HMLNFTEST', () => {
+    const data = {
+      title: 'Mesa Fiscal',
+      observations: 'Produto HMLNFTEST para homologação',
+      ecommerceDescription: 'Mesa de madeira para testes.',
+      categoryIds: ['categoria'],
+      images: ['mesa.jpg'],
+      unitPrice: 100,
+      width: 80,
+      height: 75,
+      depth: 60,
+      variations: [{ id: 'v1', status: 'published' }],
+      hasVariations: true,
+    };
+    const state = prepareMobileProductSaveState(
+      { id: 'product-1', status: 'published' },
+      data,
+      false
+    );
+
+    expect(state.status).toBe('hidden');
+  });
 });
+

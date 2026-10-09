@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   suggestionCode: { color: '#64748b', fontSize: 11 },
   emptySuggestion: { padding: 14, color: '#64748b', textAlign: 'center', fontSize: 12 },
   attributeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  addAttributeButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 10 },
+  addAttributeButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   addAttributeText: { color: '#4f46e5', fontSize: 12, fontWeight: '900' },
   hint: { color: '#64748b', fontSize: 12, lineHeight: 18 },
   attributeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },

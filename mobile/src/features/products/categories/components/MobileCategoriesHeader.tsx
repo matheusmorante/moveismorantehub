@@ -61,6 +61,9 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
             activeView === 'ambiente' && dark && styles.tabButtonActiveDark,
           ]}
           onPress={() => onViewChange('ambiente')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeView === 'ambiente' }}
+          accessibilityLabel="Aba Por ambiente"
         >
           <LayoutGrid
             size={14}
@@ -84,6 +87,9 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
             activeView === 'categoria' && dark && styles.tabButtonActiveDark,
           ]}
           onPress={() => onViewChange('categoria')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeView === 'categoria' }}
+          accessibilityLabel="Aba Por categoria"
         >
           <Tag
             size={14}
@@ -107,6 +113,7 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
           style={[styles.btnAction, styles.btnEnvironment]}
           onPress={onNewEnvironment}
           accessibilityRole="button"
+          accessibilityLabel="Criar novo ambiente"
         >
           <Plus size={15} color="#ffffff" />
           <Text style={styles.btnActionText}>Novo ambiente</Text>
@@ -116,6 +123,7 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
           style={[styles.btnAction, styles.btnCategory]}
           onPress={onNewCategory}
           accessibilityRole="button"
+          accessibilityLabel="Criar nova categoria"
         >
           <Plus size={15} color="#ffffff" />
           <Text style={styles.btnActionText}>Nova categoria</Text>
@@ -130,12 +138,15 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
           onChangeText={onSearchChange}
           placeholder={searchPlaceholder}
           placeholderTextColor="#94a3b8"
+          accessibilityLabel={searchPlaceholder}
           style={[styles.searchInput, dark && styles.textLight]}
         />
         {Boolean(searchTerm) && (
           <TouchableOpacity
             onPress={() => onSearchChange('')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar busca"
           >
             <X size={15} color="#94a3b8" />
           </TouchableOpacity>
@@ -159,6 +170,7 @@ const styles = StyleSheet.create({
   },
   btnAction: {
     width: '100%',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -231,6 +243,7 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -266,7 +279,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     borderRadius: 10,
     paddingHorizontal: 10,
-    height: 38,
+    minHeight: 44,
     gap: 8,
   },
   searchBoxDark: {

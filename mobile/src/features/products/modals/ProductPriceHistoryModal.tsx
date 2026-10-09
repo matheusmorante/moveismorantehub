@@ -27,21 +27,23 @@ export const ProductPriceHistoryModal: React.FC<Props> = ({ visible, dark, produ
   const [rows, setRows] = useState<MobileProductPriceHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+
   useEffect(() => {
     if (!visible || !product?.id) return;
     let alive = true;
     setLoading(true);
     setError(false);
     void fetchMobileProductPriceHistory(product.id).then(({ rows: history, hasError }) => {
-        if (!alive) return;
-        setRows(history);
-        setError(hasError);
-        setLoading(false);
-      });
+      if (!alive) return;
+      setRows(history);
+      setError(hasError);
+      setLoading(false);
+    });
     return () => {
       alive = false;
     };
   }, [visible, product?.id]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View
@@ -59,7 +61,12 @@ export const ProductPriceHistoryModal: React.FC<Props> = ({ visible, dark, produ
                 <Text style={styles.subtitle}>{product?.name || 'Produto'}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar histórico de preços"
+            >
               <X size={20} color={dark ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -115,6 +122,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   subtitle: { color: '#64748b', fontSize: 11, marginTop: 2 },
   light: { color: '#f8fafc' },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   state: { textAlign: 'center', color: '#64748b', padding: 30 },
   row: {
     flexDirection: 'row',

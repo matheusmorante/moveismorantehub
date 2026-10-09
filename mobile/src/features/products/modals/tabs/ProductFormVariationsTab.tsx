@@ -196,11 +196,21 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const parentCategoryIds: string[] =
     formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
   const isComposition = formData.itemType === 'composition' || formData.item_type === 'composition';
+  const isSingleExistingVariation = variations.length === 1;
+  const inheritedDataTabs: readonly VariationTabId[] = [
+    'tecnico',
+    'descricao',
+    'estoque',
+    'compostos',
+  ];
+  const showInheritedDataNotice =
+    isSingleExistingVariation && inheritedDataTabs.includes(activeVariationTab);
+
   const variationTabs = [
-    { id: 'identificacao' as const, label: 'Identificação', Icon: Info },
+    { id: 'identificacao' as const, label: 'Informações Básicas', Icon: Info },
     ...(!isStockistOnly
       ? [
-          { id: 'fotos' as const, label: 'Fotos da Variação', Icon: Images },
+          { id: 'fotos' as const, label: 'Fotos vinculadas', Icon: Images },
         ]
       : []),
     { id: 'tecnico' as const, label: 'Características', Icon: Settings },
@@ -373,6 +383,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                     <TouchableOpacity
                       onPress={openVariation}
                       style={[styles.editVariationButton, dark && styles.darkEditVariationButton]}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                       accessibilityRole="button"
                       accessibilityLabel={`Editar características da variação ${v.name || v.sku}`}
                     >
@@ -386,6 +397,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         dark && styles.darkEditVariationButton,
                         idx === 0 && styles.removeVariationDisabled,
                       ]}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                       accessibilityRole="button"
                       accessibilityLabel={
                         idx === 0
@@ -480,13 +492,19 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         >
                           {variationTabs.map(({ id, label, Icon }) => {
                             const selected = activeVariationTab === id;
+                            const isInheritedDataTab =
+                              isSingleExistingVariation && inheritedDataTabs.includes(id);
                             return (
                               <TouchableOpacity
                                 key={id}
                                 onPress={() => setActiveVariationTab(id)}
                                 accessibilityRole="tab"
                                 accessibilityState={{ selected }}
-                                style={[styles.variationTab, selected && styles.activeVariationTab]}
+                                style={[
+                                  styles.variationTab,
+                                  selected && styles.activeVariationTab,
+                                  isInheritedDataTab && styles.inheritedDataTab,
+                                ]}
                               >
                                 <Icon
                                   size={14}
@@ -506,11 +524,16 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           })}
                         </ScrollView>
                       </View>
-                      <ScrollView
-                        style={styles.variationModalBody}
-                        contentContainerStyle={styles.variationModalBodyContent}
-                        keyboardShouldPersistTaps="handled"
-                      >
+                      <View style={{ flex: 1, position: 'relative' }}>
+                        <ScrollView
+                          style={styles.variationModalBody}
+                          contentContainerStyle={styles.variationModalBodyContent}
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          <View
+                            style={showInheritedDataNotice ? styles.inheritedNoticeDisabledContent : null}
+                            pointerEvents={showInheritedDataNotice ? 'none' : 'auto'}
+                          >
                         {activeVariationTab === 'identificacao' && (
                           <View style={styles.tabContent}>
                             {(() => {
@@ -856,7 +879,22 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             </View>
                           </View>
                         )}
+                        </View>
                       </ScrollView>
+                        {showInheritedDataNotice && (
+                          <View style={styles.singleVariationNoticeOverlay} pointerEvents="box-none">
+                            <View style={[styles.singleVariationNoticeCard, dark && styles.darkCard]}>
+                              <Info size={28} color="#2563eb" style={{ marginBottom: 10, alignSelf: 'center' }} />
+                              <Text style={[styles.singleVariationNoticeText, dark && styles.lightText]}>
+                                Como este produto tem apenas uma variação, somente as abas Informações Básicas e Fotos vinculadas permitem edição.
+                              </Text>
+                              <Text style={[styles.singleVariationNoticeSubtext, dark && styles.dimText]}>
+                                Para editar as demais informações, atualize o produto principal ou adicione outra variação.
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
                       <View style={[styles.variationModalFooter, dark && styles.darkModalFooter]}>
                         <TouchableOpacity
                           onPress={() => setExpanded(null)}
@@ -952,11 +990,11 @@ const styles = StyleSheet.create({
   variationHeaderTitleText: { color: '#0f172a', fontSize: 16, fontWeight: '900' },
   variationHeaderParent: { color: '#64748b', fontSize: 11, fontWeight: '700' },
   closeVariationButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 9,
+    borderRadius: 12,
     backgroundColor: '#f1f5f9',
   },
   statusPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
@@ -984,6 +1022,50 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeVariationTab: { borderBottomColor: '#2563eb' },
+  inheritedDataTab: { opacity: 0.45 },
+  inheritedNoticeDisabledContent: { opacity: 0.25 },
+  singleVariationNoticeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 20,
+  },
+  singleVariationNoticeCard: {
+    maxWidth: 360,
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  singleVariationNoticeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#0f172a',
+    lineHeight: 18,
+  },
+  singleVariationNoticeSubtext: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#64748b',
+    marginTop: 8,
+    lineHeight: 16,
+  },
   variationTabText: {
     color: '#64748b',
     fontSize: 9,
@@ -1139,8 +1221,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   editVariationButton: {
-    width: 36,
-    height: 36,
+    minWidth: 40,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,

@@ -54,7 +54,12 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
           style={[styles.searchInput, dark && styles.lightText]}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} accessibilityLabel="Limpar pesquisa">
+          <TouchableOpacity
+            onPress={() => setSearch('')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar pesquisa"
+          >
             <X size={16} color={dark ? '#94a3b8' : '#64748b'} />
           </TouchableOpacity>
         )}
@@ -71,6 +76,9 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
                 key={category.id}
                 onPress={() => onToggleCategory(category)}
                 style={styles.selectedChip}
+                accessibilityRole="button"
+                accessibilityLabel={`Remover categoria ${category.name}`}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
                 <Check size={12} color="#2563eb" strokeWidth={3} />
                 <Text style={styles.selectedChipText}>{category.name}</Text>
@@ -103,6 +111,9 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
                 key={cat.id}
                 onPress={() => onToggleCategory(cat)}
                 style={[styles.categoryItem, dark && styles.darkCategoryItem]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: isChecked }}
+                accessibilityLabel={`Categoria ${cat.name}`}
                 activeOpacity={0.7}
               >
                 <View
@@ -187,6 +198,7 @@ const styles = StyleSheet.create({
   },
   selectedChip: {
     maxWidth: '100%',
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -208,8 +220,9 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   categoryItem: {
+    minHeight: 44,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 8,

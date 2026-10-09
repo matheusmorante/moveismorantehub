@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Edit3, GitMerge, QrCode, X } from 'lucide-react-native';
+import { ArrowLeftRight, Clock3, Edit3, GitMerge, PackagePlus, QrCode, X } from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -20,6 +20,8 @@ interface Props {
   onPrintLabel?: () => void;
   onMoveToAnotherFamily?: () => void;
   onMergeWithAnotherVariation?: () => void;
+  onLaunchStock?: () => void;
+  onShowHistory?: () => void;
   hasSupplier?: boolean;
   hasValidAttributes?: boolean;
 }
@@ -34,6 +36,8 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onPrintLabel,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onLaunchStock,
+  onShowHistory,
   hasSupplier = true,
   hasValidAttributes = true,
 }) => (
@@ -130,6 +134,34 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
               >
                 <GitMerge size={16} color="#7c3aed" />
                 <Text style={[styles.itemText, styles.mergeText]}>Mesclar Variação</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onLaunchStock && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onLaunchStock();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Lançar Estoque"
+              >
+                <PackagePlus size={16} color="#d97706" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Lançar Estoque</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onShowHistory && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onShowHistory();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Histórico de Preços"
+              >
+                <Clock3 size={16} color="#059669" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Histórico de Preços</Text>
               </TouchableOpacity>
             ) : null}
           </View>

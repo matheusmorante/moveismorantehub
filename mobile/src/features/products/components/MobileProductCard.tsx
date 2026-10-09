@@ -16,6 +16,8 @@ import { WEB_URL } from '../../../services/supabaseClient';
 import {
   getMobileProductCardActionAvailability,
   isMobileProductStockLow,
+  isSalvadoProduct,
+  resolveCanonicalOpportunityBadge,
 } from '../domain/mobileProductCardRules';
 import { containsProductVariationNamePhrase } from '../domain/productVariationName';
 import { useMobileProductMetadata } from '../hooks/useMobileProductMetadata';
@@ -222,6 +224,11 @@ export const MobileProductCard: React.FC<Props> = ({
   const cardUnit = singleVariation?.unit || product.unit || 'UN';
   const canShowVariationMenu = isLabelOnlyProfile ? canPrintLabels : canEdit;
   const { oppName, supplierNames } = useMobileProductMetadata(product);
+  const isSalvado = isSalvadoProduct(product) || isSalvadoProduct(singleVariation);
+  const oppBadgeInfo = resolveCanonicalOpportunityBadge(
+    { ...product, ...(isSalvado ? { productKind: 'salvado' } : {}) },
+    oppName
+  );
 
   const parentCode = product.code || product.sku || '-';
 
@@ -377,10 +384,24 @@ export const MobileProductCard: React.FC<Props> = ({
                 <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
               </View>
             ) : null}
-            {oppName ? (
-              <View style={styles.oppBadge}>
+            {oppBadgeInfo ? (
+              <View
+                style={[
+                  styles.oppBadge,
+                  dark && styles.darkOppBadge,
+                  oppBadgeInfo.isSalvado && (dark ? styles.darkSalvadoBadge : styles.salvadoBadge),
+                ]}
+              >
                 <Flame size={10} color="#d97706" />
-                <Text style={styles.oppText}>{oppName}</Text>
+                <Text
+                  style={[
+                    styles.oppText,
+                    dark && styles.darkOppText,
+                    oppBadgeInfo.isSalvado && (dark ? styles.darkSalvadoText : styles.salvadoText),
+                  ]}
+                >
+                  {oppBadgeInfo.label}
+                </Text>
               </View>
             ) : null}
             {supplierNames.map((sName) => (
@@ -551,6 +572,16 @@ export const MobileProductCard: React.FC<Props> = ({
           hasValidAttributes={toMobileVariationAttributes(singleVariation.attributes).some(
             (attribute) => attribute.name.trim() && attribute.value.trim()
           )}
+          onLaunchStock={
+            onLaunchStock && !isSingleVariationMerged && !isLabelOnlyProfile
+              ? () => onLaunchStock(product)
+              : undefined
+          }
+          onShowHistory={
+            onShowHistory && !isSingleVariationMerged && !isLabelOnlyProfile
+              ? () => onShowHistory(product)
+              : undefined
+          }
         />
       )}
     </TouchableOpacity>
@@ -739,11 +770,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fde68a',
   },
+  darkOppBadge: {
+    backgroundColor: '#78350f25',
+    borderColor: '#b4530960',
+  },
   oppText: {
     fontSize: 9,
     fontWeight: '800',
     color: '#b45309',
     textTransform: 'uppercase',
+  },
+  darkOppText: {
+    color: '#fde68a',
+  },
+  salvadoBadge: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fcd34d',
+  },
+  darkSalvadoBadge: {
+    backgroundColor: '#451a0340',
+    borderColor: '#b45309',
+  },
+  salvadoText: {
+    color: '#b45309',
+    fontWeight: '900',
+  },
+  darkSalvadoText: {
+    color: '#fcd34d',
   },
   supplierBadge: {
     flexDirection: 'row',

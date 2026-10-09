@@ -28,7 +28,12 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
             <Text style={[styles.modalTitle, dark && styles.lightText]}>
               Selecionar Oportunidade
             </Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.modalCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar seleção de oportunidade"
+            >
               <X size={18} color={dark ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -39,6 +44,8 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
                 onSelect(null);
                 onClose();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Nenhuma oportunidade (Produto Convencional)"
               style={[
                 styles.modalItem,
                 !selectedOpportunityId && styles.modalItemActive,
@@ -66,6 +73,8 @@ export const OpportunitySelectModal: React.FC<OpportunitySelectModalProps> = ({
                     onSelect(opp.id);
                     onClose();
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Oportunidade: ${opp.name}`}
                   style={[
                     styles.modalItem,
                     isSelected && styles.modalItemActive,
@@ -129,17 +138,22 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   modalCloseBtn: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalList: {
     maxHeight: 280,
     padding: 8,
   },
   modalItem: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
   },

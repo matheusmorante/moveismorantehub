@@ -74,7 +74,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
 
       {images.length > 0 ? (
         <View style={styles.selectedList}>
-          {images.map((url) => (
+          {images.map((url, index) => (
             <View key={url} style={[styles.selectedPhoto, dark && styles.darkPhoto]}>
               <Image
                 source={{ uri: url }}
@@ -89,6 +89,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                   <TouchableOpacity
                     onPress={() => moveImage(index, -1)}
                     disabled={index === 0}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel="Mover foto para cima"
                     style={[
@@ -102,6 +103,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                   <TouchableOpacity
                     onPress={() => moveImage(index, 1)}
                     disabled={index === images.length - 1}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel="Mover foto para baixo"
                     style={[
@@ -116,6 +118,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                     onPress={() =>
                       onChangeImages(images.filter((_, imageIndex) => imageIndex !== index))
                     }
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel={`Desvincular foto ${index + 1}`}
                     style={[styles.iconButton, styles.removeButton]}
@@ -170,12 +173,13 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                 onPress={() => setPickerOpen(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Fechar seleção de fotos"
+                style={styles.closeButton}
               >
                 <X size={22} color={dark ? '#cbd5e1' : '#475569'} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.imageGrid}>
-              {availableParentImages.map((url) => {
+              {availableParentImages.map((url, index) => {
                 const selected = draftImages.includes(url);
                 return (
                   <TouchableOpacity
@@ -285,6 +289,13 @@ const styles = StyleSheet.create({
   },
   photoLabel: { flex: 1, color: '#334155', fontSize: 11, fontWeight: '800' },
   photoActions: { flexDirection: 'row', gap: 5 },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   iconButton: {
     width: 32,
     height: 32,
@@ -298,7 +309,7 @@ const styles = StyleSheet.create({
   disabledButton: { opacity: 0.45 },
   emptyText: { paddingVertical: 12, color: '#64748b', textAlign: 'center', fontSize: 11 },
   linkButton: {
-    minHeight: 42,
+    minHeight: 44,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -362,7 +373,7 @@ const styles = StyleSheet.create({
   modalFooter: { flexDirection: 'row', gap: 8 },
   footerButton: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,

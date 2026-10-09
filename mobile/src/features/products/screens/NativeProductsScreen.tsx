@@ -417,6 +417,8 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 },
   retryButton: {
     marginTop: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,

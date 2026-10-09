@@ -37,6 +37,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onEdit,
   onMoveVariation,
   onMergeVariation,
+  onShowHistory,
+  onLaunchStock,
   canChangeCatalog = false,
   showCatalogStatus = true,
   canPrintLabel = false,
@@ -182,6 +184,16 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         hasValidAttributes={toMobileVariationAttributes(v.attributes).some(
           (attribute) => attribute.name.trim() && attribute.value.trim()
         )}
+        onLaunchStock={
+          onLaunchStock && !isMerged
+            ? () => onLaunchStock({ ...parentProduct, ...v, id: v.id || parentProduct?.id })
+            : undefined
+        }
+        onShowHistory={
+          onShowHistory && !isMerged
+            ? () => onShowHistory({ ...parentProduct, ...v, id: v.id || parentProduct?.id })
+            : undefined
+        }
       />
 
       {/* Linha Inferior: Status de Canais Bipartido */}

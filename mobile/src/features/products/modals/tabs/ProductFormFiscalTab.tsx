@@ -20,6 +20,8 @@ interface Props {
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
   canConfigureProductTaxes: boolean;
+  isStockistOnly?: boolean;
+  hasNcmError?: boolean;
 }
 
 const CFOP_OPTIONS = [
@@ -81,6 +83,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
   setFormData,
   dark,
   canConfigureProductTaxes,
+  isStockistOnly = false,
+  hasNcmError = false,
 }) => {
   const [showCfopPicker, setShowCfopPicker] = useState(false);
   const [showCestPicker, setShowCestPicker] = useState(false);
@@ -202,7 +206,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
         </View>
 
         <View style={styles.field}>
-          {formData.itemType === 'service' && (
+          {formData.itemType === 'service' && !isStockistOnly && (
             <>
               <Text style={[styles.label, dark && styles.dimText]}>
                 Código Municipal / Serviço (LC 116/03) <Text style={{ color: '#ef4444' }}>*</Text>
@@ -233,8 +237,18 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 }}
                 placeholder="Digite o código ou descrição do NCM"
                 placeholderTextColor="#94a3b8"
-                style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+                style={[
+                  styles.input,
+                  dark && styles.darkInput,
+                  dark && styles.lightText,
+                  hasNcmError && styles.errorInput,
+                ]}
               />
+              {hasNcmError && (
+                <Text style={styles.errorText}>
+                  Informe um NCM válido com 8 dígitos.
+                </Text>
+              )}
               {ncmLoading && <Text style={styles.ncmDesc}>Pesquisando catálogo oficial...</Text>}
               {ncmResults.length > 0 && ncmSearch.trim().length >= 2 && (
                 <View style={[styles.dropdownBox, dark && styles.darkCard]}>
@@ -272,7 +286,9 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
           )}
         </View>
 
-        {formData.itemType !== 'service' && ['201', '202', '500'].includes(fiscal.cst || '') && (
+        {!isStockistOnly &&
+          formData.itemType !== 'service' &&
+          ['201', '202', '500'].includes(fiscal.cst || '') && (
           <View style={styles.field}>
             <Text style={[styles.label, dark && styles.dimText]}>
               Código CEST (Substituição Tributária)
@@ -319,7 +335,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
       </View>
 
       {/* CFOP & CSOSN Card */}
-      <View style={[styles.card, dark && styles.darkCard]}>
+      {!isStockistOnly && (
+        <View style={[styles.card, dark && styles.darkCard]}>
         <Text style={[styles.cardTitle, dark && styles.lightText]}>
           Regime Tributário & Tributos
         </Text>
@@ -518,6 +535,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
           })}
         </View>
       </View>
+      )}
     </View>
   );
 };
@@ -554,6 +572,15 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   darkInput: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  errorInput: {
+    borderColor: '#ef4444',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
   selectBtn: {
     height: 44,
     backgroundColor: '#ffffff',
@@ -574,6 +601,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dropdownItem: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,

@@ -131,6 +131,8 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
             <TouchableOpacity
               onPress={onClose}
               style={[styles.closeBtn, dark && styles.closeBtnDark]}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar formulário"
             >
               <X size={18} color={dark ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>

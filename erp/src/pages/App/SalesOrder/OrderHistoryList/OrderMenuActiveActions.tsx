@@ -128,19 +128,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
           if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
           if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 
-          const hasReturn = !!(
-            order.returnOrderId ||
-            order.orderType === 'return' ||
-            order.status === 'returned' ||
-            (order as any).hasReturn ||
-            (order as any).returned ||
-            (order as any).order_data?.returnOrderId ||
-            (order as any).order_data?.returned ||
-            (order as any).order_data?.status === 'returned'
-          );
-
-          if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order)))
-            return false;
+          if (btn.key === 'generateReturn' && !canGenerateReturn(order)) return false;
           if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled'))
             return false;
           if (btn.key === 'issueNfe' && order.nfeData?.status === 'homologada') return false;

@@ -62,7 +62,12 @@ export const ProductConfigModal: React.FC<Props> = ({
               <Text style={[styles.title, dark && styles.light]}>Configurações de Produto</Text>
               <Text style={styles.subtitle}>Gerencie categorias, atributos e variações</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, dark && styles.darkBtn]}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, dark && styles.darkBtn]}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar configurações de produto"
+            >
               <X size={18} color={dark ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -188,9 +193,9 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',

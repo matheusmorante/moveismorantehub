@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   getMobileProductCardActionAvailability,
   isMobileProductStockLow,
+  isSalvadoProduct,
+  resolveCanonicalOpportunityBadge,
 } from './mobileProductCardRules';
 
 describe('isMobileProductStockLow', () => {
@@ -34,5 +36,43 @@ describe('getMobileProductCardActionAvailability', () => {
       canDuplicate: true,
       canShowLinkedOrders: false,
     });
+  });
+});
+
+describe('isSalvadoProduct', () => {
+  it('identifies salvado by productKind, condition, product_kind or flag', () => {
+    expect(isSalvadoProduct({ productKind: 'salvado' })).toBe(true);
+    expect(isSalvadoProduct({ product_kind: 'salvado' })).toBe(true);
+    expect(isSalvadoProduct({ condition: 'salvado' })).toBe(true);
+    expect(isSalvadoProduct({ is_salvado: true })).toBe(true);
+    expect(isSalvadoProduct({ isSalvado: true })).toBe(true);
+    expect(isSalvadoProduct({ productKind: 'normal' })).toBe(false);
+    expect(isSalvadoProduct(null)).toBe(false);
+  });
+});
+
+describe('resolveCanonicalOpportunityBadge', () => {
+  it('canonicalizes salvado products to "Queima dos Salvados"', () => {
+    expect(resolveCanonicalOpportunityBadge({ productKind: 'salvado' })).toEqual({
+      label: 'Queima dos Salvados',
+      isSalvado: true,
+    });
+    expect(resolveCanonicalOpportunityBadge({ condition: 'salvado' }, 'Salvados')).toEqual({
+      label: 'Queima dos Salvados',
+      isSalvado: true,
+    });
+    expect(resolveCanonicalOpportunityBadge({}, 'Queima dos Salvados 2026')).toEqual({
+      label: 'Queima dos Salvados',
+      isSalvado: true,
+    });
+  });
+
+  it('preserves non-salvado opportunity names and returns null when empty', () => {
+    expect(resolveCanonicalOpportunityBadge({}, 'Semana do Cliente')).toEqual({
+      label: 'Semana do Cliente',
+      isSalvado: false,
+    });
+    expect(resolveCanonicalOpportunityBadge({}, null)).toBeNull();
+    expect(resolveCanonicalOpportunityBadge({}, '')).toBeNull();
   });
 });

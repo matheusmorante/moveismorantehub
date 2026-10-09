@@ -78,16 +78,16 @@ export const FixedPageSlots: React.FC<FixedPageSlotsProps> = ({
 };
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  slot: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  slot: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   button: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: '#ffffff',
   },
   buttonDark: { borderColor: '#334155', backgroundColor: '#1e293b' },

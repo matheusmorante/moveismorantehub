@@ -15,6 +15,7 @@ vi.mock('../../../services/supabaseClient', () => ({
 import {
   checkMobileProductVariationHasMoves,
   saveMobileProduct,
+  toggleMobileProductCatalog,
 } from './mobileProductMutationService';
 
 let query: any;
@@ -116,3 +117,37 @@ describe('saveMobileProduct', () => {
     expect(mocks.from).toHaveBeenCalledWith('order_items');
   });
 });
+
+describe('toggleMobileProductCatalog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      update: vi.fn(() => query),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    mocks.from.mockReturnValue(query);
+  });
+
+  it('bloqueia publicação de produto de teste no catálogo', async () => {
+    query.maybeSingle.mockResolvedValueOnce({
+      data: { id: 'prod-test-1', code: 'TEST_AUT_01', name: 'Teste' },
+      error: null,
+    });
+
+    await expect(
+      toggleMobileProductCatalog('prod-test-1', 'hidden')
+    ).rejects.toThrow('Produtos identificados como teste não podem ser publicados no Catálogo Digital.');
+  });
+
+  it('permite ocultar produto mesmo sendo produto de teste', async () => {
+    query.update.mockReturnValueOnce(query);
+    query.eq.mockResolvedValueOnce({ error: null });
+
+    const status = await toggleMobileProductCatalog('prod-test-1', 'published');
+    expect(status).toBe('hidden');
+    expect(mocks.from).toHaveBeenCalledWith('products');
+  });
+});
+

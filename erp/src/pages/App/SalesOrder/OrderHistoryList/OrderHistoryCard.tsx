@@ -19,6 +19,7 @@ import type {
   OrderFiscalBadgeStatus,
   OrderFiscalCancellationState,
   OrderFiscalOperationBadgeStatus,
+  ReturnFiscalDocumentSummary,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryCardProps {
@@ -40,6 +41,7 @@ interface OrderHistoryCardProps {
   readonly fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   readonly fiscalDevolucaoDocumentId?: string;
   readonly fiscalDevolucaoEnvironment?: 1 | 2;
+  readonly fiscalDevolucaoDocuments?: readonly ReturnFiscalDocumentSummary[];
   readonly onEdit: (
     order: Order,
     initialStep?: number,
@@ -85,6 +87,7 @@ const OrderHistoryCard = ({
   fiscalDevolucaoBadgeStatus,
   fiscalDevolucaoDocumentId,
   fiscalDevolucaoEnvironment,
+  fiscalDevolucaoDocuments,
   onEdit,
   onDelete,
   onRestore,
@@ -255,13 +258,16 @@ const OrderHistoryCard = ({
             environment={fiscalEstornoEnvironment}
             onOpenDocument={onViewFiscalDocument}
           />
-          <OrderFiscalOperationBadge
-            kind="devolucao"
-            status={fiscalDevolucaoBadgeStatus}
-            documentId={fiscalDevolucaoDocumentId}
-            environment={fiscalDevolucaoEnvironment}
-            onOpenDocument={onViewFiscalDocument}
-          />
+          {order.orderType !== 'return' && (
+            <OrderFiscalOperationBadge
+              kind="devolucao"
+              status={fiscalDevolucaoBadgeStatus}
+              documentId={fiscalDevolucaoDocumentId}
+              environment={fiscalDevolucaoEnvironment}
+              documents={fiscalDevolucaoDocuments}
+              onOpenDocument={onViewFiscalDocument}
+            />
+          )}
           <div
             className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
             onClick={isCancelled ? undefined : (e) => e.stopPropagation()}

@@ -1,3 +1,4 @@
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { isMobileEcommerceLegible } from './productRegistrationRules';
 
 export const prepareMobileProductSaveState = (
@@ -20,10 +21,11 @@ export const prepareMobileProductSaveState = (
       formData.isDraft || product?.is_draft || product?.isDraft || product?.status === 'draft'
     );
   const isCompletingDraft = !saveAsDraft && wasDraft;
+  const isCatalogTestProduct = isTestProduct(product) || isTestProduct(formData);
   const isPublished = (product?.status || formData.status) === 'published';
   const status = saveAsDraft
     ? 'draft'
-    : isPublished && isMobileEcommerceLegible(formData)
+    : !isCatalogTestProduct && isPublished && isMobileEcommerceLegible(formData)
       ? 'published'
       : 'hidden';
 

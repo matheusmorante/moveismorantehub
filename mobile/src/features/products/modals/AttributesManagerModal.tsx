@@ -962,8 +962,8 @@ const styles = StyleSheet.create({
   editOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   editOptionInput: { minWidth: 0 },
   reorderBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
   },
   reorderText: { color: '#475569', fontSize: 17, fontWeight: '900' },
   removeOptionBtn: {
-    width: 40,
+    width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',

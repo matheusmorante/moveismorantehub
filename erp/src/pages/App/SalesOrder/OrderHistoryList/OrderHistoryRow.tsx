@@ -18,6 +18,7 @@ import type {
   OrderFiscalBadgeStatus,
   OrderFiscalCancellationState,
   OrderFiscalOperationBadgeStatus,
+  ReturnFiscalDocumentSummary,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
 interface OrderHistoryRowProps {
@@ -34,6 +35,7 @@ interface OrderHistoryRowProps {
   fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   fiscalDevolucaoDocumentId?: string;
   fiscalDevolucaoEnvironment?: 1 | 2;
+  fiscalDevolucaoDocuments?: readonly ReturnFiscalDocumentSummary[];
   onEdit: (
     order: Order,
     initialStep?: number,
@@ -80,6 +82,7 @@ const OrderHistoryRow = ({
   fiscalDevolucaoBadgeStatus,
   fiscalDevolucaoDocumentId,
   fiscalDevolucaoEnvironment,
+  fiscalDevolucaoDocuments,
   onEdit,
   onDelete,
   onRestore,
@@ -289,13 +292,16 @@ const OrderHistoryRow = ({
                   environment={fiscalEstornoEnvironment}
                   onOpenDocument={onViewFiscalDocument}
                 />
-                <OrderFiscalOperationBadge
-                  kind="devolucao"
-                  status={fiscalDevolucaoBadgeStatus}
-                  documentId={fiscalDevolucaoDocumentId}
-                  environment={fiscalDevolucaoEnvironment}
-                  onOpenDocument={onViewFiscalDocument}
-                />
+                {order.orderType !== 'return' && (
+                  <OrderFiscalOperationBadge
+                    kind="devolucao"
+                    status={fiscalDevolucaoBadgeStatus}
+                    documentId={fiscalDevolucaoDocumentId}
+                    environment={fiscalDevolucaoEnvironment}
+                    documents={fiscalDevolucaoDocuments}
+                    onOpenDocument={onViewFiscalDocument}
+                  />
+                )}
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}

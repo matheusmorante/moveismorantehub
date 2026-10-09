@@ -35,6 +35,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [selected, setSelected] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -45,14 +46,17 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
       setLoading(false);
     }
   };
+
   useEffect(() => {
     if (visible) void load();
   }, [visible]);
+
   const reset = () => {
     setName('');
     setSelected([]);
     setEditingId(undefined);
   };
+
   const save = async () => {
     if (!name.trim()) return;
     try {
@@ -63,6 +67,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
       Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
     }
   };
+
   const remove = (item: MobileEnvironment) =>
     Alert.alert('Excluir ambiente', `Deseja excluir "${item.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -82,6 +87,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
         },
       },
     ]);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View
@@ -96,7 +102,12 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
               <Layers size={20} color="#2563eb" />
               <Text style={[styles.title, dark && styles.light]}>Ambientes</Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar gestão de ambientes"
+            >
               <X size={20} color={dark ? '#cbd5e1' : '#64748b'} />
             </TouchableOpacity>
           </View>
@@ -108,7 +119,12 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
               placeholderTextColor="#94a3b8"
               style={[styles.input, dark && styles.darkInput, dark && styles.light]}
             />
-            <TouchableOpacity onPress={() => void save()} style={styles.add}>
+            <TouchableOpacity
+              onPress={() => void save()}
+              style={styles.add}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar ou salvar ambiente"
+            >
               <Plus size={17} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -127,6 +143,8 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
                     )
                   }
                   style={styles.categoryRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected.includes(category.id) }}
                 >
                   <View style={[styles.checkbox, selected.includes(category.id) && styles.checked]}>
                     {selected.includes(category.id) && <Check size={12} color="#fff" />}
@@ -152,11 +170,19 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
                     setName(item.name);
                     setSelected(item.categoryIds);
                   }}
+                  style={styles.actionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar ambiente ${item.name}`}
                 >
-                  <Edit2 size={15} color="#2563eb" />
+                  <Edit2 size={16} color="#2563eb" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => remove(item)}>
-                  <Trash2 size={15} color="#ef4444" />
+                <TouchableOpacity
+                  onPress={() => remove(item)}
+                  style={styles.actionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Excluir ambiente ${item.name}`}
+                >
+                  <Trash2 size={16} color="#ef4444" />
                 </TouchableOpacity>
               </View>
             ))
@@ -182,10 +208,17 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   light: { color: '#f8fafc' },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   form: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,
-    height: 42,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 12,
@@ -193,7 +226,8 @@ const styles = StyleSheet.create({
   },
   darkInput: { backgroundColor: '#1e293b', borderColor: '#334155' },
   add: {
-    width: 42,
+    width: 44,
+    minHeight: 44,
     borderRadius: 12,
     backgroundColor: '#2563eb',
     alignItems: 'center',
@@ -201,7 +235,7 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', color: '#475569' },
   categoryList: { maxHeight: 190 },
-  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  categoryRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: '#cbd5e1' },
   checked: {
     backgroundColor: '#2563eb',
@@ -213,8 +247,9 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 14,
     backgroundColor: '#f8fafc',
   },
@@ -222,4 +257,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   itemName: { fontWeight: '800', color: '#0f172a' },
   itemMeta: { fontSize: 11, color: '#64748b' },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

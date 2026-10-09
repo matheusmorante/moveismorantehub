@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
   },
   originBtn: {
     flex: 1,
-    height: 40,
+    minHeight: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

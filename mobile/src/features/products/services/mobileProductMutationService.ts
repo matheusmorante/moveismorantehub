@@ -1,3 +1,4 @@
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { supabase } from '../../../services/supabaseClient';
 import { getPersistableProductTechnicalValues } from '../domain/productCharacteristics';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
@@ -68,6 +69,18 @@ export const toggleMobileProductCatalog = async (
   variationId?: string
 ) => {
   const nextStatus = currentStatus === 'published' ? 'hidden' : 'published';
+  if (nextStatus === 'published') {
+    const { data: prod } = await supabase
+      .from('products')
+      .select('id, code, sku, name, title, observations, is_test')
+      .eq('id', productId)
+      .maybeSingle();
+    if (isTestProduct(prod)) {
+      throw new Error(
+        'Produtos identificados como teste não podem ser publicados no Catálogo Digital.'
+      );
+    }
+  }
   if (isVariation && variationId) {
     const { error } = await supabase
       .from('product_variations')

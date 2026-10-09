@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   modeButton: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#cbd5e1',
@@ -507,14 +507,18 @@ const styles = StyleSheet.create({
     color: '#2563eb',
   },
   menuBtn: {
-    padding: 8,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#eff6ff',
   },
   darkMenuBtn: {
     backgroundColor: '#1e3a8a30',
   },
   searchBox: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -530,13 +534,15 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 42,
+    minHeight: 44,
     fontSize: 13,
     fontWeight: '600',
     color: '#0f172a',
   },
   visibilityFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   visibilityButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     backgroundColor: '#fff',
@@ -569,6 +575,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
   },
   menuItem: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -615,6 +622,8 @@ const styles = StyleSheet.create({
   },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choice: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 10,
@@ -625,7 +634,7 @@ const styles = StyleSheet.create({
   choiceActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
   choiceText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   choiceTextActive: { color: '#1d4ed8' },
-  testToggleRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  testToggleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9 },
   testCheckbox: {
     width: 20,
     height: 20,
@@ -638,6 +647,8 @@ const styles = StyleSheet.create({
   },
   testCheckboxChecked: { borderColor: '#2563eb', backgroundColor: '#2563eb' },
   applyButton: {
+    minHeight: 48,
+    justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#2563eb',
     borderRadius: 12,

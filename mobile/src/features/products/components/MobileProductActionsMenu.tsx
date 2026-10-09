@@ -1,4 +1,4 @@
-import { Copy, Eye, EyeOff, Link2, Pencil, Trash2 } from 'lucide-react-native';
+import { Clock3, Copy, Eye, EyeOff, Link2, PackagePlus, Pencil, Trash2 } from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -79,7 +79,12 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
             <View style={[styles.menuContainer, dark && styles.darkMenuContainer]}>
               {/* 1. Editar Produto */}
               {canEdit && (
-                <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleEdit}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar Produto"
+                >
                   <Pencil size={16} color="#2563eb" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
                     Editar Produto
@@ -94,6 +99,8 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     onClose();
                     onDuplicate(product);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Duplicar Produto"
                 >
                   <Copy size={16} color="#4f46e5" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
@@ -101,6 +108,43 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   </Text>
                 </TouchableOpacity>
               )}
+
+              {/* Lançar Estoque */}
+              {onLaunchStock && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onLaunchStock(product);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Lançar Estoque"
+                >
+                  <PackagePlus size={16} color="#d97706" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Lançar Estoque
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Histórico de Preços */}
+              {onShowHistory && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onShowHistory(product);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Histórico de Preços"
+                >
+                  <Clock3 size={16} color="#059669" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Histórico de Preços
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {onShowOrders && (
                 <TouchableOpacity
                   style={styles.menuItem}
@@ -108,6 +152,8 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     onClose();
                     onShowOrders(product);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pedidos Vinculados"
                 >
                   <Link2 size={16} color="#2563eb" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
@@ -189,7 +235,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
+    minHeight: 44,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
   },

@@ -217,6 +217,8 @@ const OrderHistoryTable = ({
                   typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocumentId : undefined;
                 const devolucaoEnvironment =
                   typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
+                const devolucaoDocuments =
+                  typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocuments : undefined;
 
                 return (
                   <OrderHistoryRow
@@ -234,6 +236,7 @@ const OrderHistoryTable = ({
                     fiscalDevolucaoBadgeStatus={devolucaoStatus}
                     fiscalDevolucaoDocumentId={devolucaoDocumentId}
                     fiscalDevolucaoEnvironment={devolucaoEnvironment}
+                    fiscalDevolucaoDocuments={devolucaoDocuments}
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
                     onViewFiscalDocument={onViewFiscalDocument}
@@ -295,6 +298,8 @@ const OrderHistoryTable = ({
                 typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocumentId : undefined;
               const devolucaoEnvironment =
                 typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
+              const devolucaoDocuments =
+                typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocuments : undefined;
 
               return (
                 <OrderHistoryCard
@@ -313,6 +318,7 @@ const OrderHistoryTable = ({
                   fiscalDevolucaoBadgeStatus={devolucaoStatus}
                   fiscalDevolucaoDocumentId={devolucaoDocumentId}
                   fiscalDevolucaoEnvironment={devolucaoEnvironment}
+                  fiscalDevolucaoDocuments={devolucaoDocuments}
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
                   onViewFiscalDocument={onViewFiscalDocument}

@@ -10,7 +10,7 @@ export default defineConfig({
   },
   esbuild: {
     loader: 'tsx',
-    include: /src\/.*\.[tj]sx?$/,
+    include: /(?:src|shared-utils)[\\/].*\.[tj]sx?$/,
   },
   test: {
     environment: 'node',

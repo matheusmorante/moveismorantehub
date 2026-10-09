@@ -57,7 +57,7 @@ const isMissingColumn = (error: { code?: string; message?: string } | null, colu
   Boolean(error && (error.code === '42703' || error.message?.includes(column)));
 
 const fetchAttributeRows = async () => {
-  let query = await supabase
+  let query: any = await supabase
     .from('attributes')
     .select('id, name, active, data_type, unit, is_custom, decimal_places, is_globally_required')
     .order('name', { ascending: true });
@@ -84,7 +84,7 @@ const fetchAttributeRows = async () => {
 };
 
 const fetchAttributeValues = async () => {
-  let query = await supabase.from('attribute_values').select('id, attribute_id, value, sort_order');
+  let query: any = await supabase.from('attribute_values').select('id, attribute_id, value, sort_order');
   if (isMissingColumn(query.error, 'sort_order')) {
     query = await supabase.from('attribute_values').select('id, attribute_id, value');
   }
@@ -107,7 +107,7 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
   }
 
   const mapped: MobileAttribute[] = attributes.map((attribute: any) => {
-    const options = values
+    const options: MobileAttributeValue[] = values
       .filter((value: any) => String(value.attribute_id) === String(attribute.id))
       .map((value: any) => ({
         id: String(value.id),
@@ -115,13 +115,13 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
         attribute_id: String(value.attribute_id),
         sortOrder: Number.isInteger(value.sort_order) ? value.sort_order : undefined,
       }));
-    const orderedOptions = options.some((option) => option.sortOrder !== undefined)
+    const orderedOptions = options.some((option: MobileAttributeValue) => option.sortOrder !== undefined)
       ? options.sort(
-          (left, right) =>
+          (left: MobileAttributeValue, right: MobileAttributeValue) =>
             (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
             (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
         )
-      : options.sort((left, right) =>
+      : options.sort((left: MobileAttributeValue, right: MobileAttributeValue) =>
           left.value.localeCompare(right.value, 'pt-BR', {
             numeric: true,
             sensitivity: 'base',

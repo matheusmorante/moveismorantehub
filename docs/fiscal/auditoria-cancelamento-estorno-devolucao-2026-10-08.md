@@ -166,3 +166,32 @@ Não foi executado lint de código, pois a entrega desta tarefa é exclusivament
 5. Validar pela interface, em HML: cancelamento 55/65, consulta após resposta incerta, estorno 55 originado de 55/65, devolução parcial/total após recebimento/coleta, rejeição e reprocessamento. Preservar todos os documentos reais gerados e suas evidências.
 
 **Critério de liberação:** F01–F05 resolvidos, escopo fiscal suportado declarado, verificações estáticas aprovadas e evidência de integração real dos cenários liberados. Estorno continua sujeito à revisão fiscal; autorização SEFAZ e integridade de persistência devem ser comprovadas separadamente.
+
+## Atualização de 2026-10-09 — Etapa 5
+
+### Implementado nesta atualização
+
+- A ação **Gerar devolução** deixou de ser ocultada apenas pela existência de vínculo/devolução anterior. A disponibilidade continua determinada por `canGenerateReturn`; o formulário e a reserva de quantidades permanecem no fluxo existente.
+- O rótulo NFD agora agrupa documentos `document_type='return'` associados aos pedidos de devolução vinculados às vendas visíveis na página. A busca é limitada aos IDs enviados, validada pela sessão/RLS, em lotes e sem carregar `order_data` completo; não há consulta N+1.
+- O contador usa IDs distintos de documentos fiscais persistidos. Devoluções sem documento, rascunhos e eventos não entram na contagem. Estados agregados não mostram check verde quando há mistura; cancelamentos ainda incertos ficam em estado de atenção.
+- O detalhe da NFD mostra número/série/modelo/ambiente/status, data de autorização do protocolo quando disponível, pedido de devolução, valor e quantidade de itens, e encaminha para o documento fiscal existente, onde permanecem XML/DANFE e ações individuais. O mesmo rótulo não é repetido nos pedidos de devolução.
+- A data exata `dhEmi` não é carregada neste resumo: ela exigiria consultar o XML completo, então este ponto fica pendente para uma fonte compacta de data de emissão.
+- Nenhuma migration foi criada ou aplicada. Não houve escrita no Supabase nem transmissão à SEFAZ.
+
+### Cancelamento fiscal da NFD e limite operacional
+
+O cancelamento comercial já existente da devolução é distinto: a devolução agendada é marcada cancelada; a atendida usa `undoReturn`, que tenta reverter movimentos de estoque, atualiza o pedido de devolução e limpa o vínculo auxiliar na venda. Essas gravações são feitas em chamadas separadas, sem RPC transacional. Portanto, esse helper não foi reutilizado depois de uma confirmação fiscal.
+
+A preparação atual da NF-e de devolução exige que o pedido esteja `fulfilled`; o modal usa esse estado quando o cliente já entregou a mercadoria e a coleta só o alcança após confirmação física. Assim, no fluxo correto, uma NFD autorizada representa retorno físico já confirmado. A SEFAZ condiciona o cancelamento à operação ainda não ter ocorrido/à mercadoria ainda não ter saído; não foi inventado um caso elegível para forçar o cenário. As fontes consultadas são a [SEFA/PR — Eventos NF-e](https://sped.fazenda.pr.gov.br/NFe/Pagina/Eventos-NF-e) e as [Perguntas frequentes do Portal Nacional da NF-e](https://www.nfe.fazenda.gov.br/portal/consulta.aspx/perguntasFrequentes.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=3Ow1nfTBzIo%3D).
+
+**F06 continua pendente:** não existe ação fiscal individual para cancelar a própria NFD e também não há fluxo transacional/reconciliável para, após confirmação da SEFAZ, cancelar uma devolução ainda não realizada. Até implementar esse ciclo com idempotência e preservação de estoque/histórico, o E2E de cancelamento e reabertura de saldo permanece bloqueado por ausência de cenário real elegível e de integração segura. F07, F08 e os itens F01–F05 deste relatório também não foram alterados nesta atualização.
+
+### Verificações desta atualização
+
+- Regras de NFD, componente de detalhes e política de múltiplas devoluções: **29 testes aprovados em 3 arquivos**.
+- ESLint focado nos arquivos ERP alterados: **aprovado** usando `--config ./eslint.config.mjs`.
+- TypeScript do ERP: o comando geral ainda termina com erros em outros módulos; a saída filtrada não apresentou diagnóstico nos arquivos desta alteração.
+- E2E SEFAZ-PR/HML, integração PostgreSQL, rollback, concorrência e reconciliação real: **não executados**. Nenhuma fixture foi criada no Supabase operacional.
+- Nenhuma numeração de homologação ou produção foi consumida nesta atualização.
+
+**Resultado:** o ajuste de múltiplas devoluções e o agrupamento NFD estão implementados com cobertura local. A Etapa 5 não está concluída; o cancelamento fiscal de NFD, a prova comercial/estoque no banco e os cenários HML permanecem pendentes.

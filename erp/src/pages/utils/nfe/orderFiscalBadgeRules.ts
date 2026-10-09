@@ -5,7 +5,14 @@ export type OrderFiscalOperationBadgeStatus =
   | 'rejected'
   | 'cancelled'
   | 'prepared'
-  | 'pending';
+  | 'pending'
+  | 'mixed'
+  | 'uncertain';
+
+export type ReturnFiscalBadgeStatus = Extract<
+  OrderFiscalOperationBadgeStatus,
+  'issued' | 'failed' | 'rejected' | 'cancelled' | 'pending' | 'mixed' | 'uncertain'
+>;
 
 export type OrderFiscalCancellationState = 'failed' | 'pending' | 'verify';
 
@@ -18,6 +25,18 @@ export interface FiscalDocumentStatusRow {
   ambiente?: number | null;
   cancellationEventStatus?: string | null;
   cancellationEventRequestedAt?: string | null;
+}
+
+export interface ReturnFiscalDocumentSummary extends FiscalDocumentStatusRow {
+  id: string;
+  order_id: string;
+  numero_nfe?: string | number | null;
+  serie?: string | number | null;
+  modelo?: string | null;
+  valor_total?: number | string | null;
+  issuedAt?: string | null;
+  returnOrderCode?: string | number | null;
+  itemQuantity?: number | null;
 }
 
 export interface FiscalOperationDraftStatusRow {
@@ -45,6 +64,8 @@ export interface OrderFiscalBadgeStatuses {
   devolucaoStatus?: OrderFiscalOperationBadgeStatus;
   devolucaoDocumentId?: string;
   devolucaoEnvironment?: 1 | 2;
+  devolucaoCount?: number;
+  devolucaoDocuments?: ReturnFiscalDocumentSummary[];
 }
 
 const FISCAL_REJECTION_STATUSES = new Set(['rejeitada', 'denegada']);
@@ -153,6 +174,52 @@ export const resolveOrderFiscalDevolucaoBadge = (
     devolucaoDocumentId: badge.documentId,
     devolucaoEnvironment: badge.environment,
   };
+};
+
+const RETURN_DOCUMENT_STATE: Record<string, ReturnFiscalBadgeStatus> = {
+  autorizada: 'issued',
+  homologada: 'issued',
+  cancelada: 'cancelled',
+  cancelled: 'cancelled',
+  canceled: 'cancelled',
+  rejeitada: 'rejected',
+  rejeitado: 'rejected',
+  denegada: 'rejected',
+  rejected: 'rejected',
+  pendente: 'pending',
+  processando: 'pending',
+  transmitting: 'pending',
+  pending: 'pending',
+  erro: 'failed',
+  error: 'failed',
+};
+
+const returnDocumentState = (document: ReturnFiscalDocumentSummary): ReturnFiscalBadgeStatus => {
+  const documentState =
+    RETURN_DOCUMENT_STATE[String(document.status || '').toLowerCase()] || 'uncertain';
+  if (documentState === 'cancelled') return documentState;
+
+  const cancellationState = String(document.cancellationEventStatus || '').toLowerCase();
+  if (cancellationState === 'transmitting') return 'pending';
+  if (cancellationState === 'unknown' || cancellationState === 'registered') return 'uncertain';
+  return documentState;
+};
+
+/** Derives the NFD state only from distinct persisted return documents. */
+export const resolveReturnFiscalBadgeStatus = (
+  documents: readonly ReturnFiscalDocumentSummary[]
+): ReturnFiscalBadgeStatus | undefined => {
+  const uniqueDocuments = new Map<string, ReturnFiscalDocumentSummary>();
+  for (const document of documents) {
+    if (document.id && document.document_type === 'return') uniqueDocuments.set(document.id, document);
+  }
+  const states = [...uniqueDocuments.values()].map(returnDocumentState);
+  if (!states.length) return undefined;
+  if (states.includes('failed')) return 'failed';
+  if (states.includes('uncertain')) return 'uncertain';
+  const uniqueStates = new Set(states);
+  if (uniqueStates.size > 1) return 'mixed';
+  return states[0];
 };
 
 export const isAuthorizedFiscalDocument = (document: FiscalDocumentStatusRow): boolean =>

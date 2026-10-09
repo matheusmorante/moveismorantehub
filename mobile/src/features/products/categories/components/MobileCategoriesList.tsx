@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 4,
     borderRadius: 8,
+    minHeight: 44,
   },
   filterChipActive: {
     backgroundColor: '#ffffff',
@@ -289,6 +290,8 @@ const styles = StyleSheet.create({
   cardNameArea: {
     flex: 1,
     marginRight: 8,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   categoryName: {
     fontSize: 13,
@@ -305,9 +308,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   iconButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

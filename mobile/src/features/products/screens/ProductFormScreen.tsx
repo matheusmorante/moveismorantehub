@@ -73,7 +73,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'geral', label: 'Cadastro Geral' },
+  { id: 'geral', label: 'Informações Básicas' },
   {
     id: 'fotos',
     label: 'Fotos',
@@ -196,6 +196,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
+  const [ncmError, setNcmError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
   const saveOperationIdRef = useRef<string | null>(null);
@@ -579,10 +580,21 @@ export const ProductFormScreen: React.FC<Props> = ({
           ]);
           return false;
         }
+        const ncmDigits = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
+        if (isStockistOnly && formData.itemType !== 'service' && ncmDigits.length !== 8) {
+          setNcmError(true);
+          Alert.alert(
+            'Campo Obrigatório',
+            'Informe um NCM válido com 8 dígitos na aba Tributário / NF.',
+            [{ text: 'OK', onPress: () => setActiveTab('fiscal') }]
+          );
+          return false;
+        }
+        setNcmError(false);
       }
       return true;
     },
-    [formData]
+    [formData, isStockistOnly]
   );
 
   const handleSubmit = useCallback(
@@ -765,6 +777,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             setFormData={setFormData}
             dark={dark}
             canConfigureProductTaxes={canConfigureProductTaxes}
+            isStockistOnly={isStockistOnly}
+            hasNcmError={ncmError}
           />
         );
     }
@@ -795,6 +809,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             <TouchableOpacity
               onPress={handleRequestClose}
               style={[styles.backBtn, dark && styles.darkBtn]}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar ou fechar formulário de produto"
             >
               <ChevronLeft size={20} color={dark ? '#94a3b8' : '#475569'} />
             </TouchableOpacity>
@@ -844,6 +860,8 @@ export const ProductFormScreen: React.FC<Props> = ({
               <TouchableOpacity
                 onPress={handleRequestClose}
                 style={[styles.closeBtn, dark && styles.darkBtn]}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar formulário de produto"
               >
                 <X size={18} color={dark ? '#94a3b8' : '#475569'} />
               </TouchableOpacity>
@@ -999,17 +1017,17 @@ const styles = StyleSheet.create({
   },
   darkHeader: { borderBottomColor: '#1e293b' },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: '#f8fafc',
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: '#f8fafc',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1056,6 +1074,8 @@ const styles = StyleSheet.create({
   darkTabsContainer: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
   tabsContent: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 0, gap: 4 },
   tab: {
+    minHeight: 44,
+    justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -1101,11 +1121,12 @@ const styles = StyleSheet.create({
   darkFooter: { backgroundColor: '#0f172a', borderTopColor: '#1e293b' },
   draftBtn: {
     width: '100%',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 38,
+    paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: '#f8fafc',
     borderWidth: 1,

@@ -151,6 +151,13 @@ export function useMobileProducts(
       return;
     }
     if (currentStatus !== 'published' && targetProd) {
+      if (isTestProduct(targetProd)) {
+        Alert.alert(
+          'Produto não pode ser publicado',
+          'Produtos identificados como teste não podem ser publicados no Catálogo Digital.'
+        );
+        return;
+      }
       const variation = isVar
         ? (targetProd.allVariations || []).find((v: any) => String(v.id) === String(varId))
         : null;
