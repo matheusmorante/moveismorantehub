@@ -40,7 +40,7 @@ Para executar somente a API, use `node scripts/run-vercel-env-dev.cjs api`.
 - `.env.local` e `.env.*.local` devem permanecer ignorados pelo Git. Não versione, imprima, registre ou copie valores de secrets em logs, documentação, backups versionados ou relatórios.
 - Antes de adotar o pull em um projeto que já tenha `.env.local`, identifique apenas os nomes das chaves locais e preserve configurações legítimas em arquivo local apropriado ao consumidor, como `.env.development.local`. Não revele os valores durante a auditoria.
 - Cadastre no Vercel Development credenciais adequadas para uso local quando isso for apropriado. Para Supabase backend, prefira `SUPABASE_SECRET_KEY`; mantenha `SUPABASE_SERVICE_ROLE_KEY` apenas durante compatibilidade necessária.
-- Secrets com proteção que impede recuperação local não devem ter seu tipo rebaixado nem ser revelados para permitir pull. Se o usuário autorizar explicitamente ampliar para Development uma credencial existente apropriada para homologação, preserve o tipo e os escopos atuais e adicione Development. Se a Vercel exigir a reentrada de um valor write-only ou não permitir reutilizar um vínculo de branch Preview, deixe a nova entrada preparada e peça que o usuário digite o valor diretamente no Dashboard; não revele, copie ou transmita o valor pelo agente.
+- Secrets com proteção que impede recuperação local não devem ter seu tipo rebaixado nem ser revelados para permitir pull. Se o usuário autorizar explicitamente ampliar para Development uma credencial existente apropriada para homologação, preserve o tipo e os escopos atuais e adicione Development.
 
 ## Segurança fiscal
 

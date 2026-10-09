@@ -3,6 +3,7 @@ import type { TLSSocket } from 'node:tls';
 import { performance } from 'node:perf_hooks';
 import { createSefazHttpsAgent } from './sefazHttpsAgent';
 import type { SefazTransportContext } from './sefazTransportDiagnostic';
+import { simulateFiscalE2eSoap } from './sefazE2eSimulator';
 
 export interface SefazSoapParams {
   url: string;
@@ -26,6 +27,9 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
     privateKeyPem,
     serviceNamespace = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4',
   } = params;
+
+  const simulatedResponse = simulateFiscalE2eSoap({ url, action, xmlPayload });
+  if (simulatedResponse !== null) return simulatedResponse;
 
   // Criar agente HTTPS com mTLS (Chave privada + Certificado do cliente)
   const target = new URL(url);

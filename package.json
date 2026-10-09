@@ -38,6 +38,8 @@
     "test:schema-drift": "node scripts/testing/check-schema-drift.cjs",
     "test:local-all": "node scripts/testing/test-local-all.cjs",
     "test:telemetry": "npm run test:unit --prefix erp -- --root .. src/telemetry/__tests__/tracer.test.ts",
+    "test:e2e:fiscal:simulated": "node scripts/testing/run-fiscal-e2e.cjs simulated",
+    "test:e2e:fiscal:hml": "node scripts/testing/run-fiscal-e2e.cjs hml",
     "lint:biome": "npx @biomejs/biome check .",
     "format:biome": "npx @biomejs/biome format --write .",
     "check:knip": "npx knip",
