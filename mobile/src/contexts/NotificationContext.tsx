@@ -5,6 +5,8 @@ import {
   triggerLocalNotification,
   initPushTokenListeners,
 } from '../services/notificationService';
+import { excludeTestArtifacts } from '../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../shared-utils/testArtifactPolicy';
 
 interface NotificationContextProps {
   notifications: any[];
@@ -21,13 +23,17 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const fetchNotifications = async () => {
     try {
-      const { data, error } = await supabase
-        .from('app_notifications')
-        .select('id, order_id, title, message, type, schedule_text, read, created_at')
+      const notificationQuery = excludeTestArtifacts(
+        supabase
+          .from('app_notifications')
+          .select('id, order_id, title, message, type, schedule_text, order_data, read, created_at'),
+      );
+      const { data, error } = await notificationQuery
         .order('created_at', { ascending: false })
         .limit(50);
       if (!error && Array.isArray(data)) {
-        const formatted = data.map((n: any) => ({
+        const visible = data.filter((n: any) => !isIdentifiedTestArtifact(n.order_data));
+        const formatted = visible.map((n: any) => ({
           id: n.id,
           title: n.title,
           message: n.message,
@@ -42,7 +48,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           read: n.read,
         }));
         setNotifications(formatted);
-        setUnreadCount(data.filter((n: any) => !n.read).length);
+        setUnreadCount(visible.filter((n: any) => !n.read).length);
       }
     } catch (err) {}
   };
@@ -70,7 +76,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         { event: 'INSERT', schema: 'public', table: 'app_notifications' },
         async (payload) => {
           const newNotif = payload.new;
-          if (!newNotif) return;
+          if (!newNotif || isIdentifiedTestArtifact(newNotif.order_data)) return;
 
           setNotifications((prev) => [
             {

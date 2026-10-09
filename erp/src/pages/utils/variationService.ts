@@ -2,6 +2,7 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import VariationType, { VariationOption } from '../types/variation.type';
 import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
+import { queryClient } from '@/lib/queryClient';
 
 export const normalizeAttributeDataType = (
   value?: VariationType['dataType']
@@ -152,100 +153,105 @@ export const checkVariationUsage = async (
   }
 };
 
-export const subscribeToVariations = (callback: (variations: VariationType[]) => void) => {
-  const fetchAll = async () => {
-    try {
-      // 1. Buscar atributos globais ordenados por nome
-      let attrData: any[] | null = null;
-      const primaryQuery = await supabase
+export const fetchVariations = async (): Promise<VariationType[]> => {
+  try {
+    // 1. Buscar atributos globais ordenados por nome
+    let attrData: any[] | null = null;
+    const primaryQuery = await supabase
+      .from('attributes')
+      .select('id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places')
+      .order('name', { ascending: true });
+
+    if (
+      primaryQuery.error &&
+      (primaryQuery.error.message?.includes('column') || primaryQuery.error.code === '42703')
+    ) {
+      let fallbackQuery = await supabase
         .from('attributes')
-        .select('id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places')
+        .select('id, name, active, data_type, unit, is_globally_required, is_custom')
         .order('name', { ascending: true });
-
       if (
-        primaryQuery.error &&
-        (primaryQuery.error.message?.includes('column') || primaryQuery.error.code === '42703')
+        fallbackQuery.error &&
+        (fallbackQuery.error.message?.includes('is_custom') || fallbackQuery.error.code === '42703')
       ) {
-        let fallbackQuery = await supabase
+        fallbackQuery = await supabase
           .from('attributes')
-          .select('id, name, active, data_type, unit, is_globally_required, is_custom')
+          .select('id, name, active, data_type, unit, is_globally_required')
           .order('name', { ascending: true });
-        if (
-          fallbackQuery.error &&
-          (fallbackQuery.error.message?.includes('is_custom') || fallbackQuery.error.code === '42703')
-        ) {
-          fallbackQuery = await supabase
-            .from('attributes')
-            .select('id, name, active, data_type, unit, is_globally_required')
-            .order('name', { ascending: true });
-        }
-        if (fallbackQuery.error) throw fallbackQuery.error;
-        attrData = fallbackQuery.data;
-      } else if (primaryQuery.error) {
-        throw primaryQuery.error;
-      } else {
-        attrData = primaryQuery.data;
       }
-
-      // 2. Buscar todos os valores/opções vinculados
-      const { data: valData, error: valErr } = await supabase.from('attribute_values').select('*');
-      if (valErr) throw valErr;
-
-      // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
-      // A ausência dessa tabela não pode ocultar os atributos globais existentes.
-      const { data: catAttrData, error: catAttrErr } = await supabase
-        .from('category_attributes')
-        .select('attribute_id, category_id, is_required');
-      if (catAttrErr) {
-        console.warn('Aviso ao buscar vínculos de categorias dos atributos:', catAttrErr);
-      }
-
-      // 3. Mapear para a estrutura VariationType usada no ERP
-      const mapped: VariationType[] = (attrData || []).map((attr: any) => ({
-        id: String(attr.id),
-        name: attr.name,
-        active: attr.active ?? true,
-        dataType: inferAttributeDataType(attr.name, attr.data_type),
-        unit: attr.unit || '',
-        decimalPlaces:
-          attr.decimal_places === 1 || attr.decimal_places === 2 || attr.decimal_places === 3
-            ? attr.decimal_places
-            : undefined,
-        isGloballyRequired: Boolean(attr.is_globally_required),
-        isCustom: Boolean(attr.is_custom),
-        options: (() => {
-          const values = (valData || [])
-            .filter((val: any) => val.attribute_id === attr.id)
-            .map((val: any) => ({
-              id: String(val.id),
-              value: val.value,
-              sortOrder: Number.isInteger(val.sort_order) ? val.sort_order : undefined,
-            }));
-          return values.some((value: VariationOption) => value.sortOrder !== undefined)
-            ? values.sort(
-                (left: VariationOption, right: VariationOption) =>
-                  (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
-                  (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
-              )
-            : sortAttributeValuesNaturally(values);
-        })(),
-        categoryAttributes: (catAttrErr ? [] : catAttrData || [])
-          .filter((ca: any) => ca.attribute_id === attr.id)
-          .map((ca: any) => ({
-            categoryId: ca.category_id,
-            isRequired: ca.is_required,
-          })),
-        deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
-      }));
-
-      callback(mapped);
-    } catch (error) {
-      console.error('Erro ao buscar variações iniciais:', error);
-      callback([]);
+      if (fallbackQuery.error) throw fallbackQuery.error;
+      attrData = fallbackQuery.data;
+    } else if (primaryQuery.error) {
+      throw primaryQuery.error;
+    } else {
+      attrData = primaryQuery.data;
     }
-  };
 
-  fetchAll();
+    // 2. Buscar todos os valores/opções vinculados
+    const { data: valData, error: valErr } = await supabase.from('attribute_values').select('*');
+    if (valErr) throw valErr;
+
+    // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
+    // A ausência dessa tabela não pode ocultar os atributos globais existentes.
+    const { data: catAttrData, error: catAttrErr } = await supabase
+      .from('category_attributes')
+      .select('attribute_id, category_id, is_required');
+    if (catAttrErr) {
+      console.warn('Aviso ao buscar vínculos de categorias dos atributos:', catAttrErr);
+    }
+
+    // 3. Mapear para a estrutura VariationType usada no ERP
+    const mapped: VariationType[] = (attrData || []).map((attr: any) => ({
+      id: String(attr.id),
+      name: attr.name,
+      active: attr.active ?? true,
+      dataType: inferAttributeDataType(attr.name, attr.data_type),
+      unit: attr.unit || '',
+      decimalPlaces:
+        attr.decimal_places === 1 || attr.decimal_places === 2 || attr.decimal_places === 3
+          ? attr.decimal_places
+          : undefined,
+      isGloballyRequired: Boolean(attr.is_globally_required),
+      isCustom: Boolean(attr.is_custom),
+      options: (() => {
+        const values = (valData || [])
+          .filter((val: any) => val.attribute_id === attr.id)
+          .map((val: any) => ({
+            id: String(val.id),
+            value: val.value,
+            sortOrder: Number.isInteger(val.sort_order) ? val.sort_order : undefined,
+          }));
+        return values.some((value: VariationOption) => value.sortOrder !== undefined)
+          ? values.sort(
+              (left: VariationOption, right: VariationOption) =>
+                (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+                (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
+            )
+          : sortAttributeValuesNaturally(values);
+      })(),
+      categoryAttributes: (catAttrErr ? [] : catAttrData || [])
+        .filter((ca: any) => ca.attribute_id === attr.id)
+        .map((ca: any) => ({
+          categoryId: ca.category_id,
+          isRequired: ca.is_required,
+        })),
+      deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
+    }));
+
+    return mapped;
+  } catch (error) {
+    console.error('Erro ao buscar variações iniciais:', error);
+    return [];
+  }
+};
+
+export const subscribeToVariations = (callback: (variations: VariationType[]) => void) => {
+  fetchVariations()
+    .then(callback)
+    .catch((error) => {
+      console.error('Erro ao buscar variações:', error);
+      callback([]);
+    });
 
   return () => {
     // Realtime desabilitado
@@ -271,6 +277,13 @@ export const updateVariation = async (
   await persistVariationDefinition({ id, ...variationToUpdate } as VariationType);
 };
 
+
+const invalidateVariationsQueries = () => {
+  try {
+    queryClient.invalidateQueries({ queryKey: ['variations'] });
+  } catch (e) {}
+};
+
 const persistVariationDefinition = async (variation: Partial<VariationType>): Promise<void> => {
   const definition: Record<string, unknown> = { ...variation };
   if (variation.dataType) definition.dataType = normalizeAttributeDataType(variation.dataType);
@@ -287,6 +300,7 @@ const persistVariationDefinition = async (variation: Partial<VariationType>): Pr
     p_definition: definition,
   });
   if (error) throw error;
+  invalidateVariationsQueries();
 };
 
 export const moveToTrash = async (id: string): Promise<'deactivated' | 'deleted'> => {
@@ -294,6 +308,7 @@ export const moveToTrash = async (id: string): Promise<'deactivated' | 'deleted'
     p_attribute_id: id,
   });
   if (error) throw error;
+  invalidateVariationsQueries();
   return data === 'deactivated' ? 'deactivated' : 'deleted';
 };
 

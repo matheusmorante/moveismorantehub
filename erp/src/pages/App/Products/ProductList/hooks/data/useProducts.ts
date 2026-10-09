@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Product from '../../../../../types/product.type';
 import type { ProductListFilters } from '../../types';
 import { fetchProductsPage, activateProduct } from '@/pages/utils/productService';
@@ -34,18 +35,62 @@ export const useProducts = (filters?: ProductListFilters) => {
     profile ? getProfileRoles(profile) : []
   );
   // ═══════════════════════════════════════════════
-  // SERVER PAGINATION state (Backend Supabase .range)
+  // SERVER PAGINATION state (TanStack Query + Backend Supabase .range)
   // ═══════════════════════════════════════════════
+  const queryClient = useQueryClient();
   const [serverProducts, setServerProducts] = useState<Product[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
-  const [serverLoading, setServerLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [refreshSignal, setRefreshSignal] = useState(0);
 
-  const refresh = () => setRefreshSignal((prev) => prev + 1);
+  const queryFilters = useMemo(() => {
+    const hasSearch = Boolean(filters?.search && filters.search.trim().length > 0);
+    return {
+      showTrash: filters?.showTrash,
+      search: filters?.search,
+      category: filters?.category,
+      activeOnly: hasSearch ? undefined : filters?.activeOnly,
+      status: filters?.status,
+      isDraft: filters?.isDraft,
+      includeDeactivated: hasSearch ? true : (filters?.includeDeactivated ?? true),
+      itemType: filters?.itemType,
+      excludeItemType: filters?.excludeItemType,
+      sortBy: filters?.sortBy,
+      sortOrder: filters?.sortOrder,
+    };
+  }, [
+    filters?.showTrash,
+    filters?.search,
+    filters?.category,
+    filters?.activeOnly,
+    filters?.status,
+    filters?.isDraft,
+    filters?.includeDeactivated,
+    filters?.itemType,
+    filters?.excludeItemType,
+    filters?.sortBy,
+    filters?.sortOrder,
+  ]);
+
+  const { data: queryResult, isLoading: serverLoading } = useQuery({
+    queryKey: ['products', queryFilters, currentPage, itemsPerPage],
+    queryFn: () => fetchProductsPage(currentPage, itemsPerPage, queryFilters),
+    staleTime: 60 * 1000, // 1 minuto de cache fresco
+    gcTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (queryResult) {
+      setServerProducts(queryResult.data);
+      setServerTotal(queryResult.total);
+    }
+  }, [queryResult]);
+
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  }, [queryClient]);
 
   const removeRestoredProductsFromTrash = useCallback(
     (ids: string[]) => {
@@ -59,51 +104,6 @@ export const useProducts = (filters?: ProductListFilters) => {
     },
     [filters?.showTrash]
   );
-
-  // ─── Server pagination fetch ───────────────────
-  const fetchPage = useCallback(
-    async (page: number, perPage: number) => {
-      setServerLoading(true);
-      try {
-        const hasSearch = Boolean(filters?.search && filters.search.trim().length > 0);
-        const result = await fetchProductsPage(page, perPage, {
-          showTrash: filters?.showTrash,
-          search: filters?.search,
-          category: filters?.category,
-          activeOnly: hasSearch ? undefined : filters?.activeOnly,
-          status: filters?.status,
-          isDraft: filters?.isDraft,
-          includeDeactivated: hasSearch ? true : (filters?.includeDeactivated ?? true),
-          itemType: filters?.itemType,
-          excludeItemType: filters?.excludeItemType,
-          sortBy: filters?.sortBy,
-          sortOrder: filters?.sortOrder,
-        });
-        setServerProducts(result.data);
-        setServerTotal(result.total);
-      } finally {
-        setServerLoading(false);
-      }
-    },
-    [
-      filters?.showTrash,
-      filters?.search,
-      filters?.category,
-      filters?.activeOnly,
-      filters?.status,
-      filters?.isDraft,
-      filters?.includeDeactivated,
-      filters?.itemType,
-      filters?.excludeItemType,
-      filters?.sortBy,
-      filters?.sortOrder,
-    ]
-  );
-
-  // Fetch on page/perPage/filters/refresh change
-  useEffect(() => {
-    fetchPage(currentPage, itemsPerPage);
-  }, [currentPage, itemsPerPage, fetchPage, refreshSignal]);
 
   // Reset pagination and selection when filters change
   useEffect(() => {
@@ -353,6 +353,6 @@ export const useProducts = (filters?: ProductListFilters) => {
     handleBulkPermanentDelete,
     toggleActive,
     deactivateCatalog,
-    refresh: () => fetchPage(currentPage, itemsPerPage),
+    refresh,
   };
 };

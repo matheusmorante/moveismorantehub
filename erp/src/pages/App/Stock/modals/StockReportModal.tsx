@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../../shared-utils/testArtifactQueries';
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
@@ -43,9 +44,9 @@ export const StockReportModal: React.FC<StockReportModalProps> = ({ isOpen, onCl
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await excludeTestOrders(supabase
         .from('orders')
-        .select('id, status, order_type, deleted, order_data')
+        .select('id, status, order_type, deleted, order_data'))
         .eq('deleted', false)
         .neq('order_type', 'budget');
 

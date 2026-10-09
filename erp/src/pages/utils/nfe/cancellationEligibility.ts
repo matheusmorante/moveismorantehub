@@ -22,6 +22,7 @@ export type OrderCirculationState = {
   pickupConfirmedAt?: string | null;
   shipping?: OrderCirculationShipping | null;
   order_data?: {
+    autoFulfilledAfter12h?: boolean | null;
     deliveryStatus?: string | null;
     shipping?: {
       deliveryStatus?: string | null;
@@ -36,61 +37,26 @@ export type OrderCirculationState = {
   } | null;
 };
 
-export const hasGoodsCirculated = (row: OrderCirculationState | null | undefined) => {
+const hasCompletedGoodsCirculation = (row: OrderCirculationState | null | undefined) => {
   const data = row?.order_data || {};
   const shipping = data.shipping || row?.shipping || {};
   const deliveryStatus = String(
     row?.delivery_status || row?.deliveryStatus || data.deliveryStatus || shipping.deliveryStatus || ''
-  ).toLowerCase();
-  const physicalStatuses = [
-    'in_transit',
-    'in-transit',
-    'delivered',
-    'completed',
-    'finished',
-    'collected',
-    'em_transito',
-    'entregue',
-    'concluido',
-    'coletado',
-    'out_for_delivery',
-    'out-for-delivery',
-    'em_rota',
-    'em rota',
-    'em_entrega',
-    'em entrega',
-    'returned',
-    'returned_to_store',
-    'returning',
-    'refused',
-    'recusado',
-    'devolvido',
-  ];
-  if (physicalStatuses.some((status) => deliveryStatus.includes(status))) return true;
-  if (
-    shipping.deliveryStartedAt ||
-    shipping.deliveryArrivedAt ||
-    shipping.deliveryFinishedAt ||
-    shipping.unattendedAt ||
-    shipping.pickupConfirmedAt ||
-    row?.delivery_started_at ||
-    row?.delivery_arrived_at ||
-    row?.delivery_finished_at ||
-    row?.deliveryStartedAt ||
-    row?.deliveryArrivedAt ||
-    row?.deliveryFinishedAt ||
-    row?.pickupConfirmedAt ||
-    data.deliveryFinishedAt ||
-    data.pickupConfirmedAt
-  ) {
+  ).trim().toLowerCase();
+  const orderStatus = String(row?.status || '').trim().toLowerCase();
+
+  if (['delivered', 'entregue', 'retirado'].includes(deliveryStatus)) {
     return true;
   }
 
-  // The ERP's fulfilled state means the sale was completed; missing delivery
-  // metadata must not make an already fulfilled sale eligible for NF-e cancel.
-  return ['fulfilled', 'atendido', 'completed', 'delivered', 'entregue', 'retirado', 'collected'].includes(
-    String(row?.status || '').toLowerCase()
-  );
+  // Confirmed facts remain blocking even when a legacy automatic flag is present.
+  const deliveryConfirmedAt =
+    shipping.deliveryFinishedAt || row?.delivery_finished_at || row?.deliveryFinishedAt || data.deliveryFinishedAt;
+  const pickupConfirmedAt = shipping.pickupConfirmedAt || row?.pickupConfirmedAt || data.pickupConfirmedAt;
+  if (deliveryConfirmedAt || pickupConfirmedAt) return true;
+
+  // The ERP's fulfilled state is shown as Entregue or Retirado after explicit confirmation.
+  return ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(orderStatus);
 };
 
 export type GoodsCirculationState = 'none' | 'in_progress' | 'completed';
@@ -104,34 +70,48 @@ export function getGoodsCirculationState(
   const deliveryStatus = String(
     row?.delivery_status || row?.deliveryStatus || data.deliveryStatus || shipping.deliveryStatus || ''
   ).toLowerCase();
-  const completedStatuses = new Set([
-    'delivered',
-    'entregue',
-    'completed',
-    'finished',
-    'concluido',
-    'collected',
-    'coletado',
-    'retirado',
+  if (hasCompletedGoodsCirculation(row)) return 'completed';
+
+  // Saída/trânsito já impede cancelamento por operação não realizada.
+  const unfinishedStatuses = new Set([
+    'in_transit',
+    'in-transit',
+    'out_for_delivery',
+    'out-for-delivery',
+    'em_transito',
+    'em_rota',
+    'em rota',
+    'em_entrega',
+    'em entrega',
+    'in_progress',
+    'in_service',
+    'unattended',
+    'refused',
+    'recusado',
+    'returning',
+    'returned',
+    'returned_to_store',
+    'devolvido',
   ]);
-  const orderStatus = String(row?.status || '').toLowerCase();
+  const normalizedDeliveryStatus = deliveryStatus.trim().toLowerCase();
   if (
-    ['fulfilled', 'atendido', 'completed', 'delivered', 'entregue', 'retirado', 'collected'].includes(
-      orderStatus
-    ) ||
-    completedStatuses.has(deliveryStatus) ||
-    shipping.deliveryFinishedAt ||
-    shipping.pickupConfirmedAt ||
-    row?.delivery_finished_at ||
-    row?.deliveryFinishedAt ||
-    row?.pickupConfirmedAt ||
-    data.deliveryFinishedAt ||
-    data.pickupConfirmedAt
+    data.autoFulfilledAfter12h === true ||
+    unfinishedStatuses.has(normalizedDeliveryStatus) ||
+    shipping.deliveryStartedAt ||
+    shipping.deliveryArrivedAt ||
+    shipping.unattendedAt ||
+    row?.delivery_started_at ||
+    row?.delivery_arrived_at ||
+    row?.deliveryStartedAt ||
+    row?.deliveryArrivedAt
   ) {
-    return 'completed';
+    return 'in_progress';
   }
-  return hasGoodsCirculated(row) ? 'in_progress' : 'none';
+  return 'none';
 }
+
+export const hasGoodsCirculated = (row: OrderCirculationState | null | undefined) =>
+  getGoodsCirculationState(row) !== 'none';
 
 /** @deprecated Use the business term `hasGoodsCirculated`. */
 export const orderShowsPhysicalCirculation = hasGoodsCirculated;

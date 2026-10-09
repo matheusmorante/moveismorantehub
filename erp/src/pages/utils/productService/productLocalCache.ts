@@ -4,6 +4,7 @@ export const LOCAL_STORAGE_KEY = 'local_products';
 
 // Helper to get products from localStorage
 export const getLocalProducts = (): Product[] => {
+  if (typeof localStorage === 'undefined') return [];
   const data = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (!data) return [];
   try {
@@ -16,6 +17,7 @@ export const getLocalProducts = (): Product[] => {
 
 // Helper to save products to localStorage
 export const saveLocalProducts = (products: Product[]) => {
+  if (typeof localStorage === 'undefined') return;
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
 };
 

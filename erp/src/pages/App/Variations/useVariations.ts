@@ -1,26 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import VariationType from '../../types/variation.type';
 import {
-  subscribeToVariations,
+  fetchVariations,
   moveToTrash,
   getVariationErrorMessage,
 } from '../../utils/variationService';
 import { toast } from 'react-toastify';
 
+export const VARIATIONS_QUERY_KEY = ['variations'] as const;
+
 export const useVariations = () => {
-  const [variations, setVariations] = useState<VariationType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshSignal, setRefreshSignal] = useState(0);
+  const queryClient = useQueryClient();
 
-  const refresh = () => setRefreshSignal((prev) => prev + 1);
+  const { data: rawVariations = [], isLoading: loading } = useQuery({
+    queryKey: VARIATIONS_QUERY_KEY,
+    queryFn: fetchVariations,
+    staleTime: 5 * 60 * 1000, // 5 minutos: características raramente mudam
+    gcTime: 10 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    const unsubscribe = subscribeToVariations((data) => {
-      setVariations(data.filter((v) => !v.deleted));
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [refreshSignal]);
+  const variations = rawVariations.filter((v) => !v.deleted);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: VARIATIONS_QUERY_KEY });
+  };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,3 +54,4 @@ export const useVariations = () => {
 
   return { variations, loading, handleDelete, refresh };
 };
+

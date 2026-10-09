@@ -52,7 +52,7 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
 
   it('1. 0 entregas -> texto exatamente: "Sem entregas para hoje."', () => {
     const text = generateLocalSmartText({ scope: 'today', orders: [] });
-    expect(text).toBe('Sem entregas para hoje.');
+    expect(text).toBe('Sem atividades operacionais para hoje.');
   });
 
   it('2. 0 entregas -> nenhum LLM é chamado para gerar texto (fast-path)', async () => {
@@ -65,7 +65,7 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
       undefined,
       []
     );
-    expect(text).toBe('Sem entregas para hoje.');
+    expect(text).toBe('Sem atividades operacionais para hoje.');
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -178,7 +178,7 @@ describe('deliveryAudioCacheService & aiSummaryService — Cache por Hash de Con
       (state) => firstStates.push(state),
       []
     );
-    expect(firstText).toBe('Sem entregas para hoje.');
+    expect(firstText).toBe('Sem atividades operacionais para hoje.');
     expect(firstStates).toContain(true);
 
     const secondStates: boolean[] = [];

@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { StoreDesignProvider, SiteChrome } from '@/components/layout';
+import { ReactQueryProvider } from '@/lib/react-query-provider';
 
 const inter = Inter({
   variable: '--font-sans',
@@ -48,9 +49,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans overflow-x-hidden bg-background">
         <StoreDesignProvider />
-        <Suspense fallback={null}>
-          <SiteChrome>{children}</SiteChrome>
-        </Suspense>
+        <ReactQueryProvider>
+          <Suspense fallback={null}>
+            <SiteChrome>{children}</SiteChrome>
+          </Suspense>
+        </ReactQueryProvider>
         <Toaster position="top-right" />
         <script
           dangerouslySetInnerHTML={{

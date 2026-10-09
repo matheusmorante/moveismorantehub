@@ -13,6 +13,7 @@ import {
   checkCurrentUserHasPassword,
   createCurrentUserPassword,
 } from '../services/authPasswordSetup';
+import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
 
 export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 
@@ -226,7 +227,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const syncAuthProfile = async (session: any) => {
+  const syncAuthProfile = async (session: any, checkPasswordCredential = true) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');
@@ -254,7 +255,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUserProfile(null);
     }
 
-    if (session?.user) {
+    if (session?.user && checkPasswordCredential) {
       try {
         await refreshPasswordCredentialStatus();
       } catch (err) {
@@ -288,6 +289,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    let initialAuthSyncStarted = false;
+    const syncInitialAuthSessionOnce = (session: any) => {
+      if (initialAuthSyncStarted) return;
+      initialAuthSyncStarted = true;
+      setPasswordCredentialStatus(session?.user ? 'checking' : 'idle');
+      void syncAuthProfile(session, true);
+    };
+
     // On web, use the browser URL directly.
     const initialUrlPromise =
       Platform.OS === 'web' && typeof window !== 'undefined'
@@ -305,9 +314,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[AuthChange] Event:', event);
-      setPasswordCredentialStatus(session?.user ? 'checking' : 'idle');
+      if (event === 'INITIAL_SESSION') {
+        syncInitialAuthSessionOnce(session);
+        return;
+      }
+      const runSessionMaintenance = shouldRunAuthSessionMaintenance(event);
+      if (session?.user && runSessionMaintenance) setPasswordCredentialStatus('checking');
+      else if (!session?.user) setPasswordCredentialStatus('idle');
       setTimeout(() => {
-        void syncAuthProfile(session);
+        void syncAuthProfile(session, runSessionMaintenance);
       }, 0);
     });
 
@@ -339,7 +354,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .getSession()
       .then(({ data: { session } }) => {
         clearTimeout(authTimeout);
-        return syncAuthProfile(session);
+        syncInitialAuthSessionOnce(session);
       })
       .catch((err) => {
         clearTimeout(authTimeout);

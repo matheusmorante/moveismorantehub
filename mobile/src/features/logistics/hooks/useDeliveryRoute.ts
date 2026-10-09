@@ -9,10 +9,6 @@ import {
   isCancelledOrder,
   formatOrderCode,
 } from '../../../utils/orderUtils';
-import {
-  hasDeliveryExceeded12Hours,
-  autoFulfillOrderIfExceeded12Hours,
-} from '../../orders/utils/deliveryAutoFulfillment';
 import { getDeliverySchedulePeriod } from '../utils/deliverySchedulePeriod';
 import { countDeliveryObservations } from '../utils/countDeliveryObservations';
 import {
@@ -135,13 +131,8 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
     let firstPendingId: string | null = null;
 
     for (const o of sorted) {
-      if (hasDeliveryExceeded12Hours(o)) {
-        autoFulfillOrderIfExceeded12Hours(o);
-      }
-      const isAutoFulfilled = hasDeliveryExceeded12Hours(o);
-      const dStatus = isAutoFulfilled
-        ? 'completed'
-        : o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
+      const dStatus =
+        o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
       if (dStatus === 'in_progress' || dStatus === 'in_service') {
         if (!firstInProgressId) firstInProgressId = o.id;
       } else if (dStatus !== 'completed' && dStatus !== 'unattended') {
@@ -153,7 +144,6 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
 
     // Encontra o ID da primeira parada pendente na sequência sugerida
     const topPendingItem = sorted.find((o) => {
-      if (hasDeliveryExceeded12Hours(o)) return false;
       const dStatus =
         o.order_data?.deliveryStatus || (o.status === 'fulfilled' ? 'completed' : 'pending');
       return (
@@ -196,11 +186,9 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
         hasValidCoords = true;
       }
 
-      const isAutoFulfilled = hasDeliveryExceeded12Hours(o);
-      const rawDeliveryStatus = isAutoFulfilled ? 'completed' : oData.deliveryStatus;
+      const rawDeliveryStatus = oData.deliveryStatus;
       let status: DeliveryRouteItem['status'] = 'pending';
       if (
-        isAutoFulfilled ||
         o.status === 'fulfilled' ||
         rawDeliveryStatus === 'completed' ||
         rawDeliveryStatus === 'fulfilled'

@@ -28,13 +28,12 @@ export function generateDanfeHtml(data: DanfeData): string {
     series,
     protocolNumber,
     protocolDate,
-    model,
     environment,
   } = data;
   const isHomologacao = environment === 2;
   const fiscalDetails = data.fiscalDetails;
   const formattedKey = formatAccessKey(accessKey);
-  const docTitle = model === '65' ? 'DANFE NFC-e' : 'DANFE NF-e';
+  const docTitle = 'DANFE NF-e';
 
   const amount = (value: string | undefined, fallback: number) =>
     value !== undefined && value !== '' ? Number(value) || 0 : fallback;

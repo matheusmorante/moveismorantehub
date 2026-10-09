@@ -1,10 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Truck, MapPin, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react-native';
-import {
-  hasDeliveryExceeded12Hours,
-  autoFulfillOrderIfExceeded12Hours,
-} from '../../features/orders/utils/deliveryAutoFulfillment';
 import { getFulfillmentLabels } from '../../features/orders/domain/orderStatusPresentation';
 
 interface Props {
@@ -46,11 +42,6 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   }, [isInTransit, isInService, shimmer]);
 
   if (pickup && !isFulfilled) return null;
-
-  if (!pickup && hasDeliveryExceeded12Hours(order)) {
-    autoFulfillOrderIfExceeded12Hours(order);
-    return null;
-  }
 
   // Renderiza o resultado final e as etapas ativas da entrega.
   if (!isFulfilled && !isInService && !isInTransit && !isUnattended && !isPreparing) {

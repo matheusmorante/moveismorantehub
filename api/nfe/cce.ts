@@ -1,15 +1,10 @@
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { ORDER_EDIT_CCE_DISABLED_REASON } from '../../erp/src/pages/utils/nfe/orderEditFiscalPolicy';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { randomInt } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { buildNfeCceXml, validateNfeCce } from '../../erp/src/pages/utils/nfe/nfeCce';
-import {
-  findRegisteredSefazCceEvent,
-  parseSefazCceEvent,
-} from '../../erp/src/pages/utils/nfe/nfeEventRules';
+import { findRegisteredSefazCceEvent } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
-import { isNfeProductionEnabled } from './productionGuard';
-import { extractCertificateAndKey, signNfeEventXml } from './nfeSigner';
+import { extractCertificateAndKey } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 
@@ -18,8 +13,6 @@ const supabaseUrl =
   process.env.SUPABASE_URL ||
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
-const isUuid = (value: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 type FiscalDocument = {
   id: string;
@@ -67,7 +60,6 @@ const getCceEvents = async (db: any, documentId: string) => {
   return { events: (data || []) as CceEvent[], error };
 };
 
-const readProductionConfirmation = (req: VercelRequest) => req.body?.productionConfirmed === true;
 
 const pendingResponse = (res: VercelResponse, message: string, cStat: string | null = null) =>
   res.status(202).json({ success: false, pending: true, cStat, error: message });
@@ -201,18 +193,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
       const pendingEvent =
         latest && ['transmitting', 'unknown'].includes(latest.status) ? latest : null;
-      const nextSequence = pendingEvent
-        ? null
-        : latest?.status === 'registered'
-          ? latest.event_sequence + 1
-          : latest?.status === 'rejected'
-            ? latest.event_sequence
-            : 1;
       return res.status(200).json({
         success: true,
         previousCorrection: latestRegistered?.justification || '',
         previousSequence: latestRegistered?.event_sequence || null,
-        nextSequence,
+        nextSequence: null,
+        creationDisabled: true,
+        creationDisabledReason: ORDER_EDIT_CCE_DISABLED_REASON,
         pending: pendingEvent
           ? {
               id: pendingEvent.id,
@@ -220,7 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               sequence: pendingEvent.event_sequence,
             }
           : null,
-        sequenceLimitReached: nextSequence !== null && nextSequence > 20,
+        sequenceLimitReached: false,
       });
     }
 
@@ -236,226 +223,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action !== 'transmit')
       return res.status(400).json({ success: false, error: 'Ação da CC-e inválida.' });
 
-    const requestId = String(req.body?.requestId || '');
-    if (!isUuid(requestId))
-      return res
-        .status(400)
-        .json({ success: false, error: 'Identificador da solicitação inválido.' });
-
-    const { data: previousRequest, error: requestLookupError } = await db
-      .from('nfe_document_events')
-      .select(
-        'id,event_sequence,attempt_number,status,justification,request_id,requested_at,cstat,xmotivo,protocol_number,protocol_date'
-      )
-      .eq('document_id', document.id)
-      .eq('event_type', '110110')
-      .eq('request_id', requestId)
-      .maybeSingle();
-    if (requestLookupError)
-      return res
-        .status(503)
-        .json({ success: false, error: 'Não foi possível verificar a solicitação anterior.' });
-    if (previousRequest) {
-      const previous = previousRequest as CceEvent;
-      if (previous.status === 'registered')
-        return res.status(200).json({
-          success: true,
-          alreadyProcessed: true,
-          sequence: previous.event_sequence,
-          cStat: previous.cstat,
-          xMotivo: previous.xmotivo,
-          protocolNumber: previous.protocol_number,
-        });
-      if (previous.status === 'rejected')
-        return res.status(422).json({
-          success: false,
-          cStat: previous.cstat,
-          xMotivo: previous.xmotivo || 'A SEFAZ rejeitou a CC-e.',
-        });
-      return reconcilePendingEvent(db, document, previous, res, false);
-    }
-
-    if (latest && ['transmitting', 'unknown'].includes(latest.status))
-      return reconcilePendingEvent(db, document, latest, res, false);
-
-    const correction = String(req.body?.correction || '').trim();
-    const correctionError = validateNfeCce(correction);
-    if (correctionError) return res.status(400).json({ success: false, error: correctionError });
-    if (Number(document.ambiente) === 1 && !readProductionConfirmation(req))
-      return res
-        .status(400)
-        .json({ success: false, error: 'Confirme explicitamente a CC-e em Produção.' });
-    if (
-      Number(document.ambiente) === 1 &&
-      !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)
-    )
-      return res.status(503).json({
-        success: false,
-        error: 'Eventos fiscais em Produção estão desabilitados neste servidor.',
-      });
-
-    const pfx = process.env.NFE_CERTIFICATE_BASE64;
-    if (!pfx)
-      return res
-        .status(503)
-        .json({ success: false, error: 'Certificado digital do emitente não configurado.' });
-    if (!document.xml_nfe)
-      return res
-        .status(409)
-        .json({ success: false, error: 'XML original da NF-e não está disponível.' });
-    const issuerCnpj = document.xml_nfe.match(/<emit\b[^>]*>[\s\S]*?<CNPJ>(\d{14})<\/CNPJ>/i)?.[1];
-    if (!issuerCnpj)
-      return res
-        .status(409)
-        .json({ success: false, error: 'CNPJ do emitente não encontrado no XML original.' });
-
-    const sequence =
-      latest?.status === 'rejected' ? latest.event_sequence : (latest?.event_sequence || 0) + 1;
-    if (sequence > 20)
-      return res
-        .status(409)
-        .json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
-
-    const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
-    const eventXml = buildNfeCceXml({
-      accessKey: document.chave_acesso,
-      environment: document.ambiente as 1 | 2,
-      issuerCnpj,
-      sequence,
-      correction,
-      issuedAt: new Date().toISOString(),
-      batchId: `${randomInt(0, 1_000_000_000_000).toString().padStart(12, '0')}${randomInt(0, 1000).toString().padStart(3, '0')}`,
-    });
-    const signedXml = signNfeEventXml(
-      eventXml,
-      certificate.privateKeyPem,
-      certificate.certDerBase64
-    );
-    const { data: reservation, error: reservationError } = await db.rpc('reserve_nfe_cce_event', {
-      p_document_id: document.id,
-      p_environment: document.ambiente,
-      p_event_sequence: sequence,
-      p_correction: correction,
-      p_signed_xml: signedXml,
-      p_user_id: authorization.userId,
-      p_request_id: requestId,
-    });
-    if (reservationError) {
-      const message = String(reservationError.message || '');
-      if (message.includes('CCE_PREVIOUS_EVENT_PENDING'))
-        return res.status(409).json({
-          success: false,
-          pending: true,
-          error:
-            'Existe uma CC-e anterior com resultado incerto. Consulte a SEFAZ antes de continuar.',
-        });
-      if (message.includes('CCE_SEQUENCE_LIMIT'))
-        return res
-          .status(409)
-          .json({ success: false, error: 'A NF-e já atingiu o limite de 20 CC-e.' });
-      if (message.includes('CCE_SEQUENCE_CHANGED'))
-        return res.status(409).json({
-          success: false,
-          error: 'A sequência de CC-e mudou. Atualize o histórico e tente novamente.',
-        });
-      if (message.includes('NFE_DOCUMENT_NOT_FOUND'))
-        return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
-      if (message.includes('CCE_REQUIRES_MODEL_55'))
-        return res
-          .status(409)
-          .json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
-      if (
-        message.includes('CCE_ENVIRONMENT_MISMATCH') ||
-        message.includes('CCE_REQUIRES_AUTHORIZED_NFE')
-      )
-        return res.status(409).json({
-          success: false,
-          error: 'O documento fiscal mudou de ambiente ou não está mais autorizado.',
-        });
-      return res
-        .status(503)
-        .json({ success: false, error: 'Não foi possível reservar a transmissão da CC-e.' });
-    }
-
-    const reservationRow = Array.isArray(reservation) ? reservation[0] : reservation;
-    if (!reservationRow?.event_id || reservationRow.created !== true)
-      return res.status(503).json({
-        success: false,
-        pending: true,
-        error: 'A solicitação já está em processamento; consulte o resultado antes de repetir.',
-      });
-
-    let responseXml: string;
-    try {
-      responseXml = await sendSoapToSefaz({
-        url: getNfeServiceEndpoint('55', document.ambiente, 'NFeRecepcaoEvento4'),
-        action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento',
-        serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4',
-        xmlPayload: signedXml,
-        certPem: certificate.certPem,
-        privateKeyPem: certificate.privateKeyPem,
-      });
-    } catch {
-      await db
-        .from('nfe_document_events')
-        .update({
-          status: 'unknown',
-          xmotivo: 'Transmissão iniciada sem confirmação da resposta da SEFAZ.',
-        })
-        .eq('id', reservationRow.event_id)
-        .eq('status', 'transmitting');
-      return pendingResponse(
-        res,
-        'Resultado incerto após o envio. Consulte a SEFAZ antes de qualquer nova tentativa.'
-      );
-    }
-
-    const result = parseSefazCceEvent(responseXml);
-    const status = result.registered ? 'registered' : result.pending ? 'unknown' : 'rejected';
-    const { error: persistError } = await db
-      .from('nfe_document_events')
-      .update({
-        status,
-        response_xml: responseXml,
-        cstat: result.cStat,
-        xmotivo: result.xMotivo,
-        protocol_number: result.protocolNumber,
-        protocol_date: result.protocolDate,
-        confirmed_at: result.registered ? new Date().toISOString() : null,
-      })
-      .eq('id', reservationRow.event_id)
-      .eq('status', 'transmitting');
-    if (persistError)
-      return res.status(503).json({
-        success: result.registered,
-        pending: true,
-        sequence,
-        cStat: result.cStat,
-        error: result.registered
-          ? 'A SEFAZ registrou a CC-e, mas a atualização do histórico precisa de reconciliação.'
-          : 'Não foi possível salvar o retorno da SEFAZ; o resultado deve ser reconciliado antes de repetir.',
-      });
-    if (result.registered)
-      return res.status(200).json({
-        success: true,
-        sequence,
-        cStat: result.cStat,
-        xMotivo: result.xMotivo,
-        protocolNumber: result.protocolNumber,
-        protocolDate: result.protocolDate,
-      });
-    if (result.pending)
-      return pendingResponse(
-        res,
-        result.xMotivo ||
-          'A SEFAZ não confirmou o vínculo da CC-e à NF-e. Consulte antes de repetir.',
-        result.cStat
-      );
-    return res.status(422).json({
+    return res.status(409).json({
       success: false,
-      cStat: result.cStat,
-      xMotivo: result.xMotivo || 'A SEFAZ rejeitou a CC-e.',
+      code: 'CCE_DISABLED_BY_ORDER_EDIT_POLICY',
+      error: ORDER_EDIT_CCE_DISABLED_REASON,
     });
+
   } catch (error: unknown) {
     console.error(
       '[NF-e CC-e] Falha no fluxo fiscal:',

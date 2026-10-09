@@ -2,7 +2,12 @@ import type { FiscalEmissionCommand } from '../fiscalSnapshot';
 
 /** Consent can be renewed; every fiscal choice remains part of the immutable command. */
 export function fiscalAttemptCommand(command: FiscalEmissionCommand): Record<string, unknown> {
-  const { productionConfirmed: _consent, ...fiscalCommand } = command;
+  const {
+    productionConfirmed: _consent,
+    previewOnly: _previewOnly,
+    previewProof: _previewProof,
+    ...fiscalCommand
+  } = command;
   return JSON.parse(JSON.stringify(fiscalCommand));
 }
 

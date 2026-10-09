@@ -1,6 +1,40 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Person from '../../types/person.type';
 import { TABLE_NAME, mapToDB, mapFromDB } from './personMapper';
+import { queryClient } from '@/lib/queryClient';
+import {
+  assertOwnedByTestContext,
+  getTestArtifactContext,
+  stampTestArtifact,
+} from '../../../../../shared-utils/testArtifactContext';
+
+
+const invalidatePeopleQueryCache = () => {
+  try {
+    queryClient.invalidateQueries({ queryKey: ['people'] });
+  } catch (err) {
+    // Failsafe caso queryClient não esteja disponível em mock de teste headless
+  }
+};
+
+const stampPersonAddress = <T extends Record<string, any>>(person: T): T => {
+  if (!getTestArtifactContext()) return person;
+  let address = person.address;
+  if (typeof address === 'string') {
+    try {
+      const parsed = JSON.parse(address);
+      address = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed
+        : { street: address };
+    } catch {
+      address = { street: address };
+    }
+  }
+  return {
+    ...person,
+    address: stampTestArtifact({ address }, 'address').address,
+  };
+};
 
 export type SavePersonOptions = { insertOnly?: boolean };
 
@@ -18,7 +52,7 @@ export const savePerson = async (
   }
 
   try {
-    const dbPerson = mapToDB(collectionName, person);
+    const dbPerson = stampPersonAddress(mapToDB(collectionName, person));
     if (options.insertOnly && person.id) dbPerson.id = person.id;
     const { data, error } = await supabase.from(TABLE_NAME).insert([dbPerson]).select();
 
@@ -26,6 +60,7 @@ export const savePerson = async (
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
     }
+    invalidatePeopleQueryCache();
     return mapFromDB(data[0]);
   } catch (error) {
     console.error(`Erro ao salvar em ${collectionName}: `, error);
@@ -38,13 +73,14 @@ export const savePeopleBatch = async (
   people: Partial<Person>[]
 ): Promise<void> => {
   try {
-    const dbPeople = people.map((p) => mapToDB(collectionName, p));
+    const dbPeople = people.map((p) => stampPersonAddress(mapToDB(collectionName, p)));
     const { error } = await supabase.from(TABLE_NAME).insert(dbPeople);
 
     if (error) throw error;
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
     }
+    invalidatePeopleQueryCache();
   } catch (error) {
     console.error(`Erro ao salvar lote em ${collectionName}: `, error);
     throw error;
@@ -58,6 +94,16 @@ export const updatePerson = async (
 ): Promise<Person> => {
   try {
     const dbPerson = mapToDB(collectionName, personToUpdate);
+    if (getTestArtifactContext()) {
+      const { data: currentPerson, error: readError } = await supabase
+        .from(TABLE_NAME)
+        .select('id,address')
+        .eq('id', id)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (!currentPerson) throw new Error('O cadastro não existe para esta execução de teste.');
+      assertOwnedByTestContext(currentPerson);
+    }
     const { data, error } = await supabase.from(TABLE_NAME).update(dbPerson).eq('id', id).select();
 
     if (error) throw error;
@@ -67,6 +113,7 @@ export const updatePerson = async (
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
     }
+    invalidatePeopleQueryCache();
     return mapFromDB(data[0]);
   } catch (error) {
     console.error(`Erro ao atualizar em ${collectionName}: `, error);
@@ -76,6 +123,7 @@ export const updatePerson = async (
 
 export const moveToTrash = async (collectionName: string, id: string): Promise<void> => {
   try {
+    invalidatePeopleQueryCache();
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let result = null;
 
@@ -103,6 +151,7 @@ export const moveToTrash = async (collectionName: string, id: string): Promise<v
 
 export const restorePerson = async (collectionName: string, id: string): Promise<void> => {
   try {
+    invalidatePeopleQueryCache();
     await updatePerson(collectionName, id, {
       deleted: false,
       deletedAt: undefined,
@@ -116,6 +165,7 @@ export const restorePerson = async (collectionName: string, id: string): Promise
 
 export const permanentDeletePerson = async (collectionName: string, id: string): Promise<void> => {
   try {
+    invalidatePeopleQueryCache();
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let deletedInPeople = false;
 

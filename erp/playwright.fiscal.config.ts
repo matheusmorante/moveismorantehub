@@ -1,12 +1,17 @@
-import 'dotenv/config';
 import path from 'node:path';
+import fs from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
-const OPERATIONAL_SUPABASE_REFS = new Set([
-  'hkoxhourxwlddgsfdgws',
-  'wzpdfmihnwcrgkyagwkd',
-]);
 const EXPECTED_OPERATOR_EMAIL = 'matheusmorante0012@gmail.com';
+const projectRoot = path.resolve(__dirname, '..');
+
+function linkedSupabaseRef(): string {
+  const ref = fs.readFileSync(path.join(projectRoot, 'supabase/.temp/project-ref'), 'utf8').trim();
+  if (!/^[a-z0-9]{20}$/.test(ref)) {
+    throw new Error('E2E fiscal bloqueado: a ref vinculada do Supabase é inválida.');
+  }
+  return ref;
+}
 
 function supabaseRef(value: string | undefined): string | null {
   if (!value) return null;
@@ -24,6 +29,7 @@ function assertFiscalE2eEnvironment(): void {
   const required = [
     'FISCAL_E2E_MODE',
     'FISCAL_E2E_ALLOWED_SUPABASE_REF',
+    'VITE_SUPABASE_URL',
     'SUPABASE_SECRET_KEY',
     'NFE_HML_TEST_OPERATOR_EMAIL',
     'NFE_HML_TEST_OPERATOR_PASSWORD',
@@ -37,18 +43,18 @@ function assertFiscalE2eEnvironment(): void {
 
   const mode = process.env.FISCAL_E2E_MODE;
   const configuredRef = supabaseRef(process.env.VITE_SUPABASE_URL);
+  const expectedRef = linkedSupabaseRef();
   if (
     !['simulated', 'hml'].includes(mode || '') ||
     !configuredRef ||
-    configuredRef !== process.env.FISCAL_E2E_ALLOWED_SUPABASE_REF ||
-    OPERATIONAL_SUPABASE_REFS.has(configuredRef) ||
-    process.env.E2E_ISOLATED_DATA !== '1' ||
+    configuredRef !== expectedRef ||
+    process.env.FISCAL_E2E_ALLOWED_SUPABASE_REF !== expectedRef ||
     process.env.VERCEL_ENV !== 'development' ||
     process.env.MORANTE_ENV_SOURCE !== 'vercel-development' ||
     process.env.NFE_ENVIRONMENT !== '2' ||
     ['true', '1'].includes((process.env.NFE_PRODUCTION_ENABLED || '').toLowerCase())
   ) {
-    throw new Error('E2E fiscal bloqueado: ambiente Development, banco isolado e Homologação são obrigatórios.');
+    throw new Error('E2E fiscal bloqueado: Vercel Development, Supabase vinculado e Homologação são obrigatórios.');
   }
 
   if (
@@ -82,6 +88,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   outputDir: './test-results/fiscal-interface-e2e',
+  globalSetup: './tests/e2e/fiscal/fiscal-policy.global-setup.ts',
   reporter: [
     ['html', { outputFolder: './playwright-report/fiscal-interface-e2e', open: 'never' }],
     ['list'],

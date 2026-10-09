@@ -1,8 +1,9 @@
 import { MASTER_DEFAULT_PROFILE, supabase } from './supabaseClient';
 
 const PROFILE_TIMEOUT_MS = 10000;
+const PROFILE_COLUMNS = 'id,email,full_name,role,roles';
 
-const withTimeout = <T>(promise: Promise<T>) =>
+const withTimeout = <T,>(promise: Promise<T>) =>
   Promise.race<T | null>([
     promise,
     new Promise<null>((resolve) => setTimeout(() => resolve(null), PROFILE_TIMEOUT_MS)),
@@ -18,7 +19,9 @@ export const resolveMobileUserProfile = async (session: any) => {
   }
 
   const response: any = await withTimeout(
-    Promise.resolve(supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle())
+    Promise.resolve(
+      supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle()
+    )
   );
   let profile = response?.data;
   if (!profile) {
@@ -30,7 +33,7 @@ export const resolveMobileUserProfile = async (session: any) => {
         full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
         role: 'pending',
       })
-      .select('*')
+      .select(PROFILE_COLUMNS)
       .maybeSingle();
     profile = data;
   }

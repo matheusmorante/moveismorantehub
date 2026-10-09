@@ -74,7 +74,7 @@ export const redeConciliationService = {
   async syncPendingTransactions() {
     const { data: pending } = await supabase
       .from('rede_transactions')
-      .select('*')
+      .select('tid, order_id, amount, payment_method')
       .eq('status', 'pending')
       .eq('payment_method', 'pix');
 

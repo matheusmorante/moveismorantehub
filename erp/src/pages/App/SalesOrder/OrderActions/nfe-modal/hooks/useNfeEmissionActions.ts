@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
@@ -12,6 +12,7 @@ import {
   clearFiscalEmissionRequest,
   emitNfeForOrder,
   type NfeEmissionResult,
+  type NfeXmlPreviewProof,
   printOrderDanfe,
   updateFiscalNumberPreviewCache,
 } from '@/pages/utils/nfe/nfeService';
@@ -87,15 +88,57 @@ export function useNfeEmissionActions({
   setManualNumberInput,
 }: UseNfeEmissionActionsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreparingPreview, setIsPreparingPreview] = useState(false);
   const [emissionResult, setEmissionResult] = useState<NfeEmissionResult | null>(null);
+  const [xmlPreview, setXmlPreview] = useState<{
+    xml: string;
+    proof: NfeXmlPreviewProof;
+    contextKey: string;
+    freshHmlEmission: boolean;
+  } | null>(null);
+  const [isXmlPreviewOpen, setIsXmlPreviewOpen] = useState(false);
   const [fiscalFieldError, setFiscalFieldError] = useState<FiscalFieldError | null>(null);
   const submissionInProgress = useRef(false);
+
+  const getPreviewContextKey = (numberInput: string | null) => JSON.stringify({
+    order: order
+      ? {
+          id: order.id,
+          updatedAt: (order as Order & { updatedAt?: string }).updatedAt,
+          version: (order as Order & { version?: number }).version,
+          customerData: order.customerData,
+          shipping: order.shipping,
+          paymentsSummary: order.paymentsSummary,
+          items: order.items,
+          fiscalContext: order.fiscalContext,
+        }
+      : null,
+    environment,
+    currentModel,
+    nfeItems,
+    finalConsumer,
+    recipientTaxId,
+    recipientIe,
+    recipientIeIndicator,
+    resolvedTransport,
+    thirdPartyTransporter,
+    manualNumberInput: numberInput,
+  });
+  const previewContextKey = getPreviewContextKey(manualNumberInput);
+  const hasCurrentXmlPreview = Boolean(xmlPreview && xmlPreview.contextKey === previewContextKey);
+  useEffect(() => {
+    if (xmlPreview && xmlPreview.contextKey !== previewContextKey) {
+      setXmlPreview(null);
+      setIsXmlPreviewOpen(false);
+    }
+  }, [previewContextKey, xmlPreview]);
 
   const handleEmit = async (
     productionConfirmed = false,
     isRetry = false,
     retryNumber?: number,
-    freshHmlEmission = false
+    freshHmlEmission = false,
+    previewOnly = false
   ) => {
     if (submissionInProgress.current) return;
     if (!canOperateFiscal) {
@@ -103,6 +146,11 @@ export function useNfeEmissionActions({
       return;
     }
     if (!order) return;
+
+    if (!previewOnly && !isRetry && !hasCurrentXmlPreview) {
+      toast.error('Gere uma nova prévia do XML com as escolhas atuais antes de transmitir.');
+      return;
+    }
 
     if (isSavingAcquisitionPurpose) return;
     if (
@@ -136,9 +184,15 @@ export function useNfeEmissionActions({
       isRetry && emissionResult?.hmlConfirmedNotFound && emissionResult.documentId
         ? emissionResult.documentId
         : undefined;
+    const shouldStartFreshHmlEmission =
+      freshHmlEmission ||
+      (!previewOnly &&
+        !isRetry &&
+        hasCurrentXmlPreview &&
+        xmlPreview?.freshHmlEmission === true);
 
     const manualNumber =
-      retryId || freshHmlEmission
+      retryId || shouldStartFreshHmlEmission
         ? undefined
         : (retryNumber ?? (manualNumberInput !== null ? Number(manualNumberInput) : undefined));
 
@@ -187,7 +241,8 @@ export function useNfeEmissionActions({
 
     setFiscalFieldError(null);
     submissionInProgress.current = true;
-    setIsSubmitting(true);
+    if (previewOnly) setIsPreparingPreview(true);
+    else setIsSubmitting(true);
 
     try {
       const orderWithFiscalItems: Order = {
@@ -218,10 +273,35 @@ export function useNfeEmissionActions({
           ? resolvedTransport.transportResponsible
           : undefined,
         resolvedTransport.freightContractResponsible,
-        freshHmlEmission,
+        shouldStartFreshHmlEmission,
         recipientIe,
-        recipientIeIndicator
+          recipientIeIndicator,
+          {
+            previewOnly,
+            ...(!previewOnly && !isRetry && xmlPreview ? { previewProof: xmlPreview.proof } : {}),
+          }
       );
+
+      if (previewOnly) {
+        if (res.success && res.preview && res.xml && res.previewProof) {
+          setXmlPreview({
+            xml: res.xml,
+            proof: res.previewProof,
+            contextKey: getPreviewContextKey(freshHmlEmission ? null : manualNumberInput),
+            freshHmlEmission,
+          });
+          setIsXmlPreviewOpen(true);
+          toast.success('Prévia pronta. Este XML ainda não foi transmitido nem autorizado pela SEFAZ.');
+        } else {
+          setXmlPreview(null);
+          setIsXmlPreviewOpen(false);
+          toast.error(res.error || 'Não foi possível preparar a prévia do XML.');
+        }
+        return;
+      }
+
+      setXmlPreview(null);
+      setIsXmlPreviewOpen(false);
 
       if (!res.success) {
         setEmissionResult(res);
@@ -267,6 +347,7 @@ export function useNfeEmissionActions({
       if (onSuccess) onSuccess(res);
     } catch (err: unknown) {
       console.error(err);
+      if (!previewOnly) setXmlPreview(null);
       const errObj = err as Record<string, unknown>;
       const failedResult: NfeEmissionResult = {
         success: false,
@@ -298,7 +379,8 @@ export function useNfeEmissionActions({
       setEmissionResult(failedResult);
     } finally {
       submissionInProgress.current = false;
-      setIsSubmitting(false);
+      if (previewOnly) setIsPreparingPreview(false);
+      else setIsSubmitting(false);
     }
   };
 
@@ -393,14 +475,14 @@ export function useNfeEmissionActions({
         setIsSubmitting(false);
       }
 
-      if (readyToEmit) await handleEmit(false, false, undefined, true);
+      if (readyToEmit) await handleEmit(false, false, undefined, true, true);
       return;
     }
 
     clearFiscalEmissionRequest(String(order.id), environment);
     setManualNumberInput(null);
     setEmissionResult(null);
-    await handleEmit(false, false, undefined, true);
+    await handleEmit(false, false, undefined, true, true);
   };
 
   const handleAbandonHmlTlsAttempt = async () => {
@@ -420,10 +502,17 @@ export function useNfeEmissionActions({
 
   return {
     isSubmitting,
+    isPreparingPreview,
     emissionResult,
+    xmlPreview: hasCurrentXmlPreview ? xmlPreview : null,
+    isXmlPreviewOpen: hasCurrentXmlPreview && isXmlPreviewOpen,
+    hasCurrentXmlPreview,
+    closeXmlPreview: () => setIsXmlPreviewOpen(false),
     fiscalFieldError,
     clearFiscalFieldError: () => setFiscalFieldError(null),
     handleEmit,
+    handlePreviewXml: (productionConfirmed = false) =>
+      handleEmit(productionConfirmed, false, undefined, false, true),
     handleReconcile,
     handleStartFreshHmlEmission,
     handleAbandonHmlTlsAttempt,

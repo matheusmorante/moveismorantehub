@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Order, { IsButtonsClicked } from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -65,6 +66,8 @@ export const useOrderHistory = (filters?: any) => {
         window.location.pathname.includes('/mobile') ||
         Boolean((window as any).ReactNativeWebView)));
 
+  const queryClient = useQueryClient();
+
   const refresh = () => {
     const nextSignal = refreshSignalRef.current + 1;
     refreshSignalRef.current = nextSignal;
@@ -73,6 +76,7 @@ export const useOrderHistory = (filters?: any) => {
       fiscalBadgeRefreshWaiters.current.set(nextSignal, [...waiters, resolve]);
     });
     setRefreshSignal(nextSignal);
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
     return refreshComplete;
   };
 
@@ -106,64 +110,39 @@ export const useOrderHistory = (filters?: any) => {
     []
   );
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setFiscalBadgeStatusByOrderId({});
-
-    fetchOrdersPage(currentPage, PAGE_SIZE, filters)
-      .then(({ orders: pageOrders, total }) => {
-        if (!active) return;
-        setOrders(pageOrders);
-        setTotalDatabaseItems(total);
-        setLoading(false);
-        autoFulfillExpiredOrders(pageOrders);
-        const orderIds = pageOrders
-          .map((order) => order.id)
-          .filter((id): id is string => Boolean(id));
-        const requestVersions = Object.fromEntries(
-          orderIds.map((orderId) => [
-            orderId,
-            fiscalBadgeRefreshVersionByOrderId.current[orderId] || 0,
-          ])
+  const { data: pageOrdersData, isLoading: queryLoading } = useQuery({
+    queryKey: ['orders', filters, currentPage],
+    queryFn: async () => {
+      const { orders: pageOrders, total } = await fetchOrdersPage(currentPage, PAGE_SIZE, filters);
+      const orderIds = pageOrders
+        .map((order) => order.id)
+        .filter((id): id is string => Boolean(id));
+      let fiscalStatuses: Record<string, OrderFiscalBadgeStatuses> = {};
+      try {
+        fiscalStatuses = await fetchOrderFiscalBadgeStatuses(orderIds);
+      } catch {
+        console.error(
+          '[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.'
         );
-        void fetchOrderFiscalBadgeStatuses(orderIds)
-          .then((statuses) => {
-            if (!active) return;
-            setFiscalBadgeStatusByOrderId((previous) => {
-              const next = { ...previous };
-              for (const [orderId, status] of Object.entries(statuses)) {
-                if (
-                  (fiscalBadgeRefreshVersionByOrderId.current[orderId] ?? 0) ===
-                  requestVersions[orderId]
-                ) {
-                  next[orderId] = status;
-                }
-              }
-              return next;
-            });
-          })
-          .catch(() => {
-            console.error(
-              '[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.'
-            );
-          })
-          .finally(() => {
-            if (active)
-              resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
-          });
-      })
-      .catch((err) => {
-        if (!active) return;
-        console.error('[useOrderHistory] Erro ao buscar pedidos paginados:', err);
-        setLoading(false);
-        resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
-      });
+      }
+      return { orders: pageOrders, total, fiscalStatuses };
+    },
+    staleTime: 30 * 1000, // 30 segundos em memória
+    gcTime: 5 * 60 * 1000,
+  });
 
-    return () => {
-      active = false;
-    };
-  }, [currentPage, filters, refreshSignal]);
+  useEffect(() => {
+    if (pageOrdersData) {
+      setOrders(pageOrdersData.orders);
+      setTotalDatabaseItems(pageOrdersData.total);
+      setFiscalBadgeStatusByOrderId(pageOrdersData.fiscalStatuses);
+      autoFulfillExpiredOrders(pageOrdersData.orders);
+      setLoading(false);
+      resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
+    } else if (queryLoading) {
+      setLoading(true);
+    }
+  }, [pageOrdersData, queryLoading, refreshSignal]);
 
   useEffect(() => {
     const unsub = subscribeToOrderChanges(() => {

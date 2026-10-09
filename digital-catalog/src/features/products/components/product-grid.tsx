@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { ProductCard } from './product-card';
 import { ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
@@ -37,16 +38,11 @@ interface ProductGridProps {
 const ITEMS_PER_PAGE = CATALOG_PRODUCT_PAGE_SIZE;
 
 export function ProductGrid({ filters }: ProductGridProps) {
+  const queryClient = useQueryClient();
   const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [rawDbProducts, setRawDbProducts] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [hasLoadError, setHasLoadError] = useState(false);
   const [cardStyle, setCardStyle] = useState<StoreDesignSettings>(defaultStoreDesignSettings);
   const { isAdminMode } = useAdminMode();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [dbCategoriesList, setDbCategoriesList] = useState<any[]>([]);
   const gridRef = useRef<HTMLDivElement>(null);
   const [debouncedSearch, setDebouncedSearch] = useState(filters?.search || '');
 
@@ -60,7 +56,8 @@ export function ProductGrid({ filters }: ProductGridProps) {
     const channel = new BroadcastChannel('catalog-updates');
     const handleMessage = (event: MessageEvent) => {
       if (event.data === 'catalog-updated') {
-        setRefreshTrigger((prev) => prev + 1);
+        queryClient.invalidateQueries({ queryKey: ['catalog-products'] });
+        queryClient.invalidateQueries({ queryKey: ['catalog-categories'] });
       }
     };
     channel.addEventListener('message', handleMessage);
@@ -68,330 +65,333 @@ export function ProductGrid({ filters }: ProductGridProps) {
       channel.removeEventListener('message', handleMessage);
       channel.close();
     };
-  }, []);
+  }, [queryClient]);
 
-  useEffect(() => {
-    let isCurrent = true;
+  const { data: dbCategoriesList = [] } = useQuery({
+    queryKey: ['catalog-categories'],
+    queryFn: async () => {
+      const { data } = await supabase.from('categories').select('id, name, slug, type');
+      return data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-    async function fetchProducts() {
-      setLoading(true);
-      setHasLoadError(false);
-      try {
-        if (debouncedSearch.trim() && !isCatalogSearchLongEnough(debouncedSearch)) {
-          setRawDbProducts([]);
-          setAllProducts([]);
-          setTotalProducts(0);
-          return;
+  const {
+    data: catalogData,
+    isLoading: loading,
+    isError: hasLoadError,
+  } = useQuery({
+    queryKey: [
+      'catalog-products',
+      currentPage,
+      debouncedSearch,
+      filters?.minPrice,
+      filters?.maxPrice,
+      filters?.type,
+      filters?.sortBy,
+      filters?.envs,
+      filters?.cats,
+    ],
+    queryFn: async () => {
+      if (debouncedSearch.trim() && !isCatalogSearchLongEnough(debouncedSearch)) {
+        return { results: [], total: 0, cardStyle: null };
+      }
+
+      let allowedCategoryIds: string[] = [];
+
+      if (filters?.envs && filters.envs.length > 0) {
+        const { data: rels } = await supabase
+          .from('category_relationships')
+          .select('child_id')
+          .in('parent_id', filters.envs);
+
+        allowedCategoryIds = [...filters.envs, ...(rels?.map((r) => r.child_id) || [])];
+      }
+
+      // Se type for um slug legível de Oportunidade, resolve para o UUID real
+      let resolvedOppId = filters?.type || 'all';
+      if (
+        resolvedOppId &&
+        resolvedOppId !== 'all' &&
+        resolvedOppId !== 'salvados' &&
+        resolvedOppId !== 'promotion'
+      ) {
+        const { data: dbOpps } = await supabase.from('opportunities').select('id, name, slug');
+        if (dbOpps) {
+          const matchedOpp = dbOpps.find(
+            (o: any) =>
+              o.id === resolvedOppId ||
+              (o.slug && o.slug.toLowerCase().trim() === resolvedOppId.toLowerCase().trim()) ||
+              slugifyText(o.name) === slugifyText(resolvedOppId)
+          );
+          if (matchedOpp) resolvedOppId = matchedOpp.id;
         }
+      }
 
-        let allowedCategoryIds: string[] = [];
+      const selectedCategoryIds = Array.from(
+        new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
+      );
+      const searchTerm = isCatalogSearchLongEnough(debouncedSearch) ? debouncedSearch.trim() : '';
 
-        if (filters?.envs && filters.envs.length > 0) {
-          const { data: rels } = await supabase
-            .from('category_relationships')
-            .select('child_id')
-            .in('parent_id', filters.envs);
-
-          allowedCategoryIds = [...filters.envs, ...(rels?.map((r) => r.child_id) || [])];
-        }
-
-        // Se type for um slug legível de Oportunidade, resolve para o UUID real
-        let resolvedOppId = filters?.type || 'all';
-        if (
-          resolvedOppId &&
-          resolvedOppId !== 'all' &&
-          resolvedOppId !== 'salvados' &&
-          resolvedOppId !== 'promotion'
-        ) {
-          const { data: dbOpps } = await supabase.from('opportunities').select('id, name, slug');
-          if (dbOpps) {
-            const matchedOpp = dbOpps.find(
-              (o: any) =>
-                o.id === resolvedOppId ||
-                (o.slug && o.slug.toLowerCase().trim() === resolvedOppId.toLowerCase().trim()) ||
-                slugifyText(o.name) === slugifyText(resolvedOppId)
-            );
-            if (matchedOpp) resolvedOppId = matchedOpp.id;
+      let searchProductIds: string[] | null = null;
+      let searchResultCount: number | null = null;
+      if (searchTerm) {
+        const { data: searchRows, error: searchError } = await supabase.rpc(
+          'search_catalog_product_page',
+          {
+            p_search: searchTerm,
+            p_category_ids: filters?.cats?.length ? filters.cats : null,
+            p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,
+            p_type: resolvedOppId,
+            p_min_price: filters?.minPrice ?? 0,
+            p_max_price: filters?.maxPrice ?? 10000,
+            p_page: currentPage,
+            p_page_size: ITEMS_PER_PAGE,
+            p_sort_by: filters?.sortBy || 'newest',
           }
-        }
-
-        const selectedCategoryIds = Array.from(
-          new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
         );
-        const searchTerm = isCatalogSearchLongEnough(debouncedSearch) ? debouncedSearch.trim() : '';
+        if (searchError) throw searchError;
+        searchProductIds = (searchRows || []).map(
+          (row: { product_id: string }) => row.product_id
+        );
+        searchResultCount = Number(searchRows?.[0]?.total_count || 0);
+      }
 
-        let searchProductIds: string[] | null = null;
-        let searchResultCount: number | null = null;
-        if (searchTerm) {
-          const { data: searchRows, error: searchError } = await supabase.rpc(
-            'search_catalog_product_page',
-            {
-              p_search: searchTerm,
-              p_category_ids: filters?.cats?.length ? filters.cats : null,
-              p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,
-              p_type: resolvedOppId,
-              p_min_price: filters?.minPrice ?? 0,
-              p_max_price: filters?.maxPrice ?? 10000,
-              p_page: currentPage,
-              p_page_size: ITEMS_PER_PAGE,
-              p_sort_by: filters?.sortBy || 'newest',
-            }
-          );
-          if (searchError) throw searchError;
-          searchProductIds = (searchRows || []).map(
-            (row: { product_id: string }) => row.product_id
-          );
-          searchResultCount = Number(searchRows?.[0]?.total_count || 0);
+      function buildProductsQuery(
+        hasDeletedAt: boolean,
+        hasOpportunities: boolean,
+        productIds?: string[]
+      ) {
+        let q: any = supabase.from('products');
+
+        const productCategoriesSelect = productIds
+          ? 'product_categories(category_id, categories(name))'
+          : selectedCategoryIds.length > 0
+            ? 'product_categories!inner(category_id, categories(name))'
+            : 'product_categories(category_id, categories(name))';
+        const selColumns =
+          `
+          id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
+          product_images(image_url, is_main),
+          product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
+          ${productCategoriesSelect}
+        ` +
+          (hasOpportunities
+            ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)`
+            : ``);
+
+        q = q.select(selColumns, { count: 'exact' });
+        q = q.eq('status', 'published');
+
+        if (hasDeletedAt) {
+          q = q.is('deleted_at', null);
         }
 
-        function buildProductsQuery(
-          hasDeletedAt: boolean,
-          hasOpportunities: boolean,
-          productIds?: string[]
-        ) {
-          let q = supabase.from('products');
-
-          // Categorias são exclusivamente relacionais: um produto pode ter várias.
-          // O !inner permite filtrar e paginar no servidor sem depender de category_id legado.
-          const productCategoriesSelect = productIds
-            ? 'product_categories(category_id, categories(name))'
-            : selectedCategoryIds.length > 0
-              ? 'product_categories!inner(category_id, categories(name))'
-              : 'product_categories(category_id, categories(name))';
-          const selColumns =
-            `
-            id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
-            product_images(image_url, is_main),
-            product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
-            ${productCategoriesSelect}
-          ` +
-            (hasOpportunities
-              ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)`
-              : ``);
-
-          q = q.select(selColumns, { count: 'exact' });
-          q = q.eq('status', 'published');
-
-          if (hasDeletedAt) {
-            q = q.is('deleted_at', null);
-          }
-
-          if (productIds) {
-            q = q.in('id', productIds);
-          }
-
-          if (!productIds && selectedCategoryIds.length > 0) {
-            q = q.in('product_categories.category_id', selectedCategoryIds);
-          }
-
-          if (!productIds && resolvedOppId === 'salvados') {
-            q = q.eq('is_salvado', true);
-          } else if (!productIds && resolvedOppId === 'promotion') {
-            q = q.not('promo_price', 'is', null);
-          } else if (!productIds && resolvedOppId && resolvedOppId !== 'all') {
-            q = q.eq('opportunity_id', resolvedOppId);
-          }
-
-          if (!productIds && (filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
-          if (!productIds && (filters?.maxPrice ?? 10000) < 10000)
-            q = q.lte('price', filters!.maxPrice);
-
-          const sortBy = filters?.sortBy || 'newest';
-          if (sortBy === 'price-asc') q = q.order('price', { ascending: true });
-          else if (sortBy === 'price-desc') q = q.order('price', { ascending: false });
-          else if (sortBy === 'title-asc') q = q.order('name', { ascending: true });
-          else q = q.order('created_at', { ascending: false });
-
-          if (productIds) return q;
-          const from = (currentPage - 1) * ITEMS_PER_PAGE;
-          return q.range(from, from + ITEMS_PER_PAGE - 1);
+        if (productIds) {
+          q = q.in('id', productIds);
         }
 
-        const stylePromise = getCachedStoreStyleSettings();
-
-        let hasDeletedAt = true;
-        let hasOpportunities = true;
-        let data: any[] | null = null;
-        let error: any = null;
-        let count: number | null = null;
-        if (searchProductIds) {
-          count = searchResultCount;
-          if (searchProductIds.length > 0) {
-            const result = await buildProductsQuery(
-              hasDeletedAt,
-              hasOpportunities,
-              searchProductIds
-            );
-            data = result.data;
-            error = result.error;
-          } else {
-            data = [];
-          }
-        } else {
-          const result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
-          data = result.data;
-          error = result.error;
-          count = result.count;
+        if (!productIds && selectedCategoryIds.length > 0) {
+          q = q.in('product_categories.category_id', selectedCategoryIds);
         }
 
-        if (error) {
-          console.warn(
-            'Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:',
-            error
-          );
+        if (!productIds && resolvedOppId === 'salvados') {
+          q = q.eq('is_salvado', true);
+        } else if (!productIds && resolvedOppId === 'promotion') {
+          q = q.not('promo_price', 'is', null);
+        } else if (!productIds && resolvedOppId && resolvedOppId !== 'all') {
+          q = q.eq('opportunity_id', resolvedOppId);
+        }
 
-          if (error.code === '42703' && error.message?.includes('deleted_at')) {
-            hasDeletedAt = false;
-          }
-          if (error.code === '42P01' && error.message?.includes('opportunities')) {
-            hasOpportunities = false;
-          }
+        if (!productIds && (filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
+        if (!productIds && (filters?.maxPrice ?? 10000) < 10000)
+          q = q.lte('price', filters!.maxPrice);
 
-          const secondAttempt = await buildProductsQuery(
+        const sortBy = filters?.sortBy || 'newest';
+        if (sortBy === 'price-asc') q = q.order('price', { ascending: true });
+        else if (sortBy === 'price-desc') q = q.order('price', { ascending: false });
+        else if (sortBy === 'title-asc') q = q.order('name', { ascending: true });
+        else q = q.order('created_at', { ascending: false });
+
+        if (productIds) return q;
+        const from = (currentPage - 1) * ITEMS_PER_PAGE;
+        return q.range(from, from + ITEMS_PER_PAGE - 1);
+      }
+
+      const stylePromise = getCachedStoreStyleSettings();
+
+      let hasDeletedAt = true;
+      let hasOpportunities = true;
+      let data: any[] | null = null;
+      let error: any = null;
+      let count: number | null = null;
+      if (searchProductIds) {
+        count = searchResultCount;
+        if (searchProductIds.length > 0) {
+          const result = await buildProductsQuery(
             hasDeletedAt,
             hasOpportunities,
-            searchProductIds !== null ? searchProductIds : undefined
+            searchProductIds
           );
-
-          if (secondAttempt.error) {
-            if (secondAttempt.error.code === '42703' || secondAttempt.error.code === '42P01') {
-              const thirdAttempt = await buildProductsQuery(
-                false,
-                false,
-                searchProductIds !== null ? searchProductIds : undefined
-              );
-              if (thirdAttempt.error) throw thirdAttempt.error;
-              data = thirdAttempt.data;
-              count = thirdAttempt.count;
-              hasOpportunities = false;
-            } else {
-              throw secondAttempt.error;
-            }
-          } else {
-            data = secondAttempt.data;
-            count = secondAttempt.count;
-          }
+          data = result.data;
+          error = result.error;
+        } else {
+          data = [];
         }
-
-        const rawProducts = searchProductIds
-          ? orderCatalogSearchResultsByIds(data || [], searchProductIds)
-          : data || [];
-        let results: any[] = [];
-
-        for (const p of rawProducts) {
-          if (!hasPublicCatalogItem(p)) continue;
-          const allVariations = p.product_variations || [];
-          const variations =
-            p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || [];
-
-          const finalOpportunities =
-            p.opportunities ||
-            (p.is_salvado
-              ? {
-                  name: 'Salvados',
-                  badge_color: 'bg-red-600',
-                  border_color: 'border-orange-500',
-                  border_style: 'solid',
-                  badge_animation: 'pulse',
-                }
-              : null);
-
-          const mappedProduct = {
-            ...p,
-            opportunities: finalOpportunities,
-          };
-
-          if (allVariations.length > 0) {
-            for (const v of variations) {
-              const varPrice =
-                v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price;
-              const varPromoPrice =
-                v.use_parent_promo_price === false && v.promo_price
-                  ? parseFloat(v.promo_price)
-                  : p.promo_price;
-              const varImg =
-                (v.image_url && v.image_url.includes(',')
-                  ? v.image_url.split(',')[0]
-                  : v.image_url) ||
-                p.product_images?.find((img: any) => img.is_main)?.image_url ||
-                p.product_images?.[0]?.image_url;
-
-              const isParentName = v.use_parent_name !== false;
-              const comboName = Object.values(v.attributes || {})
-                .map((attributeValue: any) => {
-                  if (attributeValue === null || attributeValue === undefined) return '';
-                  if (typeof attributeValue === 'object') {
-                    return String(
-                      attributeValue.value ?? attributeValue.label ?? attributeValue.name ?? ''
-                    );
-                  }
-                  return String(attributeValue);
-                })
-                .filter(Boolean)
-                .join(' / ');
-
-              const displayName =
-                !isParentName && v.name
-                  ? v.name
-                  : v.name || (comboName ? `${p.name} - ${comboName}` : p.name);
-
-              results.push({
-                ...mappedProduct,
-                id: `${p.id}-${v.id}`,
-                realProductId: p.id,
-                name: displayName,
-                sku: v.sku || p.code || '',
-                price: varPrice,
-                promo_price: varPromoPrice,
-                image_url: varImg,
-                slug: `${p.slug}?var=${v.id}`,
-                is_variation: true,
-              });
-            }
-          } else {
-            results.push(mappedProduct);
-          }
-        }
-
-        const { data: styleData, error: styleError } = await stylePromise;
-        if (!isCurrent) return;
-        if (!styleError && styleData)
-          setCardStyle({ ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings);
-
-        const { data: catsList } = await supabase.from('categories').select('id, name, slug, type');
-        if (!isCurrent) return;
-        setDbCategoriesList(catsList || []);
-        setRawDbProducts(results);
-        if (results.length === 0) setAllProducts([]);
-        setTotalProducts(searchProductIds ? searchResultCount || 0 : count || 0);
-      } catch (error) {
-        if (isCurrent) {
-          console.error('Erro ao carregar produtos:', error);
-          setHasLoadError(true);
-        }
-      } finally {
-        if (isCurrent) setLoading(false);
+      } else {
+        const result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
+        data = result.data;
+        error = result.error;
+        count = result.count;
       }
-    }
 
-    fetchProducts();
-    return () => {
-      isCurrent = false;
-    };
-  }, [
-    refreshTrigger,
-    currentPage,
-    debouncedSearch,
-    filters?.minPrice,
-    filters?.maxPrice,
-    filters?.type,
-    filters?.sortBy,
-    filters?.envs,
-    filters?.cats,
-  ]);
+      if (error) {
+        console.warn(
+          'Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:',
+          error
+        );
+
+        if (error.code === '42703' && error.message?.includes('deleted_at')) {
+          hasDeletedAt = false;
+        }
+        if (error.code === '42P01' && error.message?.includes('opportunities')) {
+          hasOpportunities = false;
+        }
+
+        const secondAttempt = await buildProductsQuery(
+          hasDeletedAt,
+          hasOpportunities,
+          searchProductIds !== null ? searchProductIds : undefined
+        );
+
+        if (secondAttempt.error) {
+          if (secondAttempt.error.code === '42703' || secondAttempt.error.code === '42P01') {
+            const thirdAttempt = await buildProductsQuery(
+              false,
+              false,
+              searchProductIds !== null ? searchProductIds : undefined
+            );
+            if (thirdAttempt.error) throw thirdAttempt.error;
+            data = thirdAttempt.data;
+            count = thirdAttempt.count;
+            hasOpportunities = false;
+          } else {
+            throw secondAttempt.error;
+          }
+        } else {
+          data = secondAttempt.data;
+          count = secondAttempt.count;
+        }
+      }
+
+      const rawProducts = searchProductIds
+        ? orderCatalogSearchResultsByIds(data || [], searchProductIds)
+        : data || [];
+      let results: any[] = [];
+
+      for (const p of rawProducts) {
+        if (!hasPublicCatalogItem(p)) continue;
+        const allVariations = p.product_variations || [];
+        const variations =
+          p.product_variations?.filter((v: any) => isPublicCatalogVariation(v)) || [];
+
+        const finalOpportunities =
+          p.opportunities ||
+          (p.is_salvado
+            ? {
+                name: 'Salvados',
+                badge_color: 'bg-red-600',
+                border_color: 'border-orange-500',
+                border_style: 'solid',
+                badge_animation: 'pulse',
+              }
+            : null);
+
+        const mappedProduct = {
+          ...p,
+          opportunities: finalOpportunities,
+        };
+
+        if (allVariations.length > 0) {
+          for (const v of variations) {
+            const varPrice =
+              v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price;
+            const varPromoPrice =
+              v.use_parent_promo_price === false && v.promo_price
+                ? parseFloat(v.promo_price)
+                : p.promo_price;
+            const varImg =
+              (v.image_url && v.image_url.includes(',')
+                ? v.image_url.split(',')[0]
+                : v.image_url) ||
+              p.product_images?.find((img: any) => img.is_main)?.image_url ||
+              p.product_images?.[0]?.image_url;
+
+            const isParentName = v.use_parent_name !== false;
+            const comboName = Object.values(v.attributes || {})
+              .map((attributeValue: any) => {
+                if (attributeValue === null || attributeValue === undefined) return '';
+                if (typeof attributeValue === 'object') {
+                  return String(
+                    attributeValue.value ?? attributeValue.label ?? attributeValue.name ?? ''
+                  );
+                }
+                return String(attributeValue);
+              })
+              .filter(Boolean)
+              .join(' / ');
+
+            const displayName =
+              !isParentName && v.name
+                ? v.name
+                : v.name || (comboName ? `${p.name} - ${comboName}` : p.name);
+
+            results.push({
+              ...mappedProduct,
+              id: `${p.id}-${v.id}`,
+              realProductId: p.id,
+              name: displayName,
+              sku: v.sku || p.code || '',
+              price: varPrice,
+              promo_price: varPromoPrice,
+              image_url: varImg,
+              slug: `${p.slug}?var=${v.id}`,
+              is_variation: true,
+            });
+          }
+        } else {
+          results.push(mappedProduct);
+        }
+      }
+
+      const { data: styleData, error: styleError } = await stylePromise;
+      let loadedCardStyle = null;
+      if (!styleError && styleData) {
+        loadedCardStyle = { ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings;
+      }
+
+      const total = searchProductIds ? searchResultCount || 0 : count || 0;
+      return { results, total, cardStyle: loadedCardStyle };
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  const rawDbProducts = catalogData?.results || [];
+  const totalProducts = catalogData?.total || 0;
 
   useEffect(() => {
-    if (rawDbProducts.length === 0) return;
+    if (catalogData?.cardStyle) {
+      setCardStyle(catalogData.cardStyle);
+    }
+  }, [catalogData?.cardStyle]);
+
+  useEffect(() => {
+    if (rawDbProducts.length === 0) {
+      setAllProducts([]);
+      return;
+    }
 
     let filtered = [...rawDbProducts];
     const isServerSearch = isCatalogSearchLongEnough(debouncedSearch);
@@ -628,7 +628,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         </p>
         <button
           type="button"
-          onClick={() => setRefreshTrigger((current) => current + 1)}
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['catalog-products'] })}
           className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Tentar novamente

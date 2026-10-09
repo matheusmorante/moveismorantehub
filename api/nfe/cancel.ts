@@ -12,10 +12,18 @@ import {
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
-import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { getGoodsCirculationState } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
+import {
+  assertAuthorizedFiscalSnapshot,
+  findFiscalOrderEditChanges,
+  hasPotentialFiscalOrderEdit,
+  projectOrderDataForFiscalEdit,
+  type AuthorizedFiscalDocumentForEdit,
+} from './orderEditFiscalAudit';
+import type { FiscalSnapshotCandidate } from './fiscalSnapshot';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -61,11 +69,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const documentId = String(req.body?.documentId || '');
   const reason = String(req.body?.reason || '').trim();
+  const viaOrderEdit = req.body?.viaOrderEdit === true;
+  const orderEditOrderId = String(req.body?.orderId || '');
+  let orderEditVersion = String(req.body?.orderUpdatedAt || '');
+  let proposedOrder = req.body?.proposedOrder;
+  const replacementId = String(req.body?.replacementId || '');
   const reasonError = validateCancellationReason(reason);
   if (!documentId || reasonError)
     return res
       .status(400)
       .json({ success: false, error: reasonError || 'Documento fiscal não informado.' });
+  if (
+    viaOrderEdit && !replacementId &&
+    (!orderEditOrderId ||
+      !orderEditVersion ||
+      !proposedOrder ||
+      typeof proposedOrder !== 'object' ||
+      Array.isArray(proposedOrder) ||
+      JSON.stringify(proposedOrder).length > 1_000_000)
+  )
+    return res.status(400).json({
+      success: false,
+      error: 'A confirmação de edição fiscal está incompleta ou excede o limite permitido.',
+    });
 
   try {
     const { data: doc, error: docError } = await supabase
@@ -116,21 +142,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     let physicalCirculationConfirmed = false;
     let commercialOrderStatus: string | null = null;
+    let linkedOrder: Record<string, any> | null = null;
     if (doc.order_id) {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .select(
-          'status,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_type,order_data'
+          'id,status,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method,order_type,order_data'
         )
         .eq('id', doc.order_id)
         .maybeSingle();
-      if (orderError)
+      if (orderError || !order)
         return res.status(503).json({
           success: false,
           error: 'Não foi possível verificar a circulação da mercadoria.',
         });
+      linkedOrder = order as Record<string, any>;
       commercialOrderStatus = String(order?.status || '').toLowerCase();
-      physicalCirculationConfirmed = hasGoodsCirculated(order);
+      const circulationState = getGoodsCirculationState(order);
+      physicalCirculationConfirmed = circulationState === 'completed';
+      if (circulationState === 'in_progress')
+        return res.status(409).json({
+          success: false,
+          error: 'A entrega ou retirada ainda não foi confirmada. Aguarde o registro de entrega, recusa ou retorno antes de cancelar a nota.',
+        });
       const orderType = String(
         order?.order_type || order?.order_data?.orderType || 'sale'
       ).toLowerCase();
@@ -139,6 +173,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: 'O pedido vinculado não é uma venda elegível para este cancelamento fiscal.',
         });
+    }
+    if (viaOrderEdit && (!linkedOrder || orderEditOrderId !== String(doc.order_id)))
+      return res.status(409).json({
+        success: false,
+        error: 'A edição fiscal não corresponde ao pedido vinculado à nota.',
+      });
+
+    if (viaOrderEdit && !replacementId)
+      return res.status(409).json({ success: false, error: 'Registre a substituição fiscal antes de cancelar a nota por edição.' });
+    if (viaOrderEdit && replacementId) {
+      const { data: replacement, error } = await supabase.from('nfe_order_edit_replacements')
+        .select('id,edited_order_data,expected_updated_at,original_order_data').eq('id', replacementId).eq('order_id', doc.order_id)
+        .eq('original_document_id', doc.id).eq('environment', doc.ambiente)
+        .eq('reversal_kind', 'cancel').eq('status', 'awaiting_reversal').maybeSingle();
+      if (error || !replacement || linkedOrder?.status !== 'scheduled' ||
+        new Date(linkedOrder.updated_at).getTime() !== new Date(replacement.expected_updated_at).getTime())
+        return res.status(409).json({ success: false, error: 'Substituição fiscal não registrada ou pedido indisponível.' });
+      proposedOrder = replacement.edited_order_data;
+      orderEditVersion = replacement.expected_updated_at;
     }
 
     const { data: priorEvents, error: priorError } = await supabase
@@ -263,6 +316,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'O histórico local já registra evento aceito, mas a consulta ainda não o reflete. Não retransmita; reconciliação fiscal necessária.',
         });
     }
+    if (viaOrderEdit) {
+      if (String(linkedOrder?.updated_at || '') !== orderEditVersion)
+        return res.status(409).json({
+          success: false,
+          error: 'O pedido foi alterado desde a conferência. Confira novamente os dados antes de cancelar a nota.',
+        });
+
+      const currentOrderData = (linkedOrder?.order_data || {}) as Record<string, any>;
+      const proposedOrderData = projectOrderDataForFiscalEdit(
+        currentOrderData,
+        proposedOrder as Record<string, any>
+      );
+      if (!replacementId && !hasPotentialFiscalOrderEdit(currentOrderData, proposedOrderData))
+        return res.status(409).json({
+          success: false,
+          error: 'A edição proposta não altera dados fiscais; a nota não será cancelada.',
+        });
+
+      const { data: pendingDocuments, error: pendingDocumentsError } = await supabase
+        .from('nfe_documents')
+        .select('id,status')
+        .eq('order_id', doc.order_id)
+        .in('status', ['processando', 'pendente', 'unknown', 'transmitting']);
+      if (pendingDocumentsError)
+        return res.status(503).json({
+          success: false,
+          error: 'Não foi possível verificar tentativas fiscais em andamento para o pedido.',
+        });
+      if (pendingDocuments?.length)
+        return res.status(409).json({
+          success: false,
+          pending: true,
+          error: 'Existe uma tentativa fiscal sem resultado confirmado. Consulte a SEFAZ antes de alterar o pedido.',
+        });
+
+      const { data: snapshotRow, error: snapshotError } = await supabase
+        .from('nfe_fiscal_snapshots')
+        .select('snapshot_data')
+        .eq('emission_request_id', doc.emission_request_id)
+        .eq('order_id', doc.order_id)
+        .maybeSingle();
+      if (snapshotError || !snapshotRow?.snapshot_data)
+        return res.status(409).json({
+          success: false,
+          error: 'Não existe fotografia fiscal imutável para validar o cancelamento desta edição.',
+        });
+      try {
+        const snapshot = snapshotRow.snapshot_data as FiscalSnapshotCandidate;
+        const fiscalDocument = assertAuthorizedFiscalSnapshot(
+          snapshot,
+          doc as AuthorizedFiscalDocumentForEdit
+        );
+        const changes = findFiscalOrderEditChanges(snapshot, proposedOrderData, fiscalDocument);
+        if (!changes.length)
+          return res.status(409).json({
+            success: false,
+            error: 'O pedido proposto corresponde ao XML autorizado; a nota não será cancelada.',
+          });
+      } catch (error) {
+        return res.status(409).json({
+          success: false,
+          error: error instanceof Error
+            ? error.message
+            : 'Não foi possível validar a edição contra o XML autorizado.',
+        });
+      }
+    }
     if (physicalCirculationConfirmed) {
       return res.status(409).json({
         success: false,
@@ -270,7 +390,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'Há confirmação de circulação/entrega. A NF-e original deve permanecer válida; siga o fluxo fiscal de devolução.',
       });
     }
-    if (doc.order_id && !['cancelled', 'cancelado'].includes(commercialOrderStatus || ''))
+    if (
+      !viaOrderEdit &&
+      doc.order_id &&
+      !['cancelled', 'cancelado'].includes(commercialOrderStatus || '')
+    )
       return res.status(409).json({
         success: false,
         error:

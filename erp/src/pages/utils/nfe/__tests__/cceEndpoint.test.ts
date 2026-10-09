@@ -195,93 +195,47 @@ describe('API de Carta de Correção Eletrônica', () => {
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
-  it('persiste apenas a CC-e confirmada e devolve protocolo', async () => {
+  it('bloqueia nova CC-e, mesmo para uma correção mínima, sem reservar evento nem transmitir', async () => {
     const { db, events } = database();
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz.mockResolvedValue(
-      '<retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado e vinculado à NF-e</xMotivo><nProt>141260000000001</nProt><dhRegEvento>2026-09-29T12:00:00-03:00</dhRegEvento></infEvento></retEvento>'
-    );
     const handler = (await import('../../../../../../api/nfe/cce')).default;
     const result = response();
-
-    await handler(
-      authorizedRequest({
-        action: 'transmit',
-        correction: 'Correção válida do endereço de entrega.',
-        requestId,
-      }),
-      result.res
-    );
-
-    expect(result.statusCode).toBe(200);
-    expect(result.body).toMatchObject({
-      success: true,
-      sequence: 1,
-      cStat: '135',
-      protocolNumber: '141260000000001',
-    });
-    expect(events[0]).toMatchObject({
-      status: 'registered',
-      cstat: '135',
-      protocol_number: '141260000000001',
-    });
-    expect(mocks.sendSoapToSefaz).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4',
-      })
-    );
-
-    const retryResult = response();
-    await handler(
-      authorizedRequest({
-        action: 'transmit',
-        correction: 'Correção válida do endereço de entrega.',
-        requestId,
-      }),
-      retryResult.res
-    );
-    expect(retryResult.statusCode).toBe(200);
-    expect(retryResult.body).toMatchObject({ success: true, alreadyProcessed: true, sequence: 1 });
-    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+    await handler(authorizedRequest({ action: 'transmit', correction: 'Correção válida do endereço de entrega.', requestId }), result.res);
+    expect(result.statusCode).toBe(409);
+    expect(result.body).toMatchObject({ success: false, code: 'CCE_DISABLED_BY_ORDER_EDIT_POLICY' });
+    expect(events).toHaveLength(0);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(mocks.signNfeEventXml).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
-  it('não retransmite após timeout e reconcilia pela consulta da chave', async () => {
+  it('preserva a consulta ao histórico, sem oferecer próxima sequência', async () => {
     const { db, events } = database();
+    events.push({ id: 'historical', document_id: documentId, event_type: '110110', event_sequence: 1, attempt_number: 1, status: 'registered', justification: 'Correção histórica.' });
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz
-      .mockRejectedValueOnce(new Error('socket timeout'))
-      .mockResolvedValueOnce(
-        '<retConsSitNFe><procEventoNFe><evento><infEvento><tpEvento>110110</tpEvento><nSeqEvento>1</nSeqEvento></infEvento></evento><retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo><nProt>141260000000002</nProt><dhRegEvento>2026-09-29T12:01:00-03:00</dhRegEvento></infEvento></retEvento></procEventoNFe></retConsSitNFe>'
-      );
     const handler = (await import('../../../../../../api/nfe/cce')).default;
-    const transmitResult = response();
+    const result = response();
+    await handler(authorizedRequest({}, 'GET'), result.res);
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({ previousCorrection: 'Correção histórica.', nextSequence: null, creationDisabled: true });
+    expect(events).toHaveLength(1);
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
 
-    await handler(
-      authorizedRequest({
-        action: 'transmit',
-        correction: 'Correção válida do endereço de entrega.',
-        requestId,
-      }),
-      transmitResult.res
-    );
-
-    expect(transmitResult.statusCode).toBe(202);
-    expect(transmitResult.body).toMatchObject({ pending: true });
-    expect(events[0].status).toBe('unknown');
-
-    const reconcileResult = response();
-    await handler(authorizedRequest({ action: 'reconcile' }), reconcileResult.res);
-
-    expect(reconcileResult.statusCode).toBe(200);
-    expect(reconcileResult.body).toMatchObject({ success: true, reconciled: true, sequence: 1 });
-    expect(events[0]).toMatchObject({
-      status: 'registered',
-      cstat: '135',
-      protocol_number: '141260000000002',
-    });
-    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
-    expect(mocks.sendSoapToSefaz.mock.calls[1][0].url).toBe(
-      'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4'
-    );
+  it('reconcilia uma tentativa histórica incerta sem emitir novo evento', async () => {
+    const { db, events } = database();
+    events.push({ id: 'historical', document_id: documentId, event_type: '110110', event_sequence: 1, attempt_number: 1, status: 'unknown', requested_at: '2026-09-29T12:00:00Z' });
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockResolvedValue('<retConsSitNFe><procEventoNFe><evento><infEvento><tpEvento>110110</tpEvento><nSeqEvento>1</nSeqEvento></infEvento></evento><retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo><nProt>141260000000002</nProt><dhRegEvento>2026-09-29T12:01:00-03:00</dhRegEvento></infEvento></retEvento></procEventoNFe></retConsSitNFe>');
+    const handler = (await import('../../../../../../api/nfe/cce')).default;
+    const result = response();
+    await handler(authorizedRequest({ action: 'reconcile' }), result.res);
+    expect(result.statusCode).toBe(200);
+    expect(result.body).toMatchObject({ success: true, reconciled: true, sequence: 1 });
+    expect(events[0]).toMatchObject({ status: 'registered', cstat: '135', protocol_number: '141260000000002' });
+    expect(events).toHaveLength(1);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+    expect(mocks.sendSoapToSefaz.mock.calls[0][0].url).toBe('https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4');
   });
 });

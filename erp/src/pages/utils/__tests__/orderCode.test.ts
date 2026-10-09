@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('./supabaseConfig', () => ({ supabase: {} }));
+vi.mock('../supabaseConfig', () => ({ supabase: {} }));
 
 import { formatOrderCode, resolveOrderIndexForUpdate } from '../orderCode';
 
@@ -18,8 +18,8 @@ describe('imutabilidade do código do pedido', () => {
   });
 
   it('ignora estritamente pedidos na faixa de teste (>= 800000) no cálculo da sequência legítima', async () => {
-    const { getNextOrderIndex } = await import('./orderCode');
-    const { supabase } = await import('./supabaseConfig');
+    const { getNextOrderIndex } = await import('../orderCode');
+    const { supabase } = await import('../supabaseConfig');
 
     // Mock de pedidos no banco contendo pedidos reais e pedidos de teste residuais
     (supabase as any).from = vi.fn().mockReturnValue({

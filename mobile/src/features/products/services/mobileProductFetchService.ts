@@ -9,12 +9,18 @@ export interface MobileProductFilterOptions {
   catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
   includeMerged?: boolean;
+  summaryOnly?: boolean;
   itemType?: 'standard' | 'composition';
   generalType?: 'all' | 'product' | 'service';
   throwOnError?: boolean;
 }
 
 const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').trim();
+
+const MOBILE_PRODUCT_LIST_COLUMNS =
+  '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
+const MOBILE_PRODUCT_SUMMARY_COLUMNS =
+  'id, name, description, code, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, item_type, is_draft, product_categories(category_id), product_variations(sku, active, merged_to_variation_id)';
 
 export const fetchMobileProductsPage = async (
   page: number,
@@ -27,10 +33,9 @@ export const fetchMobileProductsPage = async (
 
     let query = supabase
       .from('products')
-      .select(
-        '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)',
-        { count: 'exact' }
-      )
+      .select(options?.summaryOnly ? MOBILE_PRODUCT_SUMMARY_COLUMNS : MOBILE_PRODUCT_LIST_COLUMNS, {
+        count: 'exact',
+      })
       .eq('deleted', false);
 
     if (options?.itemType === 'composition') {
@@ -158,6 +163,64 @@ export const fetchMobileProductsPage = async (
       (categoryRows || []).forEach((category: any) => {
         categoryNames.set(String(category.id), category.name);
       });
+    }
+
+    if (options?.summaryOnly) {
+      const summaries = (data || []).map((product: any) => {
+        const parentCode = product.code || product.sku || '000000';
+        let variations = (product.product_variations || [])
+          .filter(
+            (variation: any) => options.includeMerged === true || !variation.merged_to_variation_id
+          )
+          .map((variation: any) => ({
+            sku: variation.sku,
+            active: variation.active !== false,
+          }));
+
+        if (
+          variations.length === 0 &&
+          (product.product_variations || []).length === 0 &&
+          (!product.item_type || product.item_type === 'product')
+        ) {
+          variations = [{ sku: `${parentCode}-01`, active: Boolean(product.active) }];
+        }
+
+        const isDraft = Boolean(product.is_draft || product.status === 'draft');
+        const activeVariationCount = variations.filter(
+          (variation: any) => variation.active !== false
+        ).length;
+        const category = (product.product_categories || [])
+          .map((relation: any) => categoryNames.get(String(relation.category_id)))
+          .filter(Boolean)
+          .join(' | ');
+
+        return {
+          id: product.id,
+          code: product.code,
+          name: product.name,
+          description: product.description,
+          category: category || product.category || '',
+          brand: product.brand,
+          condition: product.condition,
+          price: product.price,
+          unitPrice: Number(product.unit_price ?? product.price ?? 0),
+          promoPrice: Number(product.promo_price ?? 0),
+          costPrice: Number(product.cost_price ?? 0),
+          stock: Number(product.stock ?? 0),
+          unit: product.unit,
+          active: isDraft
+            ? false
+            : variations.length > 0
+              ? activeVariationCount > 0
+              : Boolean(product.active),
+          status: product.status,
+          itemType: product.item_type || 'product',
+          isDraft,
+          allVariations: variations.map((variation: any) => ({ sku: variation.sku })),
+        };
+      });
+
+      return { data: summaries, total: count || 0 };
     }
 
     const formatted = (data || []).map((p: any) => {

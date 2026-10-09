@@ -1,3 +1,5 @@
+import { isIdentifiedTestArtifact } from './testArtifactPolicy';
+
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord | null =>
@@ -20,6 +22,7 @@ const isHmlFiscalTestProduct = (observations: unknown): boolean =>
 export const isTestProduct = (value: unknown): boolean => {
   const product = asRecord(value);
   if (!product) return isHmlFiscalTestProduct(value);
+  if (isIdentifiedTestArtifact(product)) return true;
 
   if (
     product.is_test === true ||

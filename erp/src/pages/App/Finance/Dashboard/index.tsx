@@ -33,9 +33,9 @@ export default function FinanceDashboard() {
       try {
         // To keep it simple, fetch all from this month (simplified client-side for now)
         const [transData, payData, recData] = await Promise.all([
-          financeService.getTransactions(),
-          financeService.getPayables('pending'), // Only pending
-          financeService.getReceivables('pending'), // Only pending
+          financeService.getReportTransactions(),
+          financeService.getReportPayables('pending'), // Only pending
+          financeService.getReportReceivables('pending'), // Only pending
         ]);
 
         setTransactions(transData || []);

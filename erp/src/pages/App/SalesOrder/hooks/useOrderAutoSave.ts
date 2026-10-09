@@ -115,6 +115,7 @@ export function useOrderAutoSave(
         setDraftAutoSaveStatus('saving');
         const savedId = await saveOrder(draft);
         if (!latestStateRef.current.currentOrderId && savedId) {
+          latestStateRef.current.currentOrderId = savedId;
           setCurrentOrderId(savedId);
         }
         setDraftAutoSaveStatus(saveRevision === saveRevisionRef.current ? 'saved' : 'pending');

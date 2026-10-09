@@ -31,7 +31,8 @@ export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ orde
             <DigitalSignatureBadge
               order={order}
               sellerName={
-                typeof order?.seller === 'string' ? order.seller : order?.seller?.fullName
+                typeof order?.seller === 'string' ? order.seller :
+                  (order?.seller as { fullName?: string } | undefined)?.fullName
               }
             />
           </div>

@@ -164,7 +164,7 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
 
 ### Regra vigente de decisão automática ligada ao pedido
 - Para NF-e/NFC-e vinculada a uma venda, o pedido deve iniciar o fluxo; a tela de documentos não oferece cancelamento, estorno ou devolução independentes.
-- Use `hasGoodsCirculated(order)` centralmente. `fulfilled`, entrega ou retirada confirmada e mercadoria em trânsito contam como circulação. Circulação bloqueia cancelamento e estorno por operação não realizada; retorno físico usa devolução.
+- Use `hasGoodsCirculated(order)` centralmente. Só a confirmação final de entrega (Entregue) ou retirada (Retirado) conta como circulação. Trânsito e tentativas não confirmadas não provam circulação; mantenha uma rota não reconciliada sob revisão antes de decidir o tratamento fiscal. Circulação confirmada bloqueia cancelamento e estorno por operação não realizada; retorno físico usa devolução.
 - Sem circulação: sem documento autorizado, nenhum evento fiscal; com documento autorizado e prazo vigente, evento de cancelamento; com prazo vencido, escolher automaticamente estorno somente quando permitido e com operação não realizada comprovada.
 - Paraná: NF-e 55 = 168 horas; NFC-e 65 = 30 minutos segundo orientação atual publicada no FAQ da SEFA/PR. Validar a fronteira em horário absoluto, a partir do protocolo de autorização.
 - Estorno NF-e 55 no Paraná segue RICMS/PR art. 298, VII e NPF 038/2022. Preservar documento de origem e referência. Para apuração posterior, revisão fiscal deve tratar acréscimos do art. 298, §2º. Não transmitir sem revisão dos dados tributários.

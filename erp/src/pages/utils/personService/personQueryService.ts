@@ -3,6 +3,10 @@ import Person from '../../types/person.type';
 import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
 
+export const PERSON_QUERY_COLUMNS =
+  'id, employee_code, person_type, person_type_pf_pj, full_name, social_name, nickname, cpf_cnpj, rg_ie, ie_indicator, email, phone, address, observation, active, is_draft, deleted, deleted_at, position, lead_time, marketing_origin, stock_origins, created_at, updated_at';
+
+
 const peopleCache: Record<
   string,
   { data: Person[]; timestamp: number; promise?: Promise<Person[]> }
@@ -35,7 +39,7 @@ export const subscribeToPeople = (
         await syncMissingEmployeesFromProfiles();
       }
 
-      let peopleQuery = supabase.from(TABLE_NAME).select('*');
+      let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS);
 
       if (!includeDeleted) {
         peopleQuery = peopleQuery.or('deleted.eq.false,deleted.is.null');
@@ -109,7 +113,11 @@ export const fetchPersons = async (
   includeDeleted = false
 ): Promise<Person[]> => {
   try {
-    let peopleQuery = supabase.from(TABLE_NAME).select('*');
+    if (collectionName === 'employees') {
+      await syncMissingEmployeesFromProfiles();
+    }
+
+    let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS);
 
     if (!includeDeleted) {
       peopleQuery = peopleQuery.or('deleted.eq.false,deleted.is.null');
@@ -130,7 +138,30 @@ export const fetchPersons = async (
     const { data: peopleData, error } = await peopleQuery.order('full_name', { ascending: true });
     if (error) throw error;
 
-    return (peopleData || []).map(mapFromDB);
+    let employees: Person[] = (peopleData || []).map(mapFromDB);
+
+    if (collectionName === 'employees') {
+      const uniqueMap = new Map<string, Person>();
+      for (const emp of employees) {
+        const emailKey = emp.email?.toLowerCase().trim();
+        const key = emailKey || String(emp.id);
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, emp);
+        } else {
+          const existing = uniqueMap.get(key)!;
+          const existingScore =
+            (existing.phone ? 10 : 0) + (existing.fullAddress?.street ? 10 : 0);
+          const currentScore = (emp.phone ? 10 : 0) + (emp.fullAddress?.street ? 10 : 0);
+          if (currentScore > existingScore) {
+            uniqueMap.set(key, emp);
+          }
+        }
+      }
+      employees = Array.from(uniqueMap.values());
+    }
+
+    employees.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+    return employees;
   } catch (e) {
     console.error('Erro ao buscar pessoas em personService:', e);
     return [];
@@ -140,7 +171,7 @@ export const fetchPersons = async (
 export const fetchPersonById = async (id: string): Promise<Person | null> => {
   if (!id) return null;
   try {
-    const { data, error } = await supabase.from(TABLE_NAME).select('*').eq('id', id).maybeSingle();
+    const { data, error } = await supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).eq('id', id).maybeSingle();
 
     if (error || !data) return null;
     return mapFromDB(data);
@@ -157,7 +188,7 @@ export const searchPeople = async (
 ): Promise<Person[]> => {
   if (!query || query.trim().length < 2) return [];
 
-  let peopleQuery = supabase.from(TABLE_NAME).select('*').or('deleted.eq.false,deleted.is.null');
+  let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).or('deleted.eq.false,deleted.is.null');
 
   if (collectionName === 'employees') {
     peopleQuery = peopleQuery.or(
@@ -187,7 +218,7 @@ export const searchPeople = async (
 };
 
 export const getRecentPeople = async (collectionName: string, limit = 20): Promise<Person[]> => {
-  let peopleQuery = supabase.from(TABLE_NAME).select('*').or('deleted.eq.false,deleted.is.null');
+  let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).or('deleted.eq.false,deleted.is.null');
 
   if (collectionName === 'employees') {
     peopleQuery = peopleQuery.or(

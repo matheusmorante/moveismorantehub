@@ -1,4 +1,5 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import type { Element } from '@xmldom/xmldom';
 import { normalizeReviewedFiscalBlock } from './fiscalOperationXml';
 
 const NFE_NAMESPACE = 'http://www.portalfiscal.inf.br/nfe';
@@ -40,11 +41,13 @@ function findElement(root: Element, name: string): Element | null {
 function updateText(root: Element, name: string, value: string): void {
   const element = findElement(root, name);
   if (!element) throw new Error(`O item fiscal original não possui o campo ${name}.`);
+  if (!element.ownerDocument) throw new Error('Bloco fiscal sem documento XML.');
   while (element.firstChild) element.removeChild(element.firstChild);
   element.appendChild(element.ownerDocument.createTextNode(value));
 }
 
 function proportionalValue(element: Element, factor: number): void {
+  if (!element.ownerDocument) throw new Error('Bloco fiscal sem documento XML.');
   const original = element.textContent?.trim() || '';
   if (!/^\d+(?:\.\d+)?$/.test(original))
     throw new Error(`Valor fiscal inválido em ${element.localName}.`);
@@ -112,13 +115,14 @@ export function buildProportionalReturnTaxesXml(
     for (const child of Array.from(element.childNodes)) {
       if (child.nodeType !== 1) continue;
       const childElement = child as Element;
+      const childName = childElement.localName || '';
       const isNumericLeaf = !Array.from(childElement.childNodes).some(
         (node) => node.nodeType === 1
       );
       if (
         isNumericLeaf &&
-        ((/^v/.test(childElement.localName) && !/^vAliqProd$/.test(childElement.localName)) ||
-          /^q(?:BC|Selo)/.test(childElement.localName))
+        ((/^v/.test(childName) && !/^vAliqProd$/.test(childName)) ||
+          /^q(?:BC|Selo)/.test(childName))
       )
         proportionalValue(childElement, factor);
       else scaleTags(childElement);

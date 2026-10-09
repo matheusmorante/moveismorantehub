@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../../shared-utils/testArtifactQueries';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
@@ -284,11 +285,11 @@ export function useAssemblyListQuery() {
     setLoading(true);
     try {
       const [ordersResult, showcaseData] = await Promise.all([
-        supabase
+        excludeTestOrders(supabase
           .from('orders')
           .select(
             'id, status, created_at, order_data, deleted, order_number, order_index, customer_name, delivery_method, scheduled_date'
-          )
+          ))
           .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
           .or('order_data->>is_test.is.null,order_data->>is_test.eq.false')
           .order('created_at', { ascending: false })

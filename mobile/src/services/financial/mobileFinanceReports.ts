@@ -7,25 +7,20 @@ import {
 } from './mobileFinanceTypes';
 import { fetchFinancialCategories, determineResultNature } from './mobileCategoryService';
 
+const fetchReportTransactions = (startDate?: string, endDate?: string, endExclusive = false) =>
+  supabase.rpc('get_report_financial_transactions', {
+    p_start_date: startDate || null,
+    p_end_date: endDate || null,
+    p_end_exclusive: endExclusive,
+  });
+
 export const fetchMonthlySummary = async (year: number, month: number): Promise<MonthlySummary> => {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  let queryRes: any = await supabase
-    .from('financial_transactions')
-    .select('type, amount, status')
-    .gte('date', startDate)
-    .lt('date', endDate);
-
-  if (queryRes.error && queryRes.error.message?.includes('status')) {
-    queryRes = await supabase
-      .from('financial_transactions')
-      .select('type, amount')
-      .gte('date', startDate)
-      .lt('date', endDate);
-  }
+  const queryRes: any = await fetchReportTransactions(startDate, endDate, true);
 
   const { data, error } = queryRes;
 
@@ -60,25 +55,10 @@ export const fetchCashFlowReport = async (year: number, month: number): Promise<
   const nextYear = month === 12 ? year + 1 : year;
   const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-  let [priorRes, currentRes]: any[] = await Promise.all([
-    supabase.from('financial_transactions').select('type, amount, status').lt('date', startDate),
-    supabase
-      .from('financial_transactions')
-      .select('type, amount, status')
-      .gte('date', startDate)
-      .lt('date', endDate),
+  const [priorRes, currentRes]: any[] = await Promise.all([
+    fetchReportTransactions(undefined, startDate, true),
+    fetchReportTransactions(startDate, endDate, true),
   ]);
-
-  if (priorRes.error || currentRes.error) {
-    [priorRes, currentRes] = (await Promise.all([
-      supabase.from('financial_transactions').select('type, amount').lt('date', startDate),
-      supabase
-        .from('financial_transactions')
-        .select('type, amount')
-        .gte('date', startDate)
-        .lt('date', endDate),
-    ])) as any[];
-  }
 
   const priorData = priorRes.data || [];
   const currentData = currentRes.data || [];
@@ -123,7 +103,7 @@ export const fetchIncomeStatementReport = async (
 
   const [categories, { data }] = await Promise.all([
     fetchFinancialCategories(),
-    supabase.from('financial_transactions').select('*').gte('date', startDate).lt('date', endDate),
+    fetchReportTransactions(startDate, endDate, true),
   ]);
 
   const catMap = new Map(

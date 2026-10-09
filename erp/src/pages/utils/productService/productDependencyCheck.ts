@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { getProductKind } from '../productKindRules';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { updateProduct } from './productMutationService';
+import { queryClient } from '@/lib/queryClient';
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
   const realId = String(id).split('_')[0];
@@ -103,6 +104,13 @@ export const checkProductIsUsed = async (productId: string): Promise<boolean> =>
   }
 };
 
+
+const invalidateProductQueries = () => {
+  try {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  } catch (e) {}
+};
+
 export const deactivateProduct = async (id: string): Promise<void> => {
   await updateProduct(id, { active: false, deleted: false });
   const realId = String(id).split('_')[0];
@@ -110,6 +118,7 @@ export const deactivateProduct = async (id: string): Promise<void> => {
   if (isUUID) {
     await supabase.from('product_variations').update({ active: false }).eq('product_id', realId);
   }
+  invalidateProductQueries();
 };
 
 export const activateProduct = async (id: string): Promise<void> => {
@@ -129,6 +138,7 @@ export const activateProduct = async (id: string): Promise<void> => {
   if (isUUID) {
     await supabase.from('product_variations').update({ active: true }).eq('product_id', realId);
   }
+  invalidateProductQueries();
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {
@@ -150,6 +160,7 @@ export const physicalDeleteProduct = async (
 
       const { error } = await supabase.from('products').delete().eq('id', realId);
       if (error) throw error;
+      invalidateProductQueries();
 
       let products = getLocalProducts();
       products = products.filter((p) => String(p.id).split('_')[0] !== realId);

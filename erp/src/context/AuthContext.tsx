@@ -5,6 +5,13 @@ import {
   checkCurrentUserHasPassword,
   createCurrentUserPassword,
 } from '@/services/authPasswordSetup';
+import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
+import {
+  bindTestArtifactContext,
+  clearTestArtifactContext,
+  testArtifactIdentityForAuthenticatedUser,
+} from '../../../shared-utils/testArtifactContext';
+import { queryClient } from '@/lib/queryClient';
 
 export type UserRole =
   | 'administrator'
@@ -28,6 +35,8 @@ export interface Profile {
   city?: string;
   state?: string;
 }
+
+const PROFILE_COLUMNS = 'id,email,role,roles,full_name,position,phone,address';
 
 export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 
@@ -122,14 +131,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
-  const fetchProfile = async (user: User) => {
+  const fetchProfile = async (user: User, syncEmployee: boolean): Promise<Profile | null> => {
     try {
       console.log('[Auth] Fetching profile for:', user.id);
       const userEmail = (user.email || '').toLowerCase().trim();
       const isMasterEmail = isMasterEmailCheck(userEmail);
       const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-      let { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      let { data } = await supabase
+        .from('profiles')
+        .select(PROFILE_COLUMNS)
+        .eq('id', user.id)
+        .maybeSingle();
 
       if (!data) {
         console.log('[Auth] Perfil não encontrado no banco. Criando registro...');
@@ -147,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: upsertedData } = await supabase
           .from('profiles')
           .upsert(newProfile)
-          .select()
+          .select(PROFILE_COLUMNS)
           .maybeSingle();
 
         data = upsertedData || newProfile;
@@ -159,14 +172,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Garante que o usuário logado via Google sincronize seu colaborador na tabela people (1 por e-mail)
-      if (userEmail) {
+      if (userEmail && syncEmployee) {
         try {
           const { data: existingEmps } = await supabase
             .from('people')
             .select('id,email,full_name')
             .eq('person_type', 'employees')
             .eq('deleted', false)
-            .ilike('email', userEmail);
+            .ilike('email', userEmail)
+            .limit(1);
 
           const empName =
             googleName ||
@@ -227,25 +241,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      setProfile(data as Profile);
+      const resolvedProfile = data as Profile;
+      setProfile(resolvedProfile);
+      return resolvedProfile;
     } catch (err) {
       console.error('[Auth] Error fetching profile:', err);
       const userEmail = (user.email || '').toLowerCase().trim();
       const isMasterEmail = isMasterEmailCheck(userEmail);
 
-      setProfile({
+      const pendingProfile: Profile = {
         id: user.id,
         email: user.email || '',
         role: 'pending',
         full_name:
           user.user_metadata?.full_name || (isMasterEmail ? 'Matheus Morante' : 'Usuário Pendente'),
-      });
+      };
+      setProfile(pendingProfile);
+      return pendingProfile;
     }
   };
 
   useEffect(() => {
     let active = true;
     let handlingSession = false;
+    let initialSessionUserId: string | null | undefined;
     const isDev = import.meta.env.DEV;
 
     if (isDev) console.log('[Auth] Initializing in DEVELOPMENT mode');
@@ -261,6 +280,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleSession = async (session: any, source: string) => {
       if (!active) return;
+      const isInitialSessionSource = source === 'getSession' || source === 'INITIAL_SESSION';
+      const sessionUserId = session?.user?.id ?? null;
+      if (isInitialSessionSource && initialSessionUserId === sessionUserId) return;
+      const runSessionMaintenance = shouldRunAuthSessionMaintenance(source);
       // Evitar chamadas duplicadas paralelas (getSession + onAuthStateChange)
       if (handlingSession) {
         console.log('[Auth] Skipping duplicate handleSession from:', source);
@@ -269,27 +292,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handlingSession = true;
 
       const newUser = session?.user || null;
+      if (newUser && initialSessionUserId && initialSessionUserId !== sessionUserId) {
+        try {
+          queryClient.clear();
+        } catch (e) {
+          console.warn('[Auth] Falha ao limpar cache de queries na troca de usuário:', e);
+        }
+      }
+      clearTestArtifactContext();
       setUser(newUser);
 
       if (newUser) {
-        setPasswordCredentialStatus('checking');
+        if (runSessionMaintenance) setPasswordCredentialStatus('checking');
         // Cleanup URL hash
         if (window.location.hash.includes('access_token=')) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
 
         try {
-          await fetchProfile(newUser);
-          try {
-            await refreshPasswordCredentialStatus();
-          } catch (error) {
-            console.error('[Auth] Não foi possível confirmar a credencial de senha:', error);
+          const resolvedProfile = await fetchProfile(newUser, runSessionMaintenance);
+          const isProfileAdministrator =
+            resolvedProfile?.role === 'administrator' ||
+            resolvedProfile?.roles?.includes('administrator') === true;
+          const testIdentity = testArtifactIdentityForAuthenticatedUser({
+            isDevelopment: import.meta.env.DEV,
+            runId: import.meta.env.VITE_TEST_ARTIFACT_RUN_ID,
+            ownerId: newUser.id,
+            email: newUser.email,
+            isAdministrator: isProfileAdministrator,
+          });
+          if (testIdentity) bindTestArtifactContext(testIdentity);
+          else clearTestArtifactContext();
+          if (runSessionMaintenance) {
+            try {
+              await refreshPasswordCredentialStatus();
+            } catch (error) {
+              console.error('[Auth] Não foi possível confirmar a credencial de senha:', error);
+            }
           }
         } finally {
+          if (isInitialSessionSource) initialSessionUserId = sessionUserId;
           if (active) setLoading(false);
           handlingSession = false;
         }
       } else {
+        clearTestArtifactContext();
+        try {
+          queryClient.clear();
+        } catch (e) {
+          console.warn('[Auth] Falha ao limpar cache de queries na perda de sessão:', e);
+        }
+        if (isInitialSessionSource) initialSessionUserId = sessionUserId;
         setPasswordCredentialStatus('idle');
         const searchParams = new URLSearchParams(window.location.search);
         if (searchParams.get('auth_email') && searchParams.get('user_id')) {
@@ -314,6 +367,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const authRole = (searchParams.get('auth_role') as UserRole) || 'administrator';
 
       if (authEmail && authUserId) {
+        clearTestArtifactContext();
         console.log('[Auth] Autenticação direta mobile ativada via URL para:', authEmail);
         const isMasterEmail = isMasterEmailCheck(authEmail);
         const finalRole = isMasterEmail ? 'administrator' : authRole;
@@ -369,6 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[Auth] Initial session found');
         await handleSession(session, 'getSession');
       } else if (active && !session) {
+        clearTestArtifactContext();
         clearTimeout(failsafe);
         setLoading(false);
       }
@@ -390,6 +445,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       active = false;
+      clearTestArtifactContext();
       clearTimeout(failsafe);
       subscription.unsubscribe();
     };
@@ -413,7 +469,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [profile]);
 
   const logout = async () => {
+    try {
+      queryClient.clear();
+    } catch (e) {
+      console.warn('[Auth] Falha ao limpar cache de queries no logout:', e);
+    }
     await supabase.auth.signOut();
+    clearTestArtifactContext();
     setUser(null);
     setProfile(null);
     setActiveRoleModeState(null);

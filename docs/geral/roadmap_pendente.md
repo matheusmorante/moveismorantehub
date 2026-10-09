@@ -32,7 +32,20 @@
   - Padrão do sistema: *Adquirido ou recebido de terceiros* (`third_party`, CFOP base 5.102).
   - Modo *Fabricação Própria* (`own_production`, CFOP base 5.101): dispensa automaticamente a seleção de fornecedor externo (fornecedor interno da Móveis Morante), removendo bloqueios de salvamento e badges de pendência.
   - Separação conceitual rigorosa: a característica física/comercial fica no produto (`merchandiseOrigin`), enquanto variáveis de venda (UF destino, contribuinte ICMS, consumidor final, operações especiais) são resolvidas dinamicamente pelo Pedido de Venda; devoluções vinculam-se de forma imutável à NF-e original autorizada (veja documento canônico `docs/fiscal/matriz-determinacao-cfop-produto-pedido.md`).
-
+- [x] **Implantação Global do TanStack Query (React Query) para Otimização de Egress e Cache em Memória**:
+  - `QueryClientProvider` centralizado implementado no ERP (`erp/src/lib/queryClient.ts`) e no Catálogo Digital (`digital-catalog/src/lib/react-query-provider.tsx`).
+  - Módulo de Características (`Variations`): `useQuery` com `staleTime: 5 min` e invalidação reativa em `saveVariation`/`moveToTrash`.
+  - Módulo de Pessoas (`usePeople`): Clientes, Funcionários e Fornecedores integrados via `useQuery` com `staleTime: 2 min`, busca condicional de lixeira (`enabled: showTrash`) e invalidação em mutações.
+  - Módulo de Produtos (`useProducts`): `useQuery` integrado à paginação server-side com `staleTime: 1 min` e invalidação em ativação/lixeira/edição.
+  - Módulo de Pedidos (`useOrderHistory`): `useQuery` com `staleTime: 30s`, deduplicação e sincronização com badges fiscais.
+  - Catálogo Digital: `useQuery` para produtos públicos (`staleTime: 2 min`), metadados e categorias (`staleTime: 10 min`), e revalidação reativa via `BroadcastChannel`.
+- [x] **Auditoria de Integridade e Endurecimento do TanStack Query (Meta 100 MB/dia Egress)**:
+  - *Atualização imediata*: Invalidação reativa explícita (`queryClient.invalidateQueries`) em mutações de produtos (`saveProduct`, `updateProduct`, `deactivateProduct`), pessoas (`savePerson`, `updatePerson`, `moveToTrash`, `restorePerson`, `permanentDeletePerson`), características (`saveVariation`, `moveToTrash`) e pedidos (`executeSaveOrder`, `executeUpdateOrder`), eliminando inconsistências comerciais e fiscais.
+  - *Separação entre usuários*: `queryClient.clear()` implementado no `logout` do `AuthContext` e nos eventos de perda/troca de sessão do Supabase Auth (`onAuthStateChange`), impedindo vazamento de dados privados em memória RAM.
+  - *Filtros e paginação*: QueryKeys totalmente estáveis e serializadas com todos os filtros e página (`queryKey: ['products', queryFilters, currentPage, itemsPerPage]`), garantindo precisão nos resultados.
+  - *Eliminação de consultas duplicadas*: Removidos `useEffect` com fetches legados redundantes em paralelo com `useQuery`.
+  - *Redução de bytes por requisição*: Substituído `select('*')` por projeção estrita de colunas (`PERSON_QUERY_COLUMNS`) em `personQueryService.ts`, reduzindo a carga útil de transferência de rede do Supabase.
+  - *Comprovação automatizada*: Bateria de testes em `src/pages/utils/__tests__/tanstackQueryCachePolicy.test.ts` (8 testes aprovados) e regressão completa de 44 testes em pedidos, produtos e transições aprovada.
 
 ---
 

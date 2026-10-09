@@ -1,5 +1,9 @@
 import Order from '../types/order.type';
-import { hasGoodsCirculated, type OrderCirculationState } from './nfe/cancellationEligibility';
+import {
+  getGoodsCirculationState,
+  hasGoodsCirculated,
+  type OrderCirculationState,
+} from './nfe/cancellationEligibility';
 
 /**
  * Valida se uma transição de status de pedido é permitida pelas regras de negócio.
@@ -37,11 +41,22 @@ export const validateOrderStatusTransition = (
     };
   }
 
-  if (newStatus === 'cancelled' && hasGoodsCirculated({ ...currentOrder, status: currentStatus })) {
+  if (newStatus === 'cancelled' && getGoodsCirculationState({ ...currentOrder, status: currentStatus }) === 'completed') {
     return {
       allowed: false,
       reason:
         'Pedido entregue ou retirado teve circulação da mercadoria. Registre uma devolução para reverter a operação.',
+    };
+  }
+
+  if (
+    newStatus === 'cancelled' &&
+    getGoodsCirculationState({ ...currentOrder, status: currentStatus }) === 'in_progress'
+  ) {
+    return {
+      allowed: false,
+      reason:
+        'A entrega ou retirada ainda não foi confirmada nem reconciliada. Conclua ou regularize a rota antes de cancelar o pedido.',
     };
   }
 
@@ -65,6 +80,7 @@ export const canCancelOrderDirectly = (
   if (hasGoodsCirculated(order)) {
     return false;
   }
+  if (getGoodsCirculationState(order) === 'in_progress') return false;
   return order.status === 'scheduled';
 };
 

@@ -11,6 +11,19 @@ type FiscalTable<Row, Insert = Partial<Row>> = {
 export type FiscalDatabase = {
   public: {
     Tables: {
+      nfe_order_edit_replacements: FiscalTable<{
+        id: string;
+        order_id: string;
+        original_document_id: string;
+        environment: number;
+        reversal_kind: string;
+        status: string;
+        operation_draft_id: string | null;
+        replacement_document_id: string | null;
+        expected_updated_at: string;
+        original_order_data: Record<string, unknown>;
+        edited_order_data: Record<string, unknown>;
+      }>;
       orders: FiscalTable<{
         id: string;
         order_type: string;

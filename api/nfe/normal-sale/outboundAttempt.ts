@@ -7,7 +7,12 @@ import { parseSefazAuthorization } from '../../../erp/src/pages/utils/nfe/sefazR
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import { getNfeServiceEndpoint } from '../fiscalEnvironmentPolicy';
 import { assertXmlFiscalSelections } from '../fiscalSelectionIntegrity';
-import type { FiscalEmissionCommand } from '../fiscalSnapshot';
+import { assertSignedFiscalXmlMatchesSnapshot, fiscalPreviewFingerprint } from '../fiscalXmlAudit';
+import type {
+  FiscalDocument,
+  FiscalEmissionCommand,
+  FiscalSnapshotCandidate,
+} from '../fiscalSnapshot';
 import { extractCertificateAndKey } from '../nfeSigner';
 import { isNfeProductionEnabled } from '../productionGuard';
 import { validateNfeAgainstOfficialSchema } from '../schemaValidator';
@@ -154,10 +159,23 @@ export async function transmitPreparedOutbound(
       series: a.series,
     });
     if (envelopeError) throw new Error(envelopeError);
-    await assertXmlFiscalSelections(saved.data.snapshot_data, xml);
+    const snapshot = saved.data.snapshot_data as unknown as FiscalSnapshotCandidate & {
+      resolvedDocument?: FiscalDocument;
+    };
+    if (!snapshot.resolvedDocument)
+      throw new Error('Snapshot fiscal sem documento resolvido para a auditoria final.');
+    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
+    if (!issuedAt) throw new Error('XML reservado sem instante de emissão fiscal.');
+    assertSignedFiscalXmlMatchesSnapshot(
+      snapshot,
+      snapshot.resolvedDocument,
+      xml,
+      { series: a.series, number: a.number, accessKey: a.access_key, issuedAt },
+      certificate.certPem
+    );
+    await assertXmlFiscalSelections(snapshot, xml);
     await validateNfeAgainstOfficialSchema(xml);
     // Existing online NFC-e policy: an expired dhEmi needs a controlled new intent, never a silent XML rewrite.
-    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
     if (a.model === '65' && (!issuedAt || Date.now() - Date.parse(issuedAt) > 5 * 60_000))
       return outboundFailure(
         409,
@@ -431,6 +449,65 @@ export async function recoverNormalSale(
       'A chave de idempotência já pertence a outro payload fiscal.',
       metadata(prior.data)
     );
+  if (!['authorized', 'rejected'].includes(prior.data.state)) {
+    const proof = command.previewProof;
+    if (!proof)
+      return outboundFailure(
+        409,
+        'FISCAL_PREVIEW_REQUIRED',
+        'A tentativa já reservada precisa ser conferida com a prévia atual antes de qualquer transmissão.',
+        { ...metadata(prior.data), sefazContacted: false }
+      );
+    let prepared: Awaited<ReturnType<typeof loadOutboundAttempt>>;
+    try {
+      prepared = await loadOutboundAttempt(db, prior.data.document_id);
+    } catch {
+      return outboundFailure(
+        503,
+        'FISCAL_RECOVERY_UNAVAILABLE',
+        'Não foi possível revalidar o XML da tentativa reservada.',
+        { ...metadata(prior.data), sefazContacted: false }
+      );
+    }
+    const snapshotResult = await db
+      .from('nfe_fiscal_snapshots')
+      .select('snapshot_data')
+      .eq('id', prior.data.snapshot_id)
+      .maybeSingle();
+    const snapshot = snapshotResult.data?.snapshot_data as unknown as
+      | (FiscalSnapshotCandidate & { resolvedDocument?: FiscalDocument })
+      | undefined;
+    const xml = String(prepared.document.xml_nfe || '');
+    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
+    if (
+      snapshotResult.error ||
+      !snapshot ||
+      !snapshot.resolvedDocument ||
+      !issuedAt ||
+      snapshot.capturedAt !== proof.capturedAt ||
+      proof.model !== prior.data.model ||
+      proof.series !== prior.data.series ||
+      proof.number !== prior.data.number ||
+      proof.accessKey !== prior.data.access_key ||
+      fiscalPreviewFingerprint(
+        snapshot,
+        snapshot.resolvedDocument,
+        {
+          series: prior.data.series,
+          number: prior.data.number,
+          accessKey: prior.data.access_key,
+          issuedAt,
+        },
+        xml
+      ) !== proof.fingerprint
+    )
+      return outboundFailure(
+        409,
+        'FISCAL_PREVIEW_STALE',
+        'A prévia não corresponde ao XML da tentativa reservada. Consulte a tentativa original; não será feita nova transmissão.',
+        { ...metadata(prior.data), sefazContacted: false }
+      );
+  }
   return reconcileNormalSale(
     db,
     prior.data.document_id,

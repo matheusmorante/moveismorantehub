@@ -1,10 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Play, Truck, MapPin } from 'lucide-react-native';
-import {
-  hasDeliveryExceeded12Hours,
-  autoFulfillOrderIfExceeded12Hours,
-} from '../../features/orders/utils/deliveryAutoFulfillment';
 
 interface Props {
   order: any;
@@ -83,11 +79,6 @@ export function OrderDeliveryStartFooter({
     String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
   );
   const deliveryStatus = data.deliveryStatus;
-
-  if (hasDeliveryExceeded12Hours(order)) {
-    autoFulfillOrderIfExceeded12Hours(order);
-    return null;
-  }
 
   const isFulfilled = status === 'fulfilled' || status === 'atendido';
   const isScheduled = /agendad|scheduled/.test(status);

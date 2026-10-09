@@ -49,6 +49,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     environment,
     setEnvironment,
     isSubmitting,
+    isPreparingPreview,
     isSavingAcquisitionPurpose,
     numberPreview,
     nfeNumberSequence,
@@ -69,10 +70,15 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handleSaveDraft,
     setNumberPreview,
     emissionResult,
+    xmlPreview,
+    isXmlPreviewOpen,
+    hasCurrentXmlPreview,
+    closeXmlPreview,
     nfeItems,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
     handleEmit,
+    handlePreviewXml,
     handleReconcile,
     handleAbandonHmlTlsAttempt,
     handleStartFreshHmlEmission,
@@ -253,7 +259,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200 sm:mx-6"
         >
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
-          <span>{preparationMessage}</span>
+        <span>{preparationMessage}</span>
         </div>
       )}
 
@@ -323,6 +329,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         isNfce={isNfce}
         canOperateFiscal={canOperateFiscal}
         isSubmitting={isSubmitting}
+        isPreparingPreview={isPreparingPreview}
+        hasCurrentXmlPreview={hasCurrentXmlPreview}
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingCustomerType={isLoadingCustomerType}
         fiscalPreparationError={fiscalPreparationError}
@@ -331,9 +339,49 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         productionConfirmed={productionConfirmed}
         onClose={onClose}
         onEmit={handleEmit}
+        onPreview={handlePreviewXml}
         onPrintDanfe={handlePrintDanfe}
         onTransmissionEnabled={handleTransmissionEnabled}
       />
+
+      {xmlPreview && isXmlPreviewOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nfe-xml-preview-title"
+          data-testid="nfe-xml-preview-dialog"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 sm:p-6"
+        >
+          <section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-6">
+              <div>
+                <h2 id="nfe-xml-preview-title" className="text-sm font-black text-slate-900 dark:text-white">
+                  Prévia do XML — ainda não transmitida
+                </h2>
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                  Esta prévia está assinada para conferência, mas não é documento autorizado pela SEFAZ.
+                  Qualquer alteração nas escolhas fiscais exige gerar uma nova prévia.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar prévia do XML"
+                data-testid="nfe-xml-preview-close"
+                onClick={closeXmlPreview}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Fechar
+              </button>
+            </header>
+            <pre
+              data-testid="nfe-xml-preview-content"
+              className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-slate-50 p-4 font-mono text-[11px] leading-5 text-slate-800 dark:bg-slate-950 dark:text-slate-200 sm:p-6"
+            >
+              {xmlPreview.xml}
+            </pre>
+          </section>
+        </div>
+      )}
 
       <NfeFiscalIssueModal
         isOpen={isFiscalIssueModalOpen && (hasFiscalIssue || Boolean(fiscalPreparationError))}

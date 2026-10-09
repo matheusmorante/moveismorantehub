@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../../../shared-utils/testArtifactQueries';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse } from 'date-fns';
 import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
@@ -5,7 +6,7 @@ import { SaleItem } from '../utils/salesReportCalculations';
 
 export const fetchFromERP = async (): Promise<SaleItem[]> => {
   try {
-    const { data: itemRows, error: itemError } = await supabase
+    const { data: itemRows, error: itemError } = await excludeTestOrders(supabase
       .from('order_items')
       .select(`
                 id,
@@ -23,7 +24,7 @@ export const fetchFromERP = async (): Promise<SaleItem[]> => {
                     scheduled_date,
                     created_at
                 )
-            `)
+            `), 'orders')
       .eq('orders.deleted', false)
       .neq('orders.order_type', 'budget')
       .neq('orders.status', 'draft')
@@ -61,9 +62,9 @@ export const fetchFromERP = async (): Promise<SaleItem[]> => {
     console.warn('Falha ao carregar relatório via order_items, ativando fallback JSONB:', err);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await excludeTestOrders(supabase
     .from('orders')
-    .select('id, status, order_type, deleted, order_data')
+    .select('id, status, order_type, deleted, order_data'))
     .is('order_data->deleted', null);
 
   if (error) throw error;

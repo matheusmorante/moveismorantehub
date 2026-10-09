@@ -1,13 +1,12 @@
 import 'dotenv/config';
 import { defineConfig, devices } from '@playwright/test';
 
-// O projeto principal pode ser usado em E2E quando a suíte declara dados isolados.
+// A suíte E2E geral não possui harness comprovado de artefatos para o Supabase operacional.
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const isProdSupabase = supabaseUrl.includes('wzpdfmihnwcrgkyagwkd') || supabaseUrl.includes('hkoxhourxwlddgsfdgws');
-if (isProdSupabase && process.env.E2E_ISOLATED_DATA !== '1') {
+if (isProdSupabase) {
   throw new Error(
-    'E2E exige E2E_ISOLATED_DATA=1 ao usar Supabase real, além de testRunId, ' +
-    'registro de IDs próprios e cleanup por ID.'
+    'A suíte E2E geral está bloqueada para o Supabase operacional: ainda não possui harness de identidade, vínculo e cleanup por UUID comprovado.'
   );
 }
 

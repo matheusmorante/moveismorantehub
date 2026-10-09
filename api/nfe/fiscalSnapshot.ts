@@ -59,6 +59,8 @@ export type FiscalSnapshot = {
   /** Raw settings.data.fiscalDefaults, captured as inputs only; no implicit tax decision. */
   fiscalConfiguration?: Record<string, FiscalJsonValue>;
   fiscalInputs?: Record<string, FiscalJsonValue>;
+  /** Server-resolved document frozen with the signed XML for transport-boundary auditing. */
+  resolvedDocument?: FiscalDocument;
   emissionRequest: {
     id: string;
     requestedModel: '55' | '65';
@@ -326,6 +328,18 @@ export type FiscalEmissionCommand = {
   hasTransport?: boolean;
   transportResponsible?: 'OWN_COMPANY' | 'CUSTOMER' | 'THIRD_PARTY';
   freightContractResponsible?: 'SENDER' | 'RECIPIENT' | 'THIRD_PARTY';
+  previewOnly?: boolean;
+  previewProof?: FiscalPreviewProof;
+};
+
+export type FiscalPreviewProof = {
+  fingerprint: string;
+  capturedAt: string;
+  issuedAt: string;
+  model: '55' | '65';
+  series: string;
+  number: number;
+  accessKey: string;
 };
 
 export type FiscalSnapshotReservation = {
@@ -378,6 +392,8 @@ export function parseFiscalEmissionCommand(
     'hasTransport',
     'transportResponsible',
     'freightContractResponsible',
+    'previewOnly',
+    'previewProof',
   ]);
   if (Object.keys(body).some((field) => !allowedFields.has(field)))
     return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
@@ -397,6 +413,37 @@ export function parseFiscalEmissionCommand(
     (body.productionConfirmed !== undefined && typeof body.productionConfirmed !== 'boolean')
   )
     return { error: 'Pedido, ambiente ou chave de idempotência inválidos.' };
+
+  if (body.previewOnly !== undefined && typeof body.previewOnly !== 'boolean')
+    return { error: 'Indicador de prévia fiscal inválido.' };
+  let previewProof: FiscalPreviewProof | undefined;
+  if (body.previewProof !== undefined) {
+    if (!body.previewProof || typeof body.previewProof !== 'object' || Array.isArray(body.previewProof))
+      return { error: 'Vínculo da prévia fiscal inválido.' };
+    const proof = body.previewProof as Record<string, unknown>;
+    if (
+      Object.keys(proof).some((key) => !['fingerprint', 'capturedAt', 'issuedAt', 'model', 'series', 'number', 'accessKey'].includes(key)) ||
+      typeof proof.fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(proof.fingerprint) ||
+      typeof proof.capturedAt !== 'string' || !Number.isFinite(Date.parse(proof.capturedAt)) ||
+      typeof proof.issuedAt !== 'string' || !Number.isFinite(Date.parse(proof.issuedAt)) ||
+      (proof.model !== '55' && proof.model !== '65') ||
+      typeof proof.series !== 'string' || !/^\d{1,3}$/.test(proof.series) ||
+      typeof proof.number !== 'number' || !Number.isInteger(proof.number) || proof.number < 1 || proof.number > 999999999 ||
+      typeof proof.accessKey !== 'string' || !/^\d{44}$/.test(proof.accessKey)
+    )
+      return { error: 'Vínculo da prévia fiscal incompleto ou inválido.' };
+    previewProof = {
+      fingerprint: proof.fingerprint,
+      capturedAt: proof.capturedAt,
+      issuedAt: proof.issuedAt,
+      model: proof.model,
+      series: proof.series,
+      number: proof.number,
+      accessKey: proof.accessKey,
+    };
+  }
+  if (body.previewOnly === true && previewProof)
+    return { error: 'Uma prévia nova não pode reutilizar a prova de outra prévia.' };
 
   if (
     body.requestedNumber !== undefined &&
@@ -530,6 +577,8 @@ export function parseFiscalEmissionCommand(
       ...(body.productionConfirmed === undefined
         ? {}
         : { productionConfirmed: body.productionConfirmed }),
+      ...(body.previewOnly === undefined ? {} : { previewOnly: body.previewOnly }),
+      ...(previewProof ? { previewProof } : {}),
     },
   };
 }

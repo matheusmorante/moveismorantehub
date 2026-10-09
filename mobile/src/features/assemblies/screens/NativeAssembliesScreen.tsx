@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -144,11 +145,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
   const fetchAssemblies = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await excludeTestOrders(supabase
         .from('orders')
         .select(
           'id, status, created_at, order_data, deleted, scheduled_date, delivery_method, order_number, order_index, customer_name'
-        )
+        ))
         .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
         .order('created_at', { ascending: false })
         .limit(50);

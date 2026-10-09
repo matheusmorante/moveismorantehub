@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal, X, ArrowUpDown } from 'lucide-react';
 
 import { HeroBanner } from '@/components/layout';
@@ -48,9 +49,32 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [relationships, setRelationships] = useState<any[]>([]);
-  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const { data: catalogMeta } = useQuery({
+    queryKey: ['catalog-meta'],
+    queryFn: async () => {
+      const [catRes, relRes, oppRes] = await Promise.all([
+        supabase.from('categories').select('id, name, slug, type').order('name'),
+        supabase.from('category_relationships').select('parent_id, child_id'),
+        supabase
+          .from('opportunities')
+          .select(
+            'id, name, slug, badge_color, border_color, border_style, badge_animation, title_color'
+          )
+          .eq('active', true),
+      ]);
+      return {
+        categories: catRes.data || [],
+        relationships: relRes.data || [],
+        opportunities: oppRes.data || [],
+      };
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutos fresco
+    gcTime: 30 * 60 * 1000,
+  });
+
+  const categories = catalogMeta?.categories || [];
+  const relationships = catalogMeta?.relationships || [];
+  const opportunities = catalogMeta?.opportunities || [];
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -213,25 +237,6 @@ function HomeContent() {
       params.set('categorias', resolveSlugsFromCategoryIds(filters.cats, categories).join(','));
     router.push(params.toString() ? `/?${params.toString()}` : '/', { scroll: false });
   }, [router, filters.envs, filters.cats, categories]);
-
-  useEffect(() => {
-    async function loadData() {
-      const [catRes, relRes, oppRes] = await Promise.all([
-        supabase.from('categories').select('id, name, slug, type').order('name'),
-        supabase.from('category_relationships').select('parent_id, child_id'),
-        supabase
-          .from('opportunities')
-          .select(
-            'id, name, slug, badge_color, border_color, border_style, badge_animation, title_color'
-          )
-          .eq('active', true),
-      ]);
-      if (catRes.data) setCategories(catRes.data);
-      if (relRes.data) setRelationships(relRes.data);
-      if (oppRes.data) setOpportunities(oppRes.data);
-    }
-    loadData();
-  }, []);
 
   const environments = categories.filter((c) => c.type === 'environment');
   const hasActiveFilters =

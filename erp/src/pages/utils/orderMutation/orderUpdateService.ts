@@ -10,6 +10,8 @@ import type { OrderCirculationState } from '../nfe/cancellationEligibility';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
+import { assertOwnedByTestContext } from '../../../../../shared-utils/testArtifactContext';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 
 const TABLE_NAME = 'orders';
 
@@ -19,7 +21,8 @@ const TABLE_NAME = 'orders';
 export const executeUpdateOrder = async (
   id: string,
   orderToUpdate: Partial<Order>,
-  currentOrder?: Order
+  currentOrder?: Order,
+  expectedUpdatedAt?: string
 ): Promise<void> => {
   try {
     let merged: any;
@@ -59,6 +62,8 @@ export const executeUpdateOrder = async (
       merged = rest;
     }
 
+    assertOwnedByTestContext(previousOrderData);
+
     // 1. Manutenção do código do pedido
     const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;
     const existingCode = resolveOrderIndexForUpdate(persistedCodeSource, cleanUpdates);
@@ -85,11 +90,14 @@ export const executeUpdateOrder = async (
       throw new Error(validation.reason);
     }
     // 3. Garantir cliente no CRM
-    const customerId = await ensureCustomerInCrm(
+    const customerId = merged.is_test ? merged.customerData?.id : await ensureCustomerInCrm(
       merged.customerData,
       merged.marketingOrigin,
       false
     );
+    if (merged.is_test && !customerId) {
+      throw new Error('Pedido de teste exige um cliente identificado da própria execução.');
+    }
     if (customerId && merged.customerData) {
       merged.customerData.id = customerId;
     }
@@ -100,30 +108,49 @@ export const executeUpdateOrder = async (
 
     // 4. Pedido, saídas/entradas, estornos e saldo são uma única transação.
     // Sem fallback de escrita parcial quando a movimentação falha.
-    const { data: transaction, error: rpcError } = await supabase.rpc(
-      'create_order_with_inventory_transaction',
-      {
-        p_order_id: String(id),
-        p_order_payload: updatePayload,
-        p_items: orderItemsPayload,
-        p_payments: orderPaymentsPayload,
-        p_is_update: true,
-      }
-    );
+    const rpcName = expectedUpdatedAt
+      ? 'update_order_with_inventory_transaction_if_version'
+      : 'create_order_with_inventory_transaction';
+    const rpcArguments = expectedUpdatedAt
+      ? {
+          p_order_id: String(id),
+          p_expected_updated_at: expectedUpdatedAt,
+          p_order_payload: updatePayload,
+          p_items: orderItemsPayload,
+          p_payments: orderPaymentsPayload,
+        }
+      : {
+          p_order_id: String(id),
+          p_order_payload: updatePayload,
+          p_items: orderItemsPayload,
+          p_payments: orderPaymentsPayload,
+          p_is_update: true,
+        };
+    const { data: transaction, error: rpcError } = await supabase.rpc(rpcName, rpcArguments);
+    if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT'))
+      throw new Error('O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.');
     if (rpcError) throw rpcError;
     merged = { ...merged, ...(transaction?.order_data || {}) };
 
     // 5. Notificações de eventos e alterações
     const oldStatus = previousStatus;
     const newStatus = orderToUpdate.status || merged.status || oldStatus;
-    dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus);
+    if (
+      !isIdentifiedTestArtifact(previousOrderData) &&
+      !isIdentifiedTestArtifact(merged)
+    ) {
+      dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus);
+    }
 
     // 6. Sincronização em background do cliente no CRM
-    syncCustomerToCrmBackground(
+    if (!merged.is_test) syncCustomerToCrmBackground(
       merged.customerData?.id,
       merged.customerData?.phone,
       merged.marketingOrigin
     );
+    try {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    } catch (e) {}
   } catch (error) {
     console.error('Erro ao atualizar o pedido: ', error);
     throw error;

@@ -62,13 +62,13 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(transition.reason).toContain('Registre uma devolução');
     });
 
-    it('bloqueia cancelamento quando a mercadoria já saiu para transporte', () => {
+    it('bloqueia cancelamento até a rota não confirmada ser encerrada', () => {
       const transition = validateOrderStatusTransition('scheduled', 'cancelled', {
         status: 'scheduled',
         delivery_status: 'in_transit',
       });
       expect(transition.allowed).toBe(false);
-      expect(transition.reason).toContain('circulação da mercadoria');
+      expect(transition.reason).toContain('não foi confirmada nem reconciliada');
     });
 
     it('bloqueia cancelamento com data de saída registrada no pedido', () => {
@@ -227,7 +227,7 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       { deliveryStatus: 'delivered' },
       { deliveryStartedAt: '2026-10-01T12:00:00Z' },
       { shipping: { pickupConfirmedAt: '2026-10-01T12:00:00Z' } },
-    ])('bloqueia cancelamento agendado depois de iniciar a circulação (%j)', (circulation) => {
+    ])('bloqueia cancelamento até a entrega ou retirada ser reconciliada (%j)', (circulation) => {
       expect(
         canCancelOrderDirectly({ status: 'scheduled', orderType: 'sale', ...circulation })
       ).toBe(false);

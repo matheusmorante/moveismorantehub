@@ -37,8 +37,16 @@ const args = [
   command,
 ];
 const env = { ...process.env };
+const testArtifactRunId = env.VITE_TEST_ARTIFACT_RUN_ID;
 for (const key of Object.keys(env)) {
   if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
+}
+if (testArtifactRunId) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(testArtifactRunId)) {
+    process.stderr.write('Vercel Development recusou um identificador de execução de teste inválido.\n');
+    process.exit(1);
+  }
+  env.VITE_TEST_ARTIFACT_RUN_ID = testArtifactRunId.toLowerCase();
 }
 env.MORANTE_ENV_SOURCE = 'vercel-development';
 env.VERCEL_PROJECT_ID = projectId;

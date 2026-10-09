@@ -1,4 +1,5 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import type { Element } from '@xmldom/xmldom';
 import type { AppSettings } from '../settingsService';
 import { calculateMod11CheckDigit } from './nfeAccessKey';
 import { buildEmitXml, buildIdeXml, escapeXml } from './xml/xmlEmitterBlock';

@@ -215,6 +215,8 @@ export async function getNextNfeNumberPreview(
 
 export interface NfeEmissionResult {
   success: boolean;
+  preview?: boolean;
+  previewProof?: NfeXmlPreviewProof;
   emissionRequestId?: string;
   documentId?: string;
   orderId?: string;
@@ -264,6 +266,16 @@ export interface NfeEmissionResult {
     sefazCode?: string;
   };
 }
+
+export type NfeXmlPreviewProof = {
+  fingerprint: string;
+  capturedAt: string;
+  issuedAt: string;
+  model: '55' | '65';
+  series: string;
+  number: number;
+  accessKey: string;
+};
 
 function requiresReconciliation(
   status: number,
@@ -338,12 +350,14 @@ export async function emitNfeForOrder(
   freightContractResponsible?: 'SENDER' | 'RECIPIENT' | 'THIRD_PARTY',
   _forceNewIntent = false,
   recipientIe?: string,
-  recipientIeIndicator?: '1' | '2' | '9'
+  recipientIeIndicator?: '1' | '2' | '9',
+  previewOptions: { previewOnly?: boolean; previewProof?: NfeXmlPreviewProof } = {}
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
+  const previewOnly = previewOptions.previewOnly === true;
   if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
     return { success: false, environment, error: 'Informe um número de nota fiscal válido.' };
-  if (!retryDocumentId && environment === 1 && !productionConfirmed) {
+  if (!previewOnly && !retryDocumentId && environment === 1 && !productionConfirmed) {
     return {
       success: false,
       error: 'Confirme explicitamente a transmissão em Produção antes de emitir.',
@@ -567,6 +581,8 @@ export async function emitNfeForOrder(
             ...(freightContractResponsible === undefined ? {} : { freightContractResponsible }),
             ...(cardNotIntegrated === undefined ? {} : { cardNotIntegrated }),
             ...(requestedNumber === undefined ? {} : { requestedNumber }),
+            ...(previewOnly ? { previewOnly: true } : {}),
+            ...(previewOptions.previewProof ? { previewProof: previewOptions.previewProof } : {}),
           });
         },
         { environment }
@@ -580,6 +596,39 @@ export async function emitNfeForOrder(
         body: requestBody,
       });
       const result = await response.json().catch(() => ({}));
+      if (response.ok && result.success === true && result.preview === true) {
+        const proof = result.previewProof;
+        if (
+          typeof proof?.fingerprint !== 'string' ||
+          typeof proof?.capturedAt !== 'string' ||
+          typeof proof?.issuedAt !== 'string' ||
+          (proof?.model !== '55' && proof?.model !== '65') ||
+          typeof proof?.series !== 'string' ||
+          !Number.isInteger(proof?.number) ||
+          typeof proof?.accessKey !== 'string' ||
+          typeof result.signedXml !== 'string'
+        )
+          return {
+            success: false,
+            environment,
+            error: 'O servidor não retornou uma prévia fiscal completa.',
+          };
+        return {
+          success: true,
+          preview: true,
+          previewProof: proof as NfeXmlPreviewProof,
+          emissionRequestId,
+          orderId: String(order.id || ''),
+          accessKey: proof.accessKey,
+          nfeNumber: proof.number,
+          series: proof.series,
+          model: proof.model,
+          environment,
+          xml: result.signedXml,
+          numberReserved: false,
+          sefazContacted: false,
+        };
+      }
       const numberConflict =
         result.code === 'NFE_NUMBER_ALREADY_USED'
           ? parseFiscalNumberConflict(result.numberConflict)
@@ -1001,11 +1050,14 @@ export async function processOrderCancellationFiscalEffects(
           documentId: operation.documentId,
           productionConfirmed,
         });
+        if (result.action === 'batch')
+          throw new Error('A consulta de um documento retornou um lote fiscal inesperado.');
         results.push({
           documentId: operation.documentId,
           environment: operation.environment,
           model: operation.model,
           ...result,
+          action: result.action,
         });
       } catch (error) {
         results.push({

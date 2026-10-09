@@ -1,5 +1,5 @@
-import { supabase } from '../supabaseClient';
 import { fetchMobileProductsPage } from '../../features/products/services/mobileProductFetchService';
+import { supabase } from '../supabaseClient';
 
 export interface MobileProductSummaryForAgent {
   codigo: string;
@@ -102,6 +102,7 @@ export async function searchMobileProducts(input: {
     category: input.categoria,
     statusFilter,
     includeDeactivated: input.apenasAtivos === false,
+    summaryOnly: true,
     throwOnError: true,
   });
 

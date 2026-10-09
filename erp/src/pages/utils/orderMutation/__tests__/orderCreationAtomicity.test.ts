@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   recordHistory: vi.fn(),
   syncCustomer: vi.fn(),
   dispatchNotifications: vi.fn(),
+  dispatchUpdateNotifications: vi.fn(),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -31,7 +32,7 @@ vi.mock('../orderCrmSyncService', () => ({
 }));
 vi.mock('../orderNotificationDispatcher', () => ({
   dispatchOrderCreationNotifications: mocks.dispatchNotifications,
-  dispatchOrderUpdateNotifications: vi.fn(),
+  dispatchOrderUpdateNotifications: mocks.dispatchUpdateNotifications,
 }));
 vi.mock('../orderStatusWorkflowService', () => ({ recordOrderStatusHistory: mocks.recordHistory }));
 
@@ -72,6 +73,7 @@ describe('cadastro de pedido com estoque atômico', () => {
       expect.objectContaining({ p_order_id: expect.any(String), p_items: scheduledSale.items })
     );
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.dispatchNotifications).toHaveBeenCalledTimes(1);
   });
 
   it('usa uma chave estável de idempotência quando a fixture a fornece', async () => {
@@ -87,8 +89,8 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.rpc.mock.calls[0][1].p_order_id).toBe('550e8400-e29b-41d4-a716-446655440010');
   });
 
-  it('mantém estoque/RPC do pedido de teste e suprime somente sincronização CRM e avisos operacionais', async () => {
-    const syntheticOrder = { ...scheduledSale, is_test: true, syntheticFixture: { scenarioKey: 'SCENARIO_001', version: 1 } };
+  it('mantém estoque/RPC sem gerar notificação do teste nem atualizar contatos operacionais', async () => {
+    const syntheticOrder = { ...scheduledSale, customerData: { id: 'test-customer' }, is_test: true, syntheticFixture: { scenarioKey: 'SCENARIO_001', version: 1 } };
     mocks.rpc.mockResolvedValue({
       data: { id: '550e8400-e29b-41d4-a716-446655440011', order_index: 123, order_data: syntheticOrder },
       error: null,
@@ -171,6 +173,42 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.rpc).toHaveBeenCalledWith(
       'create_order_with_inventory_transaction',
       expect.objectContaining({ p_is_update: true, p_payments: splitPayments })
+    );
+  });
+
+  it('não envia notificação ao editar um pedido de teste', async () => {
+    const testOrder = {
+      ...scheduledSale,
+      id: 'pedido-teste',
+      is_test: true,
+      orderIndex: 123,
+      customerData: { id: 'cliente-teste' },
+    };
+    mocks.rpc.mockResolvedValue({ data: { order_data: testOrder }, error: null });
+
+    await executeUpdateOrder('pedido-teste', { observation: 'ajuste de teste' } as any, testOrder as any);
+
+    expect(mocks.dispatchUpdateNotifications).not.toHaveBeenCalled();
+  });
+
+  it('guarda a versão conferida do pedido dentro da transação comercial e de estoque', async () => {
+    mocks.rpc.mockResolvedValue({ data: { order_data: scheduledSale }, error: null });
+
+    await executeUpdateOrder(
+      'pedido-1',
+      { observation: 'alteração confirmada' } as any,
+      { ...scheduledSale, id: 'pedido-1' } as any,
+      '2026-10-09T10:00:00.000Z'
+    );
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'update_order_with_inventory_transaction_if_version',
+      expect.objectContaining({
+        p_order_id: 'pedido-1',
+        p_expected_updated_at: '2026-10-09T10:00:00.000Z',
+        p_items: scheduledSale.items,
+        p_payments: scheduledSale.payments,
+      })
     );
   });
 

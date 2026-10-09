@@ -1,4 +1,5 @@
 import { isTestProduct } from '../../../../shared-utils/isTestProduct';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 
 export { isTestProduct };
 
@@ -20,6 +21,7 @@ const hasExplicitTestIdentifier = (value: unknown): boolean =>
     /\[?\s*HML\s*NF\s*TEST\b/i.test(value));
 
 export const isTestOrder = (value: unknown): boolean => {
+  if (isIdentifiedTestArtifact(value)) return true;
   const row = asRecord(value);
   if (!row) return false;
 

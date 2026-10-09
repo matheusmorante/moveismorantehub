@@ -5,6 +5,7 @@ type Scope = "today" | "next_days";
 
 const normalize = (value: unknown) => String(value ?? "").trim();
 const normalizeLower = (value: unknown) => normalize(value).toLowerCase();
+const NON_TEST_ORDER_FILTER = "order_data.is.null,and(or(order_data->>is_test.is.null,order_data->>is_test.neq.true),or(order_data->>isTest.is.null,order_data->>isTest.neq.true),or(order_data->testArtifact->>is_test.is.null,order_data->testArtifact->>is_test.neq.true))";
 
 function localDate(value = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -94,7 +95,11 @@ serve(async (request) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
   try {
-    const { data: orders, error } = await admin.from("orders").select("*").order("created_at", { ascending: false }).limit(300);
+    const { data: orders, error } = await admin.from("orders")
+      .select("id, status, order_type, deleted, scheduled_date, customer_name, order_data")
+      .or(NON_TEST_ORDER_FILTER)
+      .order("created_at", { ascending: false })
+      .limit(300);
     if (error) throw error;
     const today = localDate();
     const operational = (orders || []).filter(isOperational);

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseConfig';
 import { getNotificationSoundRoute } from './notificationSoundRouting';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 
 export interface AppNotificationPayload {
   orderId?: string;
@@ -17,6 +18,8 @@ export interface AppNotificationPayload {
 }
 
 export async function dispatchAppNotification(payload: AppNotificationPayload): Promise<void> {
+  if (isIdentifiedTestArtifact(payload.orderData)) return;
+
   try {
     const soundRoute = getNotificationSoundRoute(payload);
     // 1. Grava no banco de dados para histórico e realtime do app aberto

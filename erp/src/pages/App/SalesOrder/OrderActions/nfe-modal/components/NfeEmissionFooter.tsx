@@ -12,6 +12,8 @@ export interface NfeEmissionFooterProps {
   isNfce: boolean;
   canOperateFiscal: boolean;
   isSubmitting: boolean;
+  isPreparingPreview?: boolean;
+  hasCurrentXmlPreview?: boolean;
   isLoadingFiscalData: boolean;
   isLoadingCustomerType: boolean;
   isOperationIncomplete?: boolean;
@@ -20,6 +22,7 @@ export interface NfeEmissionFooterProps {
   productionConfirmed: boolean;
   onClose: () => void;
   onEmit: (productionConfirmed: boolean, isRetry: boolean) => void;
+  onPreview?: (productionConfirmed: boolean) => void;
   onPrintDanfe: () => void;
   onOpenFiscalIssue?: () => void;
   onTransmissionEnabled?: () => void;
@@ -31,6 +34,8 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   isNfce,
   canOperateFiscal,
   isSubmitting,
+  isPreparingPreview = false,
+  hasCurrentXmlPreview = true,
   isLoadingFiscalData,
   isLoadingCustomerType,
   isOperationIncomplete = false,
@@ -39,6 +44,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   productionConfirmed,
   onClose,
   onEmit,
+  onPreview,
   onPrintDanfe,
   onOpenFiscalIssue,
   onTransmissionEnabled,
@@ -57,7 +63,17 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     isLoadingFiscalData ||
     isLoadingCustomerType ||
     isOperationIncomplete ||
-    hasBlockingPreparationFailure;
+    hasBlockingPreparationFailure ||
+    !hasCurrentXmlPreview;
+  const isPreviewDisabled =
+    !canOperateFiscal ||
+    isSubmitting ||
+    isPreparingPreview ||
+    isLoadingFiscalData ||
+    isLoadingCustomerType ||
+    isOperationIncomplete ||
+    hasBlockingPreparationFailure ||
+    Boolean(emissionResult?.success || emissionResult?.pending);
 
   React.useLayoutEffect(() => {
     if (!isEmitDisabled && !isUnapprovedInterstateMatrix) onTransmissionEnabled?.();
@@ -132,6 +148,17 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
+              {onPreview && (
+                <button
+                  type="button"
+                  data-testid="nfe-preview-xml-button"
+                  onClick={() => onPreview(productionConfirmed)}
+                  disabled={isPreviewDisabled}
+                  className="px-4 py-2 rounded-xl border border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-200 text-xs font-bold transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/40 disabled:opacity-50"
+                >
+                  {isPreparingPreview ? 'Preparando prévia...' : 'Visualizar XML'}
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"

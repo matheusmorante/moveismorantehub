@@ -18,9 +18,10 @@ export const saveOrder = async (
 export const updateOrder = async (
   id: string,
   orderToUpdate: Partial<Order>,
-  currentOrder?: Order
+  currentOrder?: Order,
+  expectedUpdatedAt?: string
 ): Promise<void> => {
-  return executeUpdateOrder(id, orderToUpdate, currentOrder);
+  return executeUpdateOrder(id, orderToUpdate, currentOrder, expectedUpdatedAt);
 };
 
 // Re-exports dos serviços especializados para consumo modular

@@ -1,4 +1,5 @@
 import Order from '../../types/order.type';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { formatOrderCode } from '../orderCode';
 import { formatOrderSchedulingText } from '../orderSchedulingStatus';
 import { dispatchAppNotification } from '@/pages/utils/pushNotificationService';
@@ -17,7 +18,7 @@ import {
  * Dispara notificações ao criar um novo pedido.
  */
 export const dispatchOrderCreationNotifications = (orderId: string, order: Order): void => {
-  if (!order.status || order.status === 'draft') return;
+  if (isIdentifiedTestArtifact(order) || !order.status || order.status === 'draft') return;
 
   void (async () => {
     try {
@@ -46,6 +47,8 @@ export const dispatchOrderUpdateNotifications = (
   oldStatus?: Order['status'],
   newStatus?: Order['status']
 ): void => {
+  if (isIdentifiedTestArtifact(previousOrderData) || isIdentifiedTestArtifact(merged)) return;
+
   const customerName = merged.customerData?.fullName || 'Cliente';
   const schedText = formatOrderSchedulingText(merged.shipping, merged);
 

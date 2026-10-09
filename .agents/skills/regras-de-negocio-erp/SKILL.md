@@ -129,7 +129,7 @@ Use esta skill antes de alterar comportamentos de domínio referentes a vendas, 
 ## 12. Cancelamento de pedido, circulação e documento fiscal
 
 - O cancelamento pode ser iniciado pelo **Pedido de Venda** ou pela tela de **Notas Fiscais de Saída**. Ambos os pontos devem chamar a mesma operação comercial transacional e a mesma política/serviço fiscal central; a tela fiscal não pode apenas alterar o status do documento. Quando houver NF vinculada, reconciliar o pedido e o estoque pelos fluxos existentes antes do evento externo à SEFAZ.
-- Use `hasGoodsCirculated(order)` como regra semântica compartilhada. `fulfilled` significa circulação para entrega (Entregue) e retirada (Retirado); saída/início de transporte também é circulação.
+- Use `hasGoodsCirculated(order)` como regra semântica compartilhada. Só a confirmação final de entrega (Entregue) ou retirada (Retirado) significa circulação. Saída, trânsito, chegada ao endereço e conclusão automática por tempo não comprovam circulação; mantenha a rota não reconciliada separada para impedir decisões fiscais prematuras.
 - Com circulação, bloquear cancelamento por operação não realizada e estorno fiscal. Se a mercadoria retornar, registrar devolução comercial vinculada e gerar o documento fiscal de entrada aplicável, preservando venda e NF-e originais.
 - Sem circulação e sem documento autorizado (ausente, rejeitado ou não autorizado), cancelar apenas o pedido e o efeito comercial/estoque correspondente.
 - Sem circulação e com documento autorizado, a política fiscal central decide automaticamente entre cancelamento SEFAZ e estorno permitido pela legislação. A pessoa usuária não escolhe “Cancelar NF-e” ou “Estornar NF-e”.

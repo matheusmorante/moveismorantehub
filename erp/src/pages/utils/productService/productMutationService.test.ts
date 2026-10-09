@@ -5,6 +5,7 @@ import {
   HML_FISCAL_TEST_ORDER_MARKER,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '../hmlTestData';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
 import type Product from '../../types/product.type';
 
 const mockDb = vi.hoisted(() => ({
@@ -12,12 +13,17 @@ const mockDb = vi.hoisted(() => ({
   productKind: 'normal',
   databaseProducts: [] as any[],
   productObservations: undefined as string | undefined,
+  syncCalls: [] as any[][],
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('./productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
   notifySubscribers: vi.fn(),
+}));
+vi.mock('./productPersistenceService', () => ({
+  ensureUuidFormat: (product: any) => product.id || crypto.randomUUID(),
+  syncProductToSupabase: vi.fn(async (...args: any[]) => { mockDb.syncCalls.push(args); }),
 }));
 
 describe('productMutationService - Sincronização de active entre pai e variações', () => {
@@ -28,6 +34,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     mockDb.productKind = 'normal';
     mockDb.databaseProducts = [];
     mockDb.productObservations = undefined;
+    mockDb.syncCalls.length = 0;
     mockDb.from.mockImplementation((table: string) => {
       const chain: any = {
         update: vi.fn((val: any) => {
@@ -128,6 +135,38 @@ describe('productMutationService - Sincronização de active entre pai e variaç
 
     await expect(saveProduct(testProduct)).rejects.toThrow(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
     expect(updates).toEqual([]);
+  });
+
+  it('carimba a criação de produto e exige insert-only durante uma execução identificada', async () => {
+    const ownerId = '550e8400-e29b-41d4-a716-446655440001';
+    const runId = '550e8400-e29b-41d4-a716-446655440000';
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
+    bindTestArtifactContext({ runId, ownerId });
+
+    await saveProduct({
+      id: '550e8400-e29b-41d4-a716-446655440020',
+      name: 'Sofá de teste',
+      description: 'Sofá de teste',
+      code: '000000',
+      unitPrice: 2000,
+      stock: 1,
+      status: 'hidden',
+      isDraft: false,
+    } as Product, true);
+
+    expect(mockDb.syncCalls).toHaveLength(1);
+    expect(mockDb.syncCalls[0][0].technicalSpecs.testArtifact)
+      .toEqual({ is_test: true, runId, ownerId });
+    expect(mockDb.syncCalls[0][1]).toEqual({ insertOnly: true });
+    clearTestArtifactContext();
   });
 
   it('updateProduct recusa publicação parcial quando o registro no banco está marcado como teste', async () => {

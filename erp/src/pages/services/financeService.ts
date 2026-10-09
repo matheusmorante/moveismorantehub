@@ -186,6 +186,36 @@ export const financeService = {
     }));
   },
 
+  async getReportTransactions(startDate?: string, endDate?: string) {
+    const { data, error } = await supabase.rpc('get_report_financial_transactions', {
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_end_exclusive: false,
+    });
+    if (error) throw error;
+    return (data || []).map((t: any) => ({
+      ...t,
+      result_nature:
+        t.result_nature || determineResultNature(t.category_name, t.type),
+    }));
+  },
+
+  async getReportPayables(status?: string) {
+    const { data, error } = await supabase.rpc('get_report_accounts_payable', {
+      p_status: status || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async getReportReceivables(status?: string) {
+    const { data, error } = await supabase.rpc('get_report_accounts_receivable', {
+      p_status: status || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async createTransaction(
     transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
   ) {
@@ -236,7 +266,7 @@ export const financeService = {
   },
 
   async getFinancialSummary(startDate?: string, endDate?: string) {
-    const txs = await this.getTransactions(startDate, endDate);
+    const txs = await this.getReportTransactions(startDate, endDate);
     let totalIncome = 0;
     let totalExpense = 0;
     (txs || []).forEach((t: any) => {

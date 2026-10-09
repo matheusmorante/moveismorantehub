@@ -125,9 +125,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: fiscalAuthorization.message,
         });
 
-      const normalRecovery = await recoverNormalSale(supabase, command);
+      const normalRecovery = command.previewOnly ? null : await recoverNormalSale(supabase, command);
       if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);
-      const recovered = command.environment === 2 ? await recoverHmlTechnical(supabase, command) : null;
+      const recovered =
+        !command.previewOnly && command.environment === 2
+          ? await recoverHmlTechnical(supabase, command)
+          : null;
       if (recovered) return res.status(recovered.status).json(recovered.body);
 
       const { data: orderRow, error: orderError } = await supabase
@@ -239,6 +242,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       };
       if (command.environment === 2 && candidate.order.data.fiscalScenario === 'HML_TECHNICAL_V1') {
+        if (command.previewOnly)
+          return res.status(422).json({
+            success: false,
+            code: 'FISCAL_PREVIEW_UNSUPPORTED_SCENARIO',
+            error: 'A prévia assinada ainda não está disponível para este cenário fiscal técnico.',
+            numberReserved: false,
+            sefazContacted: false,
+          });
         const result = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
         return res.status(result.status).json(result.body);
       }

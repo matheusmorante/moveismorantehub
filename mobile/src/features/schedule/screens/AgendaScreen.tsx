@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -60,11 +61,11 @@ export const AgendaScreen: React.FC<Props> = ({
   const loadData = async () => {
     try {
       const [{ data: orderData }, eventList] = await Promise.all([
-        supabase
+        excludeTestOrders(supabase
           .from('orders')
           .select(
             'id, status, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, customer_name, order_number, order_index, created_at, order_data'
-          )
+          ))
           .or('deleted.is.null,deleted.eq.false')
           .in('status', ['scheduled', 'draft'])
           .order('created_at', { ascending: false }),

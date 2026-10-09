@@ -2,6 +2,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../types/product.type';
 import Order from '../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info';
 export type NotificationCategory = 'stock' | 'order' | 'system' | 'match';
@@ -201,7 +203,9 @@ const buildOrderNotifications = (orders: Order[]): AppNotification[] => {
   const readIds = getReadIds();
   const notifications: AppNotification[] = [];
 
-  const draftOrders = orders.filter((o) => !o.deleted && o.status === 'draft');
+  const draftOrders = orders.filter(
+    (o) => !o.deleted && o.status === 'draft' && !isIdentifiedTestArtifact(o)
+  );
 
   if (draftOrders.length > 0) {
     const id = `draft_orders_alert_${draftOrders.length}`;
@@ -238,14 +242,14 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
       .eq('active', true);
 
     // Fetch Orders - somente status para notificações de rascunho (campo mínimo)
-    const { data: oData, error: oError } = await supabase
-      .from('orders')
-      .select('id, order_data->status')
-      .limit(500);
+    const orderQuery = excludeTestOrders(
+      supabase.from('orders').select('id, order_data->status'),
+    );
+    const { data: oData, error: oError } = await orderQuery.limit(500);
 
     if (pError || oError) return;
 
-    const products: Product[] = (pData || []).map((d: any) => ({
+    const products: Product[] = (pData || []).filter((d: any) => !isIdentifiedTestArtifact(d)).map((d: any) => ({
       id: String(d.id),
       description: d.description,
       stock: Number(d.stock ?? 0),

@@ -6,6 +6,7 @@ import { ensureDefaultVariation } from '../productVariationDefaults';
 import { validateProductImageLimits } from './productImageHelpers';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
+import { queryClient } from '@/lib/queryClient';
 import { mapToDB, mapFromDB } from './productMapper';
 import { isNonConventionalProduct } from '../productKindRules';
 import {
@@ -15,6 +16,11 @@ import {
 } from '../hmlTestData';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
 import { formatProductTextData } from './productValidation';
+import {
+  assertOwnedByTestContext,
+  getTestArtifactContext,
+  stampTestArtifact,
+} from '../../../../../shared-utils/testArtifactContext';
 import {
   checkProductLinkedToSales,
   checkProductHasMoves,
@@ -26,6 +32,15 @@ import {
   restoreProduct,
   deleteProduct,
 } from './productDependencyCheck';
+
+
+const invalidateProductQueries = () => {
+  try {
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  } catch (err) {
+    // Failsafe para testes headless
+  }
+};
 
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
   if (isTestProductCatalogPublicationBlocked(product)) {
@@ -50,6 +65,9 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
   }
 
   if (isProductDraft(product)) {
+    if (getTestArtifactContext()) {
+      throw new Error('Artefatos de teste precisam ser criados no banco; rascunhos locais não são aceitos.');
+    }
     product.id = resolvedId;
     await persistProductDraft(product);
     const drafts = getLocalProducts();
@@ -60,6 +78,10 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     notifySubscribers();
     return resolvedId;
   }
+
+  const existingLocalProduct = products.find((item) => String(item.id) === String(resolvedId));
+  const isContextBound = Boolean(getTestArtifactContext());
+  if (isContextBound && existingLocalProduct) assertOwnedByTestContext(existingLocalProduct);
 
   const skusToValidate: string[] = [];
   if (product.code) skusToValidate.push(product.code);
@@ -101,28 +123,30 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     });
   }
 
-  if (
-    resolvedId &&
-    !forceInsert &&
-    products.some((item) => String(item.id) === String(resolvedId))
-  ) {
+  if (resolvedId && !forceInsert && existingLocalProduct) {
     await updateProduct(resolvedId, product);
     return String(resolvedId);
   }
 
-  const newProduct: Product = {
+  let newProduct: Product = {
     ...product,
     id: resolvedId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
+  if (isContextBound) {
+    newProduct = stampTestArtifact(newProduct, 'technicalSpecs');
+    for (const variation of newProduct.variations || []) variation.id = crypto.randomUUID();
+  }
+
   products.push(newProduct);
   saveLocalProducts(products);
   notifySubscribers();
 
   // Sincronizar com Supabase e aguardar conclusão
-  await syncProductToSupabase(newProduct);
+  await syncProductToSupabase(newProduct, { insertOnly: isContextBound });
+  invalidateProductQueries();
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('product-updated', { detail: { productId: resolvedId } }));
@@ -152,6 +176,17 @@ export const updateProduct = async (
   const dummyProduct = { ...productToUpdate, id };
   const resolvedId = ensureUuidFormat(dummyProduct);
   if (productToUpdate.id) productToUpdate.id = resolvedId;
+
+  if (getTestArtifactContext()) {
+    const { data: databaseArtifact, error: artifactError } = await supabase
+      .from(TABLE_NAME)
+      .select('id,technical_specs')
+      .eq('id', resolvedId)
+      .maybeSingle();
+    if (artifactError) throw artifactError;
+    if (!databaseArtifact) throw new Error('O produto não existe para esta execução de teste.');
+    assertOwnedByTestContext(databaseArtifact);
+  }
 
   const skusToValidate: string[] = [];
   if (productToUpdate.code) skusToValidate.push(productToUpdate.code);
@@ -267,6 +302,7 @@ export const updateProduct = async (
 
   // Sincronizar com Supabase e aguardar conclusão
   await syncProductToSupabase(updatedProduct);
+  invalidateProductQueries();
 };
 
 export const bulkMoveToTrash = async (

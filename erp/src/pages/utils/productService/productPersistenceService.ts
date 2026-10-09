@@ -16,7 +16,10 @@ export const ensureUuidFormat = (product: Partial<Product>): string => {
   );
 };
 
-export const syncProductToSupabase = async (product: Product): Promise<void> => {
+export const syncProductToSupabase = async (
+  product: Product,
+  options: { insertOnly?: boolean } = {}
+): Promise<void> => {
   try {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       product.id || ''
@@ -65,13 +68,17 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
 
     // O upsert atende tanto produtos novos quanto edições pelo UUID.
     dbData.name = dbData.name || product.description || 'Produto Sem Nome';
-    let { error: productError } = await supabase.from(TABLE_NAME).upsert(dbData);
+    let { error: productError } = options.insertOnly
+      ? await supabase.from(TABLE_NAME).insert(dbData)
+      : await supabase.from(TABLE_NAME).upsert(dbData);
     if (
       productError &&
       (productError.code === '23505' || productError.message?.toLowerCase().includes('slug'))
     ) {
       dbData.slug = await resolveUniqueSlug(supabase, TABLE_NAME, dbData.slug, dbData.id);
-      const retry = await supabase.from(TABLE_NAME).upsert(dbData);
+      const retry = options.insertOnly
+        ? await supabase.from(TABLE_NAME).insert(dbData)
+        : await supabase.from(TABLE_NAME).upsert(dbData);
       productError = retry.error;
     }
     if (productError) throw productError;
@@ -250,7 +257,9 @@ export const syncProductToSupabase = async (product: Product): Promise<void> => 
         });
 
         if (recordsToSave.length > 0) {
-          const { error: varErr } = await supabase.from('product_variations').upsert(recordsToSave);
+          const { error: varErr } = options.insertOnly
+            ? await supabase.from('product_variations').insert(recordsToSave)
+            : await supabase.from('product_variations').upsert(recordsToSave);
           if (varErr) throw varErr;
           if (generatedDefaultId) {
             // Replace the deferred placeholder only after the requested rows exist,

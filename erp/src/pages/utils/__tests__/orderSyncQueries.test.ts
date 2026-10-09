@@ -4,7 +4,41 @@ const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 
-import { fetchAllOrdersForDashboard, fetchScheduledAndDraftOrders } from '../orderSyncQueries';
+import {
+  fetchAllOrdersForDashboard,
+  fetchOrdersPage,
+  fetchScheduledAndDraftOrders,
+} from '../orderSyncQueries';
+
+describe('fetchOrdersPage', () => {
+  beforeEach(() => {
+    mockDb.from.mockReset();
+  });
+
+  it('selects mapper fields explicitly and projects only consumed child columns', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.ilike = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    mockDb.from.mockReturnValue(query);
+
+    await fetchOrdersPage();
+
+    const [columns, options] = query.select.mock.calls[0];
+    expect(options).toEqual({ count: 'exact' });
+    expect(columns).toContain('items, order_data');
+    expect(columns).toContain('order_items(');
+    expect(columns).toContain('item_snapshot');
+    expect(columns).toContain('original_total_value');
+    expect(columns).toContain('order_payments(payment_method, amount, fee, fee_type, status, installments)');
+    expect(columns).not.toMatch(/order_items\s*\(\s*\*\s*\)/);
+    expect(columns).not.toMatch(/order_payments\s*\(\s*\*\s*\)/);
+  });
+});
 
 describe('fetchScheduledAndDraftOrders', () => {
   beforeEach(() => {
@@ -72,6 +106,7 @@ describe('fetchAllOrdersForDashboard', () => {
       selectedColumns.push(columns);
       return query;
     });
+    query.or = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.gte = vi.fn(() => query);
     query.lte = vi.fn(() => query);

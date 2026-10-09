@@ -35,7 +35,7 @@ export const useAISummary = (rawOrders: any[] = []) => {
 
       generateDeliveryAISummary(
         'today',
-        true,
+        false,
         setAiSummaryToday,
         setAiSummaryTomorrow,
         setIsGeneratingAISummary,

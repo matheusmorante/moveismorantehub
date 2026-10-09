@@ -1,9 +1,10 @@
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { hasPendingOrderEditEstorno } from './orderEditReplacement';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
-import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { getGoodsCirculationState } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import {
   getEstornoCfopOptions,
@@ -547,12 +548,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (orderError) throw orderError;
       if (
         !order ||
-        !['cancelled', 'cancelado'].includes(order.status) ||
-        hasGoodsCirculated(order)
+        (!['cancelled', 'cancelado'].includes(order.status) &&
+          !(order.status === 'scheduled' && await hasPendingOrderEditEstorno(db, source.order_id, source.id, environment))) ||
+        getGoodsCirculationState(order) !== 'none'
       ) {
         return res.status(409).json({
           error:
-            'O pedido precisa estar cancelado e sem evidência de circulação para preparar estorno.',
+            'O estorno exige pedido cancelado ou substituição por edição registrada, sem entrega/retirada confirmada nem operação em andamento.',
         });
       }
       const authorizedAt = getAuthorizedAt(source.xml_protocolo || '', '');

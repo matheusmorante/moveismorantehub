@@ -46,8 +46,18 @@ export async function createNormalSaleRuleSet(
   const environment = facts.emissionRequest.environment;
   if (environment !== 1 && environment !== 2) throw new Error('Ambiente fiscal inválido.');
   const inputs = obj(facts.fiscalInputs);
-  const customer = obj(inputs.customer);
   const orderData = facts.order.data;
+  const savedCustomer = obj(orderData.customerData);
+  const catalogCustomer = obj(inputs.customer);
+  const customer = {
+    ...catalogCustomer,
+    fullName: savedCustomer.fullName ?? savedCustomer.name ?? catalogCustomer.fullName,
+    cpfCnpj: savedCustomer.cpfCnpj ?? catalogCustomer.cpfCnpj,
+    address: savedCustomer.fullAddress ?? catalogCustomer.address,
+    ie: savedCustomer.ie ?? catalogCustomer.ie,
+    ieIndicator: savedCustomer.ieIndicator ?? catalogCustomer.ieIndicator,
+    personType: savedCustomer.personType ?? catalogCustomer.personType,
+  };
   const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
   const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
   const ieIndicator = resolveEffectiveRecipientIeIndicator({

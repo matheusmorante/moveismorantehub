@@ -1,6 +1,31 @@
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 
+const ORDER_LIST_VIEW_COLUMNS = [
+  'id',
+  'order_number',
+  'created_at',
+  'status',
+  'order_type',
+  'order_index',
+  'customer_name',
+  'total_value',
+  'delivery_method',
+  'scheduled_date',
+  'schedule_start_time',
+  'schedule_end_time',
+  'pending_scheduling',
+  'handling_type',
+  'delivery_status',
+  'delivery_arrived_at',
+  'delivery_started_at',
+  'unattended_reason',
+  'marketing_origin',
+  'is_stock_checked',
+  'is_registered_in_bling',
+  'item_handling',
+].join(',');
+
 export interface MobileOrderListItem {
   id: string;
   order_number: string | null;
@@ -218,7 +243,7 @@ export const fetchMobileOrdersPage = async ({
   try {
     let query = supabase
       .from('order_list_items')
-      .select('*', { count: 'exact' })
+      .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
       .neq('order_type', 'budget')
       .order('created_at', { ascending: false })
       .range(firstRow, lastRow);
@@ -237,7 +262,7 @@ export const fetchMobileOrdersPage = async ({
     if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
 
     const { data, count, error } = await query;
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       const visibleRows = data.filter((row: any) => !isHiddenRow(row));
       const items = visibleRows.map(toListItem);
       await cacheOrders(items);

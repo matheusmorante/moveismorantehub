@@ -83,6 +83,7 @@ export type Order = {
   reviewRequested?: boolean;
   marketingOrigin?: string;
   stockProcessed?: boolean;
+  inventoryMovementNote?: string;
   isPartialStockProcessed?: boolean;
   movedProductIds?: string[];
   isRegisteredInBling?: boolean;

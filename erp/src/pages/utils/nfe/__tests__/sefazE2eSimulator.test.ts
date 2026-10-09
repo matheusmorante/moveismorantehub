@@ -9,7 +9,6 @@ const params = {
   xmlPayload,
 };
 const safeEnvironment: FiscalE2eSimulatorEnvironment = {
-  E2E_ISOLATED_DATA: '1',
   FISCAL_E2E_ALLOWED_SUPABASE_REF: 'fiscal-e2e-isolated',
   FISCAL_E2E_SIMULATOR_ENABLED: '1',
   MORANTE_ENV_SOURCE: 'vercel-development',
@@ -69,4 +68,3 @@ describe('fronteira do simulador fiscal E2E', () => {
     ).toThrowError(expect.objectContaining({ code: 'FISCAL_E2E_SIMULATOR_XML_INVALID' }));
   });
 });
-

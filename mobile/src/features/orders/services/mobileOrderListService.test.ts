@@ -100,4 +100,20 @@ describe('fetchMobileOrdersPage', () => {
     expect(result.total).toBe(1);
     expect(result.items.map((item) => item.id)).toEqual(['order-sale']);
   });
+
+  it('does not query orders again when the optimized view returns a valid empty page', async () => {
+    query.range.mockResolvedValueOnce({ count: 0, error: null, data: [] });
+    const { supabase } = await import('../../../services/supabaseClient');
+
+    const result = await fetchMobileOrdersPage({
+      page: 1,
+      pageSize: 15,
+      search: '',
+      status: 'all',
+    });
+
+    expect(result).toEqual({ items: [], total: 0 });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+    expect(supabase.from).toHaveBeenCalledWith('order_list_items');
+  });
 });

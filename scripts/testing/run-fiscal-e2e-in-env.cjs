@@ -1,56 +1,63 @@
 const { spawn } = require('node:child_process');
+const { randomUUID } = require('node:crypto');
+const fs = require('node:fs');
 const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '../..');
 const mode = process.argv[2];
 const expectedOperator = 'matheusmorante0012@gmail.com';
-const operationalRefs = new Set(['hkoxhourxwlddgsfdgws', 'wzpdfmihnwcrgkyagwkd']);
 
 function stop(message) {
   process.stderr.write(`${message}\n`);
   process.exit(1);
 }
 
-function required(name) {
-  const value = process.env[name]?.trim();
-  if (!value) stop(`E2E fiscal bloqueado. Secret de runtime ausente: ${name}.`);
+function required(name, fallback) {
+  const value = (process.env[name] || (fallback ? process.env[fallback] : ''))?.trim();
+  if (!value) stop(`E2E fiscal bloqueado. Variável de runtime ausente: ${name}.`);
   return value;
 }
 
 if (!['simulated', 'hml'].includes(mode)) stop('Modo de teste fiscal inválido.');
 
-const testSupabaseUrl = required('FISCAL_E2E_SUPABASE_URL');
-const testSupabaseAnonKey = required('FISCAL_E2E_SUPABASE_ANON_KEY');
-const testSupabaseServiceKey = required('FISCAL_E2E_SUPABASE_SERVICE_ROLE_KEY');
-const allowedRef = required('FISCAL_E2E_ALLOWED_SUPABASE_REF');
+const supabaseUrl = required('VITE_SUPABASE_URL', 'SUPABASE_URL');
+const anonKey = required('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY');
+const serviceKey = required('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
 const operatorEmail = required('NFE_HML_TEST_OPERATOR_EMAIL').toLowerCase();
 required('NFE_HML_TEST_OPERATOR_PASSWORD');
 if (operatorEmail !== expectedOperator) stop('E2E fiscal bloqueado: a identidade do operador autorizado não corresponde.');
 
+let linkedRef;
+try {
+  linkedRef = fs.readFileSync(path.join(projectRoot, 'supabase/.temp/project-ref'), 'utf8').trim();
+} catch {
+  stop('E2E fiscal bloqueado: a ref do Supabase vinculado ao repositório não está disponível.');
+}
+
 let configuredRef;
 try {
-  const url = new URL(testSupabaseUrl);
+  const url = new URL(supabaseUrl);
   if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co')) throw new Error();
   configuredRef = url.hostname.split('.')[0];
 } catch {
-  stop('E2E fiscal bloqueado: a URL do Supabase isolado é inválida.');
+  stop('E2E fiscal bloqueado: a URL do Supabase configurado é inválida.');
 }
-if (configuredRef !== allowedRef || operationalRefs.has(configuredRef)) {
-  stop('E2E fiscal bloqueado: a URL não corresponde a uma ref Supabase isolada aprovada.');
+if (!/^[a-z0-9]{20}$/.test(linkedRef) || configuredRef !== linkedRef) {
+  stop('E2E fiscal bloqueado: Vercel Development não aponta para o projeto Supabase vinculado ao repositório.');
 }
 
 const env = { ...process.env };
 env.FISCAL_E2E_MODE = mode;
-env.FISCAL_E2E_ALLOWED_SUPABASE_REF = allowedRef;
-env.VITE_SUPABASE_URL = testSupabaseUrl;
-env.SUPABASE_URL = testSupabaseUrl;
-env.VITE_SUPABASE_ANON_KEY = testSupabaseAnonKey;
-env.SUPABASE_SECRET_KEY = testSupabaseServiceKey;
-env.SUPABASE_SERVICE_ROLE_KEY = testSupabaseServiceKey;
+env.VITE_TEST_ARTIFACT_RUN_ID = randomUUID();
+env.FISCAL_E2E_ALLOWED_SUPABASE_REF = linkedRef;
+env.VITE_SUPABASE_URL = supabaseUrl;
+env.SUPABASE_URL = supabaseUrl;
+env.VITE_SUPABASE_ANON_KEY = anonKey;
+env.SUPABASE_SECRET_KEY = serviceKey;
+env.SUPABASE_SERVICE_ROLE_KEY = serviceKey;
 env.VERCEL_ENV = 'development';
 env.MORANTE_ENV_SOURCE = 'vercel-development';
 env.NFE_ENVIRONMENT = '2';
 env.NFE_PRODUCTION_ENABLED = 'false';
-env.E2E_ISOLATED_DATA = '1';
 env.PLAYWRIGHT_TEST_BASE_URL = 'http://127.0.0.1:5173';
 
 if (mode === 'simulated') {

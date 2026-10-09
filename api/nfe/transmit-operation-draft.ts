@@ -1,4 +1,5 @@
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { hasPendingOrderEditEstorno } from './orderEditReplacement';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import type { AppSettings } from '../../erp/src/pages/utils/settingsService';
@@ -46,9 +47,10 @@ import {
   getEstornoCfopOptions,
   type FiscalCfopConfiguration,
 } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
-import { hasGoodsCirculated } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
+import { getGoodsCirculationState } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
+import { assertNfeSignature } from './fiscalXmlAudit';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const serviceKey = getSupabaseSecretKey() || '';
@@ -110,6 +112,15 @@ function getPersistableItems(signedXml: string, draftLines: Array<Record<string,
     if (!line || !line.reviewed_product_xml || !line.reviewed_taxes_xml || !line.reviewed_cfop) {
       throw new Error(`Item ${item.invoiceItemNumber} não possui revisão fiscal persistida.`);
     }
+    if (
+      normalizeReviewedFiscalBlock(item.productXml, 'prod') !==
+        normalizeReviewedFiscalBlock(String(line.reviewed_product_xml), 'prod') ||
+      normalizeReviewedFiscalBlock(item.taxesXml, 'imposto') !==
+        normalizeReviewedFiscalBlock(String(line.reviewed_taxes_xml), 'imposto')
+    )
+      throw new Error(
+        `XML assinado diverge da revisão fiscal do item ${item.invoiceItemNumber}.`
+      );
     return {
       draft_line_id: String(line.id),
       item_number: item.invoiceItemNumber,
@@ -123,6 +134,105 @@ function getPersistableItems(signedXml: string, draftLines: Array<Record<string,
       taxes_xml: String(line.reviewed_taxes_xml),
     };
   });
+}
+
+function assertDraftXmlMatchesReview(input: {
+  signedXml: string;
+  certificatePem: string;
+  draft: { operation_kind: string };
+  review: Record<string, unknown>;
+  lines: Array<Record<string, unknown>>;
+  originalById: Map<string, Record<string, unknown>>;
+  sourceAccessKey: string;
+  environment: Environment;
+  accessKey: string;
+  series: string;
+  number: number;
+  sourceOperationType: number;
+  sourceDestinationIndicator: number;
+}) {
+  const {
+    signedXml,
+    certificatePem,
+    draft,
+    review,
+    lines,
+    originalById,
+    sourceAccessKey,
+    environment,
+    accessKey,
+    series,
+    number,
+    sourceOperationType,
+    sourceDestinationIndicator,
+  } = input;
+  assertNfeSignature(signedXml, certificatePem);
+  const blocks = [
+    ['dest', 'recipient_xml'],
+    ['total', 'totals_xml'],
+    ['transp', 'transport_xml'],
+    ['pag', 'payment_xml'],
+  ] as const;
+  for (const [tag, reviewField] of blocks) {
+    const expected = normalizeReviewedFiscalBlock(String(review[reviewField] || ''), tag);
+    const actual = normalizeReviewedFiscalBlock(extractXmlBlock(signedXml, tag), tag);
+    if (actual !== expected)
+      throw new Error(`XML assinado diverge da prévia fiscal no campo ${tag}.`);
+  }
+
+  const expectedIdentity: Record<string, string> = {
+    mod: '55',
+    tpAmb: String(environment),
+    serie: String(Number(series)),
+    nNF: String(number),
+    finNFe: draft.operation_kind === 'return' ? '4' : '3',
+    tpNF:
+      draft.operation_kind === 'return' || sourceOperationType === 1
+        ? '0'
+        : '1',
+    idDest: draft.operation_kind === 'return' ? '1' : String(sourceDestinationIndicator),
+  };
+  if (!signedXml.includes(`Id="NFe${accessKey}"`))
+    throw new Error('XML assinado diverge da chave de acesso reservada.');
+  for (const [tag, expected] of Object.entries(expectedIdentity)) {
+    if (readTag(extractXmlBlock(signedXml, 'ide'), tag) !== expected)
+      throw new Error(`XML assinado diverge da identidade fiscal em ide.${tag}.`);
+  }
+  if (!signedXml.includes(`<tpAmb>${environment}</tpAmb>`))
+    throw new Error('XML assinado diverge do ambiente fiscal selecionado.');
+
+  const invoiceLines = getPersistableItems(
+    signedXml,
+    lines as Array<Record<string, unknown>>
+  );
+  if (draft.operation_kind === 'return') {
+    const actualReferences = [
+      ...signedXml.matchAll(/<DFeReferenciado>([\s\S]*?)<\/DFeReferenciado>/g),
+    ].map(([, block]) => ({
+      accessKey: readTag(block, 'chaveAcesso'),
+      itemNumber: Number(readTag(block, 'nItem')),
+    }));
+    const expectedReferences = lines.map((line) => {
+      const original = originalById.get(String(line.original_document_item_id || ''));
+      return Number(original?.item_number);
+    });
+    if (
+      actualReferences.length !== lines.length ||
+      actualReferences.some(
+        (reference, index) =>
+          reference.accessKey !== sourceAccessKey ||
+          reference.itemNumber !== expectedReferences[index]
+      ) ||
+      invoiceLines.length !== lines.length ||
+      /<NFref\b/.test(signedXml)
+    )
+      throw new Error('Referências fiscais dos itens da devolução divergem das alocações revisadas.');
+  } else {
+    const ide = extractXmlBlock(signedXml, 'ide');
+    const references = [...ide.matchAll(/<refNFe>(\d{44})<\/refNFe>/g)].map(([, key]) => key);
+    if (references.length !== 1 || references[0] !== sourceAccessKey || /<DFeReferenciado\b/.test(signedXml))
+      throw new Error('XML de estorno deve referenciar somente a chave fiscal original.');
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -269,16 +379,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           )
           .eq('id', String(source.order_id || ''))
           .maybeSingle();
-        if (orderError || !order || !['cancelled', 'cancelado'].includes(String(order.status))) {
+        if (orderError || !order || (!['cancelled', 'cancelado'].includes(String(order.status)) &&
+          !(order.status === 'scheduled' && await hasPendingOrderEditEstorno(db, String(source.order_id), source.id, environment)))) {
           return res.status(409).json({
             success: false,
-            error: 'O pedido precisa permanecer cancelado para transmitir a NF-e de estorno.',
+            error: 'O estorno exige pedido cancelado ou substituição por edição registrada e ainda agendada.',
           });
         }
-        if (hasGoodsCirculated(order)) {
+        if (getGoodsCirculationState(order) !== 'none') {
           return res.status(409).json({
             success: false,
-            error: 'Há evidência de circulação; o estorno está bloqueado e a NF-e original deve ser preservada.',
+            error: 'A entrega/retirada está confirmada ou em andamento; o estorno está bloqueado e a NF-e original deve ser preservada.',
           });
         }
         const policy = getFiscalCancellationPolicy({
@@ -536,6 +647,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'A SEFAZ autorizou, mas falta reconciliar a gravação local. Consulte novamente; não retransmita.',
         });
       }
+      if (draft.operation_kind === 'estorno') {
+        const { data: editReplacement, error: editReplacementError } = await db
+          .from('nfe_order_edit_replacements')
+          .select('id')
+          .eq('operation_draft_id', draft.id)
+          .maybeSingle();
+        const orderEditTableNotInstalled = ['42P01', 'PGRST204', 'PGRST205'].includes(
+          String((editReplacementError as { code?: string } | null)?.code || '')
+        );
+        if (editReplacementError && !orderEditTableNotInstalled) {
+          return res.status(503).json({
+            success: true,
+            pending: true,
+            reconciliationRequired: true,
+            documentId,
+            accessKey: authorizedAccessKey,
+            protocolNumber,
+            error: 'O estorno foi autorizado, mas a conclusão da edição do pedido precisa ser retomada. Não retransmita.',
+          });
+        }
+        if (editReplacement && !editReplacementError) {
+          const { error: finalizeEditError } = await db.rpc('finalize_fiscal_order_edit', {
+            p_replacement_id: editReplacement.id,
+          });
+          if (finalizeEditError) {
+            console.error('[NF-e Draft] Estorno autorizado; conclusão da edição pendente:', finalizeEditError.message);
+            return res.status(503).json({
+              success: true,
+              pending: true,
+              reconciliationRequired: true,
+              documentId,
+              accessKey: authorizedAccessKey,
+              protocolNumber,
+              error: 'O estorno foi autorizado, mas a atualização do pedido está pendente. Retome a edição pelo ERP; não retransmita.',
+            });
+          }
+        }
+      }
       return res.status(200).json({
         success: true,
         status: 'authorized',
@@ -774,7 +923,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         emissionType: '1',
       });
       accessKey = generatedKey.accessKey;
-      const originalById = new Map(originalLines.map((line) => [line.id, line]));
       const baseXml = buildReviewedFiscalOperationXml({
         kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
         returnMethod:
@@ -842,6 +990,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await validateUnsignedNfeStructure(xml);
       signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
       await validateNfeAgainstOfficialSchema(signedXml);
+      assertDraftXmlMatchesReview({
+        signedXml,
+        certificatePem: certificate.certPem,
+        draft,
+        review,
+        lines: lines as Array<Record<string, unknown>>,
+        originalById,
+        sourceAccessKey: String(source.chave_acesso),
+        environment,
+        accessKey,
+        series,
+        number: nfeNumber,
+        sourceOperationType,
+        sourceDestinationIndicator,
+      });
       const { data: claimed, error: claimError } = await db
         .from('nfe_operation_drafts')
         .update({
@@ -874,6 +1037,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'O XML assinado desta tentativa não contém CSRT. Não é seguro alterá-lo durante retry; faça reconciliação fiscal antes de retransmitir.',
         });
       await validateNfeAgainstOfficialSchema(signedXml);
+      assertDraftXmlMatchesReview({
+        signedXml,
+        certificatePem: certificate.certPem,
+        draft,
+        review,
+        lines: lines as Array<Record<string, unknown>>,
+        originalById,
+        sourceAccessKey: String(source.chave_acesso),
+        environment,
+        accessKey,
+        series,
+        number: nfeNumber,
+        sourceOperationType,
+        sourceDestinationIndicator,
+      });
       const { data: claimed, error: claimError } = await db
         .from('nfe_operation_drafts')
         .update({ status: 'transmitting', updated_at: new Date().toISOString() })
@@ -889,6 +1067,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
+    assertDraftXmlMatchesReview({
+      signedXml,
+      certificatePem: certificate.certPem,
+      draft,
+      review,
+      lines: lines as Array<Record<string, unknown>>,
+      originalById,
+      sourceAccessKey: String(source.chave_acesso),
+      environment,
+      accessKey: accessKey!,
+      series,
+      number: nfeNumber,
+      sourceOperationType,
+      sourceDestinationIndicator,
+    });
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
     let sefazXml: string;
     try {

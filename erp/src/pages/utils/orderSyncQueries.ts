@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import Order from '../types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from './formatters';
@@ -6,6 +7,26 @@ import { mapOrderFromDatabase } from './orderMapper';
 import { isHmlFiscalTestOrder } from './hmlTestData';
 
 const TABLE_NAME = 'orders';
+
+// Select mapper fields present in the current orders schema and only the child
+// fields it consumes, while retaining JSON snapshots for legacy orders.
+const ORDER_LIST_COLUMNS = `
+  id, order_number, order_index, status, order_type, customer_id, customer_name,
+  seller_id, seller_name, total_amount, payment_method, channel, notes,
+  scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method,
+  delivery_status, delivery_arrived_at, delivery_started_at, delivery_finished_at,
+  marketing_origin, items_subtotal, total_discount, total_cost, stock_processed,
+  is_stock_checked, is_registered_in_bling, deleted, deleted_at, return_order_id,
+  linked_order_id, returned_total_amount, original_sold_total, return_kind,
+  created_at, updated_at, items, order_data,
+  order_items(
+    id, product_id, variation_id, code, description, quantity, unit_price,
+    unit_discount, discount_type, cost_price, condition, handling_type,
+    observation, is_temporary_product, item_snapshot, returned_quantity,
+    returned_unit_price, returned_total_value, original_unit_price, original_total_value
+  ),
+  order_payments(payment_method, amount, fee, fee_type, status, installments)
+`;
 
 type OrdersSubscriber = (orders: Order[]) => void;
 type OrdersChangeSubscriber = () => void;
@@ -165,7 +186,7 @@ export const fetchOrdersPage = async (
 
   let query = supabase
     .from(TABLE_NAME)
-    .select('*, order_items(*), order_payments(*)', { count: 'exact' });
+    .select(ORDER_LIST_COLUMNS, { count: 'exact' });
 
   const showTrash = filters?.showTrash || false;
   const isDraft = filters?.isDraft || false;
@@ -254,7 +275,7 @@ export const fetchOrdersPage = async (
 
 export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
       .select(`
                 id, order_number, order_index, status, order_type, customer_id, customer_name,
@@ -267,7 +288,7 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
                 created_at, updated_at,
                 order_items(id, order_id, item_index, product_id, variation_id, code, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product),
                 order_payments(payment_index, payment_method, amount, fee, fee_type, status, installments, paid_at)
-            `)
+            `))
       .or('deleted.is.null,deleted.eq.false')
       .in('status', ['scheduled', 'draft'])
       .order('created_at', { ascending: false });
@@ -306,7 +327,7 @@ const fetchSharedOrders = async () => {
     try {
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .select('*, order_items(*), order_payments(*)')
+        .select(ORDER_LIST_COLUMNS)
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -410,9 +431,9 @@ const RECENT_DASHBOARD_ORDERS_COLUMNS = `
 /** Fonte C: Busca leve de apenas 5 pedidos recentes para o card da interface */
 export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
-      .select(RECENT_DASHBOARD_ORDERS_COLUMNS)
+      .select(RECENT_DASHBOARD_ORDERS_COLUMNS))
       .in('status', ['scheduled', 'fulfilled'])
       .or('deleted.is.null,deleted.eq.false')
       .order('created_at', { ascending: false })
@@ -487,9 +508,9 @@ export const fetchAllOrdersForDashboard = async (
 
   try {
     while (true) {
-      let query = supabase
+      let query = excludeTestOrders(supabase
         .from(TABLE_NAME)
-        .select(DASHBOARD_ORDERS_COLUMNS)
+        .select(DASHBOARD_ORDERS_COLUMNS))
         .order('created_at', { ascending: false });
 
       if (range) {

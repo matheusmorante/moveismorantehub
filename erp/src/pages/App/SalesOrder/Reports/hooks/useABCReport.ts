@@ -1,3 +1,4 @@
+import { excludeTestOrders } from '../../../../../../../shared-utils/testArtifactQueries';
 import { useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse, format } from 'date-fns';
@@ -128,7 +129,7 @@ export const useABCReport = () => {
 
   const fetchFromERP = async (): Promise<SaleItem[]> => {
     try {
-      const { data: itemRows, error: itemError } = await supabase
+      const { data: itemRows, error: itemError } = await excludeTestOrders(supabase
         .from('order_items')
         .select(`
                     id,
@@ -146,7 +147,7 @@ export const useABCReport = () => {
                         order_date,
                         created_at
                     )
-                `)
+                `), 'orders')
         .eq('orders.deleted', false)
         .neq('orders.order_type', 'budget');
 
@@ -182,9 +183,9 @@ export const useABCReport = () => {
 
     // LEGACY FALLBACK:
     // remover após validação completa da migração JSONB
-    const { data, error } = await supabase
+    const { data, error } = await excludeTestOrders(supabase
       .from('orders')
-      .select('id, status, order_type, deleted, order_data')
+      .select('id, status, order_type, deleted, order_data'))
       .is('order_data->deleted', null);
 
     if (error) throw error;

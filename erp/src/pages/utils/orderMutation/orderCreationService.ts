@@ -8,6 +8,8 @@ import {
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderCreationNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
+import { stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 
 /**
  * Criação atômica e persistência de pedidos com resolução de cliente, regras de estoque e notificações.
@@ -23,7 +25,7 @@ export const executeSaveOrder = async (
   }
 
   try {
-    let orderToSave = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order));
+    let orderToSave = stampTestOrder(removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order)));
     delete orderToSave.id;
     orderToSave.deleted = false;
     orderToSave.deletedAt = null;
@@ -39,11 +41,14 @@ export const executeSaveOrder = async (
     }
 
     // 2. Garantir cliente no CRM
-    const customerId = await ensureCustomerInCrm(
+    const customerId = orderToSave.is_test ? orderToSave.customerData?.id : await ensureCustomerInCrm(
       orderToSave.customerData,
       orderToSave.marketingOrigin,
       true
     );
+    if (orderToSave.is_test && !customerId) {
+      throw new Error('Pedido de teste exige um cliente identificado da própria execução.');
+    }
     if (customerId && orderToSave.customerData) {
       orderToSave.customerData.id = customerId;
     }
@@ -94,8 +99,7 @@ export const executeSaveOrder = async (
 
     orderToSave = { ...orderToSave, ...((rpcData as any)?.order_data || {}) };
 
-    // Pedidos explicitamente sintéticos preservam estoque e histórico pela RPC,
-    // mas não sincronizam dados de contato nem notificam equipes operacionais.
+    // O cliente de teste já foi criado pelo fluxo de cadastro da própria execução.
     if (!orderToSave.is_test) {
       syncCustomerToCrmBackground(
         orderToSave.customerData?.id,
@@ -104,11 +108,14 @@ export const executeSaveOrder = async (
       );
     }
 
-    // 5. Disparo de notificações apenas para pedidos operacionais.
-    if (!orderToSave.is_test && !(rpcData as any)?.idempotent_replay) {
+    // 5. Pedidos de teste não enviam avisos ao app, celular ou dispositivos conectados.
+    if (!isIdentifiedTestArtifact(orderToSave) && !(rpcData as any)?.idempotent_replay) {
       dispatchOrderCreationNotifications(rowId, orderToSave);
     }
 
+    try {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    } catch (e) {}
     return String(rowId);
   } catch (error) {
     console.error('Erro ao salvar o pedido: ', error);
