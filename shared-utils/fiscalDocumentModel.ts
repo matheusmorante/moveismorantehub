@@ -1,6 +1,36 @@
 import { recipientTaxIdKind } from './recipientTaxId';
 import { resolveFiscalCfopOrderScope } from './fiscalCfopModel';
 
+export type FiscalHomologationModel = '55' | '65';
+export type FiscalHomologationEnvironment = 1 | 2;
+export type FiscalDanfePrintType = '1' | '4' | '6';
+
+export const HOMOLOGATION_FIRST_ITEM_DESCRIPTION =
+  'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
+export const HOMOLOGATION_NFE_RECIPIENT_NAME =
+  'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
+
+export function shouldUseHomologationFirstItemDescription(input: {
+  model: FiscalHomologationModel;
+  environment: FiscalHomologationEnvironment;
+  printType: FiscalDanfePrintType;
+}): boolean {
+  return (
+    input.environment === 2 &&
+    (input.model === '65' || (input.model === '55' && input.printType === '6'))
+  );
+}
+
+export function getHomologationRecipientName(input: {
+  model: FiscalHomologationModel;
+  environment: FiscalHomologationEnvironment;
+  recipientName: string;
+}): string {
+  return input.model === '55' && input.environment === 2
+    ? HOMOLOGATION_NFE_RECIPIENT_NAME
+    : input.recipientName;
+}
+
 /** Paraná retail policy. Logistics and recipient PF/PJ never select a model alone. */
 export const FISCAL_MODEL_POLICY_VERSION = 'PR_RETAIL_2026_10';
 export type FiscalModelReason = 'RETAIL_FINAL_CONSUMER_IN_STATE' | 'INTERSTATE_OPERATION' |

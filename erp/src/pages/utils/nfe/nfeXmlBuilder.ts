@@ -114,7 +114,12 @@ export function buildNfeXml(params: NfeXmlBuilderParams): string {
   const destXml = buildDestXml(order, isHomologacao, model);
 
   // 4. Bloco de Produtos e Impostos (<det>)
-  const { itemsXml, vProdTotal, vDescTotal } = buildItemsXml(order, settings, isHomologacao);
+  const { itemsXml, vProdTotal, vDescTotal } = buildItemsXml(
+    order,
+    settings,
+    isHomologacao,
+    model
+  );
 
   // 5. Bloco de Totais, Transporte, Pagamento e Informações Adicionais (<total>, <transp>, <pag>, <infAdic>)
   const totalsXml = buildTotalsAndPaymentXml(order, vProdTotal, vDescTotal, model);

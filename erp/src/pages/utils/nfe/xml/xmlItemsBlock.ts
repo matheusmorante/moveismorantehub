@@ -1,4 +1,8 @@
 import type Order from '@/pages/types/order.type';
+import {
+  HOMOLOGATION_FIRST_ITEM_DESCRIPTION,
+  shouldUseHomologationFirstItemDescription,
+} from '../../../../../../shared-utils/fiscalDocumentModel';
 import { zeroOwnIcmsGroup } from '../../../../../../shared-utils/fiscalIcmsGroups';
 import type { AppSettings } from '../../settingsService';
 import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
@@ -13,7 +17,8 @@ export interface BuildItemsResult {
 export function buildItemsXml(
   order: Order,
   settings: AppSettings,
-  isHomologacao: boolean
+  isHomologacao: boolean,
+  model: '55' | '65'
 ): BuildItemsResult {
   let vProdTotal = 0;
   let vDescTotal = 0;
@@ -40,11 +45,16 @@ export function buildItemsXml(
       const origem = fiscal.origem || '0';
       const cProd = String(item.code || item.productId || String(sourceIndex + 1)).slice(0, 60);
       const desc = escapeXml(item.description);
-      const xProd = isHomologacao
-        ? `NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL (${desc})`.slice(
-            0,
-            120
-          )
+      // The compatibility builder maps model 65 to tpImp=4 and model 55 to tpImp=1.
+      const isHomologationFirstItem =
+        itemIndex === 1 &&
+        shouldUseHomologationFirstItemDescription({
+          model,
+          environment: isHomologacao ? 2 : 1,
+          printType: model === '65' ? '4' : '1',
+        });
+      const xProd = isHomologationFirstItem
+        ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION
         : desc.slice(0, 120);
 
       return `

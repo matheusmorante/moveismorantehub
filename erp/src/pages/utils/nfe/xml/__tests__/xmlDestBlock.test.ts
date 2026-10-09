@@ -39,6 +39,18 @@ function createOrderWithCustomer(customerData: Partial<Order['customerData']>, f
 }
 
 describe('buildDestXml - Tratamento de Inscrição Estadual e indIEDest', () => {
+  it('aplica o nome de homologação somente à NF-e modelo 55', () => {
+    const order = createOrderWithCustomer({ fullName: 'Cliente de Teste' });
+    const nfe = buildDestXml(order, true, '55');
+    const nfce = buildDestXml(order, true, '65');
+
+    expect(nfe).toContain(
+      '<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>'
+    );
+    expect(nfce).toContain('<xNome>Cliente de Teste</xNome>');
+    expect(nfce).not.toContain('NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO');
+  });
+
   it('gera indIEDest=1 e tag IE para destinatário contribuinte do ICMS', () => {
     const order = createOrderWithCustomer(
       { personType: 'PJ', ie: '9012345678', ieIndicator: '1' },

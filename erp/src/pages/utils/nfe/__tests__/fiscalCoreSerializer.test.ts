@@ -7,6 +7,11 @@ import {
 } from '../../../../../../api/nfe/fiscalSnapshot';
 import { type ApprovedFiscalRuleSet } from '../../../../../../api/nfe/fiscalCore';
 import { serializeFiscalDocument } from '../../../../../../api/nfe/fiscalXmlSerializer';
+import { serializeFiscalItems } from '../../../../../../api/nfe/xml/fiscalItemXml';
+import {
+  HOMOLOGATION_FIRST_ITEM_DESCRIPTION,
+  HOMOLOGATION_NFE_RECIPIENT_NAME,
+} from '../../../../../../shared-utils/fiscalDocumentModel';
 import {
   validateNfeAgainstOfficialSchema,
   validateUnsignedNfeStructure,
@@ -346,6 +351,11 @@ describe('Fiscal Core e serializer de NF-e 55', () => {
     expect(xml).toContain('<ICMSSN102><orig>0</orig><CSOSN>103</CSOSN>');
     expect(xml).toContain('<PISOutr><CST>99</CST>');
     expect(xml).toContain('<COFINSOutr><CST>99</CST>');
+    expect(xml).toContain(`<xNome>${HOMOLOGATION_NFE_RECIPIENT_NAME}</xNome>`);
+    expect(xml).toContain(`<xProd>HML TECNICO ${runId}</xProd>`);
+    const nfceItems = serializeFiscalItems({ ...resolved.document, model: '65' });
+    expect(nfceItems).toContain(`<xProd>${HOMOLOGATION_FIRST_ITEM_DESCRIPTION}</xProd>`);
+    expect(nfceItems).toContain(`<infAdProd>HML TECNICO ${runId}</infAdProd>`);
     await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
     const keyPair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
     const signed = signNfeXml(

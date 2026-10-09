@@ -1,4 +1,8 @@
 import { validateItemCfopMatch } from '../../../shared-utils/fiscalCfopModel';
+import {
+  HOMOLOGATION_FIRST_ITEM_DESCRIPTION,
+  shouldUseHomologationFirstItemDescription,
+} from '../../../shared-utils/fiscalDocumentModel';
 import type { FiscalDocument } from '../fiscalSnapshot';
 import { serializeFiscalTaxes } from './fiscalTaxXml';
 import { decimal, money, requireCode, tag } from './xmlPrimitives';
@@ -24,10 +28,18 @@ export function serializeFiscalItems(document: FiscalDocument): string {
       if (!cfopMatch.valid)
         throw new Error(`CFOP do item ${item.itemNumber} inválido: ${cfopMatch.reason}`);
       requireCode(c.origin, /^[0-8]$/, `Origem do item ${item.itemNumber}`);
-      const isHomologationFirstItem = document.environment === 2 && item.itemNumber === 1;
+      // This serializer emits tpImp=4 for model 65 and tpImp=1 for model 55.
+      const printType = document.model === '65' ? '4' : '1';
+      const isHomologationFirstItem =
+        item.itemNumber === 1 &&
+        shouldUseHomologationFirstItemDescription({
+          model: document.model,
+          environment: document.environment,
+          printType,
+        });
       const product =
         `<prod>${tag('cProd', p.code)}${tag('cEAN', p.gtin)}` +
-        `${tag('xProd', isHomologationFirstItem ? 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : p.description)}` +
+        `${tag('xProd', isHomologationFirstItem ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION : p.description)}` +
         `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
         `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
         `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +

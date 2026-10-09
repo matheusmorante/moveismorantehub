@@ -4,6 +4,7 @@ import {
   getFiscalRecipientAddress,
   fiscalPresence,
   decideFiscalRecipientRequirements,
+  getHomologationRecipientName,
 } from '../../../../../../shared-utils/fiscalDocumentModel';
 import {
   isValidRecipientTaxId,
@@ -70,9 +71,11 @@ export function buildDestXml(
       (cep ? '<CEP>' + cep + '</CEP>' : '') +
       '<cPais>1058</cPais><xPais>BRASIL</xPais></enderDest>'
     : '';
-  const name = isHomologacao
-    ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL'
-    : customer?.fullName || 'CONSUMIDOR FINAL';
+  const name = getHomologationRecipientName({
+    model,
+    environment: isHomologacao ? 2 : 1,
+    recipientName: customer?.fullName || 'CONSUMIDOR FINAL',
+  });
   const indicator =
     model === '65'
       ? '9'

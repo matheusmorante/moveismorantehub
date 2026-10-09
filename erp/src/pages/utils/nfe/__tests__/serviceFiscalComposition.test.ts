@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '@/pages/types/items.type';
 import { composeServiceFiscalValues } from '../serviceFiscalComposition';
+import { HOMOLOGATION_FIRST_ITEM_DESCRIPTION } from '../../../../../../shared-utils/fiscalDocumentModel';
 import { buildItemsXml } from '../xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from '../xml/xmlTotalsBlock';
 
@@ -39,7 +40,7 @@ describe('service fiscal composition', () => {
   it('serializes CSOSN 103 in ICMSSN102, preserving origin and other taxes', () => {
     const item = product('A', 100);
     const before = structuredClone(item);
-    const { itemsXml } = buildItemsXml({ items: [item] } as any, settings, true);
+    const { itemsXml } = buildItemsXml({ items: [item] } as any, settings, true, '65');
     expect(itemsXml).toContain('<ICMSSN102>');
     expect(itemsXml).toContain('<CSOSN>103</CSOSN>');
     expect(itemsXml).toContain('<orig>2</orig>');
@@ -54,10 +55,15 @@ describe('service fiscal composition', () => {
     for (const cst of ['', '500']) {
       const item = product('A', 100);
       item.fiscal.cst = cst;
-      expect(() => buildItemsXml({ items: [item] } as any, settings, true)).toThrow();
+      expect(() => buildItemsXml({ items: [item] } as any, settings, true, '65')).toThrow();
     }
     expect(() =>
-      buildItemsXml({ items: [product('A', 100)] } as any, { ...settings, companyCRT: '3' }, true)
+      buildItemsXml(
+        { items: [product('A', 100)] } as any,
+        { ...settings, companyCRT: '3' },
+        true,
+        '65'
+      )
     ).toThrow(/CRT 1/);
   });
 
@@ -98,6 +104,20 @@ describe('service fiscal composition', () => {
     expect(composeServiceFiscalValues([service(4)]).vOutroCents).toBe(400);
   });
 
+  it('uses the exact homologation description only on the first NFC-e item', () => {
+    const order = { items: [product('A', 100), product('B', 200)] } as any;
+    const nfce = buildItemsXml(order, settings, true, '65').itemsXml;
+    const nfe = buildItemsXml(order, settings, true, '55').itemsXml;
+    const productionNfce = buildItemsXml(order, settings, false, '65').itemsXml;
+
+    expect(nfce.match(/<det /g)).toHaveLength(2);
+    expect(nfce).toContain(`<xProd>${HOMOLOGATION_FIRST_ITEM_DESCRIPTION}</xProd>`);
+    expect(nfce).toContain('<xProd>Produto B</xProd>');
+    expect(nfe).toContain('<xProd>Produto A</xProd>');
+    expect(nfe).toContain('<xProd>Produto B</xProd>');
+    expect(productionNfce).toContain('<xProd>Produto A</xProd>');
+  });
+
   it.each(['55', '65'] as const)(
     'emits model %s composition once, keeping freight separate',
     (model) => {
@@ -107,8 +127,8 @@ describe('service fiscal composition', () => {
         payments: [],
         orderIndex: 1,
       } as any;
-      const first = buildItemsXml(order, settings, false);
-      const second = buildItemsXml(order, settings, false);
+      const first = buildItemsXml(order, settings, false, model);
+      const second = buildItemsXml(order, settings, false, model);
       const totals = buildTotalsAndPaymentXml(order, first.vProdTotal, first.vDescTotal);
       expect(first.itemsXml.match(/<det /g)).toHaveLength(1);
       expect(first.vProdTotal).toBe(1600);

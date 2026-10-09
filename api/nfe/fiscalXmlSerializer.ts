@@ -1,4 +1,7 @@
-import { decideFiscalRecipientRequirements } from '../../shared-utils/fiscalDocumentModel';
+import {
+  decideFiscalRecipientRequirements,
+  getHomologationRecipientName,
+} from '../../shared-utils/fiscalDocumentModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
@@ -154,7 +157,11 @@ export function serializeFiscalDocument(
     !recipientDoc && document.model === '65'
       ? ''
       : `<dest>${recipientDoc ? tag(recipientDoc.length === 11 ? 'CPF' : 'CNPJ', recipientDoc) : ''}` +
-        `${tag('xNome', document.environment === 2 ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : document.recipient.name)}` +
+        `${tag('xNome', getHomologationRecipientName({
+          model: document.model,
+          environment: document.environment,
+          recipientName: document.recipient.name,
+        }))}` +
         `${document.recipient.address ? addressXml(document.recipient.address, 'enderDest') : ''}` +
         `${tag('indIEDest', document.model === '65' ? '9' : document.recipient.ieIndicator)}` +
         `${document.model !== '65' && document.recipient.ie && document.recipient.ieIndicator !== '2' ? tag('IE', document.recipient.ie) : ''}</dest>`;
