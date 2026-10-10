@@ -1,0 +1,37 @@
+{
+  "name": "notification-guard-rollback",
+  "date": "2026-10-10",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "method": "one INSERT into app_notifications linked to an existing tagged test order inside BEGIN/ROLLBACK",
+  "preflight": {
+    "taggedTestOrdersAvailable": 24,
+    "suppressTriggerEnabled": true,
+    "suppressTriggerBeforeInsert": true,
+    "suppressTriggerChecksTestOrder": true,
+    "suppressTriggerReturnsNull": true,
+    "pushTriggerEnabledAfterInsert": true,
+    "pushTriggerUsesPgNet": true
+  },
+  "transaction": {
+    "testOrderUsed": 1,
+    "insertedRows": 0,
+    "suppressedBeforePush": true,
+    "rolledBack": true,
+    "persistedProbeNotifications": 0,
+    "pushTriggerInvoked": false
+  },
+  "localRegression": {
+    "file": "erp/src/pages/utils/pushNotificationService.test.ts",
+    "passed": true,
+    "testsPassed": 1,
+    "assertsNoDatabaseInsert": true,
+    "assertsNoPushFetch": true
+  },
+  "result": "passed",
+  "limits": [
+    "The remote probe covers the app_notifications BEFORE INSERT guard for an order linked to a tagged test order; it did not send a push or create a persistent row.",
+    "This does not exercise every notification producer or prove every mobile delivery channel, transaction path, retry, or concurrency case.",
+    "No fiscal document or SEFAZ request was involved."
+  ]
+}

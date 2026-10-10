@@ -88,9 +88,9 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
     expect(xml).toContain('<CSOSN>102</CSOSN>');
   });
 
-  // 2. Operação interestadual determina 6102 para contribuinte e 6108 para não contribuinte
-  it('2. PR → outra UF (SC): determina CFOP 6102 para contribuinte e 6108 para não contribuinte', async () => {
-    // 6102 para contribuinte / padrão
+  // 2. A seleção do CFOP candidato é distinta da aprovação para transmitir.
+  it('2. PR → outra UF (SC): seleciona CFOP candidato, mas bloqueia sem matriz aprovada', async () => {
+    // CFOP candidato para contribuinte / padrão
     expect(determineSaleCfop({ destination: '2', itemType: 'product' })).toBe('6102');
     expect(
       determineSaleCfop({ destination: '2', itemType: 'product', recipientIeIndicator: '1' })
@@ -100,18 +100,15 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
       determineSaleCfop({ destination: '2', itemType: 'product', recipientIeIndicator: '9' })
     ).toBe('6108');
 
-    // Pedido a não contribuinte com CFOP 6108 é aprovado
+    // A composição fiscal não aprova a rota interestadual só pelo CFOP candidato.
     const factsNonTaxpayer = makeInterstateFacts({
       recipientUf: 'SC',
       deliveryMethod: 'delivery',
       cfop: '6108',
     });
-    const rulesNonTaxpayer = await createHmlNormalSaleRuleSet(
-      factsNonTaxpayer,
-      initialHmlCsosnConfiguration()
-    );
-    const resNonTaxpayer = resolveFiscalDocument(factsNonTaxpayer, rulesNonTaxpayer);
-    expect(resNonTaxpayer.status).toBe('ready');
+    await expect(
+      createHmlNormalSaleRuleSet(factsNonTaxpayer, initialHmlCsosnConfiguration())
+    ).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
 
     // Se tentar emitir 6102 para não contribuinte consumidor final, a matriz exige CFOP 6108
     const factsMismatch = makeInterstateFacts({
@@ -121,7 +118,7 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
     });
     await expect(
       createHmlNormalSaleRuleSet(factsMismatch, initialHmlCsosnConfiguration())
-    ).rejects.toThrow(/esperado CFOP 6108 para operação interestadual/);
+    ).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
   });
 
   // 3. Operação interestadual não deve escolher 6.933 só porque o destino está fora do estado
@@ -142,7 +139,7 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
       cfop: '6933',
     });
     await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
-      /pertence a prestação de serviço/
+      'HML_INTERSTATE_MATRIX_NOT_APPROVED'
     );
   });
 
@@ -233,7 +230,7 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
       cfop: '6102',
     });
     await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
-      /esperado CFOP 6108 para operação interestadual/
+      'HML_INTERSTATE_MATRIX_NOT_APPROVED'
     );
   });
 
@@ -245,7 +242,7 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
       cfop: '6102',
     });
     await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
-      /esperado CFOP 6108 para operação interestadual/
+      'HML_INTERSTATE_MATRIX_NOT_APPROVED'
     );
   });
 
@@ -259,7 +256,7 @@ describe('Auditoria Completa da Matriz de CFOPs e Regras Tributárias (NF-e/NFC-
     });
     await expect(
       createHmlNormalSaleRuleSet(factsMismatched, initialHmlCsosnConfiguration())
-    ).rejects.toThrow(/esperado CFOP 6108 para operação interestadual/);
+    ).rejects.toThrow('HML_INTERSTATE_MATRIX_NOT_APPROVED');
 
     // Pedido para PR (interno), mas frontend tenta submeter com 6102
     const factsInternalMismatched = makeInterstateFacts({

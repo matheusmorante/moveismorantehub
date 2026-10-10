@@ -9,7 +9,7 @@ import { searchHistoricalItems, getProductSalesStats } from './productAnalyticsQ
 export { searchHistoricalItems, getProductSalesStats };
 
 export const LIGHT_COLUMNS =
-  'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
+  'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, main_supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
 export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
   ', product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:categories!products_category_id_fkey(id, name)';
@@ -95,19 +95,9 @@ export const fetchProductsPage = async (
     }
 
     const mapped: Product[] = (data || []).map((p: any, idx: number) => mapFromDB(p, idx));
-    const filteredBySupplier = options?.supplierId
-      ? mapped.filter((product) => {
-          const supplierIds = product.supplierIds || [];
-          return (
-            supplierIds.includes(options.supplierId!) ||
-            product.mainSupplierId === options.supplierId ||
-            product.supplierId === options.supplierId
-          );
-        })
-      : mapped;
     return {
-      data: filteredBySupplier,
-      total: options?.supplierId ? filteredBySupplier.length : (count ?? 0),
+      data: mapped,
+      total: count ?? 0,
     };
   } catch (e) {
     console.error('[ProductService] Exceção em fetchProductsPage:', e);

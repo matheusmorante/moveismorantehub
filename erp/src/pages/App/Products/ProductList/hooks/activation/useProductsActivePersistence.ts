@@ -181,17 +181,17 @@ export const persistProductActiveState = async (
         .eq('product_id', id);
       if (variationUpdateError) throw variationUpdateError;
     } else {
-      await updateProduct(id, { active: newActive });
+      await updateProduct(id, { active: newActive }, { deferQueryInvalidation: true });
     }
 
     const independentChildren = serverProducts.filter((p) => p.parentId === id);
     for (const child of independentChildren) {
       if (child.id) {
-        await updateProduct(child.id, { active: newActive });
+        await updateProduct(child.id, { active: newActive }, { deferQueryInvalidation: true });
       }
     }
     return;
   }
 
-  await updateProduct(id, { active: newActive });
+  await updateProduct(id, { active: newActive }, { deferQueryInvalidation: true });
 };

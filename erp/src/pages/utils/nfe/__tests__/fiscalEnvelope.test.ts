@@ -23,6 +23,27 @@ describe('separação das rotas fiscais', () => {
       })
     ).toMatch(/revisão fiscal própria/);
   });
+  it.each(['refNFe', 'refNFeSig'])(
+    'bloqueia NF-e de saída modelo 55 referenciando NFC-e 65 via %s',
+    (referenceTag) => {
+      const nfceAccessKey = `${'1'.repeat(20)}65${'1'.repeat(22)}`;
+      const xml = input.xml.replace(
+        '</ide>',
+        `<NFref><${referenceTag}>${nfceAccessKey}</${referenceTag}></NFref></ide>`
+      );
+      expect(validateOrdinaryOutboundEnvelope({ ...input, xml })).toMatch(
+        /não pode referenciar chave de NFC-e modelo 65/
+      );
+    }
+  );
+  it('permite NF-e de saída modelo 55 referenciando outra NF-e 55', () => {
+    const nfeAccessKey = `${'1'.repeat(20)}55${'1'.repeat(22)}`;
+    const xml = input.xml.replace(
+      '</ide>',
+      `<NFref><refNFe>${nfeAccessKey}</refNFe></NFref></ide>`
+    );
+    expect(validateOrdinaryOutboundEnvelope({ ...input, xml })).toBeNull();
+  });
   it('rejeita divergência de chave e numeração', () => {
     expect(validateOrdinaryOutboundEnvelope({ ...input, accessKey: '2'.repeat(44) })).toMatch(
       /não corresponde/

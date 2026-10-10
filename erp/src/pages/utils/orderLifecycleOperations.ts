@@ -1,10 +1,8 @@
 import Order from '../types/order.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { assertDeletedOrderId, canPermanentlyDeleteDraft } from './orderDeletionRules';
-import { buildCancelledReturn, clearReturnLink } from './returnCancellation';
+import { buildCancelledReturn } from './returnCancellation';
 import { mapOrderFromDatabase } from './orderMapper';
-import { cancelInventoryMovesByRelatedEntity } from './inventoryService';
-import { formatOrderCode } from './orderCode';
 
 const TABLE_NAME = 'orders';
 
@@ -68,87 +66,39 @@ export const permanentDeleteDraftOrder = async (id: string): Promise<void> => {
 
 export const undoReturn = async (
   order: Order,
-  updateOrderFn: (id: string, updates: Partial<Order>, currentOrder?: Order) => Promise<void>
+  updateOrderFn: (
+    id: string,
+    updates: Partial<Order>,
+    currentOrder?: Order,
+    expectedUpdatedAt?: string
+  ) => Promise<void>
 ): Promise<void> => {
   if (!order.id) return;
+  if (order.orderType !== 'return') {
+    throw new Error('Selecione o pedido de devolução específico que deseja cancelar.');
+  }
 
   try {
-    let originalOrder: Order | undefined;
-    let returnOrder: Order;
+    const { data: returnRow, error: fetchError } = await supabase
+      .from(TABLE_NAME)
+      .select('*')
+      .eq('id', order.id)
+      .single();
 
-    if (order.orderType === 'return') {
-      returnOrder = order;
-      if (order.linkedOrderId) {
-        const { data: origRow, error: origError } = await supabase
-          .from(TABLE_NAME)
-          .select('*')
-          .eq('id', order.linkedOrderId)
-          .single();
-
-        if (!origError && origRow) {
-          originalOrder = mapOrderFromDatabase(origRow);
-        }
-      }
-    } else {
-      originalOrder = order;
-      let returnId = originalOrder.returnOrderId;
-
-      if (!returnId) {
-        const { data: linkedReturns } = await supabase
-          .from(TABLE_NAME)
-          .select('id')
-          .or(
-            `linked_order_id.eq.${originalOrder.id},order_data->>linkedOrderId.eq.${originalOrder.id}`
-          )
-          .eq('order_type', 'return')
-          .limit(1);
-
-        if (linkedReturns && linkedReturns.length > 0) {
-          returnId = String(linkedReturns[0].id);
-        }
-      }
-
-      if (!returnId) {
-        throw new Error('Nenhum pedido de devolução vinculado encontrado.');
-      }
-
-      const { data: returnRow, error: fetchError } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .eq('id', returnId)
-        .single();
-
-      if (fetchError || !returnRow) {
-        throw new Error('Pedido de devolução não encontrado.');
-      }
-      returnOrder = mapOrderFromDatabase(returnRow);
+    if (fetchError || !returnRow) {
+      throw new Error('Pedido de devolução não encontrado.');
     }
 
-    // Se a devolução já foi cancelada anteriormente, apenas limpa o vínculo na venda (idempotente)
-    if (returnOrder.status === 'cancelled') {
-      if (originalOrder && originalOrder.id) {
-        await updateOrderFn(originalOrder.id, clearReturnLink(), originalOrder);
-      }
-      return;
+    const returnOrder = mapOrderFromDatabase(returnRow);
+    if (returnOrder.orderType !== 'return') {
+      throw new Error('O pedido informado não é uma devolução.');
     }
+    if (returnOrder.status === 'cancelled') return;
 
-    // Estornar a movimentação de entrada no estoque gerada por esta devolução
-    const orderCode = formatOrderCode(returnOrder);
-    const customerName =
-      returnOrder.customerData?.fullName || (returnOrder as any).customerName || '';
-    const cancelReason = customerName
-      ? `Estorno de devolução #${orderCode} - ${customerName}`
-      : `Estorno de devolução #${orderCode}`;
-
-    await cancelInventoryMovesByRelatedEntity(returnOrder.id!, 'sales_order', cancelReason);
-
-    // Atualizar a devolução como cancelada com flags de estorno de estoque
-    await updateOrderFn(returnOrder.id!, buildCancelledReturn(returnOrder), returnOrder);
-
-    // Se houver pedido original de venda vinculado, desvincular
-    if (originalOrder && originalOrder.id) {
-      await updateOrderFn(originalOrder.id, clearReturnLink(), originalOrder);
-    }
+    // A devolução agendada ainda não representa retorno físico nem gera entrada de estoque.
+    // A atualização usa a versão lida para recusar uma confirmação física concorrente.
+    const cancelledReturn = buildCancelledReturn(returnOrder);
+    await updateOrderFn(returnOrder.id!, cancelledReturn, returnOrder, returnRow.updated_at);
   } catch (error) {
     console.error('Erro ao desfazer devolução:', error);
     throw error;

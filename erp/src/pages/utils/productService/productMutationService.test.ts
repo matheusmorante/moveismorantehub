@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bulkRestoreProducts, saveProduct, updateProduct } from './productMutationService';
+import {
+  bulkMoveToTrash,
+  bulkRestoreProducts,
+  saveProduct,
+  updateProduct,
+} from './productMutationService';
 import { activateProduct, deactivateProduct } from './productDependencyCheck';
 import {
   HML_FISCAL_TEST_ORDER_MARKER,
@@ -14,8 +19,12 @@ const mockDb = vi.hoisted(() => ({
   databaseProducts: [] as any[],
   productObservations: undefined as string | undefined,
   syncCalls: [] as any[][],
+  invalidateQueries: vi.fn(),
+  failProductUpdateId: null as string | null,
+  failUpdateTable: null as string | null,
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
+vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: mockDb.invalidateQueries } }));
 vi.mock('./productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
@@ -35,9 +44,14 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     mockDb.databaseProducts = [];
     mockDb.productObservations = undefined;
     mockDb.syncCalls.length = 0;
+    mockDb.invalidateQueries.mockClear();
+    mockDb.failProductUpdateId = null;
+    mockDb.failUpdateTable = null;
     mockDb.from.mockImplementation((table: string) => {
+      let updateWasCalled = false;
       const chain: any = {
         update: vi.fn((val: any) => {
+          updateWasCalled = true;
           const updateEntry: any = { table, value: val };
           updates.push(updateEntry);
           return chain;
@@ -52,8 +66,18 @@ describe('productMutationService - Sincronização de active entre pai e variaç
           if (last) last.filter = { col, vals };
           return chain;
         }),
+        limit: vi.fn(() => chain),
         select: vi.fn(() => chain),
-        single: vi.fn(async () => ({ data: { id: 'test' }, error: null })),
+        single: vi.fn(async () => {
+          const lastUpdate = updates[updates.length - 1];
+          if (
+            table === 'products' &&
+            lastUpdate?.filter?.val === mockDb.failProductUpdateId
+          ) {
+            return { data: null, error: new Error('falha ao persistir produto') };
+          }
+          return { data: { id: 'test' }, error: null };
+        }),
         maybeSingle: vi.fn(async () => ({
           data: {
             product_kind: mockDb.productKind,
@@ -62,7 +86,12 @@ describe('productMutationService - Sincronização de active entre pai e variaç
           error: null,
         })),
         then: (resolve: (val: any) => any) =>
-          Promise.resolve({ data: mockDb.databaseProducts, error: null }).then(resolve),
+          Promise.resolve({
+            data: mockDb.databaseProducts,
+            error: updateWasCalled && mockDb.failUpdateTable === table
+              ? new Error(`falha ao persistir ${table}`)
+              : null,
+          }).then(resolve),
       };
       return chain;
     });
@@ -76,6 +105,31 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     expect(variationUpdate).toBeDefined();
     expect(variationUpdate?.value).toEqual({ active: false });
     expect(variationUpdate?.filter).toEqual({ col: 'product_id', val: uuid });
+  });
+
+  it('bulkMoveToTrash invalida a lista uma vez depois de concluir o lote', async () => {
+    await bulkMoveToTrash([
+      'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078',
+      'c9f1bb8a-8e5a-48c5-ab8c-e065f3ea4079',
+    ]);
+
+    expect(mockDb.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(mockDb.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] });
+  });
+
+  it('bulkMoveToTrash informa sucesso parcial e invalida depois de todas as tentativas', async () => {
+    const failedId = 'c9f1bb8a-8e5a-48c5-ab8c-e065f3ea4079';
+    mockDb.failProductUpdateId = failedId;
+
+    const result = await bulkMoveToTrash([
+      'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078',
+      failedId,
+    ]);
+
+    expect(result.successCount).toBe(1);
+    expect(result.errorCount).toBe(1);
+    expect(result.errors).toContain(`Produto ID ${failedId}: falha ao persistir produto`);
+    expect(mockDb.invalidateQueries).toHaveBeenCalledTimes(1);
   });
 
   it('activateProduct impede reativar um Salvado', async () => {
@@ -108,6 +162,20 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     expect(variationUpdate).toBeDefined();
     expect(variationUpdate?.value).toEqual({ active: true });
     expect(variationUpdate?.filter).toEqual({ col: 'product_id', vals: uuids });
+    expect(mockDb.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(mockDb.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] });
+  });
+
+  it('propaga falha nas variações, invalida a lista e não confirma cache local', async () => {
+    const { saveLocalProducts } = await import('./productLocalCache');
+    mockDb.failUpdateTable = 'product_variations';
+
+    await expect(
+      bulkRestoreProducts(['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'])
+    ).rejects.toThrow('falha ao persistir product_variations');
+
+    expect(mockDb.invalidateQueries).toHaveBeenCalledOnce();
+    expect(saveLocalProducts).not.toHaveBeenCalled();
   });
 
   it('bulkRestoreProducts restaura Salvado sem ativá-lo no ERP', async () => {

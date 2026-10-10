@@ -121,9 +121,13 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
     }
 
     if (error && products.length === 0) {
+      const errorMessage =
+        error instanceof Error && error.name === 'ProductVariationSearchTooBroadError'
+          ? error.message
+          : 'Não foi possível carregar os produtos.';
       return (
         <div role="alert" className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-          <p className="font-bold text-red-600">Não foi possível carregar os produtos.</p>
+          <p className="font-bold text-red-600">{errorMessage}</p>
           <button onClick={refresh} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
             Tentar novamente
           </button>

@@ -22,6 +22,17 @@ export const makeInterstateFacts = (options?: {
       version: 1,
       updatedAt: '2026-09-30T12:00:00Z',
       data: {
+        customerData: {
+          fullName: `CLIENTE ${uf}`,
+          fullAddress: JSON.stringify({
+            street: 'Rua das Flores',
+            number: '123',
+            neighborhood: 'Centro',
+            city: cityName,
+            state: uf,
+            zipCode,
+          }),
+        },
         fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true },
         shipping: {
           value: 50,
@@ -84,7 +95,7 @@ export const makeInterstateFacts = (options?: {
         }),
       },
       contributionDecision: {
-        scope: { model: '55', operation: 'normal_sale', issuerCrt: '1' },
+        scope: { models: ['55', '65'], operation: 'normal_sale', issuerCrt: '1' },
         pis: { cst: '99', base: 0, rate: 0, value: 0 },
         cofins: { cst: '99', base: 0, rate: 0, value: 0 },
         confirmedAt: '2026-09-01T00:00:00Z',

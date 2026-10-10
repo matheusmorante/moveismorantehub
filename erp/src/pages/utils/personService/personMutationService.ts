@@ -9,12 +9,33 @@ import {
 } from '../../../../../shared-utils/testArtifactContext';
 
 
-const invalidatePeopleQueryCache = () => {
+export type PersonMutationOptions = { deferQueryInvalidation?: boolean };
+
+const invalidatePeopleQueryCache = (
+  collectionName: string,
+  options: PersonMutationOptions = {}
+) => {
+  if (options.deferQueryInvalidation) return;
   try {
-    queryClient.invalidateQueries({ queryKey: ['people'] });
-  } catch (err) {
+    queryClient.invalidateQueries({ queryKey: ['people', collectionName] });
+  } catch {
     // Failsafe caso queryClient não esteja disponível em mock de teste headless
   }
+};
+
+const dispatchPeopleUpdated = (
+  collectionName: string,
+  options: PersonMutationOptions = {}
+) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('people_updated', {
+      detail: {
+        collectionName,
+        queryInvalidation: options.deferQueryInvalidation ? 'deferred' : 'service',
+      },
+    })
+  );
 };
 
 const stampPersonAddress = <T extends Record<string, any>>(person: T): T => {
@@ -36,7 +57,7 @@ const stampPersonAddress = <T extends Record<string, any>>(person: T): T => {
   };
 };
 
-export type SavePersonOptions = { insertOnly?: boolean };
+export type SavePersonOptions = PersonMutationOptions & { insertOnly?: boolean };
 
 export const savePerson = async (
   collectionName: string,
@@ -44,7 +65,7 @@ export const savePerson = async (
   options: SavePersonOptions = {}
 ): Promise<Person> => {
   if (person.id && !options.insertOnly) {
-    return await updatePerson(collectionName, person.id, person);
+    return await updatePerson(collectionName, person.id, person, options);
   }
 
   if (options.insertOnly && !person.id) {
@@ -57,10 +78,8 @@ export const savePerson = async (
     const { data, error } = await supabase.from(TABLE_NAME).insert([dbPerson]).select();
 
     if (error) throw error;
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
-    }
-    invalidatePeopleQueryCache();
+    dispatchPeopleUpdated(collectionName, options);
+    invalidatePeopleQueryCache(collectionName, options);
     return mapFromDB(data[0]);
   } catch (error) {
     console.error(`Erro ao salvar em ${collectionName}: `, error);
@@ -70,17 +89,16 @@ export const savePerson = async (
 
 export const savePeopleBatch = async (
   collectionName: string,
-  people: Partial<Person>[]
+  people: Partial<Person>[],
+  options: PersonMutationOptions = {}
 ): Promise<void> => {
   try {
     const dbPeople = people.map((p) => stampPersonAddress(mapToDB(collectionName, p)));
     const { error } = await supabase.from(TABLE_NAME).insert(dbPeople);
 
     if (error) throw error;
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
-    }
-    invalidatePeopleQueryCache();
+    dispatchPeopleUpdated(collectionName, options);
+    invalidatePeopleQueryCache(collectionName, options);
   } catch (error) {
     console.error(`Erro ao salvar lote em ${collectionName}: `, error);
     throw error;
@@ -90,7 +108,8 @@ export const savePeopleBatch = async (
 export const updatePerson = async (
   collectionName: string,
   id: string,
-  personToUpdate: Partial<Person>
+  personToUpdate: Partial<Person>,
+  options: PersonMutationOptions = {}
 ): Promise<Person> => {
   try {
     const dbPerson = mapToDB(collectionName, personToUpdate);
@@ -110,10 +129,8 @@ export const updatePerson = async (
     if (!data || data.length === 0) {
       return {} as Person;
     }
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('people_updated', { detail: { collectionName } }));
-    }
-    invalidatePeopleQueryCache();
+    dispatchPeopleUpdated(collectionName, options);
+    invalidatePeopleQueryCache(collectionName, options);
     return mapFromDB(data[0]);
   } catch (error) {
     console.error(`Erro ao atualizar em ${collectionName}: `, error);
@@ -121,18 +138,26 @@ export const updatePerson = async (
   }
 };
 
-export const moveToTrash = async (collectionName: string, id: string): Promise<void> => {
+export const moveToTrash = async (
+  collectionName: string,
+  id: string,
+  options: PersonMutationOptions = {}
+): Promise<void> => {
   try {
-    invalidatePeopleQueryCache();
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let result = null;
 
     if (!isUUID) {
-      result = await updatePerson(collectionName, id, {
-        deleted: true,
-        deletedAt: new Date().toLocaleString('pt-BR'),
-        active: false,
-      });
+      result = await updatePerson(
+        collectionName,
+        id,
+        {
+          deleted: true,
+          deletedAt: new Date().toLocaleString('pt-BR'),
+          active: false,
+        },
+        options
+      );
     }
 
     if ((!result || !result.id) && collectionName === 'employees') {
@@ -142,6 +167,7 @@ export const moveToTrash = async (collectionName: string, id: string): Promise<v
         .eq('id', id);
 
       if (profileError) throw profileError;
+      invalidatePeopleQueryCache(collectionName, options);
     }
   } catch (error) {
     console.error(`Erro ao mover para lixeira em ${collectionName}: `, error);
@@ -149,23 +175,34 @@ export const moveToTrash = async (collectionName: string, id: string): Promise<v
   }
 };
 
-export const restorePerson = async (collectionName: string, id: string): Promise<void> => {
+export const restorePerson = async (
+  collectionName: string,
+  id: string,
+  options: PersonMutationOptions = {}
+): Promise<void> => {
   try {
-    invalidatePeopleQueryCache();
-    await updatePerson(collectionName, id, {
-      deleted: false,
-      deletedAt: undefined,
-      active: true,
-    });
+    await updatePerson(
+      collectionName,
+      id,
+      {
+        deleted: false,
+        deletedAt: undefined,
+        active: true,
+      },
+      options
+    );
   } catch (error) {
     console.error(`Erro ao restaurar em ${collectionName}: `, error);
     throw error;
   }
 };
 
-export const permanentDeletePerson = async (collectionName: string, id: string): Promise<void> => {
+export const permanentDeletePerson = async (
+  collectionName: string,
+  id: string,
+  options: PersonMutationOptions = {}
+): Promise<void> => {
   try {
-    invalidatePeopleQueryCache();
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let deletedInPeople = false;
 
@@ -184,6 +221,7 @@ export const permanentDeletePerson = async (collectionName: string, id: string):
 
       if (profileError) throw profileError;
     }
+    invalidatePeopleQueryCache(collectionName, options);
   } catch (error) {
     console.error(`Erro ao deletar permanentemente em ${collectionName}: `, error);
     throw error;

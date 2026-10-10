@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE,
+  loadReturnFiscalSourceContext,
   resolveFiscalReturnMethod,
   validateAuthorizedOutboundNfe,
   validateSupportedReturnEntryScenario,
@@ -50,6 +51,91 @@ const sameStateNonTaxpayerFinalConsumer =
   '<NFe><infNFe><ide><indFinal>1</indFinal></ide><emit><CRT>1</CRT></emit><dest><UF>PR</UF><indIEDest>9</indIEDest></dest></infNFe></NFe>';
 
 describe('regras fiscais centralizadas da NF-e de devolução', () => {
+  it('prepara cada devolução somente com suas próprias alocações da NF-e original', async () => {
+    const firstReturnId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+    const siblingReturnId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+    const source = authorizedSource();
+    source.xml_nfe = `<NFe><infNFe Id="NFe${accessKey}"><ide><tpAmb>1</tpAmb><mod>55</mod><serie>1</serie><nNF>700</nNF><indFinal>1</indFinal></ide><emit><CNPJ>${companyCnpj}</CNPJ><CRT>1</CRT></emit><dest><CPF>12345678901</CPF><xNome>CLIENTE TESTE</xNome><enderDest><UF>PR</UF></enderDest><indIEDest>9</indIEDest></dest><total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vProd>200.00</vProd><vNF>200.00</vNF></ICMSTot></total></infNFe></NFe>`;
+    const returnOrder = {
+      id: firstReturnId,
+      order_index: 1,
+      order_type: 'return',
+      status: 'fulfilled',
+      deleted: false,
+      linked_order_id: orderId,
+      order_data: { returnMethod: 'store_delivery' },
+    };
+    const allocation = {
+      id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc3',
+      return_order_id: firstReturnId,
+      return_item_index: 0,
+      original_document_id: source.id,
+      original_item_number: 2,
+      quantity: 1,
+      fiscal_return_document_id: null,
+    };
+    const siblingAllocation = {
+      ...allocation,
+      id: 'dddddddd-dddd-4ddd-8ddd-ddddddddddd4',
+      return_order_id: siblingReturnId,
+      original_item_number: 1,
+    };
+    const sourceLines = [1, 2].map((itemNumber) => ({
+      id: `line-${itemNumber}`,
+      document_id: source.id,
+      item_number: itemNumber,
+      billed_quantity: 1,
+      product_code: `SKU-${itemNumber}`,
+      description: `Item ${itemNumber}`,
+      product_xml: '<prod><CFOP>5102</CFOP></prod>',
+      taxes_xml: '<imposto><ICMS><ICMSSN102/></ICMS></imposto>',
+    }));
+    const queryFilters: Array<{ table: string; field: string; value: unknown }> = [];
+    const db = {
+      from: (table: string) => {
+        const filters = new Map<string, unknown>();
+        const query: any = {
+          select: () => query,
+          eq: (field: string, value: unknown) => {
+            filters.set(field, value);
+            queryFilters.push({ table, field, value });
+            return query;
+          },
+          maybeSingle: async () => ({
+            data: table === 'orders'
+              ? returnOrder
+              : table === 'nfe_documents'
+                ? source
+                : { data: { companyUF: 'PR', companyCnpj, companyCRT: companyTaxRegime } },
+            error: null,
+          }),
+          then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => {
+            const rows = table === 'nfe_return_item_allocations'
+              ? [allocation, siblingAllocation].filter((row) =>
+                  (!filters.has('return_order_id') || row.return_order_id === filters.get('return_order_id')) &&
+                  (!filters.has('original_document_id') || row.original_document_id === filters.get('original_document_id'))
+                )
+              : table === 'nfe_document_items'
+                ? sourceLines.filter((line) => line.document_id === filters.get('document_id'))
+                : [];
+            return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+          },
+        };
+        return query;
+      },
+    };
+
+    const result = await loadReturnFiscalSourceContext(db as any, source.id, firstReturnId, 1);
+
+    if ('error' in result) throw new Error(result.error);
+    expect('context' in result).toBe(true);
+    if (!('context' in result)) return;
+    expect(result.context.allocations).toEqual([allocation]);
+    expect(result.context.allocations.map((item) => item.original_item_number)).toEqual([2]);
+    expect(queryFilters).toContainEqual({ table: 'nfe_return_item_allocations', field: 'return_order_id', value: firstReturnId });
+    expect(queryFilters).toContainEqual({ table: 'nfe_return_item_allocations', field: 'original_document_id', value: source.id });
+  });
+
   it('fixa o modelo, finalidade, natureza e tipo de operação da NF-e de estorno', () => {
     const rules = getFiscalFormRules('estorno');
     expect(rules.allowedModels).toEqual(['55']);

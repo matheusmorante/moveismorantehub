@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService } from '@/pages/services/financeService';
+import { getLocalISODate } from '@/pages/utils/formatters';
 import {
   FinancialTransaction,
   AccountPayable,
@@ -13,7 +14,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
   Legend,
 } from 'recharts';
 
@@ -23,36 +23,51 @@ const formatCurrency = (value: number) => {
 
 export default function FinanceDashboard() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [payables, setPayables] = useState<AccountPayable[]>([]);
   const [receivables, setReceivables] = useState<AccountReceivable[]>([]);
+  const requestId = useRef(0);
+  const today = new Date();
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const monthStart = `${currentMonth}-01`;
+  const monthEnd = getLocalISODate(today);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        // To keep it simple, fetch all from this month (simplified client-side for now)
-        const [transData, payData, recData] = await Promise.all([
-          financeService.getReportTransactions(),
-          financeService.getReportPayables('pending'), // Only pending
-          financeService.getReportReceivables('pending'), // Only pending
+  const fetchDashboardData = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [transData, pendingPayables, overduePayables, pendingReceivables, overdueReceivables] =
+        await Promise.all([
+          financeService.getReportTransactions(monthStart, monthEnd),
+          financeService.getReportPayables('pending'),
+          financeService.getReportPayables('overdue'),
+          financeService.getReportReceivables('pending'),
+          financeService.getReportReceivables('overdue'),
         ]);
 
-        setTransactions(transData || []);
-        setPayables(payData || []);
-        setReceivables(recData || []);
-      } catch (error) {
-        console.error('Erro ao carregar dashboard financeiro', error);
-      } finally {
-        setLoading(false);
+      if (currentRequestId !== requestId.current) return;
+      setTransactions(transData || []);
+      setPayables([...(pendingPayables || []), ...(overduePayables || [])]);
+      setReceivables([...(pendingReceivables || []), ...(overdueReceivables || [])]);
+    } catch {
+      if (currentRequestId === requestId.current) {
+        setLoadError('Não foi possível carregar os dados financeiros. Tente novamente.');
       }
-    };
+    } finally {
+      if (currentRequestId === requestId.current) setLoading(false);
+    }
+  }, [monthEnd, monthStart]);
 
-    fetchDashboardData();
-  }, []);
+  useEffect(() => {
+    void fetchDashboardData();
+    return () => {
+      requestId.current += 1;
+    };
+  }, [fetchDashboardData]);
 
   // Calcula Totais Realizados (Fluxo de Caixa)
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   const currentMonthTrans = transactions.filter((t) => t.date.startsWith(currentMonth));
 
   const receitasRealizadas = currentMonthTrans
@@ -83,6 +98,27 @@ export default function FinanceDashboard() {
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 animate-pulse">
           Carregando Dashboard Financeiro...
         </p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex-1 p-10 flex items-center justify-center">
+        <div
+          role="alert"
+          className="flex max-w-xl flex-col items-center gap-4 rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+        >
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void fetchDashboardData()}
+            disabled={loading}
+            className="font-bold underline disabled:opacity-50"
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     );
   }
@@ -169,7 +205,7 @@ export default function FinanceDashboard() {
               </p>
               <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <i className="bi bi-calendar-check text-emerald-500"></i>
-                {receivables.length} títulos pendentes
+                {receivables.length} títulos em aberto
               </p>
             </div>
 
@@ -183,7 +219,7 @@ export default function FinanceDashboard() {
               </p>
               <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <i className="bi bi-calendar-x text-rose-500"></i>
-                {payables.length} compromissos pendentes
+                {payables.length} compromissos em aberto
               </p>
             </div>
           </div>

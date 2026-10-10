@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { fetchAssemblyPrintOrders } from '@/pages/utils/assemblyPrintOrdersService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatToBRDate } from '@/pages/utils/formatters';
 import { formatOrderCode } from '@/pages/utils/orderCode';
-import Order from '@/pages/types/order.type';
 import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 
 const AssemblyPrintPage = () => {
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
 
@@ -23,12 +20,7 @@ const AssemblyPrintPage = () => {
       const settings = getSettings();
 
       // 1. Fetch Orders com filtro server-side e mapeador estruturado
-      const { data: dbOrders } = await supabase
-        .from('orders')
-        .select('id, status, order_type, deleted, order_data')
-        .eq('deleted', false)
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false });
+      const { data: dbOrders } = await fetchAssemblyPrintOrders();
 
       const allOrders = (dbOrders || []).map((row) => mapOrderFromDatabase(row));
 

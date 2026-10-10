@@ -7,6 +7,19 @@ import {
   ResultNature,
 } from '../types/finance.type';
 
+const FINANCE_LIST_PAGE_SIZE = 500;
+
+const fetchAllFinancePages = async <T>(buildQuery: (from: number, to: number) => any) => {
+  const rows: T[] = [];
+  for (let from = 0; ; from += FINANCE_LIST_PAGE_SIZE) {
+    const { data, error } = await buildQuery(from, from + FINANCE_LIST_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = Array.isArray(data) ? (data as T[]) : [];
+    rows.push(...page);
+    if (page.length < FINANCE_LIST_PAGE_SIZE) return rows;
+  }
+};
+
 export function determineResultNature(
   categoryName?: string | null,
   type?: 'income' | 'expense'
@@ -65,14 +78,15 @@ export const financeService = {
 
   // --- Contas a Pagar ---
   async getPayables(status?: string) {
-    let query = supabase
-      .from('accounts_payable')
-      .select('*, financial_categories(name)')
-      .order('due_date', { ascending: true });
-    if (status) query = query.eq('status', status);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    return fetchAllFinancePages<AccountPayable>((from, to) => {
+      let query = supabase
+        .from('accounts_payable')
+        .select('*, financial_categories(name)')
+        .order('due_date', { ascending: true })
+        .order('id', { ascending: true });
+      if (status) query = query.eq('status', status);
+      return query.range(from, to);
+    });
   },
 
   async createPayable(payable: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>) {
@@ -137,14 +151,15 @@ export const financeService = {
 
   // --- Contas a Receber ---
   async getReceivables(status?: string) {
-    let query = supabase
-      .from('accounts_receivable')
-      .select('*, financial_categories(name)')
-      .order('due_date', { ascending: true });
-    if (status) query = query.eq('status', status);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    return fetchAllFinancePages<AccountReceivable>((from, to) => {
+      let query = supabase
+        .from('accounts_receivable')
+        .select('*, financial_categories(name)')
+        .order('due_date', { ascending: true })
+        .order('id', { ascending: true });
+      if (status) query = query.eq('status', status);
+      return query.range(from, to);
+    });
   },
 
   async createReceivable(receivable: Omit<AccountReceivable, 'id' | 'created_at' | 'updated_at'>) {
@@ -170,15 +185,17 @@ export const financeService = {
 
   // --- Fluxo de Caixa / Transações ---
   async getTransactions(startDate?: string, endDate?: string) {
-    let query = supabase
-      .from('financial_transactions')
-      .select('*, financial_categories(name)')
-      .order('date', { ascending: false });
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((t: any) => ({
+    const transactions = await fetchAllFinancePages<FinancialTransaction>((from, to) => {
+      let query = supabase
+        .from('financial_transactions')
+        .select('*, financial_categories(name)')
+        .order('date', { ascending: false })
+        .order('id', { ascending: true });
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
+      return query.range(from, to);
+    });
+    return transactions.map((t: any) => ({
       ...t,
       result_nature:
         t.result_nature ||

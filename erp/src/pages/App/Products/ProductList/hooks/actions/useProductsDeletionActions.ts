@@ -39,7 +39,7 @@ export const discardProductDraft = async (id: string, refresh: () => void): Prom
 /**
  * Desativa um produto operacional individual
  */
-export const deactivateSingleProduct = async (id: string, refresh: () => void): Promise<void> => {
+export const deactivateSingleProduct = async (id: string): Promise<void> => {
   const confirmed = window.confirm(
     "Desativar este produto?\n\nEle permanecerá na lista com a etiqueta de 'Desativado'."
   );
@@ -48,7 +48,6 @@ export const deactivateSingleProduct = async (id: string, refresh: () => void): 
   const toastId = toast.loading('Desativando produto...');
   try {
     await deactivateProduct(id);
-    refresh();
     toast.update(toastId, {
       render: 'Produto desativado com sucesso.',
       type: 'info',
@@ -67,7 +66,8 @@ export const deactivateSingleProduct = async (id: string, refresh: () => void): 
 export const deleteProductPermanently = async (id: string, refresh: () => void): Promise<void> => {
   const toastId = toast.loading('Verificando e excluindo produto...');
   try {
-    const result = await deleteProduct(id);
+    const result = await deleteProduct(id, { deferQueryInvalidation: true });
+    refresh();
     if (result.success) {
       toast.update(toastId, {
         render: 'Produto excluído com sucesso!',
@@ -75,7 +75,6 @@ export const deleteProductPermanently = async (id: string, refresh: () => void):
         isLoading: false,
         autoClose: 3000,
       });
-      refresh();
     } else {
       toast.update(toastId, {
         render: result.message || 'Não foi possível excluir o produto.',
@@ -95,7 +94,6 @@ export const deleteProductPermanently = async (id: string, refresh: () => void):
  */
 export const executeBulkTrash = async (
   selectedProducts: readonly string[],
-  refresh: () => void,
   setSelectedProducts: (ids: string[]) => void,
   setLoading: (loading: boolean) => void
 ): Promise<void> => {
@@ -108,7 +106,6 @@ export const executeBulkTrash = async (
   try {
     const realIds = selectedProducts.filter((id) => !id.toString().includes('_'));
     const result = await bulkMoveToTrash(realIds);
-    refresh();
 
     if (result.successCount > 0) {
       toast.update(toastId, {
@@ -139,7 +136,6 @@ export const executeBulkTrash = async (
  */
 export const executeBulkRestore = async (
   selectedProducts: readonly string[],
-  refresh: () => void,
   removeRestoredProductsFromTrash: (ids: string[]) => void,
   setSelectedProducts: (ids: string[]) => void,
   setLoading: (loading: boolean) => void
@@ -150,7 +146,6 @@ export const executeBulkRestore = async (
     const realIds = selectedProducts.filter((id) => !id.toString().includes('_'));
     await bulkRestoreProducts(realIds);
     removeRestoredProductsFromTrash(realIds);
-    refresh();
     toast.success(`${realIds.length} produto(s) ativado(s) com sucesso!`);
     setSelectedProducts([]);
   } catch (error: unknown) {
@@ -180,13 +175,15 @@ export const executeBulkPermanentDelete = async (
   try {
     const realIds = selectedProducts.filter((id) => !id.toString().includes('_'));
     for (const id of realIds) {
-      const res = await deleteProduct(id);
+      const res = await deleteProduct(id, { deferQueryInvalidation: true });
       if (res.success) {
         successCount++;
       } else if (res.message) {
         errors.push(res.message);
       }
     }
+
+    if (realIds.length > 0) refresh();
 
     if (successCount > 0) {
       toast.update(toastId, {
@@ -195,7 +192,6 @@ export const executeBulkPermanentDelete = async (
         isLoading: false,
         autoClose: 3000,
       });
-      refresh();
     } else {
       toast.dismiss(toastId);
     }

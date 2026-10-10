@@ -1,6 +1,18 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { removeAccents } from '../textUtils';
 
+const VARIATION_SEARCH_MATCH_LIMIT = 100;
+const VARIATION_SEARCH_TOO_BROAD_MESSAGE =
+  'A busca encontrou muitas variações correspondentes. Refine o termo e tente novamente.';
+const NON_TEST_PRODUCT_ARTIFACT_FILTER = [
+  'and(',
+  'or(technical_specs->>is_test.is.null,technical_specs->>is_test.neq.true),',
+  'or(technical_specs->>isTest.is.null,technical_specs->>isTest.neq.true),',
+  'or(technical_specs->testArtifact->>is_test.is.null,technical_specs->testArtifact->>is_test.neq.true),',
+  'or(technical_specs->testArtifact->>isTest.is.null,technical_specs->testArtifact->>isTest.neq.true)',
+  ')',
+].join('');
+
 export interface ProductQueryFilterOptions {
   showTrash?: boolean;
   search?: string;
@@ -14,6 +26,7 @@ export interface ProductQueryFilterOptions {
   excludeItemType?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  excludeTestProducts?: boolean;
 }
 
 export interface ProductPaginationOptions {
@@ -31,7 +44,15 @@ export const applyProductFiltersAndSort = async (
   options?: ProductQueryFilterOptions,
   pagination?: ProductPaginationOptions
 ): Promise<any> => {
-  let q = query.eq('deleted', false);
+  let q = query;
+  if (options?.showTrash && options.isDraft !== true) {
+    q = q
+      .or('active.eq.false,deleted.eq.true')
+      .not('is_draft', 'is', true)
+      .filter('status', 'isdistinct', 'draft');
+  } else {
+    q = q.eq('deleted', false);
+  }
 
   if (options?.itemType) {
     q = q.eq('item_type', options.itemType);
@@ -46,7 +67,9 @@ export const applyProductFiltersAndSort = async (
   if (options?.isDraft === true) {
     q = q.eq('is_draft', true);
   } else if (options?.isDraft === false) {
-    q = q.not('is_draft', 'is', true);
+    q = q
+      .not('is_draft', 'is', true)
+      .filter('status', 'isdistinct', 'draft');
   }
 
   if (options?.activeOnly === false) {
@@ -73,21 +96,23 @@ export const applyProductFiltersAndSort = async (
 
       // 1. Buscar variações pelo campo 'name' na tabela product_variations (aproveita idx_product_variations_name_trgm)
       let variationParentIds: string[] = [];
-      try {
-        const varOrList = searchTerms.map((t) => `name.ilike.%${t}%`);
-        const { data: matchedVariations } = await supabase
-          .from('product_variations')
-          .select('product_id')
-          .or(varOrList.join(','))
-          .limit(100);
+      const varOrList = searchTerms.map((t) => `name.ilike.%${t}%`);
+      const { data: matchedVariations, error: variationSearchError } = await supabase
+        .from('product_variations')
+        .select('product_id')
+        .or(varOrList.join(','))
+        .limit(VARIATION_SEARCH_MATCH_LIMIT + 1);
+      if (variationSearchError) throw variationSearchError;
+      if ((matchedVariations?.length ?? 0) > VARIATION_SEARCH_MATCH_LIMIT) {
+        const tooBroadError = new Error(VARIATION_SEARCH_TOO_BROAD_MESSAGE);
+        tooBroadError.name = 'ProductVariationSearchTooBroadError';
+        throw tooBroadError;
+      }
 
-        if (matchedVariations && matchedVariations.length > 0) {
-          variationParentIds = Array.from(
-            new Set(matchedVariations.map((v) => v.product_id).filter(Boolean))
-          );
-        }
-      } catch (e) {
-        console.warn('[ProductService] Erro ao buscar em product_variations:', e);
+      if (matchedVariations && matchedVariations.length > 0) {
+        variationParentIds = Array.from(
+          new Set(matchedVariations.map((v) => v.product_id).filter(Boolean))
+        );
       }
 
       // 2. Montar filtro or com o campo name dos produtos e os IDs de variações (aproveita idx_products_name_trgm)
@@ -138,6 +163,10 @@ export const applyProductFiltersAndSort = async (
     q = q.or(
       `supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId},supplier_ids.cs.{"${options.supplierId}"}`
     );
+  }
+
+  if (options?.excludeTestProducts) {
+    q = q.or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
   }
 
   if (pagination) {

@@ -41,8 +41,6 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
   onCloseMenu,
   hideEditAction,
 }) => {
-  const hasReturn = Boolean(order.returnOrderId);
-
   return (
     <>
       {isCancelled && ['sale', 'showroom'].includes(order.orderType || 'sale') && (
@@ -131,8 +129,12 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
           if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 
           if (btn.key === 'generateReturn' && !canGenerateReturn(order)) return false;
-          if (btn.key === 'undoReturn' && (!hasReturn || order.status === 'cancelled'))
-            return false;
+          if (
+            btn.key === 'undoReturn' &&
+            (order.orderType !== 'return' ||
+              order.status === 'cancelled' ||
+              order.status === 'fulfilled')
+          ) return false;
           if (btn.key === 'issueNfe' && order.nfeData?.status === 'homologada') return false;
 
           return true;

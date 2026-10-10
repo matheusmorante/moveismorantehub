@@ -1,244 +1,163 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Order from '../../';
-import Item from '../../';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type Order from '../../types/order.type';
 
-const mockCancelInventoryMovesByRelatedEntity = vi.fn().mockResolvedValue(undefined);
-vi.mock('./inventoryService', () => ({
-  cancelInventoryMovesByRelatedEntity: (...args: any[]) =>
-    mockCancelInventoryMovesByRelatedEntity(...args),
+const { mockSupabaseSingle, mockSupabaseEq } = vi.hoisted(() => ({
+  mockSupabaseSingle: vi.fn(),
+  mockSupabaseEq: vi.fn(),
 }));
-
-const mockSupabaseSelect = vi.fn();
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      single: () => mockSupabaseSelect(),
-      limit: vi.fn().mockResolvedValue({ data: [{ id: 'ret-from-or' }] }),
+      eq: mockSupabaseEq.mockReturnThis(),
+      single: mockSupabaseSingle,
     })),
   },
 }));
 
-vi.mock('./supabaseConfig', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      single: () => mockSupabaseSelect(),
-      limit: vi.fn().mockResolvedValue({ data: [{ id: 'ret-from-or' }] }),
-    })),
-  },
-}));
+import { undoReturn } from '../orderLifecycleOperations';
 
-import { undoReturn } from '../../';
+describe('undoReturn - cancelamento comercial de uma devolução específica', () => {
+  beforeEach(() => vi.clearAllMocks());
 
-describe('undoReturn - Desfazer Devolução com Estorno de Estoque', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('deve estornar movimentações de estoque e cancelar devolução atendida vinculada a uma venda', async () => {
-    const updateOrderFn = vi.fn().mockResolvedValue(undefined);
-
-    const returnOrder: Order = {
-      id: 'return-101',
-      orderType: 'return',
-      status: 'fulfilled',
-      orderIndex: 3001,
-      linkedOrderId: 'sale-201',
-      customerData: { fullName: 'João Silva', phone: '11999999999' } as any,
-      items: [
-        {
-          productId: 'prod-1',
-          description: 'Cadeira Estofada',
-          quantity: 2,
-          returnedQuantity: 2,
-          unitPrice: 150,
-          returnedUnitPrice: 150,
-          returnedTotalValue: 300,
-          originalUnitPrice: 150,
-          originalTotalValue: 300,
-        } as Item,
-      ],
-      payments: [],
-      paymentsSummary: {} as any,
-      shipping: {} as any,
-      itemsSummary: {} as any,
-      seller: 'Vendedor 1',
-      observation: '',
-      date: '2026-09-14',
-    };
-
-    const originalSaleRow = {
-      id: 'sale-201',
-      status: 'fulfilled',
-      order_type: 'sale',
-      order_index: 2001,
-      customer_name: 'João Silva',
-      order_data: {
-        id: 'sale-201',
-        orderIndex: 2001,
-        returnOrderId: 'return-101',
-        returnKind: 'complete',
-      },
-    };
-
-    mockSupabaseSelect.mockResolvedValueOnce({ data: originalSaleRow, error: null });
-
-    await undoReturn(returnOrder, updateOrderFn);
-
-    // 1. Deve chamar cancelInventoryMovesByRelatedEntity para o ID da devolução
-    expect(mockCancelInventoryMovesByRelatedEntity).toHaveBeenCalledTimes(1);
-    expect(mockCancelInventoryMovesByRelatedEntity).toHaveBeenCalledWith(
-      'return-101',
-      'sales_order',
-      expect.stringContaining('Estorno de devolução')
-    );
-
-    // 2. Deve atualizar a devolução para cancelled com flags de estorno
-    expect(updateOrderFn).toHaveBeenCalledWith(
-      'return-101',
-      {
-        status: 'cancelled',
-        returnStockProcessed: false,
-        returnStockReversed: true,
-      },
-      returnOrder
-    );
-
-    // 3. Deve desvincular a devolução na venda original
-    expect(updateOrderFn).toHaveBeenCalledWith(
-      'sale-201',
-      {
-        returnOrderId: null,
-        returnKind: null,
-      },
-      expect.objectContaining({ id: 'sale-201' })
-    );
-  });
-
-  it('deve permitir desfazer devolução avulsa/manual (sem pedido vinculado) sem lançar erro', async () => {
-    const updateOrderFn = vi.fn().mockResolvedValue(undefined);
-
-    const unlinkedReturn: Order = {
-      id: 'return-manual-999',
-      orderType: 'return',
-      status: 'fulfilled',
-      orderIndex: 3002,
-      linkedOrderId: undefined,
-      customerData: { fullName: 'Maria Souza' } as any,
-      items: [
-        {
-          productId: 'prod-2',
-          description: 'Mesa de Jantar',
-          quantity: 1,
-          returnedQuantity: 1,
-          unitPrice: 800,
-          returnedUnitPrice: 800,
-          returnedTotalValue: 800,
-          originalUnitPrice: 800,
-          originalTotalValue: 800,
-        } as Item,
-      ],
-      payments: [],
-      paymentsSummary: {} as any,
-      shipping: {} as any,
-      itemsSummary: {} as any,
-      seller: '',
-      observation: '',
-      date: '2026-09-14',
-    };
-
-    await undoReturn(unlinkedReturn, updateOrderFn);
-
-    // 1. Deve chamar cancelInventoryMovesByRelatedEntity para a devolução manual
-    expect(mockCancelInventoryMovesByRelatedEntity).toHaveBeenCalledWith(
-      'return-manual-999',
-      'sales_order',
-      expect.stringContaining('Estorno de devolução')
-    );
-
-    // 2. Deve atualizar apenas a devolução
-    expect(updateOrderFn).toHaveBeenCalledTimes(1);
-    expect(updateOrderFn).toHaveBeenCalledWith(
-      'return-manual-999',
-      {
-        status: 'cancelled',
-        returnStockProcessed: false,
-        returnStockReversed: true,
-      },
-      unlinkedReturn
-    );
-  });
-
-  it('deve validar que os campos de snapshot preservam o valor vendido e o valor devolvido', () => {
-    const itemWithSnapshot: Item = {
-      productId: 'prod-10',
-      description: 'Poltrona Luxo',
-      quantity: 2,
-      returnedQuantity: 2,
-      unitPrice: 350, // Preço acordado na devolução
-      returnedUnitPrice: 350,
-      returnedTotalValue: 700,
-      originalUnitPrice: 400, // Preço vendido originalmente
-      originalTotalValue: 800,
-      discountType: 'fixed',
-      unitDiscount: 0,
-      handlingType: '',
-    };
-
-    expect(itemWithSnapshot.originalUnitPrice).toBe(400);
-    expect(itemWithSnapshot.originalTotalValue).toBe(800);
-    expect(itemWithSnapshot.returnedUnitPrice).toBe(350);
-    expect(itemWithSnapshot.returnedTotalValue).toBe(700);
-    expect(itemWithSnapshot.returnedQuantity).toBe(2);
-  });
-  it('deve ser idempotente quando a devolução já está cancelada — apenas limpa o vínculo na venda', async () => {
-    const updateOrderFn = vi.fn().mockResolvedValue(undefined);
-
-    const alreadyCancelledReturn: Order = {
-      id: 'return-already-cancelled',
-      orderType: 'return',
-      status: 'cancelled', // já estava cancelada
-      orderIndex: 3003,
-      linkedOrderId: 'sale-999',
-      customerData: { fullName: 'Carlos Lima' } as any,
-      items: [],
-      payments: [],
-      paymentsSummary: {} as any,
-      shipping: {} as any,
-      itemsSummary: {} as any,
-      seller: '',
-      observation: '',
-      date: '2026-09-14',
-    };
-
-    mockSupabaseSelect.mockResolvedValueOnce({
+  it('cancela somente a devolução agendada, sem efeito de estoque, preservando o vínculo com a venda', async () => {
+    const updatedAt = '2026-10-10T12:00:00.000Z';
+    mockSupabaseSingle.mockResolvedValueOnce({
       data: {
-        id: 'sale-999',
-        status: 'fulfilled',
-        order_type: 'sale',
-        order_index: 999,
-        order_data: { id: 'sale-999', returnOrderId: 'return-already-cancelled' },
+        id: 'return-101',
+        status: 'scheduled',
+        order_type: 'return',
+        updated_at: updatedAt,
+        order_data: {
+          id: 'return-101',
+          orderType: 'return',
+          status: 'scheduled',
+          linkedOrderId: 'sale-201',
+          returnStockProcessed: false,
+        },
       },
       error: null,
     });
+    const updateOrderFn = vi.fn().mockResolvedValue(undefined);
 
-    await undoReturn(alreadyCancelledReturn, updateOrderFn);
+    await undoReturn(
+      { id: 'return-101', orderType: 'return', status: 'scheduled' } as Order,
+      updateOrderFn
+    );
 
-    // Não deve cancelar movimentações de estoque (devolução já estava cancelada)
-    expect(mockCancelInventoryMovesByRelatedEntity).not.toHaveBeenCalled();
-
-    // Deve apenas limpar o vínculo na venda original
     expect(updateOrderFn).toHaveBeenCalledTimes(1);
     expect(updateOrderFn).toHaveBeenCalledWith(
-      'sale-999',
-      { returnOrderId: null, returnKind: null },
-      expect.objectContaining({ id: 'sale-999' })
+      'return-101',
+      { status: 'cancelled', returnStockProcessed: false, returnStockReversed: false },
+      expect.objectContaining({ id: 'return-101', linkedOrderId: 'sale-201' }),
+      updatedAt
     );
+  });
+
+  it('cancela devoluções agendadas em sequência, consultando e atualizando cada ID próprio', async () => {
+    mockSupabaseSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: 'return-201',
+          status: 'scheduled',
+          order_type: 'return',
+          updated_at: '2026-10-10T12:10:00.000Z',
+          order_data: { id: 'return-201', orderType: 'return', linkedOrderId: 'sale-301' },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'return-202',
+          status: 'scheduled',
+          order_type: 'return',
+          updated_at: '2026-10-10T12:11:00.000Z',
+          order_data: { id: 'return-202', orderType: 'return', linkedOrderId: 'sale-301' },
+        },
+        error: null,
+      });
+    const updateOrderFn = vi.fn().mockResolvedValue(undefined);
+
+    await undoReturn(
+      { id: 'return-201', orderType: 'return', status: 'scheduled' } as Order,
+      updateOrderFn
+    );
+    await undoReturn(
+      { id: 'return-202', orderType: 'return', status: 'scheduled' } as Order,
+      updateOrderFn
+    );
+
+    expect(mockSupabaseEq.mock.calls).toEqual([
+      ['id', 'return-201'],
+      ['id', 'return-202'],
+    ]);
+    expect(updateOrderFn).toHaveBeenCalledTimes(2);
+    expect(updateOrderFn.mock.calls.map(([id]) => id)).toEqual(['return-201', 'return-202']);
+    expect(updateOrderFn.mock.calls.map(([, updates]) => updates)).toEqual([
+      { status: 'cancelled', returnStockProcessed: false, returnStockReversed: false },
+      { status: 'cancelled', returnStockProcessed: false, returnStockReversed: false },
+    ]);
+    expect(updateOrderFn.mock.calls.map(([, , currentOrder]) => currentOrder?.linkedOrderId)).toEqual([
+      'sale-301',
+      'sale-301',
+    ]);
+  });
+
+  it('bloqueia cancelamento comercial depois da confirmação física', async () => {
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'return-102',
+        status: 'fulfilled',
+        order_type: 'return',
+        updated_at: '2026-10-10T12:01:00.000Z',
+        order_data: { id: 'return-102', returnStockProcessed: true },
+      },
+      error: null,
+    });
+    const updateOrderFn = vi.fn();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(
+      undoReturn(
+        { id: 'return-102', orderType: 'return', status: 'scheduled' } as Order,
+        updateOrderFn
+      )
+    ).rejects.toThrow('A confirmação física desta devolução já foi registrada');
+
+    expect(updateOrderFn).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('exige o identificador da devolução em vez de escolher arbitrariamente uma pelo pedido de venda', async () => {
+    const updateOrderFn = vi.fn();
+
+    await expect(
+      undoReturn({ id: 'sale-201', orderType: 'sale', status: 'fulfilled' } as Order, updateOrderFn)
+    ).rejects.toThrow('Selecione o pedido de devolução específico');
+
+    expect(mockSupabaseSingle).not.toHaveBeenCalled();
+    expect(updateOrderFn).not.toHaveBeenCalled();
+  });
+
+  it('trata uma repetição de cancelamento como no-op', async () => {
+    mockSupabaseSingle.mockResolvedValueOnce({
+      data: {
+        id: 'return-103',
+        status: 'cancelled',
+        order_type: 'return',
+        updated_at: '2026-10-10T12:02:00.000Z',
+        order_data: { id: 'return-103' },
+      },
+      error: null,
+    });
+    const updateOrderFn = vi.fn();
+
+    await undoReturn(
+      { id: 'return-103', orderType: 'return', status: 'cancelled' } as Order,
+      updateOrderFn
+    );
+
+    expect(updateOrderFn).not.toHaveBeenCalled();
   });
 });

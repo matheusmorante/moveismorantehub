@@ -12,6 +12,7 @@ import {
 import {
   reconcileNormalSale,
   recoverNormalSale,
+  transmitPreparedOutbound,
 } from '../../../../../../api/nfe/normal-sale/outboundAttempt';
 
 const mocks = vi.hoisted(() => ({
@@ -617,6 +618,46 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(r.body).toMatchObject({ success: false, numberReserved: false, sefazContacted: false });
     expect(d.rpc.mock.calls.some(([n]) => n === 'prepare_nfe_outbound_attempt')).toBe(false);
     expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('blocks an NF-e 55 referencing NFC-e 65 before start RPC or another SOAP send', async () => {
+    const d = database();
+    await emit(d, command(2));
+    const attempt = d.attempts[0];
+    const document = d.documents[0];
+    const nfceAccessKey = `${'1'.repeat(20)}65${'1'.repeat(22)}`;
+    document.xml_nfe = document.xml_nfe.replace(
+      '</ide>',
+      `<NFref><refNFe>${nfceAccessKey}</refNFe></NFref></ide>`
+    );
+    attempt.xml_sha256 = createHash('sha256').update(document.xml_nfe).digest('hex');
+    const startsBefore = d.rpc.mock.calls.filter(
+      ([name]) => name === 'start_nfe_outbound_transmission'
+    ).length;
+    const sendsBefore = mocks.send.mock.calls.length;
+
+    const result = await transmitPreparedOutbound(
+      d.db,
+      attempt as Parameters<typeof transmitPreparedOutbound>[1],
+      document as Parameters<typeof transmitPreparedOutbound>[2],
+      'TEST_UNIT_RECHECK',
+      { certPem: 'TEST_UNIT', privateKeyPem: 'TEST_UNIT' } as Parameters<
+        typeof transmitPreparedOutbound
+      >[4],
+      false
+    );
+
+    expect(result).toMatchObject({
+      status: 422,
+      body: {
+        code: 'FISCAL_TRANSMISSION_INTEGRITY_FAILED',
+        sefazContacted: false,
+      },
+    });
+    expect(result.body.error).toMatch(/não pode referenciar chave de NFC-e modelo 65/);
+    expect(
+      d.rpc.mock.calls.filter(([name]) => name === 'start_nfe_outbound_transmission')
+    ).toHaveLength(startsBefore);
+    expect(mocks.send).toHaveBeenCalledTimes(sendsBefore);
   });
   it('failed persistence after authorization leaves the durable transmitting state for reconciliation', async () => {
     const d = database();

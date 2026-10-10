@@ -42,7 +42,6 @@ export const useVariations = () => {
             ? 'Característica desativada. Os valores já cadastrados foram preservados.'
             : 'Característica excluída.'
         );
-        refresh();
       } catch (error) {
         console.error(error);
         const message = getVariationErrorMessage(error, 'Erro ao excluir característica.');

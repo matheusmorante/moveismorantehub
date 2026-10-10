@@ -51,8 +51,9 @@ const UndoFulfillmentModal = ({
           {correctionLabel}?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          O pedido voltará para {returnStatusLabel}. As movimentações de estoque não serão
-          alteradas.
+          Use somente para corrigir um clique por engano e confirme que a mercadoria não foi
+          entregue nem retirada. O pedido voltará para o status {returnStatusLabel}. O estoque não
+          muda e nenhuma nota fiscal é gerada ou alterada.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button

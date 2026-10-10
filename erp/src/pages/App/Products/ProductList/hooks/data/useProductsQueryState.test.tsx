@@ -93,6 +93,35 @@ describe('useProducts query snapshot', () => {
     expect(result.current.products.map((product) => product.id)).toEqual(['cached-product']);
   });
 
+  it('does not show a previous filter snapshot while the new query is loading', async () => {
+    let resolveNextQuery!: (value: { data: { id: string; variations: never[] }[]; total: number }) => void;
+    mocks.fetchProductsPage
+      .mockResolvedValueOnce({ data: [{ id: 'old-filter-product', variations: [] }], total: 1 })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveNextQuery = resolve;
+          })
+      );
+
+    const { result, rerender } = renderHook(
+      ({ search }: { search: string }) => useProducts({ search }),
+      { initialProps: { search: '' }, wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.products[0]?.id).toBe('old-filter-product'));
+    rerender({ search: 'novo-filtro' });
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+
+    expect(result.current.products).toEqual([]);
+    expect(result.current.totalItems).toBe(0);
+
+    await act(async () => {
+      resolveNextQuery({ data: [{ id: 'new-filter-product', variations: [] }], total: 1 });
+    });
+    await waitFor(() => expect(result.current.products[0]?.id).toBe('new-filter-product'));
+  });
+
   it('recovers the product list when refresh retries a failed query', async () => {
     mocks.fetchProductsPage
       .mockRejectedValueOnce(new Error('falha temporária'))
@@ -111,5 +140,80 @@ describe('useProducts query snapshot', () => {
       expect(result.current.products.map((product) => product.id)).toEqual(['recovered-product'])
     );
     expect(result.current.error).toBeNull();
+  });
+
+  it('starts filtered queries on page one without requesting the old page first', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
+    const { result, rerender } = renderHook(
+      ({ search }: { search: string }) => useProducts({ search }),
+      { initialProps: { search: '' }, wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    act(() => result.current.setCurrentPage(3));
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+
+    mocks.fetchProductsPage.mockClear();
+    rerender({ search: 'acabamento' });
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenCalledWith(
+      1,
+      15,
+      expect.objectContaining({ search: 'acabamento' }),
+      { throwOnError: true }
+    );
+  });
+
+  it('includes test-product visibility in the query key and server filter', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 0 });
+    const { rerender } = renderHook(
+      ({ showTestProducts }: { showTestProducts: boolean }) =>
+        useProducts({ showTestProducts }),
+      { initialProps: { showTestProducts: true }, wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ excludeTestProducts: false })
+    );
+
+    rerender({ showTestProducts: false });
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+    expect(mocks.fetchProductsPage.mock.calls[1][2]).toEqual(
+      expect.objectContaining({ excludeTestProducts: true })
+    );
+  });
+
+  it('clamps the current page when a refresh reduces the available page count', async () => {
+    let total = 20;
+    const createPage = (page: number, pageSize: number) => {
+      const start = (page - 1) * pageSize;
+      return Array.from({ length: Math.max(0, Math.min(pageSize, total - start)) }, (_, index) => ({
+        id: `product-${start + index + 1}`,
+        variations: [],
+      }));
+    };
+    mocks.fetchProductsPage.mockImplementation(async (page: number, pageSize: number) => ({
+      data: createPage(page, pageSize),
+      total,
+    }));
+    const { result } = renderHook(() => useProducts({}), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.totalItems).toBe(20));
+    act(() => result.current.setCurrentPage(2));
+    await waitFor(() => expect(result.current.currentPage).toBe(2));
+    await waitFor(() => expect(result.current.products[0]?.id).toBe('product-16'));
+
+    total = 5;
+    act(() => result.current.refresh());
+
+    await waitFor(() => {
+      expect(result.current.currentPage).toBe(1);
+      expect(result.current.totalItems).toBe(5);
+      expect(result.current.products).toHaveLength(5);
+    });
+    expect(result.current.products[0]?.id).toBe('product-1');
   });
 });

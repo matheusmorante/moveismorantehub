@@ -3,11 +3,11 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ fetchVariations: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fetchVariations: vi.fn(), moveToTrash: vi.fn() }));
 
 vi.mock('../../utils/variationService', () => ({
   fetchVariations: mocks.fetchVariations,
-  moveToTrash: vi.fn(),
+  moveToTrash: mocks.moveToTrash,
   getVariationErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -16,6 +16,7 @@ import { useVariations } from './useVariations';
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -69,5 +70,31 @@ describe('useVariations query state', () => {
     });
     await waitFor(() => expect(result.current.variations).toEqual([recoveredVariation]));
     expect(result.current.error).toBeNull();
+  });
+
+  it('does not invalidate the list twice when the delete service already invalidates it', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const attribute = { id: 'variation-1', name: 'Cor', values: [], deleted: false };
+    mocks.fetchVariations.mockResolvedValue([attribute]);
+    mocks.moveToTrash.mockImplementation(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['variations'] });
+      return 'deleted';
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const { result } = renderHook(() => useVariations(), { wrapper });
+    await waitFor(() => expect(result.current.variations).toEqual([attribute]));
+
+    await act(async () => {
+      await result.current.handleDelete('variation-1', { stopPropagation: vi.fn() } as any);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
   });
 });

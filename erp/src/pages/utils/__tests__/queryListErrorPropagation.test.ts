@@ -32,6 +32,7 @@ vi.mock('../personService/personSyncService', () => ({ syncMissingEmployeesFromP
 vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: vi.fn() } }));
 
 import { fetchProductsPage } from '../productService/productQueryService';
+import { mapFromDB } from '../productService/productMapper';
 import { fetchPersons } from '../personService/personQueryService';
 import { fetchVariations } from '../variationService';
 
@@ -40,7 +41,10 @@ const failedQueryChain = () => {
     select: vi.fn(() => chain),
     or: vi.fn(() => chain),
     eq: vi.fn(() => chain),
-    order: vi.fn(() => Promise.resolve({ data: null, error: mocks.queryError })),
+    order: vi.fn(() => chain),
+    range: vi.fn(() => Promise.resolve({ data: null, error: mocks.queryError })),
+    then: (resolve: (value: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: mocks.queryError }).then(resolve),
   };
   return chain;
 };
@@ -67,6 +71,26 @@ describe('list query service error propagation', () => {
       })
     ).rejects.toBe(mocks.queryError);
     expect(queryClient.getQueryState(['products', 1])?.status).toBe('error');
+  });
+
+  it('preserves supplier matches from main_supplier_id and the database total', async () => {
+    const supplierOnlyProduct = {
+      id: 'main-supplier-product',
+      supplier_id: null,
+      main_supplier_id: 'supplier-1',
+      supplier_ids: [],
+    };
+    mocks.applyProductFiltersAndSort.mockResolvedValue({
+      data: [supplierOnlyProduct],
+      count: 37,
+      error: null,
+    });
+    vi.mocked(mapFromDB).mockImplementation((row) => row as any);
+
+    const result = await fetchProductsPage(2, 15, { supplierId: 'supplier-1' });
+
+    expect(result.data).toEqual([supplierOnlyProduct]);
+    expect(result.total).toBe(37);
   });
 
   it('keeps the legacy people fallback but lets TanStack observe failures on request', async () => {

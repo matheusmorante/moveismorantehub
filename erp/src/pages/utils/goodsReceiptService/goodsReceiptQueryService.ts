@@ -37,7 +37,10 @@ export const fetchGoodsReceiptsPage = async (
     query = query.or(`supplier_name.ilike.%${searchTerm}%,invoice_number.ilike.%${searchTerm}%`);
   }
 
-  query = query.order('updated_at', { ascending: false }).range(firstRow, lastRow);
+  query = query
+    .order('updated_at', { ascending: false })
+    .order('id', { ascending: true })
+    .range(firstRow, lastRow);
 
   const { data, count, error } = await query;
   if (error) {
@@ -53,16 +56,28 @@ export const fetchGoodsReceiptsPage = async (
 };
 
 export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => void) => {
-  addReceiptListener(callback);
+  let active = true;
+  let localRevision = 0;
+  let loadRevision = 0;
+  const listener = (items: GoodsReceipt[]) => {
+    localRevision += 1;
+    callback(items);
+  };
+  addReceiptListener(listener);
 
   const load = async () => {
+    const currentLoadRevision = ++loadRevision;
+    const currentLocalRevision = localRevision;
     const localItems = ensureReceiptIndexes(getStoredReceipts());
     try {
       const { data, error } = await supabase
         .from('goods_receipts')
         .select('*, goods_receipt_items(*)')
         .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
         .limit(30);
+      if (!active || currentLoadRevision !== loadRevision) return;
+      if (currentLocalRevision !== localRevision) return;
       if (!error && data?.length) {
         const dbItems = data.map(mapGoodsReceiptRow);
         const mergedMap = new Map<string, GoodsReceipt>();
@@ -82,9 +97,12 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
           }
         });
         const mergedList = Array.from(mergedMap.values()).sort(
-          (a, b) =>
-            new Date(b.updatedAt || b.receivedAt).getTime() -
-            new Date(a.updatedAt || a.receivedAt).getTime()
+          (a, b) => {
+            const updatedAtDifference =
+              new Date(b.updatedAt || b.receivedAt).getTime() -
+              new Date(a.updatedAt || a.receivedAt).getTime();
+            return updatedAtDifference || String(a.id).localeCompare(String(b.id));
+          }
         );
         const finalizedList = ensureReceiptIndexes(mergedList);
         saveStoredReceipts(finalizedList);
@@ -94,6 +112,9 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
     } catch {
       /* no-op: intencionalmente silencioso */
     }
+
+    if (!active || currentLoadRevision !== loadRevision) return;
+    if (currentLocalRevision !== localRevision) return;
     callback(localItems);
   };
 
@@ -122,8 +143,10 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
     .subscribe();
 
   return () => {
+    active = false;
+    loadRevision += 1;
     if (debounceTimer) clearTimeout(debounceTimer);
-    removeReceiptListener(callback);
+    removeReceiptListener(listener);
     supabase.removeChannel(channel);
   };
 };

@@ -59,6 +59,9 @@ export async function executeFiscalCancellation({
       {
         reason: isCancelEvent && reason ? reason.trim() : undefined,
         productionConfirmed,
+        // A ação iniciada em uma linha fiscal trata esta NF específica. As demais
+        // notas autorizadas do pedido permanecem disponíveis para revisão própria.
+        documentId: document.id,
       }
     );
   } catch (error) {

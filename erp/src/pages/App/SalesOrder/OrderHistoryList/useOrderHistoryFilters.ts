@@ -125,3 +125,40 @@ export const sortOrders = (orders: Order[], filters?: any): Order[] => {
     return 0;
   });
 };
+
+export const requiresGlobalOrderFiltering = (filters?: any): boolean => {
+  if (!filters) return false;
+
+  const hasDateRange = Boolean(filters.dateRange?.start && filters.dateRange?.end);
+  const hasCustomerFilter = Boolean(String(filters.customerName || '').trim());
+  const hasProductFilter = Boolean(String(filters.productName || '').trim());
+  const hasSellerFilter = Boolean(String(filters.seller || '').trim());
+  const sortRules =
+    filters.multiSort?.length > 0
+      ? filters.multiSort
+      : [{ key: filters.sortBy || 'date', order: filters.sortOrder || 'desc' }];
+  const hasNonDefaultSort =
+    sortRules.length !== 1 || sortRules[0].key !== 'date' || sortRules[0].order !== 'desc';
+
+  return (
+    hasDateRange ||
+    hasCustomerFilter ||
+    hasProductFilter ||
+    hasSellerFilter ||
+    hasNonDefaultSort
+  );
+};
+
+export const selectFilteredOrderHistoryPage = (
+  candidateOrders: Order[],
+  filters: any,
+  page: number,
+  pageSize: number
+) => {
+  const filteredOrders = sortOrders(candidateOrders.filter((order) => filterOrder(order, filters)), filters);
+  const firstRow = Math.max(0, (page - 1) * pageSize);
+  return {
+    orders: filteredOrders.slice(firstRow, firstRow + pageSize),
+    total: filteredOrders.length,
+  };
+};

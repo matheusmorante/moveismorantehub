@@ -4,7 +4,18 @@ export const persistAndInvalidateProductList = async <T>(
   onInvalidateError: (error: unknown) => void = (error) =>
     console.error('[Products] Falha ao atualizar o cache da lista:', error)
 ): Promise<T> => {
-  const result = await persist();
+  let result: T;
+  try {
+    result = await persist();
+  } catch (persistError) {
+    try {
+      await invalidate();
+    } catch (invalidateError) {
+      onInvalidateError(invalidateError);
+    }
+    throw persistError;
+  }
+
   try {
     await invalidate();
   } catch (error) {

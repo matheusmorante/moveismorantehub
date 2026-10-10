@@ -1,0 +1,60 @@
+{
+  "name": "test-artifact-safe-order-flow-remote",
+  "date": "2026-10-10",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development",
+  "method": "Authenticated PostgREST RPC for isolated test artifact creation; no fiscal API or SEFAZ request",
+  "runIds": [
+    "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+    "7f6dfa2c-f73b-462d-b4fc-6e944e998fa7",
+    "4c2e1b88-1a10-4afa-b3ef-59c0e01b427d"
+  ],
+  "createdOrderIds": [
+    "386ef984-ee54-4d69-bef9-00041fbc5810",
+    "0dbb970d-e434-42de-b783-d25c546ecc04"
+  ],
+  "fixtureShape": {
+    "orders": 2,
+    "ordersStatus": "cancelled",
+    "people": 2,
+    "peopleInactiveDraft": true,
+    "orderIndexConsumed": false,
+    "retainedForAudit": true
+  },
+  "behavior": {
+    "authenticatedAdministratorConfirmed": true,
+    "anonymousRpcRejected": true,
+    "concurrentRetryIdempotent": true,
+    "crossRunLinkRejectedAndRolledBack": true,
+    "failedRunOrderRows": 0,
+    "failedRunPersonRows": 0,
+    "inventoryMovementsCreated": 0,
+    "notificationRowsCreated": 0
+  },
+  "postgrestReadOnlyAfterCreation": {
+    "authenticatedIdentityMatches": true,
+    "administratorCheckOk": true,
+    "sourceFilterAppliedBeforeLimit": true,
+    "destinations": {
+      "salesReport": { "rawCount": 709, "filteredCount": 695, "excludedCount": 14 },
+      "stockReport": { "rawCount": 926, "filteredCount": 908, "excludedCount": 18 },
+      "deliverySchedule": { "rawCount": 79, "filteredCount": 75, "excludedCount": 4 },
+      "assemblyList": { "rawCount": 940, "filteredCount": 940, "excludedCount": 0 },
+      "assemblyPrint": { "rawCount": 883, "filteredCount": 871, "excludedCount": 12 },
+      "dashboardPeriod": { "rawCount": 81, "filteredCount": 55, "excludedCount": 26 },
+      "dashboardRecentAndMap": { "rawCount": 864, "filteredCount": 852, "excludedCount": 12 },
+      "notificationOrderRead": { "rawCount": 998, "filteredCount": 972, "excludedCount": 26 }
+    },
+    "contradictoryTestCount": 0,
+    "limitedRowsReturned": 50,
+    "limitedLeakCount": 0,
+    "queriesValid": true
+  },
+  "limitations": [
+    "The created orders are cancelled and contain no items; this does not exercise visibility of scheduled/fulfilled orders in agenda or assembly flows.",
+    "No tagged financial_transactions rows were created, so that report filter remains unexercised with behavioral rows.",
+    "This validates the fixture RPC, selected PostgREST filters and one notification guard; it does not validate sales/return fiscal lifecycle, frontend interaction, database concurrency of business operations, or SEFAZ authorization.",
+    "The read-only readiness endpoint still reports behavioralProofRequired=true; no remote fiscal E2E write or emission was run."
+  ]
+}

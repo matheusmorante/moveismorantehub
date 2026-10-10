@@ -1,9 +1,7 @@
-import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../../../../../types/product.type';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { updateProduct } from '@/pages/utils/productService';
-import { updateProductCatalogState } from '../../utils/catalog/productCatalogState';
 import { checkEcomLegibility } from '../../../domain/productLegibilityRules';
 import {
   isTestProduct,
@@ -232,7 +230,7 @@ export const persistCatalogStatus = async (
     if (productError) throw productError;
   }
 
-  await updateProduct(id, { status: newStatus });
+  await updateProduct(id, { status: newStatus }, { deferQueryInvalidation: true });
 
   if (parentProduct?.variations?.length) {
     await updateProduct(id, {
@@ -240,7 +238,7 @@ export const persistCatalogStatus = async (
         ...variation,
         status: newStatus,
       })),
-    });
+    }, { deferQueryInvalidation: true });
   }
 
   if (isProdIdUUID) {
@@ -257,6 +255,8 @@ export const persistCatalogStatus = async (
   await Promise.all(
     independentChildren
       .filter((child) => child.id)
-      .map((child) => updateProduct(child.id!, { status: newStatus }))
+      .map((child) =>
+        updateProduct(child.id!, { status: newStatus }, { deferQueryInvalidation: true })
+      )
   );
 };

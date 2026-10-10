@@ -17,6 +17,12 @@ export function validateOrdinaryOutboundEnvelope(input: {
   if (only('finNFe') !== '1' || only('tpNF') !== '1') {
     return 'Esta rota transmite somente nota de saída normal. Estorno e devolução exigem revisão fiscal própria.';
   }
+  const referencedAccessKeys = [
+    ...ide[0][1].matchAll(/<(refNFe|refNFeSig)>(\d{44})<\/\1>/g),
+  ].map(([, , key]) => key);
+  if (input.model === '55' && referencedAccessKeys.some((key) => key.slice(20, 22) === '65')) {
+    return 'NF-e de saída modelo 55 não pode referenciar chave de NFC-e modelo 65 nesta rota.';
+  }
   if (
     only('mod') !== input.model ||
     only('tpAmb') !== String(input.environment) ||

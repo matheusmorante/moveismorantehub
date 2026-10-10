@@ -8,6 +8,8 @@ type OrderCirculationShipping = {
   unattendedAt?: string | null;
 };
 
+export type GoodsCirculationState = 'none' | 'in_progress' | 'completed';
+
 export type OrderCirculationState = {
   status?: string | null;
   delivery_status?: string | null;
@@ -37,40 +39,24 @@ export type OrderCirculationState = {
   } | null;
 };
 
-const hasCompletedGoodsCirculation = (row: OrderCirculationState | null | undefined) => {
+const getExplicitGoodsCirculationState = (
+  row: OrderCirculationState | null | undefined
+): GoodsCirculationState => {
   const data = row?.order_data || {};
   const shipping = data.shipping || row?.shipping || {};
   const deliveryStatus = String(
     row?.delivery_status || row?.deliveryStatus || data.deliveryStatus || shipping.deliveryStatus || ''
   ).trim().toLowerCase();
-  const orderStatus = String(row?.status || '').trim().toLowerCase();
 
   if (['delivered', 'entregue', 'retirado'].includes(deliveryStatus)) {
-    return true;
+    return 'completed';
   }
 
   // Confirmed facts remain blocking even when a legacy automatic flag is present.
   const deliveryConfirmedAt =
     shipping.deliveryFinishedAt || row?.delivery_finished_at || row?.deliveryFinishedAt || data.deliveryFinishedAt;
   const pickupConfirmedAt = shipping.pickupConfirmedAt || row?.pickupConfirmedAt || data.pickupConfirmedAt;
-  if (deliveryConfirmedAt || pickupConfirmedAt) return true;
-
-  // The ERP's fulfilled state is shown as Entregue or Retirado after explicit confirmation.
-  return ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(orderStatus);
-};
-
-export type GoodsCirculationState = 'none' | 'in_progress' | 'completed';
-
-/** Distinguishes a completed delivery from movement that still needs return/recusal handling. */
-export function getGoodsCirculationState(
-  row: OrderCirculationState | null | undefined
-): GoodsCirculationState {
-  const data = row?.order_data || {};
-  const shipping = data.shipping || row?.shipping || {};
-  const deliveryStatus = String(
-    row?.delivery_status || row?.deliveryStatus || data.deliveryStatus || shipping.deliveryStatus || ''
-  ).toLowerCase();
-  if (hasCompletedGoodsCirculation(row)) return 'completed';
+  if (deliveryConfirmedAt || pickupConfirmedAt) return 'completed';
 
   // Saída/trânsito já impede cancelamento por operação não realizada.
   const unfinishedStatuses = new Set([
@@ -106,6 +92,27 @@ export function getGoodsCirculationState(
     row?.deliveryArrivedAt
   ) {
     return 'in_progress';
+  }
+  return 'none';
+};
+
+/** Evidence independent of status, used to distinguish a real handoff from a misclick. */
+export const hasExplicitGoodsCirculationEvidence = (
+  row: OrderCirculationState | null | undefined
+): boolean => getExplicitGoodsCirculationState(row) !== 'none';
+
+/** Distinguishes a completed delivery from movement that still needs return/recusal handling. */
+export function getGoodsCirculationState(
+  row: OrderCirculationState | null | undefined
+): GoodsCirculationState {
+  const explicitState = getExplicitGoodsCirculationState(row);
+  if (explicitState !== 'none') return explicitState;
+
+  // Keep `fulfilled` as circulation for fiscal cancellation, even though a correction action may
+  // return that status to scheduled when no separate delivery/withdrawal evidence exists.
+  const orderStatus = String(row?.status || '').trim().toLowerCase();
+  if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(orderStatus)) {
+    return 'completed';
   }
   return 'none';
 }

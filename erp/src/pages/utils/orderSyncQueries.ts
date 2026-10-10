@@ -3,7 +3,6 @@ import Order from '../types/order.type';
 import type { GeoMapOrderProjection, RecentOrderProjection } from '../types/dashboardOrderProjection.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from './formatters';
-import { getOrderIndex } from './orderCode';
 import { mapOrderFromDatabase } from './orderMapper';
 import { isHmlFiscalTestOrder } from './hmlTestData';
 
@@ -202,6 +201,19 @@ export const fetchOrdersPage = async (
     }
   }
 
+  if (!filters?.showTestOrders) {
+    query = excludeTestOrders(query);
+  }
+
+  if (filters?.status) query = query.eq('status', filters.status);
+
+  if (filters?.valueRange) {
+    const minimumValue = Number(filters.valueRange.min);
+    const maximumValue = Number(filters.valueRange.max);
+    if (Number.isFinite(minimumValue)) query = query.gte('total_amount', minimumValue);
+    if (Number.isFinite(maximumValue)) query = query.lte('total_amount', maximumValue);
+  }
+
   if (filters?.searchId) {
     query = query.eq('id', filters.searchId);
   }
@@ -223,7 +235,10 @@ export const fetchOrdersPage = async (
     query = query.ilike('customer_name', `%${customerName}%`);
   }
 
-  query = query.order('created_at', { ascending: false }).range(firstRow, lastRow);
+  query = query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .range(firstRow, lastRow);
 
   const { data, count, error } = await query;
   if (error) {
@@ -276,6 +291,30 @@ export const fetchOrdersPage = async (
   return { orders: enrichedOrders, total: count || 0 };
 };
 
+/** Loads the complete server-filtered candidate set before client-only list filters run. */
+export const fetchOrdersForClientFiltering = async (
+  filters?: any,
+  options: { throwOnError?: boolean } = {}
+): Promise<Order[]> => {
+  const pageSize = 1000;
+  const serverFilters = filters?.customerName
+    ? { ...filters, customerName: undefined }
+    : filters;
+  const allOrders: Order[] = [];
+  let total: number;
+  let page = 1;
+
+  do {
+    const result = await fetchOrdersPage(page, pageSize, serverFilters, options);
+    total = result.total;
+    allOrders.push(...result.orders);
+    if (result.orders.length === 0) break;
+    page += 1;
+  } while (allOrders.length < total);
+
+  return allOrders;
+};
+
 export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
   try {
     const { data, error } = await excludeTestOrders(supabase
@@ -305,7 +344,7 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
     const mappedOrders = rows.filter(isValidOrderRow).map((row: any) => {
       try {
         return mapOrderFromDatabase(row);
-      } catch (_e) {
+      } catch {
         return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
       }
     });
@@ -344,7 +383,7 @@ const fetchSharedOrders = async () => {
       const mappedOrders = rows.filter(isValidOrderRow).map((row: any) => {
         try {
           return mapOrderFromDatabase(row);
-        } catch (_e) {
+        } catch {
           return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
         }
       });
@@ -470,9 +509,9 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<RecentOrderP
 /** Fonte B: Busca leve de até 50 pedidos para radar geográfico (sem order_items pesados) */
 export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrderProjection[]> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
-      .select('id, total_amount, status, order_type, customer_name, order_data')
+      .select('id, total_amount, status, order_type, customer_name, order_data'))
       .in('status', ['scheduled', 'fulfilled'])
       .or('deleted.is.null,deleted.eq.false')
       .order('created_at', { ascending: false })
@@ -541,7 +580,7 @@ export const fetchAllOrdersForDashboard = async (
       .map((row: any) => {
         try {
           return mapOrderFromDatabase(row);
-        } catch (_e) {
+        } catch {
           return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
         }
       });

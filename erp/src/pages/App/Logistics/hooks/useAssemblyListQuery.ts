@@ -1,4 +1,3 @@
-import { excludeTestOrders } from '../../../../../../shared-utils/testArtifactQueries';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getSettings, subscribeToSettings, AppSettings } from '@/pages/utils/settingsService';
@@ -6,8 +5,7 @@ import { getShowcaseAssemblies } from '@/pages/utils/showcaseAssemblyService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { shouldShowOrderInSchedule } from '@/pages/utils/scheduleOrderVisibility';
 import { toast } from 'react-toastify';
-
-const ASSEMBLY_ORDERS_LIMIT = 50;
+import { fetchAssemblyOrderRows } from '../services/assemblyOrderListService';
 
 const parseOrderDate = (rawDate: unknown): string => {
   if (!rawDate) return '';
@@ -285,19 +283,9 @@ export function useAssemblyListQuery() {
     setLoading(true);
     try {
       const [ordersResult, showcaseData] = await Promise.all([
-        excludeTestOrders(supabase
-          .from('orders')
-          .select(
-            'id, status, created_at, order_data, deleted, order_number, order_index, customer_name, delivery_method, scheduled_date'
-          ))
-          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-          .or('order_data->>is_test.is.null,order_data->>is_test.eq.false')
-          .order('created_at', { ascending: false })
-          .limit(ASSEMBLY_ORDERS_LIMIT),
-        getShowcaseAssemblies(ASSEMBLY_ORDERS_LIMIT),
+        fetchAssemblyOrderRows(),
+        getShowcaseAssemblies(),
       ]);
-
-      if (ordersResult.error) throw ordersResult.error;
 
       const showcaseTasks = showcaseData.map((assembly) => ({
         id: assembly.id || '',
@@ -312,7 +300,7 @@ export function useAssemblyListQuery() {
       }));
 
       const unified = [
-        ...getOrderAssemblyTasks(ordersResult.data || [], settingsRef.current),
+        ...getOrderAssemblyTasks(ordersResult, settingsRef.current),
         ...showcaseTasks,
       ].sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);

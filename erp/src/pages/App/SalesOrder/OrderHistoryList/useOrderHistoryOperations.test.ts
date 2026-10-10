@@ -18,7 +18,14 @@ vi.mock('../../../utils/orderHistoryService', () => ({
 }));
 vi.mock('react-toastify', () => ({ toast: mocks.toast }));
 vi.mock('@/pages/utils/orderStatusPresentation', () => ({
-  getFulfillmentLabels: vi.fn(),
+  getFulfillmentLabels: vi.fn(() => ({
+    status: 'Atendido',
+    preFulfillmentStatus: 'Agendado',
+    confirmAction: 'Marcar como atendido',
+    correctionAction: 'Desfazer atendimento',
+    confirmationQuestion: 'O pedido já foi atendido?',
+    successMessage: 'Pedido atendido com sucesso.',
+  })),
 }));
 vi.mock('@/pages/utils/nfe/nfeService', () => ({
   processOrderCancellationFiscalEffects: mocks.processFiscalEffects,
@@ -27,6 +34,76 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
 describe('transação comercial antes dos efeitos fiscais do cancelamento', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('corrige um clique equivocado em Atendido sem mexer em estoque ou acionar o fiscal', async () => {
+    mocks.updateOrder.mockResolvedValue(undefined);
+    const { createOrderHistoryOperations } = await import('./useOrderHistoryOperations');
+    const order = {
+      id: 'TEST_AUT_order',
+      status: 'fulfilled',
+      stockProcessed: true,
+      stockReversed: false,
+      returnStockProcessed: false,
+      returnStockReversed: false,
+    } as any;
+    const setOrders = vi.fn();
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const operations = createOrderHistoryOperations({
+      orders: [order],
+      setOrders,
+      selectedOrders: [],
+      setSelectedOrders: vi.fn(),
+      setLoading: vi.fn(),
+      refresh,
+    });
+
+    await operations.commitStatusUpdate(order, 'scheduled');
+
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+    expect(mocks.updateOrder).toHaveBeenCalledWith(
+      order.id,
+      { status: 'scheduled', autoFulfillExempt: true },
+      order
+    );
+    expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const optimisticUpdate = setOrders.mock.calls[0]?.[0] as (orders: any[]) => any[];
+    expect(optimisticUpdate([order])[0]).toMatchObject({
+      status: 'scheduled',
+      stockProcessed: true,
+      stockReversed: false,
+      returnStockProcessed: false,
+      returnStockReversed: false,
+      autoFulfillExempt: true,
+    });
+  });
+
+  it('bloqueia desfazer atendimento quando a entrega foi confirmada', async () => {
+    const { createOrderHistoryOperations } = await import('./useOrderHistoryOperations');
+    const order = {
+      id: 'TEST_AUT_order_delivered',
+      status: 'fulfilled',
+      deliveryStatus: 'entregue',
+      stockProcessed: true,
+      stockReversed: false,
+    } as any;
+    const operations = createOrderHistoryOperations({
+      orders: [order],
+      setOrders: vi.fn(),
+      selectedOrders: [],
+      setSelectedOrders: vi.fn(),
+      setLoading: vi.fn(),
+      refresh: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await operations.commitStatusUpdate(order, 'scheduled');
+
+    expect(mocks.updateOrder).not.toHaveBeenCalled();
+    expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
+    expect(mocks.toast.warning).toHaveBeenCalledWith(
+      'Só é possível corrigir um atendimento marcado por engano quando não há confirmação de entrega, retirada ou saída.'
+    );
   });
 
   it('não inicia efeito fiscal quando a transação comercial falha', async () => {

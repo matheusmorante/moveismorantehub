@@ -10,7 +10,16 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-import { subscribeToVariations } from '../variationService';
+import { fetchVariations, subscribeToVariations } from '../variationService';
+
+const pagedQuery = (result: (from: number, to: number) => unknown) => {
+  const chain: any = {
+    select: vi.fn(() => chain),
+    order: vi.fn(() => chain),
+    range: vi.fn((from: number, to: number) => Promise.resolve(result(from, to))),
+  };
+  return chain;
+};
 
 describe('subscribeToVariations', () => {
   beforeEach(() => {
@@ -25,35 +34,27 @@ describe('subscribeToVariations', () => {
 
     fromMock.mockImplementation((table: string) => {
       if (table === 'attributes') {
-        return {
-          select: vi.fn(() => ({
-            order: vi.fn().mockResolvedValue({
-              data: [{ id: 'attr-1', name: 'Cor', active: true }],
-              error: null,
-            }),
-          })),
-        };
+        return pagedQuery((from) => ({
+          data: from === 0 ? [{ id: 'attr-1', name: 'Cor', active: true }] : [],
+          error: null,
+        }));
       }
 
       if (table === 'attribute_values') {
-        return {
-          select: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'value-2', attribute_id: 'attr-1', value: 'Azul 10' },
-              { id: 'value-1', attribute_id: 'attr-1', value: 'Azul 2' },
-            ],
-            error: null,
-          }),
-        };
+        return pagedQuery((from) => ({
+          data:
+            from === 0
+              ? [
+                  { id: 'value-2', attribute_id: 'attr-1', value: 'Azul 10' },
+                  { id: 'value-1', attribute_id: 'attr-1', value: 'Azul 2' },
+                ]
+              : [],
+          error: null,
+        }));
       }
 
       if (table === 'category_attributes') {
-        return {
-          select: vi.fn().mockResolvedValue({
-            data: null,
-            error: categoryTableError,
-          }),
-        };
+        return pagedQuery(() => ({ data: null, error: categoryTableError }));
       }
 
       throw new Error(`Tabela inesperada no teste: ${table}`);
@@ -89,5 +90,48 @@ describe('subscribeToVariations', () => {
       'Aviso ao buscar vínculos de categorias dos atributos:',
       categoryTableError
     );
+  });
+
+  it('carrega valores de atributos além do limite de 1.000 linhas da API', async () => {
+    const values = Array.from({ length: 1000 }, (_, index) => ({
+      id: `value-${String(index).padStart(4, '0')}`,
+      attribute_id: 'attr-1',
+      value: `Opção ${index}`,
+    }));
+    const requestedRanges: number[][] = [];
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'attributes') {
+        return pagedQuery((from) => ({
+          data: from === 0 ? [{ id: 'attr-1', name: 'Cor', active: true }] : [],
+          error: null,
+        }));
+      }
+      if (table === 'attribute_values') {
+        return pagedQuery((from, to) => {
+          requestedRanges.push([from, to]);
+          return {
+            data:
+              from === 0
+                ? values
+                : [{ id: 'value-after-cap', attribute_id: 'attr-1', value: 'Opção final' }],
+            error: null,
+          };
+        });
+      }
+      if (table === 'category_attributes') {
+        return pagedQuery(() => ({ data: [], error: null }));
+      }
+      throw new Error(`Tabela inesperada no teste: ${table}`);
+    });
+
+    const variations = await fetchVariations({ throwOnError: true });
+
+    expect(variations[0].options).toHaveLength(1001);
+    expect(variations[0].options.some((option) => option.id === 'value-after-cap')).toBe(true);
+    expect(requestedRanges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
   });
 });

@@ -9,6 +9,7 @@ import {
   fetchAllOrdersForDashboard,
   fetchGeoMapOrders,
   fetchOrdersPage,
+  fetchOrdersForClientFiltering,
   fetchRecentOrders,
   fetchScheduledAndDraftOrders,
 } from '../orderSyncQueries';
@@ -74,6 +75,10 @@ describe('dashboard order projections', () => {
     expect(order.customerData.fullAddress?.street).toBe('Rua A');
     expect(order.shipping?.destinationCoords).toEqual([-49.2, -25.4]);
     expect(order.itemsSummary?.itemsTotalValue).toBe(250);
+    expect(query.or).toHaveBeenCalledWith(expect.stringContaining('testArtifact'));
+    expect(query.or.mock.invocationCallOrder[0]).toBeLessThan(
+      query.limit.mock.invocationCallOrder[0]
+    );
   });
 });
 
@@ -88,12 +93,17 @@ describe('fetchOrdersPage', () => {
     query.or = vi.fn(() => query);
     query.not = vi.fn(() => query);
     query.eq = vi.fn(() => query);
+    query.gte = vi.fn(() => query);
+    query.lte = vi.fn(() => query);
     query.ilike = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
     mockDb.from.mockReturnValue(query);
 
-    await fetchOrdersPage();
+    await fetchOrdersPage(1, 15, {
+      status: 'fulfilled',
+      valueRange: { min: 50, max: 500 },
+    });
 
     const [columns, options] = query.select.mock.calls[0];
     expect(options).toEqual({ count: 'exact' });
@@ -104,6 +114,53 @@ describe('fetchOrdersPage', () => {
     expect(columns).toContain('order_payments(payment_method, amount, fee, fee_type, status, installments)');
     expect(columns).not.toMatch(/order_items\s*\(\s*\*\s*\)/);
     expect(columns).not.toMatch(/order_payments\s*\(\s*\*\s*\)/);
+    expect(query.eq).toHaveBeenCalledWith('status', 'fulfilled');
+    expect(query.gte).toHaveBeenCalledWith('total_amount', 50);
+    expect(query.lte).toHaveBeenCalledWith('total_amount', 500);
+    expect(query.or).toHaveBeenCalledWith(expect.stringContaining('order_data->>is_test'));
+    expect(query.or.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      query.range.mock.invocationCallOrder[0]
+    );
+    expect(query.order.mock.calls).toEqual([
+      ['created_at', { ascending: false }],
+      ['id', { ascending: true }],
+    ]);
+  });
+
+  it('includes test orders before pagination only when explicitly requested', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.ilike = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    mockDb.from.mockReturnValue(query);
+
+    await fetchOrdersPage(1, 15, { showTestOrders: true });
+
+    expect(query.or).toHaveBeenCalledTimes(1);
+    expect(query.or).toHaveBeenCalledWith('deleted.is.null,deleted.eq.false');
+  });
+
+  it('combines draft and status constraints before calculating a page', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.ilike = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    mockDb.from.mockReturnValue(query);
+
+    await fetchOrdersPage(1, 15, { isDraft: true, status: 'fulfilled' });
+
+    expect(query.eq.mock.calls).toEqual([
+      ['status', 'draft'],
+      ['status', 'fulfilled'],
+    ]);
   });
 
   it('preserves the legacy empty result by default and propagates failures for query hooks', async () => {
@@ -149,6 +206,64 @@ describe('fetchOrdersPage', () => {
     await queryClient.invalidateQueries({ queryKey: ['orders'] });
     await expect(queryClient.fetchQuery(queryOptions)).resolves.toEqual({ orders: [], total: 0 });
     expect(query.range).toHaveBeenCalledTimes(2);
+  });
+
+  it('carrega todas as páginas antes dos filtros locais da lista', async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `order-${String(index).padStart(4, '0')}`,
+      order_number: index + 1,
+      status: 'scheduled',
+      order_type: 'sale',
+      order_data: { date: '2026-10-10', customerData: { fullName: 'Cliente sintético' } },
+    }));
+    const queryRanges: number[][] = [];
+    const customerFilters: string[] = [];
+    const responses = [
+      { data: firstPage, count: 1001, error: null },
+      {
+        data: [
+          {
+            id: 'order-after-api-cap',
+            order_number: 1001,
+            status: 'scheduled',
+            order_type: 'sale',
+            order_data: { date: '2026-10-11', customerData: { fullName: 'Cliente sintético' } },
+          },
+        ],
+        count: 1001,
+        error: null,
+      },
+    ];
+    mockDb.from.mockImplementation(() => {
+      const query: any = {};
+      query.select = vi.fn(() => query);
+      query.or = vi.fn(() => query);
+      query.not = vi.fn(() => query);
+      query.eq = vi.fn(() => query);
+      query.ilike = vi.fn((column: string) => {
+        customerFilters.push(column);
+        return query;
+      });
+      query.order = vi.fn(() => query);
+      query.range = vi.fn((from: number, to: number) => {
+        queryRanges.push([from, to]);
+        return Promise.resolve(responses.shift());
+      });
+      return query;
+    });
+
+    const orders = await fetchOrdersForClientFiltering(
+      { orderType: 'sale', customerName: 'Cliente' },
+      { throwOnError: true }
+    );
+
+    expect(orders).toHaveLength(1001);
+    expect(orders.at(-1)?.id).toBe('order-after-api-cap');
+    expect(queryRanges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+    expect(customerFilters).toEqual([]);
   });
 });
 

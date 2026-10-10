@@ -17,14 +17,31 @@ describe('persistAndInvalidateProductList', () => {
     expect(invalidate).toHaveBeenCalledOnce();
   });
 
-  it('does not invalidate the list when persistence fails', async () => {
+  it('invalidates to reconcile possible partial writes when persistence fails', async () => {
     const persist = vi.fn().mockRejectedValue(new Error('falha ao salvar'));
     const invalidate = vi.fn(async () => undefined);
 
     await expect(persistAndInvalidateProductList(persist, invalidate)).rejects.toThrow(
       'falha ao salvar'
     );
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(invalidate).toHaveBeenCalledOnce();
+  });
+
+  it('preserves the persistence error when reconciliation also fails', async () => {
+    const persistError = new Error('falha ao salvar');
+    const onInvalidateError = vi.fn();
+    const invalidate = vi.fn().mockRejectedValue(new Error('falha ao atualizar o cache'));
+
+    await expect(
+      persistAndInvalidateProductList(
+        vi.fn().mockRejectedValue(persistError),
+        invalidate,
+        onInvalidateError
+      )
+    ).rejects.toBe(persistError);
+
+    expect(invalidate).toHaveBeenCalledOnce();
+    expect(onInvalidateError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('preserves the committed result when cache invalidation fails', async () => {

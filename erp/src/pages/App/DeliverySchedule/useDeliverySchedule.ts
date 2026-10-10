@@ -1,12 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Order from '../../types/order.type';
 import {
   subscribeToOrderChanges,
   updateOrder,
   fetchScheduledAndDraftOrders,
 } from '../../utils/orderHistoryService';
-import { DropResult } from '@hello-pangea/dnd';
-import { toast } from 'react-toastify';
 import { getLocalISODate } from '../../utils/formatters';
 import { getSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -266,13 +264,15 @@ export const useDeliverySchedule = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let latestLoadSequence = 0;
 
     const loadOrders = async (silent = false) => {
+      const sequence = ++latestLoadSequence;
       if (!silent) setLoading(true);
       const orders = await fetchScheduledAndDraftOrders();
-      if (!isMounted) return;
+      if (!isMounted || sequence !== latestLoadSequence) return;
       setAllOrders(orders);
-      if (!silent) setLoading(false);
+      setLoading(false);
     };
 
     loadOrders();
@@ -283,6 +283,7 @@ export const useDeliverySchedule = () => {
 
     return () => {
       isMounted = false;
+      latestLoadSequence += 1;
       unsubscribe();
     };
   }, []);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService } from '@/pages/services/financeService';
 import { AccountPayable } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
@@ -17,28 +17,37 @@ const formatToBRDate = (dateString: string) => {
 export default function Payables() {
   const [payables, setPayables] = useState<AccountPayable[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestId = useRef(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState<AccountPayable | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const fetchPayables = async () => {
+  const fetchPayables = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await financeService.getPayables(
         statusFilter !== 'all' ? statusFilter : undefined
       );
-      setPayables(data || []);
-    } catch (error) {
-      console.error('Erro ao buscar contas a pagar:', error);
+      if (currentRequestId === requestId.current) setPayables(data || []);
+    } catch {
+      if (currentRequestId === requestId.current) {
+        setLoadError('Não foi possível carregar as contas a pagar. Tente novamente.');
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestId.current) setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
-    fetchPayables();
-  }, [statusFilter]);
+    void fetchPayables();
+    return () => {
+      requestId.current += 1;
+    };
+  }, [fetchPayables]);
 
   const handleEdit = (payable: AccountPayable) => {
     setSelectedPayable(payable);
@@ -52,7 +61,7 @@ export default function Payables() {
 
   const handleModalClose = (saved: boolean) => {
     setIsModalOpen(false);
-    if (saved) fetchPayables();
+    if (saved) void fetchPayables();
   };
 
   const getStatusStyle = (status: string) => {
@@ -226,6 +235,23 @@ export default function Payables() {
             </table>
           </div>
 
+          {loadError && (
+            <div
+              role="alert"
+              className="mx-6 my-4 flex items-center justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+            >
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={() => void fetchPayables()}
+                disabled={loading}
+                className="font-bold underline disabled:opacity-50"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
           {loading && (
             <div className="p-20 flex flex-col items-center justify-center flex-1">
               <div className="w-12 h-12 border-4 border-rose-600/30 border-t-rose-600 rounded-full animate-spin mb-4" />
@@ -235,7 +261,7 @@ export default function Payables() {
             </div>
           )}
 
-          {filtered.length === 0 && !loading && (
+          {filtered.length === 0 && !loading && !loadError && (
             <div className="p-20 flex flex-col items-center justify-center text-center flex-1">
               <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-800 mb-6 border border-slate-100 dark:border-slate-800">
                 <i className="bi bi-check-circle text-4xl"></i>

@@ -4,7 +4,7 @@ import { pluralizeProductType } from '@/pages/utils/pluralize';
 import { VariationRow, CatalogCollectionItem, ChannelFilter } from '../types';
 
 const CATALOG_COLUMNS =
-  'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, environment, product_type_name, last_whatsapp_sync, line, product_variations(id, product_id, name, sku, price, stock, active, status, image_url, attributes)';
+  'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, environment, product_type_name, last_whatsapp_sync, line, variations, product_variations(id, product_id, name, sku, price, stock, status, image_url, attributes)';
 
 export async function fetchLightweightCollections(): Promise<CatalogCollectionItem[]> {
   const { data, error } = await supabase
@@ -118,9 +118,17 @@ export async function fetchPaginatedChannelProducts(
     const variations: any[] = Array.isArray((p as any).product_variations)
       ? (p as any).product_variations
       : [];
+    const savedVariations: any[] = Array.isArray((p as any).variations)
+      ? (p as any).variations
+      : [];
 
     for (const v of variations) {
       if (v && typeof v === 'object' && !v.deleted) {
+        const savedVariation = savedVariations.find(
+          (candidate) =>
+            String(candidate?.id || '') === String(v.id || '') ||
+            (v.sku && String(candidate?.sku || '') === String(v.sku))
+        );
         const pDesc = p.description || '';
         const rawVarName = v.name || v.description || 'VARIAÇÃO';
         const cleanVarName =
@@ -135,8 +143,8 @@ export async function fetchPaginatedChannelProducts(
           varSku.toLowerCase().includes(searchLower) ||
           pDesc.toLowerCase().includes(searchLower);
 
-        const matchesChannel =
-          filterChannel === 'all' || (filterChannel === 'whatsapp' && v.whatsappSync);
+        const whatsappSync = savedVariation?.whatsappSync ?? false;
+        const matchesChannel = filterChannel === 'all' || (filterChannel === 'whatsapp' && whatsappSync);
 
         if (matchesSearch && matchesChannel) {
           expanded.push({
@@ -155,9 +163,9 @@ export async function fetchPaginatedChannelProducts(
             ),
             varActive: v.active ?? true,
             varImage: (v.images && v.images[0]) || (p.images && p.images[0]) || null,
-            varWhatsappSync: v.whatsappSync ?? false,
-            varWhatsappAutoSync: v.whatsappAutoSync ?? false,
-            varLastSync: v.lastWhatsappSync ?? null,
+            varWhatsappSync: whatsappSync,
+            varWhatsappAutoSync: savedVariation?.whatsappAutoSync ?? false,
+            varLastSync: savedVariation?.lastWhatsappSync ?? null,
             isActuallyOnMeta: metaSkus.has(varSku || String(v.id || `${p.id}_${v.name}`)),
             parentId: String(p.id),
             parentDescription: pDesc,
@@ -166,7 +174,7 @@ export async function fetchPaginatedChannelProducts(
             parentLine: p.line || '',
             parentCode: p.code || '',
             rawParent: p,
-            rawVariation: v,
+            rawVariation: { ...v, ...(savedVariation || {}) },
           });
         }
       }

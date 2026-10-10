@@ -133,10 +133,10 @@ describe('eligibilidade de cancelamento iniciada pela tela fiscal', () => {
     ).toMatchObject({ canProceed: false, action: 'reconcile' });
   });
 
-  it('exige revisão quando há mais de uma NF-e autorizada no mesmo pedido', () => {
+  it('mantém a elegibilidade por documento quando o pedido possui mais de uma NF-e autorizada', () => {
     expect(evaluateDocumentEligibility(document(), order, null, now, 2)).toMatchObject({
-      canProceed: false,
-      action: 'manual_review',
+      canProceed: true,
+      action: 'cancel',
     });
   });
 

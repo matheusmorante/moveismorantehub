@@ -41,6 +41,7 @@ export default function FiscalDocumentsPage() {
   const {
     documents,
     loading,
+    loadError,
     pageIndex,
     setPageIndex,
     documentCount,
@@ -163,6 +164,15 @@ export default function FiscalDocumentsPage() {
         onCustomDateFromChange={setCustomDateFrom}
         onCustomDateToChange={setCustomDateTo}
       />
+
+      {loadError && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+        >
+          Não foi possível carregar as notas fiscais: {loadError}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-slate-900/70 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <FiscalDocumentsTable

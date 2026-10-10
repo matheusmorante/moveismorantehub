@@ -11,9 +11,9 @@ interface CancelReturnModalProps {
 
 const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProps) => {
   const [secondsLeft, setSecondsLeft] = useState(5);
-  const isFulfilled = order.status === 'fulfilled';
-  const actionTitle = isFulfilled ? 'Desfazer esta devolução?' : 'Cancelar esta devolução?';
-  const buttonLabel = isFulfilled ? 'Desfazer Devolução' : 'Cancelar devolução';
+  const physicalReturnConfirmed = order.status === 'fulfilled' || order.returnStockProcessed === true;
+  const actionTitle = 'Cancelar esta devolução?';
+  const buttonLabel = 'Cancelar devolução';
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -60,14 +60,13 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
           {actionTitle} (#{formatOrderCode(order)})
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Ao confirmar, a movimentação de entrada no estoque gerada por esta devolução será
-          imediatamente estornada. Os produtos cadastrados deixarão de ter seu saldo somado no
-          estoque por este documento.
+          A ação se aplica somente a esta devolução agendada. Não altera a venda original, as outras
+          devoluções vinculadas nem o estoque.
         </p>
         <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
-          {isFulfilled
-            ? 'Esta devolução atendida será desfeita e marcada como CANCELADA. Esta ação é definitiva e não poderá ser revertida.'
-            : 'Esta devolução agendada será marcada como CANCELADA. Esta ação é definitiva e não poderá ser desfeita.'}
+          {physicalReturnConfirmed
+            ? 'O retorno físico já foi confirmado. Preserve este registro e trate eventual documento fiscal na ação do próprio documento.'
+            : 'Esta devolução será marcada como CANCELADA. A confirmação física, quando ocorrer, é registrada em um fluxo separado.'}
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -79,7 +78,7 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
           </button>
           <button
             type="button"
-            disabled={secondsLeft > 0}
+            disabled={secondsLeft > 0 || physicalReturnConfirmed}
             onClick={onConfirm}
             className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition-all ${
               secondsLeft > 0

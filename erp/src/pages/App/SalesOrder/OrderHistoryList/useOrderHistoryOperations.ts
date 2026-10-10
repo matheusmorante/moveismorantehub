@@ -9,6 +9,7 @@ import {
 import { toast } from 'react-toastify';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
+import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
 
 interface OrderHistoryOperationsParams {
   orders: Order[];
@@ -127,6 +128,13 @@ export const createOrderHistoryOperations = ({
       : currentOrder.returnStockReversed || false;
 
     const isUndoFulfillment = currentOrder.status === 'fulfilled' && newStatus === 'scheduled';
+    if (isUndoFulfillment && !canUndoFulfillment(currentOrder)) {
+      toast.warning(
+        'Só é possível corrigir um atendimento marcado por engano quando não há confirmação de entrega, retirada ou saída.'
+      );
+      return;
+    }
+
     const payload: Partial<Order> = { status: newStatus };
     if (isUndoFulfillment) {
       payload.autoFulfillExempt = true;

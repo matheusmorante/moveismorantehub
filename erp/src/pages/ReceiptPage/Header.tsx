@@ -1,4 +1,4 @@
-import logo from '../../assets/logo-morante.svg';
+import logo from '../../assets/logo-morante-horizontal.svg';
 import { getSettings } from '@/pages/utils/settingsService';
 
 interface Props {
@@ -16,7 +16,7 @@ const Header = ({ seller }: Props) => {
   return (
     <header className="flex justify-between items-start pb-2 border-b border-slate-100 text-slate-800 transition-colors duration-300 shrink-0">
       <div className="flex items-center">
-        <div className="header-logo-container w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl p-1 border-0 shadow-none overflow-hidden flex items-center justify-center shrink-0">
+        <div className="header-logo-container w-56 h-24 sm:w-56 sm:h-28 bg-white rounded-xl p-1 border-0 shadow-none overflow-hidden flex items-center justify-center shrink-0">
           <img
             src={logo}
             alt={`Logo ${companyName}`}

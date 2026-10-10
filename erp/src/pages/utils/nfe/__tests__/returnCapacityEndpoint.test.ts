@@ -17,17 +17,35 @@ vi.mock('../invoiceLineSnapshot', () => ({
 const handler = async (req: any, res: any) =>
   (await import('../../../../../../api/nfe/return-capacity')).default(req, res);
 
-function setup(testData: Record<string, unknown> = {}) {
+function setup(
+  testData: Record<string, unknown> = {},
+  fixtures: {
+    documents?: unknown[];
+    snapshots?: unknown[];
+    priorReturns?: unknown[];
+    allocations?: unknown[];
+    returnOrders?: unknown[];
+  } = {}
+) {
   const filters: Array<[string, string, unknown]> = [];
   const from = vi.fn((table: string) => {
+    let isLinkedReturnsLookup = false;
+    let isReturnStatusLookup = false;
     const query: any = {
       select: () => query,
       eq: (field: string, value: unknown) => {
         filters.push([table, field, value]);
         return query;
       },
-      in: () => query,
-      or: () => query,
+      in: (field: string, value: unknown) => {
+        filters.push([table, field, value]);
+        if (table === 'orders' && field === 'id') isReturnStatusLookup = true;
+        return query;
+      },
+      or: () => {
+        isLinkedReturnsLookup = true;
+        return query;
+      },
       order: () => query,
       maybeSingle: async () => ({
         data: {
@@ -40,12 +58,17 @@ function setup(testData: Record<string, unknown> = {}) {
       }),
       then: (resolve: any, reject: any) =>
         Promise.resolve({
-          data:
-            table === 'nfe_documents'
-              ? [{ id: 'doc', modelo: '55', xml_nfe: '<NFe/>' }]
-              : table === 'nfe_document_items'
-                ? [{ item_number: 1, billed_quantity: 2 }]
-                : [],
+          data: table === 'nfe_documents'
+            ? fixtures.documents ?? [{ id: 'doc', modelo: '55', xml_nfe: '<NFe/>' }]
+            : table === 'nfe_document_items'
+              ? fixtures.snapshots ?? [{ item_number: 1, billed_quantity: 2 }]
+              : table === 'nfe_return_item_allocations'
+                ? fixtures.allocations ?? []
+                : table === 'orders' && isLinkedReturnsLookup
+                  ? fixtures.priorReturns ?? []
+                  : table === 'orders' && isReturnStatusLookup
+                    ? fixtures.returnOrders ?? []
+                    : [],
           error: null,
         }).then(resolve, reject),
     };
@@ -108,6 +131,87 @@ describe('return capacity fiscal environment', () => {
       hasAuthorizedProductionInvoice: environment === 1,
       lines: [{ originalEnvironment: environment, availableQuantity: 2 }],
     });
+  });
+  it('keeps item capacity independent across multiple returns from the same sale', async () => {
+    const firstReturnId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+    const secondReturnId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+    const cancelledReturnId = 'dddddddd-dddd-4ddd-8ddd-ddddddddddd4';
+    const partialReturnId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5';
+    const documentId = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc3';
+    const sourceOrderId = '11111111-1111-4111-8111-111111111111';
+    const test = setup({}, {
+      documents: [{ id: documentId, modelo: '55', xml_nfe: '<NFe/>' }],
+      snapshots: [
+        { item_number: 1, billed_quantity: 3 },
+        { item_number: 2, billed_quantity: 1 },
+      ],
+      priorReturns: [
+        { id: firstReturnId, status: 'fulfilled', items: [{ returnedQuantity: 1 }] },
+        { id: secondReturnId, status: 'fulfilled', items: [{ returnedQuantity: 1 }] },
+        { id: cancelledReturnId, status: 'cancelled', items: [{ returnedQuantity: 1 }] },
+        { id: partialReturnId, status: 'fulfilled', items: [{ returnedQuantity: 1 }] },
+      ],
+      allocations: [
+        {
+          return_order_id: firstReturnId,
+          return_item_index: 0,
+          original_document_id: documentId,
+          original_item_number: 1,
+          quantity: 1,
+        },
+        {
+          return_order_id: secondReturnId,
+          return_item_index: 0,
+          original_document_id: documentId,
+          original_item_number: 2,
+          quantity: 1,
+        },
+        {
+          return_order_id: cancelledReturnId,
+          return_item_index: 0,
+          original_document_id: documentId,
+          original_item_number: 1,
+          quantity: 1,
+        },
+        {
+          return_order_id: partialReturnId,
+          return_item_index: 0,
+          original_document_id: documentId,
+          original_item_number: 1,
+          quantity: 1,
+        },
+      ],
+      returnOrders: [
+        { id: firstReturnId, status: 'fulfilled' },
+        { id: secondReturnId, status: 'fulfilled' },
+        { id: cancelledReturnId, status: 'cancelled' },
+        { id: partialReturnId, status: 'fulfilled' },
+      ],
+    });
+    mocks.parseAuthorizedInvoiceLines.mockReturnValue([
+      { invoiceItemNumber: 1, productCode: 'product-a', description: 'Item A', billedQuantity: 3 },
+      { invoiceItemNumber: 2, productCode: 'product-b', description: 'Item B', billedQuantity: 1 },
+    ]);
+
+    await handler(
+      {
+        method: 'POST',
+        headers: {},
+        body: { orderId: sourceOrderId, environment: 1 },
+      } as any,
+      test.res
+    );
+
+    expect(test.result().status).toBe(200);
+    expect(test.result().body.lines).toMatchObject([
+      { originalItemNumber: 1, reservedQuantity: 2, availableQuantity: 1 },
+      { originalItemNumber: 2, reservedQuantity: 1, availableQuantity: 0 },
+    ]);
+    expect(test.filters).toContainEqual([
+      'nfe_return_item_allocations',
+      'original_document_id',
+      [documentId],
+    ]);
   });
   it('rejects requests for the other environment before querying documents', async () => {
     const test = setup({

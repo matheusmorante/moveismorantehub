@@ -14,6 +14,7 @@ import {
 } from './orderSearchQueries';
 import {
   fetchOrdersPage,
+  fetchOrdersForClientFiltering,
   fetchAllOrdersForDashboard,
   fetchRecentOrders,
   fetchGeoMapOrders,
@@ -43,6 +44,7 @@ export {
   getOrdersCustomerDataOnly,
   fetchOrderById,
   fetchOrdersPage,
+  fetchOrdersForClientFiltering,
   fetchAllOrdersForDashboard,
   fetchRecentOrders,
   fetchGeoMapOrders,

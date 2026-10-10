@@ -1,0 +1,51 @@
+{
+  "name": "test-artifact-report-dashboard-readonly",
+  "date": "2026-10-10",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "method": "read-only SQL queries over existing tagged artifacts; no fixture creation or mutation",
+  "financialReports": {
+    "accountsReceivable": {
+      "tableRows": 469,
+      "testArtifactRows": 1,
+      "reportRows": 468,
+      "testArtifactRowsReturned": 0,
+      "result": "passed"
+    },
+    "accountsPayable": {
+      "tableRows": 2,
+      "testArtifactRows": 2,
+      "reportRows": 0,
+      "testArtifactRowsReturned": 0,
+      "result": "passed"
+    },
+    "financialTransactions": {
+      "tableRows": 0,
+      "testArtifactRows": 0,
+      "reportRows": 0,
+      "testArtifactRowsReturned": 0,
+      "result": "inconclusive_no_test_rows_to_exercise_filter"
+    }
+  },
+  "dashboardAggregate": {
+    "rangeUtc": {
+      "start": "2026-10-05T00:00:00Z",
+      "end": "2026-10-11T23:59:59Z"
+    },
+    "taggedTestOrdersInRange": 16,
+    "matchesIndependentNonTestOrderAggregation": {
+      "totalOrdersCount": true,
+      "saleCount": true,
+      "pendingOrders": true,
+      "activeSchedules": true,
+      "totalSales": true
+    },
+    "result": "passed"
+  },
+  "limitations": [
+    "This proves the two existing SQL financial report functions and the dashboard SQL aggregate against currently persisted test artifacts; it does not prove frontend interaction or PostgREST query-builder behavior.",
+    "No tagged financial_transactions rows exist, so their report filter remains structurally verified but behaviorally unexercised.",
+    "This read-only query does not prove all agenda, schedule, assembly, stock-report, notification-channel, transaction, concurrency, or UI paths.",
+    "No records were created or changed; no SEFAZ request was made."
+  ]
+}

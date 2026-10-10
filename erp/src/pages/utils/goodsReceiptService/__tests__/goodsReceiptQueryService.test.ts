@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchGoodsReceiptsPage, subscribeToGoodsReceipts } from '../goodsReceiptQueryService';
 import { GoodsReceipt } from '../goodsReceipt.types';
 import * as storage from '../goodsReceiptStorage';
@@ -45,7 +45,7 @@ const createQueryBuilder = () => {
   return builder;
 };
 
-let currentBuilder = createQueryBuilder();
+const currentBuilder = createQueryBuilder();
 
 const createChannel = () => {
   const ch: any = {
@@ -55,7 +55,7 @@ const createChannel = () => {
   return ch;
 };
 
-let currentChannel = createChannel();
+const currentChannel = createChannel();
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: {
@@ -66,6 +66,8 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 }));
 
 describe('goodsReceiptQueryService', () => {
+  afterEach(() => vi.useRealTimers());
+
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -90,6 +92,10 @@ describe('goodsReceiptQueryService', () => {
 
       const result = await fetchGoodsReceiptsPage();
 
+      expect(currentBuilder.order.mock.calls).toEqual([
+        ['updated_at', { ascending: false }],
+        ['id', { ascending: true }],
+      ]);
       expect(currentBuilder.range).toHaveBeenCalledWith(0, 14);
       expect(result.page).toBe(1);
       expect(result.pageSize).toBe(15);
@@ -143,6 +149,179 @@ describe('goodsReceiptQueryService', () => {
   });
 
   describe('subscribeToGoodsReceipts', () => {
+    it('mantém o resultado da leitura Realtime mais nova se as consultas terminarem fora de ordem', async () => {
+      vi.useFakeTimers();
+      let resolveOld!: (result: { data: unknown[]; count: number; error: null }) => void;
+      let resolveNew!: (result: { data: unknown[]; count: number; error: null }) => void;
+      const oldResponse = new Promise<{ data: unknown[]; count: number; error: null }>(
+        (resolve) => {
+          resolveOld = resolve;
+        }
+      );
+      const newResponse = new Promise<{ data: unknown[]; count: number; error: null }>(
+        (resolve) => {
+          resolveNew = resolve;
+        }
+      );
+      currentBuilder.limit
+        .mockReturnValueOnce(oldResponse)
+        .mockReturnValueOnce(newResponse);
+      const callback = vi.fn();
+      let unsubscribe: (() => void) | null = null;
+
+      try {
+        unsubscribe = subscribeToGoodsReceipts(callback);
+        const receiptsChannelHandler = currentChannel.on.mock.calls.find(
+          (call: unknown[]) =>
+            (call[1] as { table?: string } | undefined)?.table === 'goods_receipts'
+        )?.[2] as (() => void) | undefined;
+        expect(receiptsChannelHandler).toBeTypeOf('function');
+        receiptsChannelHandler?.();
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(currentBuilder.limit).toHaveBeenCalledTimes(2);
+
+        resolveNew({
+          data: [{
+            id: 'dddddddd-4444-3333-4444-555555555555',
+            receipt_index: 4,
+            supplier_name: 'Fornecedor novo',
+            received_at: '2026-10-02T10:00:00Z',
+            updated_at: '2026-10-02T10:00:00Z',
+            status: 'received',
+            goods_receipt_items: [],
+          }],
+          count: 1,
+          error: null,
+        });
+        await newResponse;
+        await Promise.resolve();
+        expect(callback.mock.lastCall?.[0].map((receipt: GoodsReceipt) => receipt.id)).toEqual([
+          'dddddddd-4444-3333-4444-555555555555',
+        ]);
+
+        resolveOld({
+          data: [{
+            id: 'eeeeeeee-5555-3333-4444-555555555555',
+            receipt_index: 5,
+            supplier_name: 'Fornecedor antigo',
+            received_at: '2026-10-01T10:00:00Z',
+            updated_at: '2026-10-01T10:00:00Z',
+            status: 'received',
+            goods_receipt_items: [],
+          }],
+          count: 1,
+          error: null,
+        });
+        await oldResponse;
+        await Promise.resolve();
+
+        expect(callback).toHaveBeenCalledTimes(1);
+        expect(storage.getStoredReceipts().map((receipt) => receipt.id)).toEqual([
+          'dddddddd-4444-3333-4444-555555555555',
+        ]);
+      } finally {
+        unsubscribe?.();
+      }
+    });
+
+    it('não restaura no cache uma exclusão local confirmada enquanto a leitura remota estava pendente', async () => {
+      const receiptId = 'cccccccc-3333-3333-4444-555555555555';
+      const localDraft: GoodsReceipt = {
+        id: receiptId,
+        receiptIndex: 3,
+        supplierName: 'Fornecedor sintético',
+        receivedAt: '2026-10-01T10:00:00Z',
+        items: [],
+        totalValue: 0,
+        status: 'draft',
+        isDraft: true,
+      };
+      storage.saveStoredReceipts([localDraft]);
+
+      let resolveRemote!: (result: { data: unknown[]; count: number; error: null }) => void;
+      const remoteResponse = new Promise<{ data: unknown[]; count: number; error: null }>(
+        (resolve) => {
+          resolveRemote = resolve;
+        }
+      );
+      currentBuilder.limit.mockReturnValue(remoteResponse);
+      const callback = vi.fn();
+      const unsubscribe = subscribeToGoodsReceipts(callback);
+
+      storage.saveStoredReceipts([]);
+      storage.notifyListeners([]);
+      expect(callback).toHaveBeenLastCalledWith([]);
+
+      resolveRemote({
+        data: [
+          {
+            id: receiptId,
+            receipt_index: 3,
+            supplier_name: 'Fornecedor sintético',
+            received_at: '2026-10-01T10:00:00Z',
+            status: 'draft',
+            goods_receipt_items: [],
+          },
+        ],
+        count: 1,
+        error: null,
+      });
+      await remoteResponse;
+      await Promise.resolve();
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(storage.getStoredReceipts()).toEqual([]);
+      unsubscribe();
+    });
+
+    it('ordena por ID quando recebimentos recentes têm o mesmo horário de atualização', async () => {
+      mockQueryResult = {
+        data: [
+          {
+            id: 'bbbbbbbb-2222-3333-4444-555555555555',
+            receipt_index: 2,
+            supplier_name: 'Fornecedor B',
+            received_at: '2026-10-01T10:00:00Z',
+            updated_at: '2026-10-01T10:00:00Z',
+            status: 'received',
+            goods_receipt_items: [],
+          },
+          {
+            id: 'aaaaaaaa-1111-3333-4444-555555555555',
+            receipt_index: 1,
+            supplier_name: 'Fornecedor A',
+            received_at: '2026-10-01T10:00:00Z',
+            updated_at: '2026-10-01T10:00:00Z',
+            status: 'received',
+            goods_receipt_items: [],
+          },
+        ],
+        count: 2,
+        error: null,
+      };
+      let emittedItems: GoodsReceipt[] = [];
+      let resolveLoaded!: () => void;
+      const loaded = new Promise<void>((resolve) => {
+        resolveLoaded = resolve;
+      });
+
+      const unsubscribe = subscribeToGoodsReceipts((items) => {
+        emittedItems = items;
+        resolveLoaded();
+      });
+      await loaded;
+
+      expect(currentBuilder.order.mock.calls).toEqual([
+        ['updated_at', { ascending: false }],
+        ['id', { ascending: true }],
+      ]);
+      expect(emittedItems.map((receipt) => receipt.id)).toEqual([
+        'aaaaaaaa-1111-3333-4444-555555555555',
+        'bbbbbbbb-2222-3333-4444-555555555555',
+      ]);
+      unsubscribe();
+    });
+
     it('deve resolver conflitos entre cache local e banco priorizando STATUS_RANK (estornado > received > draft)', async () => {
       const receiptId = '11111111-2222-3333-4444-555555555555';
 

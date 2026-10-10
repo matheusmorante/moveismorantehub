@@ -1,0 +1,90 @@
+{
+  "name": "development-test-artifact-postgrest-readonly",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "artifact-reads",
+      "projectRef": "hkoxhourxwlddgsfdgws",
+      "environment": 2,
+      "operatorEmailPresent": true,
+      "authenticated": true,
+      "authenticatedIdentityMatches": true,
+      "administratorCheckOk": true,
+      "sourceFilterAppliedBeforeLimit": true,
+      "destinations": [
+        {
+          "name": "sales-report",
+          "rawCount": 709,
+          "filteredCount": 695,
+          "excludedCount": 14,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "stock-report",
+          "rawCount": 926,
+          "filteredCount": 908,
+          "excludedCount": 18,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "delivery-schedule",
+          "rawCount": 79,
+          "filteredCount": 75,
+          "excludedCount": 4,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "assembly-list",
+          "rawCount": 940,
+          "filteredCount": 940,
+          "excludedCount": 0,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "assembly-print",
+          "rawCount": 883,
+          "filteredCount": 871,
+          "excludedCount": 12,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "dashboard-period",
+          "rawCount": 81,
+          "filteredCount": 55,
+          "excludedCount": 26,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "dashboard-recent-and-map",
+          "rawCount": 864,
+          "filteredCount": 852,
+          "excludedCount": 12,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "notification-order-read",
+          "rawCount": 998,
+          "filteredCount": 972,
+          "excludedCount": 26,
+          "queryValid": true,
+          "errorCode": null
+        }
+      ],
+      "contradictoryTestCount": {
+        "count": 0,
+        "errorCode": null
+      },
+      "limitedRowsReturned": 50,
+      "limitedLeakCount": 0,
+      "queriesValid": true
+    }
+  ]
+}

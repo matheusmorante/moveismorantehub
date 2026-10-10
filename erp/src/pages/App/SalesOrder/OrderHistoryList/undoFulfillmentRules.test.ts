@@ -7,14 +7,14 @@ import {
 import Order from '../../../types/order.type';
 
 describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
-  const baseOrder: Order = {
+  const baseOrder = {
     id: 'ord-test-001',
     orderNumber: 1045,
     orderType: 'sale',
     status: 'fulfilled',
     stockProcessed: true,
     stockReversed: false,
-  };
+  } as Order;
 
   describe('Visibilidade e Elegibilidade (canUndoFulfillment)', () => {
     it('deve autorizar ação SOMENTE quando o status for fulfilled', () => {
@@ -38,24 +38,45 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
         true
       );
     });
+
+    it('bloqueia a correção quando existe confirmação física independente do status', () => {
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          deliveryStatus: 'entregue',
+        })
+      ).toBe(false);
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          order_data: { shipping: { pickupConfirmedAt: '2026-10-10T10:00:00-03:00' } },
+        })
+      ).toBe(false);
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          delivery_status: 'in_transit',
+        })
+      ).toBe(false);
+    });
   });
 
-  describe('Fluxo Operacional: Atendido -> Desfazer Atendido -> Cancelar Venda', () => {
-    it('impede cancelamento direto de venda atendida e exige desfazer antes', () => {
+  describe('Correção de clique equivocado em "Atendido"', () => {
+    it('volta para agendado sem alterar estoque e ainda respeita evidência física de circulação', () => {
       const vendaAtendida: Order = { ...baseOrder, status: 'fulfilled' };
 
-      // 1. Venda atendida NÃO pode ser cancelada diretamente
+      // O estado atendido não cancela a NF-e nem cria um documento fiscal.
+      // A ação explícita corrige um clique equivocado sem alterar o estoque.
       expect(canCancelOrderDirectly(vendaAtendida)).toBe(false);
-
-      // 2. Opção "Desfazer atendido" está disponível
       expect(canUndoFulfillment(vendaAtendida)).toBe(true);
       expect(validateOrderStatusTransition(vendaAtendida.status, 'cancelled').allowed).toBe(false);
 
-      // 3. Transição de fulfilled para scheduled é permitida pelo validador
       const transition = validateOrderStatusTransition(vendaAtendida.status, 'scheduled');
       expect(transition.allowed).toBe(true);
 
-      // 4. Ao voltar para agendado, estoque permanece preservado (já processado)
       const vendaAgendada: Order = {
         ...vendaAtendida,
         status: 'scheduled',
@@ -65,12 +86,17 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
       expect(vendaAgendada.stockProcessed).toBe(true);
       expect(vendaAgendada.stockReversed).toBe(false);
 
-      // 5. Agora no status agendado, "Desfazer atendido" não é mais exibido
+      // Um erro de status sem confirmação física pode prosseguir para cancelamento.
       expect(canUndoFulfillment(vendaAgendada)).toBe(false);
-
-      // 6. E "Cancelar venda" torna-se disponível
       expect(canCancelOrderDirectly(vendaAgendada)).toBe(true);
       expect(validateOrderStatusTransition(vendaAgendada.status, 'cancelled').allowed).toBe(true);
+
+      // Um fato físico confirmado continua bloqueando o cancelamento depois da correção.
+      const entregaConfirmada = { ...vendaAgendada, delivery_status: 'entregue' } as Order;
+      expect(canCancelOrderDirectly(entregaConfirmada)).toBe(false);
+      expect(
+        validateOrderStatusTransition(vendaAgendada.status, 'cancelled', entregaConfirmada).allowed
+      ).toBe(false);
     });
   });
 
@@ -79,7 +105,7 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
       const modalTexts = {
         title: 'Desfazer status de atendido?',
         message:
-          'O pedido voltará para o status Agendado. As movimentações de estoque não serão alteradas.',
+          'Use somente para corrigir um clique por engano e confirme que a mercadoria não foi entregue nem retirada. O pedido voltará para o status Agendado. O estoque não muda e nenhuma nota fiscal é gerada ou alterada.',
         cancelButton: 'Cancelar',
         confirmButton: 'Confirmar',
         successToast: 'Pedido retornado para Agendado com sucesso.',
@@ -87,7 +113,8 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
 
       expect(modalTexts.title).toBe('Desfazer status de atendido?');
       expect(modalTexts.message).toContain('O pedido voltará para o status Agendado.');
-      expect(modalTexts.message).toContain('As movimentações de estoque não serão alteradas.');
+      expect(modalTexts.message).toContain('estoque não muda');
+      expect(modalTexts.message).toContain('nenhuma nota fiscal é gerada ou alterada');
       expect(modalTexts.successToast).toBe('Pedido retornado para Agendado com sucesso.');
     });
   });

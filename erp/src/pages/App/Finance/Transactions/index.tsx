@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from '../../../types/finance.type';
@@ -18,6 +18,8 @@ const formatToBRDate = (dateString: string) => {
 export default function Transactions() {
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestId = useRef(0);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
 
@@ -35,24 +37,35 @@ export default function Transactions() {
     notes: '',
   });
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await financeService.getTransactions();
-      setTransactions(data || []);
-
-      const cats = await financeService.getCategories();
-      setCategories(cats || []);
-    } catch (error) {
-      console.error('Erro ao buscar fluxo de caixa:', error);
+      if (currentRequestId === requestId.current) setTransactions(data || []);
+    } catch {
+      if (currentRequestId === requestId.current) {
+        setLoadError('Não foi possível carregar as movimentações. Tente novamente.');
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestId.current) setLoading(false);
     }
-  };
+
+    try {
+      const cats = await financeService.getCategories();
+      if (currentRequestId === requestId.current) setCategories(cats || []);
+    } catch (error) {
+      console.error('Erro ao buscar categorias financeiras:', error);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    void fetchTransactions();
+    return () => {
+      requestId.current += 1;
+    };
+  }, [fetchTransactions]);
 
   const handleSaveTransaction = async () => {
     if (!formData.description || formData.amount <= 0 || !formData.date) {
@@ -74,7 +87,7 @@ export default function Transactions() {
         category_id: '',
         notes: '',
       });
-      fetchTransactions();
+      void fetchTransactions();
     } catch (error) {
       console.error(error);
       toast.error('Erro ao salvar transação.');
@@ -214,6 +227,23 @@ export default function Transactions() {
             </div>
           </div>
 
+          {loadError && (
+            <div
+              role="alert"
+              className="mx-6 my-4 flex items-center justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+            >
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={() => void fetchTransactions()}
+                disabled={loading}
+                className="font-bold underline disabled:opacity-50"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -295,7 +325,7 @@ export default function Transactions() {
             </div>
           )}
 
-          {filtered.length === 0 && !loading && (
+          {filtered.length === 0 && !loading && !loadError && (
             <div className="p-20 flex flex-col items-center justify-center text-center flex-1">
               <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-800 mb-6 border border-slate-100 dark:border-slate-800">
                 <i className="bi bi-clock-history text-4xl"></i>

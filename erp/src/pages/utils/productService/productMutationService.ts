@@ -42,6 +42,8 @@ const invalidateProductQueries = () => {
   }
 };
 
+export type ProductMutationOptions = { deferQueryInvalidation?: boolean };
+
 export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
   if (isTestProductCatalogPublicationBlocked(product)) {
     throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
@@ -156,7 +158,8 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
 export const updateProduct = async (
   id: string,
-  productToUpdate: Partial<Product>
+  productToUpdate: Partial<Product>,
+  options: ProductMutationOptions = {}
 ): Promise<void> => {
   const products = getLocalProducts();
   const index = products.findIndex((p) => String(p.id) === String(id));
@@ -302,11 +305,12 @@ export const updateProduct = async (
 
   // Sincronizar com Supabase e aguardar conclusão
   await syncProductToSupabase(updatedProduct);
-  invalidateProductQueries();
+  if (!options.deferQueryInvalidation) invalidateProductQueries();
 };
 
 export const bulkMoveToTrash = async (
-  ids: string[]
+  ids: string[],
+  options: ProductMutationOptions = {}
 ): Promise<{
   successCount: number;
   errorCount: number;
@@ -337,15 +341,28 @@ export const bulkMoveToTrash = async (
       orderConflicts.forEach((oc) => errors.push(oc));
     }
 
-    if (idsToUpdate.length > 0) {
-      await Promise.all(idsToUpdate.map((id) => deactivateProduct(id)));
+    const updateResults = await Promise.allSettled(
+      idsToUpdate.map((id) => deactivateProduct(id, { deferQueryInvalidation: true }))
+    );
+    const deactivatedIds = idsToUpdate.filter(
+      (_, index) => updateResults[index]?.status === 'fulfilled'
+    );
+    updateResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const reason = result.reason instanceof Error ? result.reason.message : 'falha ao desativar';
+        errors.push(`Produto ID ${idsToUpdate[index]}: ${reason}`);
+      }
+    });
+
+    if (idsToUpdate.length > 0 && !options.deferQueryInvalidation) {
+      invalidateProductQueries();
     }
 
     return {
-      successCount: idsToUpdate.length,
-      errorCount: ids.length - idsToUpdate.length,
+      successCount: deactivatedIds.length,
+      errorCount: ids.length - deactivatedIds.length,
       errors,
-      deactivatedIds: idsToUpdate,
+      deactivatedIds,
     };
   } catch (error) {
     console.error('Erro no bulkMoveToTrash:', error);
@@ -354,6 +371,7 @@ export const bulkMoveToTrash = async (
 };
 
 export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
+  let remoteWriteStarted = false;
   try {
     const products = getLocalProducts();
     const validUuids = ids.filter((id) =>
@@ -376,6 +394,30 @@ export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
           .map((row: any) => String(row.id)),
       ]);
     }
+    if (validUuids.length > 0) {
+      remoteWriteStarted = true;
+      const { error: restoreProductsError } = await supabase
+        .from(TABLE_NAME)
+        .update({ deleted: false, updated_at: new Date().toISOString() })
+        .in('id', validUuids);
+      if (restoreProductsError) throw restoreProductsError;
+
+      const normalUuids = validUuids.filter((id) => !salvadoIds.has(id));
+      if (normalUuids.length > 0) {
+        const { error: activateProductsError } = await supabase
+          .from(TABLE_NAME)
+          .update({ active: true })
+          .in('id', normalUuids);
+        if (activateProductsError) throw activateProductsError;
+
+        const { error: activateVariationsError } = await supabase
+          .from('product_variations')
+          .update({ active: true })
+          .in('product_id', normalUuids);
+        if (activateVariationsError) throw activateVariationsError;
+      }
+    }
+
     ids.forEach((id) => {
       const idx = products.findIndex((p) => String(p.id) === String(id));
       if (idx !== -1) {
@@ -387,22 +429,22 @@ export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
     saveLocalProducts(products);
     notifySubscribers();
 
-    if (validUuids.length > 0) {
-      await supabase
-        .from(TABLE_NAME)
-        .update({ deleted: false, updated_at: new Date().toISOString() })
-        .in('id', validUuids);
-      const normalUuids = validUuids.filter((id) => !salvadoIds.has(id));
-      if (normalUuids.length > 0) {
-        await supabase.from(TABLE_NAME).update({ active: true }).in('id', normalUuids);
-        await supabase
-          .from('product_variations')
-          .update({ active: true })
-          .in('product_id', normalUuids);
+    if (ids.length > 0) {
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['products'] });
+      } catch (invalidationError) {
+        console.error('Falha ao reconciliar a lista após restaurar produtos:', invalidationError);
       }
     }
   } catch (error) {
     console.error('Erro no bulkRestoreProducts:', error);
+    if (remoteWriteStarted) {
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['products'] });
+      } catch (invalidationError) {
+        console.error('Falha ao reconciliar a lista após erro na restauração:', invalidationError);
+      }
+    }
     throw error;
   }
 };

@@ -1,13 +1,15 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfMonth, format, startOfMonth, startOfYear, subDays, subMonths } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import type {
-  CancellationEligibility,
   FiscalDocumentFilters,
   FiscalDocumentPeriod,
-  NfeDocumentRecord,
 } from '../types/fiscalDocuments.types';
-import { fetchFiscalDocumentsList } from '../services/fiscalDocumentsService';
+import {
+  fetchFiscalDocumentsList,
+  type FetchFiscalDocumentsResult,
+} from '../services/fiscalDocumentsService';
 
 function formatDate(date: Date) {
   return format(date, 'yyyy-MM-dd');
@@ -16,15 +18,9 @@ function formatDate(date: Date) {
 export function useFiscalDocumentsList(canViewFiscal: boolean) {
   const [searchParams] = useSearchParams();
   const targetDocumentId = searchParams.get('documentId');
-
-  const [documents, setDocuments] = useState<NfeDocumentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const previousTargetDocumentId = useRef(targetDocumentId);
+  const queryClient = useQueryClient();
   const [pageIndex, setPageIndex] = useState(0);
-  const [documentCount, setDocumentCount] = useState(0);
-  const [orderNumbers, setOrderNumbers] = useState<Record<string, number>>({});
-  const [cancellationEligibility, setCancellationEligibility] = useState<
-    Record<string, CancellationEligibility>
-  >({});
 
   // Filtros
   const [searchInput, setSearchInput] = useState('');
@@ -32,6 +28,12 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');
   const [environmentFilter, setEnvironmentFilter] = useState(targetDocumentId ? 'all' : '1');
+  useEffect(() => {
+    if (previousTargetDocumentId.current === targetDocumentId) return;
+    previousTargetDocumentId.current = targetDocumentId;
+    setPageIndex(0);
+    setEnvironmentFilter(targetDocumentId ? 'all' : '1');
+  }, [targetDocumentId]);
   const [period, setPeriod] = useState<FiscalDocumentPeriod>('last_30_days');
   const [customDateFrom, setCustomDateFrom] = useState(() =>
     formatDate(subDays(new Date(), 29))
@@ -71,10 +73,20 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
     dateTo,
   };
 
-  const loadDocuments = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await fetchFiscalDocumentsList({
+  const fiscalDocumentsQuery = useQuery<FetchFiscalDocumentsResult>({
+    queryKey: [
+      'fiscal-documents',
+      search,
+      statusFilter,
+      modelFilter,
+      environmentFilter,
+      dateFrom,
+      dateTo,
+      pageIndex,
+      targetDocumentId,
+    ],
+    queryFn: () =>
+      fetchFiscalDocumentsList({
         filters: {
           search,
           status: statusFilter,
@@ -85,39 +97,23 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
         },
         pageIndex,
         targetDocumentId,
-      });
+      }),
+    enabled: canViewFiscal,
+    staleTime: 0,
+  });
 
-      setDocuments(result.documents);
-      setDocumentCount(result.totalCount);
-      setOrderNumbers(result.orderNumbers);
-      setCancellationEligibility(result.cancellationEligibility);
-    } catch (err) {
-      console.error('Erro ao carregar documentos fiscais:', err);
-      setDocuments([]);
-      setDocumentCount(0);
-      setOrderNumbers({});
-      setCancellationEligibility({});
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    search,
-    statusFilter,
-    modelFilter,
-    environmentFilter,
-    dateFrom,
-    dateTo,
-    pageIndex,
-    targetDocumentId,
-  ]);
+  const documents = fiscalDocumentsQuery.data?.documents ?? [];
+  const documentCount = fiscalDocumentsQuery.data?.totalCount ?? 0;
+  const orderNumbers = fiscalDocumentsQuery.data?.orderNumbers ?? {};
+  const cancellationEligibility = fiscalDocumentsQuery.data?.cancellationEligibility ?? {};
+  const loading = fiscalDocumentsQuery.isFetching;
+  const loadError = fiscalDocumentsQuery.isError
+    ? 'Falha ao consultar as notas fiscais. Tente atualizar a lista.'
+    : null;
 
-  useEffect(() => {
-    if (!canViewFiscal) {
-      setLoading(false);
-      return;
-    }
-    loadDocuments();
-  }, [canViewFiscal, loadDocuments]);
+  const loadDocuments = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['fiscal-documents'] });
+  }, [queryClient]);
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -128,6 +124,7 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
   return {
     documents,
     loading,
+    loadError,
     pageIndex,
     setPageIndex,
     documentCount,

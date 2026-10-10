@@ -197,3 +197,13 @@ A preparação atual da NF-e de devolução exige que o pedido esteja `fulfilled
 - Nenhuma numeração de homologação ou produção foi consumida nesta atualização.
 
 **Resultado:** o ajuste de múltiplas devoluções e o agrupamento NFD estão implementados com cobertura local. A Etapa 5 não está concluída; o cancelamento fiscal de NFD, a prova comercial/estoque no banco e os cenários HML permanecem pendentes.
+
+### Atualização de regras e evidências — 10/10/2026
+
+O usuário confirmou que “Desfazer atendido” deve corrigir um clique equivocado de `fulfilled` para `scheduled`, sem efeito em estoque ou NF. A transição permanece disponível para venda/showroom; evidências físicas independentes de entrega, retirada ou trânsito continuam bloqueando cancelamento posterior. O teste focado cobre a correção, estoque preservado e bloqueio quando existe registro de entrega.
+
+O cancelamento comercial de uma devolução agora opera sobre o pedido de devolução selecionado, recarrega seu estado e versão, e falha se o retorno físico/entrada de estoque já foi confirmado. Não inverte estoque e não limpa o vínculo histórico da venda. A suíte local também verifica repetição idempotente e recusa de seleção ambígua pela venda. Ainda falta integração concorrente PostgreSQL.
+
+A ação fiscal da tela por linha agora passa o ID do documento selecionado ao serviço central; os documentos irmãos não são incluídos por essa solicitação individual. O fluxo de cancelamento comercial iniciado na venda continua tendo política própria para os documentos associados. A correção de clique equivocado em “Atendido” preserva os indicadores de estoque e não chama efeitos fiscais. A matriz local distingue CFOP candidato de rota autorizada: sem regra interestadual aprovada, a emissão permanece bloqueada. **33 arquivos focados e 259 testes passaram** em 10/10, distribuídos em lotes; o agrupamento principal passou em 32 arquivos/250 testes e o recebimento de mercadorias em 9/9. O agrupamento principal saiu com três erros não tratados porque o binário `canvas.node` exigido pelo jsdom não está disponível para Node 22; duas suítes fiscais de interface não iniciaram. Nenhuma gravação remota ou transmissão HML ocorreu. A checagem TypeScript ampla ainda falha em erros distribuídos no ERP. O [plano cíclico de testes fiscais](plano-ciclo-testes-fiscais.md) lista os casos cobertos, pendentes e bloqueados.
+
+F06 continua pendente: cancelamento de NFD/estorno, preservação de múltiplas linhagens e reemissão ainda precisam de fonte fiscal aplicável, suporte de API/modelagem, testes locais e integração protegida antes de qualquer transmissão.

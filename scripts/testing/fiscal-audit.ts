@@ -13,6 +13,7 @@ import { extractCertificateAndKey } from '../../api/nfe/nfeSigner';
 import { createSefazHttpsAgent } from '../../api/nfe/sefazHttpsAgent';
 import { sendSoapToSefaz } from '../../api/nfe/sefazClient';
 import { icpBrasilRoots } from '../../api/nfe/icpBrasilRoots';
+import { excludeTestOrders, NON_TEST_ARTIFACT_FILTER } from '../../shared-utils/testArtifactQueries';
 
 const root = path.resolve(__dirname, '../../..');
 const label = process.argv[3] || 'process';
@@ -86,6 +87,145 @@ function chainMetadata(socket?: TLSSocket) {
   return chain;
 }
 
+async function testArtifactPostgrestReads() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase() || '';
+  const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD || '';
+  const projectRef = (() => {
+    try { return new URL(url).hostname.split('.')[0]; } catch { return ''; }
+  })();
+  const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
+  const vercelDevelopment = process.env.VERCEL_ENV === 'development';
+  const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
+  const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
+  const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+  const credentialsPresent = Boolean(anonKey && email && password);
+  if (!projectMatches || !environmentOk || !credentialsPresent) {
+    console.log(JSON.stringify({mode:'artifact-reads',projectMatches,vercelDevelopment,
+      homologationEnvironment,productionDisabled,environmentOk,operatorEmailPresent:Boolean(email),
+      credentialsPresent,authenticated:false,administratorCheckOk:false,queriesValid:false}));
+    process.exitCode = 1;
+    return;
+  }
+
+  const operator = createClient(url, anonKey, {auth:{persistSession:false,autoRefreshToken:false}});
+  const login = await operator.auth.signInWithPassword({email,password});
+  const authenticatedIdentityMatches = !login.error && Boolean(login.data.session) &&
+    login.data.user?.email?.trim().toLowerCase() === email;
+  if (!authenticatedIdentityMatches) {
+    console.log(JSON.stringify({mode:'artifact-reads',projectRef,environment:2,operatorEmailPresent:true,
+      authenticated:false,authenticatedIdentityMatches:false,administratorCheckOk:false,queriesValid:false}));
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
+    const role = await operator.rpc('is_administrator');
+    const administratorCheckOk = !role.error && role.data === true;
+    if (!administratorCheckOk) {
+      console.log(JSON.stringify({mode:'artifact-reads',projectRef,environment:2,operatorEmailPresent:true,
+        authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:false,queriesValid:false}));
+      process.exitCode = 1;
+      return;
+    }
+
+    const orderCountQuery = () => operator.from('orders').select('id',{count:'exact',head:true});
+    const countRows = async (build: () => any) => {
+      try {
+        const {count,error} = await build();
+        return {count:error ? null : count ?? 0,errorCode:error?.code || null};
+      } catch {
+        return {count:null,errorCode:'POSTGREST_QUERY_FAILED'};
+      }
+    };
+    const destinations = [
+      {
+        name:'sales-report',
+        raw:() => orderCountQuery().is('order_data->deleted',null),
+        filtered:() => excludeTestOrders(orderCountQuery()).is('order_data->deleted',null),
+      },
+      {
+        name:'stock-report',
+        raw:() => orderCountQuery().eq('deleted',false).neq('order_type','budget'),
+        filtered:() => excludeTestOrders(orderCountQuery()).eq('deleted',false).neq('order_type','budget'),
+      },
+      {
+        name:'delivery-schedule',
+        raw:() => orderCountQuery().or('deleted.is.null,deleted.eq.false').in('status',['scheduled','draft']),
+        filtered:() => excludeTestOrders(orderCountQuery())
+          .or('deleted.is.null,deleted.eq.false').in('status',['scheduled','draft']),
+      },
+      {
+        name:'assembly-list',
+        raw:() => orderCountQuery()
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+          .or('order_data->>is_test.is.null,order_data->>is_test.eq.false'),
+        filtered:() => excludeTestOrders(orderCountQuery())
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+          .or('order_data->>is_test.is.null,order_data->>is_test.eq.false'),
+      },
+      {
+        name:'assembly-print',
+        raw:() => orderCountQuery().eq('deleted',false).neq('status','cancelled'),
+        filtered:() => excludeTestOrders(orderCountQuery()).eq('deleted',false).neq('status','cancelled'),
+      },
+      {
+        name:'dashboard-period',
+        raw:() => orderCountQuery().gte('created_at','2026-10-05T00:00:00.000Z')
+          .lte('created_at','2026-10-11T23:59:59.000Z'),
+        filtered:() => excludeTestOrders(orderCountQuery())
+          .gte('created_at','2026-10-05T00:00:00.000Z').lte('created_at','2026-10-11T23:59:59.000Z'),
+      },
+      {
+        name:'dashboard-recent-and-map',
+        raw:() => orderCountQuery().in('status',['scheduled','fulfilled'])
+          .or('deleted.is.null,deleted.eq.false'),
+        filtered:() => excludeTestOrders(orderCountQuery()).in('status',['scheduled','fulfilled'])
+          .or('deleted.is.null,deleted.eq.false'),
+      },
+      {
+        name:'notification-order-read',
+        raw:() => orderCountQuery(),
+        filtered:() => excludeTestOrders(orderCountQuery()),
+      },
+    ];
+    const destinationResults: Array<Record<string,unknown>> = [];
+    for (const destination of destinations) {
+      const raw = await countRows(destination.raw);
+      const filtered = await countRows(destination.filtered);
+      const queryValid = raw.count !== null && filtered.count !== null && filtered.count <= raw.count;
+      destinationResults.push({name:destination.name,rawCount:raw.count,filteredCount:filtered.count,
+        excludedCount:raw.count !== null && filtered.count !== null ? raw.count-filtered.count : null,
+        queryValid,errorCode:raw.errorCode || filtered.errorCode || null});
+    }
+
+    const contradictoryTestCount = await countRows(() => orderCountQuery()
+      .or(NON_TEST_ARTIFACT_FILTER)
+      .or('order_data->>is_test.eq.true,order_data->>isTest.eq.true,order_data->testArtifact->>is_test.eq.true'));
+    const limitedRows = await operator.from('orders')
+      .select('is_test:order_data->>is_test,isTest:order_data->>isTest,nested_test:order_data->testArtifact->>is_test')
+      .or(NON_TEST_ARTIFACT_FILTER)
+      .in('status',['scheduled','fulfilled'])
+      .or('deleted.is.null,deleted.eq.false')
+      .order('created_at',{ascending:false})
+      .limit(50);
+    const limitedLeakCount = limitedRows.error ? null : (limitedRows.data || []).filter((row:any) =>
+      [row.is_test,row.isTest,row.nested_test].some(value => value === true || value === 'true')
+    ).length;
+    const queriesValid = destinationResults.every(result => result.queryValid === true) &&
+      contradictoryTestCount.count === 0 && contradictoryTestCount.errorCode === null &&
+      limitedLeakCount === 0 && !limitedRows.error;
+    console.log(JSON.stringify({mode:'artifact-reads',projectRef,environment:2,operatorEmailPresent:true,
+      authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:true,
+      sourceFilterAppliedBeforeLimit:true,destinations:destinationResults,
+      contradictoryTestCount,limitedRowsReturned:limitedRows.data?.length ?? null,limitedLeakCount,queriesValid}));
+    if (!queriesValid) process.exitCode = 1;
+  } finally {
+    await operator.auth.signOut({scope:'local'});
+  }
+}
+
 async function wsdl(model: string, service: string, policy: string, environment: number) {
   const segment = model === '65' ? 'nfce' : 'nfe';
   const prefix = environment === 2 ? 'homologacao.' : '';
@@ -120,7 +260,9 @@ async function wsdl(model: string, service: string, policy: string, environment:
 
 async function main() {
   const mode = process.argv[2];
-  if (mode === 'openssl') {
+  if (mode === 'artifact-reads') {
+    await testArtifactPostgrestReads();
+  } else if (mode === 'openssl') {
     const extracted = extractCertificateAndKey(process.env.NFE_CERTIFICATE_BASE64 || '', process.env.NFE_CERTIFICATE_PASSWORD || '');
     const probeDirectory = fs.mkdtempSync(path.join(os.tmpdir(),'morantehub-openssl-client-'));
     const clientFile = path.join(probeDirectory,'encrypted-client.pem');
@@ -201,7 +343,6 @@ async function main() {
     const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
     const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
-    const expectedEmail = 'matheusmorante0012@gmail.com';
     const projectRef = (() => {
       try { return new URL(url).hostname.split('.')[0]; } catch { return ''; }
     })();
@@ -210,11 +351,11 @@ async function main() {
     const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
     const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
     const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
-    const operatorIdentityMatches = Boolean(email && email === expectedEmail);
+    const operatorEmailPresent = Boolean(email);
     const credentialsPresent = Boolean(password && process.env.VITE_SUPABASE_ANON_KEY);
-    if (!projectMatches || !environmentOk || !operatorIdentityMatches || !credentialsPresent) {
+    if (!projectMatches || !environmentOk || !operatorEmailPresent || !credentialsPresent) {
       console.log(JSON.stringify({mode,projectRef,projectMatches,vercelDevelopment,homologationEnvironment,
-        productionDisabled,environmentOk,operatorIdentityMatches,credentialsPresent,authenticated:false,
+        productionDisabled,environmentOk,operatorEmailPresent,credentialsPresent,authenticated:false,
         administratorCheckOk:false,isAdministrator:false}));
       process.exitCode = 1;
       return;
@@ -223,17 +364,102 @@ async function main() {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const login = await operator.auth.signInWithPassword({ email, password });
-    const authenticated = !login.error && Boolean(login.data.session) &&
-      login.data.user?.email?.trim().toLowerCase() === expectedEmail;
+    const authenticatedIdentityMatches = !login.error && Boolean(login.data.session) &&
+      login.data.user?.email?.trim().toLowerCase() === email;
+    const authenticated = authenticatedIdentityMatches;
     if (!authenticated) {
-      console.log(JSON.stringify({mode,projectRef,environment:2,operatorIdentityMatches:true,
-        authenticated:false,administratorCheckOk:false,isAdministrator:false}));
+      console.log(JSON.stringify({mode,projectRef,environment:2,operatorEmailPresent:true,
+        authenticated:false,authenticatedIdentityMatches:false,administratorCheckOk:false,isAdministrator:false}));
       process.exitCode = 1;
     } else {
       const role = await operator.rpc('is_administrator');
-      console.log(JSON.stringify({mode,projectRef,environment:2,operatorIdentityMatches:true,
-        authenticated:true,administratorCheckOk:!role.error,isAdministrator:!role.error && role.data === true}));
+      console.log(JSON.stringify({mode,projectRef,environment:2,operatorEmailPresent:true,
+        authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:!role.error,
+        isAdministrator:!role.error && role.data === true}));
       if (role.error || role.data !== true) process.exitCode = 1;
+    }
+  } else if (mode === 'policy-status') {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const apiKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const projectRef = (() => {
+      try { return new URL(url).hostname.split('.')[0]; } catch { return ''; }
+    })();
+    const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
+    const vercelDevelopment = process.env.VERCEL_ENV === 'development';
+    const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
+    const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
+    const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+    const serviceCredentialPresent = Boolean(apiKey);
+    const emptyStatus = {
+      mode,
+      projectMatches,
+      vercelDevelopment,
+      homologationEnvironment,
+      productionDisabled,
+      environmentOk,
+      serviceCredentialPresent,
+      rpcReachable: false,
+      policyStatusValid: false,
+      ready: false,
+      policyVersion: '',
+      behavioralProofRequired: true,
+    };
+    if (!projectMatches || !environmentOk || !serviceCredentialPresent) {
+      console.log(JSON.stringify(emptyStatus));
+      process.exitCode = 1;
+      return;
+    }
+
+    let response: Response;
+    try {
+      const headers: Record<string, string> = { apikey: apiKey, 'content-type': 'application/json' };
+      if (apiKey.startsWith('eyJ')) headers.authorization = `Bearer ${apiKey}`;
+      response = await fetch(new URL('/rest/v1/rpc/test_artifact_policy_status', url), {
+        method: 'POST',
+        headers,
+        body: '{}',
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      console.log(JSON.stringify(emptyStatus));
+      process.exitCode = 1;
+      return;
+    }
+
+    let status: unknown;
+    try {
+      status = await response.json();
+    } catch {
+      status = null;
+    }
+    const policy = status as {
+      ready?: unknown;
+      policyVersion?: unknown;
+      behavioralProofRequired?: unknown;
+    } | null;
+    const policyStatusValid = Boolean(
+      policy &&
+      typeof policy.ready === 'boolean' &&
+      typeof policy.policyVersion === 'string' &&
+      typeof policy.behavioralProofRequired === 'boolean'
+    );
+    const ready = policyStatusValid && policy?.ready === true;
+    const policyVersion = typeof policy?.policyVersion === 'string' ? policy.policyVersion : '';
+    const behavioralProofRequired = policy?.behavioralProofRequired !== false;
+    console.log(JSON.stringify({
+      ...emptyStatus,
+      rpcHttpStatus: response.status,
+      rpcReachable: response.ok,
+      policyStatusValid,
+      ready,
+      policyVersion,
+      behavioralProofRequired,
+    }));
+    if (
+      !response.ok || !policyStatusValid || !ready ||
+      policyVersion !== 'json-artifacts-v1' || behavioralProofRequired
+    ) {
+      process.exitCode = 1;
     }
   } else if (mode === 'wsdl') {
     const model = process.argv[3]; const policy = process.argv[4] || 'erp';

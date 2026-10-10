@@ -73,11 +73,12 @@ export async function fetchFiscalDocumentsList({
 
   if (/^#?\d{1,12}$/.test(normalizedSearch)) {
     const orderNumber = Number(normalizedSearch.replace(/^#/, ''));
-    const { data: matchingOrders } = await supabase
+    const { data: matchingOrders, error: matchingOrdersError } = await supabase
       .from('orders')
       .select('id')
       .eq('order_number', orderNumber)
       .limit(50);
+    if (matchingOrdersError) throw matchingOrdersError;
     orderIds = (matchingOrders || []).map((order) => String(order.id));
   }
 
@@ -136,16 +137,11 @@ export async function fetchFiscalDocumentsList({
   const to = from + FISCAL_DOCUMENTS_PAGE_SIZE - 1;
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
     .range(from, to);
 
-  if (error || !data) {
-    return {
-      documents: [],
-      totalCount: 0,
-      orderNumbers: {},
-      cancellationEligibility: {},
-    };
-  }
+  if (error) throw error;
+  if (!data) throw new Error('A consulta de documentos fiscais não retornou dados.');
 
   const documents = data as NfeDocumentRecord[];
   const totalCount = count || 0;
@@ -154,10 +150,11 @@ export async function fetchFiscalDocumentsList({
   let orderNumbers: Record<string, number> = {};
   const ids = [...new Set(documents.map((doc) => doc.order_id).filter(Boolean))];
   if (ids.length) {
-    const { data: orders } = await supabase
+    const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select('id,order_number')
       .in('id', ids);
+    if (ordersError) throw ordersError;
     orderNumbers = Object.fromEntries(
       (orders || []).map((order) => [String(order.id), Number(order.order_number)])
     );

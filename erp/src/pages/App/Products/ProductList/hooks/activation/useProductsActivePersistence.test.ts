@@ -51,6 +51,19 @@ it('desativa o produto real quando a linha representa a variação virtual', asy
   expect(writes).toEqual([{ table: 'products', value: { active: false } }]);
 });
 
+it('adia a invalidação interna para o wrapper da lista em atualizações legadas', async () => {
+  const { updateProduct } = await import('@/pages/utils/productService');
+  const legacyProduct = { id: 'legacy-product', active: true } as ReturnType<typeof product>;
+
+  await persistProductActiveState('legacy-product', false, [legacyProduct], [legacyProduct]);
+
+  expect(updateProduct).toHaveBeenCalledWith(
+    'legacy-product',
+    { active: false },
+    { deferQueryInvalidation: true }
+  );
+});
+
 it('não altera o pai se uma variação real foi criada após carregar a lista', async () => {
   actualVariations = [{ id: 'nova-variacao' }];
   const parent = product();

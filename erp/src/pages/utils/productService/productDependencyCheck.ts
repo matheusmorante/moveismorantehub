@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { getProductKind } from '../productKindRules';
 import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
 import { updateProduct } from './productMutationService';
+import type { ProductMutationOptions } from './productMutationService';
 import { queryClient } from '@/lib/queryClient';
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
@@ -108,20 +109,28 @@ export const checkProductIsUsed = async (productId: string): Promise<boolean> =>
 const invalidateProductQueries = () => {
   try {
     queryClient.invalidateQueries({ queryKey: ['products'] });
-  } catch (e) {}
+  } catch {
+    // Cache invalidation is best effort after the product update has committed.
+  }
 };
 
-export const deactivateProduct = async (id: string): Promise<void> => {
-  await updateProduct(id, { active: false, deleted: false });
+export const deactivateProduct = async (
+  id: string,
+  options: ProductMutationOptions = {}
+): Promise<void> => {
+  await updateProduct(id, { active: false, deleted: false }, { deferQueryInvalidation: true });
   const realId = String(id).split('_')[0];
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
   if (isUUID) {
     await supabase.from('product_variations').update({ active: false }).eq('product_id', realId);
   }
-  invalidateProductQueries();
+  if (!options.deferQueryInvalidation) invalidateProductQueries();
 };
 
-export const activateProduct = async (id: string): Promise<void> => {
+export const activateProduct = async (
+  id: string,
+  options: ProductMutationOptions = {}
+): Promise<void> => {
   const realId = String(id).split('_')[0];
   const { data: product, error } = await supabase
     .from('products')
@@ -133,12 +142,12 @@ export const activateProduct = async (id: string): Promise<void> => {
     throw new Error('Produtos do tipo Salvado permanecem desativados no ERP.');
   }
 
-  await updateProduct(id, { active: true, deleted: false });
+  await updateProduct(id, { active: true, deleted: false }, { deferQueryInvalidation: true });
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
   if (isUUID) {
     await supabase.from('product_variations').update({ active: true }).eq('product_id', realId);
   }
-  invalidateProductQueries();
+  if (!options.deferQueryInvalidation) invalidateProductQueries();
 };
 
 export const moveToTrash = async (id: string): Promise<void> => {
@@ -175,19 +184,23 @@ export const physicalDeleteProduct = async (
   }
 };
 
-export const restoreProduct = async (id: string): Promise<void> => {
-  await activateProduct(id);
+export const restoreProduct = async (
+  id: string,
+  options: ProductMutationOptions = {}
+): Promise<void> => {
+  await activateProduct(id, options);
 };
 
 export const deleteProduct = async (
-  id: string
+  id: string,
+  options: ProductMutationOptions = {}
 ): Promise<{ success: boolean; message?: string }> => {
   try {
     const realId = String(id).split('_')[0];
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
 
     if (isUUID) {
-      await deactivateProduct(realId);
+      await deactivateProduct(realId, options);
     }
 
     return {

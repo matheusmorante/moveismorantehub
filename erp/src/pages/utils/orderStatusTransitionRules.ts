@@ -2,6 +2,7 @@ import Order from '../types/order.type';
 import {
   getGoodsCirculationState,
   hasGoodsCirculated,
+  hasExplicitGoodsCirculationEvidence,
   type OrderCirculationState,
 } from './nfe/cancellationEligibility';
 
@@ -13,7 +14,8 @@ import {
  * 2. Um pedido 'cancelled' não pode ter seu status alterado para nenhum outro status.
  * 3. Pedidos em 'draft' podem avançar para 'scheduled' ou 'fulfilled' (conforme agendamento/retirada).
  * 4. Pedidos 'scheduled' podem transicionar para 'fulfilled' (atendido) ou 'cancelled' (cancelado).
- * 5. Pedidos 'fulfilled' podem ser desfeitos para 'scheduled' (caso precise reagendar/desfazer entrega).
+ * 5. 'fulfilled' pode voltar para 'scheduled' pela ação explícita de correção de atendimento;
+ *    o fluxo continua respeitando qualquer evidência física registrada na venda.
  */
 export const validateOrderStatusTransition = (
   currentStatus?: Order['status'],
@@ -38,6 +40,18 @@ export const validateOrderStatusTransition = (
       allowed: false,
       reason:
         'Um pedido cancelado não pode ter o status alterado. Duplique o pedido para criar uma nova venda.',
+    };
+  }
+
+  if (
+    currentStatus === 'fulfilled' &&
+    newStatus === 'scheduled' &&
+    hasExplicitGoodsCirculationEvidence(currentOrder)
+  ) {
+    return {
+      allowed: false,
+      reason:
+        'Não é possível corrigir o atendimento depois de registrada a entrega, retirada ou saída da mercadoria.',
     };
   }
 
@@ -85,16 +99,14 @@ export const canCancelOrderDirectly = (
 };
 
 /**
- * Determina se um pedido pode ter a efetivação (fulfillment) desfeita.
- * Apenas pedidos atendidos ('fulfilled') que não sejam devoluções definitivas
- * podem voltar para agendado.
+ * Só pedidos atendidos que não sejam devoluções podem usar a correção explícita do status.
+ * A ação corrige o status sem criar efeitos fiscais ou de estoque.
  */
-export const canUndoFulfillment = (order: {
+export const canUndoFulfillment = (order: OrderCirculationState & {
   status?: Order['status'];
   orderType?: string;
 }): boolean => {
   if (order.status !== 'fulfilled') return false;
-  const type = order.orderType || 'sale';
-  if (type === 'return') return false;
-  return true;
+  if ((order.orderType || 'sale') === 'return') return false;
+  return !hasExplicitGoodsCirculationEvidence(order);
 };

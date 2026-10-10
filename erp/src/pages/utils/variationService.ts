@@ -153,33 +153,63 @@ export const checkVariationUsage = async (
   }
 };
 
+const VARIATION_FETCH_PAGE_SIZE = 1000;
+
+const fetchAllVariationRows = async (
+  table: string,
+  columns: string,
+  orderBy: string[]
+): Promise<{ data: any[] | null; error: any | null }> => {
+  const allRows: any[] = [];
+
+  for (let firstRow = 0; ; firstRow += VARIATION_FETCH_PAGE_SIZE) {
+    let query = supabase.from(table).select(columns);
+    for (const column of orderBy) {
+      query = query.order(column, { ascending: true });
+    }
+    const { data, error } = await query.range(
+      firstRow,
+      firstRow + VARIATION_FETCH_PAGE_SIZE - 1
+    );
+
+    if (error) return { data: null, error };
+
+    const page = data || [];
+    allRows.push(...page);
+    if (page.length < VARIATION_FETCH_PAGE_SIZE) return { data: allRows, error: null };
+  }
+};
+
 export const fetchVariations = async (
   options: { throwOnError?: boolean } = {}
 ): Promise<VariationType[]> => {
   try {
     // 1. Buscar atributos globais ordenados por nome
     let attrData: any[] | null = null;
-    const primaryQuery = await supabase
-      .from('attributes')
-      .select('id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places')
-      .order('name', { ascending: true });
+    const primaryQuery = await fetchAllVariationRows(
+      'attributes',
+      'id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places',
+      ['name', 'id']
+    );
 
     if (
       primaryQuery.error &&
       (primaryQuery.error.message?.includes('column') || primaryQuery.error.code === '42703')
     ) {
-      let fallbackQuery: any = await supabase
-        .from('attributes')
-        .select('id, name, active, data_type, unit, is_globally_required, is_custom')
-        .order('name', { ascending: true });
+      let fallbackQuery: any = await fetchAllVariationRows(
+        'attributes',
+        'id, name, active, data_type, unit, is_globally_required, is_custom',
+        ['name', 'id']
+      );
       if (
         fallbackQuery.error &&
         (fallbackQuery.error.message?.includes('is_custom') || fallbackQuery.error.code === '42703')
       ) {
-        fallbackQuery = await supabase
-          .from('attributes')
-          .select('id, name, active, data_type, unit, is_globally_required')
-          .order('name', { ascending: true });
+        fallbackQuery = await fetchAllVariationRows(
+          'attributes',
+          'id, name, active, data_type, unit, is_globally_required',
+          ['name', 'id']
+        );
       }
       if (fallbackQuery.error) throw fallbackQuery.error;
       attrData = fallbackQuery.data;
@@ -190,14 +220,20 @@ export const fetchVariations = async (
     }
 
     // 2. Buscar todos os valores/opções vinculados
-    const { data: valData, error: valErr } = await supabase.from('attribute_values').select('*');
+    const { data: valData, error: valErr } = await fetchAllVariationRows(
+      'attribute_values',
+      '*',
+      ['id']
+    );
     if (valErr) throw valErr;
 
     // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
     // A ausência dessa tabela não pode ocultar os atributos globais existentes.
-    const { data: catAttrData, error: catAttrErr } = await supabase
-      .from('category_attributes')
-      .select('attribute_id, category_id, is_required');
+    const { data: catAttrData, error: catAttrErr } = await fetchAllVariationRows(
+      'category_attributes',
+      'attribute_id, category_id, is_required',
+      ['attribute_id', 'category_id']
+    );
     if (catAttrErr) {
       console.warn('Aviso ao buscar vínculos de categorias dos atributos:', catAttrErr);
     }

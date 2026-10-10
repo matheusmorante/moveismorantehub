@@ -52,8 +52,17 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(validateOrderStatusTransition('scheduled', 'cancelled')).toEqual({ allowed: true });
     });
 
-    it('permite desfazer atendimento (fulfilled -> scheduled)', () => {
+    it('permite corrigir atendimento marcado por engano (fulfilled -> scheduled)', () => {
       expect(validateOrderStatusTransition('fulfilled', 'scheduled')).toEqual({ allowed: true });
+    });
+
+    it('impede desfazer atendimento depois de uma confirmação física', () => {
+      const transition = validateOrderStatusTransition('fulfilled', 'scheduled', {
+        status: 'fulfilled',
+        delivery_status: 'entregue',
+      });
+      expect(transition.allowed).toBe(false);
+      expect(transition.reason).toContain('entrega, retirada ou saída');
     });
 
     it('bloqueia cancelamento da venda depois da circulação (fulfilled -> cancelled)', () => {

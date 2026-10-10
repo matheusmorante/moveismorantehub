@@ -4,6 +4,7 @@ import Order, { IsButtonsClicked } from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
   fetchOrdersPage,
+  fetchOrdersForClientFiltering,
   updateOrder,
   undoReturn,
 } from '../../../utils/orderHistoryService';
@@ -11,7 +12,12 @@ import { actionsMap, buttons } from '../OrderActions/orderActionsConfig';
 import { autoFulfillExpiredOrders } from '@/pages/utils/orderFulfillmentCountdown';
 import { toast } from 'react-toastify';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
-import { filterOrder, sortOrders } from './useOrderHistoryFilters';
+import {
+  filterOrder,
+  requiresGlobalOrderFiltering,
+  selectFilteredOrderHistoryPage,
+  sortOrders,
+} from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
@@ -23,25 +29,12 @@ const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
 const EMPTY_ORDERS: Order[] = [];
 
-const resolveFiscalBadgeRefreshWaiters = (
-  waitersBySignal: Map<number, Array<() => void>>,
-  throughSignal: number
-) => {
-  for (const [signal, waiters] of waitersBySignal) {
-    if (signal > throughSignal) continue;
-    waitersBySignal.delete(signal);
-    waiters.forEach((resolve) => resolve());
-  }
-};
-
 export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-  const [refreshSignal, setRefreshSignal] = useState(0);
-  const refreshSignalRef = useRef(0);
-  const fiscalBadgeRefreshWaiters = useRef(new Map<number, Array<() => void>>());
+  const [ordersSnapshotQueryKey, setOrdersSnapshotQueryKey] = useState<string | null>(null);
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
@@ -71,15 +64,7 @@ export const useOrderHistory = (filters?: any) => {
   const queryClient = useQueryClient();
 
   const refresh = useCallback(() => {
-    const nextSignal = refreshSignalRef.current + 1;
-    refreshSignalRef.current = nextSignal;
-    const refreshComplete = new Promise<void>((resolve) => {
-      const waiters = fiscalBadgeRefreshWaiters.current.get(nextSignal) || [];
-      fiscalBadgeRefreshWaiters.current.set(nextSignal, [...waiters, resolve]);
-    });
-    setRefreshSignal(nextSignal);
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    return refreshComplete;
+    return queryClient.invalidateQueries({ queryKey: ['orders'] });
   }, [queryClient]);
 
   const markFiscalDocumentAuthorized = (
@@ -103,24 +88,32 @@ export const useOrderHistory = (filters?: any) => {
     setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [orderId]: false }));
   };
 
-  useEffect(
-    () => () =>
-      resolveFiscalBadgeRefreshWaiters(
-        fiscalBadgeRefreshWaiters.current,
-        Number.POSITIVE_INFINITY
-      ),
-    []
-  );
-
-  const { data: pageOrdersData, isLoading: queryLoading, error: queryError } = useQuery({
+  const {
+    data: pageOrdersData,
+    isLoading: queryLoading,
+    error: queryError,
+  } = useQuery({
     queryKey: ['orders', filters, currentPage],
     queryFn: async () => {
-      const { orders: pageOrders, total } = await fetchOrdersPage(
-        currentPage,
-        PAGE_SIZE,
-        filters,
-        { throwOnError: true }
-      );
+      let result: { orders: Order[]; total: number };
+      if (requiresGlobalOrderFiltering(filters)) {
+        const candidateOrders = await queryClient.fetchQuery({
+          queryKey: ['orders', 'client-filter-candidates', filters],
+          queryFn: () => fetchOrdersForClientFiltering(filters, { throwOnError: true }),
+          staleTime: 30 * 1000,
+        });
+        result = selectFilteredOrderHistoryPage(
+          candidateOrders.filter(
+            (order) => Boolean(filters?.showTestOrders) || !isTestOrder(order)
+          ),
+          filters,
+          currentPage,
+          PAGE_SIZE
+        );
+      } else {
+        result = await fetchOrdersPage(currentPage, PAGE_SIZE, filters, { throwOnError: true });
+      }
+      const { orders: pageOrders, total } = result;
       const orderIds = pageOrders
         .map((order) => order.id)
         .filter((id): id is string => Boolean(id));
@@ -137,17 +130,22 @@ export const useOrderHistory = (filters?: any) => {
     staleTime: 30 * 1000, // 30 segundos em memória
     gcTime: 5 * 60 * 1000,
   });
+  const currentOrdersQueryKey = JSON.stringify([filters ?? null, currentPage]);
   const failedWithoutCurrentData = shouldClearQueryListSnapshot(pageOrdersData, queryError);
-  const ordersForCurrentQuery = failedWithoutCurrentData ? EMPTY_ORDERS : orders;
+  const snapshotMatchesCurrentQuery = ordersSnapshotQueryKey === currentOrdersQueryKey;
+  const loadingCurrentQuery =
+    !snapshotMatchesCurrentQuery && (queryLoading || pageOrdersData !== undefined);
+  const ordersForCurrentQuery =
+    failedWithoutCurrentData || !snapshotMatchesCurrentQuery ? EMPTY_ORDERS : orders;
 
   useEffect(() => {
     if (pageOrdersData) {
       setOrders(pageOrdersData.orders);
+      setOrdersSnapshotQueryKey(currentOrdersQueryKey);
       setTotalDatabaseItems(pageOrdersData.total);
       setFiscalBadgeStatusByOrderId(pageOrdersData.fiscalStatuses);
       autoFulfillExpiredOrders(pageOrdersData.orders);
       setLoading(false);
-      resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
     } else if (queryLoading) {
       setLoading(true);
     } else if (failedWithoutCurrentData) {
@@ -158,9 +156,14 @@ export const useOrderHistory = (filters?: any) => {
       setTotalDatabaseItems(0);
       setFiscalBadgeStatusByOrderId({});
       setLoading(false);
-      resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
     }
-  }, [pageOrdersData, queryLoading, queryError, failedWithoutCurrentData, refreshSignal]);
+  }, [
+    pageOrdersData,
+    queryLoading,
+    queryError,
+    failedWithoutCurrentData,
+    currentOrdersQueryKey,
+  ]);
 
   useEffect(() => {
     const unsub = subscribeToOrderChanges(() => {
@@ -187,6 +190,11 @@ export const useOrderHistory = (filters?: any) => {
 
   const totalItems = failedWithoutCurrentData ? 0 : totalDatabaseItems || filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+  useEffect(() => {
+    if (queryError) return;
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [queryError, totalPages]);
 
   const operations = useMemo(() => {
     return createOrderHistoryOperations({
@@ -269,7 +277,7 @@ export const useOrderHistory = (filters?: any) => {
     setPendingReturnCancellation(null);
     try {
       await undoReturn(order);
-      const returnId = order.orderType === 'return' ? order.id : order.returnOrderId;
+      const returnId = order.id;
       setOrders((prev) =>
         prev.map((item) => {
           // Marca a devolução como cancelada (se estiver na lista)
@@ -278,30 +286,13 @@ export const useOrderHistory = (filters?: any) => {
               ...item,
               status: 'cancelled',
               returnStockProcessed: false,
-              returnStockReversed: true,
+              returnStockReversed: false,
             };
-          }
-          // Limpa todos os campos que compõem hasReturn no pedido de venda original
-          if (item.id === order.id && order.orderType !== 'return') {
-            return {
-              ...item,
-              returnOrderId: null as any,
-              returnKind: null as any,
-              // Se a venda estava como 'returned', volta para 'fulfilled'
-              status: item.status === 'returned' ? 'fulfilled' : item.status,
-              // Limpar flags legadas
-              hasReturn: false,
-              returned: false,
-            } as any;
           }
           return item;
         })
       );
-      const msg =
-        order.status === 'fulfilled'
-          ? 'Devolução desfeita e estornada com sucesso!'
-          : 'Devolução cancelada com sucesso!';
-      toast.success(msg);
+      toast.success('Devolução cancelada com sucesso!');
       refresh();
     } catch (error: any) {
       toast.error(`Erro ao processar devolução: ${error?.message || 'tente novamente'}`);
@@ -394,7 +385,7 @@ export const useOrderHistory = (filters?: any) => {
     setCurrentPage,
     isMobile,
     isCardView,
-    loading,
+    loading: loading || loadingCurrentQuery,
     error: queryError,
     handleDelete: operations.handleDelete,
     handleRestore: operations.handleRestore,

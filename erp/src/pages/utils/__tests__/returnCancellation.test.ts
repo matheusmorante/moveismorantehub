@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCancelledReturn, clearReturnLink } from '../returnCancellation';
+import { buildCancelledReturn } from '../returnCancellation';
 
 describe('cancelamento e estorno de devolucao', () => {
   it('preserva o registro e muda o status para cancelado com flags de estorno', () => {
@@ -7,24 +7,28 @@ describe('cancelamento e estorno de devolucao', () => {
       buildCancelledReturn({
         orderType: 'return',
         status: 'scheduled',
-        returnStockProcessed: true,
+        returnStockProcessed: false,
       } as any)
-    ).toEqual({ status: 'cancelled', returnStockProcessed: false, returnStockReversed: true });
+    ).toEqual({ status: 'cancelled', returnStockProcessed: false, returnStockReversed: false });
   });
 
-  it('permite estornar devolucao atendida e reverte as flags de estoque', () => {
-    expect(
+  it('preserva o retorno físico confirmado e bloqueia o cancelamento comercial', () => {
+    expect(() =>
       buildCancelledReturn({
         orderType: 'return',
         status: 'fulfilled',
         returnStockProcessed: true,
       } as any)
-    ).toEqual({ status: 'cancelled', returnStockProcessed: false, returnStockReversed: true });
+    ).toThrow('A confirmação física desta devolução já foi registrada');
   });
 
-  it('remove o vinculo da venda original com null para persistir no banco', () => {
-    const link = clearReturnLink();
-    expect(link.returnOrderId).toBeNull();
-    expect(link.returnKind).toBeNull();
+  it('também bloqueia cancelamento se a entrada de estoque já tiver sido registrada', () => {
+    expect(() =>
+      buildCancelledReturn({
+        orderType: 'return',
+        status: 'scheduled',
+        returnStockProcessed: true,
+      } as any)
+    ).toThrow('A confirmação física desta devolução já foi registrada');
   });
 });

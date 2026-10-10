@@ -22,7 +22,8 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
   for (const key of Object.keys(env)) {
     if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
   }
-  if (name === 'development-operator-preflight' || name === 'development-guard-readiness') {
+  if (name === 'development-operator-preflight' || name === 'development-guard-readiness' ||
+      name === 'development-test-artifact-postgrest-readonly') {
     env.VERCEL_ENV = 'development';
     env.MORANTE_ENV_SOURCE = 'vercel-development';
   }
@@ -58,7 +59,16 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
           rpcReachable:records[0].rpcReachable,policyStatusValid:records[0].policyStatusValid,
           ready:records[0].ready,policyVersion:records[0].policyVersion,
           behavioralProofRequired:records[0].behavioralProofRequired} : {}),
-        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
+        ...(args[0]==='artifact-reads' && records[0] ? {projectRef:records[0].projectRef,
+          environment:records[0].environment,authenticated:records[0].authenticated,
+          authenticatedIdentityMatches:records[0].authenticatedIdentityMatches,
+          administratorCheckOk:records[0].administratorCheckOk,
+          destinations:records[0].destinations?.map(item=>({name:item.name,rawCount:item.rawCount,
+            filteredCount:item.filteredCount,excludedCount:item.excludedCount,queryValid:item.queryValid,errorCode:item.errorCode})),
+          contradictoryTestCount:records[0].contradictoryTestCount,
+          limitedRowsReturned:records[0].limitedRowsReturned,limitedLeakCount:records[0].limitedLeakCount,
+          queriesValid:records[0].queriesValid} : {}),
+        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' && args[0]!=='artifact-reads' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
       }));
       resolve(result);
     });
@@ -73,6 +83,7 @@ async function main() {
   else if (mode === 'operational') await capture('development',['operational'],`operational-${process.argv[3] === 'after' ? 'after' : 'before'}`);
   else if (mode === 'operator') await capture('development',['operator'],'development-operator-preflight');
   else if (mode === 'policy-status') await capture('development',['policy-status'],'development-guard-readiness');
+  else if (mode === 'artifact-reads') await capture('development',['artifact-reads'],'development-test-artifact-postgrest-readonly');
   else if (mode === 'envs') for (const environment of ['development','preview','production']) await capture(environment,['env',environment],`${environment}-env`);
   else if (mode === 'tls') {
     for (const model of ['55','65']) for (const policy of ['native','erp']) await capture('development',['wsdl',model,policy,'2'],`${model}-${policy}-wsdl`);
