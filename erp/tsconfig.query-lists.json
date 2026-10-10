@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/pages/App/Products/ProductList/hooks/data/useProducts.ts",
+    "src/pages/App/Products/ProductList/hooks/data/useProductsQueryState.test.tsx",
+    "src/pages/App/Registrations/shared/hooks/usePeople.ts",
+    "src/pages/App/Registrations/shared/hooks/usePeopleQueryState.test.tsx",
+    "src/pages/App/SalesOrder/OrderHistoryList/useOrderHistory.ts",
+    "src/pages/App/Variations/useVariations.ts",
+    "src/pages/App/Variations/useVariationsQueryState.test.tsx",
+    "src/pages/utils/personService/personQueryService.ts",
+    "src/pages/utils/personService/personQueryService.test.ts",
+    "src/pages/utils/queryListSnapshot.ts",
+    "src/pages/utils/__tests__/queryListSnapshot.test.ts",
+    "src/pages/utils/__tests__/queryListErrorPropagation.test.ts",
+    "src/pages/utils/orderSyncQueries.ts",
+    "src/pages/utils/__tests__/orderSyncQueries.test.ts"
+  ]
+}

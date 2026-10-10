@@ -7,6 +7,7 @@ import {
   subscribeToOrderChanges,
 } from '../../utils/orderHistoryService';
 import Order from '../../types/order.type';
+import type { GeoMapOrderProjection, RecentOrderProjection } from '../../types/dashboardOrderProjection.type';
 import {
   isSameDay,
   subDays,
@@ -134,8 +135,8 @@ export const useDashboardData = (
   customEndDate?: string
 ) => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [geoMapOrders, setGeoMapOrders] = useState<Order[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrderProjection[]>([]);
+  const [geoMapOrders, setGeoMapOrders] = useState<GeoMapOrderProjection[]>([]);
   const [loading, setLoading] = useState(true);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

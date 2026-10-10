@@ -115,9 +115,9 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
 };
 
 /** Agrupa as características para manter a mesma organização no pai e nas variações. */
-export const groupTechnicalFields = (
-  fields: readonly TechnicalFieldDefinition[]
-): TechnicalFieldGroup[] => groupCharacteristicsByTopic(fields);
+export const groupTechnicalFields = <T extends { name: string; isCustom?: boolean }>(
+  fields: readonly T[]
+): CharacteristicGroup<T>[] => groupCharacteristicsByTopic(fields);
 
 export type TechnicalValuesMap = Record<string, any>;
 

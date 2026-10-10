@@ -240,7 +240,7 @@ export const useSalesOrderForm = (
       } else {
         setShipping(defaultShipping);
       }
-      setPayments(order.payments || []);
+      setPayments(Array.isArray(order.payments) ? order.payments : []);
       if (order.customerData) {
         setCustomerData({
           ...order.customerData,

@@ -1,0 +1,57 @@
+{
+  "name": "goods-receipts-artifact-guard-valid-rollback",
+  "date": "2026-10-10",
+  "status": "passed",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "table": "goods_receipts",
+  "runId": "50d430c3-a937-4d5e-aaf6-e92e651a60bc",
+  "receiptId": "c0c3b0d5-b422-4ff3-a220-262bba6b27ef",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "fixture": {
+    "status": "draft",
+    "isDraft": true,
+    "items": [],
+    "supplier": null,
+    "receiptIndexProvided": 999999,
+    "artifactMetadata": "observation.testArtifact with is_test=true, this runId, and authenticated ownerId"
+  },
+  "preflight": {
+    "receiptIdExists": false,
+    "runIdExists": false,
+    "goodsReceiptsCount": 0,
+    "goodsReceiptItemsCount": 0,
+    "receiptIndex999999Exists": false,
+    "sequence": {"last_value": 1, "is_called": false}
+  },
+  "expectedEffects": [
+    "the test artifact record guard accepts the authenticated owner and runId",
+    "the BEFORE index trigger detects the test artifact and sets receipt_index to NULL without calling nextval",
+    "an empty draft creates no goods_receipt_items or inventory_moves",
+    "the transaction is rolled back and the sequence remains unchanged"
+  ],
+  "reversalAndRetention": "ROLLBACK the same transaction; independent query confirmed zero receipt/item/movement rows for the ID and runId",
+  "verification": {
+    "authenticatedRole": true,
+    "administratorRoleVerified": true,
+    "identityRunMatches": true,
+    "receiptIndexSuppressed": true,
+    "draftStatusValid": true,
+    "itemsCountInsideTransaction": 0,
+    "receiptItemRowsInsideTransaction": 0,
+    "movementRowsInsideTransaction": 0,
+    "sequenceInsideTransaction": {"last_value": 1, "is_called": false},
+    "postRollback": {
+      "receiptIdRows": 0,
+      "runIdRows": 0,
+      "receiptItemRows": 0,
+      "inventoryMoves": 0,
+      "sequence": {"last_value": 1, "is_called": false}
+    },
+    "persistentFixture": false,
+    "operatorLoginValidated": false,
+    "sefazTransmission": false
+  },
+  "initialAttempt": "An earlier SQL batch referenced a nonexistent goods_receipts.description column and was rejected before execution. Independent read showed zero receipt/item rows and an unchanged sequence; the corrected batch used only columns confirmed on goods_receipts.",
+  "riskBoundary": "This validates an empty draft header only with simulated authenticated administrator claims. It does not validate valid receipt items, confirmation RPC, stock entry, PostgREST commit, operator login, concurrency, or normal cleanup."
+}

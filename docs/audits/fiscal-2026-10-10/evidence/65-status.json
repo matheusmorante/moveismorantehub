@@ -1,0 +1,17 @@
+{
+  "name": "65-status",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "status",
+      "model": "65",
+      "environment": 2,
+      "cStat": "107",
+      "success": true,
+      "reason": "Servico em Operacao",
+      "responseBytes": 517,
+      "protocolPresent": false
+    }
+  ]
+}

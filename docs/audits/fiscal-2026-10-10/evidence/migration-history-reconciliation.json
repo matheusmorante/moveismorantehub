@@ -1,0 +1,136 @@
+{
+  "name": "supabase-migration-history-reconciliation",
+  "date": "2026-10-10",
+  "status": "targeted_history_reconciled_historical_sources_unmapped",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "comparison": {
+    "localVersionedFiles": 89,
+    "remoteAppliedEntries": 155,
+    "localPending": [
+      "20261008190000_dynamic_product_characteristics"
+    ],
+    "unversionedLocalSql": [
+      {
+        "file": "rename_category_jogo_cozinha.sql",
+        "classification": "unversioned_effect_present_remotely_without_history_entry",
+        "remoteReadOnlyState": "category b3a1a235-fd4c-4706-a058-6f8200b3731a has the requested name; no row retains the old name"
+      }
+    ],
+    "remoteAppliedWithoutLocalFile": [
+      "20260913183755_restore_supplier_mapping_variation_resolver",
+      "20260922123613_create_dashboard_daily_metrics",
+      "20260922131557_fix_characteristic_input_types",
+      "20260922131701_set_single_choice_characteristics",
+      "20260922131749_set_decimal_measure_characteristics",
+      "20260922133113_restore_characteristic_data_types",
+      "20260922141448_backfill_dimension_characteristics",
+      "20260922141607_rename_foot_handle_material_characteristics",
+      "20260922141708_rename_foot_material_characteristic",
+      "20260922142113_rename_door_type_characteristic",
+      "20260922143616_rename_structure_characteristic",
+      "20260922144514_require_color_characteristic",
+      "20260922145010_require_structure_material_characteristic",
+      "20260922145734_activate_required_characteristics",
+      "20260922150014_remove_parent_characteristic_requirement",
+      "20260922185150_create_supabase_telemetry",
+      "20260923150030_create_ncm_tables",
+      "20260923150034_update_search_ncms_split_words",
+      "20260923150038_expand_ncm_catalog_management",
+      "20260923150847_secure_ncm_cron_auth",
+      "20260925181618_finalize_inventory_local_first",
+      "20260926024543_create_services_table",
+      "20260926143351_add_fiscal_documents_to_goods_receipts",
+      "20260926143421_create_goods_receipt_items",
+      "20260926143510_ensure_goods_receipts_production_columns",
+      "20260926143524_add_goods_receipt_item_movement_uniqueness",
+      "20260926143532_create_inventory_document_transaction_rpcs",
+      "20260926143550_create_order_with_inventory_transaction",
+      "20260926143611_check_goods_receipt_inventory_transactions",
+      "20260926143909_preserve_opening_inventory_cost",
+      "20260929200135_create_nfe_documents",
+      "20260929200142_prevent_duplicate_outbound_nfe",
+      "20260929200150_reserve_next_nfe_number",
+      "20260929200157_create_nfe_fiscal_events",
+      "20260929200205_add_fiscal_lineage_and_return_allocations",
+      "20260929200212_support_multiple_outbound_invoices_per_order",
+      "20260929200237_create_nfe_operation_drafts",
+      "20260929200244_persist_authorized_nfe_operation_atomically",
+      "20260929200251_save_nfe_operation_draft_review",
+      "20260929200259_support_safe_nfe_draft_retries_after_rejection",
+      "20260929200337_atomic_nfe_outbound_reservation",
+      "20260929200344_harden_nfe_outbound_reservation",
+      "20260929200557_restrict_nfe_sequence_reservation",
+      "20260929202020_create_atomic_nfe_cce_reservation",
+      "20260930172744_nfe_hml_csosn_snapshot_atomic_isolation",
+      "20260930201939_nfe_modal_selections_and_real_order_hml",
+      "20261001143132_save_mobile_product_transaction",
+      "20261001143633_restrict_mobile_product_save_rpc",
+      "20261001145413_fix_mobile_product_variation_history_checks",
+      "20261001162610_ncm_store_activation",
+      "20261001164300_nfe_return_environment_isolation",
+      "20261001173124_isolate_operational_hml_orders",
+      "20261001183013_nfe_return_product_identity",
+      "20261001185245_restore_atomic_return_capacity_rpc",
+      "20261001192820_persist_nfe_operation_totals",
+      "20261001193207_persist_hml_invoice_totals",
+      "20261001222100_create_stock_unavailabilities",
+      "20261001222118_harden_stock_unavailabilities",
+      "20261002190633_search_active_ncms_by_aliases",
+      "20261002190634_capture_nfe_recipient_cpf",
+      "20261003142729_nfe_snapshot_normalize_legacy_product_ids",
+      "20261006223440_add_ie_indicator_to_people",
+      "20261007154823_enable_pgtap_for_controlled_fiscal_tests",
+      "20261007205454_enforce_product_variation_invariant",
+      "20261009005927_allow_hml_technical_nfce65",
+      "20261009011722_update_nfe_hml_rule_environment_check_for_nfce65",
+      "20261009023404_allow_cancelling_return_orders"
+    ]
+  },
+  "gitHistory": {
+    "branch": "main",
+    "headCommit": "4f345fab",
+    "migrationDeletionCommit": "617cc3c4a6c0f359eff5c07f7f7e9766e4b44489",
+    "migrationDeletionCommitParent": "7fb1ff7f27db5603911eb56696492a5f1f270379",
+    "migrationSqlFilesDeletedInCommit": 109,
+    "remoteOnlyExactNamesAmongThoseDeleted": 0,
+    "finding": "Remote and deleted local migration names do not align one-to-one; source restoration by filename alone would not establish effect equivalence."
+  },
+  "relevantExactApplied": [
+    "20261010012313_test_artifact_json_guards",
+    "20261010014716_test_artifact_safe_order_flow",
+    "20261010134535_fix_test_artifact_json_null_arrays",
+    "20261010135148_qualify_inventory_move_trigger_objects",
+    "20261010140849_fix_single_variation_inventory_cost"
+  ],
+  "evaluatedLocalPending": [
+    {
+      "migration": "20261008190000_dynamic_product_characteristics",
+      "state": "BLOCKED",
+      "reason": "Exact version is absent from remote history and its effects were not reconciled to another applied version."
+    },
+    {
+      "migration": "20261010134535_fix_test_artifact_json_null_arrays",
+      "state": "APPLIED",
+      "reason": "Exact version/name is present in remote migration history; both replaced functions were inspected and the omitted-JSON-array probe passed inside rollback."
+    },
+    {
+      "migration": "20261010135148_qualify_inventory_move_trigger_objects",
+      "state": "APPLIED",
+      "reason": "Exact version/name is present in remote history; the three helpers now fix search_path and qualify public objects; the receipt confirmation guard/stock probe passed inside rollback."
+    },
+    {
+      "migration": "20261010140849_fix_single_variation_inventory_cost",
+      "state": "APPLIED",
+      "reason": "Exact version/name is present in remote history; the live stock-delta function was inspected before replacement; the single-SKU CMPM, multi-SKU weighted cost, confirmation repeat, fractional-quantity rejection, reversal, reactivation, and rollback probes passed."
+    },
+    {
+      "file": "rename_category_jogo_cozinha.sql",
+      "state": "EFFECT_PRESENT_HISTORY_UNVERSIONED",
+      "reason": "Read-only project query matches the file's requested category rename; no history row records this unversioned SQL, so it was not replayed."
+    }
+  ],
+  "remoteOnlyDisposition": "All 67 entries are retained as applied in the remote ledger and have no exact local source; none matched the 109 files deleted in commit 617cc3c4. Their source/effect mapping remains incomplete, so they were not recreated or replayed. The three targeted forward corrections are versioned locally and present in the remote ledger.",
+  "actionTaken": "Compared exact version/name identities, checked the effects of the older dynamic-characteristics migration and the unversioned category script, applied three authorized forward corrections, verified their exact remote versions and resulting definitions, and ran rollback-contained synthetic probes. No bulk db push or SEFAZ transmission occurred.",
+  "nextAction": "Keep 20261008190000_dynamic_product_characteristics blocked until its DDL/data effects are separately reconciled. The single-variation cost mismatch is fixed and proven. The Vercel dashboard shows Production for commit 4f345fa and only an older ready Preview at fdbfee2; obtain a current Preview and an authenticated ERP session before the read-only, non-transmitting UI validation. Keep the existing gate for write-capable E2E and keep the 67 source-less applied entries documented without replay."
+}

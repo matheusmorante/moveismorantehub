@@ -1,0 +1,37 @@
+{
+  "name": "products-json-null-array-guard-valid-rollback",
+  "date": "2026-10-10",
+  "status": "passed_and_rolled_back",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "migration": "20261010134535_fix_test_artifact_json_null_arrays",
+  "runId": "8d943daf-b657-48d5-b082-c9f60cd1b0a9",
+  "productId": "73bb5429-c0b9-495a-91bd-69b2d32782bc",
+  "identitySource": "Existing administrator selected inside SQL; authenticated role and administrator claims simulated for database guard validation; no email or user ID recorded",
+  "attempt": {
+    "operation": "INSERT into products inside explicit PostgreSQL transaction",
+    "combo_items": "omitted, resulting in JSON null",
+    "supplier_ids": "omitted, resulting in SQL/JSON null",
+    "code": "explicit synthetic test code to avoid the SKU generator",
+    "deferredVariation": "SET CONSTRAINTS ALL IMMEDIATE executed the default-variation trigger"
+  },
+  "verificationInsideTransaction": {
+    "administratorConfirmed": true,
+    "productInsertAccepted": true,
+    "defaultVariationRows": 1
+  },
+  "rollbackAndIndependentRead": {
+    "productIdRows": 0,
+    "productRunRows": 0,
+    "variationRows": 0,
+    "inventoryMoveRows": 0
+  },
+  "sideEffects": {
+    "persistentFixture": false,
+    "stockChanged": false,
+    "sequenceConsumed": false,
+    "externalCall": false,
+    "sefazTransmission": false
+  },
+  "riskBoundary": "This validates the PostgreSQL guard and deferred variation trigger with simulated administrator claims. It does not prove a committed PostgREST insert, real operator login, concurrency, cleanup, or broad E2E readiness."
+}

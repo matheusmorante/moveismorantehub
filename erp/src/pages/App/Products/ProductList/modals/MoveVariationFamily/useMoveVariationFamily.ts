@@ -3,11 +3,11 @@ import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { moveVariationToFamily } from '@/pages/utils/productService';
-import Product from '@/pages/types/product.type';
+import Product, { type Variation } from '@/pages/types/product.type';
 import { Family, Attribute, toAttributes, hasSameAttributes, familyName } from './utils';
 
 export const useMoveVariationFamily = (
-  variation: (Product & { readonly variationId?: string }) | null,
+  variation: (Product & { readonly variationId?: string; attributes: Variation['attributes'] }) | null,
   onMoved: () => void,
   onClose: () => void
 ) => {

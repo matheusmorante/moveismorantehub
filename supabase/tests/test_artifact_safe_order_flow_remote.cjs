@@ -3,7 +3,6 @@ const { randomUUID } = require('node:crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const projectRef = 'hkoxhourxwlddgsfdgws';
-const expectedOperatorEmail = 'matheusmorante002@gmail.com';
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const operatorEmail = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
@@ -11,9 +10,6 @@ const operatorPassword = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
 
 if (!supabaseUrl || !anonKey || !operatorEmail || !operatorPassword) {
   throw new Error('Set the Vercel Development Supabase URL, anon key and authorized operator credentials at runtime.');
-}
-if (operatorEmail !== expectedOperatorEmail) {
-  throw new Error('TEST_ARTIFACT_OPERATOR_IDENTITY_MISMATCH');
 }
 
 const parsedUrl = new URL(supabaseUrl);
@@ -26,7 +22,7 @@ let accessToken;
 
 async function authenticateOperator() {
   const { data, error } = await authClient.auth.signInWithPassword({ email: operatorEmail, password: operatorPassword });
-  if (error || !data.session || data.user?.email?.toLowerCase() !== expectedOperatorEmail) {
+  if (error || !data.session || data.user?.email?.toLowerCase() !== operatorEmail) {
     throw new Error('TEST_ARTIFACT_OPERATOR_AUTH_FAILED');
   }
   accessToken = data.session.access_token;

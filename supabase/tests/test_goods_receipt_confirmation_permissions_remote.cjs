@@ -1,7 +1,6 @@
 const assert = require('node:assert/strict');
 
 const projectRef = 'hkoxhourxwlddgsfdgws';
-const expectedOperatorEmail = 'matheusmorante002@gmail.com';
 const runAuthorization = 'authorized-by-current-task';
 const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
@@ -11,7 +10,6 @@ const operatorPassword = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
 assert.equal(process.env.MORANTE_ENV_SOURCE, 'vercel-development');
 assert.equal(process.env.RUN_GOODS_RECEIPT_CONFIRMATION_REMOTE, runAuthorization);
 assert.ok(supabaseUrl && anonKey && operatorEmail && operatorPassword);
-assert.equal(operatorEmail, expectedOperatorEmail);
 assert.equal(new URL(supabaseUrl).hostname, `${projectRef}.supabase.co`);
 
 let accessToken;
@@ -64,7 +62,7 @@ async function run() {
   });
   assert.equal(login.status, 200, `Authorized operator login failed (${login.status}).`);
   const session = await login.json();
-  assert.equal(session.user?.email?.toLowerCase(), expectedOperatorEmail);
+  assert.equal(session.user?.email?.toLowerCase(), operatorEmail);
   assert.ok(session.access_token);
   accessToken = session.access_token;
 

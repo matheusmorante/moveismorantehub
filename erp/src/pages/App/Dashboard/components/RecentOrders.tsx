@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Order from '../../../types/order.type';
+import type { RecentOrderProjection } from '../../../types/dashboardOrderProjection.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { isDashboardSaleOrder } from '../dashboardRevenue';
 import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
 
 interface RecentOrdersProps {
-  orders: Order[];
+  orders: RecentOrderProjection[];
 }
 
 const STATUS_STYLES: Record<string, string> = {

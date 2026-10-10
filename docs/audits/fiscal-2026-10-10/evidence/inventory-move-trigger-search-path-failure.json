@@ -1,0 +1,38 @@
+{
+  "name": "goods-receipt-inventory-move-trigger-search-path-failure",
+  "date": "2026-10-10",
+  "status": "failed_reproduced_and_rolled_back_then_fixed",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "runId": "e035d9f6-120e-4c2c-b695-2ab87e944dbc",
+  "productId": "7c32a53c-668c-4ba1-bcad-7b8622c43100",
+  "receiptId": "01643f6a-3292-498d-a726-40594fc3d5ae",
+  "failure": {
+    "sqlState": "42P01",
+    "message": "relation inventory_moves does not exist",
+    "source": "trigger_inventory_moves_after() used unqualified inventory_moves from a SECURITY DEFINER receipt RPC with an empty search_path"
+  },
+  "correction": {
+    "migration": "20261010135148_qualify_inventory_move_trigger_objects",
+    "functions": [
+      "calculate_withdrawal_unit_cost(text,text,timestamptz)",
+      "trigger_inventory_moves_before()",
+      "trigger_inventory_moves_after()"
+    ],
+    "change": "Schema-qualified public references and fixed search_path to empty; signatures, invoker security, owner and grants preserved by CREATE OR REPLACE"
+  },
+  "postAbortRead": {
+    "productRows": 0,
+    "variationRows": 0,
+    "receiptRows": 0,
+    "receiptItemRows": 0,
+    "movementRows": 0,
+    "receiptSequence": { "last_value": 1, "is_called": false }
+  },
+  "sideEffects": {
+    "persistentFixture": false,
+    "stockChanged": false,
+    "sequenceConsumed": false,
+    "sefazTransmission": false
+  }
+}

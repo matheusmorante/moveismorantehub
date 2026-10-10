@@ -80,6 +80,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       fiscalBadgeStatusByOrderId,
       fiscalBadgeLoadingByOrderId,
       loading,
+      error,
       handleDelete: onDelete,
       handleRestore,
       handlePermanentDelete: onPermanentDelete,
@@ -215,6 +216,17 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
                 </p>
               )}
             </div>
+          </div>
+        );
+      }
+
+      if (error && orders.length === 0) {
+        return (
+          <div role="alert" className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+            <p className="font-bold text-red-600">Não foi possível carregar os pedidos.</p>
+            <button onClick={() => void refresh()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+              Tentar novamente
+            </button>
           </div>
         );
       }

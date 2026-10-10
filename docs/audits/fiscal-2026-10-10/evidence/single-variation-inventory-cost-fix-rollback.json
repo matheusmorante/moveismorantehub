@@ -1,0 +1,113 @@
+{
+  "name": "single-variation-inventory-cost-fix-rollback",
+  "date": "2026-10-10",
+  "status": "passed_and_rolled_back",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "migration": "20261010140849_fix_single_variation_inventory_cost",
+  "runId": "9d701ec2-cf27-4e74-b392-e44fa66fe655",
+  "rpc": "confirm_goods_receipt_checked_transaction",
+  "statusRpc": "set_goods_receipt_inventory_status_checked_transaction",
+  "identitySource": "An existing administrator was selected inside SQL; authenticated claims were simulated; operator ID was not recorded",
+  "singleVariation": {
+    "productId": "304b8e0f-4245-4132-a8bc-372e5a495012",
+    "variationId": "18319086-a9c5-4b65-aa3f-a75549e63df3",
+    "afterConfirmation": {
+      "productStock": 1,
+      "productCost": 2.5,
+      "variationStock": 1,
+      "variationCost": 2.5,
+      "recalculatedCost": 2.5
+    },
+    "afterRepeatedConfirmation": {
+      "productStock": 1,
+      "productCost": 2.5,
+      "variationStock": 1,
+      "variationCost": 2.5
+    },
+    "afterReversal": {
+      "productStock": 0,
+      "productCost": 2.5,
+      "variationStock": 0,
+      "variationCost": 2.5
+    },
+    "afterReactivation": {
+      "productStock": 1,
+      "productCost": 2.5,
+      "variationStock": 1,
+      "variationCost": 2.5
+    }
+  },
+  "multipleVariations": {
+    "productId": "5fec9e1f-b3a2-477c-b0d5-8645c0b7a400",
+    "variationIds": [
+      "763bfdd3-3de4-4fa5-bce1-057e083b059f",
+      "102b1463-8e86-409a-8582-2a7b730f0a9c"
+    ],
+    "afterConfirmation": {
+      "productStock": 3,
+      "productCost": 30,
+      "variationOneStock": 2,
+      "variationOneCost": 20,
+      "variationTwoStock": 1,
+      "variationTwoCost": 50,
+      "recalculatedCostOne": 20
+    },
+    "afterRepeatedConfirmation": {
+      "productStock": 3,
+      "productCost": 30,
+      "variationOneStock": 2,
+      "variationOneCost": 20,
+      "variationTwoStock": 1,
+      "variationTwoCost": 50
+    },
+    "afterReversal": {
+      "productStock": 2,
+      "productCost": 30,
+      "variationOneStock": 1,
+      "variationOneCost": 10,
+      "variationTwoStock": 1,
+      "variationTwoCost": 50
+    },
+    "afterReactivation": {
+      "productStock": 3,
+      "productCost": 30,
+      "variationOneStock": 2,
+      "variationOneCost": 20,
+      "variationTwoStock": 1,
+      "variationTwoCost": 50
+    }
+  },
+  "failureBehavior": {
+    "fractionalQuantityRejected": true,
+    "message": "A quantidade de estoque da variação deve ser inteira: 0.5",
+    "rejectedBeforeMutation": true
+  },
+  "rollbackAndIndependentRead": {
+    "products": 0,
+    "variations": 0,
+    "receiptRows": 0,
+    "receiptItemRows": 0,
+    "inventoryMoveRows": 0,
+    "receiptIndexSequence": {
+      "name": "goods_receipt_index_sequence",
+      "lastValue": null
+    }
+  },
+  "sideEffects": {
+    "persistentFixture": false,
+    "operationalProductChanged": false,
+    "receiptSequenceConsumed": false,
+    "externalCall": false,
+    "sefazTransmission": false
+  },
+  "advisorSummary": {
+    "exitCode": 0,
+    "notices": 364,
+    "mutableSearchPath": 19,
+    "applyOrderStockDeltaAdvisory": 1,
+    "functionExecutesForAuthenticatedRole": true,
+    "grantsChangedByMigration": false
+  },
+  "riskBoundary": "This validates the remote PostgreSQL receipt RPC, per-SKU cost updates, confirmation repeat, fractional quantity rejection, reversal/reactivation and transaction rollback using simulated administrator claims. It does not prove committed PostgREST behavior, real operator login, concurrency, normal cleanup, full E2E readiness, or a SEFAZ transmission."
+}

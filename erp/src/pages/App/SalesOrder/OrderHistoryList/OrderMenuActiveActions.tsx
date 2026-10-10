@@ -41,6 +41,8 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
   onCloseMenu,
   hideEditAction,
 }) => {
+  const hasReturn = Boolean(order.returnOrderId);
+
   return (
     <>
       {isCancelled && ['sale', 'showroom'].includes(order.orderType || 'sale') && (

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient } from '@tanstack/react-query';
 
 const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
 
@@ -6,9 +7,75 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 
 import {
   fetchAllOrdersForDashboard,
+  fetchGeoMapOrders,
   fetchOrdersPage,
+  fetchRecentOrders,
   fetchScheduledAndDraftOrders,
 } from '../orderSyncQueries';
+
+describe('dashboard order projections', () => {
+  beforeEach(() => {
+    mockDb.from.mockReset();
+  });
+
+  it('returns the narrow recent-order fields consumed by the dashboard card', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.in = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.limit = vi.fn(() => query);
+    query.then = (resolve: (value: unknown) => unknown) =>
+      Promise.resolve({
+        data: [{ id: 'recent-1', order_number: 12, order_index: 34, status: 'scheduled', order_type: 'sale', customer_name: 'Cliente', total_amount: 125, created_at: '2026-10-10' }],
+        error: null,
+      }).then(resolve);
+    mockDb.from.mockReturnValue(query);
+
+    await expect(fetchRecentOrders(5)).resolves.toEqual([
+      expect.objectContaining({
+        id: 'recent-1',
+        orderIndex: 34,
+        customerData: { fullName: 'Cliente' },
+        totalAmount: 125,
+        date: '2026-10-10',
+      }),
+    ]);
+  });
+
+  it('preserves address and sale value in the geographic-map projection', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.in = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.limit = vi.fn(() => query);
+    query.then = (resolve: (value: unknown) => unknown) =>
+      Promise.resolve({
+        data: [{
+          id: 'map-1',
+          total_amount: 275,
+          status: 'scheduled',
+          order_type: 'sale',
+          customer_name: 'Cliente do mapa',
+          order_data: {
+            customerData: { fullName: 'Cliente do mapa', fullAddress: { street: 'Rua A', city: 'Curitiba' } },
+            shipping: { destinationCoords: [-49.2, -25.4] },
+            itemsSummary: { itemsTotalValue: 250 },
+          },
+        }],
+        error: null,
+      }).then(resolve);
+    mockDb.from.mockReturnValue(query);
+
+    const [order] = await fetchGeoMapOrders(50);
+
+    expect(order.customerData.fullAddress?.street).toBe('Rua A');
+    expect(order.shipping?.destinationCoords).toEqual([-49.2, -25.4]);
+    expect(order.itemsSummary?.itemsTotalValue).toBe(250);
+  });
+});
 
 describe('fetchOrdersPage', () => {
   beforeEach(() => {
@@ -37,6 +104,51 @@ describe('fetchOrdersPage', () => {
     expect(columns).toContain('order_payments(payment_method, amount, fee, fee_type, status, installments)');
     expect(columns).not.toMatch(/order_items\s*\(\s*\*\s*\)/);
     expect(columns).not.toMatch(/order_payments\s*\(\s*\*\s*\)/);
+  });
+
+  it('preserves the legacy empty result by default and propagates failures for query hooks', async () => {
+    const queryError = new Error('falha de leitura');
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.ilike = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({ data: null, count: null, error: queryError });
+    mockDb.from.mockReturnValue(query);
+
+    await expect(fetchOrdersPage()).resolves.toEqual({ orders: [], total: 0 });
+    await expect(fetchOrdersPage(1, 15, undefined, { throwOnError: true })).rejects.toBe(queryError);
+  });
+
+  it('recovers a failed order query when it is invalidated and retried', async () => {
+    const queryError = new Error('falha temporária ao carregar pedidos');
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.not = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.ilike = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi
+      .fn()
+      .mockResolvedValueOnce({ data: null, count: null, error: queryError })
+      .mockResolvedValueOnce({ data: [], count: 0, error: null });
+    mockDb.from.mockReturnValue(query);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    const queryOptions = {
+      queryKey: ['orders', { customerName: 'cliente-sintetico' }],
+      queryFn: () => fetchOrdersPage(1, 15, { customerName: 'cliente-sintetico' }, { throwOnError: true }),
+    };
+
+    await expect(queryClient.fetchQuery(queryOptions)).rejects.toBe(queryError);
+    await queryClient.invalidateQueries({ queryKey: ['orders'] });
+    await expect(queryClient.fetchQuery(queryOptions)).resolves.toEqual({ orders: [], total: 0 });
+    expect(query.range).toHaveBeenCalledTimes(2);
   });
 });
 

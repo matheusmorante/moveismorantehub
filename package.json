@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "test:nfe:hml": "node scripts/testing/run-fiscal-audit.cjs tls && node scripts/testing/run-fiscal-audit.cjs services",
+    "test:nfe:operator": "node scripts/testing/run-fiscal-audit.cjs operator",
+    "test:nfe:guards-readiness": "node scripts/testing/run-fiscal-audit.cjs policy-status",
     "test:artifact-guards:remote": "node supabase/tests/test_artifact_safe_order_flow_remote.cjs",
     "dev": "node scripts/run-vercel-env-dev.cjs",
     "dev:stack": "node scripts/assert-vercel-development.cjs && npm run build:fiscal --prefix erp && concurrently -k -n ERP,API -c cyan,magenta \"npm run dev:erp:serve\" \"npm run dev:api:serve\"",

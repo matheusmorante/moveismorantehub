@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import Order from '@/pages/types/order.type';
+import type { GeoMapOrderProjection } from '@/pages/types/dashboardOrderProjection.type';
 import { geocodeAddress, getNeighborhoodCoords } from '@/pages/utils/maps';
 
 interface ProfitHeatMapProps {
-  orders: Order[];
+  orders: GeoMapOrderProjection[];
 }
 
 type MetricType = 'value' | 'count';

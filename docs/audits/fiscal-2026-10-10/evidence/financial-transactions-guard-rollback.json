@@ -1,0 +1,45 @@
+{
+  "name": "financial-transactions-artifact-guard-rollback",
+  "date": "2026-10-10",
+  "status": "passed",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "table": "financial_transactions",
+  "runId": "11a2733b-ee31-4ec3-a795-f750d457f235",
+  "transactionId": "26e93ca8-d9a7-4f0e-83e9-73acdc422574",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "fixture": {
+    "type": "expense",
+    "amount": 0.01,
+    "date": "2099-12-31",
+    "links": null,
+    "artifactMetadata": "notes.testArtifact with is_test=true, this runId, and authenticated ownerId"
+  },
+  "expectedEffects": [
+    "one synthetic row exists only inside an explicit PostgreSQL transaction",
+    "the installed record guard validates the authenticated administrator and owner",
+    "financial_transactions has no other non-internal trigger and the fixture has no payable, receivable, or order link"
+  ],
+  "reversalAndRetention": "ROLLBACK the same transaction; independently verify zero rows for transactionId and runId; retain no database fixture",
+  "riskBoundary": "No SEFAZ call, no linked ledger/account mutation, no committed transaction; abort if administrator role, schema, or trigger behavior differs from the preflight. This does not validate the HML operator login.",
+  "assertions": [
+    "authenticated role is active and is_administrator() is true",
+    "valid synthetic artifact insert is accepted by the record guard",
+    "returned row has the expected type, amount, runId, and owner match",
+    "independent post-rollback query returns zero matching rows"
+  ],
+  "baseline": {"idCount":0,"runCount":0,"administratorProfileAvailable":true},
+  "verification": {
+    "authenticatedRole": true,
+    "administratorClaim": true,
+    "validArtifactAccepted": true,
+    "idMatches": true,
+    "amountAndTypeValid": true,
+    "runIdMatches": true,
+    "ownerMatchesAuthenticatedUid": true,
+    "postRollback": {"idCount":0,"runCount":0},
+    "persistentFixture": false,
+    "sefazTransmission": false,
+    "operatorLoginValidated": false
+  }
+}

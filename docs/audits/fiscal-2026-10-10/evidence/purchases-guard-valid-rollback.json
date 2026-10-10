@@ -1,0 +1,50 @@
+{
+  "name": "purchases-artifact-guard-valid-rollback",
+  "date": "2026-10-10",
+  "status": "passed",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "table": "purchases",
+  "runId": "8c73aac9-f53e-405e-8b96-4fb2dc32bbb9",
+  "purchaseId": "d9414b1b-c48e-454a-983d-639a64c11b5e",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "fixture": {
+    "status": "opened",
+    "items": [],
+    "totalValue": 0,
+    "supplier": null,
+    "artifactMetadata": "observation.testArtifact with is_test=true, this runId, and authenticated ownerId"
+  },
+  "preflight": {
+    "purchaseRows": 8,
+    "purchaseItemRows": 6,
+    "purchaseNumberColumnExists": false,
+    "nonInternalTableTriggers": ["test_artifact_record_guard"]
+  },
+  "expectedEffects": [
+    "one synthetic purchase row exists only inside an explicit PostgreSQL transaction",
+    "the record guard validates the authenticated administrator, owner, and artifact runId",
+    "no purchase_items row, stock movement, sequence, external trigger, or linked operational record is created"
+  ],
+  "reversalAndRetention": "ROLLBACK the same transaction; independently verify zero rows for purchaseId and runId; retain no database fixture",
+  "riskBoundary": "The purchase UI does not currently filter committed test rows. This probe remains uncommitted and invisible to other transactions; it does not authorize a committed purchase fixture or E2E.",
+  "assertions": [
+    "authenticated role is active and is_administrator() is true",
+    "valid synthetic artifact insert is accepted by the record guard",
+    "returned row has the expected runId and owner match",
+    "independent post-rollback query returns zero matching rows"
+  ],
+  "verification": {
+    "administratorClaimPresent": true,
+    "administratorRoleVerified": true,
+    "validArtifactAccepted": true,
+    "emptyDraft": true,
+    "runIdMatches": true,
+    "ownerMatchesAuthenticatedUid": true,
+    "postRollback": {"runIdRows":0,"receiptRows":0,"stockMoveRows":0,"purchaseIdRows":0,"purchaseItemRows":0},
+    "persistentFixture": false,
+    "sefazTransmission": false,
+    "operatorLoginValidated": false,
+    "initialAttempt": "An earlier SQL batch returned an error; an independent query found zero purchase, item, receipt, and stock-movement rows. The passing batch used the quoted camelCase column identifier."
+  }
+}

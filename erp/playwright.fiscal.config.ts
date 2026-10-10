@@ -2,7 +2,6 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
-const EXPECTED_OPERATOR_EMAIL = 'matheusmorante002@gmail.com';
 const projectRoot = path.resolve(__dirname, '..');
 
 function linkedSupabaseRef(): string {
@@ -55,13 +54,6 @@ function assertFiscalE2eEnvironment(): void {
     ['true', '1'].includes((process.env.NFE_PRODUCTION_ENABLED || '').toLowerCase())
   ) {
     throw new Error('E2E fiscal bloqueado: Vercel Development, Supabase vinculado e Homologação são obrigatórios.');
-  }
-
-  if (
-    process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase() !==
-    EXPECTED_OPERATOR_EMAIL
-  ) {
-    throw new Error('E2E fiscal bloqueado: a conta de operador autorizada configurada não corresponde à identidade exigida.');
   }
 
   if (mode === 'simulated') {

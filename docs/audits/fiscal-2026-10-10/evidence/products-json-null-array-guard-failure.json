@@ -1,0 +1,53 @@
+{
+  "name": "products-json-null-array-guard-failure",
+  "date": "2026-10-10",
+  "status": "failed-reproduced-and-rolled-back",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "table": "products",
+  "runId": "c4b20177-5b36-4a65-9c5a-772be8b02e32",
+  "productId": "d3b04351-f7e8-4c45-9f91-6bb72c5179e0",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "preflight": {
+    "administratorProfileAvailable": true,
+    "productIdExists": false,
+    "runIdExists": false,
+    "inventoryMoveIdExists": false,
+    "comboItemsNullable": true,
+    "comboItemsDefault": null,
+    "productsTotal": 382,
+    "existingProductsWithComboItemsNull": 179,
+    "productsCreatedSinceGuardMigration": 0
+  },
+  "attempt": {
+    "comboItems": "omitted, so the row contained JSON null",
+    "explicitCode": true,
+    "operation": "synthetic product INSERT in explicit transaction"
+  },
+  "failure": {
+    "sqlState": "22023",
+    "message": "cannot extract elements from a scalar",
+    "source": "guard_test_artifact_record() enumerated JSON null with jsonb_array_elements before the INSERT completed"
+  },
+  "postFailureRead": {
+    "productIdRows": 0,
+    "variationRows": 0,
+    "inventoryMoveIdRows": 0,
+    "productRunRows": 0
+  },
+  "sideEffects": {
+    "persistentFixture": false,
+    "defaultVariationTriggerReached": false,
+    "skuGeneratorReached": false,
+    "sequenceConsumed": false,
+    "externalCall": false,
+    "inventoryChanged": false,
+    "sefazTransmission": false
+  },
+  "followUp": {
+    "migration": "20261010134535_fix_test_artifact_json_null_arrays",
+    "state": "APPLIED",
+    "proof": "A later INSERT omitted combo_items and supplier_ids, created the deferred default variation inside an explicit transaction, then rolled back with zero rows on independent read."
+  },
+  "riskBoundary": "At the time of this probe, the guard branch ran for product rows before insert and rejected combo_items as SQL/JSON null; no row from this probe persisted. A forward correction was applied later and is documented in followUp."
+}

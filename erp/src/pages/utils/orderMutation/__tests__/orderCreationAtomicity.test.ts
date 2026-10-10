@@ -7,10 +7,14 @@ const mocks = vi.hoisted(() => ({
   syncCustomer: vi.fn(),
   dispatchNotifications: vi.fn(),
   dispatchUpdateNotifications: vi.fn(),
+  invalidateQueries: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { rpc: mocks.rpc, from: mocks.from },
+}));
+vi.mock('@/lib/queryClient', () => ({
+  queryClient: { invalidateQueries: mocks.invalidateQueries },
 }));
 vi.mock('../../orderCode', () => ({
   getNextOrderIndex: async () => 123,
@@ -59,7 +63,10 @@ const splitPayments = [
 ];
 
 describe('cadastro de pedido com estoque atômico', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.invalidateQueries.mockResolvedValue(undefined);
+  });
 
   it('envia o pedido à RPC que também grava as movimentações', async () => {
     mocks.rpc.mockResolvedValue({
@@ -74,6 +81,19 @@ describe('cadastro de pedido com estoque atômico', () => {
     );
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.dispatchNotifications).toHaveBeenCalledTimes(1);
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
+  });
+
+  it('invalida a lista de pedidos depois que a atualização persiste com sucesso', async () => {
+    mocks.rpc.mockResolvedValue({ data: { order_data: scheduledSale }, error: null });
+
+    await executeUpdateOrder(
+      'pedido-1',
+      { observation: 'alteração confirmada' } as any,
+      { ...scheduledSale, id: 'pedido-1', orderIndex: 123 } as any
+    );
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
   });
 
   it('usa uma chave estável de idempotência quando a fixture a fornece', async () => {
@@ -231,5 +251,6 @@ describe('cadastro de pedido com estoque atômico', () => {
     );
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.recordHistory).not.toHaveBeenCalled();
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
   });
 });

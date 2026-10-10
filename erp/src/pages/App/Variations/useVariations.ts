@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import VariationType from '../../types/variation.type';
 import {
   fetchVariations,
   moveToTrash,
@@ -12,9 +11,9 @@ export const VARIATIONS_QUERY_KEY = ['variations'] as const;
 export const useVariations = () => {
   const queryClient = useQueryClient();
 
-  const { data: rawVariations = [], isLoading: loading } = useQuery({
+  const { data: rawVariations = [], isLoading: loading, error } = useQuery({
     queryKey: VARIATIONS_QUERY_KEY,
-    queryFn: fetchVariations,
+    queryFn: () => fetchVariations({ throwOnError: true }),
     staleTime: 5 * 60 * 1000, // 5 minutos: características raramente mudam
     gcTime: 10 * 60 * 1000,
   });
@@ -52,6 +51,6 @@ export const useVariations = () => {
     }
   };
 
-  return { variations, loading, handleDelete, refresh };
+  return { variations, loading, error, handleDelete, refresh };
 };
 

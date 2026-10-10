@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
-import Product from '@/pages/types/product.type';
+import Product, { type Variation } from '@/pages/types/product.type';
 import { useMoveVariationFamily } from './MoveVariationFamily/useMoveVariationFamily';
 import { FamilySearchSelector } from './MoveVariationFamily/FamilySearchSelector';
 import { AttributeConflictResolver } from './MoveVariationFamily/AttributeConflictResolver';
 
 export interface MoveVariationFamilyModalProps {
-  readonly variation: (Product & { readonly variationId?: string }) | null;
+  readonly variation: (Product & { readonly variationId?: string; attributes: Variation['attributes'] }) | null;
   readonly onClose: () => void;
   readonly onMoved: () => void;
 }

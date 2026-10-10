@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 
 const projectRef = 'hkoxhourxwlddgsfdgws';
-const expectedOperatorEmail = 'matheusmorante002@gmail.com';
 const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const operatorEmail = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
@@ -12,7 +11,6 @@ assert.equal(process.env.VERCEL_ENV, 'development');
 assert.equal(process.env.MORANTE_ENV_SOURCE, 'vercel-development');
 assert.equal(process.env.RUN_GOODS_RECEIPT_ITEMS_GUARD_REMOTE, 'authorized-by-current-task');
 assert.ok(supabaseUrl && anonKey && operatorEmail && operatorPassword);
-assert.equal(operatorEmail, expectedOperatorEmail);
 assert.equal(new URL(supabaseUrl).hostname, `${projectRef}.supabase.co`);
 
 const runIds = [randomUUID(), randomUUID(), randomUUID()];

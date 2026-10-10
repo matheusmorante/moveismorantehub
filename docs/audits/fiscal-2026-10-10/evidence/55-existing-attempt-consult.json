@@ -1,0 +1,17 @@
+{
+  "name": "55-existing-attempt-consult",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "consult",
+      "model": "55",
+      "environment": 2,
+      "cStat": "100",
+      "success": true,
+      "reason": "Autorizado o uso da NF-e",
+      "responseBytes": 932,
+      "protocolPresent": true
+    }
+  ]
+}

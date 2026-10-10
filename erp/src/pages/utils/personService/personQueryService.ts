@@ -4,7 +4,7 @@ import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
 
 export const PERSON_QUERY_COLUMNS =
-  'id, employee_code, person_type, person_type_pf_pj, full_name, social_name, nickname, cpf_cnpj, rg_ie, ie_indicator, email, phone, address, observation, active, is_draft, deleted, deleted_at, position, lead_time, marketing_origin, stock_origins, created_at, updated_at';
+  'id, person_type, person_type_pf_pj, full_name, social_name, nickname, cpf_cnpj, rg_ie, ie_indicator, email, phone, address, observation, active, is_draft, deleted, deleted_at, position, lead_time, marketing_origin, stock_origins, created_at, updated_at';
 
 
 const peopleCache: Record<
@@ -110,7 +110,8 @@ export const subscribeToPeople = (
 
 export const fetchPersons = async (
   collectionName: string = 'suppliers',
-  includeDeleted = false
+  includeDeleted = false,
+  options: { throwOnError?: boolean } = {}
 ): Promise<Person[]> => {
   try {
     if (collectionName === 'employees') {
@@ -164,6 +165,7 @@ export const fetchPersons = async (
     return employees;
   } catch (e) {
     console.error('Erro ao buscar pessoas em personService:', e);
+    if (options.throwOnError) throw e;
     return [];
   }
 };

@@ -1,0 +1,54 @@
+{
+  "name": "goods-receipt-confirmation-guard-fixed-rollback",
+  "date": "2026-10-10",
+  "status": "guard_and_stock_effects_passed_inside_rollback_cost_mismatch_found",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "migrations": [
+    "20261010134535_fix_test_artifact_json_null_arrays",
+    "20261010135148_qualify_inventory_move_trigger_objects"
+  ],
+  "rpc": "confirm_goods_receipt_checked_transaction",
+  "runId": "e035d9f6-120e-4c2c-b695-2ab87e944dbc",
+  "productId": "7c32a53c-668c-4ba1-bcad-7b8622c43100",
+  "receiptId": "01643f6a-3292-498d-a726-40594fc3d5ae",
+  "identitySource": "Existing administrator selected inside SQL; authenticated role and administrator claims simulated; no email or user ID recorded",
+  "fixture": {
+    "productStatus": "draft",
+    "receiptStatus": "received inside transaction",
+    "quantity": 1,
+    "unitCost": 2.50,
+    "receiptIndex": "suppressed to null by the test-artifact guard"
+  },
+  "verificationInsideTransaction": {
+    "receiptIdentityMatchesRun": true,
+    "receiptItemRows": 1,
+    "effectiveMovementRows": 1,
+    "movementRelatedEntityType": "goods_receipt",
+    "movementSourceReceiptMatches": true,
+    "movementUnitCost": 2.50,
+    "productStock": 1,
+    "variationStock": 1,
+    "productCostPrice": 0,
+    "variationCostPrice": 0,
+    "recalculateOrderDocumentUnitCost": 2.50
+  },
+  "rollbackAndIndependentRead": {
+    "productRows": 0,
+    "variationRows": 0,
+    "receiptRows": 0,
+    "receiptItemRows": 0,
+    "movementRows": 0,
+    "receiptSequenceBefore": { "last_value": 1, "is_called": false },
+    "receiptSequenceAfter": { "last_value": 1, "is_called": false }
+  },
+  "costFinding": "The effective movement carries unit_cost=2.50 and the recalculation function returns 2.50, but product and variation cost_price remain 0. The single-variation inheritance trigger copies the parent's old zero cost during the variation update. This is a separate valuation behavior; no cost logic was changed in these guard/search_path migrations.",
+  "sideEffects": {
+    "persistentFixture": false,
+    "stockChanged": false,
+    "receiptSequenceConsumed": false,
+    "externalCall": false,
+    "sefazTransmission": false
+  },
+  "riskBoundary": "This proves the checked receipt RPC, artifact links, movement guard, stock delta and rollback path with simulated claims. It does not prove committed PostgREST behavior, real operator login, cost correctness, concurrency, cleanup, or readiness for broad receipt E2E."
+}

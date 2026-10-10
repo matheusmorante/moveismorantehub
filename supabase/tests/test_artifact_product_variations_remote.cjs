@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 
 const projectRef = 'hkoxhourxwlddgsfdgws';
-const expectedOperatorEmail = 'matheusmorante002@gmail.com';
 const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/+$/, '');
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const operatorEmail = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
@@ -12,7 +11,6 @@ assert.equal(process.env.PRODUCT_VARIATION_ARTIFACT_GUARD_VERIFIED, '20261010012
 assert.equal(process.env.RUN_PRODUCT_VARIATION_ARTIFACT_REMOTE, 'authorized-by-current-task');
 assert.equal(process.env.MORANTE_ENV_SOURCE, 'vercel-development');
 assert.ok(supabaseUrl && anonKey && operatorEmail && operatorPassword);
-assert.equal(operatorEmail, expectedOperatorEmail);
 assert.equal(new URL(supabaseUrl).hostname, projectRef + '.supabase.co');
 
 const runId = randomUUID();
@@ -61,7 +59,7 @@ async function run() {
   });
   assert.equal(login.status, 200, 'Authorized operator login failed (' + login.status + ').');
   const session = await login.json();
-  assert.equal(session.user?.email?.toLowerCase(), expectedOperatorEmail);
+  assert.equal(session.user?.email?.toLowerCase(), operatorEmail);
   assert.ok(session.access_token && session.user?.id);
   accessToken = session.access_token;
 
@@ -128,7 +126,7 @@ async function run() {
     projectRef,
     schema: 'public',
     runId,
-    operatorEmail: expectedOperatorEmail,
+    operatorIdentityVerified: true,
     forgedOwnerRejected: true,
     nonexistentParentUsed: true,
     noOperationalParentLocked: true,

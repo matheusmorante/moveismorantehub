@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Person from '../../../../types/person.type';
 import {
   fetchPersons,
   moveToTrash,
@@ -11,20 +10,22 @@ import {
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { toast } from 'react-toastify';
 
+const EMPTY_PEOPLE: Awaited<ReturnType<typeof fetchPersons>> = [];
+
 export const usePeople = (collectionName: string, filters?: any) => {
   const queryClient = useQueryClient();
   const showTrash = Boolean(filters?.showTrash);
 
-  const { data: people = [], isLoading: loadingActive } = useQuery({
+  const { data: people = EMPTY_PEOPLE, isLoading: loadingActive, error: activeError } = useQuery({
     queryKey: ['people', collectionName, 'active'],
-    queryFn: () => fetchPersons(collectionName, false),
+    queryFn: () => fetchPersons(collectionName, false, { throwOnError: true }),
     staleTime: 2 * 60 * 1000, // 2 minutos em cache fresco
     gcTime: 5 * 60 * 1000,
   });
 
-  const { data: trashedPeople = [], isLoading: loadingTrash } = useQuery({
+  const { data: trashedPeople = EMPTY_PEOPLE, isLoading: loadingTrash, error: trashError } = useQuery({
     queryKey: ['people', collectionName, 'trash'],
-    queryFn: () => fetchPersons(collectionName, true),
+    queryFn: () => fetchPersons(collectionName, true, { throwOnError: true }),
     enabled: showTrash, // Apenas busca lixeira quando a aba lixeira estiver aberta!
     staleTime: 2 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -57,7 +58,6 @@ export const usePeople = (collectionName: string, filters?: any) => {
 
   const filteredPeople = useMemo(() => {
     const showTrash = filters?.showTrash || false;
-    const isDraft = filters?.isDraft || false;
 
     // Use the appropriate list from DB — already filtered server-side
     const sourceList = showTrash ? trashedPeople : people;
@@ -102,7 +102,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
         const sortOrder = filters?.sortOrder || 'asc';
         return sortOrder === 'asc' ? comparison : -comparison;
       });
-  }, [people, trashedPeople, filters]);
+  }, [people, trashedPeople, filters, collectionName]);
 
   const totalPages = Math.ceil(filteredPeople.length / itemsPerPage);
   const totalItems = filteredPeople.length;
@@ -141,7 +141,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
       toast.info(`${selectedPeople.length} item(ns) movido(s) para a lixeira.`);
       setSelectedPeople([]);
       invalidatePeople();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao mover alguns itens para a lixeira.');
     }
   };
@@ -153,7 +153,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
       toast.success(`${selectedPeople.length} item(ns) restaurado(s) com sucesso!`);
       setSelectedPeople([]);
       invalidatePeople();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao restaurar alguns itens.');
     }
   };
@@ -166,7 +166,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
         toast.success(`${selectedPeople.length} item(ns) excluído(s) permanentemente.`);
         setSelectedPeople([]);
         invalidatePeople();
-      } catch (error) {
+      } catch {
         toast.error('Erro ao excluir alguns itens.');
       }
     }
@@ -198,7 +198,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
       await updatePerson(collectionName, id, { active: !currentStatus });
       toast.success(`${!currentStatus ? 'Ativado' : 'Desativado'} com sucesso!`);
       invalidatePeople();
-    } catch (error) {
+    } catch {
       toast.error('Erro ao alterar status.');
     }
   };
@@ -216,6 +216,7 @@ export const usePeople = (collectionName: string, filters?: any) => {
     setCurrentPage,
     setItemsPerPage,
     loading,
+    error: showTrash ? trashError : activeError,
     handleDelete,
     handleRestore,
     handlePermanentDelete,

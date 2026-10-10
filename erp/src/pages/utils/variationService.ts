@@ -153,7 +153,9 @@ export const checkVariationUsage = async (
   }
 };
 
-export const fetchVariations = async (): Promise<VariationType[]> => {
+export const fetchVariations = async (
+  options: { throwOnError?: boolean } = {}
+): Promise<VariationType[]> => {
   try {
     // 1. Buscar atributos globais ordenados por nome
     let attrData: any[] | null = null;
@@ -166,7 +168,7 @@ export const fetchVariations = async (): Promise<VariationType[]> => {
       primaryQuery.error &&
       (primaryQuery.error.message?.includes('column') || primaryQuery.error.code === '42703')
     ) {
-      let fallbackQuery = await supabase
+      let fallbackQuery: any = await supabase
         .from('attributes')
         .select('id, name, active, data_type, unit, is_globally_required, is_custom')
         .order('name', { ascending: true });
@@ -241,6 +243,7 @@ export const fetchVariations = async (): Promise<VariationType[]> => {
     return mapped;
   } catch (error) {
     console.error('Erro ao buscar variações iniciais:', error);
+    if (options.throwOnError) throw error;
     return [];
   }
 };
@@ -279,9 +282,9 @@ export const updateVariation = async (
 
 
 const invalidateVariationsQueries = () => {
-  try {
-    queryClient.invalidateQueries({ queryKey: ['variations'] });
-  } catch (e) {}
+  void queryClient
+    .invalidateQueries({ queryKey: ['variations'] })
+    .catch((error) => console.error('[Variations] Falha ao atualizar o cache:', error));
 };
 
 const persistVariationDefinition = async (variation: Partial<VariationType>): Promise<void> => {

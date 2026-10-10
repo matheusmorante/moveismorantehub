@@ -1,0 +1,53 @@
+{
+  "name": "products-variations-inventory-moves-artifact-guards-valid-rollback",
+  "date": "2026-10-10",
+  "status": "passed",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "tables": ["products", "product_variations", "inventory_moves"],
+  "runId": "64e9ef58-9c27-4448-bba9-b9b43fb93507",
+  "productId": "0b4d75a5-40e2-4a6a-a30c-c3b48c22f8e9",
+  "inventoryMoveId": "5d21951c-3792-46de-88ba-001a27a0c496",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "fixture": {
+    "productStatus": "draft",
+    "comboItems": [],
+    "supplierIds": [],
+    "inventoryMoveType": "entry",
+    "inventoryMoveQuantity": 1,
+    "artifactMetadata": "technical_specs.testArtifact with is_test=true, this runId, and authenticated ownerId"
+  },
+  "preflight": {
+    "productIdExists": false,
+    "runIdExists": false,
+    "inventoryMoveIdExists": false
+  },
+  "expectedEffects": [
+    "the product record guard accepts the valid runId and ownerId",
+    "SET CONSTRAINTS ALL IMMEDIATE invokes the deferred default-variation trigger inside the transaction",
+    "the derived variation guard resolves identity through the synthetic parent product",
+    "the inventory movement guard validates the same product, variation, runId, and owner",
+    "the movement AFTER trigger only searches withdrawals for this new synthetic product and finds none",
+    "the explicit non-generated code avoids the SKU generator's max-code scan"
+  ],
+  "reversalAndRetention": "ROLLBACK the same transaction; independent query confirmed zero product, variation, and movement rows for these IDs and the runId",
+  "verification": {
+    "authenticatedRole": true,
+    "administratorRoleVerified": true,
+    "productIdentityValid": true,
+    "defaultVariationCountInsideTransaction": 1,
+    "movementIdentityRunMatches": true,
+    "movementCountInsideTransaction": 1,
+    "postRollback": {
+      "productIdRows": 0,
+      "variationRows": 0,
+      "movementIdRows": 0,
+      "productRunRows": 0,
+      "variationParentRows": 0
+    },
+    "persistentFixture": false,
+    "operatorLoginValidated": false,
+    "sefazTransmission": false
+  },
+  "riskBoundary": "This validates the PostgreSQL record guards and deferred trigger with simulated authenticated administrator claims. The valid product payload explicitly set combo_items=[] to work around the reproduced JSON-null defect; it does not validate a committed PostgREST product or authorize E2E."
+}

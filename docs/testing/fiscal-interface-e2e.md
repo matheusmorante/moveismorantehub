@@ -10,7 +10,7 @@ Cada cenário futuro deve usar UUID de execução e owner autenticado na metadat
 
 Antes de iniciar os testes, o runner consulta em modo somente leitura `test_artifact_policy_status()` no projeto configurado. O RPC ausente, erro de acesso, versão inesperada ou `ready=false` bloqueia o Playwright. Esse status confirma instalação de guards, mas não substitui os testes de banco de autorização, vínculos, rollback, concorrência, consultas e supressão de efeitos.
 
-As chaves e a identidade do operador são lidas em runtime do Vercel Development. Não grave secrets, senha, tokens, cookies ou `storageState` em arquivos ou relatórios. A política principal está em `.agents/skills/vercel-development/SKILL.md`.
+As chaves, o e-mail e a senha do operador são lidos em runtime dos secrets de Vercel Development; `NFE_HML_TEST_OPERATOR_EMAIL` define a identidade dos novos testes. Regras ativas e runners não devem fixar um endereço; registros históricos podem preservar a identidade usada naquela execução. A autenticação deve confirmar que o e-mail da sessão corresponde ao valor configurado. Não grave secrets, e-mail, senha, tokens, cookies ou `storageState` em arquivos ou relatórios. A política principal está em `.agents/skills/vercel-development/SKILL.md`.
 
 ## Estado da suíte
 

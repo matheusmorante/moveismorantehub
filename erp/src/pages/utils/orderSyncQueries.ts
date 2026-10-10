@@ -1,5 +1,6 @@
 import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import Order from '../types/order.type';
+import type { GeoMapOrderProjection, RecentOrderProjection } from '../types/dashboardOrderProjection.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from './formatters';
 import { getOrderIndex } from './orderCode';
@@ -179,7 +180,8 @@ export const enrichOrdersWithPeopleOrigins = async (orders: Order[]): Promise<Or
 export const fetchOrdersPage = async (
   page: number = 1,
   pageSize: number = 15,
-  filters?: any
+  filters?: any,
+  options: { throwOnError?: boolean } = {}
 ): Promise<{ orders: Order[]; total: number }> => {
   const firstRow = Math.max(0, (page - 1) * pageSize);
   const lastRow = firstRow + pageSize - 1;
@@ -226,6 +228,7 @@ export const fetchOrdersPage = async (
   const { data, count, error } = await query;
   if (error) {
     console.error('[OrdersService] Erro ao buscar página de pedidos:', error);
+    if (options.throwOnError) throw error;
     return { orders: [], total: 0 };
   }
 
@@ -429,7 +432,7 @@ const RECENT_DASHBOARD_ORDERS_COLUMNS = `
 `;
 
 /** Fonte C: Busca leve de apenas 5 pedidos recentes para o card da interface */
-export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => {
+export const fetchRecentOrders = async (limit: number = 5): Promise<RecentOrderProjection[]> => {
   try {
     const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
@@ -456,7 +459,7 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => 
           totalAmount: Number(r.total_amount || 0),
           date: r.created_at,
           deleted: false,
-        }) as Order
+        })
     );
   } catch (err) {
     console.error('[OrdersSync] Falha em fetchRecentOrders:', err);
@@ -465,7 +468,7 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<Order[]> => 
 };
 
 /** Fonte B: Busca leve de até 50 pedidos para radar geográfico (sem order_items pesados) */
-export const fetchGeoMapOrders = async (limit: number = 50): Promise<Order[]> => {
+export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrderProjection[]> => {
   try {
     const { data, error } = await supabase
       .from(TABLE_NAME)
@@ -489,8 +492,13 @@ export const fetchGeoMapOrders = async (limit: number = 50): Promise<Order[]> =>
           orderType: r.order_type || 'sale',
           customerData: r.order_data?.customerData || { fullName: r.customer_name || '' },
           shipping: r.order_data?.shipping || {},
+          itemsSummary: {
+            itemsTotalValue: Number(
+              r.order_data?.itemsSummary?.itemsTotalValue ?? r.total_amount ?? 0
+            ),
+          },
           deleted: false,
-        }) as Order
+        })
     );
   } catch (err) {
     console.error('[OrdersSync] Falha em fetchGeoMapOrders:', err);

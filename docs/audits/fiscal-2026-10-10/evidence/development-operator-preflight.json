@@ -1,0 +1,23 @@
+{
+  "name": "development-operator-preflight",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "operator",
+      "projectRef": "hkoxhourxwlddgsfdgws",
+      "environment": 2,
+      "projectMatches": true,
+      "vercelDevelopment": true,
+      "homologationEnvironment": true,
+      "productionDisabled": true,
+      "environmentOk": true,
+      "operatorEmailPresent": true,
+      "credentialsPresent": true,
+      "authenticatedIdentityMatches": true,
+      "authenticated": true,
+      "administratorCheckOk": true,
+      "isAdministrator": true
+    }
+  ]
+}

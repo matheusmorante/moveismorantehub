@@ -95,6 +95,24 @@ async function check() {
     await handler({ method: 'POST', headers: {}, query: { operation: '__proto__' } }, response);
     assert.equal(status, 404, `${dispatcher}: unknown operation was not rejected.`);
   }
+  const auditRouteSource = await readFile(resolve(__dirname, '../api/nfe/audit-order-edit.ts'), 'utf8');
+  const auditRouteEmitted = ts.transpileModule(auditRouteSource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  assert.ok(auditRouteEmitted.includes('../../server/nfe/audit-order-edit.cjs'));
+  const auditRouteRunnable = auditRouteEmitted.replace(
+    '../../server/nfe/audit-order-edit.cjs',
+    pathToFileURL(resolve(__dirname, '../server/nfe/audit-order-edit.cjs')).href
+  );
+  const { default: auditRoute } = await import('data:text/javascript;base64,' +
+    Buffer.from(auditRouteRunnable).toString('base64'));
+  let auditStatus;
+  const auditResponse = {
+    setHeader() {}, status(code) { auditStatus = code; return this; }, json() { return this; },
+  };
+  await auditRoute({ method: 'INVALID', headers: {}, query: {} }, auditResponse);
+  assert.equal(auditStatus, 405, 'audit-order-edit: handler did not execute');
+  console.log('audit-order-edit: native module loading and handler execution passed.');
   // Exercise the external ESM/WASM dependency and XSD resource resolution.
   const result = await build({
     entryPoints: [resolve(__dirname, '../../api/nfe/schemaValidator.ts')],

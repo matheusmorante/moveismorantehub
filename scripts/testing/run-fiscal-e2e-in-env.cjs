@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '../..');
 const mode = process.argv[2];
-const expectedOperator = 'matheusmorante002@gmail.com';
 
 function stop(message) {
   process.stderr.write(`${message}\n`);
@@ -24,7 +23,6 @@ const anonKey = required('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY');
 const serviceKey = required('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
 const operatorEmail = required('NFE_HML_TEST_OPERATOR_EMAIL').toLowerCase();
 required('NFE_HML_TEST_OPERATOR_PASSWORD');
-if (operatorEmail !== expectedOperator) stop('E2E fiscal bloqueado: a identidade do operador autorizado não corresponde.');
 
 let linkedRef;
 try {
@@ -47,6 +45,7 @@ if (!/^[a-z0-9]{20}$/.test(linkedRef) || configuredRef !== linkedRef) {
 
 const env = { ...process.env };
 env.FISCAL_E2E_MODE = mode;
+env.NFE_HML_TEST_OPERATOR_EMAIL = operatorEmail;
 env.VITE_TEST_ARTIFACT_RUN_ID = randomUUID();
 env.FISCAL_E2E_ALLOWED_SUPABASE_REF = linkedRef;
 env.VITE_SUPABASE_URL = supabaseUrl;

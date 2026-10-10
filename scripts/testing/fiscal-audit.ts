@@ -197,6 +197,44 @@ async function main() {
       snapshotId:doc.fiscal_snapshot_id,snapshotHash:hash(JSON.stringify(snapshot.snapshot_data)),
       protocolPresent:Boolean(doc.numero_protocolo),historyCount:doc.hml_response_history?.length,updatedAt:doc.updated_at,
       operational:operational.map((item:{count:number;hash:string},index:number)=>({table:['orders','order_items','order_payments','inventory_moves','accounts_receivable','financial_transactions'][index],...item}))}));
+  } else if (mode === 'operator') {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
+    const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
+    const expectedEmail = 'matheusmorante0012@gmail.com';
+    const projectRef = (() => {
+      try { return new URL(url).hostname.split('.')[0]; } catch { return ''; }
+    })();
+    const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
+    const vercelDevelopment = process.env.VERCEL_ENV === 'development';
+    const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
+    const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
+    const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+    const operatorIdentityMatches = Boolean(email && email === expectedEmail);
+    const credentialsPresent = Boolean(password && process.env.VITE_SUPABASE_ANON_KEY);
+    if (!projectMatches || !environmentOk || !operatorIdentityMatches || !credentialsPresent) {
+      console.log(JSON.stringify({mode,projectRef,projectMatches,vercelDevelopment,homologationEnvironment,
+        productionDisabled,environmentOk,operatorIdentityMatches,credentialsPresent,authenticated:false,
+        administratorCheckOk:false,isAdministrator:false}));
+      process.exitCode = 1;
+      return;
+    }
+    const operator = createClient(url, process.env.VITE_SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const login = await operator.auth.signInWithPassword({ email, password });
+    const authenticated = !login.error && Boolean(login.data.session) &&
+      login.data.user?.email?.trim().toLowerCase() === expectedEmail;
+    if (!authenticated) {
+      console.log(JSON.stringify({mode,projectRef,environment:2,operatorIdentityMatches:true,
+        authenticated:false,administratorCheckOk:false,isAdministrator:false}));
+      process.exitCode = 1;
+    } else {
+      const role = await operator.rpc('is_administrator');
+      console.log(JSON.stringify({mode,projectRef,environment:2,operatorIdentityMatches:true,
+        authenticated:true,administratorCheckOk:!role.error,isAdministrator:!role.error && role.data === true}));
+      if (role.error || role.data !== true) process.exitCode = 1;
+    }
   } else if (mode === 'wsdl') {
     const model = process.argv[3]; const policy = process.argv[4] || 'erp';
     const environment = process.argv[5] === '1' ? 1 : 2;

@@ -138,11 +138,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isMasterEmail = isMasterEmailCheck(userEmail);
       const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-      let { data } = await supabase
+      const { data: existingProfile } = await supabase
         .from('profiles')
         .select(PROFILE_COLUMNS)
         .eq('id', user.id)
         .maybeSingle();
+      let data: Profile | null = existingProfile;
 
       if (!data) {
         console.log('[Auth] Perfil não encontrado no banco. Criando registro...');

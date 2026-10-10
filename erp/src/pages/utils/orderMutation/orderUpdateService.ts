@@ -12,6 +12,7 @@ import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher'
 import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { assertOwnedByTestContext } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { queryClient } from '@/lib/queryClient';
 
 const TABLE_NAME = 'orders';
 
@@ -148,9 +149,9 @@ export const executeUpdateOrder = async (
       merged.customerData?.phone,
       merged.marketingOrigin
     );
-    try {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    } catch (e) {}
+    void queryClient
+      .invalidateQueries({ queryKey: ['orders'] })
+      .catch((error) => console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error));
   } catch (error) {
     console.error('Erro ao atualizar o pedido: ', error);
     throw error;

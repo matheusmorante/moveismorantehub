@@ -1,0 +1,37 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "serverVersion": "17.6",
+  "method": "explicit authenticated PostgreSQL transactions; each ended with ROLLBACK",
+  "transactions": [
+    {
+      "purpose": "valid-confirmation-rollback",
+      "runId": "e56fdef4-d6ce-4434-9e94-32c14b35e0e1",
+      "receiptId": "0808808b-e1ab-4feb-b9e7-57c58afc5cc7",
+      "authenticatedAdministrator": true,
+      "confirmationStatus": "received",
+      "inventoryMovesReturned": 0,
+      "receiptsAfterRollback": 0,
+      "itemsAfterRollback": 0,
+      "movementsAfterRollback": 0,
+      "postRollbackVerificationSucceeded": true
+    },
+    {
+      "purpose": "owner-and-confirmed-receipt-guards",
+      "runId": "ec9a2717-8cac-4705-be1a-a3353a665293",
+      "receiptId": "0dabdf63-a8c0-4d4e-920a-1b2d53134c10",
+      "ownerAdministrator": true,
+      "secondAdministrator": true,
+      "crossOwnerUpdate": "ERROR:TEST_ARTIFACT_UNAUTHORIZED: execução e operador administrador autenticado são obrigatórios",
+      "confirmationStatus": "received",
+      "confirmedItemUpdate": "ERROR:TEST_ARTIFACT_RECEIPT_ITEMS_LOCKED",
+      "confirmedReceiptDelete": "ERROR:TEST_ARTIFACT_RECEIPT_DELETE_REQUIRES_DRAFT",
+      "receiptsAfterRollback": 0,
+      "itemsAfterRollback": 0,
+      "movementsAfterRollback": 0,
+      "postRollbackVerificationSucceeded": true
+    }
+  ],
+  "sefazContacted": false,
+  "productionChanged": false
+}

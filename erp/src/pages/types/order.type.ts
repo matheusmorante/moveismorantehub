@@ -13,6 +13,7 @@ export type AssistanceItem = {
   quantity: number;
   originalOrderId: string;
   handlingType?: string;
+  observation?: string;
 };
 
 export type Order = {

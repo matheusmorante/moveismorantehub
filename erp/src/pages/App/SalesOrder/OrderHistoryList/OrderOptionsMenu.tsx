@@ -85,6 +85,7 @@ export const OrderOptionsMenu = ({
   return (
     <div className="relative">
       <button
+        type="button"
         ref={menuButtonRef}
         className={`p-2 rounded-xl transition-all border flex items-center justify-center ${buttonClassName || 'h-7 w-7'} shadow-sm ${
           showMenu

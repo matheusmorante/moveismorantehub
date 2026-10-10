@@ -1,0 +1,59 @@
+{
+  "name": "goods-receipt-confirmation-artifact-guard-rollback-failure",
+  "date": "2026-10-10",
+  "status": "failed-reproduced-and-rolled-back",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "rpc": "confirm_goods_receipt_checked_transaction",
+  "runId": "ce19f230-e240-442b-8daa-631ac11f084b",
+  "productId": "a571c877-f70e-40d7-abdd-a7ce4d58ce9a",
+  "receiptId": "42bc0ff8-9fe6-42fa-b00c-f4f1ed663e28",
+  "identitySource": "Existing administrator profile selected inside SQL; authenticated role/JWT claims simulated for database guard testing; no email or user ID stored",
+  "preflight": {
+    "productIdExists": false,
+    "receiptIdExists": false,
+    "runIdExists": false,
+    "checkedRpcExecutableByAuthenticated": true,
+    "baseRpcExecutableByAuthenticated": false,
+    "sequence": {"last_value": 1, "is_called": false},
+    "receiptIndex999999Exists": false
+  },
+  "attempt": {
+    "product": "synthetic draft with combo_items=[] and testArtifact metadata",
+    "receipt": "one synthetic test item, quantity 1, unit cost 2.50",
+    "operation": "invoke the authenticated checked confirmation RPC in one explicit PostgreSQL transaction"
+  },
+  "failure": {
+    "sqlState": "P0001",
+    "message": "TEST_ARTIFACT_LINK_MISMATCH: orders",
+    "source": "confirm_goods_receipt_transaction writes inventory_moves.order_id=receipt_id with related_entity_type=goods_receipt; guard_test_artifact_record treats every order_id as an orders link and rejects the receipt UUID"
+  },
+  "transactionEffectsBeforeFailure": [
+    "synthetic product and its default variation were inserted inside the transaction",
+    "the receipt header and receipt item were inserted inside the transaction",
+    "inventory move insertion was rejected before stock-delta application"
+  ],
+  "postAbortRead": {
+    "productRows": 0,
+    "productRunRows": 0,
+    "variationRows": 0,
+    "receiptRows": 0,
+    "receiptItemRows": 0,
+    "movementRows": 0,
+    "sequence": {"last_value": 1, "is_called": false}
+  },
+  "sideEffects": {
+    "persistentFixture": false,
+    "stockDeltaApplied": false,
+    "externalCall": false,
+    "sequenceConsumed": false,
+    "sefazTransmission": false
+  },
+  "followUp": {
+    "guardMigration": "20261010134535_fix_test_artifact_json_null_arrays",
+    "searchPathMigration": "20261010135148_qualify_inventory_move_trigger_objects",
+    "state": "APPLIED",
+    "proof": "A later checked-RPC confirmation with one synthetic item created an effective receipt movement and stock delta inside an explicit transaction, then rolled back to zero rows with the receipt sequence unchanged."
+  },
+  "riskBoundary": "At the time of this probe, the guard's order-link interpretation blocked a normal receipt movement; the transaction rolled back fully. The guard and search_path corrections were applied later and are documented in followUp."
+}

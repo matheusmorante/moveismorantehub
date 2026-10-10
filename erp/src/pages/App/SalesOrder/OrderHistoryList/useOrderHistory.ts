@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Order, { IsButtonsClicked } from '../../../types/order.type';
 import {
@@ -17,9 +17,11 @@ import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadg
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 import { isTestOrder } from '@/pages/utils/hmlTestData';
+import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
 
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
+const EMPTY_ORDERS: Order[] = [];
 
 const resolveFiscalBadgeRefreshWaiters = (
   waitersBySignal: Map<number, Array<() => void>>,
@@ -68,7 +70,7 @@ export const useOrderHistory = (filters?: any) => {
 
   const queryClient = useQueryClient();
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     const nextSignal = refreshSignalRef.current + 1;
     refreshSignalRef.current = nextSignal;
     const refreshComplete = new Promise<void>((resolve) => {
@@ -78,7 +80,7 @@ export const useOrderHistory = (filters?: any) => {
     setRefreshSignal(nextSignal);
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     return refreshComplete;
-  };
+  }, [queryClient]);
 
   const markFiscalDocumentAuthorized = (
     orderId: string,
@@ -110,10 +112,15 @@ export const useOrderHistory = (filters?: any) => {
     []
   );
 
-  const { data: pageOrdersData, isLoading: queryLoading } = useQuery({
+  const { data: pageOrdersData, isLoading: queryLoading, error: queryError } = useQuery({
     queryKey: ['orders', filters, currentPage],
     queryFn: async () => {
-      const { orders: pageOrders, total } = await fetchOrdersPage(currentPage, PAGE_SIZE, filters);
+      const { orders: pageOrders, total } = await fetchOrdersPage(
+        currentPage,
+        PAGE_SIZE,
+        filters,
+        { throwOnError: true }
+      );
       const orderIds = pageOrders
         .map((order) => order.id)
         .filter((id): id is string => Boolean(id));
@@ -130,6 +137,8 @@ export const useOrderHistory = (filters?: any) => {
     staleTime: 30 * 1000, // 30 segundos em memória
     gcTime: 5 * 60 * 1000,
   });
+  const failedWithoutCurrentData = shouldClearQueryListSnapshot(pageOrdersData, queryError);
+  const ordersForCurrentQuery = failedWithoutCurrentData ? EMPTY_ORDERS : orders;
 
   useEffect(() => {
     if (pageOrdersData) {
@@ -141,15 +150,24 @@ export const useOrderHistory = (filters?: any) => {
       resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
     } else if (queryLoading) {
       setLoading(true);
+    } else if (failedWithoutCurrentData) {
+      // Não exiba a página anterior como se atendesse aos filtros atuais.
+      // Em falhas de refetch com cache, pageOrdersData continua preenchido
+      // e o ramo acima preserva a lista conhecida.
+      setOrders([]);
+      setTotalDatabaseItems(0);
+      setFiscalBadgeStatusByOrderId({});
+      setLoading(false);
+      resolveFiscalBadgeRefreshWaiters(fiscalBadgeRefreshWaiters.current, refreshSignal);
     }
-  }, [pageOrdersData, queryLoading, refreshSignal]);
+  }, [pageOrdersData, queryLoading, queryError, failedWithoutCurrentData, refreshSignal]);
 
   useEffect(() => {
     const unsub = subscribeToOrderChanges(() => {
       refresh();
     });
     return () => unsub();
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -158,35 +176,35 @@ export const useOrderHistory = (filters?: any) => {
 
   const filteredOrders = useMemo(() => {
     return sortOrders(
-      orders.filter(
+      ordersForCurrentQuery.filter(
         (order) =>
           (Boolean(filters?.showTestOrders) || !isTestOrder(order)) &&
           filterOrder(order, filters)
       ),
       filters
     );
-  }, [orders, filters]);
+  }, [ordersForCurrentQuery, filters]);
 
-  const totalItems = totalDatabaseItems || filteredOrders.length;
+  const totalItems = failedWithoutCurrentData ? 0 : totalDatabaseItems || filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
   const operations = useMemo(() => {
     return createOrderHistoryOperations({
-      orders,
+      orders: ordersForCurrentQuery,
       setOrders,
       selectedOrders,
       setSelectedOrders,
       setLoading,
       refresh,
     });
-  }, [orders, selectedOrders]);
+  }, [ordersForCurrentQuery, selectedOrders, refresh]);
 
   const handleStatusUpdate = async (
     id: string,
     newStatus: Order['status'],
     options?: { productionConfirmed?: boolean }
   ) => {
-    const currentOrder = orders.find((order) => order.id === id);
+    const currentOrder = ordersForCurrentQuery.find((order) => order.id === id);
     if (!currentOrder) return;
     if (currentOrder.status === 'draft') {
       toast.warning(
@@ -366,7 +384,7 @@ export const useOrderHistory = (filters?: any) => {
 
   return {
     orders: filteredOrders,
-    hasTestOrders: orders.some(isTestOrder),
+    hasTestOrders: ordersForCurrentQuery.some(isTestOrder),
     fiscalBadgeStatusByOrderId,
     fiscalBadgeLoadingByOrderId,
     totalItems,
@@ -377,6 +395,7 @@ export const useOrderHistory = (filters?: any) => {
     isMobile,
     isCardView,
     loading,
+    error: queryError,
     handleDelete: operations.handleDelete,
     handleRestore: operations.handleRestore,
     handlePermanentDelete: operations.handlePermanentDelete,

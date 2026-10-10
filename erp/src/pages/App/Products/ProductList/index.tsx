@@ -4,7 +4,6 @@ import { useProducts } from './hooks/data/useProducts';
 import { useVariationExitFlags } from './hooks/data/useVariationExitFlags';
 import Product, { ProductVisibilitySettings } from '../../../types/product.type';
 import type { ProductCategoryTree, ProductListFilters } from './types';
-import { toast } from 'react-toastify';
 import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 
 interface ProductListProps {
@@ -67,6 +66,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       paginatedProducts,
       hasTestProducts,
       loading,
+      error,
       isServerPagination,
       canDeleteProducts,
       totalItems,
@@ -116,6 +116,17 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
           <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
             Sincronizando catálogo...
           </p>
+        </div>
+      );
+    }
+
+    if (error && products.length === 0) {
+      return (
+        <div role="alert" className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <p className="font-bold text-red-600">Não foi possível carregar os produtos.</p>
+          <button onClick={refresh} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+            Tentar novamente
+          </button>
         </div>
       );
     }

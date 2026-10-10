@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { mergeVariationIntoCanonical } from '@/pages/utils/productService';
-import { VariationOption, MergeVariationModalProps } from '../../MergeVariationModal';
+import type { VariationOption, MergeVariationModalProps } from '../MergeVariationModal';
 
 export const useMergeVariation = (
   variation: MergeVariationModalProps['variation'],
@@ -116,5 +116,6 @@ export const useMergeVariation = (
     saving,
     sourceId,
     confirm,
+    handleCancel,
   };
 };

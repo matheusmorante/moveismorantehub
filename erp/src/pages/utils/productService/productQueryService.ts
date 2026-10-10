@@ -58,7 +58,8 @@ export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
 export const fetchProductsPage = async (
   page: number,
   pageSize: number,
-  options?: ProductQueryFilterOptions
+  options?: ProductQueryFilterOptions,
+  requestOptions: { throwOnError?: boolean } = {}
 ): Promise<{ data: Product[]; total: number }> => {
   try {
     const from = (page - 1) * pageSize;
@@ -89,6 +90,7 @@ export const fetchProductsPage = async (
 
     if (error) {
       console.error('[ProductService] Erro na paginação do BD:', error);
+      if (requestOptions.throwOnError) throw error;
       return { data: [], total: 0 };
     }
 
@@ -109,6 +111,7 @@ export const fetchProductsPage = async (
     };
   } catch (e) {
     console.error('[ProductService] Exceção em fetchProductsPage:', e);
+    if (requestOptions.throwOnError) throw e;
     return { data: [], total: 0 };
   }
 };

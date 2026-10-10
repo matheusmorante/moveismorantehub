@@ -15,7 +15,7 @@ interface VariationsProps {
 }
 
 const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
-  const { variations, loading, handleDelete, refresh } = useVariations();
+  const { variations, loading, error, handleDelete, refresh } = useVariations();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -167,6 +167,13 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
               <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">
                 Carregando características...
               </p>
+            </div>
+          ) : error && filteredVariations.length === 0 ? (
+            <div role="alert" className="rounded-3xl border border-red-200 bg-white p-12 text-center text-red-600 shadow-sm">
+              <p className="font-bold">Não foi possível carregar as características.</p>
+              <button onClick={refresh} className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+                Tentar novamente
+              </button>
             </div>
           ) : filteredVariations.length === 0 ? (
             <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm text-slate-400 font-bold">

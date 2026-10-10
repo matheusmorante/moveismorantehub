@@ -1,8 +1,9 @@
 import { Payment } from '@/pages/types/payments.type';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 const usePayments = () => {
-  const [payments, setPayments] = useState<Payment[]>([
+  const [payments, setPaymentsState] = useState<Payment[]>([
     {
       method: '',
       amount: 0,
@@ -11,6 +12,14 @@ const usePayments = () => {
       status: '',
     },
   ]);
+
+  const setPayments: Dispatch<SetStateAction<Payment[]>> = useCallback((update) => {
+    setPaymentsState((current) => {
+      const previous = Array.isArray(current) ? current : [];
+      const next = typeof update === 'function' ? update(previous) : update;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
 
   return { payments, setPayments };
 };

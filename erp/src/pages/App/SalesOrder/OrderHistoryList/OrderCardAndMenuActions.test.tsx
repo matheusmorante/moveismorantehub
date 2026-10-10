@@ -62,6 +62,28 @@ describe('OrderCardAndMenuActions', () => {
     expect(screen.getByText('Editar Venda')).toBeTruthy();
   });
 
+  it('abre o menu sem enviar o formulário que contém o card', () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <OrderOptionsMenu
+          order={baseOrder}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRestore={vi.fn()}
+          onPermanentDelete={vi.fn()}
+          onAction={vi.fn()}
+          onStatusUpdate={vi.fn()}
+        />
+      </form>
+    );
+
+    fireEvent.click(screen.getByTitle('Mais ações e opções de envio'));
+
+    expect(screen.getByText('Editar Venda')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('renderiza o botão de editar e os três pontinhos no card com as mesmas dimensões (w-8 h-8)', () => {
     const onEditMock = vi.fn();
     const { container } = render(

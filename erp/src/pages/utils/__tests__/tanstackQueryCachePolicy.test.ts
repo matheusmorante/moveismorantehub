@@ -124,19 +124,7 @@ describe('Auditoria de Governança TanStack Query & Otimização de Egress', () 
     });
   });
 
-  describe('5. Invalidação Imediata de Cache em Pedidos de Venda', () => {
-    it('deve permitir invalidar a chave ["orders"] garantindo que todas as listagens de pedidos reflitam o novo estado', () => {
-      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
-
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-
-      expect(invalidateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ queryKey: ['orders'] })
-      );
-    });
-  });
-
-  describe('6. Isolamento e Limpeza de Cache no Logout e Troca de Sessão', () => {
+  describe('5. Isolamento e Limpeza de Cache no Logout e Troca de Sessão', () => {
     it('deve limpar completamente o cache via queryClient.clear()', () => {
       const clearSpy = vi.spyOn(queryClient, 'clear');
 

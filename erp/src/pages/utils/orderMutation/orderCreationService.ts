@@ -10,6 +10,7 @@ import { dispatchOrderCreationNotifications } from './orderNotificationDispatche
 import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { queryClient } from '@/lib/queryClient';
 
 /**
  * Criação atômica e persistência de pedidos com resolução de cliente, regras de estoque e notificações.
@@ -113,9 +114,9 @@ export const executeSaveOrder = async (
       dispatchOrderCreationNotifications(rowId, orderToSave);
     }
 
-    try {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    } catch (e) {}
+    void queryClient
+      .invalidateQueries({ queryKey: ['orders'] })
+      .catch((error) => console.error('[OrderCreation] Falha ao atualizar a lista de pedidos:', error));
     return String(rowId);
   } catch (error) {
     console.error('Erro ao salvar o pedido: ', error);

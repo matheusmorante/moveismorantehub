@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import Order from '../../../types/order.type';
+import type { GeoMapOrderProjection } from '../../../types/dashboardOrderProjection.type';
 import ProfitHeatMap from './ProfitHeatMap';
 
 interface GeoMapPanelProps {
-  orders: Order[];
+  orders: GeoMapOrderProjection[];
 }
 
 const GeoMapPanel: React.FC<GeoMapPanelProps> = ({ orders }) => {

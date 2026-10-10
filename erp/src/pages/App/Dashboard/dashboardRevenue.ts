@@ -2,20 +2,26 @@ import Order from '../../types/order.type';
 
 const REVENUE_STATUSES = new Set(['scheduled', 'fulfilled']);
 
-const normalizedStatus = (order: Order): string =>
+const normalizedStatus = (order: DashboardSaleCriteria): string =>
   String(order.status || '')
     .trim()
     .toLowerCase();
 
 /** Venda comercial válida para os indicadores do dashboard. */
-export const isDashboardSaleOrder = (order: Order | null | undefined): order is Order => {
+type DashboardSaleCriteria = Pick<Partial<Order>, 'deleted' | 'status' | 'orderType'>;
+
+export const isDashboardSaleOrder = <T extends DashboardSaleCriteria>(
+  order: T | null | undefined
+): order is T => {
   if (!order || order.deleted || !REVENUE_STATUSES.has(normalizedStatus(order))) return false;
   const orderType = order.orderType || 'sale';
   return orderType === 'sale' || orderType === 'showroom';
 };
 
 /** Devolução já efetivada; devolução apenas agendada ainda não reduz faturamento. */
-export const isFulfilledReturnOrder = (order: Order | null | undefined): order is Order =>
+export const isFulfilledReturnOrder = <T extends DashboardSaleCriteria>(
+  order: T | null | undefined
+): order is T =>
   Boolean(
     order &&
       !order.deleted &&

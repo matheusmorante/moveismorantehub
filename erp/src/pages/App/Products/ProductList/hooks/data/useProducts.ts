@@ -8,6 +8,8 @@ import { flattenProductsForList } from '../../utils/catalog/productListTransform
 import { toggleProductSelection } from '../../utils/selection/productSelection';
 import { updateProductActivationState } from '../../utils/activation/productActivationState';
 import { updateProductCatalogState } from '../../utils/catalog/productCatalogState';
+import { persistAndInvalidateProductList } from './productQueryMutations';
+import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
 import { validateErpActivationRequirements } from '../activation/useProductsActivationValidation';
 import { persistProductActiveState } from '../activation/useProductsActivePersistence';
 import { isTestProduct } from '@/pages/utils/hmlTestData';
@@ -28,6 +30,8 @@ import {
   executeBulkPermanentDelete,
 } from '../actions/useProductsDeletionActions';
 
+const EMPTY_PRODUCTS: Product[] = [];
+
 export const useProducts = (filters?: ProductListFilters) => {
   const { profile } = useAuth();
   const canDeleteProducts = canPerform(
@@ -40,6 +44,7 @@ export const useProducts = (filters?: ProductListFilters) => {
   const queryClient = useQueryClient();
   const [serverProducts, setServerProducts] = useState<Product[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
+  const [mutationLoading, setMutationLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
@@ -74,19 +79,27 @@ export const useProducts = (filters?: ProductListFilters) => {
     filters?.sortOrder,
   ]);
 
-  const { data: queryResult, isLoading: serverLoading } = useQuery({
+  const { data: queryResult, isLoading: serverLoading, error: queryError } = useQuery({
     queryKey: ['products', queryFilters, currentPage, itemsPerPage],
-    queryFn: () => fetchProductsPage(currentPage, itemsPerPage, queryFilters),
+    queryFn: () =>
+      fetchProductsPage(currentPage, itemsPerPage, queryFilters, { throwOnError: true }),
     staleTime: 60 * 1000, // 1 minuto de cache fresco
     gcTime: 5 * 60 * 1000,
   });
+  const failedWithoutCurrentData = shouldClearQueryListSnapshot(queryResult, queryError);
+  const productsForCurrentQuery = failedWithoutCurrentData ? EMPTY_PRODUCTS : serverProducts;
 
   useEffect(() => {
     if (queryResult) {
       setServerProducts(queryResult.data);
       setServerTotal(queryResult.total);
+    } else if (shouldClearQueryListSnapshot(queryResult, queryError)) {
+      // A cópia local serve para otimizações de mutação, mas não pode vazar
+      // resultados da chave anterior quando uma nova busca falha.
+      setServerProducts([]);
+      setServerTotal(0);
     }
-  }, [queryResult]);
+  }, [queryResult, queryError]);
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -124,7 +137,7 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   const serverTransformed = useMemo(
     () =>
-      flattenProductsForList(serverProducts)
+      flattenProductsForList(productsForCurrentQuery)
         .map((product) => {
           if (product.isParent && product.allVariations) {
             return {
@@ -145,15 +158,15 @@ export const useProducts = (filters?: ProductListFilters) => {
           );
         })
         .filter((product) => Boolean(filters?.showTestProducts) || !isTestProduct(product)),
-    [serverProducts, filters?.includeMergedVariations, filters?.showTestProducts]
+    [productsForCurrentQuery, filters?.includeMergedVariations, filters?.showTestProducts]
   );
 
-  const totalItems = serverTotal;
+  const totalItems = failedWithoutCurrentData ? 0 : serverTotal;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   const paginatedProducts = serverTransformed;
   const hasTestProducts = useMemo(
-    () => flattenProductsForList(serverProducts).some(isTestProduct),
-    [serverProducts]
+    () => flattenProductsForList(productsForCurrentQuery).some(isTestProduct),
+    [productsForCurrentQuery]
   );
 
   // ─── Ações de exclusão e ativação ───────────────────
@@ -183,7 +196,7 @@ export const useProducts = (filters?: ProductListFilters) => {
       await activateProduct(id);
       refresh();
       toast.success('Produto ativado com sucesso!');
-    } catch (error: any) {
+    } catch {
       toast.error('Erro ao ativar produto.');
     }
   };
@@ -201,7 +214,7 @@ export const useProducts = (filters?: ProductListFilters) => {
       toast.error('Seu perfil não permite excluir ou desativar produtos.');
       return;
     }
-    await executeBulkTrash(selectedProducts, refresh, setSelectedProducts, setServerLoading);
+    await executeBulkTrash(selectedProducts, refresh, setSelectedProducts, setMutationLoading);
   };
 
   const handleBulkRestore = async () => {
@@ -214,7 +227,7 @@ export const useProducts = (filters?: ProductListFilters) => {
       refresh,
       removeRestoredProductsFromTrash,
       setSelectedProducts,
-      setServerLoading
+      setMutationLoading
     );
   };
 
@@ -227,7 +240,7 @@ export const useProducts = (filters?: ProductListFilters) => {
       selectedProducts,
       refresh,
       setSelectedProducts,
-      setServerLoading
+      setMutationLoading
     );
   };
 
@@ -274,7 +287,10 @@ export const useProducts = (filters?: ProductListFilters) => {
     setServerProducts((previous) => updateProductActivationState(previous, id, newActive));
 
     try {
-      await persistProductActiveState(id, newActive, serverProducts, serverProducts);
+      await persistAndInvalidateProductList(
+        () => persistProductActiveState(id, newActive, serverProducts, serverProducts),
+        () => queryClient.invalidateQueries({ queryKey: ['products'] })
+      );
       toast.success(`Produto ${newActive ? 'ativado' : 'desativado'} com sucesso!`);
     } catch (error) {
       console.error('Erro ao alterar status:', error);
@@ -286,6 +302,7 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   // ─── Catálogo Digital ───────────────────
   const deactivateCatalog = async (id: string) => {
+    let rollbackCatalogStatus: Product['status'] | undefined;
     try {
       const { parentProduct, variation, isVariation } = await resolveCatalogEntities(
         id,
@@ -294,6 +311,7 @@ export const useProducts = (filters?: ProductListFilters) => {
       const currentStatus = isVariation
         ? variation.status || parentProduct?.status || 'hidden'
         : parentProduct?.status || 'hidden';
+      rollbackCatalogStatus = currentStatus;
       const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
       if (newStatus === 'published') {
@@ -321,15 +339,23 @@ export const useProducts = (filters?: ProductListFilters) => {
         );
       }
 
-      await persistCatalogStatus(id, newStatus, parentProduct, variation, serverProducts);
+      await persistAndInvalidateProductList(
+        () => persistCatalogStatus(id, newStatus, parentProduct, variation, serverProducts),
+        () => queryClient.invalidateQueries({ queryKey: ['products'] })
+      );
     } catch (error) {
       console.error('Erro ao alternar catálogo:', error);
+      if (rollbackCatalogStatus) {
+        setServerProducts((previous) =>
+          updateProductCatalogState(previous, id, rollbackCatalogStatus)
+        );
+      }
       toast.error('Erro ao alterar status no Catálogo Digital.');
     }
   };
 
   return {
-    products: serverProducts,
+    products: productsForCurrentQuery,
     paginatedProducts,
     hasTestProducts,
     totalItems,
@@ -338,7 +364,8 @@ export const useProducts = (filters?: ProductListFilters) => {
     totalPages,
     setCurrentPage,
     setItemsPerPage,
-    loading: serverLoading,
+    loading: serverLoading || mutationLoading,
+    error: queryError,
     isServerPagination: true,
     canDeleteProducts,
     handleDelete,
