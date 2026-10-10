@@ -1,0 +1,51 @@
+{
+  "name": "test-artifact-active-financial-rollback",
+  "date": "2026-10-10",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "result": "passed",
+  "method": "Owned empty fixture; authenticated SQL role context; expected final exception rolls back all transient writes",
+  "proof": {
+    "runId": "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+    "orderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+    "ownerId": "13eab361-be48-4e49-be4b-4ad79813b812",
+    "sqlRole": "authenticated",
+    "projectRef": "hkoxhourxwlddgsfdgws",
+    "activeStates": [
+      {
+        "status": "scheduled",
+        "filteredCount": 0,
+        "ownedCandidateCount": 1
+      },
+      {
+        "status": "fulfilled",
+        "filteredCount": 0,
+        "ownedCandidateCount": 1
+      }
+    ],
+    "financialProbeId": "2dc36023-434a-4489-983a-5aed37933001",
+    "rawFinancialRows": 1,
+    "reportExclusiveRows": 0,
+    "reportInclusiveRows": 0,
+    "crossRunLinkRejected": true,
+    "rejectedFinancialProbeId": "826b6419-eefe-4f11-9f2d-c8f1fab65b07",
+    "expectedWholeStatementRollback": true
+  },
+  "afterRollback": {
+    "items": 0,
+    "fiscal": 0,
+    "status": "cancelled",
+    "orderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+    "inventory": 0,
+    "orderHash": "0f7e4a0c8e2ad84bd597345667022ae9",
+    "probeRows": 0,
+    "notifications": 0,
+    "financialForOrder": 0
+  },
+  "rowHashMatchesPreflight": true,
+  "limitations": [
+    "SQL claims are a controlled database test context, not proof of operator login.",
+    "Active states exercise predicates only; no commercial lifecycle, inventory/financial settlement or physical circulation was executed.",
+    "No new persistent artifacts, UI interaction or SEFAZ request."
+  ]
+}

@@ -18,66 +18,109 @@
           "rawCount": 709,
           "filteredCount": 695,
           "excludedCount": 14,
+          "markedCandidateCount": 14,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "stock-report",
-          "rawCount": 926,
-          "filteredCount": 908,
+          "rawCount": 927,
+          "filteredCount": 909,
           "excludedCount": 18,
+          "markedCandidateCount": 18,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "delivery-schedule",
-          "rawCount": 79,
-          "filteredCount": 75,
+          "rawCount": 80,
+          "filteredCount": 76,
           "excludedCount": 4,
+          "markedCandidateCount": 4,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "assembly-list",
-          "rawCount": 940,
-          "filteredCount": 940,
-          "excludedCount": 0,
+          "rawCount": 959,
+          "filteredCount": 941,
+          "excludedCount": 18,
+          "markedCandidateCount": 18,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "assembly-print",
-          "rawCount": 883,
-          "filteredCount": 871,
+          "rawCount": 884,
+          "filteredCount": 872,
           "excludedCount": 12,
+          "markedCandidateCount": 12,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "dashboard-period",
-          "rawCount": 81,
-          "filteredCount": 55,
+          "rawCount": 82,
+          "filteredCount": 56,
           "excludedCount": 26,
+          "markedCandidateCount": 26,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "dashboard-recent-and-map",
-          "rawCount": 864,
-          "filteredCount": 852,
+          "rawCount": 865,
+          "filteredCount": 853,
           "excludedCount": 12,
+          "markedCandidateCount": 12,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         },
         {
           "name": "notification-order-read",
-          "rawCount": 998,
-          "filteredCount": 972,
+          "rawCount": 999,
+          "filteredCount": 973,
           "excludedCount": 26,
+          "markedCandidateCount": 26,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
           "queryValid": true,
           "errorCode": null
         }
       ],
+      "activeStatusProofs": [
+        {
+          "status": "scheduled",
+          "markedCandidateCount": 4,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "status": "fulfilled",
+          "markedCandidateCount": 8,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        }
+      ],
+      "activeStatesExercised": true,
       "contradictoryTestCount": {
         "count": 0,
         "errorCode": null

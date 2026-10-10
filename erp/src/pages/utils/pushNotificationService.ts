@@ -23,7 +23,7 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
   try {
     const soundRoute = getNotificationSoundRoute(payload);
     // 1. Grava no banco de dados para histórico e realtime do app aberto
-    const { error } = await supabase.from('app_notifications').insert({
+    const { data: notification, error } = await supabase.from('app_notifications').insert({
       order_id: payload.orderId || null,
       title: payload.title,
       message: payload.message,
@@ -31,11 +31,14 @@ export async function dispatchAppNotification(payload: AppNotificationPayload): 
       schedule_text: payload.scheduleText || null,
       order_data: payload.orderData || null,
       read: false,
-    });
+    }).select('id').maybeSingle();
 
     if (error) {
       console.warn('[PushNotificationService] Aviso ao inserir app_notification:', error);
+      return;
     }
+    // A guarda do banco pode suprimir a linha pelo order_id mesmo sem metadata no payload.
+    if (!notification) return;
 
     // 2. Busca todos os tokens cadastrados na tabela push_tokens
     const { data: tokenRows } = await supabase.from('push_tokens').select('token');

@@ -131,6 +131,7 @@ async function testArtifactPostgrestReads() {
     }
 
     const orderCountQuery = () => operator.from('orders').select('id',{count:'exact',head:true});
+    const markedTestFilter = 'order_data->>is_test.eq.true,order_data->>isTest.eq.true,order_data->testArtifact->>is_test.eq.true';
     const countRows = async (build: () => any) => {
       try {
         const {count,error} = await build();
@@ -159,8 +160,7 @@ async function testArtifactPostgrestReads() {
       {
         name:'assembly-list',
         raw:() => orderCountQuery()
-          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-          .or('order_data->>is_test.is.null,order_data->>is_test.eq.false'),
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false'),
         filtered:() => excludeTestOrders(orderCountQuery())
           .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
           .or('order_data->>is_test.is.null,order_data->>is_test.eq.false'),
@@ -194,15 +194,30 @@ async function testArtifactPostgrestReads() {
     for (const destination of destinations) {
       const raw = await countRows(destination.raw);
       const filtered = await countRows(destination.filtered);
-      const queryValid = raw.count !== null && filtered.count !== null && filtered.count <= raw.count;
+      const marked = await countRows(() => destination.raw().or(markedTestFilter));
+      const leaked = await countRows(() => destination.filtered().or(markedTestFilter));
+      // Independent requests can observe concurrent operational writes; marker leaks are the invariant.
+      const queryValid = raw.count !== null && filtered.count !== null && marked.count !== null && leaked.count === 0;
       destinationResults.push({name:destination.name,rawCount:raw.count,filteredCount:filtered.count,
         excludedCount:raw.count !== null && filtered.count !== null ? raw.count-filtered.count : null,
-        queryValid,errorCode:raw.errorCode || filtered.errorCode || null});
+        markedCandidateCount:marked.count,leakedTestCount:leaked.count,behaviorExercised:(marked.count ?? 0)>0,
+        queryValid,errorCode:raw.errorCode || filtered.errorCode || marked.errorCode || leaked.errorCode || null});
+    }
+
+    const activeStatusProofs: Array<Record<string,unknown>> = [];
+    for (const status of ['scheduled','fulfilled']) {
+      const marked = await countRows(() => orderCountQuery().eq('status',status)
+        .or('deleted.is.null,deleted.eq.false').or(markedTestFilter));
+      const leaked = await countRows(() => excludeTestOrders(orderCountQuery()).eq('status',status)
+        .or('deleted.is.null,deleted.eq.false').or(markedTestFilter));
+      activeStatusProofs.push({status,markedCandidateCount:marked.count,leakedTestCount:leaked.count,
+        behaviorExercised:(marked.count ?? 0)>0,queryValid:marked.count !== null && leaked.count === 0,
+        errorCode:marked.errorCode || leaked.errorCode || null});
     }
 
     const contradictoryTestCount = await countRows(() => orderCountQuery()
       .or(NON_TEST_ARTIFACT_FILTER)
-      .or('order_data->>is_test.eq.true,order_data->>isTest.eq.true,order_data->testArtifact->>is_test.eq.true'));
+      .or(markedTestFilter));
     const limitedRows = await operator.from('orders')
       .select('is_test:order_data->>is_test,isTest:order_data->>isTest,nested_test:order_data->testArtifact->>is_test')
       .or(NON_TEST_ARTIFACT_FILTER)
@@ -214,11 +229,13 @@ async function testArtifactPostgrestReads() {
       [row.is_test,row.isTest,row.nested_test].some(value => value === true || value === 'true')
     ).length;
     const queriesValid = destinationResults.every(result => result.queryValid === true) &&
+      activeStatusProofs.every(result => result.queryValid === true) &&
       contradictoryTestCount.count === 0 && contradictoryTestCount.errorCode === null &&
       limitedLeakCount === 0 && !limitedRows.error;
     console.log(JSON.stringify({mode:'artifact-reads',projectRef,environment:2,operatorEmailPresent:true,
       authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:true,
       sourceFilterAppliedBeforeLimit:true,destinations:destinationResults,
+      activeStatusProofs,activeStatesExercised:activeStatusProofs.every(result => result.behaviorExercised === true),
       contradictoryTestCount,limitedRowsReturned:limitedRows.data?.length ?? null,limitedLeakCount,queriesValid}));
     if (!queriesValid) process.exitCode = 1;
   } finally {

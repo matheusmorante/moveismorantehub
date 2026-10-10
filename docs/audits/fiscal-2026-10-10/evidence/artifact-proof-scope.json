@@ -1,0 +1,27 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "date": "2026-10-10",
+  "authorization": "User requested scenario orders/artifacts and continuing the fiscal test cycle.",
+  "fixture": {
+    "orderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+    "runId": "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+    "ownerId": "13eab361-be48-4e49-be4b-4ad79813b812",
+    "statusBefore": "cancelled",
+    "rowHashBefore": "0f7e4a0c8e2ad84bd597345667022ae9",
+    "orderItemsBefore": 0,
+    "inventoryBefore": 0,
+    "financialBefore": 0,
+    "fiscalBefore": 0,
+    "notificationsBefore": 0
+  },
+  "plannedProofs": [
+    "Read-only authenticated PostgREST counts with unfiltered candidates and leak counts in active statuses.",
+    "Temporary scheduled/fulfilled states for this empty owned fixture, one financial row and rejected cross-run row inside a statement that deliberately rolls back.",
+    "Six suppressed notification insert attempts through authenticated PostgREST, linked only to this fixture and returning no rows."
+  ],
+  "mandatoryEffects": "Predicate probes are not business lifecycle operations. Only the owned order/version and new synthetic financial rows may change transiently; no stock, reserves, payments or fiscal effects are expected.",
+  "postCommitEffects": "None for the rollback proof. Notification probes must be suppressed by the verified BEFORE INSERT trigger before realtime/AFTER INSERT push.",
+  "retention": "The existing cancelled order/person remain for audit. No new persistent financial or notification record is expected; verify afterward.",
+  "gate": "No remote fiscal E2E or fiscal transmission. behavioralProofRequired remains true."
+}

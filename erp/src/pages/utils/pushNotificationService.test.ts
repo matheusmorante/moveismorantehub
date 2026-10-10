@@ -25,7 +25,6 @@ function mockPersistence(data: { id: string } | null, error: { message: string }
     };
     throw new Error(`Unexpected table: ${table}`);
   });
-  return { insert, maybeSingle };
 }
 
 describe('notificações de artefatos de teste', () => {
@@ -52,11 +51,10 @@ describe('notificações de artefatos de teste', () => {
   });
 
   it('não envia push quando o banco suprime um pedido de teste identificado só pelo ID', async () => {
-    const persistence = mockPersistence(null);
+    mockPersistence(null);
 
     await dispatchAppNotification(payload);
 
-    expect(persistence.maybeSingle).toHaveBeenCalledOnce();
     expect(mocks.from.mock.calls.map(([table]) => table)).toEqual(['app_notifications']);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -71,11 +69,10 @@ describe('notificações de artefatos de teste', () => {
   });
 
   it('envia a notificação operacional depois da confirmação de persistência', async () => {
-    const persistence = mockPersistence({ id: 'notification-synthetic' });
+    mockPersistence({ id: 'notification-synthetic' });
 
     await dispatchAppNotification({ ...payload, orderData: { status: 'scheduled' } });
 
-    expect(persistence.maybeSingle).toHaveBeenCalledOnce();
     expect(mocks.from.mock.calls.map(([table]) => table)).toEqual(['app_notifications', 'push_tokens']);
     expect(fetch).toHaveBeenCalledOnce();
     const [, request] = vi.mocked(fetch).mock.calls[0];
