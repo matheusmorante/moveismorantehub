@@ -1,9 +1,22 @@
 # Roadmap Canônico: NF-e e NFC-e de Saída (MoranteHub)
 
-**Atualizado em:** 07/10/2026
-**Fonte de Verdade para:** Emissão de Documentos Fiscais de Saída (NF-e/NFC-e) diretamente com o SEFAZ-PR.
+**Atualizado em:** 09/10/2026
+**Fonte de Verdade para:** Arquitetura e prontidão de Produção da emissão de Documentos Fiscais de Saída. Para execução de testes, estados de homologação e pendências verificadas, use o [status central de testes fiscais](status-testes-homologacao.md).
+
+## Estado da implantação — 09/10/2026
+
+**Etapa:** validação do código para Homologação; Produção fiscal ainda bloqueada. O checkout atual (`fdbfee2be094ae1c9debacecde1cb7b7caa068b0`) passou em 104 dos 106 testes focados executados em sete arquivos. Os dois restantes exercitam a validação XSD real de NFC-e pickup e delivery e falham porque `infAdProd` está em posição inválida no XML. Nenhuma transmissão SEFAZ foi feita nesta rodada.
+
+- **Homologação:** existe evidência histórica de autorização de NF-e 55, descrita abaixo e na [baseline de 01/10](baseline-e2e-homologacao-2026-10-01.md). Ela não valida o checkout atual nem a jornada visual. Não há XML/resposta/protocolo de autorização NFC-e 65 verificável neste checkout.
+- **Produção:** o código tem os caminhos compartilhados para `tpAmb=1/2`, mas o backend exige a flag explícita e a decisão persistida segue `productionApproved=false`. Não há emissão nem autorização real em Produção registrada.
+- **Deployment:** o deployment Production de HEAD (`fdbfee2be094ae1c9debacecde1cb7b7caa068b0`) falha no `patchBuild` pelo limite de 12 Serverless Functions da Vercel Hobby (`exceeded_serverless_functions_per_deployment`); as alterações locais não commitadas também não foram publicadas. As duas tentativas Preview recentes da branch `codex/fiscal-hml-stage5` falharam pelo mesmo motivo. O último deployment Production READY é de 07/10, commit `3dd46b2dadc8721e464e546eb818bccdd8ce613d`; `morantehub.com` e `morantehub.vercel.app` continuam nesse deployment. Isso significa que o checkout atual não está publicado; o deployment anterior continua ativo. A falha de publicação não é uma resposta da SEFAZ.
+- **Próximos bloqueios:** corrigir e validar a ordem XSD dos elementos NFC-e; resolver o limite de funções para publicar o checkout; só então validar a jornada pela interface. Antes da janela HML de 26/10, comparar as NTs adiadas com as regras e cenários aplicáveis ao produto.
+
+Para contagens, resultados por cenário e distinção entre evidência local, HML e Produção, veja o [status central](status-testes-homologacao.md).
 
 ## Ponto de retomada — 30/09/2026
+
+O bloco seguinte é um registro histórico da retomada em 30/09. Os deployments e o estado de publicação ali descritos não representam o deployment ativo em 09/10; use a seção acima para o estado atual.
 
 **A primeira NF-e 55 do pedido 3474 foi autorizada pela SEFAZ-PR em homologação: número 701, série 1, cStat 100, protocolo persistido e status homologada. Produção fiscal continua bloqueada.**
 
@@ -56,7 +69,7 @@ Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md
 
 ## 1. Estado Atual e Correções Conceituais (Auditoria Revisada)
 
-**Status do código: fluxo normal de Produção conectado à reserva, persistência e reconciliação comuns.** A flag e a confirmação do ambiente continuam sendo verificadas pelo backend. A decisão tributária própria da NFC-e 65 permanece pendente, sem fallback para 55. Em 2026-10-07, a responsável dispensou novo plano aprovado ou nova evidência conjunta de autorização 55/65 como gate documental adicional. Não houve emissão fiscal real nesta implementação. Ver [registro técnico e evidências](emissao-normal-reserva-reconciliacao.md).
+**Status do código:** o fluxo normal está conectado à reserva, persistência e reconciliação comuns para os ambientes 1 e 2. Isso não significa que a Produção esteja liberada: o backend mantém guarda explícita, `productionApproved=false` continua persistido e não há autorização real de Produção registrada. A decisão fiscal da venda normal declara escopo para os modelos 55 e 65; cenários fora desse escopo seguem bloqueados sem fallback de modelo. A responsável dispensou novo plano aprovado ou evidência conjunta de autorização 55/65 como gate documental adicional, mas isso não transforma a autorização de NFC-e 65 em evidência verificável. O código do checkout atual também não está publicado, pois o deployment mais recente falhou no limite de funções da Vercel. Confira o [status central](status-testes-homologacao.md) para os testes, bloqueios e deployments atuais. A evidência histórica HML de NF-e 55 permanece na baseline. Ver [registro técnico e evidências](emissao-normal-reserva-reconciliacao.md).
 
 **Separação arquitetural para a emissão normal:** o mesmo core de determinação fiscal, serialização XML, assinatura, validação, comunicação SEFAZ e interpretação de retorno atende os dois ambientes. `tpAmb`, endpoints, certificado/configuração, numeração e confirmação de Produção pertencem à configuração do ambiente. A política de tentativa/idempotência/reconciliação é comum. A fixture técnica `HML_TECHNICAL_V1` e suas funções históricas permanecem exclusivas de HML. `nfe_establishment_sequences` isola CNPJ completo, modelo, ambiente e série; o emitente existente mantém compatibilidade com seu contador legado.
 
@@ -78,7 +91,7 @@ A auditoria identificou exageros e incorreções conceituais na análise anterio
 
 ### Homologação — sem gate documental adicional por decisão da responsável
 
-Não exigir uma nova matriz aprovada nem novos resultados de autorização para os modelos 55/65 como condição documental de go-live. A responsável confirma que já testou a NFC-e 65. Esta dispensa não comprova por si só as lacunas técnicas descritas pela auditoria e não substitui a validação dos demais gates aplicáveis.
+Decisão de 07/10: não exigir nova matriz aprovada nem novos resultados conjuntos 55/65 como gate documental adicional de go-live. A responsável relatou ter testado NFC-e 65; não há XML/resposta/protocolo correspondente nos artefatos acessíveis deste checkout, então essa informação fica como relato não verificado, conforme o [status central](status-testes-homologacao.md). A dispensa de gate documental não é uma classificação de teste aprovado e não substitui os demais gates aplicáveis.
 
 ### 🟠 P1 — Segurança operacional
 
@@ -88,14 +101,15 @@ Não exigir uma nova matriz aprovada nem novos resultados de autorização para 
 - [x] Rejeição 217: ausência conferida por chave/ambiente; nova ação explícita consulta de novo antes de usar o mesmo XML.
 - [x] Retry idempotente e cliques repetidos; payload diferente com a mesma intenção é recusado.
 
-Evidência desta etapa: 35 assertivas pgTAP no projeto remoto configurado, 25 testes do orquestrador, consumidores/API e concorrência PostgREST real. Fixtures foram revertidas/removidas. Não houve emissão real, instalação da cadeia completa em banco vazio nem validação E2E na interface nesta etapa.
+Evidência histórica desta etapa, registrada em 07/10: 35 assertivas pgTAP no projeto remoto configurado, 25 testes do orquestrador, consumidores/API e concorrência PostgREST real. Fixtures foram revertidas/removidas. Não houve emissão real, instalação da cadeia completa em banco vazio nem validação E2E na interface nessa etapa. A execução local de testes mais recente e seus limites estão no [status central](status-testes-homologacao.md); a evidência remota não foi reconsultada nesta atualização documental.
 
 ### 🟡 P2 — Operações fiscais ainda faltantes
 
 - [ ] Inutilização de faixa numérica pelo serviço e leiaute próprios `inutNFe`.
-- [ ] Contingência offline de NFC-e, incluindo guarda de XML assinado, transmissão posterior e reconciliação.
+- [ ] Avaliar, pelo texto vigente da família NT 2026.002 (v1.11 publicada em 01/10), se faz parte do escopo implementar contingência offline de NFC-e e de NF-e com DANFE Simplificado Tipo 2. A v1.10a descrevia essa possibilidade para NF-e; confirme o texto e as condições atuais antes de desenhar o fluxo. Essa modalidade para NF-e não é coberta pelo item antigo que citava apenas NFC-e.
 - [ ] Contingências de NF-e aplicáveis ao PR (SVC-RS/EPEC), com regras e serviços separados da NFC-e.
-- [x] Carta de Correção Eletrônica (CC-e), somente para modelo 55. API/UI, sequência/idempotência, confirmação do retorno e reconciliação estão implementadas e cobertas por testes locais focados.
+- [ ] Comparar o DANFE NF-e atual às alterações RTC da NT 2026.010 v1.00 e decidir se o produto precisa adotar o DANFE Simplificado Tipo 2. A existência do renderizador atual não comprova conformidade com o leiaute novo.
+- Nova emissão de CC-e para correção de pedido está desabilitada pela política comercial atual; a consulta e reconciliação de eventos existentes permanecem. O bloqueio está coberto localmente. Não registrar a emissão nova como pendência de homologação enquanto essa política vigorar; consulte o [status central](status-testes-homologacao.md).
 
 ### 🟢 P3 — UX de rejeições
 
@@ -120,7 +134,7 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 *Esta lista é histórica. O critério anterior de concluir uma matriz ponta a ponta em homologação foi removido em 2026-10-03 e não está vigente.*
 - **Geração Normal 55/65, XML e Assinatura:** Garantir geração fiel ao MOC vigente.
 - **Numeração e Persistência Seguras:** Numeração estritamente atômica.
-- **Timeouts e Reconciliação (O gargalo atual):** Falhas de rede ou de Edge Functions geram notas "pendentes". O sistema precisa *obrigatoriamente* possuir uma rotina sólida de conciliação (`consSitNFe`) que recupere recibos/protocolos "perdidos" para impedir dupla emissão na SEFAZ.
+- **Timeouts e Reconciliação (pendência daquele snapshot):** Naquela revisão, falhas de rede ou de Edge Functions ainda eram descritas como notas pendentes sem reconciliação suficiente. O fluxo normal atual usa consulta/retry com a mesma chave reservada; consulte o [status fiscal atual](status-testes-homologacao.md) para os limites da evidência. Esta linha preserva o diagnóstico histórico e não descreve o gargalo atual.
 - **Idempotência Real:** Impedir duplo processamento de uma mesma requisição de emissão sob concorrência.
 - **Isolamento de Ambientes:** Separação inquebrável de Produção x Homologação.
 
@@ -145,11 +159,11 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 ## 4. Avanços Recentes (Resolução de Idempotência e Concorrência)
 
 1. **Reconciliação e Timeouts**: Interface reativa no frontend e backend agora permitem recuperar protocolos perdidos na SEFAZ. O timeout não gera duplicidade.
-2. **Atomicidade de Reserva**: Substituída a lógica frágil na API por uma RPC atômica (`reserve_nfe_outbound_emission`) usando `pg_advisory_xact_lock` no pedido. Blinda contra abas concorrentes simultâneas.
-   * **Nota de Validação**: A atomicidade da reserva na RPC foi comprovada localmente com duas conexões PostgreSQL independentes. No entanto, o teste focado utilizou apenas as migrations essenciais ao cenário isolado. Isso **não certifica** a cadeia completa de migrations do projeto nem valida toda a jornada de numeração no frontend/API; apenas isola e comprova a proteção contra race conditions na reserva. A ausência de queima de numeração/chave adicional neste cenário é inferida pela arquitetura atual e precisará ser comprovada no E2E.
+2. **Atomicidade de Reserva**: Substituída a lógica frágil na API por uma RPC atômica (`reserve_nfe_outbound_emission`) usando `pg_advisory_xact_lock` no pedido. A evidência registrada está delimitada à reserva e aos cenários exercitados.
+   * **Limite da evidência**: um relato anterior de teste PostgreSQL isolado usou apenas migrations essenciais ao cenário; ele não certifica a cadeia completa nem a jornada atual do frontend/API. A política vigente de integração é a do [Supabase remoto](../testing/SUPABASE_REMOTE_TEST_POLICY.md); não use a validação local antiga como autorização para executar Docker/Supabase Local. A evidência remota registrada em 07/10 e seus limites constam em [emissão normal, reserva e reconciliação](emissao-normal-reserva-reconciliacao.md). A ausência de queima de numeração/chave adicional precisa ser comprovada para cada fluxo aplicável.
 3. **Tratamento de Rejeição 217**: Se a SEFAZ não receber o documento (cStat 217), a UI libera a ação "Retransmitir mesma NF-e", que reaproveita a mesma chave, numeração e XML íntegro no banco.
 
 ---
 ## 5. Próximo Passo Exato
 
-**Próximo passo:** publicar a revisão final validada e concluir a decisão tributária própria da NFC-e 65. O pipeline normal 55/65 já compartilha reserva, persistência e reconciliação; 65 continua bloqueado enquanto sua configuração própria estiver ausente. Uma validação operacional pela interface será uma etapa distinta, sem novo checklist documental obrigatório.
+**Próximo passo:** corrigir a ordem XSD de `infAdProd` nos XMLs NFC-e pickup e delivery; resolver o limite de funções da Vercel para publicar o checkout; e então validar a interface e o deployment antes de qualquer emissão HML. Também revisar a aplicabilidade das NTs 2025.002 v1.52, 2026.007 v1.10 e 2026.008 v1.00 antes da janela HML de 26/10/2026, e avaliar separadamente a NT 2026.002 v1.11 (DANFE Simplificado Tipo 2/contingência) e a NT 2026.010 v1.00 (DANFE para RTC). O [aviso do Portal Nacional](https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&ehCTG=false&page=0&pagesize=30) adiou as três primeiras para 26/10 em homologação e 16/11 em produção. O pipeline normal atende os modelos 55/65 dentro dos cenários fiscais implementados, mas o XML dos dois cenários NFC-e citados ainda reprova o XSD. A autorização SEFAZ 65 continua sem evidência verificável neste checkout; confira o [status central](status-testes-homologacao.md). Uma validação operacional pela interface é evidência separada.

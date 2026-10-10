@@ -1,4 +1,4 @@
-> **Arquivo histórico, substituído.** Este documento descreve um laboratório Supabase Local/Docker que não faz mais parte do fluxo. Não siga seus procedimentos operacionais. A política vigente é [`SUPABASE_REMOTE_TEST_POLICY.md`](SUPABASE_REMOTE_TEST_POLICY.md): os testes de integração usam o projeto Supabase remoto configurado, com fixtures sintéticas e escopo controlado.
+> **Arquivo histórico, substituído e não executável.** Este documento registra uma proposta antiga de laboratório Supabase Local/Docker; nenhuma janela local está autorizada e nenhuma etapa, comando ou pendência abaixo deve ser retomada. A política vigente é [`SUPABASE_REMOTE_TEST_POLICY.md`](SUPABASE_REMOTE_TEST_POLICY.md): usar somente o projeto remoto operacional já utilizado pelo ERP, na branch primária e schema `public`.
 # Auditoria do Ambiente Supabase Local de Testes
 
 Este documento define como certificar o laboratório Supabase local usado para validar o MoranteHub. Ele verifica se o ambiente produz evidência confiável; não audita a correção funcional de um módulo.
@@ -149,4 +149,4 @@ O roadmap de continuidade está em [SUPABASE_LOCAL_ROADMAP.md](./SUPABASE_LOCAL_
 
 ## Relação com a governança
 
-Esta é a fonte canônica dos critérios de certificação do ambiente. `.agents/skills/testes-seguros-erp/SKILL.md` define como executar testes seguros de módulos e aponta para este documento quando a validade do laboratório Supabase local estiver em questão. Não duplicar esta matriz em outras skills ou no roteiro cíclico.
+Este arquivo é apenas registro histórico; não é fonte canônica nem deve ser usado para planejar ou executar testes. A fonte canônica atual é [`SUPABASE_REMOTE_TEST_POLICY.md`](./SUPABASE_REMOTE_TEST_POLICY.md). Não duplicar critérios em outras skills ou no roteiro cíclico.

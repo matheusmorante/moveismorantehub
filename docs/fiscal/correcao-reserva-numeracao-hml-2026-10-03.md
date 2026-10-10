@@ -1,5 +1,7 @@
 # Correção da reserva de numeração HML — 03/10/2026
 
+> **Registro de execução histórico:** causa, deploy/aplicação remota e validações referem-se à etapa de 03/10/2026. O projeto remoto não foi reconsultado nesta auditoria documental. Para o status de testes e evidências mais recentes, consulte [status-testes-homologacao.md](status-testes-homologacao.md); não use este relato para inferir o estado atual do banco ou deploy.
+
 ## Causas confirmadas
 
 - `api/nfe/reserve-number.ts` recusava GET antes do trecho de consulta, retornando 405. GET passa a consultar a sequência com autenticação fiscal e sem chamar RPC de reserva.
@@ -27,7 +29,7 @@ O resumo do modal deixa de exibir o cartão informativo CPF/CNPJ e usa três col
 
 As fixtures usam `draft`, `deleted=true`, `HML_TECHNICAL_V1`, itens/pagamentos vazios e `testRunId` correspondente. A exclusão dos indicadores foi conferida por `is_nfe_hml_test_order` e pelos triggers de métricas/entregas. O teste verifica ausência de itens, pagamentos e processamento de estoque; a transação inteira termina com ROLLBACK. Não houve alteração confirmada de registro operacional.
 
-`npm run advisors` foi executado, mas o script atual usa `--local` e falhou por ausência do serviço local. Não foi iniciado Docker/Supabase Local. Os Advisors de segurança e desempenho foram consultados no plugin do projeto remoto antes do reparo. Há achados existentes fora do escopo; o allocator usa `search_path=''`, `SECURITY INVOKER` e execução somente para `service_role`.
+Em 03/10/2026, `npm run advisors` falhou ao tentar conectar ao serviço local; nenhum Docker/Supabase Local foi iniciado. Esse relato descreve o comando e ambiente daquela data, não o checkout atual: hoje `package.json` usa `npx supabase db advisors --linked`, direcionado ao projeto Supabase remoto vinculado. Os Advisors remotos de segurança e desempenho foram consultados antes do reparo naquela execução. Há achados existentes fora do escopo; o allocator usa `search_path=''`, `SECURITY INVOKER` e execução somente para `service_role`.
 
 ## Autopreenchimento do NCM — ajuste posterior na mesma data
 

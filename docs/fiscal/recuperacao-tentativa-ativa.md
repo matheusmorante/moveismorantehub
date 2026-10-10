@@ -1,5 +1,7 @@
 # Recuperação de tentativa ativa — 2026-10-04
 
+> **Registro histórico de implementação:** os achados e resultados descrevem a alteração de 04/10/2026; não são estado atual de autorização SEFAZ nem roteiro para repetir uma tentativa. Consulte [status-testes-homologacao.md](status-testes-homologacao.md) para o estado do código e dos testes.
+
 ## Causa e comportamento
 
 O cliente descartava a intenção fiscal após `ALREADY_ACTIVE_FISCAL_ATTEMPT` e

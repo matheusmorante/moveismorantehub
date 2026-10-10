@@ -1,5 +1,7 @@
 # Recuperação de consulta 217 — 2026-10-04
 
+> **Registro histórico de somente leitura:** descreve a observação daquele pedido em 04/10/2026. Não declara estado atual da tentativa, do banco ou da SEFAZ. Consulte [status-testes-homologacao.md](status-testes-homologacao.md) antes de qualquer operação ou reconciliação.
+
 A solicitação `26557db7-8b96-4eb0-b80a-11ffa4bd431d` pertence ao pedido
 4077, NFC-e 613, série 1, ambiente 2. A investigação foi somente de leitura no
 projeto `hkoxhourxwlddgsfdgws`, confirmado pela URL Development do app.

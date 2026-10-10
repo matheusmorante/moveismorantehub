@@ -50,8 +50,11 @@ export function serializeFiscalItems(document: FiscalDocument): string {
         `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
         `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +
         `${p.otherExpenses ? tag('vOutro', money(p.otherExpenses)) : ''}` +
-        `${tag('indTot', '1')}${isHomologationFirstItem ? tag('infAdProd', p.description) : ''}</prod>`;
-      return `<det nItem="${item.itemNumber}">${product}${serializeFiscalTaxes(item.taxes, c.origin)}</det>`;
+        `${tag('indTot', '1')}</prod>`;
+      const taxes = serializeFiscalTaxes(item.taxes, c.origin);
+      const additionalProductInfo =
+        isHomologationFirstItem ? tag('infAdProd', p.description) : '';
+      return `<det nItem="${item.itemNumber}">${product}${taxes}${additionalProductInfo}</det>`;
     })
     .join('');
 }

@@ -209,7 +209,7 @@ function unsignedXml(
       `<xProd>${description}</xProd><NCM>${item.classification.ncm}</NCM><CFOP>${cfop}</CFOP>` +
       `<uCom>UN</uCom><qCom>${qty}</qCom><vUnCom>${price}</vUnCom><vProd>${gross}</vProd>` +
       `<cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>${qty}</qTrib><vUnTrib>${price}</vUnTrib><indTot>1</indTot>` +
-      `${index === 0 && model === '65' ? '<infAdProd>Sofá sintético</infAdProd>' : ''}</prod>${taxes}</det>`
+      `</prod>${taxes}${index === 0 && model === '65' ? '<infAdProd>Sofá sintético</infAdProd>' : ''}</det>`
     );
   };
   const key = accessKey;
@@ -343,6 +343,14 @@ describe('auditoria backend do XML fiscal', () => {
 
   it('vincula a prévia ao snapshot comercial e ao XML assinado', () => {
     const fingerprint = fiscalPreviewFingerprint(snapshot, document, auditIdentity, sign());
+    const persistedSnapshot = {
+      ...structuredClone(snapshot),
+      decisionTrace: [{ decisionId: 'approved-after-preview' }],
+    } as FiscalSnapshotCandidate;
+    expect(
+      fiscalPreviewFingerprint(persistedSnapshot, document, auditIdentity, sign())
+    ).toBe(fingerprint);
+
     const changedSnapshot = structuredClone(snapshot);
     const orderItems = changedSnapshot.order.data.items as Array<Record<string, unknown>>;
     orderItems[0].quantity = 2;

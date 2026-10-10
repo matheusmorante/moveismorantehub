@@ -1,6 +1,6 @@
 # Invariantes do emissor fiscal de saída
 
-**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-09-29. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade da implementação. A fonte normativa de cada mudança deve ser consultada novamente nas publicações oficiais aplicáveis, listadas em [manuais](manuais/README.md).
+**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-10-09. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade geral da implementação. O estado dos testes fiscais está no [status central de homologação](status-testes-homologacao.md). A fonte normativa de cada mudança deve ser consultada novamente nas publicações oficiais aplicáveis, listadas em [manuais](manuais/README.md).
 
 | ID | Invariante | Evidência mínima para considerá-la atendida |
 |---|---|---|
@@ -33,4 +33,4 @@
 
 ## Gatilhos de revisão antes de produção
 
-O fluxo principal `api/nfe/emit.ts` ainda não chama `validateNfeAgainstOfficialSchema`, enquanto `api/nfe/transmit-operation-draft.ts` chama antes e depois da assinatura. Portanto FISCAL-010 está **parcial**. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; testes mockados não bastam. O roteiro e os critérios para novos testes fiscais em homologação foram removidos em 2026-10-03 para redefinição; este documento não define procedimento HML.
+FISCAL-010 deixou de ser ausente no caminho principal: `api/nfe/emit.ts`, `api/nfe/emitNormalSale.ts` e `api/nfe/transmit-operation-draft.ts` chamam o validador do XSD oficial em suas rotas de transmissão/retry. Na execução focada de 09/10, os 11 testes de `fiscalOperationXml.test.ts` passaram; em `hmlNormalSaleRuleSet.test.ts`, os XMLs NFC-e pickup e delivery falharam porque o XSD PL_010f rejeitou a posição de `infAdProd`. Portanto o gate está implementado, mas FISCAL-010 ainda não está comprovado em todos os modelos/cenários aplicáveis. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; testes mockados não bastam. O estado completo está no [status central de homologação](status-testes-homologacao.md).

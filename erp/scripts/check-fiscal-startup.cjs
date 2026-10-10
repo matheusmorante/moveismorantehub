@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { spawnSync } = require('node:child_process');
-const { readFile, writeFile } = require('node:fs/promises');
+const { readdir, readFile, writeFile } = require('node:fs/promises');
 const { build } = require('esbuild');
 const ts = require('typescript');
 
@@ -23,14 +23,44 @@ async function check() {
     assert.equal(result.status, 0, 'Fiscal backend failed to start in native Node.');
     return;
   }
-  const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
-    'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy',
-    'order-fiscal-badges'];
-  const directRoutes = ['emit', 'consult', 'document-details', 'item-defaults', 'order-cancellation-policy',
-    'order-fiscal-badges'];
-  for (const route of routes) {
-    const dynamic = !directRoutes.includes(route);
-    const source = await readFile(resolve(__dirname, `../api/nfe/${dynamic ? 'operations' : route}.ts`), 'utf8');
+  const routeDispatchers = {
+    emit: 'operations',
+    consult: 'operations',
+    'inbound-manifestation': 'operations',
+    cancel: 'operations',
+    'return-capacity': 'operations',
+    'operation-drafts': 'operations',
+    'transmit-operation-draft': 'operations',
+    cce: 'operations',
+    'reserve-number': 'operations',
+    'document-details': 'auxiliary',
+    'item-defaults': 'auxiliary',
+    'order-cancellation-policy': 'auxiliary',
+    'order-fiscal-badges': 'auxiliary',
+  };
+  const config = JSON.parse(await readFile(resolve(__dirname, '../vercel.json'), 'utf8'));
+  const rewrites = new Map(config.rewrites.map(({ source, destination }) => [source, destination]));
+  for (const [route, dispatcher] of Object.entries(routeDispatchers)) {
+    const expected = `/api/nfe/${dispatcher}?operation=${route}`;
+    assert.equal(rewrites.get(`/api/nfe/${route}`), expected,
+      `${route}: public path is not routed to its whitelisted handler`);
+  }
+  const countFunctions = async (directory) => {
+    const entries = await readdir(directory, { withFileTypes: true });
+    let count = 0;
+    for (const entry of entries) {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) count += await countFunctions(path);
+      else if (/\.(?:c|m)?[jt]s$/.test(entry.name)) count += 1;
+    }
+    return count;
+  };
+  const functionCount = await countFunctions(resolve(__dirname, '../api'));
+  assert.ok(functionCount <= 12, `Vercel Hobby limit exceeded: ${functionCount} API functions.`);
+  console.log(`Vercel API functions: ${functionCount}/12.`);
+
+  for (const [route, dispatcher] of Object.entries(routeDispatchers)) {
+    const source = await readFile(resolve(__dirname, `../api/nfe/${dispatcher}.ts`), 'utf8');
     const emitted = ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
     }).outputText;
@@ -50,6 +80,20 @@ async function check() {
     await handler({ method: 'INVALID', headers: {}, query: { operation: route } }, response);
     assert.equal(status, 405, `${route}: handler did not execute`);
     console.log(`${route}: native module loading and handler execution passed.`);
+  }
+  for (const dispatcher of ['operations', 'auxiliary']) {
+    const source = await readFile(resolve(__dirname, `../api/nfe/${dispatcher}.ts`), 'utf8');
+    const emitted = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+    }).outputText;
+    const runnable = emitted.replace(/\.\.\/\.\.\/server\/nfe\/([\w-]+)\.cjs/g,
+      (_, name) => pathToFileURL(resolve(__dirname, `../server/nfe/${name}.cjs`)).href);
+    const { default: handler } = await import('data:text/javascript;base64,' +
+      Buffer.from(runnable).toString('base64'));
+    let status;
+    const response = { status(code) { status = code; return this; }, json() { return this; } };
+    await handler({ method: 'POST', headers: {}, query: { operation: '__proto__' } }, response);
+    assert.equal(status, 404, `${dispatcher}: unknown operation was not rejected.`);
   }
   // Exercise the external ESM/WASM dependency and XSD resource resolution.
   const result = await build({

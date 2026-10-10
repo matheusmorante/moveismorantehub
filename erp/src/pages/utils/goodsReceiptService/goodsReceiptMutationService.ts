@@ -1,9 +1,15 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { GoodsReceipt } from './goodsReceipt.types';
 import { getStoredReceipts, saveStoredReceipts, notifyListeners } from './goodsReceiptStorage';
-import { buildGoodsReceiptDbPayload, isValidUuid } from './goodsReceiptMapper';
+import {
+  buildGoodsReceiptDbPayload,
+  getGoodsReceiptTestArtifactIdentity,
+  isTestGoodsReceipt,
+  isValidUuid,
+} from './goodsReceiptMapper';
 import { syncGoodsReceiptItems } from './goodsReceiptItemsSync';
 import { getNextGoodsReceiptIndex } from '../goodsReceiptCode';
+import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
 
 export const saveGoodsReceiptDraft = async (
   draftData: Partial<GoodsReceipt>
@@ -14,13 +20,19 @@ export const saveGoodsReceiptDraft = async (
 
   const existingIndex = localList.findIndex((item) => item.id === id);
   const existing = existingIndex !== -1 ? localList[existingIndex] : null;
+  const testArtifact = existing
+    ? getGoodsReceiptTestArtifactIdentity(existing)
+    : getGoodsReceiptTestArtifactIdentity(draftData) || (!draftData.id ? getTestArtifactContext() : null);
+  const isTestReceipt = Boolean(testArtifact) || isTestGoodsReceipt(existing || draftData);
+  if (existing && !isTestGoodsReceipt(existing) && isTestGoodsReceipt(draftData)) {
+    throw new Error('Um recebimento operacional existente não pode ser convertido em artefato de teste.');
+  }
 
   const draftReceipt: GoodsReceipt = {
     id,
-    receiptIndex:
-      draftData.receiptIndex ||
-      existing?.receiptIndex ||
-      (await getNextGoodsReceiptIndex(localList)),
+    receiptIndex: isTestReceipt
+      ? existing?.receiptIndex
+      : draftData.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList)),
     purchaseId: draftData.purchaseId || existing?.purchaseId,
     supplierId: draftData.supplierId || existing?.supplierId,
     supplierName: draftData.supplierName || existing?.supplierName || 'Fornecedor',
@@ -30,6 +42,7 @@ export const saveGoodsReceiptDraft = async (
     items: draftData.items || existing?.items || [],
     totalValue: draftData.totalValue ?? existing?.totalValue ?? 0,
     observation: draftData.observation ?? existing?.observation ?? '',
+    ...(testArtifact ? { testArtifact } : existing?.testArtifact ? { testArtifact: existing.testArtifact } : {}),
     fiscalKey: draftData.fiscalKey ?? existing?.fiscalKey,
     attachments: draftData.attachments || existing?.attachments || [],
     status: 'draft',
@@ -74,12 +87,21 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
   const localList = getStoredReceipts();
   const existingIndex = localList.findIndex((item) => item.id === receipt.id);
   const existing = existingIndex !== -1 ? localList[existingIndex] : null;
+  const testArtifact = existing
+    ? getGoodsReceiptTestArtifactIdentity(existing)
+    : getGoodsReceiptTestArtifactIdentity(receipt) || getTestArtifactContext();
+  const isTestReceipt = Boolean(testArtifact) || isTestGoodsReceipt(receipt) || isTestGoodsReceipt(existing);
+  if (existing && !isTestGoodsReceipt(existing) && isTestGoodsReceipt(receipt)) {
+    throw new Error('Um recebimento operacional existente não pode ser convertido em artefato de teste.');
+  }
 
-  const receiptIndex =
-    receipt.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList));
+  const receiptIndex = isTestReceipt
+    ? existing?.receiptIndex
+    : receipt.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList));
   const now = new Date().toISOString();
   const finalizedReceipt: GoodsReceipt = {
     ...receipt,
+    ...(testArtifact ? { testArtifact } : existing?.testArtifact ? { testArtifact: existing.testArtifact } : {}),
     receiptIndex,
     status: 'received',
     isDraft: false,
@@ -120,7 +142,17 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
 export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
   const localList = getStoredReceipts();
   const id = data.id || crypto.randomUUID();
-  const receiptIndex = data.receiptIndex || (await getNextGoodsReceiptIndex(localList));
+  const existing = localList.find((item) => item.id === id) || null;
+  const testArtifact = existing
+    ? getGoodsReceiptTestArtifactIdentity(existing)
+    : getGoodsReceiptTestArtifactIdentity(data) || (!data.id ? getTestArtifactContext() : null);
+  const isTestReceipt = Boolean(testArtifact) || isTestGoodsReceipt(existing || data);
+  if (existing && !isTestGoodsReceipt(existing) && isTestGoodsReceipt(data)) {
+    throw new Error('Um recebimento operacional existente não pode ser convertido em artefato de teste.');
+  }
+  const receiptIndex = isTestReceipt
+    ? existing?.receiptIndex
+    : data.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList));
   const fullReceipt: GoodsReceipt = {
     id,
     receiptIndex,
@@ -131,6 +163,7 @@ export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<Goo
     observation: data.observation || '',
     status: data.status || 'received',
     isDraft: data.isDraft ?? false,
+    ...(testArtifact ? { testArtifact } : existing?.testArtifact ? { testArtifact: existing.testArtifact } : {}),
     ...data,
   };
   return await finalizeGoodsReceipt(fullReceipt);

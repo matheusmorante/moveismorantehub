@@ -2,6 +2,10 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
+# CLI project metadata for the existing Supabase project. Local ports/seed below are retained as
+# configuration only; MoranteHub policy prohibits `supabase start`, `supabase test db`,
+# `supabase db reset --local`, Docker, and any local database runtime. See
+# docs/testing/SUPABASE_REMOTE_TEST_POLICY.md before database operations.
 project_id = "morantehub"
 
 [api]

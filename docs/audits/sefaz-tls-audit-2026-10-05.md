@@ -1,5 +1,7 @@
 # Auditoria TLS SEFAZ-PR (Morante Hub)
 
+> **Snapshot histórico de 05/10/2026:** os resultados `PASS` desta auditoria descrevem somente as conexões e configurações observadas naquela execução. Teste de handshake/TLS não comprova autorização de documento fiscal nem estado atual do transporte. Para a situação posterior, consulte [sefaz-hml-tls.md](../fiscal/sefaz-hml-tls.md) e o [status fiscal atual](../fiscal/status-testes-homologacao.md).
+
 **Data da Auditoria:** 2026-10-05
 **Objetivo:** Provar, com evidência técnica, a correção da cadeia TLS, mTLS e configuração de CAs para comunicação com a SEFAZ-PR em Homologação e Produção, garantindo consistência em Node puro, OpenSSL, Agent ERP, Axios e Vercel Dev.
 

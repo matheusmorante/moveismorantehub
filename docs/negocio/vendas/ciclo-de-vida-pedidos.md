@@ -17,7 +17,6 @@ stateDiagram-v2
     Scheduled --> Fulfilled: Entregar / Concluir Montagem
     Scheduled --> Cancelled: Cancelar Pedido Agendado
     
-    Fulfilled --> Cancelled: Cancelamento Excepcional
     
     Cancelled --> [*]: Imutável (Permite Duplicar)
     Fulfilled --> [*]: Concluído (Permite Devolução)
@@ -27,12 +26,12 @@ stateDiagram-v2
 
 ## 📋 Descrição dos Estados
 
-| Status | Nome no Sistema | Descrição Operacional | Efeito em Estoque | Efeito Financeiro |
-| :--- | :--- | :--- | :--- | :--- |
-| `draft` | **Rascunho / Orçamento** | Pedido em digitação ou orçamento preliminar. Não gera reserva nem baixa. | Nenhum | Nenhum |
-| `scheduled` | **Agendado** | Venda confirmada com data de entrega/montagem programada. | Saída efetiva na data do pedido (`order.date`) | Título a receber pendente |
-| `fulfilled` | **Atendido** | Venda entregue e concluída ao cliente. | Saída efetiva mantida, CMV materializado | Título a receber liquidado/confirmado |
-| `cancelled` | **Cancelado** | Venda interrompida/cancelada. | Estorna saída se `stockProcessed` era `true` | Cancela títulos a receber pendentes |
+| Status | Nome no Sistema | Descrição Operacional | Efeito comercial/estoque |
+| :--- | :--- | :--- | :--- |
+| `draft` | **Rascunho / Orçamento** | Pedido em digitação ou orçamento preliminar. Não gera baixa de estoque. | Sem movimentação de saída. |
+| `scheduled` | **Agendado** | Venda confirmada com data de entrega/montagem programada. | A saída segue o gatilho comercial/estoque do pedido. Cancelamento só se não houver circulação. |
+| `fulfilled` | **Atendido** | Entrega ou retirada confirmada. Conta como circulação para a política fiscal. | Preserva a saída confirmada; eventual retorno físico segue devolução vinculada. |
+| `cancelled` | **Cancelado** | Cancelamento comercial permitido quando não houve circulação. | Reverte os efeitos de estoque dentro da operação transacional; eventual tratamento fiscal é decidido pela política central após o commit. |
 
 ---
 
@@ -40,17 +39,24 @@ stateDiagram-v2
 
 1. **Rascunho → Agendado / Atendido**:
    - Valida obrigatoriedade de cliente, itens e condições de pagamento via `validateOrder()`.
-   - Dispara a gestão de estoque em `[orderStockOperations.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderStockOperations.ts)`.
+   - Dispara a gestão de estoque em [orderStockOperations.ts](../../../erp/src/pages/utils/orderStockOperations.ts).
    - Gera notificação de venda e montagens via `notifyNewSaleAndAssemblies()`.
-2. **Proibição de Retorno a Rascunho**:
+2. **Cancelamento antes da circulação**:
+   - Pedido e efeitos de estoque são atualizados pela operação transacional compartilhada.
+   - Se houver documento fiscal autorizado, a política escolhe automaticamente cancelamento SEFAZ dentro do prazo ou estorno quando permitido; sem documento autorizado, não há evento fiscal.
+3. **Depois da circulação**:
+   - `fulfilled` cobre entrega e retirada confirmadas. Não cancelar como operação não realizada nem gerar estorno; preservar a NF-e original e usar devolução vinculada após o retorno físico.
+   - A ação “Corrigir atendimento/retirada” pode retornar `fulfilled` para `scheduled`, mas o guard atual não verifica se houve circulação física. Não usar essa correção após entrega/retirada confirmada; a lacuna e o risco de cancelamento subsequente estão no [status fiscal](../../fiscal/status-testes-homologacao.md).
+4. **Proibição de Retorno a Rascunho**:
    - Um pedido que já passou para `scheduled` ou `fulfilled` **NUNCA** pode retornar ao status `draft`.
-3. **Imutabilidade do Status Cancelado**:
+5. **Imutabilidade do Status Cancelado**:
    - Um pedido cancelado não aceita edições de status. Para reaproveitar as informações, a interface disponibiliza o recurso `Duplicar Pedido`.
 
 ---
 
 ## 🔗 Referências de Código e Testes
 
-- **Serviço Principal**: `[orderHistoryService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderHistoryService.ts)` → `saveOrder()`, `updateOrder()`
-- **Resolução de Status**: `[orderSchedulingStatus.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderSchedulingStatus.ts)` → `resolveCompletedOrderStatus()`
-- **Testes Automatizados**: `[duplicateOrder.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/duplicateOrder.test.ts)`
+- **Serviço Principal**: [orderHistoryService.ts](../../../erp/src/pages/utils/orderHistoryService.ts) → `saveOrder()`, `updateOrder()`
+- **Resolução de Status**: [orderSchedulingStatus.ts](../../../erp/src/pages/utils/orderSchedulingStatus.ts) → `resolveCompletedOrderStatus()`
+- **Regras de cancelamento, estorno e devolução**: [documento operacional](cancelamentos-reversoes.md), [status fiscal atual](../../fiscal/status-testes-homologacao.md) e [auditoria de cancelamento de 08/10](../../fiscal/auditoria-cancelamento-estorno-devolucao-2026-10-08.md)
+- **Testes Automatizados**: [duplicateOrder.test.ts](../../../erp/src/pages/utils/__tests__/duplicateOrder.test.ts)

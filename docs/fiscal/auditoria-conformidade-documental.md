@@ -1,6 +1,6 @@
 # Auditoria inicial — conformidade documental do módulo fiscal
 
-> **Registro histórico:** auditoria de 2026-09-29. A skill indicada abaixo foi removida em 2026-10-03 a pedido da usuária, e os critérios de teste HML foram retirados para redefinição. Este arquivo preserva o diagnóstico da época e não é roteiro atual.
+> **Registro histórico:** auditoria de 2026-09-29. A skill indicada abaixo foi removida em 2026-10-03 a pedido da usuária, e os critérios de teste HML foram retirados para redefinição. As linhas sobre validação XSD de emit.ts, emissão de CC-e e homologação descrevem somente o checkout daquela data e foram superadas por mudanças posteriores. Consulte o [status fiscal atual](status-testes-homologacao.md); este arquivo preserva o diagnóstico da época e não é roteiro atual.
 
 **Data:** 2026-09-29  
 **Skill aplicada à época:** `fiscal-nfe-nfce-official-docs` (removida em 2026-10-03)

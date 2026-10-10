@@ -2,6 +2,8 @@
 
 Diretrizes para foco, velocidade e economia máxima de contexto e tokens.
 
+Ao concluir ou interromper qualquer tarefa, siga automaticamente [`relatorios-pos-tarefa`](skills/relatorios-pos-tarefa/SKILL.md) para apresentar o relatório final, preservando a precisão técnica e as políticas de segurança.
+
 ---
 
 ## Regras de Execução Direta (Sem Burocracia & Antidesperdício)
@@ -20,7 +22,7 @@ Diretrizes para foco, velocidade e economia máxima de contexto e tokens.
 
 ## Ferramentas Oficiais e Risco de Validação
 * Validação proporcional ao risco: Vitest (Baixo), RTL (Médio), Playwright (Alto), k6/pgTAP/ZAP e Supabase CLI (Crítico/Concorrente).
-* Testes destrutivos, concorrência e injeção de segurança devem rodar exclusivamente em Supabase Local reproduzível (`supabase db reset`), somente na janela definida em `.agents/skills/testes-seguros-erp/SKILL.md`, **nunca em produção**.
+* Testes de banco, rollback, concorrência controlada e segurança devem usar exclusivamente o projeto Supabase remoto operacional já configurado, na branch primária/padrão existente e schema `public`, com artefatos sintéticos identificados por `runId` e escopo restrito segundo `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Não criar project branch, projeto, banco, schema/tabelas/colunas de teste; não usar, instalar ou iniciar Docker, Supabase Local, PostgreSQL local nem PGlite como substituto de integração. Não usar reset, `DROP`, `TRUNCATE`, fault injection ou carga ampla. Não gravar fixtures até provar guards, vínculos, exclusão dos cinco destinos e supressão de notificações; se um cenário não puder ser isolado com segurança no remoto, registre o risco concreto e a evidência pendente, sem tratar a falta de Docker como bloqueio.
 * Qualidade e Segurança Estática: Biome (Lint/Format Rápido), Knip (Código Morto), Supabase Advisors (RLS/Índices), React Compiler (Otimização Reativa), Gitleaks (Detecção de Segredos), Trivy (CVEs/SBOM) e OpenTelemetry (Tracing com Sanitização PII).
 * Para buscas estruturais complexas e auditorias/migrações globais solicitadas, use ast-grep e as regras existentes; mudanças pequenas não exigem a ferramenta. Critérios em `.agents/skills/governanca-skills/SKILL.md`.
 * Para rastrear callers/callees, caminhos entre módulos e impacto de mudanças, use CALM quando disponível; use `rg` para busca textual simples. CALM informa relações do código e não substitui skills, documentação de domínio ou testes. Configuração: `.codex/config.toml`; índice local ignorado: `.calm/`.

@@ -3,6 +3,8 @@
 Consulta e decisão: **07/10/2026**. Cenário implementado: emitente CRT 1,
 venda normal de mercadoria revendida a consumidor final, nos modelos 55 e 65.
 
+> Revisão documental em 09/10/2026: esta decisão cobre PIS/COFINS no cenário delimitado e não afirma conformidade RTC completa. O Informe Técnico 2025.002 v1.70 atualizou tabelas cClassTrib/CST/crédito presumido de IBS/CBS em 01/10; o estado de cálculo/serialização RTC está no [status fiscal atual](status-testes-homologacao.md) e exige análise separada.
+
 ## Decisão
 
 PIS e COFINS usam a mesma decisão para NF-e 55 e NFC-e 65:

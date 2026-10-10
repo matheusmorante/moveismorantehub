@@ -7,6 +7,8 @@ description: Manage Supabase SQL migration creation, edits, replacement, removal
 
 Follow this skill whenever creating, editing, replacing, reviewing, removing, or applying a Supabase SQL migration. The goal is to keep the local migration set and each supported database environment understandable, reproducible, and free of unexplained pending files.
 
+For MoranteHub, “local migration set” means the versioned SQL files in the repository only. All database inspection and application targets the existing remote operational project, its primary/default branch, and schema `public`, according to `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Do not use Docker, Supabase Local, local PostgreSQL/PGlite, `--local` CLI workflows, or create a branch, project, database, or schema to validate a migration.
+
 For database test setup and fixture rules, follow [database-supabase](../database-supabase/SKILL.md) and `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. For compatibility and rollback design, follow [migration](../migration/SKILL.md). Do not duplicate or override those policies here.
 
 ## Before changing a migration

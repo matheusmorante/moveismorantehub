@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
-const EXPECTED_OPERATOR_EMAIL = 'matheusmorante0012@gmail.com';
+const EXPECTED_OPERATOR_EMAIL = 'matheusmorante002@gmail.com';
 const projectRoot = path.resolve(__dirname, '..');
 
 function linkedSupabaseRef(): string {

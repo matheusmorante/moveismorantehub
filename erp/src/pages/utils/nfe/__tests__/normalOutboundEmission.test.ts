@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   schema: vi.fn(),
   structure: vi.fn(),
   sign: vi.fn(),
+  assertSignedXmlMatchesSnapshot: vi.fn(),
 }));
 vi.mock('../../../../../../api/nfe/sefazClient', () => ({ sendSoapToSefaz: mocks.send }));
 vi.mock('../../../../../../api/nfe/schemaValidator', () => ({
@@ -32,6 +33,10 @@ vi.mock('../../../../../../api/nfe/nfeSigner', () => ({
     certDerBase64: 'TEST_UNIT',
   }),
   signNfeXml: mocks.sign,
+}));
+vi.mock('../../../../../../api/nfe/fiscalXmlAudit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../../api/nfe/fiscalXmlAudit')>()),
+  assertSignedFiscalXmlMatchesSnapshot: mocks.assertSignedXmlMatchesSnapshot,
 }));
 
 const requestId = 'f19b3e63-6f84-45ea-8c5f-39476d709a3d';
@@ -320,8 +325,49 @@ function database() {
     },
   };
 }
+type PreviewRun = {
+  candidate: FiscalSnapshotCandidate;
+  proof?: NonNullable<FiscalEmissionCommand['previewProof']>;
+  result: Awaited<ReturnType<typeof emitNormalSale>>;
+};
+const previewProofs = new WeakMap<object, Map<string, NonNullable<FiscalEmissionCommand['previewProof']>>>();
+async function preview(d: ReturnType<typeof database>, c = command()): Promise<PreviewRun> {
+  const candidate = facts(c);
+  const result = await emitNormalSale(
+    d.db,
+    { ...c, previewOnly: true },
+    candidate,
+    {},
+    'TEST_UNIT_ACTOR'
+  );
+  const proof = result.body.previewProof;
+  if (proof) {
+    const byRequest = previewProofs.get(d) || new Map();
+    byRequest.set(c.emissionRequestId, proof);
+    previewProofs.set(d, byRequest);
+  }
+  return { candidate, proof, result };
+}
+async function emitFromPreview(
+  d: ReturnType<typeof database>,
+  c: FiscalEmissionCommand,
+  prepared: PreviewRun
+) {
+  if (!prepared.proof) return prepared.result;
+  return emitNormalSale(
+    d.db,
+    { ...c, previewProof: prepared.proof },
+    prepared.candidate,
+    {},
+    'TEST_UNIT_ACTOR'
+  );
+}
 async function emit(d: ReturnType<typeof database>, c = command()) {
-  return emitNormalSale(d.db, c, facts(c), {}, 'TEST_UNIT_ACTOR');
+  return emitFromPreview(d, c, await preview(d, c));
+}
+function commandWithPreview(d: ReturnType<typeof database>, c = command()) {
+  const proof = previewProofs.get(d)?.get(c.emissionRequestId);
+  return proof ? { ...c, previewProof: proof } : c;
 }
 beforeEach(() => {
   vi.stubEnv('NFE_PRODUCTION_ENABLED', 'true');
@@ -342,6 +388,7 @@ beforeEach(() => {
   );
   mocks.structure.mockResolvedValue(undefined);
   mocks.schema.mockResolvedValue(undefined);
+  mocks.assertSignedXmlMatchesSnapshot.mockReturnValue(undefined);
   mocks.sign.mockImplementation((xml: string) =>
     xml.replace('</NFe>', '<Signature>TEST_UNIT</Signature></NFe>')
   );
@@ -398,13 +445,16 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
         emissionRequestId: 'a19b3e63-6f84-45ea-8c5f-39476d709a3d',
       }),
     ]);
-    expect(results.map((r) => r.body.nfeNumber).sort()).toEqual([102, 103]);
-    expect(results.every((r) => r.body.success)).toBe(true);
-    expect(mocks.send).toHaveBeenCalledTimes(2);
+    expect(results.filter((r) => r.body.success)).toHaveLength(1);
+    expect(results.find((r) => !r.body.success)?.body.code).toBe('FISCAL_PREVIEW_STALE');
+    expect(d.attempts).toHaveLength(1);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
   });
   it('concurrent identical requests create one attempt and send once', async () => {
     const d = database();
-    await Promise.all([emit(d), emit(d)]);
+    const c = command();
+    const prepared = await preview(d, c);
+    await Promise.all([emitFromPreview(d, c, prepared), emitFromPreview(d, c, prepared)]);
     expect(d.attempts).toHaveLength(1);
     expect(d.snapshots).toHaveLength(1);
     expect(mocks.send).toHaveBeenCalledTimes(1);
@@ -421,7 +471,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(d.attempts[0].state).toBe('reconciling');
     expect(mocks.send).toHaveBeenCalledTimes(1);
     mocks.send.mockResolvedValueOnce(notFound(d.attempts[0]));
-    const retry = await recoverNormalSale(d.db, command());
+    const retry = await recoverNormalSale(d.db, commandWithPreview(d));
     expect(retry?.body).toMatchObject({ code: 'FISCAL_CONFIRMED_NOT_FOUND', nfeNumber: 102 });
     expect(mocks.send).toHaveBeenCalledTimes(2);
     expect(mocks.send.mock.calls[1][0].xmlPayload).toContain('<xServ>CONSULTAR</xServ>');
@@ -478,7 +528,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     await reconcileNormalSale(d.db, d.documents[0].id);
     const original = d.documents[0].xml_nfe;
     mocks.send.mockResolvedValueOnce(notFound(d.attempts[0]));
-    const r = await recoverNormalSale(d.db, command());
+    const r = await recoverNormalSale(d.db, commandWithPreview(d));
     expect(r?.body.success).toBe(true);
     expect(d.documents[0].xml_nfe).toBe(original);
     expect(d.attempts).toHaveLength(1);
@@ -495,7 +545,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(d.attempts).toHaveLength(0);
     expect(mocks.send).not.toHaveBeenCalled();
   });
-  it('lost preparation response preserves the original committed attempt without sending again', async () => {
+  it('lost preparation response preserves the committed attempt without starting transmission', async () => {
     const d = database();
     const rpc = d.rpc.getMockImplementation()!;
     d.rpc.mockImplementation(async (name, args) => {
@@ -513,7 +563,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(mocks.send).not.toHaveBeenCalled();
     d.rpc.mockImplementation(rpc);
     d.attempts[0].attempt_token = null;
-    const resumed = await recoverNormalSale(d.db, command());
+    const resumed = await recoverNormalSale(d.db, commandWithPreview(d));
     expect(resumed?.body).toMatchObject({ success: true, nfeNumber: 102 });
     expect(d.attempts).toHaveLength(1);
     expect(mocks.send).toHaveBeenCalledTimes(1);
@@ -540,7 +590,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     const d = database();
     await emit(d);
     d.documents[0].status = 'cancelada';
-    const r = await recoverNormalSale(d.db, command());
+    const r = await recoverNormalSale(d.db, commandWithPreview(d));
     expect(r?.body).toMatchObject({
       success: false,
       state: 'cancelled',

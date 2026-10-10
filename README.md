@@ -73,9 +73,8 @@ npx expo start
 Endpoints de automação e emissão de notas fiscais:
 
 ```bash
-cd api
-npm install
-npm run dev # ou npm start
+# Na raiz do repositório
+npm run dev
 ```
 
 ---
@@ -83,8 +82,8 @@ npm run dev # ou npm start
 ## 🌐 Ambientes: Desenvolvimento vs Produção
 
 Seguindo as diretrizes do projeto:
-- **Desenvolvimento (`dev`):** Utiliza variáveis de ambiente locais (`.env.local`), conexões com a base de dados de staging do Supabase e ambiente de homologação da SEFAZ-PR (`tpAmb = 2`).
-- **Produção (`prod`):** Deploy automatizado via Vercel (para ERP, Catálogo e API) e Expo EAS (para Mobile), apontando para o banco oficial de produção e ambiente de autorização da SEFAZ-PR (`tpAmb = 1`).
+- **Desenvolvimento (`dev`):** O comando diário `npm run dev` inicia o stack via `scripts/run-vercel-env-dev.cjs` e carrega as variáveis Vercel Development para o projeto Supabase configurado. O ambiente fiscal de homologação usa `environment=2`/`tpAmb=2`; banco remoto não determina o ambiente fiscal.
+- **Produção (`prod`):** Deploy automatizado via Vercel (ERP, Catálogo e API) e Expo EAS (Mobile), usando a configuração Production correspondente. Para emissão fiscal, `environment=1`/`tpAmb=1` é exclusivamente Produção e depende dos gates do backend.
 
 ---
 
@@ -94,6 +93,6 @@ Seguindo as diretrizes do projeto:
 - **[.agents/AGENTS.md](./.agents/AGENTS.md)**: Histórico e especificações de comportamento dos módulos do sistema.
 - **[IDEIAS_E_PLANOS.md](./IDEIAS_E_PLANOS.md)**: Roadmap estratégico, backlog e planos de novas funcionalidades.
 - **[docs/ERP_OPERATIONS.md](./docs/ERP_OPERATIONS.md)**: Documentação aprofundada da operação de pedidos, estoque e canais.
-- **[docs/fiscal/nfe_sefaz_direta.md](./docs/fiscal/nfe_sefaz_direta.md)**: Especificação da emissão de NF-e e NFC-e direta no SEFAZ-PR.
+- **[docs/fiscal/README.md](./docs/fiscal/README.md)**: Índice fiscal com documentação vigente, relatórios históricos e publicações pendentes de análise.
 - **[docs/mobile/arquitetura_offline_first.md](./docs/mobile/arquitetura_offline_first.md)**: Padrão offline-first com fila de eventos de 4 estados.
 - **[docs/arquitetura/estrutura_banco_supabase.md](./docs/arquitetura/estrutura_banco_supabase.md)**: Diagramas e modelo de dados no Supabase.

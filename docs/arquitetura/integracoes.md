@@ -77,6 +77,6 @@ sequenceDiagram
 
 ## 🔗 Mapeamento em Código e Testes
 
-- **Fiscal SEFAZ**: [`nfeService.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/nfe/nfeService.ts) e [`nfe_sefaz_direta.md`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/docs/fiscal/nfe_sefaz_direta.md)
-- **IA Gemini Native**: [`geminiAgentService.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/services/aiAgent/geminiAgentService.ts)
-- **Google Maps**: [`useOrderDistanceCalculator.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/hooks/useOrderDistanceCalculator.ts)
+- **Fiscal SEFAZ**: [índice e status atual](../fiscal/README.md), [cliente fiscal](../../erp/src/pages/utils/nfe/nfeService.ts) e [referência histórica de emissão direta](../fiscal/nfe_sefaz_direta.md)
+- **IA Gemini Native**: [`geminiAgentService.ts`](../../erp/src/services/aiAgent/geminiAgentService.ts)
+- **Google Maps**: [`useOrderDistanceCalculator.ts`](../../erp/src/pages/App/SalesOrder/hooks/useOrderDistanceCalculator.ts)

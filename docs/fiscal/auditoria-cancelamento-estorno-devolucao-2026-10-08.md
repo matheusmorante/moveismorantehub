@@ -1,5 +1,7 @@
 # Auditoria de cancelamento, estorno e devolução — 08/10/2026
 
+> **Snapshot histórico:** achados e classificações refletem a inspeção de 08/10, com atualizações pontuais registradas em seguida. O estado atual por fluxo e o resultado Vitest de 09/10 estão em [status-testes-homologacao.md](status-testes-homologacao.md); não reutilize as pendências abaixo sem conferir o código atual.
+
 ## Atualização após implementação no workspace
 
 Em 08/10/2026, a decisão por pedido passou a avaliar cada NF/NFH autorizada separadamente. A tela mantém o pedido cancelado após sucesso comercial, recarrega os dados fiscais e apresenta falha ou confirmação pendente por documento, com retry restrito ao ID da nota. Falhas locais conhecidas antes da transmissão também são registradas no histórico do evento. A validação cobre testes focados e lint; não houve transmissão fiscal nem teste E2E remoto nesta alteração.
@@ -27,9 +29,9 @@ Esta auditoria não alterou os fluxos fiscais nem transmitiu documentos ou event
 
 ### F01 — Alta: a consulta dos fluxos novos não reconcilia os eventos de cancelamento
 
-**Evidência:** [consult.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/consult.ts:49) desvia os documentos do fluxo normal para `reconcileNormalSale` e os documentos HML para `consultAuthorizedHmlTechnical`, antes do tratamento de cancelamento existente a partir da linha 118.
+**Evidência:** [consult.ts](../../api/nfe/consult.ts#L49) desvia os documentos do fluxo normal para `reconcileNormalSale` e os documentos HML para `consultAuthorizedHmlTechnical`, antes do tratamento de cancelamento existente a partir da linha 118.
 
-No fluxo normal, [reconcileNormalSale](C:/Users/Rosilene/Desktop/morantehub/api/nfe/normal-sale/outboundAttempt.ts:285) retorna o resultado local quando a tentativa de emissão já está autorizada. Nesse caminho não faz uma consulta nova à SEFAZ nem reconcilia o evento 110111. Em HML, [consultAuthorizedHmlTechnical](C:/Users/Rosilene/Desktop/morantehub/api/nfe/emitHmlTechnical.ts:505) trata a situação cancelada como divergência que exige reconciliação manual e não grava o evento/documento reconciliados.
+No fluxo normal, [reconcileNormalSale](../../api/nfe/normal-sale/outboundAttempt.ts#L285) retorna o resultado local quando a tentativa de emissão já está autorizada. Nesse caminho não faz uma consulta nova à SEFAZ nem reconcilia o evento 110111. Em HML, [consultAuthorizedHmlTechnical](../../api/nfe/emitHmlTechnical.ts#L505) trata a situação cancelada como divergência que exige reconciliação manual e não grava o evento/documento reconciliados.
 
 **Consequência:** depois de timeout ou persistência parcial do cancelamento, o botão de consulta pode manter a pendência ou devolver apenas a autorização anteriormente salva. O caminho genérico de reconciliação não atende igualmente às notas novas.
 
@@ -37,7 +39,7 @@ No fluxo normal, [reconcileNormalSale](C:/Users/Rosilene/Desktop/morantehub/api/
 
 ### F02 — Alta: Produção e Homologação são contadas juntas na decisão de cancelamento
 
-**Evidência:** [order-cancellation-policy.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/order-cancellation-policy.ts:173) conta documentos autorizados por pedido sem separar o ambiente; o caminho por pedido faz a mesma agregação a partir da linha 280 e bloqueia quando a quantidade é diferente de um na linha 401.
+**Evidência:** [order-cancellation-policy.ts](../../api/nfe/order-cancellation-policy.ts#L173) conta documentos autorizados por pedido sem separar o ambiente; o caminho por pedido faz a mesma agregação a partir da linha 280 e bloqueia quando a quantidade é diferente de um na linha 401.
 
 **Consequência:** uma NF de Produção e uma NFH autorizada do mesmo pedido são interpretadas como múltiplos documentos concorrentes e podem provocar revisão manual indevida. O caminho por documento também recebe a contagem conjunta.
 
@@ -45,7 +47,7 @@ No fluxo normal, [reconcileNormalSale](C:/Users/Rosilene/Desktop/morantehub/api/
 
 ### F03 — Alta: resultado do evento e status da nota são persistidos separadamente
 
-**Evidência:** [cancel.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/cancel.ts:369) atualiza a tentativa em `nfe_document_events`; depois atualiza `nfe_documents`, na linha 397. A recuperação de uma tentativa anterior também realiza gravações separadas.
+**Evidência:** [cancel.ts](../../api/nfe/cancel.ts#L369) atualiza a tentativa em `nfe_document_events`; depois atualiza `nfe_documents`, na linha 397. A recuperação de uma tentativa anterior também realiza gravações separadas.
 
 **Consequência:** a SEFAZ pode confirmar o cancelamento e apenas uma parte do estado local ser gravada. Há sinalização de `reconciliationRequired`, o que reduz o risco de esconder a divergência, mas não torna as gravações locais atômicas. F01 ainda dificulta concluir a recuperação nos fluxos novos.
 
@@ -53,7 +55,7 @@ No fluxo normal, [reconcileNormalSale](C:/Users/Rosilene/Desktop/morantehub/api/
 
 ### F04 — Alta: a tela fiscal perde a informação de que o cancelamento comercial já foi confirmado
 
-**Evidência:** [fiscalCancellationService.ts](C:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/FiscalDocuments/services/fiscalCancellationService.ts:48) confirma o pedido antes de executar o tratamento fiscal, mas devolve `commercialCommitted` somente se toda a função terminar. [useFiscalCancelModal.ts](C:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/FiscalDocuments/hooks/useFiscalCancelModal.ts:68) só atualiza a variável depois desse retorno.
+**Evidência:** [fiscalCancellationService.ts](../../erp/src/pages/App/FiscalDocuments/services/fiscalCancellationService.ts#L48) confirma o pedido antes de executar o tratamento fiscal, mas devolve `commercialCommitted` somente se toda a função terminar. [useFiscalCancelModal.ts](../../erp/src/pages/App/FiscalDocuments/hooks/useFiscalCancelModal.ts#L68) só atualiza a variável depois desse retorno.
 
 **Consequência:** se a etapa fiscal lançar erro após o commit comercial, o `catch` considera que o commit não ocorreu. Exibe uma mensagem genérica e não entra no caminho de fechar/atualizar a lista reservado ao sucesso comercial parcial. O pedido e o estoque podem já estar alterados no banco enquanto a tela mantém a apresentação anterior.
 
@@ -61,9 +63,9 @@ No fluxo normal, [reconcileNormalSale](C:/Users/Rosilene/Desktop/morantehub/api/
 
 ### F05 — Alta: falhas anteriores à reserva do evento não ficam registradas como falha fiscal
 
-**Evidência:** em [cancel.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/cancel.ts:285), bloqueio de Produção e certificado indisponível são detectados antes da criação da tentativa. A RPC comercial inspecionada não registra uma intenção fiscal durável. O pedido inicia o tratamento fiscal pelo navegador após o commit e apresenta erros por toast em [useOrderHistoryOperations.ts](C:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/SalesOrder/OrderHistoryList/useOrderHistoryOperations.ts:184).
+**Evidência:** em [cancel.ts](../../api/nfe/cancel.ts#L285), bloqueio de Produção e certificado indisponível são detectados antes da criação da tentativa. A RPC comercial inspecionada não registra uma intenção fiscal durável. O pedido inicia o tratamento fiscal pelo navegador após o commit e apresenta erros por toast em [useOrderHistoryOperations.ts](../../erp/src/pages/App/SalesOrder/OrderHistoryList/useOrderHistoryOperations.ts#L184).
 
-Existe uma proteção visual útil: [orderFiscalBadgeRules.ts](C:/Users/Rosilene/Desktop/morantehub/erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts:240) deriva uma pendência quando o pedido está cancelado, a nota autorizada e não há evento/estorno. Portanto, a pendência não desaparece simplesmente por faltar evento.
+Existe uma proteção visual útil: [orderFiscalBadgeRules.ts](../../erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts#L240) deriva uma pendência quando o pedido está cancelado, a nota autorizada e não há evento/estorno. Portanto, a pendência não desaparece simplesmente por faltar evento.
 
 **Consequência:** o motivo da falha anterior à reserva não sobrevive ao recarregamento. O card passa a mostrar pendência genérica, sem conseguir manter o aviso vermelho “Falha na tentativa de cancelamento”. Fechar a página entre o commit comercial e a requisição fiscal também deixa a continuidade dependente de ação posterior na interface.
 
@@ -73,7 +75,7 @@ Existe uma proteção visual útil: [orderFiscalBadgeRules.ts](C:/Users/Rosilene
 
 ### F06 — Média: falta cancelar a própria NF-e de estorno ou de devolução
 
-**Evidência:** [cancel.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/cancel.ts:81) aceita apenas `document_type='outbound'`. A ação da interface também está limitada a esse tipo em [FiscalDocumentRowActions.tsx](C:/Users/Rosilene/Desktop/morantehub/erp/src/pages/App/FiscalDocuments/components/FiscalDocumentRowActions.tsx:188).
+**Evidência:** [cancel.ts](../../api/nfe/cancel.ts#L81) aceita apenas `document_type='outbound'`. A ação da interface também está limitada a esse tipo em [FiscalDocumentRowActions.tsx](../../erp/src/pages/App/FiscalDocuments/components/FiscalDocumentRowActions.tsx#L188).
 
 **Consequência:** o ERP possui apresentação para NFE cancelada, mas não oferece o fluxo correspondente de cancelamento da própria nota de estorno ou devolução autorizada.
 
@@ -81,15 +83,15 @@ Existe uma proteção visual útil: [orderFiscalBadgeRules.ts](C:/Users/Rosilene
 
 ### F07 — Média: a devolução fiscal ainda cobre um conjunto restrito de vendas
 
-**Evidência:** [returnFiscalRules.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/returnFiscalRules.ts:124) aceita modelo 55 como origem por padrão. A [migration aplicada](C:/Users/Rosilene/Desktop/morantehub/supabase/migrations/20261008180854_allow_nfce_source_for_nfe_estorno.sql:83) mantém essa restrição para `return`, apesar de ampliar `estorno` para 55/65.
+**Evidência:** [returnFiscalRules.ts](../../api/nfe/returnFiscalRules.ts#L124) aceita modelo 55 como origem por padrão. A [migration aplicada](../../supabase/migrations/20261008180854_allow_nfce_source_for_nfe_estorno.sql#L83) mantém essa restrição para `return`, apesar de ampliar `estorno` para 55/65.
 
-Também há bloqueios explícitos de operação interestadual, exterior, destinatário contribuinte e destinatário que não seja consumidor final em [fiscalOperationContext.ts](C:/Users/Rosilene/Desktop/morantehub/shared-utils/fiscalOperationContext.ts:178). Bases ou valores tributários não zero são bloqueados pela matriz atual na linha 99.
+Também há bloqueios explícitos de operação interestadual, exterior, destinatário contribuinte e destinatário que não seja consumidor final em [fiscalOperationContext.ts](../../shared-utils/fiscalOperationContext.ts#L178). Bases ou valores tributários não zero são bloqueados pela matriz atual na linha 99.
 
 **Conclusão necessária:** implementar e aprovar a devolução vinculada a NFC-e modelo 65 e as matrizes efetivamente utilizadas pela empresa, com referências, CFOP, tributos e totais proporcionais. Até essa aprovação, preservar os bloqueios e apresentar a limitação concreta ao usuário. A migration de estorno não resolve esses cenários de devolução.
 
 ### F08 — Média: falta a validação XSD específica do evento de cancelamento
 
-**Evidência:** [cancel.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/cancel.ts:307) monta e assina o evento, mas não passa por um validador do schema do evento antes do envio. [nfeSigner.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/nfeSigner.ts:87) assina XML; não valida o leiaute. Os XSDs versionados inspecionados cobrem a NF-e, sem o pacote específico de cancelamento.
+**Evidência:** [cancel.ts](../../api/nfe/cancel.ts#L307) monta e assina o evento, mas não passa por um validador do schema do evento antes do envio. [nfeSigner.ts](../../api/nfe/nfeSigner.ts#L87) assina XML; não valida o leiaute. Os XSDs versionados inspecionados cobrem a NF-e, sem o pacote específico de cancelamento.
 
 **Conclusão necessária:** versionar e validar o schema oficial aplicável ao evento e ao envelope de envio, com testes de assinatura, caracteres, data/fuso e retorno. A validação existente da NF-e de estorno/devolução não cobre o XML do evento 110111.
 
@@ -111,13 +113,13 @@ Também há bloqueios explícitos de operação interestadual, exterior, destina
 
 O preenchimento principal implementado corresponde aos requisitos específicos consultados: modelo 55, `finNFe=3`, natureza “Nota Fiscal de Estorno”, operação inversa, referência à chave original, CFOP conferido e justificativa/referência legal em `infAdFisco`. A referência é a [NPF 038/2022, art. 1º](https://www.sefanet.pr.gov.br/dados/SEFADOCUMENTOS/103202200038.pdf). Esta correspondência de campos não comprova, sozinha, a correção da tributação de cada operação.
 
-O servidor também exige confirmação da revisão de apuração e, se o mês for posterior ao da autorização original, texto sobre diferenças/acréscimos ou justificativa de não aplicação: [transmit-operation-draft.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/transmit-operation-draft.ts:718). A análise tributária concreta continua pertencendo à revisão fiscal.
+O servidor também exige confirmação da revisão de apuração e, se o mês for posterior ao da autorização original, texto sobre diferenças/acréscimos ou justificativa de não aplicação: [transmit-operation-draft.ts](../../api/nfe/transmit-operation-draft.ts#L718). A análise tributária concreta continua pertencendo à revisão fiscal.
 
 O cancelamento é um evento agregado à nota original, conforme a [SEFA/PR — Eventos NF-e](https://sped.fazenda.pr.gov.br/NFe/Pagina/Eventos-NF-e). Os prazos da política central foram comparados com as [orientações de NF-e da SEFA/PR](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/23) e as [orientações de NFC-e](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/22): 168 horas para modelo 55 e 30 minutos para modelo 65. Os testes locais incluem o instante do limite.
 
 ## Outros ajustes a planejar
 
-- **Numeração consumida antes de transmissão:** o rascunho reserva número antes da construção/validação final e antes da disputa de estado. Falha de XSD ou concorrência pode consumir número sem envio. O endpoint informa a reserva na resposta, mas é necessário comprovar um acompanhamento durável dessas lacunas e o procedimento fiscal aplicável. Não reutilizar números por ajuste manual da sequência. Evidência: [transmit-operation-draft.ts](C:/Users/Rosilene/Desktop/morantehub/api/nfe/transmit-operation-draft.ts:750) e testes de falha de schema.
+- **Numeração consumida antes de transmissão:** o rascunho reserva número antes da construção/validação final e antes da disputa de estado. Falha de XSD ou concorrência pode consumir número sem envio. O endpoint informa a reserva na resposta, mas é necessário comprovar um acompanhamento durável dessas lacunas e o procedimento fiscal aplicável. Não reutilizar números por ajuste manual da sequência. Evidência: [transmit-operation-draft.ts](../../api/nfe/transmit-operation-draft.ts#L750) e testes de falha de schema.
 - **Revisão por formulário:** parte da conferência do estorno usa edição direta de XML. Para origem NFC-e sem destinatário identificado, os dados exigidos pelo modelo 55 precisam ser completados e validados. Planejar campos estruturados e mensagens específicas, preservando a revisão fiscal.
 - **Financeiro:** esta auditoria verificou a persistência dos pagamentos do pedido na RPC, mas não validou liquidação, reembolso ou reversão de lançamentos financeiros no banco real. Esses efeitos precisam de cenário de integração próprio quando forem parte da operação comercial.
 

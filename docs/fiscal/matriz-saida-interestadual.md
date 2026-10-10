@@ -1,6 +1,6 @@
 # Matriz de Decisão Fiscal Interestadual de Saída
 
-Nome no código: **Interstate Outbound Fiscal Matrix**, módulo `api/nfe/interstateOutboundFiscalMatrix.ts`. Revisão de escopo e reconciliação do catálogo: **07/10/2026**. A auditoria fiscal anterior foi preservada e classificada por abrangência; a mudança de nome não aprova tratamento tributário.
+Nome no código: **Interstate Outbound Fiscal Matrix**, módulo `api/nfe/interstateOutboundFiscalMatrix.ts`. Revisão da documentação e estado em código: **09/10/2026**. A auditoria fiscal anterior foi preservada e classificada por abrangência; a mudança de nome não aprova tratamento tributário. O catálogo CFOP continua pendente de comparação com o Informe Técnico 2023.002 v2.10; a NT 2026.009 v1.00 também exige revisão de escopo antes de atualizar regras. Consulte o [status fiscal atual](status-testes-homologacao.md) para os testes e o [índice oficial](manuais/README.md) para os documentos vigentes.
 
 ## Escopo geográfico e autoridade fiscal
 
@@ -67,9 +67,9 @@ Na pesquisa anterior, o Portal Nacional apresentou loop de redirecionamento. Os 
 
 - [NT 2025.002 v1.52](https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/?sistema=NFE&tipoArquivo=3&nomeArquivo=NT_2025.002_v1.52_RTC_NF-e_IBS_CBS_IS.pdf): cronograma, pp. 4–7, e NA01-20, pp. 37–38. A exceção técnica de ICMSUFDest para Simples não prova `difalApplicable=false`. O cronograma CRT 1 não foi equiparado ao CRT 3.
 - [NT 2026.002 v1.11](https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/?sistema=NFE&tipoArquivo=3&nomeArquivo=NT_2026.002_v1.11_DANFE_Simpl_Tp2_Emi_Offline_Autoriz_Alerta.pdf): DANFE Simplificado Tipo 2; esta matriz não habilita `tpImp=6` ou emissão offline.
-- [NT 2026.007 v1.10](https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/?sistema=NFE&tipoArquivo=3&nomeArquivo=NT2026.007_v1.10%20-%20Emiss%C3%A3o%20NF-e%20sem%20IE%20e%20RV%20LCC.pdf): pp. 3–5 e 10, cadastro/CRT, cronograma HML até 05/10/2026 e produção 03/11/2026. Contribuinte exclusivo IBS/CBS não substitui o enquadramento ICMS CRT 1 deste fluxo.
+- [NT 2026.007 v1.10](https://dfe-portal.svrs.rs.gov.br/NFE/DownloadArquivoEstatico/?sistema=NFE&tipoArquivo=3&nomeArquivo=NT2026.007_v1.10%20-%20Emiss%C3%A3o%20NF-e%20sem%20IE%20e%20RV%20LCC.pdf): pp. 3–5 e 10, cadastro/CRT. O cronograma inicialmente previsto para outubro/novembro foi adiado pelo [aviso do Portal Nacional de 05/10/2026](https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&ehCTG=false&page=0&pagesize=30): 26/10/2026 em homologação e 16/11/2026 em produção. Contribuinte exclusivo IBS/CBS não substitui o enquadramento ICMS CRT 1 deste fluxo.
 
-Essa verificação foi das seções pertinentes, não da conformidade integral do emissor com todas as NTs/RTC. O XSD local `PL_010f_v1.04` não foi atualizado por esta refatoração. Passar no XSD não aprova incidência tributária.
+Essa verificação foi das seções pertinentes, não da conformidade integral do emissor com todas as NTs/RTC. O XSD local `PL_010f_v1.04` não foi atualizado por esta refatoração. Passar no XSD não aprova incidência tributária. As revisões postergadas precisam de reavaliação antes da data de homologação de 26/10; esta matriz não afirma conformidade com elas.
 
 ## Dimensões, candidatos e decisões pendentes
 

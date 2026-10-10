@@ -27,6 +27,8 @@ flowchart TD
 
 ## 📋 Diretrizes e Comportamento da Interface
 
+> **Chave de acesso — revisão de 09/10/2026:** a chave tem 44 posições; a NT 2026.004 passou a admitir letras no bloco CNPJ. O código de importação consultado ainda aplica validações/normalizações numéricas e pode rejeitar ou alterar uma chave alfanumérica. A cobertura ponta a ponta está pendente no [status fiscal](../../fiscal/status-testes-homologacao.md); não inferir compatibilidade de importação apenas porque o XML aceita CNPJ alfanumérico em outros campos.
+
 1. **Paginação Server-Side**: Exibição de **30 notas por página** com busca server-side e contagem exata no Supabase.
 2. **Filtros de Período**: Suporte a limites UTC completos (Ano Atual, Ano Passado, Mês Atual, Mês Anterior, Mês Específico e Intervalo Personalizado).
 3. **Trava de Fornecedor**: O dropdown de fornecedor é bloqueado (`disabled`) no modal de importação se existirem itens com produtos vinculados na nota (`"🔒 Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota."`).
@@ -43,9 +45,9 @@ flowchart TD
 
 ## 🔗 Mapeamento em Código e Serviços
 
-- **Serviço de Notas de Entrada**: `[inboundInvoicesService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/inboundNfe/inboundInvoicesService.ts)`
-- **Modal de Importação**: `[InboundDocumentImportModal.tsx](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/InboundInvoices/InboundDocumentImportModal.tsx)`
-- **Modal de Alerta de Chave Duplicada**: `[InboundDuplicateKeyAlertModal.tsx](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/InboundInvoices/InboundDuplicateKeyAlertModal.tsx)`
-- **Modal de Gerenciamento de Vínculos**: `[ManageInboundInvoiceMappingsModal.tsx](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/InboundInvoices/ManageInboundInvoiceMappingsModal.tsx)`
-- **Serviço de Códigos de Fornecedor**: `[productSupplierCodesService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/productSupplierCodesService.ts)`
-- **Parser XML**: `[inboundXmlParser.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/inboundNfe/inboundXmlParser.ts)`
+- **Serviço de Notas de Entrada**: [inboundInvoicesService.ts](../../../erp/src/pages/utils/inboundNfe/inboundInvoicesService.ts)
+- **Modal de Importação**: [InboundDocumentImportModal.tsx](../../../erp/src/pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx)
+- **Modal de Alerta de Chave Duplicada**: [InboundDuplicateKeyAlertModal.tsx](../../../erp/src/pages/App/Stock/InboundInvoices/modals/InboundDuplicateKeyAlertModal.tsx)
+- **Modal de Gerenciamento de Vínculos**: [ManageInboundInvoiceMappingsModal.tsx](../../../erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx)
+- **Serviço de Códigos de Fornecedor**: [productSupplierCodesService.ts](../../../erp/src/pages/utils/productSupplierCodesService.ts)
+- **Parser XML**: [inboundXmlParser.ts](../../../erp/src/pages/utils/inboundNfe/inboundXmlParser.ts)

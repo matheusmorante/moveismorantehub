@@ -5,6 +5,7 @@ import type { FullConfig } from '@playwright/test';
 interface TestArtifactPolicyStatus {
   ready?: boolean;
   policyVersion?: string;
+  behavioralProofRequired?: boolean;
 }
 
 function expectedProjectRef(): string {
@@ -54,7 +55,11 @@ export default async function fiscalPolicyGlobalSetup(_config: FullConfig): Prom
   } catch {
     throw new Error('E2E fiscal bloqueado: resposta inválida do status de proteção do Supabase.');
   }
-  if (status.ready !== true || status.policyVersion !== 'json-artifacts-v1') {
-    throw new Error('E2E fiscal bloqueado: guards do schema real não estão prontos.');
+  if (
+    status.ready !== true ||
+    status.policyVersion !== 'json-artifacts-v1' ||
+    status.behavioralProofRequired !== false
+  ) {
+    throw new Error('E2E fiscal bloqueado: instalação dos guards ou prova comportamental ainda pendente.');
   }
 }

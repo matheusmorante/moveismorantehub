@@ -2,10 +2,12 @@
   "private": true,
   "scripts": {
     "test:inventory-v2": "node finalizeInventoryV2.cjs",
-    "test:db": "npx supabase test db",
-    "test:concurrency": "node concurrency_stock_unavailabilities.cjs",
-    "test:storage": "node storage_unavailabilities.cjs",
-    "test:integration": "node concurrency_stock_unavailabilities.cjs && node storage_unavailabilities.cjs"
+    "test:db": "node ../../scripts/testing/run-local-supabase-test.cjs db",
+    "test:artifact-guards:simulation": "node test_artifact_json_guards_local.cjs",
+    "test:goods-receipt-items-guard:remote": "node test_goods_receipt_items_guard_remote.cjs",
+    "test:concurrency": "node ../../scripts/testing/run-local-supabase-test.cjs concurrency",
+    "test:storage": "node ../../scripts/testing/run-local-supabase-test.cjs storage",
+    "test:integration": "node ../../scripts/testing/run-local-supabase-test.cjs concurrency && node ../../scripts/testing/run-local-supabase-test.cjs storage"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

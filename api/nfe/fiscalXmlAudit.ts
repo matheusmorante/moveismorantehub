@@ -40,7 +40,12 @@ export function fiscalPreviewFingerprint(
   identity: { series: string; number: number; accessKey: string; issuedAt: string },
   signedXml: string
 ): string {
-  const { capturedAt: _capturedAt, persistedHash: _persistedHash, ...frozenFacts } = snapshot;
+  const frozenFacts = { ...snapshot } as Record<string, unknown>;
+  delete frozenFacts.capturedAt;
+  delete frozenFacts.persistedHash;
+  // The database stores this duplicate trace beside resolvedDocument.decisions.
+  // It is added only after preview, so it cannot participate in the preview fingerprint.
+  delete frozenFacts.decisionTrace;
   const { snapshotHash: _snapshotHash, ...frozenDocument } = document;
   return createHash('sha256')
     .update(
@@ -278,9 +283,9 @@ function compareItem(
   addTextMismatch(mismatches, `${field}.@nItem`, String(n), actual.getAttribute('nItem') || '');
   addTextMismatch(mismatches, `${field}.prod.cProd`, item.product.code, text(product, 'cProd'));
   addTextMismatch(mismatches, `${field}.prod.xProd`, homologationName, text(product, 'xProd'));
-  addOptionalTextMismatch(mismatches, `${field}.prod.infAdProd`,
+  addOptionalTextMismatch(mismatches, `${field}.infAdProd`,
     n === 1 && homologationName !== item.product.description ? item.product.description : undefined,
-    text(product, 'infAdProd'));
+    text(actual, 'infAdProd'));
   addTextMismatch(mismatches, `${field}.prod.NCM`, item.classification.ncm, text(product, 'NCM'));
   addOptionalTextMismatch(mismatches, `${field}.prod.CEST`, item.classification.cest, text(product, 'CEST'));
   addOptionalTextMismatch(mismatches, `${field}.prod.cBenef`, item.classification.benefitCode, text(product, 'cBenef'));

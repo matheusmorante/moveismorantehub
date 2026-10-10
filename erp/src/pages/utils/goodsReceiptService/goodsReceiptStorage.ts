@@ -1,5 +1,6 @@
 import { GoodsReceipt } from './goodsReceipt.types';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { isTestGoodsReceipt } from './goodsReceiptMapper';
 
 const STORAGE_KEY = 'morantehub_goods_receipts_v1';
 
@@ -59,6 +60,7 @@ export const ensureReceiptIndexes = (items: GoodsReceipt[]): GoodsReceipt[] => {
   );
 
   list.forEach((item) => {
+    if (isTestGoodsReceipt(item)) return;
     if (!item.receiptIndex || item.receiptIndex <= 0) {
       highest += 1;
       item.receiptIndex = highest;

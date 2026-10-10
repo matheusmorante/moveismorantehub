@@ -8,7 +8,7 @@ Este arquivo é um registro histórico de fontes e vetores examinados para PR→
 
 ## Fontes específicas de destino e de acordos
 
-Os fundamentos nacionais N1–N5 e de origem PR1–PR3 estão classificados na [documentação principal](../matriz-saida-interestadual.md#fundamentos-nacionais-e-do-paraná). Os IDs abaixo mantêm a evidência estadual e os acordos históricos da pesquisa anterior.
+Os fundamentos nacionais N1–N5 e de origem PR1–PR3 estão classificados na [documentação principal](matriz-saida-interestadual.md#fundamentos-nacionais-e-do-paraná). Os IDs abaixo mantêm a evidência estadual e os acordos históricos da pesquisa anterior.
 
 | ID | Escopo | Fonte consultada | Conclusão delimitada | Vigência/limite |
 | --- | --- | --- | --- | --- |

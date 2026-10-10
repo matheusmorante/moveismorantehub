@@ -1,6 +1,6 @@
 # Baseline fiscal E2E — homologação SEFAZ-PR
 
-> **Registro histórico de execução:** esta baseline preserva evidências e resultados de 2026-10-01. As instruções e critérios para novos testes de NF-e/NFC-e em homologação foram removidos em 2026-10-03 para redefinição. Não use este arquivo como roteiro nem retransmita os documentos registrados.
+> **Registro histórico de execução:** esta baseline preserva evidências e resultados de 2026-10-01. O status atual por cenário está em [status-testes-homologacao.md](status-testes-homologacao.md). As instruções e critérios para novos testes de NF-e/NFC-e em homologação foram removidos em 2026-10-03 para redefinição. Não use este arquivo como roteiro nem retransmita os documentos registrados.
 
 Estado de referência aprovado em `2026-10-01T19:32:18.854Z` para o `testRunId` `11ae099c-9497-4b0c-b308-1116c88c6d06`. O backend usado foi a implantação Vercel [`morantehub-1jo971ypw`](https://morantehub-1jo971ypw-matheusmorantes-projects.vercel.app), com `tpAmb=2`, série 1 e produção desabilitada. Projeto Supabase: `hkoxhourxwlddgsfdgws`.
 
@@ -17,7 +17,7 @@ O cenário cobriu emissão e consulta reais, cancelamento antes da circulação,
 
 ## Integridade dos arquivos de referência
 
-Os XMLs assinados e as respostas da SEFAZ permanecem no diretório local ignorado pelo Git `.agent/nfe-hml-evidence/`. Confira os SHA-256 antes de usá-los como fixture. Não substitua esta evidência por XML reconstruído.
+O relatório original registrou os XMLs assinados e as respostas da SEFAZ no diretório local ignorado pelo Git `.agent/nfe-hml-evidence/`. Em 09/10/2026, esse diretório não foi encontrado neste checkout; os arquivos não puderam ser abertos nem rehashados nesta reconciliação. Os hashes abaixo permanecem como valores registrados no relatório de 01/10, não como hashes revalidados agora. Não substitua a evidência histórica por XML reconstruído.
 
 | Arquivo | SHA-256 |
 |---|---|
@@ -32,7 +32,7 @@ Os XMLs assinados e as respostas da SEFAZ permanecem no diretório local ignorad
 | `b-return-2-signed.xml` | `5e7dca64695a14444f995a112c45e4dbee9c12c6b06e7fc8d65f553266db298e` |
 | `b-return-2-sefaz.xml` | `e75e25e180dcbe19c462c5aaccc8657d2d584a490cd9c60680279a11fc34512e` |
 
-The structured audit is [`nfe-hml-final-evidence.json`](../../.agent/nfe-hml-final-evidence.json); the full run notes are [`nfe-hml-e2e-report-20261001.md`](../../.agent/nfe-hml-e2e-report-20261001.md). Rejected attempts 215, 588 and 253 are kept beside the successful XMLs for diagnosis.
+The original record also references `.agent/nfe-hml-final-evidence.json` and `.agent/nfe-hml-e2e-report-20261001.md`; these files are not accessible in this checkout. Rejected attempts 215, 588 and 253 are cited as part of the historical record, without revalidation of their XMLs.
 
 ## Limites da evidência
 

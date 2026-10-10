@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   sendSoapToSefaz: vi.fn(),
   buildReviewedFiscalOperationXml: vi.fn(),
   parseAuthorizedInvoiceLines: vi.fn(),
+  assertNfeSignature: vi.fn(),
 }));
 
 vi.mock('../../../../../../node_modules/@supabase/supabase-js/dist/index.mjs', () => ({
@@ -27,6 +28,10 @@ vi.mock('../../../../../../api/nfe/schemaValidator', () => ({
 vi.mock('../../../../../../api/nfe/nfeSigner', () => ({
   extractCertificateAndKey: mocks.extractCertificateAndKey,
   signNfeXml: mocks.signNfeXml,
+}));
+vi.mock('../../../../../../api/nfe/fiscalXmlAudit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../../api/nfe/fiscalXmlAudit')>()),
+  assertNfeSignature: mocks.assertNfeSignature,
 }));
 vi.mock('../../../../../../api/nfe/sefazClient', () => ({
   sendSoapToSefaz: mocks.sendSoapToSefaz,
@@ -90,7 +95,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
       review_data: {
         nature_of_operation: kind === 'estorno' ? 'Nota Fiscal de Estorno' : 'Devolução de mercadoria',
         recipient_xml: sourceDestination,
-        totals_xml: '<total/>',
+        totals_xml: `<total><ICMSTot><vProd>${kind === 'estorno' ? '200.00' : '100.00'}</vProd><vDesc>0.00</vDesc><vNF>${kind === 'estorno' ? '200.00' : '100.00'}</vNF></ICMSTot></total>`,
         transport_xml: '<transp><modFrete>4</modFrete></transp>',
         payment_xml: '<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>',
         reason: kind === 'estorno' ? 'Operação não realizada e prazo legal expirado.' : '',
@@ -155,7 +160,14 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
         companyCnpj: '44512248000107',
         companyUF: 'PR',
         companyCRT: '1',
+        companyName: 'EMPRESA TESTE UNITÁRIO',
+        companyIE: '1234567850',
+        companyLogradouro: 'RUA TESTE',
+        companyNumero: '10',
+        companyBairro: 'CENTRO',
         companyCMun: '4105805',
+        companyXMun: 'COLOMBO',
+        companyCEP: '83410270',
         nfeSerie: '1',
         nfeNextNumber: 700,
         certificateBase64: 'mock-pfx',
@@ -308,6 +320,28 @@ function createNfceEstornoDatabase() {
   return result;
 }
 
+function parseSyntheticOperationLines(xml: string) {
+  return [...xml.matchAll(/<det\s+nItem="(\d+)">([\s\S]*?)<\/det>/g)].map(
+    ([, itemNumber, detail]) => {
+      const productXml = detail.match(/<prod\b[\s\S]*?<\/prod>/)?.[0] || '';
+      const taxesXml = detail.match(/<imposto\b[\s\S]*?<\/imposto>/)?.[0] || '';
+      const value = (tag: string) =>
+        productXml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1] || '';
+      return {
+        invoiceItemNumber: Number(itemNumber),
+        productCode: value('cProd'),
+        description: value('xProd'),
+        billedQuantity: Number(value('qCom')),
+        unitValue: Number(value('vUnCom')),
+        grossValue: Number(value('vProd')),
+        discountValue: Number(value('vDesc') || 0),
+        productXml,
+        taxesXml,
+      };
+    }
+  );
+}
+
 function createResponse() {
   let statusCode = 200;
   let body: any;
@@ -344,7 +378,10 @@ async function getHandler() {
 }
 
 describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const fiscalOperationXml = await vi.importActual<typeof import('../fiscalOperationXml')>(
+      '../fiscalOperationXml'
+    );
     vi.clearAllMocks();
     mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: 'test-fiscal-operator' });
     vi.stubEnv('NFE_RESP_TECH_CNPJ', '12345678000195');
@@ -358,32 +395,24 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
     mocks.validateNfeAgainstOfficialSchema.mockResolvedValue(undefined);
     mocks.validateUnsignedNfeStructure.mockResolvedValue(undefined);
+    mocks.assertNfeSignature.mockReturnValue(undefined);
     mocks.extractCertificateAndKey.mockReturnValue({
       certPem: 'mock-cert',
       privateKeyPem: 'mock-key',
       certDerBase64: 'mock-der',
     });
-    mocks.signNfeXml.mockImplementation((xml: string) => `${xml}<Signature/>`);
-    mocks.buildReviewedFiscalOperationXml.mockReturnValue('<NFe><infNFe></infNFe></NFe>');
-    mocks.parseAuthorizedInvoiceLines.mockReturnValue([
-      {
-        invoiceItemNumber: 1,
-        productCode: 'SKU-1',
-        description: 'Cadeira',
-        billedQuantity: 1,
-        unitValue: 100,
-        grossValue: 100,
-        discountValue: 0,
-      },
-    ]);
+    mocks.signNfeXml.mockImplementation((xml: string) =>
+      xml.replace('</NFe>', '<Signature/></NFe>')
+    );
+    mocks.buildReviewedFiscalOperationXml.mockImplementation(
+      fiscalOperationXml.buildReviewedFiscalOperationXml
+    );
+    mocks.parseAuthorizedInvoiceLines.mockImplementation(parseSyntheticOperationLines);
   });
   afterEach(() => vi.unstubAllEnvs());
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
-    mocks.buildReviewedFiscalOperationXml.mockReturnValue(
-      '<?xml version="1.0" encoding="UTF-8"?>\n<NFe>\n  <infNFe><xProd>Produto Teste</xProd></infNFe>\n</NFe>'
-    );
     mocks.validateNfeAgainstOfficialSchema.mockImplementation(async (xml: string) => {
       if (!xml.includes('<Signature')) throw new Error('O XSD oficial exige assinatura digital.');
     });
@@ -410,6 +439,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(mocks.validateUnsignedNfeStructure).toHaveBeenCalledTimes(1);
     expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledTimes(1);
     expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledWith(state.draft.signed_xml);
+    expect(mocks.assertNfeSignature).toHaveBeenCalledWith(state.draft.signed_xml, 'mock-cert');
     expect(mocks.validateUnsignedNfeStructure.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.signNfeXml.mock.invocationCallOrder[0]
     );
@@ -420,7 +450,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     const transmittedXml = mocks.sendSoapToSefaz.mock.calls[0][0].xmlPayload as string;
     expect(transmittedXml).not.toContain('<?xml');
     expect(transmittedXml).not.toMatch(/>\s+</);
-    expect(transmittedXml).toContain('<xProd>Produto Teste</xProd>');
+    expect(transmittedXml).toContain('<xProd>Cadeira</xProd>');
     expect(transmittedXml).toContain(state.draft.signed_xml!.replace(/^<\?xml[^?]*\?>/, ''));
     expect(state.draft.access_key).toMatch(/^\d{44}$/);
     expect(state.rpcCalls.map((call) => call.name)).toEqual([
@@ -533,7 +563,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     );
 
     expect(res.statusCode).toBe(409);
-    expect(res.body.error).toMatch(/circula/i);
+    expect(res.body.error).toMatch(/entrega\/retirada está confirmada/i);
     expect(state.rpcCalls).toEqual([]);
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });

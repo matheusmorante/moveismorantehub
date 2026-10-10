@@ -3,7 +3,7 @@ import { assertTestArtifactLinks, readTestArtifactIdentity, testArtifactMetadata
 
 /** Contains only artifact IDs. Credentials and authentication state never go here. */
 export const TEST_ARTIFACT_CONTEXT_KEY = 'morante:test-artifact-context';
-export const TEST_ARTIFACT_OPERATOR_EMAIL = 'matheusmorante0012@gmail.com';
+export const TEST_ARTIFACT_OPERATOR_EMAIL = 'matheusmorante002@gmail.com';
 
 export function testArtifactIdentityForAuthenticatedUser(input: {
   isDevelopment: boolean;

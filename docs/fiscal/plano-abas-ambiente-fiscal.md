@@ -1,44 +1,15 @@
-# Plano de Interface e Isolamento Fiscal: Abas Produção × Homologação
+# Plano de abas Produção × Homologação — proposta não aplicada
 
-## Contexto & Justificativa
-Na tela de Gestão de Documentos Fiscais (`FiscalDocumentsPage.tsx`), a listagem anterior carregava todos os registros da tabela `nfe_documents` em uma única visão unificada. 
-Como documentos fiscais de **Produção** (valor legal perante a SEFAZ) e **Homologação** (testes e validação técnica) possuem implicações jurídicas, contábeis e operacionais totalmente distintas, a separação estrutural em **Abas dedicadas** é uma diretriz de segurança obrigatória.
+> **Estado reconciliado em 09/10/2026:** a proposta original pedia abas separadas e estado independente de filtros. O código atual mantém uma lista fiscal unificada com filtro de ambiente; a tela abre com `environmentFilter='1'` e permite alternar o filtro. Abas dedicadas, indicadores visuais propostos e estado independente dos demais filtros não foram encontrados na implementação. A proposta não é requisito operacional vigente; veja o [índice fiscal](README.md) e o [status atual](status-testes-homologacao.md).
 
----
+## Estado observado no código
 
-## 1. Auditoria do Banco de Dados (Supabase)
-- **Status atual no banco:** O banco de dados **já distingue nativamente** os ambientes através da coluna:
-  ```sql
-  -- Tabela nfe_documents
-  ambiente INTEGER NOT NULL DEFAULT 2  -- 1 = Produção, 2 = Homologação / Teste
+- A lista de documentos está em `erp/src/pages/App/FiscalDocuments/hooks/useFiscalDocumentsList.ts`.
+- A seleção do ambiente está em `erp/src/pages/App/FiscalDocuments/components/FiscalDocumentsFilterBar.tsx` e a consulta adiciona filtro por ambiente em `erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts`.
+- O filtro visual ajuda o operador a navegar. Ele não substitui validação server-side, vínculo documento/pedido por mesmo ambiente ou proteção das operações fiscais.
 
-  -- Tabela nfe_sequences (numeração atômica por série e ambiente)
-  UNIQUE(modelo, serie, ambiente)
-  ```
-- **Conclusão:** Não são necessárias migrações adicionais de schema para suportar o filtro de ambiente. O banco já está modelado segundo a especificação oficial da SEFAZ (NT 2014.002 / MOC).
+## Proposta original preservada
 
----
+A proposta de 2026 sugeria duas abas (“Produção” e “Homologação”), com filtros de busca/modelo/status independentes e aviso visual para HML. Não há evidência de decisão posterior que a tenha tornado obrigatória. Se essa UX voltar ao escopo, implemente-a sobre os serviços atuais e atualize este registro depois da comparação visual e funcional.
 
-## 2. Diretrizes de UX e Interface (Tela de Notas Fiscais)
-
-### Hierarquia Visual
-```
-[ Cabeçalho: Notas Fiscais (NF-e & NFC-e) ]                     [ Botão Atualizar ]
------------------------------------------------------------------------------------
-[ Aba: 🏢 Produção (Oficial) ]   [ Aba: 🧪 Homologação (Ambiente de Testes) ]
------------------------------------------------------------------------------------
-[ Barra de Filtros: Buscar... | Todos os Modelos | Todos os Status ]
------------------------------------------------------------------------------------
-[ Listagem de Notas Fiscais do Ambiente Ativo ]
-```
-
-### Regras de Negócio e Comportamento
-1. **Aba Padrão:** **Produção** selecionada por padrão ao abrir a página (é o ambiente com relevância operacional contínua).
-2. **Isolamento de Estado dos Filtros por Aba:**
-   - Cada aba mantém seu próprio conjunto de filtros (`search`, `modelFilter`, `statusFilter`).
-   - Exemplo: se o operador estiver em Produção com filtro "Autorizada" e mudar para Homologação (onde pode estar filtrando "Todas"), ao retornar para Produção os filtros originais de Produção permanecem preservados intactos.
-3. **Indicador Visual na Aba de Homologação:**
-   - Destaque em tom âmbar/amarelo com tag explicativa: `Ambiente de testes (sem valor fiscal)`.
-   - Banner sutil de alerta no topo da lista quando em Homologação, evitando que qualquer usuário confunda uma nota teste com uma emissão real.
-4. **Botão Atualizar:**
-   - Localizado no cabeçalho geral, recarrega a lista sincronizando a visualização ativa.
+As referências antigas a `nfe_documents`, `nfe_sequences`, coluna `ambiente` ou constraints reproduzem uma suposição de schema da época. O snapshot não foi revalidado nesta revisão e não deve ser usado para afirmar o schema remoto atual; consulte o [status central](status-testes-homologacao.md) e a política de banco vigente.

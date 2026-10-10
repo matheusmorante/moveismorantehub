@@ -1,5 +1,7 @@
 # NF-e de devolução: regras do formulário, transporte e limites de suporte
 
+**Revisão de implementação e documentação:** 09/10/2026. O escopo descrito abaixo foi conferido contra os serviços locais; resultados de testes, ausência de autorização para NFC-e de origem e limites de XSD ficam em [status-testes-homologacao.md](status-testes-homologacao.md). A atualização oficial do catálogo CFOP e a NT 2026.009 ainda não foram reconciliadas com os CFOPs locais.
+
 ## Escopo implementado
 
 O formulário e as validações usam a política central `getFiscalFormRules(operationContext)` em `shared-utils/fiscalOperationContext.ts`. O backend recompõe o contexto a partir do pedido de devolução, da NF-e original, das configurações fiscais do estabelecimento e das alocações de itens. Valores informados pelo navegador não são autoridade para método de retorno, destinatário, pagamento, CFOP, tributos ou transporte.
@@ -26,7 +28,7 @@ O escopo atualmente emitível continua limitado a NF-e modelo 55, com NF-e de sa
 |---|---|---|---|---|
 | `finNFe=4` e CFOP classificado como devolução por item | `SEFAZ_REQUIRED` | MOC/Anexo I, regra 327 | A validação 327 só aceita CFOP de devolução em documento com finalidade de devolução. | Sim; finalidade fixa e CFOP filtrado por tipo, escopo, origem e ST. |
 | CFOP interno/interestadual da devolução | `SEFAZ_REQUIRED` + `FISCAL_RULE` | Tabela oficial CFOP e operação de origem | Escopo vem das UFs e da NF-e original; entrada interna usa a família `1xxx`, interestadual a `2xxx`. | Parcial; opções saem do catálogo semântico do ERP. Ausência de correspondência bloqueia sem escolher CFOP genérico. |
-| Sincronização do catálogo local com a Tabela CFOP oficial vigente | `TEMPORARY_BLOCK` | Projeto | O catálogo é versionado no código e não é importado/atualizado automaticamente pelo Portal Nacional. A publicação oficial consultada é de 04/09/2026. | Parcial; manter revisão do catálogo e bloquear códigos sem classificação. |
+| Sincronização do catálogo local com a Tabela CFOP oficial vigente | `TEMPORARY_BLOCK` | Projeto | O catálogo é versionado no código e não é importado/atualizado automaticamente pelo Portal Nacional. O Informe Técnico 2023.002 v2.10 foi publicado em 04/09/2026; a correspondência integral do catálogo ainda não foi comprovada. A NT 2026.009 v1.00 (09/09/2026) anuncia correção em regra de validação; o alcance específico ainda precisa ser verificado no texto da NT. | Parcial; manter códigos sem classificação de devolução bloqueados até reconciliar tabela, regra e escopo. |
 | Método `CLIENT_DELIVERED` | `PROJECT_POLICY` | Pedido de devolução e códigos oficiais de modalidade | O pedido indica que o cliente trouxe a mercadoria. O ERP interpreta o cliente, que é o destinatário no documento de entrada, como responsável por transporte próprio: `modFrete=4`. | Sim, valor fixo e validado novamente no servidor. Se houve transportador contratado/terceiro, o pedido atual não descreve esse fato; esse cenário não deve usar esta regra. |
 | Método `COMPANY_PICKUP` | `PROJECT_POLICY` | Pedido de devolução e códigos oficiais de modalidade | O pedido indica coleta própria da empresa emitente: `modFrete=3`. | Sim, valor fixo e validado novamente no servidor. Coleta por transportador contratado não está coberta pelo método atual. |
 | `modFrete=9` | `FISCAL_RULE` | MOC/Notas Técnicas | Significa sem ocorrência de transporte. Não é padrão de devolução e não é usado para nenhum dos dois métodos persistidos acima, pois ambos descrevem deslocamento físico. | Sim; payload `9` diverge do contexto e é rejeitado antes da reserva de número. |
@@ -83,11 +85,14 @@ Uma tentativa de transmissão incerta continua no fluxo idempotente de reconcili
 
 ## Fontes fiscais consultadas
 
+As publicações de CFOP foram reconferidas no índice oficial em 09/10/2026, sem comparação código a código nesta etapa. `1949` e `2949` seguem classificados como `other` no catálogo local; não são tratados como CFOP de devolução. A futura revisão da NT 2026.009 deve começar pelo documento oficial, sem presumir que sua correção autorize esses códigos.
+
 - [Portal Nacional NF-e — MOC 7.0, Anexo I e regras de validação](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=J+I+v4eN00E%3D) — finalidade de devolução/CFOP e leiaute.
 - [Portal Nacional NF-e — NT 2018.005](https://www.nfe.fazenda.gov.br/PORTal/exibirArquivo.aspx?conteudo=vZguLua3oPM%3D) — modalidades `0`, `1`, `2`, `3`, `4` e `9`.
 - [Portal Nacional NF-e — NT 2021.004](https://www.nfe.fazenda.gov.br/PORTal/exibirArquivo.aspx?conteudo=mCodklBEULU%3D) — regra para transporte próprio por conta do emitente em NF-e de entrada.
 - [Portal Nacional NF-e — NT 2020.004](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=trSXReoZPuY%3D) — validações de pagamento 865 e 904.
-- [Portal Nacional NF-e — documentos diversos e Tabela CFOP vigente](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=%2FNJarYc9nus%3D) — publicação consultada em 04/09/2026.
+- [Portal Nacional NF-e — Informe Técnico 2023.002 v2.10](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=B%2F6oigHgyAw%3D) — atualização da tabela CFOP publicada em 04/09/2026; a comparação integral com o catálogo local permanece pendente.
+- [SVRS — documentos NF-e, NT 2026.009 v1.00](https://dfe-portal.svrs.rs.gov.br/NFe/Documentos) — publicada em 09/09/2026 como correção de regra de validação; aplicabilidade a esta devolução ainda não determinada.
 - [SEFA/PR — FAQ sobre devolução por não contribuinte](https://atendimento.fazenda.pr.gov.br/sacsefa/portal/assuntosReferente/43).
 - [RICMS/PR — Decreto nº 7.871/2017](https://www.fazenda.pr.gov.br/sites/default/arquivos_restritos/files/documento/2020-06/106201707871.pdf).
 

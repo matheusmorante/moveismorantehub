@@ -356,6 +356,8 @@ describe('Fiscal Core e serializer de NF-e 55', () => {
     const nfceItems = serializeFiscalItems({ ...resolved.document, model: '65' });
     expect(nfceItems).toContain(`<xProd>${HOMOLOGATION_FIRST_ITEM_DESCRIPTION}</xProd>`);
     expect(nfceItems).toContain(`<infAdProd>HML TECNICO ${runId}</infAdProd>`);
+    expect(nfceItems.indexOf('<infAdProd>')).toBeGreaterThan(nfceItems.indexOf('</imposto>'));
+    expect(nfceItems).not.toContain('</prod><infAdProd>');
     await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
     const keyPair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
     const signed = signNfeXml(

@@ -200,7 +200,7 @@ async function run() {
     assert.equal(await db.query('SELECT public.has_manual_stock_movement_permission() AS allowed').then((r) => r.rows[0].allowed), true);
     await expectReject(asAuthenticated(() => db.query('SELECT public.undo_stock_unavailability($1)', [unavailabilityId])), /já foi cancelada/);
 
-    console.log('PGlite integration checks passed: variation, permission, direct-write denial, rollback, create and undo.');
+    console.log('PGlite simulation checks passed: variation, permission, direct-write denial, rollback, create and undo.');
     console.log('Not proven by this single-session PGlite harness: live Supabase deployment/storage, RLS across real JWT sessions, and concurrent transactions.');
   } finally {
     await db.close();

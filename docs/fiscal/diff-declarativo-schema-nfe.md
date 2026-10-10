@@ -2,7 +2,7 @@
 
 # Diff declarativo por objeto — schema de NF-e de saída
 
-> **Rascunho de especificação; não é migration e não é SQL para executar.** Descreve o delta observado em 28/09/2026 e o estado final proposto. O snapshot abaixo foi revalidado em 2026-09-28 15:38 UTC. Nenhum DDL fiscal foi executado nesta revalidação; a migration de proteção de papéis foi aplicada separadamente.
+> **Snapshot de schema de 28/09/2026; não é migration e não é SQL para executar.** O snapshot foi revalidado em 2026-09-28 15:38 UTC. A anotação de que a migration de proteção de papéis foi aplicada é evidência daquela data. O projeto remoto não foi reconsultado nesta revisão documental de 09/10; este arquivo não demonstra o schema atual nem status de migrations. Consulte o [status fiscal](status-testes-homologacao.md) e a [política de teste remoto](../testing/SUPABASE_REMOTE_TEST_POLICY.md).
 
 ## Revalidação remota
 

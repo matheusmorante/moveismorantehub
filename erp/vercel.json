@@ -4,18 +4,37 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/nfe/emit.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
-    "api/nfe/consult.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
-    "api/nfe/operations.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 },
-    "api/nfe/inbound-manifestation.ts": { "maxDuration": 120 }
+    "api/nfe/operations.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 }
   },
   "rewrites": [
+    { "source": "/api/nfe/emit", "destination": "/api/nfe/operations?operation=emit" },
+    { "source": "/api/nfe/consult", "destination": "/api/nfe/operations?operation=consult" },
+    {
+      "source": "/api/nfe/inbound-manifestation",
+      "destination": "/api/nfe/operations?operation=inbound-manifestation"
+    },
     { "source": "/api/nfe/cancel", "destination": "/api/nfe/operations?operation=cancel" },
     { "source": "/api/nfe/return-capacity", "destination": "/api/nfe/operations?operation=return-capacity" },
     { "source": "/api/nfe/operation-drafts", "destination": "/api/nfe/operations?operation=operation-drafts" },
     { "source": "/api/nfe/transmit-operation-draft", "destination": "/api/nfe/operations?operation=transmit-operation-draft" },
     { "source": "/api/nfe/cce", "destination": "/api/nfe/operations?operation=cce" },
     { "source": "/api/nfe/reserve-number", "destination": "/api/nfe/operations?operation=reserve-number" },
+    {
+      "source": "/api/nfe/document-details",
+      "destination": "/api/nfe/auxiliary?operation=document-details"
+    },
+    {
+      "source": "/api/nfe/item-defaults",
+      "destination": "/api/nfe/auxiliary?operation=item-defaults"
+    },
+    {
+      "source": "/api/nfe/order-cancellation-policy",
+      "destination": "/api/nfe/auxiliary?operation=order-cancellation-policy"
+    },
+    {
+      "source": "/api/nfe/order-fiscal-badges",
+      "destination": "/api/nfe/auxiliary?operation=order-fiscal-badges"
+    },
     {
       "source": "/api/facebook-catalog.csv",
       "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"

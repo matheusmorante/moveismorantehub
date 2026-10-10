@@ -1,30 +1,29 @@
-# Cancelamentos, Estornos e Reversões de Vendas — Morante Hub
+# Cancelamento comercial, estorno e devolução
 
-Este documento define a semântica, diferenças operacionais e regras de reversão aplicadas a vendas e pedidos no Morante Hub.
+**Reconciliado com o código em 09/10/2026.** Este documento cobre pedidos de venda vinculados a documentos fiscais de saída. A cobertura e os bloqueios de implementação ficam no [status fiscal](../../fiscal/status-testes-homologacao.md).
 
----
+## Regras por estado da operação
 
-## 🧭 Diferença Semântica de Operações de Reversão
+| Estado | Efeito comercial e de estoque | Tratamento fiscal |
+|---|---|---|
+| Sem circulação, documento ausente/rejeitado/nunca autorizado | Cancelar pedido e reverter estoque na operação transacional. | Não criar evento fiscal. |
+| Sem circulação, documento autorizado e dentro do prazo estadual aplicável | Confirmar cancelamento comercial/estoque na transação. | Selecionar automaticamente cancelamento SEFAZ; não expor escolha do efeito ao usuário. |
+| Sem circulação, prazo de cancelamento vencido | Confirmar cancelamento comercial/estoque na transação, quando a política permitir. | Selecionar estorno somente quando permitido e após revisão fiscal aplicável. |
+| Com circulação ou evidência de saída/trânsito | Bloquear cancelamento como operação não realizada e não gerar estorno. | Preservar a NF-e original; tratar retorno físico por devolução vinculada à venda. |
 
-| Operação | Quando se Aplica | Efeito no Estoque | Efeito no Financeiro | Reversibilidade |
-| :--- | :--- | :--- | :--- | :--- |
-| **Cancelar Pedido (`cancel`)** | Pedido agendado ou em aberto que não será entregue. | Reverte a saída de estoque gerada anteriormente (`cancelInventoryMovesByRelatedEntity`). | Cancela títulos a receber pendentes. | Irreversível (exige duplicação do pedido). |
-| **Estornar Venda (`reverse`)** | Erro operacional imediato antes da emissão fiscal. | Exclui/compensa as movimentações e restaura saldo. | Cancela movimentação no caixa. | Reversível via ajuste. |
-| **Devolução de Venda (`return`)** | Cliente devolveu o produto após o recebimento/entrega. | Gera **nova entrada** por devolução sem alterar o histórico da saída original. | Gera crédito ou devolução financeira. | Reversível via modal com timer de 5s. |
+## Invariantes operacionais
 
----
+- O Pedido de Venda e a tela de Notas Fiscais de Saída iniciam a mesma operação comercial transacional e usam a mesma política/serviço fiscal central. A tela fiscal não altera status diretamente.
+- `hasGoodsCirculated(order)` trata `fulfilled` como circulação tanto para entrega quanto para retirada, além das evidências de saída/trânsito definidas pelo serviço central. Trânsito ou estado não reconciliado não pode ser presumido como operação não realizada.
+- No Paraná, a janela é 168 horas para NF-e modelo 55 e 30 minutos para NFC-e modelo 65. Centralizar os prazos e cobrir o instante exato do limite a partir da autorização.
+- Atualização comercial e efeitos de estoque são confirmados na transação do pedido. A chamada à SEFAZ ocorre após o commit; falha ou timeout fiscal exige tentativa idempotente e reconciliação sem desfazer o fato comercial confirmado.
+- Criar uma devolução não confirma retorno físico nem emite documento fiscal. Coleta só conclui como “Coletada” depois da confirmação da coleta; quando o cliente já trouxe a mercadoria à loja, conclui como “Recebida”. A entrada de estoque acompanha a confirmação física na transação do pedido. A NF-e de devolução é preparada na área fiscal depois desse retorno.
+- A criação de devolução fiscal a partir de NFC-e modelo 65 não tem cobertura comprovada; consulte o [status central](../../fiscal/status-testes-homologacao.md). A NF-e original deve ser preservada.
 
-## ⚙️ Regras de Cancelamento de Venda
+## Implementação relacionada
 
-1. **Reversão Automática de Movimentações**:
-   - Quando um pedido com `stockProcessed: true` tem seu status alterado para `cancelled`, o sistema busca as movimentações em `inventory_moves` vinculadas a esse `order_id` e dispara a reversão compensatória.
-2. **Preservação de Histórico de Status**:
-   - Toda alteração de status grava um registro de auditoria na tabela `order_status_history` contendo `old_status`, `new_status`, `changed_by` e `created_at`.
-
----
-
-## 🔗 Mapeamento em Código e Testes
-
-- **Serviço de Operações**: `[orderLifecycleOperations.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/orderLifecycleOperations.ts)`
-- **Estorno de Estoque**: `[inventoryService.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/inventoryService.ts)` → `cancelInventoryMovesByRelatedEntity()`
-- **Testes de Proteção**: [orderLifecycleOperations.undoReturn.test.ts](../../../erp/src/pages/utils/orderLifecycleOperations.undoReturn.test.ts)
+- Pedido de Venda: [useOrderHistoryOperations.ts](../../../erp/src/pages/App/SalesOrder/OrderHistoryList/useOrderHistoryOperations.ts).
+- Iniciação pela tela fiscal: [fiscalCancellationService.ts](../../../erp/src/pages/App/FiscalDocuments/services/fiscalCancellationService.ts).
+- Operação comercial compartilhada: [orderMutationService.ts](../../../erp/src/pages/utils/orderMutationService.ts) e [orderUpdateService.ts](../../../erp/src/pages/utils/orderMutation/orderUpdateService.ts).
+- Política/efeito fiscal compartilhados: [nfeService.ts](../../../erp/src/pages/utils/nfe/nfeService.ts), [order-cancellation-policy.ts](../../../api/nfe/order-cancellation-policy.ts) e [cancel.ts](../../../api/nfe/cancel.ts).
+- Fontes normativas e decisões fiscais: [manuais e fontes oficiais](../../fiscal/manuais/README.md), [modelo de varejo no Paraná](../../fiscal/decisao-modelo-varejo-pr.md) e [devolução fiscal](../../fiscal/nfe-devolucao.md).

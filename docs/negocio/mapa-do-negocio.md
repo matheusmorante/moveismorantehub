@@ -60,7 +60,7 @@ flowchart LR
     E2 -->|Materializa Custo| E4
 
     %% Relações Devoluções
-    V3 -->|Entrada Imediata| E2
+    V3 -->|Retorno físico confirmado| E2
     V3 -->|Estorno/Crédito| F1
     V3 -->|Reversão de Montagem| O2
 
@@ -89,7 +89,7 @@ flowchart LR
 | Evento de Origem | Módulo Disparado | Efeito Produzido |
 | :--- | :--- | :--- |
 | **Venda Agendada ou Atendida** | Estoque, Financeiro, Operação | Registra saída de estoque na data do pedido, trava CMV imutável, gera títulos no financeiro e envia pedido para a grade de entregas/montagens. |
-| **Devolução de Venda Cadastrada** | Estoque, Financeiro, Operação | Lança entrada imediata no estoque, estorna/cria crédito financeiro e cancela selos de montagem pendentes. |
+| **Devolução de Venda Cadastrada** | Estoque, Financeiro, Operação | Registra a solicitação e o vínculo comercial; a entrada de estoque só ocorre após retorno físico confirmado como **Coletada** ou **Recebida**. As RPCs remotas fazem a confirmação e a entrada na mesma transação; a fonte SQL local e os testes de falha/retry/concorrência ainda estão pendentes. |
 | **Confirmação de Recebimento** | Estoque, Financeiro | Lança entrada por compra, recalcula o Custo Médio Ponderado Móvel (CMPM) e gera título em contas a pagar. |
 | **Conclusão de Inventário** | Estoque | Registra movimentação de ajuste (`adjustment`), atualizando o saldo para a contagem física real. |
 | **Substituição de Peça em Assistência** | Estoque, Operação | Lança saída de estoque por assistência e vincula a peça à Ordem de Serviço. |

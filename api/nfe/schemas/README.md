@@ -2,6 +2,14 @@
 
 Pacote `PL_010f_v1.04`, obtido do [Portal Nacional da NF-e](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w%3D) e reconfirmado em 29/09/2026. A listagem integral identifica o pacote 010f como versão oficial em uso, publicada em 31/08/2026, associada à NT 2025.002 v1.50 e NT 2026.007 v1.00. A listagem também contém entradas mais antigas, como 010e_v1.02; elas não substituem o 010f atual.
 
+Conferência de vigência em 09/10/2026: o índice de schemas ainda lista o pacote 010f como oficial em uso. O Portal Nacional publicou novas revisões de NT em 01/10/2026, mas adiou a implantação da NT 2025.002 v1.52, NT 2026.007 v1.10 e NT 2026.008 v1.00 para 26/10/2026 em homologação e 16/11/2026 em produção ([aviso oficial da SVRS/ENCAT](https://dfe-portal.svrs.rs.gov.br/Nfe/Avisos)). O hash abaixo demonstra correspondência com o pacote 010f conferido em 29/09; não prova cobertura dessas revisões futuras. Revalidar o pacote e os cenários aplicáveis antes da nova data de homologação. Os erros XSD atuais de NFC-e pickup e delivery permanecem registrados no [status fiscal](../../../docs/fiscal/status-testes-homologacao.md).
+
+## CNPJ alfanumérico e chave de acesso
+
+A NT 2026.004 v1.01 permite letras no bloco CNPJ da chave de acesso: a chave mantém 44 posições, com padrão `[0-9]{6}[A-Z0-9]{12}[0-9]{26}`; o DV considera cada caractere pelo valor ASCII menos 48 antes do módulo 11. O XSD local aceita CNPJ alfanumérico em tipos fiscais, mas isso não comprova suporte no gerador/validador de chave. Em 09/10/2026, o código ainda gera e valida chaves apenas numéricas e normaliza chaves recebidas removendo letras. Consulte o [status fiscal](../../../docs/fiscal/status-testes-homologacao.md) antes de afirmar compatibilidade.
+
+Fontes oficiais: [NT conjunta DFe — CNPJ alfanumérico](https://www.nfe.fazenda.gov.br/Portal/exibirArquivo.aspx?conteudo=5ZkvIZt10mQ%3D) e [NT 2026.004 v1.01](https://dfe-portal.svrs.rs.gov.br/NFe/Documentos).
+
 Download original: `https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=8ITFuBLltXs%3D`.
 SHA-256 do ZIP: `B8589490A58A09A993A80E6AC4D7ED10F20892061ECFC56719337098D4B95998`.
 

@@ -12,7 +12,7 @@ Consulte a skill correspondente em `.agents/skills/<skill-name>/SKILL.md` para o
 | **Mobile & Offline** | `mobile-offline-first` | Funcionalidades offline no App, SQLite local e sincronia em 4 estados. |
 | **Fiscal & Notas** | — | Para fontes oficiais de NF-e/NFC-e, consulte os links em `docs/fiscal/manuais/README.md`; escolha as skills técnicas gerais conforme a mudança. |
 | **Inteligência Artificial** | `arquitetura-agente-gemini` | Function Calling, tools do assistente IA, prompts e agentes Gemini. |
-| **Testes & Qualidade** | `testes-seguros-erp` | Planejamento e execução de testes Vitest, Playwright, E2E e Docker. |
+| **Testes & Qualidade** | `testes-seguros-erp` | Planejamento e execução de testes Vitest, Playwright, E2E e integração PostgreSQL pelo Supabase remoto operacional. |
 | **Testes Financeiros** | `auditoria-e2e-assistente-financeiro` | Bateria de testes E2E com 164 casos do assistente financeiro no navegador. |
 | **Compatibilidade** | `analise-compatibilidade-mudancas` | Novos campos em JSONs/tabelas, fallbacks de leitura e retrocompatibilidade. |
 | **Publicação Mobile** | `mobile-eas-publicacao` | Builds nativas Android/iOS, atualizações OTA e publicação Expo EAS. |

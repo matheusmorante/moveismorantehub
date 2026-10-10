@@ -1,96 +1,44 @@
-# 📐 Arquitetura da Matriz de Determinação de CFOP (Produto × Pedido × Devolução)
+# Determinação de CFOP em vendas e devoluções
 
-> **Documento Canônico de Modelagem Fiscal e Regras de Negócio**  
-> **Status:** Ativo e Referência Permanente  
-> **Data:** Outubro de 2026
+**Revisado em:** 09/10/2026. **Estado atual:** catálogo e regras de venda normal estão separados; a matriz interestadual não tem nenhuma regra `APPROVED`. Este documento descreve o comportamento atual do código e não aprova operações fora do escopo registrado em [auditoria-cfop-nfe-nfce.md](auditoria-cfop-nfe-nfce.md), [matriz-saida-interestadual.md](matriz-saida-interestadual.md) e no [status fiscal atual](status-testes-homologacao.md).
 
----
+## Princípio
 
-## 🎯 1. Princípio Fundamental de Separação de Responsabilidades
+O CFOP classifica a natureza da operação. Por si só, ele não determina CSOSN/CST, ICMS, substituição tributária, DIFAL, FCP, PIS/COFINS ou IBS/CBS. A seleção de um CFOP candidato não equivale à aprovação do tratamento tributário completo.
 
-O cadastro de produto e os pedidos operacionais possuem fronteiras estritas de responsabilidade:
+O cadastro fornece fatos do produto, como NCM, origem da mercadoria, condição de produção própria/terceiros e atributos informados de ST. O pedido e a emissão fornecem os fatos da operação concreta, como finalidade, destinatário, UF fiscal de destino e modalidade. A devolução deve usar a venda e a NF-e original vinculadas; o cadastro atual do produto não reescreve os fatos fiscais históricos.
 
-> **O Cadastro do Produto responde:** *O que o item é fisicamente e comercialmente.*  
-> **O Pedido de Venda responde:** *O que está acontecendo com esse item nesta operação específica.*  
-> **O Pedido de Devolução responde:** *Qual foi a operação histórica comprovada pela NF-e original.*
+## Venda normal: capacidade atual
 
----
+O modal pode apresentar CFOPs candidatos compatíveis e permite selecionar entre as opções habilitadas. O backend recompõe o contexto, valida o CFOP e determina o tratamento fiscal antes de reservar numeração. Escolher um candidato no navegador não aprova tributos nem libera uma regra `DRAFT`.
 
-## 📦 2. O Que Fica no Cadastro do Produto
+| Cenário | Situação no código em 09/10/2026 |
+|---|---|
+| PR → PR, mercadoria adquirida de terceiros, sem ST, no cenário interno coberto | `5102` é a única regra habilitada descrita pela auditoria atual. A regra continua limitada ao escopo e ambiente efetivamente aprovados no código. |
+| PR → outra UF brasileira | Sem rota liberada. `6102` e `6108` são candidatos sem regra tributária `APPROVED`; o preflight bloqueia antes da reserva/transmissão. |
+| Produção própria, venda com ST e demais operações | Sem regra geral aprovada neste fluxo; exigir matriz específica e evidência fiscal antes de habilitar. |
 
-No cadastro de produtos, são armazenadas **exclusivamente as características intrínsecas** do produto, e **nunca** variáveis circunstanciais da venda:
+Não trate uma lista de CFOPs no catálogo como matriz tributária. `active` indica que o item está classificado para consulta; não confirma a atualidade da tabela oficial nem habilita uma emissão.
 
-1. **Origem Comercial do Produto:**
-   - 🏭 **Produção do próprio estabelecimento (`own_production`)**: Fabricado pela própria empresa Móveis Morante. Dispensado de fornecedor externo (fornecedor interno). Base de CFOP 5.101.
-   - 📦 **Adquirido ou recebido de terceiros (`third_party`) [Padrão]**: Adquirido de indústrias e parceiros. Exige seleção de fornecedor cadastrado. Base de CFOP 5.102.
-2. **NCM (Nomenclatura Comum do Mercosul):**
-   - Classificação fiscal da mercadoria.
-3. **CEST (Código Especificador da Substituição Tributária):**
-   - Preenchido quando aplicável para itens sujeitos a ST.
-4. **Origem da Mercadoria para ICMS/CST (Tabela A):**
-   - `0 - Nacional`, `1 - Estrangeira Importação Direta`, `2 - Estrangeira Adquirida Mercado Interno`, etc.  
-   - *Nota de distinção:* Origem do ICMS define nacionalidade/tributação (0, 1, 2...) e alimenta o primeiro dígito do CST/CSOSN; **não** se confunde com Produção Própria × Terceiros.
+## Devolução: vínculo histórico e limites atuais
 
-### 🚫 O que NUNCA deve ficar no produto:
-- Tipo de operação (venda × devolução × remessa × bonificação);
-- Abrangência geográfica (operação interna × interestadual × exterior);
-- Perfil do cliente (contribuinte × não contribuinte × consumidor final);
-- Modalidade logística (entrega × retirada);
-- Modalidades comerciais (venda à ordem, entrega futura).
+A devolução é preparada a partir da NF-e de saída original autorizada, do pedido e da alocação dos itens devolvidos. O backend confere documento, ambiente, itens, quantidades, saldo já devolvido e CFOP candidato. O fluxo atual está limitado às condições descritas em [NF-e de devolução](nfe-devolucao.md); não há suporte comprovado a uma devolução com origem em NFC-e 65 nem a cenários fora da matriz aprovada.
 
----
+Os códigos de devolução existentes no catálogo são classificações semânticas para filtrar candidatos, não uma autorização genérica. Os códigos `1949` e `2949` permanecem classificados como `other` no catálogo local; não os recategorize como devolução sem revisão jurídica e atualização do mapeamento.
 
-## 🧾 3. O Que Fica no Pedido de Venda
+## Atualidade das fontes e do catálogo
 
-O pedido de venda deriva a operação a partir de suas próprias entidades:
+O catálogo em `shared-utils/fiscal-cfop-model/catalog.ts` é estático e contém um subconjunto semântico usado pelo ERP. Em 04/09/2026 o Portal Nacional publicou o Informe Técnico 2023.002 v2.10, com atualização da tabela CFOP. A comparação integral do catálogo local com essa edição ainda está pendente; a classificação local de um código não prova que representa a tabela vigente.
 
-| Informação | Como o ERP Obtém Automaticamente |
-| :--- | :--- |
-| **É Venda** | Tipo do documento / pedido de venda comercial |
-| **UF de Destino** | Endereço do cliente / local de entrega |
-| **Escopo da Operação** | Comparação automática: UF do emitente (PR) × UF de entrega (`internal` vs `interstate`) |
-| **Contribuinte de ICMS** | Inscrição Estadual ativa e indicador no cadastro de clientes |
-| **Consumidor Final** | Finalidade da operação no pedido / cliente |
-| **Regime Especial / ST** | Convênios/Protocolos estaduais cruzados com NCM e UF de destino |
+A NT 2026.009 v1.00, publicada em 09/09/2026, anuncia correção em regra de validação. O escopo exato da correção ainda precisa ser confrontado com o texto da NT antes de decidir se algum CFOP do fluxo de devolução deve mudar. Até essa revisão, mantenha os códigos semânticos não aprovados bloqueados; não infira a alteração somente pelo número da NT.
 
-### Matriz de Resolução Automática de CFOP de Saída:
-- **Produção Própria + Venda Interna:** `5.101`
-- **Adquirido de Terceiros + Venda Interna:** `5.102`
-- **Adquirido de Terceiros + Venda Interna (com ST anterior):** `5.405`
-- **Produção Própria + Venda Interestadual (Contribuinte):** `6.101`
-- **Adquirido de Terceiros + Venda Interestadual (Contribuinte):** `6.102`
-- **Produção Própria + Venda Interestadual (Não Contribuinte):** `6.107`
-- **Adquirido de Terceiros + Venda Interestadual (Não Contribuinte):** `6.108`
+Também foram publicadas novas tabelas da Reforma Tributária no Informe Técnico 2025.002 v1.70, em 01/10/2026. O pacote XSD local conter elementos IBS/CBS não significa que o emissor calcula ou serializa esses grupos. A aplicabilidade ao regime, produto e data precisa ser revisada separadamente, conforme o [status fiscal atual](status-testes-homologacao.md).
 
-> O operador **nunca** escolhe CFOP manualmente; o motor fiscal calcula e valida automaticamente.
+## Referências
 
----
+- [Portal Nacional — Informe Técnico 2023.002 v2.10 e demais Informes Técnicos](https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=B%2F6oigHgyAw%3D)
+- [SVRS — documentos NF-e e NT 2026.009 v1.00](https://dfe-portal.svrs.rs.gov.br/NFe/Documentos)
+- [Portal Nacional — tabela CFOP vigente e tabelas de domínio](https://www.nfe.fazenda.gov.br/portal/consulta.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=%2FNJarYc9nus%3D)
+- [Índice de manuais, esquemas e Notas Técnicas](manuais/README.md)
 
-## 🔄 4. O Que Fica no Pedido de Devolução (Imutabilidade Histórica)
-
-Na devolução de mercadoria, o cadastro atual do produto é irrelevante frente ao fato fiscal pretérito:
-
-- A devolução se ancora **estritamente na NF-e original** autorizada.
-- Se um produto foi vendido meses atrás como "Adquirido de Terceiros" e hoje seu cadastro foi alterado para "Fabricação Própria", a devolução daquela venda preserva com precisão o CFOP e a tributação originais (`1.202` / `2.202`), e **não** `1.201` / `2.201`.
-- A NF-e original fornece:
-  - Chave de acesso referenciada (44 dígitos);
-  - Item original e quantidade faturada;
-  - CFOP original emitido;
-  - UF original da operação;
-  - Tratamento tributário original (ICMS normal, ST, etc.).
-
-### Mapeamento de CFOPs de Devolução:
-- Devolução interna de venda de produção do estabelecimento: `1.201`
-- Devolução interna de venda de mercadoria adquirida de terceiros: `1.202`
-- Devolução interna com ST: `1.411`
-- Devolução interestadual de produção própria: `2.201`
-- Devolução interestadual de mercadoria de terceiros: `2.202`
-- Devolução interestadual com ST: `2.411`
-
----
-
-## 🛡️ 5. Resumo da Equação Arquitetural
-
-$$\text{CFOP de Venda} = \text{Cadastro do Produto (Produção Própria} \times \text{Terceiros)} + \text{Pedido de Venda (UF, Cliente, Finalidade)}$$
-
-$$\text{CFOP de Devolução} = \text{Snapshot da NF-e Original Vinculada (Chave, Item, CFOP Original)}$$
+Esta matriz deve ser atualizada quando houver mudança de código, de regra aprovada, de catálogo ou de publicação oficial aplicável. Evidências de testes, HML e pendências ficam no [status central](status-testes-homologacao.md).

@@ -212,7 +212,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
           expect(xml).toContain('<enderDest>');
           expect(xml).toContain('<modFrete>3</modFrete><transporta/>');
           expect(xml).not.toContain('<transporta><CNPJ>');
-          expect(xml.match(/<CEP>/g)).toHaveLength(1); // Only the emitter has a CEP.
+          expect(xml.match(/<CEP>/g)).toHaveLength(2); // Emissor e endereço de entrega.
         } else expect(xml).not.toContain('<enderDest>');
         const signed = signNfeXml(
           xml,

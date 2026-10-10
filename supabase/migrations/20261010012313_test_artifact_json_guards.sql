@@ -66,6 +66,7 @@ BEGIN
       SELECT to_jsonb(p) INTO v_row FROM public.product_variations v JOIN public.products p ON p.id=v.product_id WHERE v.id::text=p_id;
     WHEN 'accounts_receivable' THEN SELECT to_jsonb(r) INTO v_row FROM public.accounts_receivable r WHERE r.id::text=p_id;
     WHEN 'accounts_payable' THEN SELECT to_jsonb(r) INTO v_row FROM public.accounts_payable r WHERE r.id::text=p_id;
+    WHEN 'purchases' THEN SELECT to_jsonb(r) INTO v_row FROM public.purchases r WHERE r.id::text=p_id;
     WHEN 'goods_receipts' THEN SELECT to_jsonb(r) INTO v_row FROM public.goods_receipts r WHERE r.id::text=p_id;
     ELSE RAISE EXCEPTION 'Unsupported test artifact reference';
   END CASE;
@@ -177,7 +178,13 @@ BEGIN
     END IF;
     PERFORM public.assert_test_artifact_link(v_identity,'people',coalesce(v_row->>'customer_id',v_row#>>'{order_data,customerData,id}'));
     PERFORM public.assert_test_artifact_link(v_identity,'orders',coalesce(v_row->>'linked_order_id',v_row#>>'{order_data,linkedOrderId}'));
-    FOR v_item IN SELECT value FROM jsonb_array_elements(coalesce(v_row->'items',v_row#>'{order_data,items}','[]'::jsonb)) LOOP
+    FOR v_item IN SELECT value FROM jsonb_array_elements(
+      CASE
+        WHEN jsonb_typeof(v_row->'items')='array' AND jsonb_array_length(v_row->'items')>0 THEN v_row->'items'
+        WHEN jsonb_typeof(v_row#>'{order_data,items}')='array' THEN v_row#>'{order_data,items}'
+        ELSE '[]'::jsonb
+      END
+    ) LOOP
       IF nullif(v_item->>'productId','') IS NOT NULL THEN
         PERFORM public.assert_test_product_components(v_identity,v_item->>'productId');
         PERFORM public.assert_test_artifact_link(v_identity,'product_variations',v_item->>'variationId');
@@ -207,6 +214,13 @@ BEGIN
     PERFORM public.assert_test_artifact_link(v_identity,'goods_receipts',v_row->>'source_receipt_id');
   ELSIF TG_TABLE_NAME='accounts_receivable' THEN
     PERFORM public.assert_test_artifact_link(v_identity,'orders',v_row->>'order_id');
+  ELSIF TG_TABLE_NAME='purchases' THEN
+    PERFORM public.assert_test_artifact_link(v_identity,'people',v_row->>'supplier_id');
+    FOR v_item IN SELECT value FROM jsonb_array_elements(coalesce(v_row->'items','[]'::jsonb)) LOOP
+      PERFORM public.assert_test_product_components(v_identity,v_item->>'productId');
+      PERFORM public.assert_test_artifact_link(v_identity,'product_variations',v_item->>'variationId');
+      PERFORM public.assert_test_product_variation(v_item->>'productId',v_item->>'variationId');
+    END LOOP;
   ELSIF TG_TABLE_NAME='financial_transactions' THEN
     PERFORM public.assert_test_artifact_link(v_identity,'accounts_receivable',v_row->>'receivable_id');
     PERFORM public.assert_test_artifact_link(v_identity,'accounts_payable',v_row->>'payable_id');
@@ -214,6 +228,7 @@ BEGIN
       PERFORM public.assert_test_artifact_link(v_identity,'orders',v_row->>'reference_id');
     END IF;
   ELSIF TG_TABLE_NAME='goods_receipts' THEN
+    PERFORM public.assert_test_artifact_link(v_identity,'purchases',v_row->>'purchase_id');
     PERFORM public.assert_test_artifact_link(v_identity,'people',v_row->>'supplier_id');
     FOR v_item IN SELECT value FROM jsonb_array_elements(coalesce(v_row->'items','[]'::jsonb)) LOOP
       PERFORM public.assert_test_product_components(v_identity,v_item->>'productId');
@@ -227,7 +242,7 @@ END; $$;
 DO $$ DECLARE v_table text;
 BEGIN
   FOREACH v_table IN ARRAY ARRAY['orders','people','products','product_variations','inventory_moves',
-    'accounts_receivable','accounts_payable','financial_transactions','goods_receipts'] LOOP
+    'accounts_receivable','accounts_payable','financial_transactions','purchases','goods_receipts'] LOOP
     EXECUTE format('CREATE TRIGGER test_artifact_record_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.guard_test_artifact_record()',v_table);
   END LOOP;
 END; $$;
@@ -326,7 +341,7 @@ BEGIN
   JOIN pg_namespace n ON n.oid=c.relnamespace
   WHERE n.nspname='public' AND t.tgname='test_artifact_record_guard'
     AND c.relname=ANY(ARRAY['orders','people','products','product_variations','inventory_moves',
-      'accounts_receivable','accounts_payable','financial_transactions','goods_receipts'])
+      'accounts_receivable','accounts_payable','financial_transactions','purchases','goods_receipts'])
     AND NOT t.tgisinternal AND t.tgenabled<>'D';
 
   SELECT count(*) INTO v_notification_guard
@@ -341,7 +356,7 @@ BEGIN
     INTO v_metrics;
 
   RETURN jsonb_build_object(
-    'ready', v_record_guards=9 AND v_notification_guard=1
+    'ready', v_record_guards=10 AND v_notification_guard=1
       AND to_regprocedure('public.get_report_financial_transactions(date,date,boolean)') IS NOT NULL
       AND to_regprocedure('public.get_report_accounts_payable(text)') IS NOT NULL
       AND to_regprocedure('public.get_report_accounts_receivable(text)') IS NOT NULL

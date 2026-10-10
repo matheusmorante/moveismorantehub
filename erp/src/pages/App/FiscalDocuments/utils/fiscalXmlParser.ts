@@ -218,7 +218,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         return {
           code: value(product, 'cProd'),
           description: value(product, 'xProd'),
-          additionalInfo: value(product, 'infAdProd') || undefined,
+          additionalInfo: value(detail, 'infAdProd') || value(product, 'infAdProd') || undefined,
           quantity: value(product, 'qCom'),
           unit: value(product, 'uCom'),
           unitValue: value(product, 'vUnCom'),

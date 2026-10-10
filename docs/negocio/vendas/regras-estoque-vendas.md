@@ -40,6 +40,6 @@ flowchart TD
 
 ## 🔗 Mapeamento em Código e Testes
 
-- **Serviço de Regras**: `[saleInventoryRules.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/saleInventoryRules.ts)` → `isStockEligibleSaleItem()`
-- **Sincronização de Itens**: `[saleItemInventorySync.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/saleItemInventorySync.ts)` → `reverseSaleItemMoves()`
-- **Testes de Proteção**: `[latestRulesBattery.test.ts](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/latestRulesBattery.test.ts)`
+- **Serviço de Regras**: [saleInventoryRules.ts](../../../erp/src/pages/utils/saleInventoryRules.ts) → `isStockEligibleSaleItem()`
+- **Sincronização de Itens**: [saleItemInventorySync.ts](../../../erp/src/pages/utils/saleItemInventorySync.ts) → `reverseSaleItemMoves()`
+- **Testes de Proteção**: [latestRulesBattery.test.ts](../../../erp/src/pages/utils/__tests__/latestRulesBattery.test.ts)

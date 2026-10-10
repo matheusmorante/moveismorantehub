@@ -2,6 +2,8 @@
 
 Política `PR_RETAIL_2026_10`, revisada em 04/10/2026.
 
+> Revisão documental e de implementação em 09/10/2026: a decisão de modelo continua delimitada ao Paraná e aos fatos listados neste documento. Ela não certifica as NTs publicadas em 01/10; revisar NT 2025.002 v1.52, 2026.007 v1.10 e 2026.008 v1.00 conforme o [status central](status-testes-homologacao.md) antes da próxima janela HML. A evidência de aplicação remota ao fim deste arquivo é histórica e não foi reconsultada nesta atualização.
+
 ## Orientação ao operador
 
 Na emissão do pedido, preencha **Finalidade da compra**, que define o indicador **Consumidor final**:
@@ -39,6 +41,8 @@ O CEP do destinatário é opcional no leiaute; se informado, precisa ter oito d�
 `shared-utils/fiscalDocumentModel.ts` centraliza a decisão. `resolveOrderFiscalModel` adapta os fatos do pedido e `resolveFiscalDocumentModel` retorna modelo, códigos dos motivos, descrição e versão. O backend determina novamente com pedido, destinatário, itens, valores e emitente consultados no servidor. O browser envia a finalidade da compra como indicador de consumidor final; não tem autoridade para enviar modelo, série, chave ou XML.
 
 `decideFiscalRecipientRequirements` centraliza a obrigatoriedade do identificador e do endereço. O modal, o preflight de emissão, a validação do snapshot, o Fiscal Core e os serializers legado/servidor usam essa matriz; o RPC vincula o identificador (inclusive ausência explícita) ao snapshot imutável, sem gravá-lo no cadastro da pessoa. CPF e CNPJ têm dígito verificador; a validação também aceita o formato alfanumérico oficial de CNPJ nos campos de destinatário.
+
+Essa aceitação do CNPJ alfanumérico no destinatário não significa suporte integral à chave de acesso. A NT 2026.004 também torna alfanumérico o bloco CNPJ da chave; no estado auditado em 09/10/2026, o gerador, o dígito verificador e diversas validações/consultas do projeto ainda tratam a chave como numérica. Consulte o [status central](status-testes-homologacao.md) antes de usar um CNPJ alfanumérico como emitente ou de importar/consultar uma chave desse tipo.
 
 A preferência `settings.requiredFields.customer.cpfCnpj` ainda pode tornar o documento obrigatório no cadastro de cliente ou na entrada comercial, como requisito interno de completude. Ela é independente da obrigatoriedade fiscal da NF-e/NFC-e e não altera a matriz da emissão. A tela de cadastro aceita CNPJ alfanumérico; a importação infere PJ pelo documento compacto de 14 caracteres. O App Mobile consulta dados de fornecedores, mas não contém outro fluxo de emissão nem uma segunda regra fiscal de destinatário.
 
@@ -83,6 +87,7 @@ O serializer usa NFC-e online com QR Code v3 (`chave|3|tpAmb`), `tpImp=4` e supl
 - [Portal NF-e — notas técnicas](https://hom.nfe.fazenda.gov.br/portal/listaConteudo.aspx?AspxAutoDetectCookieSupport=1&tipoConteudo=04BIflQt1aY%3D): NT 2025.001 v1.03, QR Code v3 online.
 - [Receita Federal — CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/acoes-e-programas/programas-e-atividades/cnpj-alfanumerico) e [manual oficial de cálculo do dígito verificador](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj/manual-dv-cnpj.pdf/@@download/file); novos CNPJs alfanuméricos desde julho de 2026.
 - [SVRS — documentos técnicos da NFC-e](https://dfe-portal.svrs.rs.gov.br/Nfce/Documentos): NT 2026.004, validação do CNPJ alfanumérico e leiaute atualizado.
+- [Portal NF-e — NT conjunta DFe sobre CNPJ alfanumérico](https://www.nfe.fazenda.gov.br/Portal/exibirArquivo.aspx?conteudo=5ZkvIZt10mQ%3D): posições alfanuméricas da chave de acesso e regra do dígito verificador.
 - [SEFA/PR — web services NFC-e](https://sped.fazenda.pr.gov.br/NFCe/Pagina/Web-Services-NFC-e): endpoints oficiais por ambiente.
 
 Os testes de XML utilizam o pacote oficial fixado `PL_010f_v1.04`; validação XSD não substitui autorização da SEFAZ nem comprova aprovação tributária.
@@ -92,4 +97,4 @@ Os testes de XML utilizam o pacote oficial fixado `PL_010f_v1.04`; validação X
 Integração usa o Supabase remoto configurado, conforme [política canônica](../testing/SUPABASE_REMOTE_TEST_POLICY.md), sem Docker Desktop. A migration `20261003222817_retail_fiscal_model_policy.sql` amplia as RPCs e guardas HML para o modelo determinado e congela o contexto na mesma transação da numeração. A migration `20261004233048_nfe_recipient_tax_id_alpha_and_optional_snapshot.sql` aceita CPF/CNPJ no formato fiscal e permite congelar a ausência explícita de identificação nos casos NFC-e opcionais. Ambas alteram apenas funções de snapshot fiscal; não alteram pedidos, cadastro de pessoas, produtos, estoque ou financeiro.
 
 
-Validação e aplicação remota: [evidências de 03/10/2026](validacao-modelo-varejo-pr-2026-10-03.md).
+Validação e aplicação remota foram registradas em [evidências de 03/10/2026](validacao-modelo-varejo-pr-2026-10-03.md); esta documentação não confirma se as migrations continuam aplicadas no projeto remoto.

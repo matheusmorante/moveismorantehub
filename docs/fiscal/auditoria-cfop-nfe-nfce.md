@@ -1,5 +1,7 @@
 # Auditoria de CFOP e matriz tributária interestadual
 
+> **Reconciliada em 09/10/2026:** a classificação de CFOPs e o estado das regras abaixo foram comparados com o código atual. O catálogo continua estático e ainda não foi reconciliado com o Informe Técnico 2023.002 v2.10. A NT 2026.009 v1.00 anuncia correção em regra de validação; o escopo exato precisa ser conferido antes de alterar qualquer classificação. O status de testes e os limites atuais ficam em [status-testes-homologacao.md](status-testes-homologacao.md).
+
 ## Decisão
 
 O CFOP descreve a operação. Ele não define sozinho CSOSN, ICMS, ST, DIFAL ou FCP. O catálogo semântico do ERP classifica CFOPs e permite mostrar candidatos compatíveis com o destino físico, mas somente uma regra server-side `APPROVED`, completa e sem conflito pode determinar os tributos e liberar a emissão.
@@ -7,6 +9,8 @@ O CFOP descreve a operação. Ele não define sozinho CSOSN, ICMS, ST, DIFAL ou 
 O inventário da [Matriz de Decisão Fiscal Interestadual de Saída](matriz-saida-interestadual.md) lista 20 células DRAFT e quatro BLOCKED. A auditoria regra por regra reclassificou as cinco famílias gerais antes marcadas `APPROVED` como `DRAFT`; o catálogo agora contém cinco famílias gerais DRAFT, uma família geral BLOCKED e nenhuma regra APPROVED. Os curingas permitiam que as cinco regras alcançassem qualquer UF e produto dentro do escopo HML/PR/CRT 1, mas CFOP/MOC/fontes nacionais não sustentavam os tratamentos completos de CSOSN, ST, DIFAL e FCP nelas codificados. As seis famílias gerais correspondem às 24 células do inventário. Os gates PR→SC que existiram durante a revisão foram removidos; SC é bloqueado pela família geral DRAFT como os demais destinos. Portanto, não existe rota interestadual liberada no catálogo atual. A auditoria histórica do cenário está em [auditoria-interestadual-pr-sc.md](auditoria-interestadual-pr-sc.md).
 
 ## Classificação de CFOP
+
+Em 04/09/2026, o Portal Nacional publicou o Informe Técnico 2023.002 v2.10 para atualização da tabela CFOP. A revisão deste relatório confirma as classificações e bloqueios do catálogo local, mas **não** comprova correspondência integral de todos os códigos estáticos com essa edição oficial. Não habilitar CFOP novo com base apenas na tabela de candidatos.
 
 | CFOP | Classificação semântica | Uso no modal | Estado da regra tributária |
 | --- | --- | --- | --- |

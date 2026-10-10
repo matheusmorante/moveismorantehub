@@ -1,10 +1,45 @@
 import { GoodsReceipt } from './goodsReceipt.types';
 import { PurchaseItem } from '../../types/purchase.type';
+import {
+  isIdentifiedTestArtifact,
+  readTestArtifactIdentity,
+  testArtifactMetadata,
+} from '../../../../../shared-utils/testArtifactPolicy';
 
 export const isValidUuid = (val?: string): boolean =>
   Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
+const decodeReceiptObservation = (value: unknown) => {
+  const observation = typeof value === 'string' ? value : '';
+  const testArtifact = readTestArtifactIdentity({ observation });
+  if (!testArtifact) return { observation, testArtifact: undefined };
+
+  try {
+    const envelope = JSON.parse(observation);
+    return {
+      observation: typeof envelope.note === 'string' ? envelope.note : '',
+      testArtifact,
+    };
+  } catch {
+    return { observation, testArtifact: undefined };
+  }
+};
+
+export const getGoodsReceiptTestArtifactIdentity = (value: unknown) => {
+  const identity = readTestArtifactIdentity(value);
+  if (identity) return identity;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const metadata = (value as Record<string, unknown>).testArtifact;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  return readTestArtifactIdentity({ testArtifact: { is_test: true, ...metadata } });
+};
+
+export const isTestGoodsReceipt = (value: unknown) =>
+  Boolean(getGoodsReceiptTestArtifactIdentity(value)) || isIdentifiedTestArtifact(value);
+
 export const mapGoodsReceiptRow = (row: any): GoodsReceipt => {
+  const decodedObservation = decodeReceiptObservation(row.observation);
   const rawItems: PurchaseItem[] =
     Array.isArray(row.goods_receipt_items) && row.goods_receipt_items.length > 0
       ? row.goods_receipt_items
@@ -36,7 +71,8 @@ export const mapGoodsReceiptRow = (row: any): GoodsReceipt => {
     invoiceDate: row.invoice_date || undefined,
     items: rawItems,
     totalValue: Number(row.total_value || 0),
-    observation: row.observation || '',
+    observation: decodedObservation.observation,
+    ...(decodedObservation.testArtifact ? { testArtifact: decodedObservation.testArtifact } : {}),
     fiscalKey: row.fiscal_key || undefined,
     attachments: row.attachments || [],
     status:
@@ -65,32 +101,39 @@ export const mapGoodsReceiptRow = (row: any): GoodsReceipt => {
   };
 };
 
-export const buildGoodsReceiptDbPayload = (receipt: GoodsReceipt, now: string) => ({
-  id: receipt.id,
-  receipt_index: receipt.receiptIndex,
-  purchase_id: isValidUuid(receipt.purchaseId) ? receipt.purchaseId : null,
-  supplier_id: isValidUuid(receipt.supplierId) ? receipt.supplierId : null,
-  supplier_name: receipt.supplierName,
-  received_at: receipt.receivedAt,
-  invoice_number: receipt.invoiceNumber || null,
-  invoice_date: receipt.invoiceDate || null,
-  total_value: receipt.totalValue,
-  observation: receipt.observation || '',
-  fiscal_key: receipt.fiscalKey || null,
-  attachments: receipt.attachments || [],
-  status: receipt.status,
-  is_draft: receipt.isDraft,
-  ipi_percent: receipt.ipiPercent,
-  freight_percent: receipt.freightPercent,
-  non_fiscal_discount_mode: receipt.nonFiscalDiscountMode || null,
-  non_fiscal_discount_value: receipt.nonFiscalDiscountValue ?? 0,
-  non_fiscal_freight_mode: receipt.nonFiscalFreightMode || null,
-  non_fiscal_freight_value: receipt.nonFiscalFreightValue ?? 0,
-  non_fiscal_other_expenses_mode: receipt.nonFiscalOtherExpensesMode || null,
-  non_fiscal_other_expenses_value: receipt.nonFiscalOtherExpensesValue ?? 0,
-  fiscal_ipi: receipt.fiscalIpi ?? 0,
-  fiscal_freight: receipt.fiscalFreight ?? 0,
-  fiscal_discount: receipt.fiscalDiscount ?? 0,
-  fiscal_other_expenses: receipt.fiscalOtherExpenses ?? 0,
-  updated_at: now,
-});
+export const buildGoodsReceiptDbPayload = (receipt: GoodsReceipt, now: string) => {
+  const decodedObservation = decodeReceiptObservation(receipt.observation);
+  const testArtifact = receipt.testArtifact || decodedObservation.testArtifact;
+
+  return {
+    id: receipt.id,
+    receipt_index: receipt.receiptIndex,
+    purchase_id: isValidUuid(receipt.purchaseId) ? receipt.purchaseId : null,
+    supplier_id: isValidUuid(receipt.supplierId) ? receipt.supplierId : null,
+    supplier_name: receipt.supplierName,
+    received_at: receipt.receivedAt,
+    invoice_number: receipt.invoiceNumber || null,
+    invoice_date: receipt.invoiceDate || null,
+    total_value: receipt.totalValue,
+    observation: testArtifact
+      ? JSON.stringify({ testArtifact: testArtifactMetadata(testArtifact), note: decodedObservation.observation })
+      : receipt.observation || '',
+    fiscal_key: receipt.fiscalKey || null,
+    attachments: receipt.attachments || [],
+    status: receipt.status,
+    is_draft: receipt.isDraft,
+    ipi_percent: receipt.ipiPercent,
+    freight_percent: receipt.freightPercent,
+    non_fiscal_discount_mode: receipt.nonFiscalDiscountMode || null,
+    non_fiscal_discount_value: receipt.nonFiscalDiscountValue ?? 0,
+    non_fiscal_freight_mode: receipt.nonFiscalFreightMode || null,
+    non_fiscal_freight_value: receipt.nonFiscalFreightValue ?? 0,
+    non_fiscal_other_expenses_mode: receipt.nonFiscalOtherExpensesMode || null,
+    non_fiscal_other_expenses_value: receipt.nonFiscalOtherExpensesValue ?? 0,
+    fiscal_ipi: receipt.fiscalIpi ?? 0,
+    fiscal_freight: receipt.fiscalFreight ?? 0,
+    fiscal_discount: receipt.fiscalDiscount ?? 0,
+    fiscal_other_expenses: receipt.fiscalOtherExpenses ?? 0,
+    updated_at: now,
+  };
+};

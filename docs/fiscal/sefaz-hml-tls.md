@@ -1,5 +1,7 @@
 # Transporte HTTPS/mTLS fiscal — verificação de 05/10/2026
 
+> **Snapshot de transporte:** os probes, a cadeia observada e o bloqueio do A1 foram registrados em 05/10/2026. O transporte HML e os segredos de Development não foram revalidados em 09/10; não conclua que os GETs ou a emissão estejam saudáveis hoje. Consulte o [status fiscal atual](status-testes-homologacao.md) antes de repetir qualquer ação.
+
 Status em 05/10/2026: os GETs HML dos modelos 55 e 65 agora passam com TLS validado e certificado oficial da AC SOLUTI, após o agente fiscal incorporar a confiança nativa do sistema junto às raízes padrão do Node. Nenhuma autorização fiscal foi transmitida. O smoke test de emissão pela interface continua bloqueado porque a senha write-only do certificado A1 no Vercel Development não abre o PFX ali configurado; a falha histórica 502 só poderá ser considerada encerrada após corrigir esse segredo e validar uma emissão pela interface.
 
 ## 1. Causa observada e limites da conclusão

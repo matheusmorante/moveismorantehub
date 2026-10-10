@@ -4,6 +4,8 @@
 
 > Auditoria de schema e plano de trabalho. Este documento não altera o roadmap fiscal e não declara emissão homologada ou pronta para produção. Não define testes fiscais em homologação; o roteiro anterior foi removido em 2026-10-03 para redefinição.
 
+> **Snapshot de 28/09/2026:** os objetos e divergências abaixo refletem aquela consulta. O Supabase remoto não foi reconsultado em 09/10 e o plano não comprova estado de migrations/schema atual. Para execução de integração, siga a [política remota](../testing/SUPABASE_REMOTE_TEST_POLICY.md); consulte o [status fiscal](status-testes-homologacao.md) para evidência recente.
+
 ## Escopo e evidência
 
 - Snapshot inicial consultado em 28/09/2026 às 11:57 BRT (14:57 UTC), somente leitura, no projeto Supabase **MoranteHub**, ref `hkoxhourxwlddgsfdgws` (`sa-east-1`, PostgreSQL 17.6), antes da migration de proteção de papéis.

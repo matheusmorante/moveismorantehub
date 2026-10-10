@@ -1,4 +1,6 @@
-> **Registro histórico:** preserve este relatório como estado observado na época. As instruções antigas sobre Docker/Supabase local foram substituídas pela política em [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md). Os critérios de testes fiscais em homologação aqui descritos foram removidos em 2026-10-03 para redefinição e não são um roteiro vigente.
+> **Registro histórico:** preserve este relatório como estado observado na época. O código e as decisões aqui descritos incluem diagnósticos já superados; o status atual de implementação e testes está em [status-testes-homologacao.md](status-testes-homologacao.md). As instruções antigas sobre Docker/Supabase local foram substituídas pela política em [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md). Os critérios de testes fiscais em homologação aqui descritos foram removidos em 2026-10-03 para redefinição e não são um roteiro vigente.
+
+> **Reconciliação de 09/10/2026:** a migration `20260930001434_add_orders_fiscal_revision.sql` citada adiante não está presente em `supabase/migrations/` neste checkout. A seção que a descreve registra o estado histórico do relatório, não um arquivo atualmente disponível.
 
 # Auditoria de domínio — Pedido → FiscalDocument → NF-e/NFC-e
 
@@ -286,7 +288,7 @@ O histórico local da RPC está como `SECURITY DEFINER`, verifica `auth.uid()` m
 
 ### Correção fiscal local preparada
 
-A migration [20260930001434_add_orders_fiscal_revision.sql](../../supabase/migrations/20260930001434_add_orders_fiscal_revision.sql) é uma migration nova, aditiva e intencionalmente menor que a histórica. Está ordenada imediatamente antes de `20260930001435_nfe_fiscal_snapshot.sql` e:
+O plano histórico citava a migration `20260930001434_add_orders_fiscal_revision.sql` como uma migration nova, aditiva e intencionalmente menor que a histórica, ordenada antes de `20260930001435_nfe_fiscal_snapshot.sql`, e previa que ela:
 
 - cria `orders.version` com valor inicial 1, repara valores nulos se houver coluna parcial;
 - usa a função de trigger de incremento e atualiza `updated_at` em cada `UPDATE`;
@@ -355,15 +357,17 @@ Esse mecanismo seria uma implantação seletiva, **não uma reconciliação comp
 
 Se não for possível obter ledger/schema atuais ou provar o conjunto exato que será aplicado, a ação segura é manter ambas as migrations locais. Não usar `migration repair`, `--include-all` no diretório completo ou SQL Editor como atalho.
 
-## 12. Decisão operacional atual: Docker local e sem projeto HML
+## 12. Registro histórico de decisão operacional (30/09/2026, substituído)
+
+> As linhas abaixo preservam o estado e os testes daquela data. A recomendação de Docker/Supabase Local e os pré-requisitos descritos aqui não estão vigentes; siga exclusivamente `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md` e o status fiscal central.
 
 Esta decisão de 30/09/2026 substitui a recomendação anterior de criar/obter um destino Supabase HML para as migrations fiscais:
 
-- Não criar branch persistente HML, segundo projeto ou infraestrutura adicional. `main` continua sendo a base operacional; testes técnicos de banco usam Supabase local/Docker quando disponível.
+- Naquela data, o registro dizia para manter `main` como base e usar Supabase local/Docker quando disponível. A decisão atual mantém a branch padrão existente e proíbe Docker/Supabase Local.
 - O preflight local do Supabase confirmou o projeto local `morantehub`; o teste temporário de PostgreSQL aplicou 01434 seguida de 01435 e removeu o banco ao final. Nenhuma migration foi aplicada no Supabase remoto, nenhum dado operacional foi consultado e nenhuma transmissão SEFAZ foi feita nesta continuação.
 - A emissão de documentos novos está fechada no backend enquanto não existir determinação aprovada. A consulta do pedido é somente-leitura; a sequência não é reservada, nenhuma tentativa/snapshot é persistida e a SEFAZ não é contatada enquanto o motor fiscal retornar bloqueio.
-- Quando o Fiscal Core estiver aprovado, a homologação SEFAZ poderá usar o Supabase remoto operacional com pedido/cliente/produtos/pagamentos sintéticos, sem contaminar estoque, financeiro ou indicadores. O backend deverá impor `tpAmb=2`, escolher exclusivamente endpoint oficial de homologação e nunca permitir fallback para produção. Segredos ficam no backend. Qualquer DDL, mudança de RLS, reset, falha injetada ou teste destrutivo continua restrito ao Docker isolado.
-- A liberação remota das migrations 01434/01435 continua pendente de uma operação seletiva com preflight atual, comparação final de hashes, backup/PITR e autorização explícita. Não executar `db push` geral nem `migration repair`.
+- A proposta de homologação descrita na época considerava o Supabase remoto operacional e guardava as proteções fiscais. Esse trecho não autoriza gravações; aplique a política remota atual e não transmita sem autorização explícita pelo fluxo da interface.
+- A pendência de migrations 01434/01435 e seus hashes é histórica. Confirme o status central e o histórico remoto atuais antes de qualquer decisão; não execute `db push`, `migration repair` ou DDL sem autorização explícita para a operação concreta.
 
 | Atividade | Estado atual | Dependência |
 | --- | --- | --- |
@@ -384,12 +388,12 @@ Esta decisão de 30/09/2026 substitui a recomendação anterior de criar/obter u
 - Estados: antes do SOAP, o XML assinado fica persistido como `processando`; timeout vira `pendente`; autorização e itens são confirmados juntos; rejeição vira `erro`; retry primeiro consulta a chave. Se a consulta confirmar autorização, reconcilia a mesma nota. Só um 217 confirmado permite retransmitir o XML original. Uma resposta SEFAZ ou persistência incerta não abre nova numeração automaticamente.
 - Efeitos obrigatórios por estado: `processando` consome uma reserva fiscal e guarda XML/decisão; `pendente` preserva essa reserva sem criar outra; `homologada` grava protocolo e linhas fiscais numa RPC; `erro` preserva XML, rejeição e número para auditoria. O fluxo HML não confirma estoque nem financeiro. Uma transição posterior de `pendente` para `homologada` apenas reconcilia a mesma chave; cancelamento/inutilização são fluxos separados e não são simulados aqui.
 - Evidência local: Vitest focado do Fiscal Core/serializer, assinatura e XSD HML passou; TypeScript da API passou; testes focados de fronteira API/ERP passaram individualmente. A execução simultânea dos dois testes de fronteira excedeu o timeout de 5 segundos durante carga de módulos, e ambos passaram quando isolados.
-- **Implantação pendente:** `npm run advisors` falhou com `ECONNREFUSED 127.0.0.1:54322`; o preflight local também não encontrou Docker ativo. A migration 01436 e a alteração da 01435 ainda não foram exercitadas em PostgreSQL nesta versão. Não foram aplicadas ao Supabase operacional, e não houve transmissão real à SEFAZ. O remoto segue sem 01434/01435/01436 segundo a última leitura do ledger. Para liberar a homologação real, primeiro iniciar Docker Desktop manualmente, executar advisors e teste de integração/concorrência no Supabase local, depois preflight seletivo do schema remoto e aplicação das migrations revisadas. Confirmar também A1/CSRT no backend e isolamento de estoque, financeiro e indicadores para o pedido sintético.
+- **Implantação pendente (registro histórico):** naquela versão, `npm run advisors` falhou com `ECONNREFUSED 127.0.0.1:54322`; o preflight também não encontrou Docker ativo. A recomendação subsequente para iniciar Docker/Supabase Local foi substituída e não deve ser seguida. Hoje, consultas e aplicação autorizada de migration usam somente o projeto Supabase remoto operacional, conforme [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md). A migration 01436 e a alteração da 01435 estavam pendentes naquela data; confirme o status central antes de qualquer ação. Não houve transmissão real à SEFAZ naquele registro.
 - Leitura remota somente-leitura em `hkoxhourxwlddgsfdgws`: a decisão fiscal 99/99 segue persistida e com `productionApproved=false`; não existem `nfe_fiscal_snapshots` nem as RPCs novas. O `orders` remoto tem triggers que atualizam métricas diárias, enfileiram resumo de entrega e inserem itens/pagamentos fallback. A fixture endurecida (`draft`, `deleted=true`, pagamentos operacionais vazios, item temporário) evita a inclusão nas métricas diárias e em `order_payments` pelo fallback observado, mas o trigger de resumo ainda é disparado em qualquer INSERT/UPDATE. Portanto **não houve criação de pedido sintético no remoto** e o isolamento completo para uma transmissão HML real permanece pendente de prova/correção.
 
 ## 14. CSOSN 103 e implantação seletiva de homologação (30/09/2026)
 
-O usuário solicitou CSOSN 103 como padrão editável dos itens sem exceção e, posteriormente, autorizou explicitamente aplicar a estrutura fiscal, publicar o backend e executar os testes no Supabase remoto enquanto o Docker estivesse indisponível. Essa autorização atualiza, para esta tarefa, a restrição operacional anterior das seções 12–13; não libera a tributação em produção.
+Registro histórico de 30/09/2026: o usuário autorizou naquela tarefa aplicar a estrutura fiscal então descrita, publicar o backend e executar os testes remotos. Essa autorização era restrita à operação daquela data; não autoriza migrations, gravações ou publicação atuais. Para novas operações, siga a política remota e o status central, e obtenha autorização explícita para a operação concreta quando houver escrita ou DDL. A decisão de CSOSN 103 permanece registrada acima; Produção continua bloqueada.
 
 - Configuração autoritativa: `settings.id = nfe55_hml_csosn_defaults_v1`, CSOSN 103, modelo 55, `environment=2`, CRT 1 e `productionApproved=false`. Confirmada por releitura após gravação. O registro `app` e os demais padrões tributários não foram alterados. Configurações Fiscais lê/salva esse registro via API autenticada; somente administrador altera o padrão.
 - Precedência: regra específica aplicável → escolha manual → código já salvo no item → cadastro do produto → padrão do backend. Conflito entre regra específica e escolha manual bloqueia a operação. O catálogo remoto persiste `products.fiscal`; `product_variations` não possui coluna fiscal. A preparação não consulta uma coluna inexistente nem inventa armazenamento alternativo.

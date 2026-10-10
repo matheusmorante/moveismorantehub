@@ -1,5 +1,7 @@
 # E2E fiscal pela interface
 
+O estado atual dos cenários, evidências HML e pendências está em [status-testes-homologacao.md](../fiscal/status-testes-homologacao.md). Este arquivo mantém somente o contrato de segurança e o desenho do runner.
+
 ## Projeto e dados
 
 O runner usa exclusivamente o projeto e o schema Supabase já configurados no ERP. Ele lê a ref local de `supabase/.temp/project-ref` e compara com a URL recebida do Vercel Development; não aceita uma ref informada separadamente como substituta da configuração do app. Não cria projeto, banco, schema, tabela ou coluna de teste.
@@ -14,7 +16,7 @@ As chaves e a identidade do operador são lidas em runtime do Vercel Development
 
 `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts` atualmente prova login e navegação por pedidos, devoluções, notas fiscais e cadastros, além de abrir formulários vazios. Não salva cliente, produto ou pedido; não abre o modal de emissão; não cria snapshot/XML nem compara o XML ao pedido.
 
-O helper de contexto UUID existe, mas `bindTestArtifactContext()` ainda não é chamado pelo ERP ou pelo Playwright. Portanto, o fluxo não está pronto para gravar artefatos sintéticos no Supabase remoto.
+O contexto UUID já é vinculado condicionalmente pelo `AuthContext` após a autenticação, e os serviços de mutação de pedidos, produtos e pessoas aplicam metadata quando há contexto válido. Isso corrige a afirmação antiga de que `bindTestArtifactContext()` não tinha consumidor. Ainda não existe prova de uma jornada Playwright que crie o conjunto de artefatos e confirme os guards no PostgreSQL remoto.
 
 A suíte E2E geral em `erp/playwright.config.ts` recusa refs operacionais enquanto não houver harness comprovado de identidade, vínculos e cleanup. O simulador SOAP também recusa essas refs porque uma autorização simulada criaria um fato fiscal falso no banco operacional. Não habilite um flag para contornar esses bloqueios.
 
@@ -25,4 +27,4 @@ A suíte E2E geral em `erp/playwright.config.ts` recusa refs operacionais enquan
 3. Fazer uma suíte Playwright que use os formulários reais, gere XML pela infraestrutura oficial e compare o formulário, pedido persistido, snapshot e XML campo a campo. A validação inicial deve parar antes de qualquer transmissão.
 4. Só transmitir à SEFAZ-PR em Homologação quando o usuário tiver autorizado essa emissão, o cenário estiver integralmente elegível e a tentativa for reconciliável. Transmissões reais devem partir da interface fiscal do ERP.
 
-O estado atual é **BLOCKED** para gravações E2E e transmissão fiscal. A migration candidata e os motivos estão registrados em `test-artifact-policy-status-2026-10-09.md`.
+Gravações E2E permanecem **BLOCKED até a prontidão remota e os efeitos da migration serem comprovados**. O runner fiscal não autoriza transmissão SEFAZ; transmissão real deve ser iniciada pela interface com autorização explícita. Consulte o estado central e a política de testes remotos antes de planejar uma execução.

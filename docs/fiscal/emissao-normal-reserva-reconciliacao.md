@@ -2,6 +2,8 @@
 
 Atualização: 07/10/2026. Projeto conferido: `hkoxhourxwlddgsfdgws`.
 
+> **Evidência histórica:** este relatório registra execução e contagens até 07/10/2026. A aplicação remota não foi reconsultada nesta auditoria documental. Para o resultado local mais recente, falhas e pendências por fluxo, consulte [status-testes-homologacao.md](status-testes-homologacao.md); não compare a contagem de 159 testes daqui como se fosse o estado atual.
+
 ## Fluxo conectado
 
 `api/nfe/emit.ts` encaminha vendas normais de Produção e HML para

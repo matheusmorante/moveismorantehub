@@ -22,8 +22,7 @@ Não a use para repetir auditoria técnica completa ao retomar um E2E já prepar
 ## 🏛️ Contexto e Arquitetura Geral
 
 O Morante Hub opera em dois pilares fiscais diretos e integrados:
-1. **Emissão de Documentos Fiscais de Saída:** NF-e (Modelo 55) e NFC-e (Modelo 65) **diretamente com o SEFAZ-PR** (sem API intermediária como Bling, Focus NFe ou Nuvem Fiscal).
-   - O modelo é decidido pelo contexto fiscal: venda varejista compatível a consumidor final no PR prefere 65, inclusive entrega; operação interestadual, revenda, crédito fiscal, devolução e demais operações especiais exigem 55. Entrega/retirada define logística, não modelo. Política central e evidências: `docs/fiscal/decisao-modelo-varejo-pr.md`.
+1. **Emissão de Documentos Fiscais de Saída:** existem fluxos para NF-e (Modelo 55) e NFC-e (Modelo 65) **diretamente com o SEFAZ-PR** (sem API intermediária como Bling, Focus NFe ou Nuvem Fiscal). A matriz de modelo está em `docs/fiscal/decisao-modelo-varejo-pr.md`; a cobertura e os bloqueios atuais estão em `docs/fiscal/status-testes-homologacao.md`. Não inferir elegibilidade nem prontidão apenas pela existência de um serializer.
 2. **Sincronização Automática de NF-e de Entrada:** Recepção automática de NF-e destinadas ao CNPJ da empresa por meio do serviço oficial **NFeDistribuicaoDFe** e **Manifestação do Destinatário** atendidos pelo **Ambiente Nacional**, integrando diretamente ao pipeline e importador existente do Morante Hub sem arquiteturas paralelas.
 
 ---
@@ -39,7 +38,7 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
    - Mapear e auditar no projeto antes de tocar no código:
      - Módulo de NF-e de entrada (`/inbound-invoices` ou similar);
      - Tabelas de NF-e, itens, mapeamentos de fornecedores e produtos;
-     - Como a chave de acesso (44 dígitos) é validada e como duplicidades são tratadas (`UNIQUE(company_id, access_key)`);
+     - Como a chave de acesso de 44 posições é validada e como duplicidades são tratadas (`UNIQUE(company_id, access_key)`); preservar letras no bloco CNPJ é requisito da NT 2026.004, mas a cobertura atual do ERP é parcial (consulte o status central).
      - Importador e parser de XML existente (normalização de campos, impostos, NCM, CFOP);
      - Onde e como o XML é atualmente armazenado e recuperado;
      - Como certificados digitais (A1 / PFX / P12) já são armazenados e tratados (segurança, backend-only);
@@ -103,12 +102,12 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
   - Após autorização do evento no Ambiente Nacional, a NF-e completa (`procNFe`) torna-se disponível em consulta posterior via `distNSU` ou `consChNFe`.
 
 ### 6. Consulta Pontual pela Chave (`consChNFe`) e `consNSU`
-- `consChNFe`: Usado para consulta pontual de chave de 44 dígitos (por digitação, bipagem ou QR Code da DANFE física). Respeitar a regra oficial: se o destinatário ainda não manifestou a nota, a SEFAZ devolve apenas o resumo.
+- `consChNFe`: Usado para consulta pontual de chave de 44 posições (por digitação, bipagem ou QR Code da DANFE física). O padrão oficial admite letras no bloco CNPJ conforme NT 2026.004; conferir o suporte real do código antes de afirmar compatibilidade. Respeitar a regra oficial: se o destinatário ainda não manifestou a nota, a SEFAZ devolve apenas o resumo.
 - `consNSU`: Exclusivo para reaver pontualmente um NSU específico que sofreu falha ou lacuna, nunca para polling contínuo.
 
 ### 7. Unificação do Pipeline e Prevenção de Duplicidades
 - **Convergência Total:** O XML descompactado da SEFAZ deve cair exatamente no mesmo pipeline de validação e importação do upload manual (`inboundInvoiceParser`, vinculação de fornecedores, vinculação de produtos por código/SKU, cálculo de custos fiscais).
-- **Sem Duplicidade:** A chave de 44 dígitos é a autoridade única (`UNIQUE(company_id, access_key)`). Se uma NF-e já foi importada manualmente ou já constar no banco, atualizar metadados sem duplicar o registro fiscal nem criar fornecedores/itens redundantes.
+- **Sem Duplicidade:** A chave de 44 posições é a autoridade única (`UNIQUE(company_id, access_key)`). Normalize apenas separadores de apresentação e preserve caracteres alfanuméricos permitidos. Se uma NF-e já foi importada manualmente ou já constar no banco, atualizar metadados sem duplicar o registro fiscal nem criar fornecedores/itens redundantes.
 
 ### 8. Segurança e Certificado Digital
 - Certificado digital A1 (PFX/P12 e senha) deve ser gerenciado com secrets seguros no backend.
@@ -118,72 +117,27 @@ Toda e qualquer intervenção, planejamento ou código relacionado a sincroniza�
 
 ---
 
-## ⚖️ MATRIZ OFICIAL DE OPERAÇÕES E SEPARAÇÃO DE TELAS
+## ⚖️ CANCELAMENTO, ESTORNO E DEVOLUÇÃO
 
-| Ação | NF-e (Mod. 55) | NFC-e (Mod. 65) | Tela de Pedidos (`/sales-order`) | Tela Fiscal (`/fiscal-documents`) |
-|---|:---:|:---:|:---:|:---:|
-| **Consultar Situação SEFAZ** | ✅ | ✅ | — | ✅ Ação direta SEFAZ |
-| **Cancelar Documento Fiscal** | ✅ | ✅ | Indireto *(se cancelável)* | ✅ Ação direta SEFAZ |
-| **Carta de Correção (CC-e)** | ✅ | ❌ *(Rejeição MOC)* | — | ✅ Exclusivo Mod. 55 |
-| **Baixar XML Assinado** | ✅ | ✅ | Link no pedido | ✅ Download centralizado |
-| **Visualizar / Imprimir DANFE** | ✅ *(A4 MOC 7.0)* | ✅ *(DANFE NFC-e)* | Link no pedido | ✅ Impressão centralizada |
-| **Inutilizar Numeração** | ✅ | ✅ *(conforme SEFAZ)* | — | ✅ Administração de numeração |
-| **Cancelar Venda (Não Atendido)** | — | — | ✅ Desfaz venda + estorno | — |
-| **Registrar Devolução Total** | — | — | ✅ Devolução Comercial + Entrada Estoque | — *(Fiscal resolve doc)* |
-| **Registrar Devolução Parcial** | — | — | ✅ Devolução Comercial + Entrada Estoque | — *(Fiscal resolve doc)* |
-| **Troca de Mercadoria** | — | — | ✅ Devolução Comercial + Nova Venda | — *(Fiscal resolve doc)* |
+- Os pontos de entrada do Pedido de Venda e da tela de Notas Fiscais de Saída usam a mesma operação comercial transacional e a mesma política/serviço fiscal central. A tela fiscal pode iniciar o cancelamento vinculado, mas não altera o status do pedido diretamente.
+- A decisão de circulação usa `hasGoodsCirculated(order)`: `fulfilled` conta tanto para entrega quanto para retirada; evidência de saída ou trânsito também deve ser considerada. Com circulação, bloquear cancelamento como operação não realizada e não gerar estorno. Após retorno físico, usar devolução vinculada e preservar a NF-e original.
+- Sem circulação e sem documento autorizado (ausente, rejeitado ou nunca autorizado), cancelar pedido/estoque sem evento fiscal. Sem circulação e com documento autorizado, selecionar automaticamente o cancelamento SEFAZ dentro do prazo ou o estorno quando permitido; o usuário não escolhe o efeito.
+- No Paraná, o prazo é 168 horas para NF-e 55 e 30 minutos para NFC-e 65, conforme a orientação estadual vigente. Centralizar os prazos e cobrir o instante exato do limite.
+- Estoque e atualização comercial são confirmados na transação do pedido. A chamada SEFAZ acontece após o commit; falha ou timeout fiscal exige tentativa idempotente e reconciliação, sem desfazer o fato comercial confirmado.
+- Criar uma devolução não confirma retorno físico nem emite documento. Coleta só conclui quando confirmada como “Coletada”; entrega física pelo cliente conclui como “Recebida”. A entrada de estoque acompanha a confirmação física na transação do pedido. A NF-e de devolução é preparada na área fiscal depois do retorno. A cobertura atual de devolução fiscal originada por NFC-e 65 deve ser consultada no status central.
 
----
+## Estado do código e fontes de referência
 
-## 🔒 REGRAS CRÍTICAS DE ARQUITETURA E ISOLAMENTO DE DOMÍNIOS
+- Regras e estado de cobertura: `docs/fiscal/status-testes-homologacao.md`.
+- Política oficial e fontes atuais: `docs/fiscal/manuais/README.md` e `docs/fiscal/decisao-modelo-varejo-pr.md`.
+- Pedido de Venda: `erp/src/pages/App/SalesOrder/OrderHistoryList/useOrderHistoryOperations.ts`.
+- Iniciação pela tela fiscal: `erp/src/pages/App/FiscalDocuments/services/fiscalCancellationService.ts`.
+- Operação comercial compartilhada: `erp/src/pages/utils/orderMutationService.ts` e `erp/src/pages/utils/orderUpdateService.ts`.
+- Política/efeito fiscal compartilhados: `erp/src/pages/utils/nfe/nfeService.ts`, `api/nfe/order-cancellation-policy.ts` e `api/nfe/cancel.ts`.
 
-### 1. Desacoplamento Estrito entre Domínio Comercial e Domínio Fiscal
-- **REGRA DE OURO:** Nenhum fluxo comercial/pedidos deve montar diretamente XML, CFOP, finalidade, referências (NT 2026.002) ou eventos SEFAZ. Essas decisões pertencem **exclusivamente ao módulo fiscal**.
-- O fluxo comercial executa:
-  1. Criação da devolução comercial / pós-venda.
-  2. Lançamento da movimentação de entrada no estoque (`inventory_moves`).
-  3. Tratamento financeiro (estorno, crédito ou reembolso).
-  4. Chamada de alto nível para o módulo fiscal (ex: `fiscalService.createReturnDocument({ returnId, originalFiscalDocumentId })`).
-- O **Módulo Fiscal** é a autoridade exclusiva que determina o documento fiscal de devolução adequado (sempre emitindo documento fiscal de entrada válido conforme a UF, tipo de documento original NF-e 55 ou NFC-e 65, e normas tributárias vigentes).
-
-### 2. Carta de Correção (CC-e) vs NFC-e (Modelo 65)
-- O Manual de Orientação do Contribuinte (MOC) proíbe expressamente Carta de Correção para NFC-e (Modelo 65), gerando rejeição na SEFAZ.
-- Na tela `/fiscal-documents`, o botão e o modal de **Carta de Correção Eletrônica (CC-e)** aparecem **EXCLUSIVAMENTE para NF-e (Modelo 55)**.
-
-### 3. Cancelamento de Venda vs Mercadoria Entregue vs Devolução
-- **Cancelamento de Venda antes da entrega / saída da mercadoria:**
-  - Desfaz o pedido operacionalmente (`status = 'cancelled'`).
-  - Estorna as saídas de estoque vinculadas via `inventory_moves`.
-  - Se houver NF-e/NFC-e autorizada e elegível para cancelamento fiscal (`canCancelFiscalDocument`), dispara o evento de cancelamento para a SEFAZ.
-- **Mercadoria já entregue (Pedido com status `fulfilled` / Atendido):**
-  - **PROIBIDO CANCELAR A VENDA DIRETO:** A mercadoria já circulou e foi entregue ao cliente.
-  - A operação deve obrigatoriamente seguir o fluxo de **Registrar Devolução** (Total ou Parcial), mantendo o histórico da venda original e solicitando ao módulo fiscal a emissão do documento fiscal de entrada apropriado.
-
-### 4. Validação Resiliente de Cancelamento Fiscal (`canCancelFiscalDocument`)
-- A elegibilidade de cancelamento é avaliada pela camada fiscal (`canCancelFiscalDocument(document)`), considerando se a mercadoria já circulou e os parâmetros por UF/modelo/ambiente, evitando regras fixas espalhadas no frontend.
-
-### Regra vigente de decisão automática ligada ao pedido
-- Para NF-e/NFC-e vinculada a uma venda, o pedido deve iniciar o fluxo; a tela de documentos não oferece cancelamento, estorno ou devolução independentes.
-- Use `hasGoodsCirculated(order)` centralmente. Só a confirmação final de entrega (Entregue) ou retirada (Retirado) conta como circulação. Trânsito e tentativas não confirmadas não provam circulação; mantenha uma rota não reconciliada sob revisão antes de decidir o tratamento fiscal. Circulação confirmada bloqueia cancelamento e estorno por operação não realizada; retorno físico usa devolução.
-- Sem circulação: sem documento autorizado, nenhum evento fiscal; com documento autorizado e prazo vigente, evento de cancelamento; com prazo vencido, escolher automaticamente estorno somente quando permitido e com operação não realizada comprovada.
-- Paraná: NF-e 55 = 168 horas; NFC-e 65 = 30 minutos segundo orientação atual publicada no FAQ da SEFA/PR. Validar a fronteira em horário absoluto, a partir do protocolo de autorização.
-- Estorno NF-e 55 no Paraná segue RICMS/PR art. 298, VII e NPF 038/2022. Preservar documento de origem e referência. Para apuração posterior, revisão fiscal deve tratar acréscimos do art. 298, §2º. Não transmitir sem revisão dos dados tributários.
-- O evento/transmissão ocorre após o commit comercial e exige registro durável, idempotência e reconciliação para falha ou timeout. Nunca mascarar a confirmação comercial como falha se o evento SEFAZ falhar depois.
-- Depois da circulação, usar devolução vinculada; não cancelar a NF-e original nem estornar como operação não realizada. Criar o cadastro de devolução não equivale a retorno físico e não transmite NF-e de devolução. O documento de devolução é preparado na área fiscal após a mercadoria ser recebida ou coletada.
-- A UI distingue “Coletada” (`order_data.returnMethod=store_collection`, após confirmação física) de “Recebida” (`store_delivery`, cliente já entregou na loja); os estados persistidos legados permanecem `scheduled` e `fulfilled`.
-
----
-
-## 📋 CONFIGURAÇÕES DA EMPRESA EMITENTE
-
-- **Razão Social / Fantasia:** Móveis Morante
-- **CNPJ:** `44.512.248/0001-07`
-- **Inscrição Estadual (IE):** `9091234567` | **CRT:** `1 - Simples Nacional`
-- **Endereço Completo:** R. Cascavel, 306, Guaraituba, Colombo - PR, CEP: 83410-270 (Código IBGE Município: `4105805`)
-- **CSC NFC-e Homologação SEFAZ-PR:** carregar exclusivamente do armazenamento seguro de secrets em runtime; nunca registrar valor em skill, documentação, logs ou bundle do cliente.
-- **Numeração Sequencial Inicial:** Padrão configurado a partir de `#000700` (`nfeNextNumber: 700`, `nfceNextNumber: 700`).
+Dados fiscais do emitente, credenciais, CSC e sequência são lidos da configuração em runtime; não manter valores de uma empresa específica nesta skill. Segredos permanecem em armazenamento seguro e nunca em documentação, logs ou bundle do cliente.
 
 ## Referências e fonte canônica de documentação
 
-- Regras normativas, fontes oficiais, ambiente HML/Produção e idempotência fiscal: `.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md`.
+- Regras normativas, fontes oficiais, ambiente HML/Produção, CNPJ alfanumérico e idempotência fiscal: `.agents/skills/fiscal-nfe-nfce-official-docs/SKILL.md`.
 - Gates e retomada de testes: `.agents/skills/testes-seguros-erp/SKILL.md`.

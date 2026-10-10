@@ -1,4 +1,5 @@
 import { PurchaseItem } from '../../types/purchase.type';
+import type { TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 
 export type GoodsReceiptStatus = 'draft' | 'received' | 'estornado';
 
@@ -14,6 +15,8 @@ export type GoodsReceipt = {
   items: PurchaseItem[];
   totalValue: number;
   observation?: string;
+  /** Test-only ownership metadata; serialized inside the existing observation column. */
+  testArtifact?: TestArtifactIdentity;
   fiscalKey?: string;
   attachments?: string[];
   status: GoodsReceiptStatus;

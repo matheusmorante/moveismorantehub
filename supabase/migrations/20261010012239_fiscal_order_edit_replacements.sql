@@ -135,10 +135,11 @@ CREATE FUNCTION public.commit_fiscal_order_edit(
  p_items jsonb,p_payments jsonb,p_plans jsonb,p_actor_id uuid
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE v_order public.orders%ROWTYPE; v_doc public.nfe_documents%ROWTYPE; v_plan jsonb;
- v_hash text; v_replacement uuid; v_draft uuid; v_result jsonb; v_authorized_at timestamptz; v_kind text;
+ v_hash text; v_replacement uuid; v_draft uuid; v_result jsonb; v_authorized_at timestamptz; v_window interval; v_kind text;
+ v_expected_doc_status text;
 BEGIN
  IF p_request_id IS NULL OR p_actor_id IS NULL OR jsonb_typeof(p_plans) IS DISTINCT FROM 'array'
- OR jsonb_array_length(p_plans) NOT BETWEEN 1 AND 2 THEN RAISE EXCEPTION 'INVALID_FISCAL_EDIT'; END IF;
+ OR jsonb_array_length(p_plans) < 1 OR jsonb_array_length(p_plans) > 2 THEN RAISE EXCEPTION 'INVALID_FISCAL_EDIT'; END IF;
  v_hash:=md5((p_order_payload-'updated_at')::text||p_items::text||p_payments::text||p_plans::text);
  PERFORM pg_advisory_xact_lock(hashtext(p_order_id));
  SELECT * INTO v_order FROM public.orders WHERE id=p_order_id FOR UPDATE;
@@ -159,14 +160,17 @@ BEGIN
  THEN RAISE EXCEPTION 'FISCAL_ORDER_EDIT_PENDING'; END IF;
  FOR v_plan IN SELECT value FROM jsonb_array_elements(p_plans) LOOP
    SELECT * INTO v_doc FROM public.nfe_documents WHERE id=(v_plan->>'id')::uuid FOR UPDATE;
-   IF NOT FOUND OR v_doc.order_id IS DISTINCT FROM p_order_id OR v_doc.document_type<>'outbound'
+   IF NOT FOUND THEN RAISE EXCEPTION 'INVALID_FISCAL_EDIT_SOURCE'; END IF;
+   v_expected_doc_status:=CASE WHEN v_doc.ambiente=1 THEN 'autorizada' ELSE 'homologada' END;
+   IF v_doc.order_id IS DISTINCT FROM p_order_id OR v_doc.document_type<>'outbound'
    OR v_doc.ambiente IS DISTINCT FROM (v_plan->>'environment')::smallint OR v_doc.modelo NOT IN ('55','65')
-   OR v_doc.status IS DISTINCT FROM CASE WHEN v_doc.ambiente=1 THEN 'autorizada' ELSE 'homologada' END
+   OR v_doc.status IS DISTINCT FROM v_expected_doc_status
    OR left(v_doc.chave_acesso,2)<>'41' OR v_doc.xml_nfe IS NULL OR v_doc.numero_protocolo IS NULL
    THEN RAISE EXCEPTION 'INVALID_FISCAL_EDIT_SOURCE'; END IF;
    v_authorized_at:=substring(v_doc.xml_protocolo from '<dhRecbto>([^<]+)</dhRecbto>')::timestamptz;
    IF v_authorized_at IS NULL THEN RAISE EXCEPTION 'FISCAL_AUTHORIZATION_DATE_REQUIRED'; END IF;
-   v_kind:=CASE WHEN now()<=v_authorized_at+CASE WHEN v_doc.modelo='55' THEN interval '168 hours' ELSE interval '30 minutes' END THEN 'cancel' ELSE 'estorno' END;
+   v_window:=CASE WHEN v_doc.modelo='55' THEN interval '168 hours' ELSE interval '30 minutes' END;
+   v_kind:=CASE WHEN now()<=v_authorized_at+v_window THEN 'cancel' ELSE 'estorno' END;
    IF v_plan->>'action' IS DISTINCT FROM v_kind THEN RAISE EXCEPTION 'FISCAL_DEADLINE_CHANGED_REFRESH_CONFIRMATION'; END IF;
    INSERT INTO public.nfe_order_edit_replacements(request_id,request_hash,order_id,expected_updated_at,original_document_id,
      environment,reversal_kind,original_order_data,edited_order_data,edited_order_payload,edited_items,edited_payments,
@@ -255,7 +259,7 @@ BEGIN
        WHERE d.id=r.replacement_document_id AND d.status<>'rejeitada') THEN RAISE EXCEPTION 'FISCAL_REPLACEMENT_ALREADY_PREPARED'; END IF;
      NEW.supersedes_document_id:=r.original_document_id;
    END IF;
- ELSIF NEW.status=CASE WHEN NEW.ambiente=1 THEN 'autorizada' ELSE 'homologada' END
+ ELSIF ((NEW.ambiente=1 AND NEW.status='autorizada') OR (NEW.ambiente=2 AND NEW.status='homologada'))
    AND NEW.numero_protocolo IS NOT NULL AND NEW.xml_nfe IS NOT NULL THEN
    UPDATE public.nfe_order_edit_replacements SET status='completed',completed_at=now()
      WHERE replacement_document_id=NEW.id AND environment=NEW.ambiente;

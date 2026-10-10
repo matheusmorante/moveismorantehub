@@ -1,5 +1,7 @@
 # Checkpoint: substituição fiscal após edição do pedido
 
+> **Snapshot de implementação em andamento:** este checkpoint registra a interrupção observada durante a integração de 09/10 e não descreve necessariamente o estado final do checkout. Para o status atual de código e testes fiscais, consulte [status-testes-homologacao.md](status-testes-homologacao.md).
+
 ## Regra solicitada em 09/10/2026
 
 - A venda ainda agendada e sem saída, trânsito, entrega ou retirada pode ser editada com substituição integral da nota original.

@@ -51,6 +51,7 @@ describe('FiscalDocuments - fiscalXmlParser', () => {
           <vUnCom>1500.00</vUnCom>
           <vProd>1500.00</vProd>
         </prod>
+        <infAdProd>Observação fiscal do item</infAdProd>
       </det>
       <total>
         <ICMSTot>
@@ -101,6 +102,7 @@ describe('FiscalDocuments - fiscalXmlParser', () => {
     expect(result?.items[0]).toMatchObject({
       code: 'PROD-001',
       description: 'Mesa de Jantar Morante 6 Cadeiras',
+      additionalInfo: 'Observação fiscal do item',
       quantity: '1.0000',
       unit: 'UN',
       unitValue: '1500.00',

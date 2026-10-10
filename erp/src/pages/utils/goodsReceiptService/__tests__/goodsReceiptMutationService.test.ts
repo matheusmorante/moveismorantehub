@@ -7,6 +7,12 @@ import {
 } from '../goodsReceiptMutationService';
 import { GoodsReceipt } from '../goodsReceipt.types';
 import * as storage from '../goodsReceiptStorage';
+import { getNextGoodsReceiptIndex } from '../../goodsReceiptCode';
+import { mapGoodsReceiptRow } from '../goodsReceiptMapper';
+
+const testArtifactContextMocks = vi.hoisted(() => ({
+  getTestArtifactContext: vi.fn(),
+}));
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -41,6 +47,10 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
+vi.mock('../../../../../../shared-utils/testArtifactContext', () => ({
+  getTestArtifactContext: testArtifactContextMocks.getTestArtifactContext,
+}));
+
 vi.mock('../../goodsReceiptCode', () => ({
   getNextGoodsReceiptIndex: vi.fn(() => Promise.resolve(101)),
 }));
@@ -49,6 +59,7 @@ describe('goodsReceiptMutationService', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    testArtifactContextMocks.getTestArtifactContext.mockReturnValue(null);
 
     fromMock.mockReturnValue({
       upsert: vi.fn().mockResolvedValue({ error: null }),
@@ -136,9 +147,92 @@ describe('goodsReceiptMutationService', () => {
       const stored = storage.getStoredReceipts();
       expect(stored[0].supplierName).toBe('Fornecedor Atualizado');
     });
+
+    it('cria rascunho de teste sem solicitar número comercial e mantém a observação legível', async () => {
+      const identity = {
+        runId: 'be616368-45e4-4ea6-8dd0-2c5f9db4a318',
+        ownerId: '8fa6500f-8e14-4c65-b8d8-1f2a21a6ad2e',
+      };
+      testArtifactContextMocks.getTestArtifactContext.mockReturnValue(identity);
+
+      const draft = await saveGoodsReceiptDraft({
+        supplierName: 'Fornecedor sintético',
+        observation: 'Rascunho identificado para auditoria',
+        items: [],
+      });
+
+      expect(draft.receiptIndex).toBeUndefined();
+      expect(draft.observation).toBe('Rascunho identificado para auditoria');
+      expect(draft.testArtifact).toEqual(identity);
+      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
+
+      const receiptTable = fromMock.mock.results.find(
+        (_result, index) => fromMock.mock.calls[index]?.[0] === 'goods_receipts'
+      )?.value;
+      const payload = receiptTable.upsert.mock.calls[0][0];
+      expect(payload.receipt_index).toBeUndefined();
+      expect(JSON.parse(payload.observation)).toEqual({
+        testArtifact: { is_test: true, ...identity },
+        note: 'Rascunho identificado para auditoria',
+      });
+    });
+
+    it('mapeia a metadata do banco sem exibir o envelope JSON na observação', () => {
+      const identity = {
+        runId: 'be616368-45e4-4ea6-8dd0-2c5f9db4a318',
+        ownerId: '8fa6500f-8e14-4c65-b8d8-1f2a21a6ad2e',
+      };
+      const receipt = mapGoodsReceiptRow({
+        id: '11111111-2222-3333-4444-555555555555',
+        supplier_name: 'Fornecedor sintético',
+        observation: JSON.stringify({ testArtifact: { is_test: true, ...identity }, note: 'Anotação' }),
+        items: [],
+        total_value: 0,
+        status: 'draft',
+      });
+
+      expect(receipt.observation).toBe('Anotação');
+      expect(receipt.testArtifact).toEqual(identity);
+      expect(storage.ensureReceiptIndexes([receipt])[0].receiptIndex).toBeUndefined();
+      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
+    });
   });
 
   describe('finalizeGoodsReceipt', () => {
+    it('finaliza rascunho sintético sem alocar número e preserva a metadata do rascunho', async () => {
+      const identity = {
+        runId: 'be616368-45e4-4ea6-8dd0-2c5f9db4a318',
+        ownerId: '8fa6500f-8e14-4c65-b8d8-1f2a21a6ad2e',
+      };
+      const storedTestReceipt: GoodsReceipt = {
+        id: '11111111-2222-3333-4444-555555555555',
+        supplierName: 'Fornecedor sintético',
+        receivedAt: '2026-10-01T12:00:00Z',
+        totalValue: 0,
+        observation: 'Rascunho',
+        testArtifact: identity,
+        status: 'draft',
+        isDraft: true,
+        items: [],
+      };
+      storage.saveStoredReceipts([storedTestReceipt]);
+
+      const finalized = await finalizeGoodsReceipt({ ...storedTestReceipt, testArtifact: undefined });
+
+      expect(finalized.receiptIndex).toBeUndefined();
+      expect(finalized.testArtifact).toEqual(identity);
+      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
+      expect(rpcMock).toHaveBeenCalledWith(
+        'confirm_goods_receipt_checked_transaction',
+        expect.objectContaining({
+          p_receipt: expect.objectContaining({
+            receipt_index: undefined,
+            observation: JSON.stringify({ testArtifact: { is_test: true, ...identity }, note: 'Rascunho' }),
+          }),
+        })
+      );
+    });
+
     it('deve finalizar o recebimento via RPC atômica e vincular inventoryMoveId aos itens', async () => {
       const receipt: GoodsReceipt = {
         id: '11111111-2222-3333-4444-555555555555',
@@ -220,6 +314,36 @@ describe('goodsReceiptMutationService', () => {
   });
 
   describe('saveGoodsReceipt', () => {
+    it('não aloca número comercial ao finalizar um recebimento sintético identificado', async () => {
+      const identity = {
+        runId: 'be616368-45e4-4ea6-8dd0-2c5f9db4a318',
+        ownerId: '8fa6500f-8e14-4c65-b8d8-1f2a21a6ad2e',
+      };
+      testArtifactContextMocks.getTestArtifactContext.mockReturnValue(identity);
+
+      const saved = await saveGoodsReceipt({
+        supplierName: 'Fornecedor sintético',
+        observation: 'Execução de validação',
+        items: [],
+      });
+
+      expect(saved.receiptIndex).toBeUndefined();
+      expect(saved.testArtifact).toEqual(identity);
+      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
+      expect(rpcMock).toHaveBeenCalledWith(
+        'confirm_goods_receipt_checked_transaction',
+        expect.objectContaining({
+          p_receipt: expect.objectContaining({
+            receipt_index: undefined,
+            observation: JSON.stringify({
+              testArtifact: { is_test: true, ...identity },
+              note: 'Execução de validação',
+            }),
+          }),
+        })
+      );
+    });
+
     it('deve salvar diretamente um recebimento finalizado', async () => {
       const saved = await saveGoodsReceipt({
         supplierName: 'Fornecedor Direto',

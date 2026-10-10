@@ -1,12 +1,12 @@
 # Política de Testes com Supabase Remoto
 
-Esta é a política canônica para testes de integração que dependem de PostgreSQL/Supabase neste projeto. Use o projeto remoto já configurado no app. Docker e Supabase Local não fazem parte do fluxo de desenvolvimento ou validação.
+Esta é a política canônica para testes de integração que dependem de PostgreSQL/Supabase neste projeto. Use exclusivamente o projeto Supabase remoto operacional já utilizado pelo ERP, na branch primária/padrão existente e no schema real `public`. Docker, Supabase Local, PostgreSQL local e simuladores como PGlite não substituem evidência de integração remota. Não crie project branches, projetos, bancos ou schemas paralelos. Essa regra prevalece sobre instruções genéricas de CLI que recomendem `supabase start`, `supabase test db`, `supabase db reset --local` ou `supabase db pull --local`.
 
 ## Ambiente e confirmação do projeto
 
-- Antes de qualquer leitura ou escrita, confirme que o project ref selecionado corresponde ao ambiente Development configurado no app. Registre apenas o ref e nunca imprima tokens, senhas ou credenciais.
-- Use exclusivamente o projeto, banco e schema que o ERP já utiliza. Não crie projeto, branch, banco, schema, tabelas de segregação ou colunas físicas `is_test`/`test_run_id` somente para testes. Identifique os artefatos nos campos JSON e vínculos já existentes. O ambiente físico do banco não determina o ambiente fiscal usado pela aplicação.
-- Use Vitest/RTL e mocks para lógica isolada. Use o Supabase remoto para integração real de RPC, RLS, constraints, triggers, persistência e migrations revisadas.
+- Antes de qualquer consulta ou escrita, confirme que o project ref corresponde ao projeto operacional configurado no ERP. Use a branch primária/padrão existente; registre apenas o ref e nunca imprima tokens, senhas ou credenciais.
+- Use exclusivamente o projeto, banco e schema `public` que o ERP já utiliza. Não crie projeto, Supabase branch, banco, schema, tabelas de segregação ou colunas físicas `is_test`/`test_run_id` somente para testes. Identifique os artefatos nos campos JSON e vínculos já existentes. O ambiente físico do banco não determina o ambiente fiscal usado pela aplicação.
+- Use Vitest/RTL e mocks somente para lógica isolada. Use o Supabase remoto para integração real de RPC, RLS, constraints, triggers, persistência e migrations revisadas. PGlite ou outro simulador pode ser evidência unitária complementar, nunca prova de PostgreSQL/PostgREST/RLS real nem substituto do projeto operacional.
 
 ## Massa sintética e efeitos
 
@@ -26,6 +26,7 @@ Esta é a política canônica para testes de integração que dependem de Postgr
 - Mantenha testes de banco restritos aos registros sintéticos próprios. Use RPCs e APIs reais para validar sucesso, parâmetros inválidos, permissões, constraints, idempotência e estado persistido. A exceção de pedido operacional vale somente para smoke test de emissão HML autorizada descrito acima.
 - Rollback ou concorrência só podem ser exercitados com fixtures próprias e operações limitadas que não afetem registros compartilhados. Não faça fault injection de amplo alcance, carga ou concorrência em tabelas/linhas operacionais. Se não for possível isolar um caso no projeto remoto, registre a evidência como não executada e explique o risco concreto; prossiga com as demais validações.
 - Para migrations: revise o SQL completo, confirme o project ref, confira histórico/estado atual, execute `npm run advisors`, avalie compatibilidade e impacto, aplique a migration versionada pelo caminho autorizado e confira o resultado. Não use reset, `DROP`, `TRUNCATE`, DDL experimental ou alteração ampla de RLS no banco compartilhado.
+- Uma permissão para consultas de leitura não autoriza escrita ou DDL. Se a prova exigir fixtures, migration ou efeitos operacionais, registre antes os objetos, efeitos colaterais, reversão/retensão e riscos; não aplique nem grave sem autorização explícita para a operação concreta.
 - Depois da migration, valide os comportamentos afetados com fixtures sintéticas e operações normais. A execução remota não comprova instalação em banco vazio ou upgrade de cópia isolada; declare essa limitação quando aplicável.
 
 ## Relato de evidências

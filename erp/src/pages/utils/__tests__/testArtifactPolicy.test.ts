@@ -45,7 +45,7 @@ describe('identificação dos artefatos no schema existente', () => {
       isDevelopment: true,
       runId,
       ownerId,
-      email: ' MATHEUSMORANTE0012@GMAIL.COM ',
+      email: ' MATHEUSMORANTE002@GMAIL.COM ',
       isAdministrator: true,
     };
     expect(testArtifactIdentityForAuthenticatedUser(input)).toEqual({ runId, ownerId });

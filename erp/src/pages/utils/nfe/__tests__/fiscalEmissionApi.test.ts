@@ -168,7 +168,7 @@ describe('API de emissão fiscal server-side', () => {
       {
         method: 'POST',
         headers: { authorization: 'Bearer operator-token' },
-        body: { orderId, environment: 2, emissionRequestId },
+        body: { orderId, environment: 2, emissionRequestId, previewOnly: true },
       } as any,
       result.res
     );
@@ -280,7 +280,13 @@ describe('API de emissão fiscal server-side', () => {
       {
         method: 'POST',
         headers: { authorization: 'Bearer operator-token' },
-        body: { orderId, environment: 1, emissionRequestId, productionConfirmed: true },
+        body: {
+          orderId,
+          environment: 1,
+          emissionRequestId,
+          productionConfirmed: true,
+          previewOnly: true,
+        },
       } as any,
       result.res
     );

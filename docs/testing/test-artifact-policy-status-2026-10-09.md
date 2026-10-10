@@ -1,5 +1,7 @@
 # Status da política de artefatos de teste — 09/10/2026
 
+> Registro histórico da etapa anterior à aplicação remota em 09/10/2026. Os estados abaixo descrevem aquele snapshot e foram superados pela aplicação das migrations `20261010012024`, `20261010012239` e `20261010012313`; consulte [status-testes-homologacao.md](../fiscal/status-testes-homologacao.md) para o estado atual.
+
 ## Decisão aplicada no workspace
 
 - Os testes usam o projeto, banco, schema e tabelas existentes do Supabase configurado pelo ERP. Nenhum schema, tabela ou coluna física de teste foi criado.
@@ -29,7 +31,7 @@
 | Diff | `git diff --check` aprovado | Git avisou sobre conversão de LF/CRLF em arquivos já modificados. |
 | TypeScript Mobile | `tsc --noEmit` terminou com `RangeError: Maximum call stack size exceeded` dentro do compilador | Sem diagnóstico associado a arquivo; não comprova compilação. |
 | Supabase Advisors | Comando terminou com sucesso, mas exibiu muitos avisos existentes de policies, `search_path` e índices | Não foi interpretado como autorização para aplicar a migration. |
-| Playwright, comparação de XML e SEFAZ | Não executados | O RPC de readiness ainda não existe remotamente e a proteção de banco não foi provada. Nenhuma transmissão fiscal ocorreu. |
+| Playwright, comparação de XML e SEFAZ | Não executados | A auditoria remota registrada nesta etapa não encontrou o RPC; a migration local passou a defini-lo, mas não há comprovação posterior de aplicação remota nem teste comportamental dos guards. Nenhuma transmissão fiscal ocorreu nesta etapa. |
 
 O projeto ref conferido somente para leitura foi `hkoxhourxwlddgsfdgws`. A auditoria remota anterior não encontrou os guards novos. Ela encontrou 22 pedidos com `order_data.is_test=true` sem owner e dois produtos e duas pessoas com prefixo histórico sem metadata canônica. Esses registros não foram adotados, atualizados ou removidos.
 
@@ -44,10 +46,10 @@ O projeto ref conferido somente para leitura foi `hkoxhourxwlddgsfdgws`. A audit
 
 ## Pendências que impedem o E2E fiscal real
 
-1. `bindTestArtifactContext` não tem consumidor no ERP/Playwright. Assim, ainda não existe um fluxo comprovado que crie UUID por execução e aplique metadata ao cliente, produto, variação, pedido e efeitos relacionados desde a criação.
+1. `AuthContext` já chama `bindTestArtifactContext` condicionalmente e os serviços de pedido, produto e pessoa aplicam metadata quando o contexto válido está ativo. Ainda falta uma prova E2E de ponta a ponta que crie e vincule o conjunto completo de artefatos.
 2. A suíte fiscal atual (`fiscal-ui-navigation.spec.ts`) autentica e navega por telas, abre formulários vazios e os fecha. Ela não salva um pedido, não abre o modal fiscal, não gera snapshot/XML nem compara os valores do pedido com o XML.
 3. A migration candidata ainda não passou por execução controlada contra PostgreSQL nem por testes de comportamento dos triggers/RPCs. O `test_artifact_policy_status` confirma instalação, não comprova os efeitos.
 4. O guard de banco exige administrador autenticado e owner igual a `auth.uid()`. O caminho de persistência usado pelos fluxos reais precisa provar que mantém essa identidade também nos efeitos transacionais.
 5. Os registros históricos incompletos citados acima precisam de decisão individual antes de qualquer atualização ou limpeza. Não devem ser classificados pelo prefixo sozinho.
 
-Próximo passo seguro: completar o harness de identidade e uma suíte de banco com fixtures reversíveis, validar a migration sem aplicá-la ao remoto, revisar os avisos dos Advisors relevantes e só então propor uma execução controlada. Até lá, qualquer execução Playwright fiscal fica bloqueada pelo readiness gate; não reutilizar pedidos operacionais nem transmitir à SEFAZ.
+Próximo passo seguro: comprovar a migration e os efeitos dos guards em execução controlada, atualizar as fixtures Playwright para usar o contexto que já está ligado à autenticação e então consultar a readiness remota em modo somente leitura. Até essa prova, qualquer Playwright que grave permanece bloqueado; não reutilizar pedidos operacionais nem transmitir à SEFAZ.

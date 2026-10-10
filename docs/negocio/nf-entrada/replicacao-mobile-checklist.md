@@ -1,5 +1,7 @@
 # Replicação ERP Web → App Mobile: Notas Fiscais de Entrada
 
+> **Limite da evidência revisado em 09/10/2026:** este checklist preserva uma auditoria anterior feita com chaves numéricas. A NT 2026.004 passou a admitir letras no bloco CNPJ das chaves de 44 posições. O extrator, campo de digitação e sincronização atuais removem/rejeitam esses caracteres; os testes marcados como aprovados não cobrem CNPJ alfanumérico. A pendência atual está registrada abaixo e no [status fiscal](../../fiscal/status-testes-homologacao.md).
+
 ## Estado da auditoria
 
 Auditoria em andamento. O código do ERP define comportamento e regras; o layout mobile pode reorganizar conteúdo para telas estreitas. O preview local está em `http://localhost:8081/?tab=estoque`, autenticado na porta local. A viewport do app observada é `375 × 929` CSS (tamanho M usado na conferência). Cliques com mouse do controle CUA falham (`Input.dispatchMouseEvent`), mas `press('Enter')` nos controles focáveis permite abrir componentes.
@@ -11,7 +13,7 @@ Auditoria em andamento. O código do ERP define comportamento e regras; o layout
 - [x] Mesmo filtro inicial: mês atual; opções mês anterior, ano atual, ano anterior, mês e intervalo personalizados.
 - [x] Busca com debounce, limpeza e retorno à página 1.
 - [x] Consulta paginada de 15 itens, ordenada por emissão decrescente.
-- [x] Chave de acesso com 44 dígitos não fica limitada ao período selecionado.
+- [x] Busca por chave de 44 posições não fica limitada ao período selecionado; o cenário conferido usou chave numérica.
 - [x] Loading, erro e lista vazia são estados tratados no app.
 - [x] App evita aplicar `ilike` ao campo inteiro `numero_nfe`; pesquisa por igualdade no número e por CNPJ/chave para termos numéricos.
 - [x] Comparar lista principal e resultado da busca numérica `1337` no Web × App; ambos mostram NF-e #133744.
@@ -47,7 +49,8 @@ Auditoria em andamento. O código do ERP define comportamento e regras; o layout
 - [x] App seleciona XML via Document Picker; ERP também aceita arrastar e soltar no navegador (adaptação específica de plataforma).
 - [x] Código mobile mantém leitura OCR/código de barras/QR da chave e consulta abrindo a página oficial SEFAZ com a chave preenchida; não chama `sefaz-inbound-sync`.
 - [x] Scanner nativo usa `expo-camera`/`CameraView` e `expo-mlkit-ocr`; plugin `expo-camera` e descrição da permissão iOS foram registrados no `app.json`, com permissão Android confirmada na configuração Expo. O teste de câmera em dispositivo permanece pendente.
-- [x] Extração de chave QR/barcode/OCR consolidada em helper focado: reconhece 44 dígitos contínuos, separados por espaços ou isolados em URL QR; rejeita payload sem chave única. Testes unitários focados passaram; teste com câmera real segue pendente por não conceder permissão no navegador.
+- [x] Extração QR/barcode/OCR consolidada para chaves numéricas de 44 dígitos, contínuas, espaçadas ou isoladas em URL QR; rejeita payload sem chave única. Os testes registrados não cobrem letras no bloco CNPJ; teste com câmera real também segue pendente.
+- [ ] Adaptar extração, digitação, persistência e consulta para chaves alfanuméricas conforme NT 2026.004. O código atual remove letras e não preserva a chave original; conferir o status fiscal central.
 - [x] Importação grava cabeçalho XML/itens, verifica chave duplicada e oferece gerenciamento de vínculos após salvar.
 - [x] Comparar o estado inicial do modal de importação: campo da chave, scan, consulta SEFAZ, seleção XML e cancelamento estão presentes.
 - [ ] Comparar estados: arquivo selecionado, chave escaneada, XML inválido/duplicado, sucesso e cancelamento.
@@ -121,7 +124,7 @@ Concluir a equivalência funcional e visual do módulo ERP Web **Notas Fiscais d
 1. Conferir a origem/dado de `updated_at` e o caminho que alimenta “Recebida em” no ERP e no app; documentar a causa antes de alterar o mapeamento.
 2. Comparar visualmente os badges de vínculo, a confirmação cancelável de remoção e o estado de NF sem XML.
 3. Conferir estados alternativos do importador (chave escaneada, arquivo inválido, duplicado, sucesso e cancelamento) sem importar XML real nem gravar nota de teste em produção.
-4. Validar OCR/QR/barcode com câmera em dispositivo nativo e confirmar extração de chave de 44 dígitos. A prévia web não substitui esse teste.
+4. Depois da compatibilidade alfanumérica ser implementada, validar OCR/QR/barcode com câmera em dispositivo nativo usando chave de 44 posições com letras no bloco CNPJ. A prévia web não substitui esse teste.
 5. Fechar itens de acessibilidade das abas, e repetir apenas as verificações focadas necessárias após cada correção.
 6. Atualizar os checkboxes e registrar resultados neste documento; encerrar quando não houver diferenças conhecidas sem justificativa técnica.
 

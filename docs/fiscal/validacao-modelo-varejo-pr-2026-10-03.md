@@ -1,5 +1,7 @@
 # Validação da política fiscal de varejo — 03/10/2026
 
+> **Evidência histórica:** os gates e a aplicação remota registrados abaixo pertencem à execução de 03/10/2026. O estado do banco e do deploy não foi reconsultado nesta auditoria documental. Consulte o [status de testes atual](status-testes-homologacao.md) e a [política de teste remoto](../testing/SUPABASE_REMOTE_TEST_POLICY.md) antes de planejar qualquer repetição.
+
 Política: `PR_RETAIL_2026_10`. Checkpoint: `TEST_AUT_c2e5184a-d689-4010-916a-46a4eb6561bc`.
 
 ## Gates executados

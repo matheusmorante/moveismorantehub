@@ -1,5 +1,7 @@
 # Auditoria — destinatário contribuinte do ICMS e consumidor final
 
+> Auditoria de regra em andamento, não evidência de autorização ou de teste atual. O runtime continua sem família interestadual `APPROVED`; consulte a [matriz atual](matriz-saida-interestadual.md) e o [status dos testes](status-testes-homologacao.md). As fontes estaduais abaixo foram consultadas em 07/10/2026 e devem ser revalidadas quando houver caso concreto.
+
 **Estado:** auditoria de regra em andamento; família executável permanece `DRAFT`.
 **Família:** `INTERSTATE-TAXPAYER-FINAL-BASE`.
 **Escopo modelado:** emitente PR, CRT 1, NF-e 55, destinatário contribuinte (`indIEDest=1`) e consumidor final (`indFinal=1`); a regra ainda usa curingas para UF de destino e mercadoria.

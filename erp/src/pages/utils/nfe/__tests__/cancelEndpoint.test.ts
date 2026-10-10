@@ -154,7 +154,7 @@ describe('API de cancelamento de NF-e', () => {
     await handler(request, result.res as any);
 
     expect(result.statusCode).toBe(409);
-    expect(result.body?.error).toContain('circulação/entrega');
+    expect(result.body?.error).toContain('entrega ou retirada');
     expect(mocks.signNfeEventXml).not.toHaveBeenCalled();
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
