@@ -72,9 +72,9 @@ function HomeContent() {
     gcTime: 30 * 60 * 1000,
   });
 
-  const categories = catalogMeta?.categories || [];
+  const categories = useMemo(() => catalogMeta?.categories || [], [catalogMeta?.categories]);
   const relationships = catalogMeta?.relationships || [];
-  const opportunities = catalogMeta?.opportunities || [];
+  const opportunities = useMemo(() => catalogMeta?.opportunities || [], [catalogMeta?.opportunities]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -125,7 +125,7 @@ function HomeContent() {
     const type =
       opportunities.length > 0 ? resolveOpportunityIdFromSlug(rawType, opportunities) : rawType;
 
-    setFilters({
+    const nextFilters = {
       envs,
       cats,
       search: searchParam,
@@ -133,6 +133,21 @@ function HomeContent() {
       sortBy: sortByParam,
       minPrice: minPriceParam ? parseInt(minPriceParam) : 0,
       maxPrice: maxPriceParam ? parseInt(maxPriceParam) : 10000,
+    };
+
+    setFilters((currentFilters) => {
+      const unchanged =
+        currentFilters.search === nextFilters.search &&
+        currentFilters.type === nextFilters.type &&
+        currentFilters.sortBy === nextFilters.sortBy &&
+        currentFilters.minPrice === nextFilters.minPrice &&
+        currentFilters.maxPrice === nextFilters.maxPrice &&
+        currentFilters.envs.length === nextFilters.envs.length &&
+        currentFilters.envs.every((value, index) => value === nextFilters.envs[index]) &&
+        currentFilters.cats.length === nextFilters.cats.length &&
+        currentFilters.cats.every((value, index) => value === nextFilters.cats[index]);
+
+      return unchanged ? currentFilters : nextFilters;
     });
   }, [searchParams, categories, opportunities]);
 
