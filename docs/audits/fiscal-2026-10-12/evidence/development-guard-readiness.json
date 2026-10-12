@@ -1,22 +1,21 @@
 {
   "name": "development-guard-readiness",
   "environment": "development",
-  "exitCode": 0,
+  "exitCode": 1,
   "records": [
     {
       "mode": "policy-status",
       "projectMatches": true,
       "vercelDevelopment": true,
-      "homologationEnvironment": true,
+      "homologationEnvironment": false,
       "productionDisabled": true,
-      "environmentOk": true,
+      "environmentOk": false,
       "serviceCredentialPresent": true,
-      "rpcReachable": true,
-      "policyStatusValid": true,
-      "ready": true,
-      "policyVersion": "json-artifacts-v1",
-      "behavioralProofRequired": false,
-      "rpcHttpStatus": 200
+      "rpcReachable": false,
+      "policyStatusValid": false,
+      "ready": false,
+      "policyVersion": "",
+      "behavioralProofRequired": true
     }
   ]
 }

@@ -16,7 +16,7 @@
 
 ## Etapa atual da implantação — 12/10/2026
 
-A emissão de Produção foi habilitada no Vercel Production a pedido explícito do responsável, com CSC de Produção restrito a esse ambiente; Preview e Development seguem bloqueados para tpAmb=1. O redeploy Production terminou READY e o domínio principal aponta para a nova publicação. Nesta liberação não houve transmissão em Produção. Consulte o [status detalhado](status-testes-homologacao.md) para os limites da evidência HML e o [roadmap](roadmap-configuracao-emissao-producao.md) para a arquitetura fiscal.
+A flag de emissão de Produção está habilitada em Vercel Production; Preview e Development permanecem desabilitados para tpAmb=1. A atualização do escopo foi confirmada, mas a tentativa Production mais recente falhou com `git_info_fail`; as intermediárias foram canceladas e o domínio principal continua no deployment anterior. Não houve transmissão em Produção. Consulte o [status detalhado](status-testes-homologacao.md) para os limites da evidência HML e o [roadmap](roadmap-configuracao-emissao-producao.md) para a arquitetura fiscal.
 
 
 ## Publicações que ainda precisam de análise de aplicabilidade

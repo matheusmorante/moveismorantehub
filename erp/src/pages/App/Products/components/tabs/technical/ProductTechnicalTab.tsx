@@ -3,6 +3,7 @@ import { Product } from '../../../../../types/product.type';
 import { syncVariationsWithParent } from '../../../domain/variationParentSync';
 import {
   TechnicalFieldDefinition,
+  getAvailableAdditionalFields,
   getApplicableTechnicalFields,
   groupTechnicalFields,
 } from '@/pages/utils/technicalValuesService';
@@ -126,25 +127,46 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const visibleFields = requiredFieldsOnly
     ? applicableFields.filter((field) => field.isRequired)
     : applicableFields;
+  const requiredFields = visibleFields.filter((field) => field.isRequired);
   const requiredFieldGroups = groupTechnicalFields(
-    visibleFields.filter((field) => field.isRequired)
+    requiredFields
   );
   const optionalFields = visibleFields.filter((field) => !field.isRequired);
+  const isOptionalFieldSelected = (field: TechnicalFieldDefinition) => {
+    const hasConfiguredValue = Object.prototype.hasOwnProperty.call(
+      formData.technicalValues || {},
+      field.name
+    );
+    const normalizedValue = normalizeTechnicalName(
+      String(formData.technicalValues?.[field.name] ?? '')
+    );
+    return (
+      manualFieldNames.includes(field.name) ||
+      (hasConfiguredValue && !['não se aplica', 'n/a'].includes(normalizedValue)) ||
+      (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand?.trim()))
+    );
+  };
+  const selectedOptionalFields = optionalFields.filter(isOptionalFieldSelected);
+  const requiredFieldNames = new Set(
+    requiredFields.map((field) => normalizeTechnicalName(field.name))
+  );
+  const searchableOptionalFields = getAvailableAdditionalFields(allTechnicalFields, [
+    ...requiredFields,
+    ...selectedOptionalFields,
+  ]).filter((field) => !requiredFieldNames.has(normalizeTechnicalName(field.name)));
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
   const matchingOptionalFields =
     !requiredFieldsOnly &&
     normalizedSearchTerm.length >= 3 &&
     normalizedSearchTerm === normalizedDebouncedSearchTerm
-      ? optionalFields
+      ? searchableOptionalFields
           .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
           .slice(0, 3)
       : [];
   const fieldGroups = [
     ...requiredFieldGroups,
-    ...(matchingOptionalFields.length > 0
-      ? [{ title: 'Resultados da busca', fields: matchingOptionalFields }]
-      : []),
+    ...groupTechnicalFields(selectedOptionalFields),
   ];
 
   const handleTechnicalValueChange = (fieldName: string, value: any) => {
@@ -243,6 +265,28 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
               ? 'Nenhuma característica encontrada.'
               : 'Exibindo até 3 características correspondentes.'}
       </p>
+      {matchingOptionalFields.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          {matchingOptionalFields.map((field) => (
+            <button
+              key={field.id}
+              type="button"
+              onClick={() => handleAddManualField(field)}
+              aria-label={`Adicionar característica ${field.name}`}
+              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition-colors last:border-b-0 hover:bg-blue-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <span className="truncate">
+                {field.name}
+                {field.unit ? ` (${field.unit})` : ''}
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
+                <i className="bi bi-plus-circle" aria-hidden="true" />
+                Adicionar
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -257,7 +301,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             <i className="bi bi-arrow-clockwise animate-spin mr-2" />
             Carregando especificações técnicas...
           </div>
-        ) : visibleFields.length === 0 ? (
+        ) : requiredFieldsOnly && visibleFields.length === 0 ? (
           <div className="py-8 text-center text-slate-400 text-xs italic bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
             <i className="bi bi-info-circle text-lg text-slate-400" />
             <span>Nenhuma especificação técnica cadastrada no sistema.</span>
