@@ -15,14 +15,16 @@ export const runDraftCleanup = async () => {
       .from('products')
       .update({ deleted: true, active: false })
       .eq('is_draft', true)
-      .lt('updated_at', isoDate);
+      .lt('updated_at', isoDate)
+      .or('technical_specs->testArtifact->>is_test.is.null,technical_specs->testArtifact->>is_test.neq.true');
 
     // Limpar Pessoas
     await supabase
       .from('people')
       .update({ deleted: true, active: false })
       .eq('is_draft', true)
-      .lt('updated_at', isoDate);
+      .lt('updated_at', isoDate)
+      .or('address->testArtifact->>is_test.is.null,address->testArtifact->>is_test.neq.true');
 
     // Limpar Serviços (tabela opcional — suprime 404 se não existir)
     try {

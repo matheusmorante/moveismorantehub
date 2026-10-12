@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import Product, { Variation } from '../../../../types/product.type';
-import { generateVariationSku, checkProductHasMoves } from '@/pages/utils/productService';
+import { generateVariationSku } from '@/pages/utils/productService';
 import { buildProductVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { toast } from 'react-toastify';
@@ -13,25 +13,6 @@ export function useProductFormVariations(
   const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
   const pendingNewVariationIdRef = useRef<string | null>(null);
-  const confirmDraftVariation = useCallback(() => {
-    pendingNewVariationIdRef.current = null;
-  }, []);
-
-  const handleSaveVariation = (updatedVar: Variation) => {
-    const isDuplicate = (formData.variations || []).some(
-      (v) => v.id !== updatedVar.id && v.sku?.toUpperCase() === updatedVar.sku?.toUpperCase()
-    );
-    if (isDuplicate) {
-      toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`);
-      return;
-    }
-
-    setFormData((prev: Partial<Product>) => ({
-      ...prev,
-      variations: (prev.variations || []).map((v) => (v.id === updatedVar.id ? updatedVar : v)),
-    }));
-    setEditingVariationId(null);
-  };
 
   const updateVariation = <K extends keyof Variation>(
     id: string,
@@ -41,7 +22,7 @@ export function useProductFormVariations(
     setFormData((prev: Partial<Product>) => ({
       ...prev,
       variations: prev.variations?.map((v) => (v.id === id ? {
-        ...v, [field]: value, ...(isProductDraft(prev) ? { status: 'draft' as const, active: false } : {}),
+        ...v, [field]: value, ...(isProductDraft(prev) ? { active: false } : {}),
       } : v)),
     }));
   };
@@ -60,7 +41,7 @@ export function useProductFormVariations(
       stock: 0,
       images: [],
       active: false,
-      status: 'draft',
+      status: 'hidden',
       syncUnitPrice: true,
       syncPromoPrice: true,
       syncCostPrice: true,
@@ -84,24 +65,10 @@ export function useProductFormVariations(
     setEditingVariationId(newVar.id);
   };
 
-  const removeVariation = async (id: string) => {
-    const variationIndex = formData.variations?.findIndex((variation) => variation.id === id) ?? -1;
-    if (variationIndex === 0) {
-      toast.info('A Variação 1 é obrigatória e não pode ser removida.');
+  const removeVariation = (id: string) => {
+    if ((formData.variations?.length || 0) <= 1) {
+      toast.info('A última variação só pode ser removida junto com o produto.');
       return;
-    }
-    if (formData.id) {
-      try {
-        const hasMoves = await checkProductHasMoves(formData.id, id);
-        if (hasMoves) {
-          toast.error(
-            'Esta variação possui movimentações de estoque vinculadas e não pode ser removida para preservar o histórico.'
-          );
-          return;
-        }
-      } catch (error) {
-        console.error('Erro ao verificar movimentações da variação:', error);
-      }
     }
 
     setFormData((prev: Partial<Product>) => {
@@ -162,7 +129,7 @@ export function useProductFormVariations(
         syncDescription: true,
         images: [],
         active: false,
-        status: 'draft',
+        status: 'hidden',
         attributes: attributes.map((attr) => ({
           name: toTitleCase(attr.name),
           value: toTitleCase(String(combo[attr.name].value)),
@@ -232,8 +199,6 @@ export function useProductFormVariations(
     editingVariationId,
     setEditingVariationId,
     pendingNewVariationIdRef,
-    confirmDraftVariation,
-    handleSaveVariation,
     updateVariation,
     addVariation,
     removeVariation,

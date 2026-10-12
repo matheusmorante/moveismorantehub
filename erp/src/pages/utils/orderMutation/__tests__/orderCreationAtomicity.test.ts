@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   from: vi.fn(),
+  getNextOrderIndex: vi.fn(async () => 123),
   recordHistory: vi.fn(),
   syncCustomer: vi.fn(),
   dispatchNotifications: vi.fn(),
@@ -17,14 +18,16 @@ vi.mock('@/lib/queryClient', () => ({
   queryClient: { invalidateQueries: mocks.invalidateQueries },
 }));
 vi.mock('../../orderCode', () => ({
-  getNextOrderIndex: async () => 123,
-  getOrderIndex: (order: { orderIndex?: number }) => order.orderIndex,
+  getNextOrderIndex: mocks.getNextOrderIndex,
+  getOrderIndex: (order: any) =>
+    order?.orderIndex ?? order?.order_index ?? order?.order_data?.orderIndex ?? null,
   resolveOrderIndexForUpdate: () => 123,
 }));
 vi.mock('../../orderSnapshotResolution', () => ({
   resolveOrderCustomerSnapshot: async (order: unknown) => order,
   buildOrderPersistencePayload: (order: any) => ({
-    order_index: order.orderIndex,
+    order_index: Number(order.orderIndex || order.orderNumber || 0) || null,
+    order_number: String(order.orderIndex || order.orderNumber || ''),
     order_type: order.orderType,
     status: order.status,
     order_data: order,
@@ -138,26 +141,56 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.dispatchNotifications).toHaveBeenCalledTimes(1);
   });
 
-  it('mantém estoque/RPC sem gerar notificação do teste nem atualizar contatos operacionais', async () => {
+  it('persiste artefato sem número comercial e não notifica nem atualiza contato operacional', async () => {
     bindTestArtifactContext(testIdentity);
-    const syntheticOrder = { ...scheduledSale, customerData: { id: 'test-customer' }, is_test: true, syntheticFixture: { scenarioKey: 'SCENARIO_001', version: 1 } };
+    const orderId = '550e8400-e29b-41d4-a716-446655440011';
+    const syntheticOrder = {
+      ...scheduledSale,
+      orderIndex: 123,
+      orderNumber: 123,
+      customerData: { id: '550e8400-e29b-41d4-a716-446655440012' },
+      is_test: true,
+    };
     mocks.rpc.mockResolvedValue({
-      data: { id: '550e8400-e29b-41d4-a716-446655440011', order_index: 123, order_data: syntheticOrder },
+      data: {
+        id: orderId,
+        order_number: `T-${orderId}`,
+        order_index: null,
+        order_data: { ...syntheticOrder, orderIndex: undefined, orderNumber: undefined },
+      },
       error: null,
     });
 
     await executeSaveOrder(syntheticOrder as any, vi.fn(), {
-      idempotencyKey: '550e8400-e29b-41d4-a716-446655440011',
+      idempotencyKey: orderId,
     });
 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data.is_test).toBe(true);
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_index).toBeNull();
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_number).toBe('');
+    expect(mocks.getNextOrderIndex).not.toHaveBeenCalled();
     expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data.testArtifact).toEqual({
       is_test: true,
       ...testIdentity,
     });
     expect(mocks.syncCustomer).not.toHaveBeenCalled();
     expect(mocks.dispatchNotifications).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia artefato com chave de idempotência que não seja UUID antes da RPC', async () => {
+    bindTestArtifactContext(testIdentity);
+    const syntheticOrder = {
+      ...scheduledSale,
+      customerData: { id: '550e8400-e29b-41d4-a716-446655440012' },
+      is_test: true,
+    };
+
+    await expect(
+      executeSaveOrder(syntheticOrder as any, vi.fn(), { idempotencyKey: 'pedido-de-teste' })
+    ).rejects.toThrow('O pedido de teste exige um UUID válido');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.getNextOrderIndex).not.toHaveBeenCalled();
   });
 
   it('envia somente itens normais vinculados à RPC ao criar ou atender a venda', async () => {

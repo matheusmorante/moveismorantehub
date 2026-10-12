@@ -1,5 +1,6 @@
 import type Order from '../types/order.type';
 import { supabase } from './supabaseConfig';
+import { readTestArtifactIdentity } from '../../../../shared-utils/testArtifactPolicy';
 
 // Faixa reservada para testes automatizados (800000 a 999999). Nunca computada na sequência de pedidos reais.
 export const TEST_ORDER_CODE_THRESHOLD = 800000;
@@ -31,6 +32,17 @@ export const resolveOrderIndexForUpdate = (
 
 /** The human-facing code is always the six-digit sequential order index, never the UUID. */
 export const formatOrderCode = (order?: Partial<Order> | Record<string, any>): string => {
+  if (readTestArtifactIdentity(order)) {
+    const row = (order || {}) as Record<string, unknown>;
+    const rawId = row.id ?? row.order_id ?? row.order_number ?? row.orderNumber;
+    const testToken = String(rawId || '')
+      .replace(/^T-/i, '')
+      .replace(/[^a-z0-9]/gi, '')
+      .slice(0, 8)
+      .toUpperCase();
+    return `TEST-${testToken || 'SEM-ID'}`;
+  }
+
   const orderIndex = getOrderIndex(order);
   if (orderIndex) {
     return String(orderIndex).padStart(6, '0');

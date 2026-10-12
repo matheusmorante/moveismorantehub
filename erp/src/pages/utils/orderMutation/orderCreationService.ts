@@ -12,6 +12,8 @@ import { getTestArtifactContext, stampTestOrder } from '../../../../../shared-ut
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * Criação atômica e persistência de pedidos com resolução de cliente, regras de estoque e notificações.
  */
@@ -33,18 +35,22 @@ export const executeSaveOrder = async (
         throw new Error('O modo de artefato de teste exige operador autorizado nesta execução.');
       }
       orderToSave = stampTestOrder(orderToSave, testIdentity);
+      // Artefatos de teste usam o UUID persistido como identificador e não
+      // consomem nem carregam a sequência comercial do formulário.
+      orderToSave.orderIndex = undefined;
+      orderToSave.orderNumber = undefined;
     }
     delete orderToSave.id;
     orderToSave.deleted = false;
     orderToSave.deletedAt = null;
 
-    // 1. Atribuição de código sequencial único de 6 dígitos
-    if (!orderToSave.orderIndex) {
+    // 1. Código sequencial pertence somente a pedidos comerciais.
+    if (!orderToSave.is_test && !orderToSave.orderIndex) {
       const nextIndex = await getNextOrderIndex();
       orderToSave.orderIndex = nextIndex;
       orderToSave.orderNumber = nextIndex;
     }
-    if (!getOrderIndex(orderToSave)) {
+    if (!orderToSave.is_test && !getOrderIndex(orderToSave)) {
       throw new Error('Não foi possível gerar um código válido. O pedido não foi salvo.');
     }
 
@@ -75,6 +81,9 @@ export const executeSaveOrder = async (
       isReturn && orderToSave.returnRequestId
         ? orderToSave.returnRequestId
         : options.idempotencyKey || crypto.randomUUID();
+    if (orderToSave.is_test && !UUID_PATTERN.test(requestOrderId)) {
+      throw new Error('O pedido de teste exige um UUID válido para sua identificação persistente.');
+    }
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       isReturn
         ? Array.isArray((orderToSave as any).fiscalReturnAllocations) &&
@@ -94,15 +103,19 @@ export const executeSaveOrder = async (
     );
     if (rpcError) throw rpcError;
     rowId = (rpcData as any)?.id;
-    persistedIndex = Number(
-      (rpcData as any)?.order_index || getOrderIndex((rpcData as any)?.order_data)
-    );
+    persistedIndex = getOrderIndex(rpcData as any) ?? undefined;
 
     if (
       !rowId ||
-      (persistedIndex !== orderToSave.orderIndex && !(rpcData as any)?.idempotent_replay)
+      (orderToSave.is_test
+        ? !UUID_PATTERN.test(String(rowId)) || persistedIndex !== undefined
+        : persistedIndex !== orderToSave.orderIndex && !(rpcData as any)?.idempotent_replay)
     ) {
-      throw new Error('O banco não confirmou o código do pedido. O cadastro foi interrompido.');
+      throw new Error(
+        orderToSave.is_test
+          ? 'O banco não confirmou o UUID do artefato de teste sem código comercial.'
+          : 'O banco não confirmou o código do pedido. O cadastro foi interrompido.'
+      );
     }
 
     orderToSave = { ...orderToSave, ...((rpcData as any)?.order_data || {}) };

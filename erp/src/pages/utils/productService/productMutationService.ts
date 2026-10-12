@@ -70,7 +70,9 @@ export const saveProduct = async (
     : undefined;
   validateProductImageLimits(product, existingProduct);
   formatProductTextData(product);
-  Object.assign(product, ensureDefaultVariation(product));
+  if (!isProductDraft(product)) {
+    Object.assign(product, ensureDefaultVariation(product));
+  }
   const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     product.id || ''
   )

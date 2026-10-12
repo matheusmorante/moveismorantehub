@@ -59,14 +59,14 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   const isUnapprovedInterstateMatrix = isHmlInterstateMatrixBlock(fiscalPreparationError);
   const hasBlockingPreparationFailure =
     Boolean(fiscalPreparationError) && !isUnapprovedInterstateMatrix;
-  const isEmitDisabled =
-    !canOperateFiscal ||
-    isSubmitting ||
-    isLoadingFiscalData ||
-    isLoadingCustomerType ||
-    isOperationIncomplete ||
-    hasBlockingPreparationFailure ||
-    !hasCurrentXmlPreview;
+  const isTransmissionReady =
+    canOperateFiscal &&
+    !isSubmitting &&
+    !isLoadingFiscalData &&
+    !isLoadingCustomerType &&
+    !isOperationIncomplete &&
+    !hasBlockingPreparationFailure &&
+    hasCurrentXmlPreview;
   const isPreviewDisabled =
     !canOperateFiscal ||
     isSubmitting ||
@@ -78,8 +78,8 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     Boolean(emissionResult?.success || emissionResult?.pending);
 
   React.useLayoutEffect(() => {
-    if (!isEmitDisabled && !isUnapprovedInterstateMatrix) onTransmissionEnabled?.();
-  }, [isEmitDisabled, isUnapprovedInterstateMatrix, onTransmissionEnabled]);
+    if (isTransmissionReady && !isUnapprovedInterstateMatrix) onTransmissionEnabled?.();
+  }, [isTransmissionReady, isUnapprovedInterstateMatrix, onTransmissionEnabled]);
 
   const isSpecialHmlConflictState = Boolean(
     emissionResult?.numberConflict ||
@@ -165,8 +165,8 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
                 type="button"
                 data-testid="nfe-emit-button"
                 onClick={() => onEmit(productionConfirmed, false)}
-                disabled={isEmitDisabled}
-                className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 disabled:opacity-50 bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                aria-busy={isSubmitting}
+                className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
               >
                 {isSubmitting ? (
                   <>

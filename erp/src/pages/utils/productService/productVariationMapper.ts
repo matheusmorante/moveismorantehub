@@ -51,7 +51,16 @@ export const mapDbVariations = (
   data: any,
   parentCode: string
 ): Variation[] => {
-  return variationRecords.map((v: any, vIdx: number) => {
+  const hasConfirmedVariation = variationRecords.some(
+    (variation: any) => !String(variation.sku || '').toUpperCase().startsWith('DEFAULT-')
+  );
+  const isDraftProduct = Boolean(data.isDraft || data.is_draft) || data.status === 'draft';
+  const visibleRecords = variationRecords.filter((variation: any) => {
+    const isGeneratedPlaceholder = String(variation.sku || '').toUpperCase().startsWith('DEFAULT-');
+    return !isGeneratedPlaceholder || (!isDraftProduct && !hasConfirmedVariation);
+  });
+
+  return visibleRecords.map((v: any, vIdx: number) => {
     const details = getVariationDetails(data, String(v.id));
     const varImages = parseVariationImages(v.image_url, v.images);
     const suffix = String(vIdx + 1).padStart(2, '0');

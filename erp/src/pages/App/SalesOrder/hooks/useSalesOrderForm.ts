@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Order, { AssistanceItem } from '@/pages/types/order.type';
-import Item from '@/pages/types/items.type';
 import useItems from './useItems';
 import useShipping from './useShipping';
 import usePaymentsData from './usePayments';
@@ -119,11 +118,12 @@ export const useSalesOrderForm = (
       const currentItemsSummary = calcItemsSummary(s.items);
       const firstHandling =
         (s.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
+      const isTestArtifact = s.isTestMode === true;
 
       return {
         id: s.currentOrderId,
-        orderIndex: orderIndex || s.orderIndex || undefined,
-        orderNumber: orderIndex || s.orderIndex || undefined,
+        orderIndex: isTestArtifact ? undefined : orderIndex || s.orderIndex || undefined,
+        orderNumber: isTestArtifact ? undefined : orderIndex || s.orderIndex || undefined,
         orderType: s.orderType,
         status: newStatus || s.status,
         items: s.items,
@@ -328,8 +328,10 @@ export const useSalesOrderForm = (
       submissionInFlightRef.current = true;
 
       try {
-        const currentIdx = await ensureOrderCode();
-        if (!currentIdx) return false;
+        if (!latestState.current.isTestMode) {
+          const currentIdx = await ensureOrderCode();
+          if (!currentIdx) return false;
+        }
 
         const isBudgetOrder = latestState.current.orderType === 'budget';
         const savedStatus = isBudgetOrder
@@ -387,8 +389,10 @@ export const useSalesOrderForm = (
       submissionInFlightRef.current = true;
 
       try {
-        const currentIdx = await ensureOrderCode();
-        if (!currentIdx) return false;
+        if (!latestState.current.isTestMode) {
+          const currentIdx = await ensureOrderCode();
+          if (!currentIdx) return false;
+        }
 
         const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
         const orderData = getOrderData(resolvedStatus);
@@ -575,7 +579,10 @@ export const useSalesOrderForm = (
     // não perca o marcador antes do próximo render.
     latestState.current.isTestMode = enabled;
     const fields: Pick<Order, 'is_test' | 'testArtifact'> = enabled && identity
-      ? { is_test: true, testArtifact: testArtifactMetadata(identity) }
+      ? {
+          is_test: true,
+          testArtifact: testArtifactMetadata(identity) as NonNullable<Order['testArtifact']>,
+        }
       : { is_test: false, testArtifact: null };
     latestState.current.testModeFields = fields;
     setTestModeFields(fields);

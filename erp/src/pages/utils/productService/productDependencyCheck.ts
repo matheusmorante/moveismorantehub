@@ -252,59 +252,65 @@ export const checkVariationIsUsed = async (variationId: string): Promise<boolean
 export const physicalDeleteVariation = async (
   productId: string,
   variationId: string
-): Promise<{ success: boolean; message?: string; parentDeleted?: boolean }> => {
+): Promise<{ success: boolean; message?: string; parentDeactivated?: boolean; inUse?: boolean }> => {
   try {
     const realProductId = String(productId).split('_')[0];
     const isVarUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       variationId
     );
+    const isProductUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      realProductId
+    );
 
-    if (!isVarUUID) {
-      return { success: false, message: 'ID de variação inválido.' };
+    if (!isProductUUID || !isVarUUID) {
+      return { success: false, message: 'ID de produto ou variação inválido.' };
     }
 
-    const isUsed = await checkVariationIsUsed(variationId);
-    if (isUsed) {
+    const { data, error } = await supabase.rpc('delete_unreferenced_product_variation', {
+      p_product_id: realProductId,
+      p_variation_id: variationId,
+    });
+    if (error) throw error;
+
+    const result = data as {
+      success?: boolean;
+      message?: string;
+      code?: string;
+      parent_deactivated?: boolean;
+    } | null;
+    if (!result?.success) {
       return {
         success: false,
-        message:
-          'Esta variação possui histórico de movimentação ou pedidos e não pode ser excluída fisicamente.',
+        message: result?.message || 'Não foi possível excluir a variação.',
+        inUse: result?.code === 'variation_in_use',
       };
     }
-
-    // Count variations
-    const { data: variations, error: countError } = await supabase
-      .from('product_variations')
-      .select('id')
-      .eq('product_id', realProductId);
-
-    if (countError) throw countError;
-
-    if (variations && variations.length <= 1) {
-      return {
-        success: false,
-        message: 'Todo produto precisa manter ao menos uma variação. Exclua o produto se não for mais necessário.',
-      };
-    }
-
-    // Delete only this variation; the database also rejects a concurrent delete of the last one.
-    const { error: delError } = await supabase
-      .from('product_variations')
-      .delete()
-      .eq('id', variationId);
-    if (delError) throw delError;
 
     const products = getLocalProducts();
     const parentIdx = products.findIndex((p) => String(p.id).split('_')[0] === realProductId);
     if (parentIdx >= 0) {
       const parent = products[parentIdx];
-      if (Array.isArray(parent.variations)) {
+      if (result.parent_deactivated) {
+        parent.active = false;
+        parent.deleted = false;
+        parent.variations = parent.variations?.map((variation) => ({
+          ...variation,
+          active: false,
+        }));
+      } else if (Array.isArray(parent.variations)) {
         parent.variations = parent.variations.filter((v) => v.id !== variationId);
-        saveLocalProducts(products);
       }
+      saveLocalProducts(products);
     }
+    invalidateProductQueries();
     notifySubscribers();
-    return { success: true, message: 'Variação excluída com sucesso.' };
+    return {
+      success: true,
+      message: result.parent_deactivated
+        ? 'Produto e única variação desativados com sucesso.'
+        : 'Variação excluída com sucesso.',
+      parentDeactivated: Boolean(result.parent_deactivated),
+    };
   } catch (error: any) {
     console.error('Erro ao excluir variação fisicamente:', error);
     return { success: false, message: error.message || 'Erro ao excluir a variação.' };

@@ -1,38 +1,21 @@
 import { useState, useCallback } from 'react';
 import Swal from 'sweetalert2';
-import { checkVariationIsUsed, physicalDeleteVariation } from '@/pages/utils/productService';
+import { physicalDeleteVariation } from '@/pages/utils/productService';
 
 export const useDeleteVariation = (productId: string, onRefresh?: () => void) => {
   const [checkingUsageId, setCheckingUsageId] = useState<string | null>(null);
-  const [usageCache, setUsageCache] = useState<Record<string, boolean>>({});
+  const usageCache: Record<string, boolean> = {};
 
   const handleCheckAndAskDelete = useCallback(
     async (variationId: string) => {
       if (!variationId) return;
 
-      // Se já tivermos o resultado em cache e ele estiver em uso, não permite.
-      if (usageCache[variationId] === true) return;
-
       setCheckingUsageId(variationId);
       try {
-        const isUsed = await checkVariationIsUsed(variationId);
-        setUsageCache((prev) => ({ ...prev, [variationId]: isUsed }));
-
-        if (isUsed) {
-          // Notifica que não pode ser excluído
-          Swal.fire({
-            title: 'Não é possível excluir',
-            text: 'Esta variação possui histórico de movimentação ou pedidos e não pode ser excluída.',
-            icon: 'error',
-          });
-          return;
-        }
-
-        // Exibir modal de confirmação de 3 segundos
         let timerInterval: any;
         const result = await Swal.fire({
-          title: 'Excluir Variação?',
-          text: 'Esta variação não está sendo usada por nada, então não haverá problema ao excluí-la definitivamente.',
+          title: 'Excluir variação?',
+          text: 'O sistema verificará os vínculos antes de excluir. Se for a única variação, o produto também será desativado.',
           icon: 'warning',
           showCancelButton: true,
           confirmButtonColor: '#d33',
@@ -73,7 +56,7 @@ export const useDeleteVariation = (productId: string, onRefresh?: () => void) =>
         setCheckingUsageId(null);
       }
     },
-    [productId, onRefresh, usageCache]
+    [productId, onRefresh]
   );
 
   return {

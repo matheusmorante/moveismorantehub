@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import {
+  getConfiguredTestArtifactOperatorEmail,
   isConfiguredTestArtifactOperator,
   isTestArtifactOperatorRuntimeEnabled,
 } from './testArtifactOperatorPolicy';
@@ -15,7 +16,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabaseUrl = environment.SUPABASE_URL || environment.VITE_SUPABASE_URL || '';
   const anonKey = environment.SUPABASE_ANON_KEY || environment.VITE_SUPABASE_ANON_KEY || '';
-  if (!supabaseUrl || !anonKey || !environment.NFE_HML_TEST_OPERATOR_EMAIL?.trim())
+  const configuredEmail = getConfiguredTestArtifactOperatorEmail(environment);
+  if (!supabaseUrl || !anonKey || !configuredEmail)
     return res.status(503).json({ error: 'Sessão de teste indisponível.' });
 
   const authorizationHeader = Array.isArray(req.headers.authorization)
@@ -38,7 +40,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (authorizationError)
       return res.status(503).json({ error: 'Não foi possível validar a autorização.' });
 
-    const configuredEmail = environment.NFE_HML_TEST_OPERATOR_EMAIL;
     const authenticatedEmail = auth.user.email;
     const administrator = isAdministrator === true;
     const authorized = isConfiguredTestArtifactOperator({

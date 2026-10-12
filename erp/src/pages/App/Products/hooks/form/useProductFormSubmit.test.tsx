@@ -15,7 +15,14 @@ const complete: Product = {
   isDraft: true, status: 'draft', active: false, productKind: 'normal', hasVariations: true,
   opportunityId: 'opportunity-1',
   categoryIds: ['categoria'], mainSupplierId: 'fornecedor', width: 80, height: 180, depth: 50,
-  technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+  technicalValues: {
+    Cor: 'Azul',
+    Altura: '180',
+    Largura: '80',
+    Profundidade: '50',
+    Peso: '70',
+    'Material da estrutura': 'Madeira',
+  },
   variations: [{ id: 'v1', sku: '001-01', name: 'Armário Azul', unitPrice: 150, stock: 0,
     active: false, status: 'draft', attributes: [], syncUnitPrice: true }],
 };

@@ -4,6 +4,7 @@ import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import {
+  getFiscalIssuePresentation,
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
@@ -33,6 +34,19 @@ import {
 } from '../services/nfeReconciliationService';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
+
+function notifyEmissionIssue(result: NfeEmissionResult) {
+  const issue = getFiscalIssuePresentation(result);
+  const message = `${issue.title}. ${issue.description}`;
+
+  if (issue.tone === 'attention') {
+    toast.warning(message);
+  } else if (issue.tone === 'info') {
+    toast.info(message);
+  } else {
+    toast.error(message);
+  }
+}
 
 export interface UseNfeEmissionActionsProps {
   order: Order | null;
@@ -140,19 +154,28 @@ export function useNfeEmissionActions({
     freshHmlEmission = false,
     previewOnly = false
   ) => {
-    if (submissionInProgress.current) return;
+    if (submissionInProgress.current) {
+      toast.info('Já existe uma operação fiscal em andamento. Aguarde a conclusão.');
+      return;
+    }
     if (!canOperateFiscal) {
       toast.error('Seu perfil não pode operar documentos fiscais.');
       return;
     }
-    if (!order) return;
+    if (!order) {
+      toast.error('O pedido não está disponível para emissão fiscal.');
+      return;
+    }
 
     if (!previewOnly && !isRetry && !hasCurrentXmlPreview) {
       toast.error('Gere uma nova prévia do XML com as escolhas atuais antes de transmitir.');
       return;
     }
 
-    if (isSavingAcquisitionPurpose) return;
+    if (isSavingAcquisitionPurpose) {
+      toast.info('Aguarde o salvamento da finalidade da compra antes de emitir.');
+      return;
+    }
     if (
       (requiresExplicitAcquisitionPurpose && !acquisitionPurpose) ||
       typeof finalConsumer !== 'boolean'
@@ -177,6 +200,7 @@ export function useNfeEmissionActions({
         technicalDetails: { apiCode: HML_INTERSTATE_MATRIX_NOT_APPROVED },
       };
       setEmissionResult(blockedResult);
+      notifyEmissionIssue(blockedResult);
       return;
     }
 
@@ -321,6 +345,7 @@ export function useNfeEmissionActions({
             environment,
           });
         }
+        notifyEmissionIssue(res);
         return;
       }
 
@@ -377,6 +402,7 @@ export function useNfeEmissionActions({
         },
       };
       setEmissionResult(failedResult);
+      notifyEmissionIssue(failedResult);
     } finally {
       submissionInProgress.current = false;
       if (previewOnly) setIsPreparingPreview(false);

@@ -4,6 +4,7 @@ import Person from '@/pages/types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { toast } from 'react-toastify';
+import { physicalDeleteVariation, saveVariation } from '@/pages/utils/productService';
 import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 
@@ -75,7 +76,8 @@ export function useProductFormModal({
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
-  const [variationsInUse, setVariationsInUse] = useState<Set<string>>(new Set());
+  const [deletingVariationId, setDeletingVariationId] = useState<string | null>(null);
+  const [deletingProductWithVariation, setDeletingProductWithVariation] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Product>>({
     ...INITIAL_PRODUCT_FORM_DATA,
@@ -101,6 +103,8 @@ export function useProductFormModal({
   const ai = useProductFormAi(formData, setFormData, availableCategories, isQuickRegister, isOpen);
   const jev = useProductJevClassification(formData, setFormData, isOpen);
   const variations = useProductFormVariations(formData, setFormData);
+  const pendingNewVariationIdRef = variations.pendingNewVariationIdRef;
+  const setEditingVariationId = variations.setEditingVariationId;
   const draft = useProductFormDraft(
     formData,
     setFormData,
@@ -112,28 +116,29 @@ export function useProductFormModal({
   );
   const autoSaveDraft = draft.autoSaveDraft;
   const autoSaveStatus = draft.autoSaveStatus;
+  const getDraftSnapshotWithoutPendingVariation = useCallback(() => {
+    const current = latestFormDataRef.current;
+    const pendingId = pendingNewVariationIdRef.current;
+    return pendingId
+      ? {
+          ...current,
+          variations: current.variations?.filter(
+            (item) => String(item.id) !== String(pendingId)
+          ),
+        }
+      : current;
+  }, [pendingNewVariationIdRef]);
   const scheduleDraftAutoSave = useCallback(() => {
     if (!isDraftProduct) return;
     if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
     draftSaveTimerRef.current = setTimeout(() => {
       draftSaveTimerRef.current = null;
-      autoSaveDraft(latestFormDataRef.current);
+      autoSaveDraft(getDraftSnapshotWithoutPendingVariation());
     }, 500);
-  }, [autoSaveDraft, isDraftProduct]);
-  useEffect(() => {
-    if (!isOpen || !isDraftProduct || !initialFormDataRef.current) return;
-    const initial = JSON.parse(initialFormDataRef.current) as Partial<Product>;
-    if (JSON.stringify(formData.variations) !== JSON.stringify(initial.variations)) {
-      scheduleDraftAutoSave();
-    }
-  }, [formData.variations, isOpen, isDraftProduct, scheduleDraftAutoSave]);
+  }, [autoSaveDraft, getDraftSnapshotWithoutPendingVariation, isDraftProduct]);
   const images = useProductFormImages(formData, setFormData, setLoading, scheduleDraftAutoSave);
 
   useProductFormSync({ formData, setFormData });
-
-  useEffect(() => {
-    if (!isOpen) setVariationsInUse(new Set());
-  }, [isOpen]);
 
   useEffect(
     () => () => {
@@ -278,7 +283,7 @@ export function useProductFormModal({
         autoSaveStatus === 'saving' ||
         autoSaveStatus === 'error'
       ) {
-        const saved = await autoSaveDraft(latestFormDataRef.current);
+        const saved = await autoSaveDraft(getDraftSnapshotWithoutPendingVariation());
         if (!saved) return;
       }
       onDraftSaved?.();
@@ -300,6 +305,7 @@ export function useProductFormModal({
     isDraftProduct,
     formData,
     autoSaveDraft,
+    getDraftSnapshotWithoutPendingVariation,
     autoSaveStatus,
   ]);
 
@@ -380,41 +386,133 @@ export function useProductFormModal({
   }, [variations, setFormData]);
 
   const handleSaveVariation = useCallback(
-    (updatedVar: Variation) => {
-      variations.pendingNewVariationIdRef.current = null;
-      setFormData((prev) => ({
-        ...prev,
-        variations: prev.variations?.map((v) =>
-          v.id === updatedVar.id || String(v.id) === String(updatedVar.id) ? updatedVar : v
-        ),
-      }));
-      variations.setEditingVariationId(null);
+    async (updatedVar: Variation): Promise<boolean> => {
+      const current = latestFormDataRef.current;
+      const sku = updatedVar.sku?.trim().toLocaleUpperCase();
+      const duplicateSku = (current.variations || []).some(
+        (item) =>
+          Boolean(sku) &&
+          String(item.id) !== String(updatedVar.id) &&
+          item.sku?.trim().toLocaleUpperCase() === sku
+      );
+      if (duplicateSku) {
+        toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`);
+        return false;
+      }
+
+      const next: Partial<Product> = {
+        ...current,
+        hasVariations: true,
+        variations: (current.variations || []).some(
+          (item) => String(item.id) === String(updatedVar.id)
+        )
+          ? current.variations?.map((item) =>
+              String(item.id) === String(updatedVar.id) ? updatedVar : item
+            )
+          : [...(current.variations || []), updatedVar],
+      };
+
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+
+      try {
+        if (isDraftProduct) {
+          if (!(await autoSaveDraft(next))) return false;
+          setFormData((previous) => ({
+            ...previous,
+            hasVariations: true,
+            variations: next.variations,
+          }));
+        } else {
+          const productId = String(current.parentId || current.id || '');
+          if (!productId) throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
+          await saveVariation(productId, updatedVar);
+          latestFormDataRef.current = next;
+          setFormData(next);
+        }
+        pendingNewVariationIdRef.current = null;
+        setEditingVariationId(null);
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao salvar a variação.');
+        console.error('[ProductForm] Falha ao salvar variação concluída:', error);
+        return false;
+      }
     },
-    [variations, setFormData]
+    [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId]
   );
 
-  const confirmDraftVariation = variations.confirmDraftVariation;
-  const handleDraftVariationChange = useCallback((updatedVariation: Variation) => {
-    if (!isDraftProduct) return;
-    confirmDraftVariation();
+  const handleDeleteVariation = useCallback(async (variationId: string) => {
     const current = latestFormDataRef.current;
-    const next = {
-      ...current,
-      variations: current.variations?.map((item) =>
-        item.id === updatedVariation.id ? updatedVariation : item
-      ),
-    };
-    latestFormDataRef.current = next;
-    hasChanged.current = true;
-    setFormData(next);
-  }, [isDraftProduct, confirmDraftVariation]);
+    if ((current.variations?.length || 0) <= 1) {
+      toast.info('A última variação só pode ser excluída junto com o produto.');
+      return;
+    }
+    if (!isRegisteredProduct) return;
+    if (
+      !window.confirm(
+        'Excluir esta variação permanentemente? O sistema verificará se o UUID possui vínculos antes de continuar.'
+      )
+    ) return;
 
-  const handleDraftVariationSave = useCallback((updatedVariation: Variation) => {
-    handleDraftVariationChange(updatedVariation);
-    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-    draftSaveTimerRef.current = null;
-    return autoSaveDraft(latestFormDataRef.current);
-  }, [handleDraftVariationChange, autoSaveDraft]);
+    setDeletingVariationId(variationId);
+    try {
+      const productId = String(current.parentId || current.id || '');
+      const result = await physicalDeleteVariation(productId, variationId);
+      if (!result.success) {
+        toast.error(result.message || 'Não foi possível excluir a variação.');
+        return;
+      }
+      if (result.parentDeactivated) {
+        toast.success(result.message || 'Produto e variação desativados com sucesso.');
+        onClose();
+        return;
+      }
+      setFormData((previous) => ({
+        ...previous,
+        variations: previous.variations?.filter((variation) => variation.id !== variationId),
+        hasVariations: true,
+      }));
+      toast.success(result.message || 'Variação excluída com sucesso.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir a variação.');
+      console.error('[ProductForm] Falha ao excluir variação:', error);
+    } finally {
+      setDeletingVariationId(null);
+    }
+  }, [isRegisteredProduct, onClose, setFormData]);
+
+  const handleDeleteProductWithOnlyVariation = useCallback(async () => {
+    const current = latestFormDataRef.current;
+    const onlyVariation = current.variations?.length === 1 ? current.variations[0] : null;
+    if (!isRegisteredProduct || !onlyVariation) return;
+    if (
+      !window.confirm(
+        'Este produto tem uma única variação. O sistema verificará os vínculos do UUID e, se estiver livre, desativará o produto e a variação juntos para preservar o histórico.'
+      )
+    ) return;
+
+    setDeletingProductWithVariation(true);
+    try {
+      const productId = String(current.parentId || current.id || '');
+      const result = await physicalDeleteVariation(productId, onlyVariation.id);
+      if (!result.success) {
+        toast.error(result.message || 'Não foi possível excluir o produto.');
+        return;
+      }
+      if (result.parentDeactivated) {
+        toast.success(result.message || 'Produto e variação desativados com sucesso.');
+        onClose();
+        return;
+      }
+      toast.error('A quantidade de variações mudou. Atualize o produto e tente novamente.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir o produto.');
+      console.error('[ProductForm] Falha ao excluir produto com variação única:', error);
+    } finally {
+      setDeletingProductWithVariation(false);
+    }
+  }, [isRegisteredProduct, onClose]);
 
   const handleConvertProduct = useCallback(
     (updated: Partial<Product>) => {
@@ -444,7 +542,10 @@ export function useProductFormModal({
     setSaveResult,
     validationErrors,
     setValidationErrors,
-    variationsInUse,
+    deletingVariationId,
+    deletingProductWithVariation,
+    handleDeleteVariation,
+    handleDeleteProductWithOnlyVariation,
     isCategorySearchOpen,
     setIsCategorySearchOpen,
     suppliers,
@@ -485,8 +586,6 @@ export function useProductFormModal({
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
-    handleDraftVariationChange,
-    handleDraftVariationSave,
     handleConvertProduct,
     handleNextStep,
     isLastStep,

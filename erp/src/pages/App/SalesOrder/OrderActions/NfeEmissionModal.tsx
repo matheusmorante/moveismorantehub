@@ -1,4 +1,5 @@
 import React from 'react';
+import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import {
   getFiscalIssuePresentation,
@@ -346,7 +347,13 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         emissionResult={emissionResult}
         productionConfirmed={productionConfirmed}
         onClose={onClose}
-        onEmit={handleEmit}
+        onEmit={(confirmed, retry) => {
+          if (isLoadingCustomerType) {
+            toast.info('Aguarde a identificação fiscal do cliente antes de emitir.');
+            return;
+          }
+          void handleEmit(confirmed, retry);
+        }}
         onPreview={canPreviewXml ? handlePreviewXml : undefined}
         onPrintDanfe={handlePrintDanfe}
         onTransmissionEnabled={handleTransmissionEnabled}

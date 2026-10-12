@@ -12,11 +12,44 @@ import { NfeFiscalIssueModal } from '../components/NfeFiscalIssueModal';
 describe('NfeEmission Components', () => {
   const dummyOrder: Order = {
     id: 'ord-123',
-    orderIndex: '1001',
-    company_id: 'c1',
-    created_at: new Date().toISOString(),
-    customerData: { fullName: 'Teste' },
+    orderIndex: 1001,
     items: [],
+    itemsSummary: {
+      totalQuantity: 0,
+      itemsSubtotal: 0,
+      totalFixedDiscount: 0,
+      itemsTotalValue: 0,
+      totalItemsCost: 0,
+    },
+    shipping: {
+      value: 0,
+      deliveryMethod: 'pickup',
+      orderType: 'sale',
+      scheduling: { date: '', time: '', type: 'fixed' },
+    },
+    seller: '',
+    payments: [],
+    paymentsSummary: {
+      totalPaymentsFee: 0,
+      totalOrderValue: 0,
+      totalAmountPaid: 0,
+      amountRemaining: 0,
+    },
+    customerData: {
+      fullName: 'Teste',
+      phone: '',
+      fullAddress: {
+        cep: '',
+        street: '',
+        number: '',
+        complement: '',
+        observation: '',
+        neighborhood: '',
+        city: '',
+      },
+    },
+    observation: '',
+    date: '',
   };
 
   it('renderiza o cabeçalho com indicador de homologação e aciona fechamento', () => {
@@ -60,7 +93,6 @@ describe('NfeEmission Components', () => {
         canPreviewXml={false}
         isSubmitting={false}
         isLoadingFiscalData={false}
-        isLoadingNfeNumber={false}
         isLoadingCustomerType={false}
         fiscalPreparationError={null}
         emissionResult={null}
@@ -88,7 +120,6 @@ describe('NfeEmission Components', () => {
       canPreviewXml: true,
       isSubmitting: false,
       isLoadingFiscalData: false,
-      isLoadingNfeNumber: false,
       isLoadingCustomerType: false,
       fiscalPreparationError: null,
       emissionResult: null,
@@ -166,7 +197,6 @@ describe('NfeEmission Components', () => {
         canOperateFiscal={true}
         isSubmitting={false}
         isLoadingFiscalData={false}
-        isLoadingNfeNumber={false}
         fiscalPreparationError={null}
       />
     );
@@ -185,7 +215,6 @@ describe('NfeEmission Components', () => {
         canOperateFiscal={true}
         isSubmitting={false}
         isLoadingFiscalData={false}
-        isLoadingNfeNumber={false}
         fiscalPreparationError={null}
       />
     );

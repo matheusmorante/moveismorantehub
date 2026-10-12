@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
 import {
   saveVariation,
-  saveProduct,
   generateVariationSku,
   parseVariationImages,
 } from '@/pages/utils/productService';
@@ -20,7 +19,6 @@ import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSortin
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId } from './variationForm.types';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
-import { useVariationDraftAutoSave } from './useVariationDraftAutoSave';
 import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 
 interface UseVariationFormOptions {
@@ -30,9 +28,7 @@ interface UseVariationFormOptions {
   parentProduct: Product;
   variation: Variation | null;
   onSuccess?: () => void;
-  onSave?: (updatedVariation: Variation) => void;
-  onDraftChange?: (updatedVariation: Variation) => void;
-  onDraftSave?: (updatedVariation: Variation) => Promise<boolean>;
+  onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
   isStockistOnly?: boolean;
 }
 
@@ -44,8 +40,6 @@ export function useVariationForm({
   variation,
   onSuccess,
   onSave,
-  onDraftChange,
-  onDraftSave,
   isStockistOnly = false,
 }: UseVariationFormOptions) {
   const [loading, setLoading] = useState(false);
@@ -67,47 +61,11 @@ export function useVariationForm({
   const isSingleVariation = variation
     ? (parentProduct.variations || []).length === 1
     : (parentProduct.variations || []).length === 0;
-  const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>((update) => {
-    setFormData((previous) => {
-      const next = typeof update === 'function' ? update(previous) : update;
-      if (!next || next === previous) return next;
-      return isDraft ? { ...next, status: 'draft', active: false } : next;
-    });
-  }, [isDraft]);
-  const savedParentVersion = useRef(parentProduct.updatedAt);
-  useEffect(() => {
-    savedParentVersion.current = parentProduct.updatedAt;
-  }, [parentProduct.id, parentProduct.updatedAt]);
-
-  const draftAutoSave = useVariationDraftAutoSave({
-    isOpen,
-    isDraft,
-    variation: formData,
-    onChange: onDraftChange,
-    save: async (updatedVariation) => {
-      if (onDraftSave) return onDraftSave(updatedVariation);
-      if (onSave) throw new Error('O formulário pai não configurou o salvamento do rascunho.');
-      const next: Product = {
-        ...parentProduct,
-        id: parentProduct.parentId || parentId || parentProduct.id,
-        updatedAt: savedParentVersion.current,
-        isDraft: true,
-        active: false,
-        status: 'draft',
-        variations: (parentProduct.variations || []).some((item) => item.id === updatedVariation.id)
-          ? parentProduct.variations!.map((item) => item.id === updatedVariation.id ? updatedVariation : item)
-          : [...(parentProduct.variations || []), updatedVariation],
-      };
-      await saveProduct(next);
-      savedParentVersion.current = next.updatedAt;
-      return true;
-    },
-  });
-
-  const handleClose = async () => {
-    if (isDraft && !(await draftAutoSave.flush())) return;
-    onClose();
-  };
+  const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>(
+    (update) => setFormData(update),
+    []
+  );
+  const handleClose = () => onClose();
 
   const {
     varDiscountPercent,
@@ -185,7 +143,7 @@ export function useVariationForm({
         next.fiscal = parentProduct.fiscal ? { ...parentProduct.fiscal } : undefined;
         changed = true;
       }
-      return changed ? { ...next, ...(isDraft ? { status: 'draft' as const, active: false } : {}) } : previous;
+      return changed ? { ...next, ...(isDraft ? { active: false } : {}) } : previous;
     });
   }, [
     parentProduct.unitPrice,
@@ -275,6 +233,8 @@ export function useVariationForm({
       if (variation) {
         setFormData({
           ...variation,
+          status: variation.status === 'draft' ? 'hidden' : variation.status || 'hidden',
+          ...(isDraft ? { active: false } : {}),
           title: variation.title || variation.marketplaceTitle || '',
           images: parseVariationImages((variation as any).image_url, variation.images),
           syncUnitPrice: isSingleVariation || (variation.syncUnitPrice ?? true),
@@ -325,7 +285,7 @@ export function useVariationForm({
           unitPrice: parentProduct.unitPrice || 0,
           costPrice: parentProduct.costPrice || 0,
           active: false,
-          status: 'draft',
+          status: 'hidden',
           attributes: [],
           images: isSingleVariation ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || []) : [],
           syncUnitPrice: true,
@@ -355,7 +315,7 @@ export function useVariationForm({
     // A inicialização deve ocorrer apenas ao abrir ou trocar a variação (pelo ID).
     // Alterar o pai durante a edição é tratado pelos efeitos de sincronização acima,
     // sem apagar os atributos que já foram informados.
-  }, [variation?.id, isOpen, isStockistOnly]);
+  }, [variation?.id, isOpen, isStockistOnly, isDraft]);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
     updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
@@ -487,39 +447,22 @@ export function useVariationForm({
       ? parentProduct.active !== false : formData.active;
     finalVariation.sku ||= generateVariationSku(parentProduct.code || '000000', parentProduct.variations || []);
 
-    if (isDraft) {
-      setLoading(true);
-      try {
-        if (!(await draftAutoSave.flush(finalVariation))) return;
-        setFormData(finalVariation);
-        onSave?.(finalVariation);
-        onSuccess?.();
-        onClose();
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (onSave) {
-      onSave({
-        ...finalVariation,
-        sku:
-          finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-      });
-      onClose();
-      return;
-    }
-
     setLoading(true);
     try {
-      await saveVariation(parentId || '', {
+      const variationToSave = {
         ...finalVariation,
         sku:
           finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-      });
+      };
+      if (onSave) {
+        if ((await onSave(variationToSave)) === false) return;
+      } else {
+        const productId = parentProduct.parentId || parentId || parentProduct.id || '';
+        await saveVariation(productId, variationToSave);
+      }
+      setFormData(variationToSave);
       toast.success('Variação salva com sucesso!');
-      if (onSuccess) onSuccess();
+      onSuccess?.();
       onClose();
     } catch (error) {
       toast.error('Erro ao salvar a variação.');
@@ -530,8 +473,6 @@ export function useVariationForm({
   };
 
   return {
-    isDraft,
-    autoSaveStatus: draftAutoSave.status,
     handleClose,
     loading,
     activeTab,

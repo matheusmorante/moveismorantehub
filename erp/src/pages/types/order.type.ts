@@ -21,7 +21,7 @@ export type Order = {
   syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string };
   /** Marcador explícito do domínio já persistido em order_data.is_test. */
   is_test?: boolean;
-  testArtifact?: { is_test: true; runId: string; ownerId: string } | null;
+  testArtifact?: { is_test: true; runId: string; ownerId: string; scenarioKey?: string } | null;
   fiscalContext?: {
     acquisitionPurpose?: FiscalAcquisitionPurpose;
     finalConsumer?: boolean;

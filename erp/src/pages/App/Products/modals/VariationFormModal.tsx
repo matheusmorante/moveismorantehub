@@ -20,9 +20,10 @@ interface VariationFormModalProps {
   readonly parentProduct: Product;
   readonly variation: Variation | null;
   readonly onSuccess?: () => void;
-  readonly onSave?: (updatedVariation: Variation) => void;
-  readonly onDraftChange?: (updatedVariation: Variation) => void;
-  readonly onDraftSave?: (updatedVariation: Variation) => Promise<boolean>;
+  readonly onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
+  readonly canMarkTestArtifact?: boolean;
+  readonly isTestArtifact?: boolean;
+  readonly onTestArtifactChange?: (enabled: boolean) => void;
 }
 
 interface TabDefinition {
@@ -84,8 +85,6 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     updateCost,
     handleSubmit,
     handleClose,
-    isDraft,
-    autoSaveStatus,
   } = useVariationForm({ ...props, isStockistOnly });
 
   useEffect(() => {
@@ -134,6 +133,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
       />
 
       <div
+        data-variation-modal
         role="dialog"
         aria-modal="true"
         aria-labelledby="variation-form-modal-title"
@@ -450,14 +450,6 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         </div>
 
         {/* Footer Controls */}
-        {isDraft && (
-          <p role="status" className={`px-4 sm:px-6 py-2 text-xs ${autoSaveStatus === 'error' ? 'text-red-600' : 'text-slate-500'}`}>
-            {autoSaveStatus === 'saving' ? 'Salvando rascunho...' :
-              autoSaveStatus === 'saved' ? 'Alterações salvas automaticamente.' :
-              autoSaveStatus === 'error' ? 'Não foi possível salvar. Tente novamente antes de fechar.' :
-              'As alterações desta variação são salvas automaticamente no rascunho.'}
-          </p>
-        )}
         <div
           className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
@@ -467,7 +459,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
             onClick={handleClose}
             className="px-5 sm:px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer min-h-[44px]"
           >
-            {isDraft ? 'Fechar' : 'Cancelar'}
+            Cancelar
           </button>
           <button
             type="button"
@@ -475,7 +467,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
             disabled={loading}
             className="px-6 sm:px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
-            {loading ? 'Salvando...' : autoSaveStatus === 'error' ? 'Salvar novamente' : variation ? 'Salvar Alterações' : 'Cadastrar'}
+            {loading ? 'Salvando...' : variation ? 'Salvar Alterações' : 'Cadastrar'}
           </button>
         </div>
 

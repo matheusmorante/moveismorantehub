@@ -17,6 +17,23 @@ describe('imutabilidade do código do pedido', () => {
     expect(resolveOrderIndexForUpdate(deletedOrder, { deleted: true })).toBe(2530);
   });
 
+  it('exibe identificador rastreável para artefato sem consumir código comercial', () => {
+    const testOrder = {
+      id: '32f63cc6-39ac-422b-90b2-ed5881c35f0f',
+      order_index: null,
+      order_number: 'T-32f63cc6-39ac-422b-90b2-ed5881c35f0f',
+      order_data: {
+        testArtifact: {
+          is_test: true,
+          runId: '196068ee-6be6-4354-8cf1-295d01ddcad6',
+          ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39',
+        },
+      },
+    };
+
+    expect(formatOrderCode(testOrder)).toBe('TEST-32F63CC6');
+  });
+
   it('ignora estritamente pedidos na faixa de teste (>= 800000) no cálculo da sequência legítima', async () => {
     const { getNextOrderIndex } = await import('../orderCode');
     const { supabase } = await import('../supabaseConfig');

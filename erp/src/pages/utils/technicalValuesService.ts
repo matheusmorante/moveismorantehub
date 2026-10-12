@@ -124,7 +124,13 @@ export const groupTechnicalFields = <T extends { name: string; isCustom?: boolea
 
 export type TechnicalValuesMap = Record<string, any>;
 
-export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor'] as const;
+export const REQUIRED_CHARACTERISTIC_NAMES = [
+  'Cor',
+  'Altura',
+  'Largura',
+  'Profundidade',
+  'Peso',
+] as const;
 
 const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
 

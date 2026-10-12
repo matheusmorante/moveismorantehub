@@ -2,7 +2,22 @@ import { useEffect } from 'react';
 import Product from '@/pages/types/product.type';
 import { getFullProduct, getNextSequentialProductCode } from '@/pages/utils/productService';
 import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
+
+const ensureProductFormVariation = <T extends Partial<Product>>(product: T): T => {
+  if (!isProductDraft(product)) return ensureDefaultVariation(product);
+  if (product.itemType === 'service') return product;
+  return {
+    ...product,
+    hasVariations: true,
+    variations: (product.variations || []).map((variation) => ({
+      ...variation,
+      active: false,
+      status: 'hidden',
+    })),
+  };
+};
 
 interface LoadProps {
   isOpen: boolean;
@@ -66,7 +81,7 @@ export const useProductFormLoad = ({
       let targetVariationIdToOpen: string | null = null;
 
       if (product?.id) {
-        const initialNext = ensureDefaultVariation({
+        const initialNext = ensureProductFormVariation({
           ...INITIAL_PRODUCT_FORM_DATA,
           ...product,
           hasVariations: true,
@@ -89,7 +104,7 @@ export const useProductFormLoad = ({
           Boolean(baseProduct.isDraft) ||
           Boolean((baseProduct as any).is_draft) ||
           baseProduct.status === 'draft';
-        const nextFormData = ensureDefaultVariation({
+        const nextFormData = ensureProductFormVariation({
           ...baseProduct,
           isDraft: isDraftFromBase,
           variations: [...(baseProduct.variations || []), ...pendingVariations],
@@ -106,7 +121,7 @@ export const useProductFormLoad = ({
           }
         }
       } else if (product) {
-        const nextFormData = ensureDefaultVariation({
+        const nextFormData = ensureProductFormVariation({
           ...INITIAL_PRODUCT_FORM_DATA,
           ...product,
           hasVariations: true,
@@ -119,16 +134,18 @@ export const useProductFormLoad = ({
         const generatedSku = initialData?.code || (await getNextSequentialProductCode());
         if (!isMounted) return;
 
-        const nextFormData = ensureDefaultVariation({
+        const nextFormData = ensureProductFormVariation({
           ...INITIAL_PRODUCT_FORM_DATA,
           id: generatedId,
           code: generatedSku,
           name: '',
           title: '',
           description: '',
+          ...initialData,
           isDraft: true,
           active: false,
-          ...initialData,
+          status: 'draft',
+          variations: initialData?.variations || [],
           hasVariations: true,
         });
         initialFormDataRef.current = JSON.stringify(nextFormData);

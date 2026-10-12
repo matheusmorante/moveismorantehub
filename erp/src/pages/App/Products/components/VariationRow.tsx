@@ -9,6 +9,8 @@ export interface VariationRowProps {
   readonly variationIndex?: number;
   readonly updateVariation?: (id: string, field: keyof Variation, value: Variation[keyof Variation]) => void;
   readonly removeVariation?: (id: string) => void;
+  readonly onDeleteVariation?: (id: string) => void;
+  readonly isDeleting?: boolean;
   readonly isCombo?: boolean;
   readonly onEditCombo?: (id: string) => void;
   readonly onEdit?: (id: string) => void;
@@ -16,7 +18,6 @@ export interface VariationRowProps {
   readonly parentPromoPrice?: number;
   readonly parentSku?: string;
   readonly parentImage?: string | null;
-  readonly inUse?: boolean;
 }
 
 /**
@@ -26,14 +27,14 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
   ({
     v,
     variationIndex,
-    removeVariation,
+    onDeleteVariation,
+    isDeleting = false,
     isCombo,
     onEditCombo,
     onEdit,
     parentPrice,
     parentPromoPrice,
     parentSku,
-    inUse,
   }) => {
     const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
 
@@ -94,14 +95,6 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Nome da Variação
                 </span>
-                {v.status === 'draft' && (
-                  <span
-                    className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                    title="Preencha os campos obrigatórios e clique em Cadastrar para cadastrar esta variação."
-                  >
-                    Rascunho
-                  </span>
-                )}
               </div>
               <input
                 value={v.name || v.title || 'Variação'}
@@ -155,6 +148,18 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
           >
             <i className="bi bi-pencil-square text-base" aria-hidden="true" />
           </button>
+          {onDeleteVariation && (
+            <button
+              type="button"
+              onClick={() => onDeleteVariation(v.id)}
+              disabled={isDeleting}
+              className="p-1.5 rounded-xl transition-all bg-red-50 text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+              title="Excluir variação"
+              aria-label={`Excluir variação ${displaySku}`}
+            >
+              <i className={`bi ${isDeleting ? 'bi-arrow-repeat animate-spin' : 'bi-trash3'} text-base`} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     );

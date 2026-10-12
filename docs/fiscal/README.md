@@ -1,6 +1,6 @@
 # Documentação fiscal: índice e vigência
 
-**Reconciliado com o checkout e publicações oficiais em 09/10/2026.** Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
+**Reconciliado com o checkout e publicações oficiais em 12/10/2026.** Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
 
 ## Referências atuais
 
@@ -14,11 +14,10 @@
 - [`api/nfe/schemas/README.md`](../../api/nfe/schemas/README.md): origem, pacote e hash dos XSDs fixados no código.
 - [E2E fiscal pela interface](../testing/fiscal-interface-e2e.md): política de segurança, estado do runner e critério para testes de interface.
 
-## Etapa atual da implantação — 09/10/2026
+## Etapa atual da implantação — 12/10/2026
 
-A validação do checkout está na etapa de Homologação, sem liberação de Produção. Há autorização histórica de NF-e 55, mas o XSD oficial ainda reprova os XMLs NFC-e pickup e delivery; a autorização NFC-e 65 não tem protocolo/XML verificável neste checkout. A rodada local focada terminou com 104/106 testes aprovados, sem transmissão SEFAZ.
+A emissão de Produção foi habilitada no Vercel Production a pedido explícito do responsável, com CSC de Produção restrito a esse ambiente; Preview e Development seguem bloqueados para tpAmb=1. O redeploy Production terminou READY e o domínio principal aponta para a nova publicação. Nesta liberação não houve transmissão em Produção. Consulte o [status detalhado](status-testes-homologacao.md) para os limites da evidência HML e o [roadmap](roadmap-configuracao-emissao-producao.md) para a arquitetura fiscal.
 
-O deployment do HEAD `fdbfee2be094ae1c9debacecde1cb7b7caa068b0` falhou por exceder 12 funções no plano Hobby; as alterações locais não commitadas também não estão publicadas. Os aliases públicos permanecem no último deployment READY de 07/10 (commit `3dd46b2dadc8721e464e546eb818bccdd8ce613d`); isso não significa indisponibilidade do deployment anterior. A Produção fiscal segue protegida por `productionApproved=false`. Consulte o [status detalhado](status-testes-homologacao.md) e o [roadmap](roadmap-configuracao-emissao-producao.md) antes de retomar.
 
 ## Publicações que ainda precisam de análise de aplicabilidade
 

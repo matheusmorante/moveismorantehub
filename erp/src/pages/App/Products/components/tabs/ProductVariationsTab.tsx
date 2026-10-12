@@ -20,6 +20,10 @@ interface ProductVariationsTabProps {
   // Aceita tanto removeVariation (legado) quanto onRemoveVariation (ProductFormModal)
   readonly removeVariation?: (id: string) => void;
   readonly onRemoveVariation?: (id: string) => void;
+  readonly onDeleteVariation?: (id: string) => void;
+  readonly deletingVariationId?: string | null;
+  readonly onDeleteProductWithOnlyVariation?: () => void;
+  readonly deletingProductWithVariation?: boolean;
   readonly setFormData?: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly onEditCombo?: (id: string) => void;
   // Aceita tanto onEdit (legado) quanto onEditVariation (ProductFormModal)
@@ -36,7 +40,6 @@ interface ProductVariationsTabProps {
   readonly setEditingVariationId?: (id: string | null) => void;
   readonly validationErrors?: Record<string, boolean>;
   readonly onOpenConversionModal?: () => void;
-  readonly variationsInUse?: Set<string>;
 }
 
 const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
@@ -48,11 +51,14 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
   updateVariation,
   removeVariation,
   onRemoveVariation,
+  onDeleteVariation,
+  deletingVariationId,
+  onDeleteProductWithOnlyVariation,
+  deletingProductWithVariation = false,
   isCombo = false,
   onEdit,
   onEditVariation,
   setEditingVariationId,
-  variationsInUse,
 }) => {
   const list = variations || [];
 
@@ -88,7 +94,7 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
             Variações ({list.length})
           </h4>
@@ -100,6 +106,18 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
             <i className="bi bi-plus-lg mr-2" aria-hidden="true" />
             Adicionar variação
           </button>
+          {list.length === 1 && onDeleteProductWithOnlyVariation && (
+            <button
+              type="button"
+              onClick={onDeleteProductWithOnlyVariation}
+              disabled={deletingProductWithVariation}
+              className="rounded-xl bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+              title="Excluir produto e sua única variação"
+            >
+              <i className={`bi ${deletingProductWithVariation ? 'bi-arrow-repeat animate-spin' : 'bi-trash3'} mr-2`} aria-hidden="true" />
+              Excluir produto e variação
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-[2.5rem] xl:border xl:border-slate-100 xl:bg-white xl:shadow-sm dark:xl:border-slate-800 dark:xl:bg-slate-950/20">
@@ -131,13 +149,14 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
                   variationIndex={index}
                   updateVariation={updateVariation}
                   removeVariation={handleRemove}
+                  onDeleteVariation={list.length > 1 ? onDeleteVariation : undefined}
+                  isDeleting={deletingVariationId === variation.id}
                   isCombo={isCombo}
                   onEdit={handleEdit}
                   parentPrice={parentPrice}
                   parentPromoPrice={parentPromoPrice}
                   parentSku={parentSku}
                   parentImage={parentImage}
-                  inUse={variationsInUse?.has(variation.id)}
                 />
               ))}
             </div>

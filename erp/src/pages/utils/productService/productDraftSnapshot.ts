@@ -25,7 +25,7 @@ export function createProductDraftSnapshot(product: Product): Product {
     variations: product.variations?.map((variation) => ({
       ...removeInitialStockFields(variation),
       active: false,
-      status: variation.status || 'draft',
+      status: 'hidden',
     })),
   })) as Product;
 }

@@ -5,6 +5,7 @@ import { ProductSupplierField } from './ProductSupplierField';
 import { ProductPricingFields } from './ProductPricingFields';
 import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle';
 import { syncVariationsWithParent } from '../../domain/variationParentSync';
+import type { SuggestPricesResult } from '../../hooks/form/useProductFormAi';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;
@@ -13,11 +14,7 @@ interface ProductInventoryTabProps {
   readonly handleSuggestPrices?: () => void;
   readonly onSuggestPrices?: () => void;
   readonly isSuggestingPrices?: boolean;
-  readonly suggestPricesResults?: {
-    readonly low: number;
-    readonly medium: number;
-    readonly high: number;
-  } | null;
+  readonly suggestPricesResults?: SuggestPricesResult | null;
   readonly discountPercent: string;
   readonly setDiscountPercent?: React.Dispatch<React.SetStateAction<string>>;
   readonly discountFixed: string;

@@ -90,6 +90,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     canMarkTestArtifact: canToggleTestArtifact,
     isService,
     isDraftProduct,
+    isRegisteredProduct,
     ecomStatus,
     pricing,
     ai,
@@ -103,11 +104,12 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
-    handleDraftVariationChange,
-    handleDraftVariationSave,
     handleConvertProduct,
     scheduleDraftAutoSave,
-    variationsInUse,
+    deletingVariationId,
+    deletingProductWithVariation,
+    handleDeleteVariation,
+    handleDeleteProductWithOnlyVariation,
     handleNextStep,
     isLastStep,
   } = useProductFormModal({
@@ -120,27 +122,38 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     (event: React.FocusEvent<HTMLDivElement>) => {
       const target = event.target;
       if (
+        !variations.editingVariationId &&
         target instanceof HTMLElement &&
+        !target.closest('[data-variation-modal]') &&
         target.matches('input:not([type="file"]), textarea, select, [role="combobox"]')
       ) {
         scheduleDraftAutoSave();
       }
     },
-    [scheduleDraftAutoSave]
+    [scheduleDraftAutoSave, variations.editingVariationId]
   );
   const handleDraftSelectChangeCapture = useCallback(
     (event: React.FormEvent<HTMLDivElement>) => {
-      if (event.target instanceof HTMLSelectElement) scheduleDraftAutoSave();
+      if (
+        event.target instanceof HTMLSelectElement &&
+        !variations.editingVariationId &&
+        !event.target.closest('[data-variation-modal]')
+      ) scheduleDraftAutoSave();
     },
-    [scheduleDraftAutoSave]
+    [scheduleDraftAutoSave, variations.editingVariationId]
   );
   const handleDraftSearchOptionClickCapture = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (event.target instanceof Element && event.target.closest('[role="option"]')) {
+      if (
+        event.target instanceof Element &&
+        !variations.editingVariationId &&
+        !event.target.closest('[data-variation-modal]') &&
+        event.target.closest('[role="option"]')
+      ) {
         scheduleDraftAutoSave();
       }
     },
-    [scheduleDraftAutoSave]
+    [scheduleDraftAutoSave, variations.editingVariationId]
   );
 
   // As características só existem no contexto de uma categoria.
@@ -260,15 +273,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               setValidationErrors={setValidationErrors}
               handleSuggestPrices={ai.handleSuggestPrices}
               isSuggestingPrices={ai.isSuggestingPrices}
-              suggestPricesResults={
-                ai.suggestPricesResults
-                  ? {
-                      low: ai.suggestPricesResults.low,
-                      medium: ai.suggestPricesResults.medium,
-                      high: ai.suggestPricesResults.high,
-                    }
-                  : null
-              }
+              suggestPricesResults={ai.suggestPricesResults}
             />
           )}
 
@@ -283,7 +288,12 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               onEdit={(id) => variations.setEditingVariationId(id)}
               addVariation={variations.addVariation}
               removeVariation={variations.removeVariation}
-              variationsInUse={variationsInUse}
+              onDeleteVariation={isRegisteredProduct ? handleDeleteVariation : undefined}
+              deletingVariationId={deletingVariationId}
+              onDeleteProductWithOnlyVariation={
+                isRegisteredProduct ? handleDeleteProductWithOnlyVariation : undefined
+              }
+              deletingProductWithVariation={deletingProductWithVariation}
             />
           )}
 
@@ -334,8 +344,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                 ) || null
               }
               onSave={handleSaveVariation}
-              onDraftChange={handleDraftVariationChange}
-              onDraftSave={handleDraftVariationSave}
               canMarkTestArtifact={canToggleTestArtifact}
               isTestArtifact={isTestArtifact}
               onTestArtifactChange={setIsTestArtifact}
