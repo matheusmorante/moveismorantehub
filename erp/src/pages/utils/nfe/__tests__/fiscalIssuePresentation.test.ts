@@ -23,6 +23,33 @@ describe('mensagens fiscais para a interface', () => {
     expect(presentation.description).not.toContain('SELF_SIGNED_CERT_IN_CHAIN');
   });
 
+  it('diferencia preparação não persistida de transmissão incerta e só permite retomada após consulta', () => {
+    const initial = getFiscalIssuePresentation({
+      code: 'FISCAL_PREPARATION_UNCONFIRMED',
+      pending: true,
+      sefazContacted: false,
+    });
+    const reconciled = getFiscalIssuePresentation({
+      code: 'FISCAL_PREPARATION_UNCONFIRMED',
+      pending: false,
+      sefazContacted: false,
+      preparationReconciled: true,
+    });
+
+    expect(initial).toMatchObject({
+      title: 'A preparação da nota não foi confirmada',
+      action: 'consult',
+      tone: 'attention',
+    });
+    expect(initial.description).toContain('antes de iniciar o contato com a SEFAZ');
+    expect(reconciled).toMatchObject({
+      title: 'A preparação não foi registrada',
+      action: 'resume-same-attempt',
+      tone: 'attention',
+    });
+    expect(reconciled.description).toContain('a SEFAZ não foi contatada');
+  });
+
   it('mantém códigos técnicos fora da mensagem principal', () => {
     expect(
       safeFiscalIssueMessage('HML_IDEMPOTENCY_MISMATCH: HTTP 409', 'Confira os detalhes técnicos.')

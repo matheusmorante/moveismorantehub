@@ -51,14 +51,6 @@ export async function emitNormalSale(
       { numberReserved: false, sefazContacted: false }
     );
 
-  if (!command.previewOnly && !command.previewProof)
-    return outboundFailure(
-      409,
-      'FISCAL_PREVIEW_REQUIRED',
-      'Gere uma nova prévia do XML com as escolhas fiscais atuais antes de transmitir.',
-      { numberReserved: false, sefazContacted: false }
-    );
-
   const recovered = command.previewOnly ? null : await recoverNormalSale(db, command);
   if (recovered) return recovered;
   const gate = command.previewOnly
@@ -82,22 +74,6 @@ export async function emitNormalSale(
     );
 
   const facts = structuredClone(candidate);
-  if (command.previewProof) {
-    const capturedAtMs = Date.parse(command.previewProof.capturedAt);
-    if (
-      !Number.isFinite(capturedAtMs) ||
-      capturedAtMs < Date.now() - 5 * 60_000 ||
-      capturedAtMs > Date.now() + 60_000 ||
-      facts.order.version !== candidate.order.version
-    )
-      return outboundFailure(
-        409,
-        'FISCAL_PREVIEW_STALE',
-        'A prévia expirou ou o pedido mudou. Gere novamente a prévia antes de transmitir.',
-        { numberReserved: false, sefazContacted: false }
-      );
-    facts.capturedAt = new Date(capturedAtMs).toISOString();
-  }
   let preparationSubmitted = false;
   try {
     await loadNormalSaleInputs(db, facts, appSettings);
@@ -157,13 +133,6 @@ export async function emitNormalSale(
       );
     const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
     const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
-    if (command.previewProof && command.previewProof.issuedAt !== issuedAt)
-      return outboundFailure(
-        409,
-        'FISCAL_PREVIEW_STALE',
-        'O instante de emissão mudou desde a prévia. Gere novamente o XML antes de transmitir.',
-        { numberReserved: false, sefazContacted: false }
-      );
     const code = createHash('sha256').update(command.emissionRequestId).digest('hex');
     const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 100000000).padStart(8, '0');
 
@@ -184,18 +153,6 @@ export async function emitNormalSale(
           { numberReserved: false, sefazContacted: false }
         );
       const number = peek.data as number;
-      if (
-        command.previewProof &&
-        (command.previewProof.model !== model ||
-          command.previewProof.series !== sequence.series ||
-          command.previewProof.number !== number)
-      )
-        return outboundFailure(
-          409,
-          'FISCAL_PREVIEW_STALE',
-          'Modelo, série ou número fiscal mudaram desde a prévia. Gere novamente o XML antes de transmitir.',
-          { numberReserved: false, sefazContacted: false }
-        );
       if (command.requestedNumber !== undefined && number !== command.requestedNumber)
         return outboundFailure(
           409,
@@ -218,13 +175,6 @@ export async function emitNormalSale(
         emissionType: '1',
         randomCode,
       }).accessKey;
-      if (command.previewProof && command.previewProof.accessKey !== accessKey)
-        return outboundFailure(
-          409,
-          'FISCAL_PREVIEW_STALE',
-          'A chave de acesso mudou desde a prévia. Gere novamente o XML antes de transmitir.',
-          { numberReserved: false, sefazContacted: false }
-        );
       const snapshot: FiscalSnapshot = {
         ...facts,
         resolvedDocument: resolved.document,
@@ -292,13 +242,6 @@ export async function emitNormalSale(
             sefazContacted: false,
           },
         };
-      if (!command.previewOnly && command.previewProof?.fingerprint !== previewFingerprint)
-        return outboundFailure(
-          409,
-          'FISCAL_PREVIEW_STALE',
-          'Os dados comerciais ou as escolhas fiscais mudaram desde a prévia. Confira novamente o XML antes de transmitir.',
-          { numberReserved: false, sefazContacted: false }
-        );
       const token = randomUUID();
       preparationSubmitted = true;
       const saved = await db.rpc('prepare_nfe_outbound_attempt', {

@@ -4,6 +4,7 @@ import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import type { FiscalJsonValue, FiscalSnapshotCandidate } from '../fiscalSnapshot';
 import { normalSaleContributionSettingsId } from '../simplesNormalSaleContribution';
 import { obj } from './values';
+import { hasFiscalItemSnapshot } from '../../../shared-utils/orderItemFiscalSnapshot';
 /** Read-only preflight inputs; the canonical snapshot RPC captures these again under locks. */
 export async function loadNormalSaleInputs(
   db: SupabaseClient<FiscalDatabase>,
@@ -15,7 +16,8 @@ export async function loadNormalSaleInputs(
   const ids = Array.from(
     new Set(
       items
-        .map((item) => item.productId)
+        .filter((item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item))
+        .map((item) => item.productId || item.fiscalSnapshotProductId)
         .filter(
           (id): id is string =>
             typeof id === 'string' &&
@@ -26,7 +28,7 @@ export async function loadNormalSaleInputs(
   const customerId = obj(facts.order.data.customerData).id;
   const [catalog, customer, decision] = await Promise.all([
     ids.length
-      ? db.from('products').select('id,fiscal').in('id', ids)
+      ? db.from('products').select('id,fiscal,unit').in('id', ids)
       : Promise.resolve({ data: [], error: null }),
     db
       .from('people')
@@ -39,8 +41,15 @@ export async function loadNormalSaleInputs(
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
   facts.fiscalInputs = {
     products: Object.fromEntries(
-      (catalog.data || []).map((row) => [row.id, row.fiscal])
-    ) as FiscalJsonValue,
+      (catalog.data || []).map((row) => [
+        row.id,
+        {
+          ...(row.fiscal || {}),
+          commercialUnit: row.fiscal?.commercialUnit || row.unit || 'UN',
+          taxableUnit: row.fiscal?.taxableUnit || row.unit || 'UN',
+        },
+      ])
+    ) as unknown as FiscalJsonValue,
     customer: {
       id: customer.data.id,
       fullName: customer.data.full_name,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
-import { savePerson, updatePerson } from './personMutationService';
+import { savePeopleBatch, savePerson, updatePerson } from './personMutationService';
 
 const db = vi.hoisted(() => ({
   from: vi.fn(),
@@ -73,6 +73,35 @@ describe('personMutationService test artifact context', () => {
 
     expect(db.inserts[0].address).not.toHaveProperty('testArtifact');
     expect(db.inserts[0]).not.toHaveProperty('full_address');
+  });
+
+  it('permite inserir CPF com dígitos verificadores incorretos, desde que tenha o formato correto', async () => {
+    await savePerson('customers', {
+      fullName: 'Cliente com CPF de formato correto',
+      personType: 'PF',
+      cpfCnpj: '343.445.635-34',
+    } as any);
+
+    expect(db.inserts).toHaveLength(1);
+    expect(db.inserts[0].cpf_cnpj).toBe('343.445.635-34');
+  });
+
+  it('permite documento repetido em lote e ainda bloqueia formato incorreto', async () => {
+    await savePeopleBatch('customers', [{
+      fullName: 'Cliente com CPF inválido',
+      personType: 'PF',
+      cpfCnpj: '333.333.333-33',
+    }]);
+
+    expect(db.inserts).toHaveLength(1);
+    db.inserts.length = 0;
+
+    await expect(savePeopleBatch('customers', [{
+      fullName: 'Cliente com CPF em formato incorreto',
+      personType: 'PF',
+      cpfCnpj: '123.456.789-0A',
+    }])).rejects.toThrow('CPF inválido: informe 11 dígitos numéricos.');
+    expect(db.inserts).toEqual([]);
   });
 
   it('preserva a identidade canônica ao editar um cadastro da própria execução', async () => {

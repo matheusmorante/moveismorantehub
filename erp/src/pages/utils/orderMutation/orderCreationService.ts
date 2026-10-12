@@ -11,6 +11,7 @@ import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { getTestArtifactContext, stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
+import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -33,6 +34,10 @@ export const executeSaveOrder = async (
 
   try {
     let orderToSave = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order));
+    orderToSave = {
+      ...orderToSave,
+      items: await ensureOrderItemsHaveFiscalSnapshots(orderToSave.items || [], orderToSave.nfeData),
+    };
     if (orderToSave.is_test === true) {
       const testIdentity = getTestArtifactContext();
       if (!testIdentity) {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { toast } from 'react-toastify';
-import { useAuth } from '@/context/AuthContext';
 import {
   getFiscalIssuePresentation,
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
@@ -36,8 +35,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { isRealAdministrator, activeRoleMode } = useAuth();
-  const canPreviewXml = isRealAdministrator && !activeRoleMode;
   const orderId = order?.id;
   const emissionStartedAtRef = React.useRef<number | null>(null);
   const readinessRecordedForRef = React.useRef<number | null>(null);
@@ -53,7 +50,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     environment,
     setEnvironment,
     isSubmitting,
-    isPreparingPreview,
     isSavingAcquisitionPurpose,
     numberPreview,
     nfeNumberSequence,
@@ -74,14 +70,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     handleSaveDraft,
     setNumberPreview,
     emissionResult,
-    xmlPreview,
-    isXmlPreviewOpen,
-    closeXmlPreview,
     nfeItems,
     handleUpdateItemFiscal,
     handleBatchUpdateItems,
     handleEmit,
-    handlePreviewXml,
     handleReconcile,
     handleAbandonHmlTlsAttempt,
     handleStartFreshHmlEmission,
@@ -108,6 +100,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     isOpen,
     order,
     emissionOrder,
+    isLoadingCustomerType,
     initialEnvironment,
     environment,
     setEnvironment,
@@ -122,10 +115,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   React.useEffect(() => {
     if (!isOpen) setIsFiscalIssueModalOpen(false);
   }, [isOpen]);
-
-  React.useEffect(() => {
-    if (!canPreviewXml && isXmlPreviewOpen) closeXmlPreview();
-  }, [canPreviewXml, isXmlPreviewOpen, closeXmlPreview]);
 
   React.useEffect(() => {
     if (
@@ -218,7 +207,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     presence: currentPresence,
     total: invoiceTotal,
     personType: customerPersonType,
-    recipientTaxId,
+    recipientTaxId: customerPersonType ? recipientTaxId : '',
     operationScope: 'NORMAL_DOMESTIC_SALE',
   });
   const isIdentityOptional =
@@ -292,6 +281,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         setRetryNumber={setRetryNumber}
         handleEmit={handleEmit}
         canOperateFiscal={canOperateFiscal}
+        isLoadingCustomerType={isLoadingCustomerType}
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingNfeNumber={isLoadingNfeNumber}
         handleReconcile={handleReconcile}
@@ -335,9 +325,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         environment={environment}
         isNfce={isNfce}
         canOperateFiscal={canOperateFiscal}
-        canPreviewXml={canPreviewXml}
         isSubmitting={isSubmitting}
-        isPreparingPreview={isPreparingPreview}
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingCustomerType={isLoadingCustomerType}
         fiscalPreparationError={fiscalPreparationError}
@@ -352,49 +340,9 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           }
           void handleEmit(confirmed, retry);
         }}
-        onPreview={canPreviewXml ? handlePreviewXml : undefined}
         onPrintDanfe={handlePrintDanfe}
         onTransmissionEnabled={handleTransmissionEnabled}
       />
-
-      {canPreviewXml && xmlPreview && isXmlPreviewOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="nfe-xml-preview-title"
-          data-testid="nfe-xml-preview-dialog"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 sm:p-6"
-        >
-          <section className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-6">
-              <div>
-                <h2 id="nfe-xml-preview-title" className="text-sm font-black text-slate-900 dark:text-white">
-                  Prévia do XML — ainda não transmitida
-                </h2>
-                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                  Esta prévia está assinada para conferência, mas não é documento autorizado pela SEFAZ.
-                  Qualquer alteração nas escolhas fiscais exige gerar uma nova prévia.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Fechar prévia do XML"
-                data-testid="nfe-xml-preview-close"
-                onClick={closeXmlPreview}
-                className="rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Fechar
-              </button>
-            </header>
-            <pre
-              data-testid="nfe-xml-preview-content"
-              className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-slate-50 p-4 font-mono text-[11px] leading-5 text-slate-800 dark:bg-slate-950 dark:text-slate-200 sm:p-6"
-            >
-              {xmlPreview.xml}
-            </pre>
-          </section>
-        </div>
-      )}
 
       <NfeFiscalIssueModal
         isOpen={isFiscalIssueModalOpen && (hasFiscalIssue || Boolean(fiscalPreparationError))}

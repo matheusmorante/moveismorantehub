@@ -12,13 +12,57 @@ vi.mock('./personSyncService', () => ({
   syncMissingEmployeesFromProfiles: mocks.syncMissingEmployeesFromProfiles,
 }));
 
-import { fetchPersons, PERSON_QUERY_COLUMNS, subscribeToPeople } from './personQueryService';
+import {
+  fetchPersonById,
+  fetchPersons,
+  PERSON_QUERY_COLUMNS,
+  preloadPersonById,
+  subscribeToPeople,
+} from './personQueryService';
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 describe('person query projection', () => {
+  it('reuses an in-flight customer read by ID', async () => {
+    let resolvePerson: ((value: { data: { id: string }; error: null }) => void) | undefined;
+    const queryResult = new Promise<{ data: { id: string }; error: null }>((resolve) => {
+      resolvePerson = resolve;
+    });
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: vi.fn(() => queryResult),
+    };
+    mocks.from.mockReturnValue(chain);
+
+    const first = fetchPersonById('customer-1');
+    const second = fetchPersonById('customer-1');
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+
+    resolvePerson?.({ data: { id: 'customer-1' }, error: null });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { id: 'customer-1' },
+      { id: 'customer-1' },
+    ]);
+  });
+
+  it('reuses a recently preloaded customer read when the emission modal opens', async () => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'customer-prefetch' }, error: null }),
+    };
+    mocks.from.mockReturnValue(chain);
+
+    await preloadPersonById('customer-prefetch');
+    const customer = await fetchPersonById('customer-prefetch');
+
+    expect(customer).toEqual({ id: 'customer-prefetch' });
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+  });
+
   it('uses only columns present in the people schema when loading a list', async () => {
     const chain: any = {
       select: vi.fn(() => chain),

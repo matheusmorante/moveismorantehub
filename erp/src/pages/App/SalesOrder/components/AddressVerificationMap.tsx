@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getSettings } from '@/pages/utils/settingsService';
-import { geocodeAddress, autoCalculateRouteDistance } from '@/pages/utils/maps';
+import { geocodeAddress } from '@/pages/utils/maps';
 
 interface AddressVerificationMapProps {
   address: {
@@ -20,100 +20,38 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
-  const routeLayerRef = useRef<boolean>(false);
+  const { street, number, neighborhood, city } = address;
 
   const settings = getSettings();
+  const originLongitude = settings.storeOriginCoords?.[0] ?? -49.16948;
+  const originLatitude = settings.storeOriginCoords?.[1] ?? -25.35205;
   const storeOrigin = useMemo(
-    () => settings.storeOriginCoords || [-49.16948, -25.35205],
-    [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]
+    () => [originLongitude, originLatitude] as [number, number],
+    [originLongitude, originLatitude]
   );
 
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const [isPrecision, setIsPrecision] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
-
-  // Debounced geocoding
+  // Geocodifica para posicionar o marcador. O cálculo de rota/frete ocorre após
+  // selecionar/salvar o endereço do cliente ou por ação explícita no pedido.
   useEffect(() => {
-    if (!address.street || !address.city) {
+    if (!street || !city) {
       setCoords(null);
-      setRouteInfo(null);
+      setIsPrecision(false);
       return;
     }
 
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        let failureReason = '';
-        const routeResult = await autoCalculateRouteDistance(address as any, (reason) => {
-          failureReason = reason;
-        });
-        if (routeResult) {
-          setCoords(routeResult.destinationCoords);
-          setIsPrecision(true);
-          setRouteInfo({
-            distance: `${routeResult.distanceKm.toFixed(1)} km`,
-            duration: `${routeResult.durationMinutes} min`,
-          });
-
-          // Update map route de forma segura
-          const addRouteToMap = () => {
-            if (!map.current || !routeResult.routeGeoJSON) return;
-            try {
-              if (map.current.getSource('route')) {
-                (map.current.getSource('route') as maplibregl.GeoJSONSource).setData(
-                  routeResult.routeGeoJSON
-                );
-              } else {
-                map.current.addSource('route', {
-                  type: 'geojson',
-                  data: {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: routeResult.routeGeoJSON,
-                  },
-                });
-                map.current.addLayer({
-                  id: 'route',
-                  type: 'line',
-                  source: 'route',
-                  layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': '#2563eb', 'line-width': 5, 'line-opacity': 0.8 },
-                });
-              }
-            } catch (err) {
-              console.warn('Aguardando carregamento do estilo do mapa para desenhar rota:', err);
-            }
-          };
-
-          if (map.current) {
-            if (map.current.isStyleLoaded()) {
-              addRouteToMap();
-            } else {
-              map.current.once('styledata', addRouteToMap);
-            }
-          }
+        const geoResult = await geocodeAddress({ street, number, neighborhood, city });
+        if (geoResult) {
+          setCoords(geoResult.coords);
+          setIsPrecision(geoResult.isPrecision);
         } else {
-          // Não repetir a chamada quando o Google já informou quota/auth limit.
-          const geoResult = /quota|limit|over_query_limit|over_daily_limit|bloquead|cota/i.test(
-            failureReason
-          )
-            ? null
-            : await geocodeAddress(address as any);
-          if (geoResult) {
-            setCoords(geoResult.coords);
-            setIsPrecision(geoResult.isPrecision);
-            setRouteInfo(null);
-
-            // Centralizar o mapa no ponto localizado
-            if (map.current) {
-              map.current.flyTo({ center: geoResult.coords, zoom: 14 });
-            }
-          } else {
-            setCoords(null);
-            setIsPrecision(false);
-            setRouteInfo(null);
-          }
+          setCoords(null);
+          setIsPrecision(false);
         }
       } catch (e) {
         console.error('Erro na verificação de endereço via Google Maps:', e);
@@ -123,7 +61,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [address.street, address.number, address.neighborhood, address.city, storeOrigin]);
+  }, [street, number, neighborhood, city]);
 
   // Map initialization
   useEffect(() => {
@@ -153,7 +91,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
         map.current = null;
       }
     };
-  }, []);
+  }, [storeOrigin]);
 
   // Update dynamic marker and view
   useEffect(() => {
@@ -161,10 +99,6 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
       if (marker.current) {
         marker.current.remove();
         marker.current = null;
-      }
-      if (map.current?.getLayer('route')) {
-        map.current.removeLayer('route');
-        map.current.removeSource('route');
       }
       return;
     }
@@ -195,25 +129,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
         </div>
       )}
 
-      {routeInfo && (
-        <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-lg flex gap-4 transition-all animate-slide-up">
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black uppercase text-slate-400">Distância</span>
-            <span className="text-[11px] font-black text-slate-700 dark:text-slate-100">
-              {routeInfo.distance}
-            </span>
-          </div>
-          <div className="w-[1px] bg-slate-200 dark:bg-slate-700" />
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black uppercase text-slate-400">Tempo Est.</span>
-            <span className="text-[11px] font-black text-slate-700 dark:text-slate-100">
-              {routeInfo.duration}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {(!isPrecision || !coords) && !loading && address.street && (
+      {(!isPrecision || !coords) && !loading && street && (
         <div className="absolute top-3 left-3 right-3 bg-red-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg animate-fade-in z-10">
           <i className="bi bi-exclamation-triangle-fill mr-2" />
           {!coords ? 'Endereço não localizado' : 'Rua não encontrada - Marcador no Bairro/Cidade'}

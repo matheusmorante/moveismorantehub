@@ -45,7 +45,11 @@ export type FiscalDatabase = {
         id: string;
         data: Record<string, unknown> | null;
       }>;
-      products: FiscalTable<{ id: string; fiscal: Record<string, unknown> | null }>;
+      products: FiscalTable<{
+        id: string;
+        fiscal: Record<string, unknown> | null;
+        unit?: string | null;
+      }>;
       people: FiscalTable<{
         id: string;
         full_name: string;

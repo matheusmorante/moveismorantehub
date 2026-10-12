@@ -10,6 +10,7 @@ import type {
 } from '../fiscalSnapshot';
 import type { ResolvedSimplesNormalSaleContribution } from '../simplesNormalSaleContribution';
 import { obj, required } from './values';
+import { hasFiscalItemSnapshot } from '../../../shared-utils/orderItemFiscalSnapshot';
 
 type ReadyFiscalModelDecision = Extract<FiscalModelDecision, { status: 'ready' }>;
 
@@ -39,11 +40,23 @@ export function determineNormalSaleItems(params: {
   } = params;
   const catalog = obj(obj(snapshot.fiscalInputs).products);
   const allowedSavedCfops = ['5102', '6102', '6108'];
+  const commercialUnits: string[] = [];
   const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
     const selected = selections[String(index + 1)];
     const itemRecord = item as any;
     const saved = itemRecord.fiscal || {};
-    const productFiscal = catalog[item.productId || ''] || {};
+    const productFiscal = hasFiscalItemSnapshot(itemRecord)
+      ? {}
+      : catalog[item.productId || itemRecord.fiscalSnapshotProductId || ''] || {};
+    const commercialUnit = String(
+      saved.commercialUnit || productFiscal.commercialUnit || productFiscal.unit || 'UN'
+    );
+    commercialUnits[index] = commercialUnit;
+    const taxableUnit = String(saved.taxableUnit || productFiscal.taxableUnit || commercialUnit);
+    if (commercialUnit !== taxableUnit)
+      throw new Error(
+        `Unidades comercial e tributável do item ${index + 1} exigem fator de conversão fiscal explícito.`
+      );
     const ownProduction =
       itemRecord.merchandiseOrigin === 'own_production' ||
       saved.merchandiseOrigin === 'own_production' ||
@@ -128,7 +141,7 @@ export function determineNormalSaleItems(params: {
         itemNumber: index + 1,
         product: {
           // The selected variation SKU is stored in `code`; productId is an internal UUID.
-          code: String(item.code || item.sku || `ITEM-${index + 1}`).slice(0, 60),
+          code: String(item.code || (item as typeof item & { sku?: string }).sku || `ITEM-${index + 1}`).slice(0, 60),
           description: required(item.description, 'Descrição comercial'),
           gtin: 'SEM GTIN',
           quantity: item.quantity,
@@ -144,7 +157,7 @@ export function determineNormalSaleItems(params: {
           cfop: selected.cfop,
           origin: selected.origem,
           cest: selected.cest || undefined,
-          unit: 'UN',
+          unit: commercialUnits[index],
         },
         taxes: [
           {

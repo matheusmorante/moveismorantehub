@@ -1,61 +1,40 @@
-const fs = require('node:fs');
+const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const dotenv = require('dotenv');
 
-const envPath = path.resolve(__dirname, '..', '..', '.env.local');
-const fail = (code) => {
-  process.stderr.write(`FAIL ${code}\n`);
-  process.exitCode = 1;
-};
-
-function inspectReadiness(env) {
-  const supabase = Boolean((env.SUPABASE_URL || env.VITE_SUPABASE_URL) && env.SUPABASE_SECRET_KEY);
-  const certificate = Boolean(env.NFE_CERTIFICATE_BASE64);
-  const certificatePassword = Boolean(env.NFE_CERTIFICATE_PASSWORD);
-  const responsibleTech = Boolean((env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ) &&
-    (env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT) &&
-    (env.NFE_RESP_TECH_EMAIL || env.NFE_RESPONSIBLE_TECH_EMAIL) &&
-    (env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE));
-  const csrtHomologacao = Boolean(env.NFE_CSRT_HOMOLOGACAO);
-  const idCsrtHomologacao = Boolean(env.NFE_ID_CSRT_HOMOLOGACAO);
-  const tpAmb = 2;
-  const operatorEmail = Boolean(env.NFE_HML_TEST_OPERATOR_EMAIL);
-  const operatorPassword = Boolean(env.NFE_HML_TEST_OPERATOR_PASSWORD);
-  // Actual authentication is verified by the runner, never inferred from a secret key.
-  const operatorConfigured = operatorEmail && operatorPassword && Boolean(env.VITE_SUPABASE_ANON_KEY);
-  const readiness = {
-    supabase,
-    certificate,
-    certificatePassword,
-    responsibleTech,
-    csrtHomologacao,
-    idCsrtHomologacao,
-    sefazHomologacao: true,
-    tpAmb: tpAmb === undefined ? 'unknown' : tpAmb,
-    operatorEmail,
-    operatorPassword,
-  };
-
-  const missing = [
-    ['supabase', 'PRECHECK_SUPABASE'],
-    ['certificate', 'PRECHECK_CERTIFICATE'],
-    ['certificatePassword', 'PRECHECK_CERTIFICATE_PASSWORD'],
-    ['responsibleTech', 'PRECHECK_RESPONSIBLE_TECH'],
-    ['csrtHomologacao', 'PRECHECK_CSRT'],
-    ['idCsrtHomologacao', 'PRECHECK_ID_CSRT'],
-  ].find(([key]) => !readiness[key]);
-  const failure = missing?.[1] || (!operatorConfigured ? 'PRECHECK_OPERATOR_AUTH' : undefined);
-  return { readiness, failure };
-}
+const repoRoot = path.resolve(__dirname, '..', '..');
+const auditRunner = path.join(__dirname, 'run-fiscal-audit.cjs');
+const audits = [
+  ['policy-status', 'guards de artefatos remotos'],
+  ['operator', 'autenticação e permissão do operador HML'],
+  ['tls', 'WSDL dos modelos 55 e 65'],
+  ['services', 'status e consultas read-only da SEFA/PR'],
+];
 
 function main() {
-  if (!fs.existsSync(envPath)) return fail('PRECHECK_VERCEL_ENV');
-  const { readiness, failure } = inspectReadiness(dotenv.parse(fs.readFileSync(envPath)));
-  for (const [key, value] of Object.entries(readiness))
-    process.stdout.write(`${key}=${value}\n`);
-  if (failure) return fail(failure);
-  process.stdout.write('Readiness local aprovada.\n');
+  for (const [mode, label] of audits) {
+    process.stdout.write(`\nVerificando ${label}...\n`);
+    const result = spawnSync(process.execPath, [auditRunner, mode], {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: 'inherit',
+    });
+
+    if (result.error) {
+      process.stderr.write(`Falha ao iniciar auditoria de ${label}.\n`);
+      process.exitCode = 1;
+      return;
+    }
+    if (result.status !== 0) {
+      process.exitCode = result.status ?? 1;
+      return;
+    }
+  }
+
+  process.stdout.write(
+    '\nPreflight de infraestrutura HML aprovado. Isso não confirma artefato E2E persistido nem autorização de NF-e/NFC-e. Nenhum documento foi transmitido.\n'
+  );
 }
 
 if (require.main === module) main();
-module.exports = { inspectReadiness };
+
+module.exports = { main };

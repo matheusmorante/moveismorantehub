@@ -1,28 +1,21 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import type { FiscalInfo } from '@/pages/types/product.type';
 import { getLocalProducts } from './productLocalCache';
 
-export interface ProductFiscalData {
+export interface ProductFiscalData extends Partial<FiscalInfo> {
   id: string;
-  ncm?: string;
-  cest?: string;
-  cfop?: string;
-  cst?: string;
-  origem?: string;
-  merchandiseOrigin?: 'third_party' | 'own_production' | 'not_applicable';
-  isOwnProduction?: boolean;
-  hasSt?: boolean;
-  isSt?: boolean;
-  pisCst?: string;
-  cofinsCst?: string;
-  variations?: Record<string, Partial<ProductFiscalData>>;
+  unit?: string;
+  variations?: Record<string, Partial<FiscalInfo>>;
 }
 
 // Cache em memória para dados fiscais já consultados durante a sessão do usuário.
 // Garante resolução em 0-20ms quando o usuário reabre o modal de emissão.
 const fiscalMemoryCache = new Map<string, ProductFiscalData>();
+const fiscalMemoryCacheUpdatedAt = new Map<string, number>();
 
 export const clearFiscalDataMemoryCache = () => {
   fiscalMemoryCache.clear();
+  fiscalMemoryCacheUpdatedAt.clear();
 };
 
 /**
@@ -32,7 +25,7 @@ export const clearFiscalDataMemoryCache = () => {
  */
 export const getProductsFiscalData = async (
   productIds: string[],
-  options: { useCache?: boolean } = {}
+  options: { useCache?: boolean; maxAgeMs?: number; cacheResult?: boolean } = {}
 ): Promise<Map<string, ProductFiscalData>> => {
   const result = new Map<string, ProductFiscalData>();
   const useCache = options.useCache !== false;
@@ -44,7 +37,10 @@ export const getProductsFiscalData = async (
 
   for (const id of uniqueIds) {
     const cached = useCache ? fiscalMemoryCache.get(id) : undefined;
-    if (cached) {
+    const cacheIsFresh =
+      options.maxAgeMs === undefined ||
+      Date.now() - (fiscalMemoryCacheUpdatedAt.get(id) || 0) <= options.maxAgeMs;
+    if (cached && cacheIsFresh) {
       result.set(id, cached);
     } else if (isUUID(id)) {
       idsToFetch.push(id);
@@ -55,7 +51,7 @@ export const getProductsFiscalData = async (
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, fiscal, variation_details:technical_specs->variationDetails')
+        .select('id, unit, fiscal, variation_details:technical_specs->variationDetails')
         .in('id', idsToFetch);
 
       if (error && !useCache) {
@@ -66,7 +62,7 @@ export const getProductsFiscalData = async (
           const variationDetails = row.variation_details as
             | Array<{ id?: string; fiscal?: unknown }>
             | null;
-          const variationsRecord: Record<string, Partial<ProductFiscalData>> = {};
+          const variationsRecord: Record<string, Partial<FiscalInfo>> = {};
 
           if (Array.isArray(variationDetails)) {
             for (const variation of variationDetails) {
@@ -78,10 +74,14 @@ export const getProductsFiscalData = async (
 
           const fiscalItem: ProductFiscalData = {
             id: String(row.id),
+            unit: typeof row.unit === 'string' && row.unit.trim() ? row.unit.trim() : 'UN',
             ...mapFiscalFields(row.fiscal),
             variations: variationsRecord,
           };
-          if (useCache) fiscalMemoryCache.set(fiscalItem.id, fiscalItem);
+          if (useCache || options.cacheResult) {
+            fiscalMemoryCache.set(fiscalItem.id, fiscalItem);
+            fiscalMemoryCacheUpdatedAt.set(fiscalItem.id, Date.now());
+          }
           result.set(fiscalItem.id, fiscalItem);
         }
       }
@@ -95,7 +95,7 @@ export const getProductsFiscalData = async (
     }
   }
 
-  // Callers that allow caching retain the offline fallback; emission reads stay database-only.
+  // Offline fallback is for cache-enabled callers; fiscal transmission revalidates on the server.
   const missingIds = uniqueIds.filter((id) => !result.has(id));
   if (useCache && typeof localStorage !== 'undefined' && missingIds.length > 0) {
     const localProducts = getLocalProducts();
@@ -108,6 +108,7 @@ export const getProductsFiscalData = async (
       }
       result.set(id, {
         id,
+        unit: typeof product.unit === 'string' && product.unit.trim() ? product.unit.trim() : 'UN',
         ...mapFiscalFields(product.fiscal),
         variations,
       });
@@ -117,26 +118,43 @@ export const getProductsFiscalData = async (
   return result;
 };
 
-function mapFiscalFields(value: unknown): Omit<ProductFiscalData, 'id' | 'variations'> {
+function mapFiscalFields(value: unknown): Partial<FiscalInfo> {
   const fiscal = (value || {}) as Record<string, unknown>;
   const merchandiseOrigin = fiscal.merchandiseOrigin;
-  return {
-    ncm: typeof fiscal.ncm === 'string' ? fiscal.ncm : undefined,
-    cest: typeof fiscal.cest === 'string' ? fiscal.cest : undefined,
-    cfop: typeof fiscal.cfop === 'string' ? fiscal.cfop : undefined,
-    cst: typeof fiscal.cst === 'string' ? fiscal.cst : undefined,
-    origem: typeof fiscal.origem === 'string' ? fiscal.origem : undefined,
-    merchandiseOrigin:
-      merchandiseOrigin === 'third_party' ||
-      merchandiseOrigin === 'own_production' ||
-      merchandiseOrigin === 'not_applicable'
-        ? merchandiseOrigin
-        : undefined,
-    isOwnProduction:
-      typeof fiscal.isOwnProduction === 'boolean' ? fiscal.isOwnProduction : undefined,
-    hasSt: typeof fiscal.hasSt === 'boolean' ? fiscal.hasSt : undefined,
-    isSt: typeof fiscal.isSt === 'boolean' ? fiscal.isSt : undefined,
-    pisCst: typeof fiscal.pisCst === 'string' ? fiscal.pisCst : undefined,
-    cofinsCst: typeof fiscal.cofinsCst === 'string' ? fiscal.cofinsCst : undefined,
-  };
+  const fields: (keyof FiscalInfo)[] = [
+    'ncm',
+    'ncmDescription',
+    'material',
+    'condition',
+    'commercialUnit',
+    'taxableUnit',
+    'cest',
+    'origem',
+    'cst',
+    'cfop',
+    'isOwnProduction',
+    'hasSt',
+    'isSt',
+    'pisCst',
+    'cofinsCst',
+    'icmsPercent',
+    'codigoServico',
+    'issPercent',
+    'merchandiseOrigin',
+  ];
+  const result: Partial<FiscalInfo> = {};
+  for (const field of fields) {
+    const fieldValue = fiscal[field];
+    if (fieldValue !== undefined && fieldValue !== null) {
+      (result as Record<string, unknown>)[field] = fieldValue;
+    }
+  }
+  if (
+    merchandiseOrigin !== 'third_party' &&
+    merchandiseOrigin !== 'own_production' &&
+    merchandiseOrigin !== 'not_applicable'
+  ) {
+    delete result.merchandiseOrigin;
+  }
+  return result;
 }

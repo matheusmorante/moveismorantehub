@@ -502,7 +502,7 @@ export function parseFiscalEmissionCommand(
     (typeof recipientTaxId !== 'string' ||
       (recipientTaxId !== '' && !isValidRecipientTaxId(recipientTaxId)))
   )
-    return { error: 'Informe um CPF ou CNPJ válido para esta emissão.' };
+    return { error: 'Informe um CPF com 11 dígitos ou um CNPJ com 14 caracteres no formato permitido.' };
 
   const recipientIeIndicator = body.recipientIeIndicator;
   if (

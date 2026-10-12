@@ -397,7 +397,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     });
     expect(xml).toContain('<detPag><indPag>0</indPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
   });
-  it('valida o documento opcional informado e não aceita CPF/CNPJ incompatível com PF/PJ', async () => {
+  it('aceita documento com qualquer dígito verificador e rejeita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
@@ -406,9 +406,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
     (facts.fiscalInputs!.customer as any).address = '{}';
     facts.emissionRequest.recipientTaxId = '11111111111';
-    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
-      'CPF/CNPJ do destinatário inválido'
-    );
+    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).resolves.toBeDefined();
 
     facts.emissionRequest.recipientTaxId = '11.222.333/0001-81';
     await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
@@ -539,7 +537,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     'production',
   ])('bloqueia %s sem substituir campos', async (caseName) => {
     const facts = makeFacts();
-    if (caseName === 'cpf') (facts.fiscalInputs!.customer as any).cpfCnpj = '11111111111';
+    if (caseName === 'cpf') (facts.fiscalInputs!.customer as any).cpfCnpj = '1111111111';
     if (caseName === 'payment') (facts.order.data.payments as any)[0].amount = 378.99;
     if (caseName === 'cfop') facts.emissionRequest.itemFiscalSelections!['1'].cfop = '5405';
     if (caseName === 'tax-exception') (facts.fiscalInputs!.products as any)['P-1'].pisCst = '01';

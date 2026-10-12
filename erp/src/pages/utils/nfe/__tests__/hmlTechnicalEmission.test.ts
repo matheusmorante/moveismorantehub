@@ -1107,6 +1107,11 @@ describe('pipeline técnico NF-e 55 HML', () => {
         status: 'fulfilled',
         deleted: false,
         data: {
+          fiscalContext: {
+            acquisitionPurpose: 'use_consumption',
+            finalConsumer: true,
+            purpose: '1',
+          },
           shipping: {
             deliveryMethod: 'delivery',
             useCustomerAddress: true,

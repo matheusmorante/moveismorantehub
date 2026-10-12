@@ -235,6 +235,7 @@ export interface NfeEmissionResult {
   hmlConfirmedNotFound?: boolean;
   hmlNewEmissionRequired?: boolean;
   hmlCanAbandonTlsFailure?: boolean;
+  preparationReconciled?: boolean;
   fiscalMismatchFields?: Array<{
     field: string;
     snapshotValue?: string;
@@ -314,10 +315,15 @@ export async function findFiscalDocumentForRequest(
     .eq('ambiente', environment)
     .eq('emission_request_id', emissionRequestId)
     .maybeSingle();
-  if (error || !data?.id)
+  if (error)
     throw new Error(
       'A tentativa ainda não pode ser localizada. Aguarde e consulte novamente; a intenção original foi preservada.'
     );
+  if (!data?.id) {
+    const notFound = new Error('FISCAL_REQUEST_DOCUMENT_NOT_FOUND');
+    Object.assign(notFound, { code: 'FISCAL_REQUEST_DOCUMENT_NOT_FOUND' });
+    throw notFound;
+  }
   return data.id;
 }
 
@@ -351,10 +357,22 @@ export async function emitNfeForOrder(
   _forceNewIntent = false,
   recipientIe?: string,
   recipientIeIndicator?: '1' | '2' | '9',
-  previewOptions: { previewOnly?: boolean; previewProof?: NfeXmlPreviewProof } = {}
+  previewOptions: {
+    previewOnly?: boolean;
+    previewProof?: NfeXmlPreviewProof;
+    existingEmissionRequestId?: string;
+  } = {}
 ): Promise<NfeEmissionResult> {
   const environment: 1 | 2 = customEnvironment ?? DEFAULT_NFE_ENVIRONMENT;
   const previewOnly = previewOptions.previewOnly === true;
+  const existingEmissionRequestId = previewOptions.existingEmissionRequestId;
+  if (
+    existingEmissionRequestId !== undefined &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      existingEmissionRequestId
+    )
+  )
+    return { success: false, environment, error: 'Identificador da tentativa fiscal inválido.' };
   if (requestedNumber !== undefined && (!isFiscalNumber(requestedNumber) || retryDocumentId))
     return { success: false, environment, error: 'Informe um número de nota fiscal válido.' };
   if (!previewOnly && !retryDocumentId && environment === 1 && !productionConfirmed) {
@@ -515,11 +533,13 @@ export async function emitNfeForOrder(
           /* sem storage, a fonte pode permanecer em memória */
         }
       }
-      const emissionRequestId = hasReplacementSource
-        ? crypto.randomUUID()
-        : fiscalEmissionRequestIds.get(requestKey) ||
-          (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
-          crypto.randomUUID();
+      const emissionRequestId =
+        existingEmissionRequestId ||
+        (hasReplacementSource
+          ? crypto.randomUUID()
+          : fiscalEmissionRequestIds.get(requestKey) ||
+            (storedRequestId && /^[0-9a-f-]{36}$/i.test(storedRequestId) ? storedRequestId : null) ||
+            crypto.randomUUID());
       fiscalEmissionRequestIds.set(requestKey, emissionRequestId);
       try {
         if (typeof window !== 'undefined')

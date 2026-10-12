@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
+import { updateOrder } from '@/pages/utils/orderHistoryService';
 import {
   getFiscalIssuePresentation,
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
@@ -34,6 +35,11 @@ import {
 } from '../services/nfeReconciliationService';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
+import {
+  hasFiscalItemSnapshot,
+  hasPersistedAuthorizedInvoice,
+  ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+} from '../../../../../../../../shared-utils/orderItemFiscalSnapshot';
 
 function notifyEmissionIssue(result: NfeEmissionResult) {
   const issue = getFiscalIssuePresentation(result);
@@ -113,6 +119,8 @@ export function useNfeEmissionActions({
   const [isXmlPreviewOpen, setIsXmlPreviewOpen] = useState(false);
   const [fiscalFieldError, setFiscalFieldError] = useState<FiscalFieldError | null>(null);
   const submissionInProgress = useRef(false);
+  const lastEmissionProductionConfirmation = useRef(false);
+  const persistedLegacySnapshotOrderIds = useRef(new Set<string>());
 
   const getPreviewContextKey = (numberInput: string | null) => JSON.stringify({
     order: order
@@ -152,7 +160,8 @@ export function useNfeEmissionActions({
     isRetry = false,
     retryNumber?: number,
     freshHmlEmission = false,
-    previewOnly = false
+    previewOnly = false,
+    existingEmissionRequestId?: string
   ) => {
     if (submissionInProgress.current) {
       toast.info('Já existe uma operação fiscal em andamento. Aguarde a conclusão.');
@@ -203,12 +212,7 @@ export function useNfeEmissionActions({
       isRetry && emissionResult?.hmlConfirmedNotFound && emissionResult.documentId
         ? emissionResult.documentId
         : undefined;
-    const shouldStartFreshHmlEmission =
-      freshHmlEmission ||
-      (!previewOnly &&
-        !isRetry &&
-        hasCurrentXmlPreview &&
-        xmlPreview?.freshHmlEmission === true);
+    const shouldStartFreshHmlEmission = freshHmlEmission;
 
     const manualNumber =
       retryId || shouldStartFreshHmlEmission
@@ -258,12 +262,51 @@ export function useNfeEmissionActions({
 
     if (!validation.valid) return;
 
+    if (!previewOnly) lastEmissionProductionConfirmation.current = productionConfirmed;
     setFiscalFieldError(null);
     submissionInProgress.current = true;
     if (previewOnly) setIsPreparingPreview(true);
     else setIsSubmitting(true);
 
     try {
+      if (
+        order.id &&
+        !previewOnly &&
+        !isRetry &&
+        !persistedLegacySnapshotOrderIds.current.has(String(order.id))
+      ) {
+        if (hasPersistedAuthorizedInvoice(order)) {
+          await updateOrder(
+            order.id,
+            { items: order.items || [] },
+            order,
+            (order as Order & { updatedAt?: string }).updatedAt
+          );
+          persistedLegacySnapshotOrderIds.current.add(order.id);
+        } else {
+          let productIndex = 0;
+          let changed = false;
+          const backfilledItems = (order.items || []).map((item) => {
+            if (item.itemType === 'service') return item;
+            const emissionItem = nfeItems[productIndex++];
+            if (!emissionItem || hasFiscalItemSnapshot(item)) return item;
+            changed = true;
+            return {
+              ...item,
+              fiscal: { ...emissionItem.fiscal },
+              fiscalSnapshotVersion: ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+              ...(item.productId ? { fiscalSnapshotProductId: item.productId } : {}),
+              ...(item.variationId ? { fiscalSnapshotVariationId: item.variationId } : {}),
+            };
+          });
+          if (changed) {
+            const updatedAt = (order as Order & { updatedAt?: string }).updatedAt;
+            await updateOrder(order.id, { items: backfilledItems }, order, updatedAt);
+          }
+          persistedLegacySnapshotOrderIds.current.add(order.id);
+        }
+      }
+
       const orderWithFiscalItems: Order = {
         ...order,
         items: [
@@ -298,6 +341,7 @@ export function useNfeEmissionActions({
           {
             previewOnly,
             ...(!previewOnly && !isRetry && xmlPreview ? { previewProof: xmlPreview.proof } : {}),
+            ...(existingEmissionRequestId ? { existingEmissionRequestId } : {}),
           }
       );
 
@@ -412,6 +456,33 @@ export function useNfeEmissionActions({
     }
     if (!order) return;
     if (submissionInProgress.current) return;
+    if (
+      emissionResult?.preparationReconciled &&
+      emissionResult.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+      emissionResult.sefazContacted === false
+    ) {
+      const requestId = emissionResult.emissionRequestId;
+      if (
+        !requestId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          requestId
+        ) ||
+        emissionResult.orderId !== String(order.id) ||
+        emissionResult.environment !== environment
+      ) {
+        toast.error('Não foi possível confirmar a identidade da tentativa fiscal para retomá-la.');
+        return;
+      }
+      await handleEmit(
+        lastEmissionProductionConfirmation.current,
+        true,
+        undefined,
+        false,
+        false,
+        requestId
+      );
+      return;
+    }
     if (emissionResult?.reservationRecoveryRequired) {
       await handleEmit(false, true);
       return;
@@ -496,14 +567,14 @@ export function useNfeEmissionActions({
         setIsSubmitting(false);
       }
 
-      if (readyToEmit) await handleEmit(false, false, undefined, true, true);
+      if (readyToEmit) await handleEmit(false, false, undefined, true);
       return;
     }
 
     clearFiscalEmissionRequest(String(order.id), environment);
     setManualNumberInput(null);
     setEmissionResult(null);
-    await handleEmit(false, false, undefined, true, true);
+    await handleEmit(false, false, undefined, true);
   };
 
   const handleAbandonHmlTlsAttempt = async () => {

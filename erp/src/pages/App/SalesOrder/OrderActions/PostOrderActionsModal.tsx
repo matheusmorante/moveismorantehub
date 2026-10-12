@@ -21,6 +21,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   onClose,
   onIssueNfe,
 }) => {
+  const orderId = order.id;
   const [nfeChoiceOrder, setNfeChoiceOrder] = React.useState<Order | null>(null);
   const [chosenEnvironment, setChosenEnvironment] = React.useState<1 | 2>(1);
   const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
@@ -29,7 +30,6 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   React.useEffect(() => {
     let active = true;
-    const orderId = order?.id;
     if (!orderId) return;
     void fetchOrderFiscalBadgeStatuses([orderId])
       .then((res) => {
@@ -39,7 +39,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
     return () => {
       active = false;
     };
-  }, [order?.id]);
+  }, [orderId]);
 
   const isNfeIssued = Boolean(
     fiscalStatuses?.production === 'issued' ||
@@ -221,12 +221,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             isOpen={Boolean(nfeChoiceOrder)}
             order={nfeChoiceOrder}
             onClose={() => setNfeChoiceOrder(null)}
-            onSelectEnvironment={(env) => {
-              const currentOrder = nfeChoiceOrder;
+            onSelectEnvironment={(env, preparedOrder) => {
               setNfeChoiceOrder(null);
               setChosenEnvironment(env);
               setNfeEmissionOpenedAt(performance.now());
-              setNfeEmissionOrder(currentOrder);
+              setNfeEmissionOrder(preparedOrder);
             }}
           />
           <NfeEmissionModal

@@ -1,6 +1,6 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
-type NfeEmissionPerformanceStage = 'sefaz_transmission';
+type NfeEmissionPerformanceStage = 'normal_sale_pipeline' | 'sefaz_transmission';
 type PerformanceAttributes = Record<string, string | number | boolean | undefined>;
 
 const tracer = trace.getTracer('morante-hub', '1.0.0');

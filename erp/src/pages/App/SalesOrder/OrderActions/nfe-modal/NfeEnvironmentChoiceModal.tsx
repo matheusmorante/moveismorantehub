@@ -2,12 +2,13 @@ import React from 'react';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
 
 interface NfeEnvironmentChoiceModalProps {
   isOpen: boolean;
   order: Order | null;
   onClose: () => void;
-  onSelectEnvironment: (environment: 1 | 2) => void;
+  onSelectEnvironment: (environment: 1 | 2, preparedOrder: Order) => void;
 }
 
 export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps> = ({
@@ -17,18 +18,22 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
   onSelectEnvironment,
 }) => {
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
+  const [preparedOrder, setPreparedOrder] = React.useState<Order | null>(null);
+  const [isPreparingSnapshot, setIsPreparingSnapshot] = React.useState(false);
+  const [snapshotError, setSnapshotError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let active = true;
-    if (!isOpen || !order?.id) {
+    const orderId = order?.id;
+    if (!isOpen || !orderId) {
       setFiscalStatuses(null);
       return;
     }
 
-    fetchOrderFiscalBadgeStatuses([order.id])
+    fetchOrderFiscalBadgeStatuses([orderId])
       .then((res) => {
-        if (active && res[order.id]) {
-          setFiscalStatuses(res[order.id]);
+        if (active && res[orderId]) {
+          setFiscalStatuses(res[orderId]);
         }
       })
       .catch((err) => {
@@ -39,6 +44,49 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
       active = false;
     };
   }, [isOpen, order?.id]);
+
+  const itemSnapshotSignature = JSON.stringify(
+    (order?.items || []).map((item) => [
+      item.orderItemId,
+      item.productId,
+      item.variationId,
+      item.fiscalSnapshotVersion,
+    ])
+  );
+
+  React.useEffect(() => {
+    let active = true;
+    if (!isOpen || !order) {
+      setPreparedOrder(null);
+      setIsPreparingSnapshot(false);
+      setSnapshotError(null);
+      return;
+    }
+
+    setPreparedOrder(null);
+    setSnapshotError(null);
+    setIsPreparingSnapshot(true);
+    void prepareOrderFiscalSnapshotForEmission(order)
+      .then((prepared) => {
+        if (active) setPreparedOrder(prepared);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSnapshotError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível preparar os dados fiscais do pedido.'
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setIsPreparingSnapshot(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, order, itemSnapshotSignature]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -63,6 +111,11 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
       (order.nfeData?.environment === 1 &&
         (order.nfeData?.accessKey || order.nfeData?.protocolNumber))
   );
+  const isSnapshotReady = Boolean(preparedOrder && preparedOrder.id === order.id);
+  const cannotContinue = isPreparingSnapshot || !isSnapshotReady || Boolean(snapshotError);
+  const snapshotStatusMessage = isPreparingSnapshot
+    ? 'Preparando os dados fiscais dos itens do pedido...'
+    : snapshotError;
 
   return (
     <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4">
@@ -116,23 +169,40 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             Escolha o ambiente da SEFAZ para emissão do documento fiscal deste pedido:
           </p>
 
+          {snapshotStatusMessage && (
+            <div
+              role={snapshotError ? 'alert' : 'status'}
+              className={`rounded-xl border px-4 py-3 text-xs font-semibold ${
+                snapshotError
+                  ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300'
+                  : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300'
+              }`}
+            >
+              {isPreparingSnapshot && <i className="bi bi-arrow-repeat animate-spin mr-2" />}
+              {snapshotStatusMessage}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Opção Homologação */}
             <button
               type="button"
-              disabled={isHmlIssued}
+              disabled={isHmlIssued || cannotContinue}
               title={
                 isHmlIssued
                   ? 'Nota fiscal de homologação já emitida para este pedido.'
-                  : 'Emitir nota fiscal no ambiente de homologação (testes)'
+                  : snapshotError ||
+                    (cannotContinue
+                      ? 'Aguarde a preparação dos dados fiscais do pedido.'
+                      : 'Emitir nota fiscal no ambiente de homologação (testes)')
               }
               onClick={() => {
-                if (!isHmlIssued) {
-                  onSelectEnvironment(2);
+                if (!isHmlIssued && !cannotContinue && preparedOrder) {
+                  onSelectEnvironment(2, preparedOrder);
                 }
               }}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isHmlIssued
+                isHmlIssued || cannotContinue
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}
@@ -151,17 +221,22 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             {/* Produção abre o fluxo normal, que exige confirmação explícita antes do envio. */}
             <button
               type="button"
-              disabled={isProdIssued}
+              disabled={isProdIssued || cannotContinue}
               title={
                 isProdIssued
                   ? 'Nota fiscal de produção já emitida para este pedido.'
-                  : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.'
+                  : snapshotError ||
+                    (cannotContinue
+                      ? 'Aguarde a preparação dos dados fiscais do pedido.'
+                      : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.')
               }
               onClick={() => {
-                if (!isProdIssued) onSelectEnvironment(1);
+                if (!isProdIssued && !cannotContinue && preparedOrder) {
+                  onSelectEnvironment(1, preparedOrder);
+                }
               }}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isProdIssued
+                isProdIssued || cannotContinue
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100/80 dark:hover:bg-rose-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}

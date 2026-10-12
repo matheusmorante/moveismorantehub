@@ -8,6 +8,7 @@ import {
   stampTestArtifact,
 } from '../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+import { getRecipientTaxIdValidationMessage } from '../../../../../shared-utils/recipientTaxId';
 
 
 export type PersonMutationOptions = { deferQueryInvalidation?: boolean };
@@ -79,11 +80,21 @@ export type SavePersonOptions = PersonMutationOptions & {
   isTestArtifact?: boolean;
 };
 
+const assertCustomerTaxIdIsValid = (
+  collectionName: string,
+  person: Partial<Person>
+) => {
+  if (collectionName !== 'customers' || !person.cpfCnpj?.trim()) return;
+  const message = getRecipientTaxIdValidationMessage(person.cpfCnpj, person.personType);
+  if (message) throw new Error(message);
+};
+
 export const savePerson = async (
   collectionName: string,
   person: Person,
   options: SavePersonOptions = {}
 ): Promise<Person> => {
+  assertCustomerTaxIdIsValid(collectionName, person);
   if (options.isTestArtifact && person.id && !options.insertOnly) {
     throw new Error('O modo de teste só pode ser habilitado na criação de um novo cadastro.');
   }
@@ -115,6 +126,7 @@ export const savePeopleBatch = async (
   people: Partial<Person>[],
   options: PersonMutationOptions = {}
 ): Promise<void> => {
+  people.forEach((person) => assertCustomerTaxIdIsValid(collectionName, person));
   try {
     const dbPeople = people.map((p) => stampPersonAddress(mapToDB(collectionName, p)));
     const { error } = await supabase.from(TABLE_NAME).insert(dbPeople);

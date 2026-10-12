@@ -4,7 +4,6 @@ import type Order from '@/pages/types/order.type';
 import {
   formatRecipientTaxId,
   isValidRecipientTaxId,
-  recipientTaxIdKind,
 } from '../../../../../../../shared-utils/recipientTaxId';
 
 interface NfeCustomerTabProps {
@@ -28,9 +27,10 @@ interface NfeCustomerTabProps {
 }
 
 const maskTaxId = (value: string, personType?: 'PF' | 'PJ') => {
-  if (personType === 'PJ' || /[a-z]/i.test(value)) return formatRecipientTaxId(value, 'PJ');
-  const digits = value.replace(/\D/g, '').slice(0, 14);
-  if (digits.length > 11) {
+  if (personType === 'PJ' || (personType !== 'PF' && /[a-z]/i.test(value)))
+    return formatRecipientTaxId(value, 'PJ');
+  const digits = value.replace(/\D/g, '').slice(0, personType === 'PF' ? 11 : 14);
+  if (personType !== 'PF' && digits.length > 11) {
     if (digits.length > 12)
       return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
     if (digits.length > 8)
@@ -86,14 +86,13 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
     (customer?.personType === 'PF' || customer?.personType === 'PJ'
       ? customer.personType
       : undefined);
-  const inferredDocumentType = recipientTaxIdKind(recipientTaxId);
-  const isPJ = effectivePersonType === 'PJ' || inferredDocumentType === 'CNPJ';
-  const isPF = effectivePersonType === 'PF' || inferredDocumentType === 'CPF';
+  const isPJ = effectivePersonType === 'PJ';
+  const isPF = effectivePersonType === 'PF';
   const docLabel = effectivePersonType === 'PJ'
     ? 'CNPJ'
     : effectivePersonType === 'PF'
       ? 'CPF'
-      : documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
+      : documentType || 'CPF/CNPJ';
   const personLabel = isPJ
     ? 'Pessoa Jurídica (PJ)'
     : isPF

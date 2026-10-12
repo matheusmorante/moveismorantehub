@@ -40,7 +40,7 @@ function fixture() {
       order_items: [{ id: '550e8400-e29b-41d4-a716-446655440009', order_id: orderId, product_id: productId, variation_id: variationId, is_temporary_product: false }],
       order_payments: [{ order_id: orderId, payment_method: 'pix', amount: 25 }],
     }],
-    people: [{ id: customerId, deleted: false, address: { testArtifact: { ...metadata } } }],
+    people: [{ id: customerId, deleted: false, full_address: { testArtifact: { ...metadata } } }],
     products: [{ id: productId, deleted: false, technical_specs: { testArtifact: { ...metadata } }, combo_items: [] }],
     variations: [{ id: variationId, product_id: productId, deleted: false }],
     documents: [],
@@ -66,7 +66,7 @@ function makeClient(state = fixture()) {
       const table = args.p_table;
       let result;
       if (table === 'orders') result = row.order_data?.testArtifact;
-      if (table === 'people') result = row.address?.testArtifact;
+      if (table === 'people') result = row.full_address?.testArtifact;
       if (table === 'products') result = row.technical_specs?.testArtifact;
       if (table === 'product_variations') {
         result = state.products.find((item) => item.id === row.product_id)?.technical_specs?.testArtifact;
@@ -108,7 +108,6 @@ test('accepts a persisted, owned sale with same-run customer, product, variation
     runId,
     scenarioKey,
     ownerId,
-    orderIndex: '902001',
     customerSearchLabel: 'Destinatario HML',
     status: 'scheduled',
     deliveryMethod: 'delivery',
@@ -120,6 +119,18 @@ test('accepts a persisted, owned sale with same-run customer, product, variation
     paymentCount: 1,
     environment: 2,
   });
+});
+
+test('accepts a persisted order without an optional order index', async () => {
+  const state = fixture();
+  state.orders[0].order_index = null;
+  state.orders[0].order_number = 'LEGACY-ORDER';
+  delete state.orders[0].order_data.orderIndex;
+  delete state.orders[0].order_data.orderNumber;
+
+  const result = await loadPersistedFiscalOrder(makeClient(state), input());
+  assert.equal(result.id, orderId);
+  assert.equal(result.customerSearchLabel, 'Destinatario HML');
 });
 
 test('rejects missing authentication, wrong configured operator and insufficient permission', async () => {
@@ -152,7 +163,7 @@ test('rejects owner or run mismatches and cross-execution linked records', async
   await assert.rejects(loadPersistedFiscalOrder(makeClient(wrongRun), input()), /TEST_ARTIFACT_PRODUCT_IDENTITY_MISMATCH/);
 
   const wrongCustomer = fixture();
-  wrongCustomer.people[0].address.testArtifact = { ...metadata, runId: customerId };
+  wrongCustomer.people[0].full_address.testArtifact = { ...metadata, runId: customerId };
   await assert.rejects(loadPersistedFiscalOrder(makeClient(wrongCustomer), input()), /TEST_ARTIFACT_CUSTOMER_IDENTITY_MISMATCH/);
 
   const wrongCustomerLink = fixture();

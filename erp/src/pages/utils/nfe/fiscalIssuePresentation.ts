@@ -2,6 +2,7 @@ export type FiscalIssueTone = 'attention' | 'error' | 'info';
 
 export type FiscalIssueAction =
   | 'consult'
+  | 'resume-same-attempt'
   | 'configure-certificate'
   | 'start-fresh-hml'
   | 'retransmit-same-document'
@@ -65,6 +66,7 @@ export interface FiscalIssueResult {
   safeNewEmission?: boolean;
   numberReserved?: boolean;
   sefazContacted?: boolean;
+  preparationReconciled?: boolean;
   reservationRecoveryRequired?: boolean;
   fiscalMismatchFields?: Array<{
     field: string;
@@ -274,6 +276,28 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
       nextStep: 'Consulte a situação dessa tentativa antes de continuar.',
       action: 'consult',
     };
+  }
+
+  if (code === 'FISCAL_PREPARATION_UNCONFIRMED' && result.sefazContacted === false) {
+    return result.preparationReconciled
+      ? {
+          tone: 'attention',
+          title: 'A preparação não foi registrada',
+          description:
+            'A consulta confirmou que ainda não há documento persistido para esta tentativa e que a SEFAZ não foi contatada.',
+          nextStep:
+            'Retome a mesma tentativa. O ERP preservará o identificador original e só continuará após confirmar a gravação.',
+          action: 'resume-same-attempt',
+        }
+      : {
+          tone: 'attention',
+          title: 'A preparação da nota não foi confirmada',
+          description:
+            'O ERP não confirmou a gravação da tentativa antes de iniciar o contato com a SEFAZ.',
+          nextStep:
+            'Consulte esta tentativa pelo ERP antes de continuar. O identificador original será preservado.',
+          action: 'consult',
+        };
   }
 
   const transmissionUncertain =

@@ -2,7 +2,7 @@
 
 Este documento registra todas as integrações Cloud, APIs externas, limites de cota, modelos de faturamento e regras de segurança para manter o custo do workspace em **R$ 0,00** ou dentro dos limites estritos de segurança.
 
-**Data da última revisão:** 05/09/2026
+**Data da última revisão:** 12/10/2026
 
 ---
 
@@ -12,10 +12,10 @@ Este documento registra todas as integrações Cloud, APIs externas, limites de 
 - **Conta de Faturamento:** Ativa (Billing Account vinculada).
 - **Meta Orçamentária:** R$ 0,00 / mês (Consumo 100% dentro do Free Tier).
 
-#### APIs Ativas e Limites Físicos no Google Cloud (Daily Quotas)
+#### Serviços Google Cloud e limites registrados
 | Serviço | Identificador Técnico | Finalidade no ERP / Mobile | Limite Físico Configurado no Google Cloud | Proteção no Código |
 |---|---|---|---|---|
-| **Directions API** | `directions-backend.googleapis.com` | Cálculo de rota, distância (km) e duração para frete | **100 req / dia** (Bloqueio automático ao atingir) | Circuit Breaker (20 req/min) + Cache |
+| **Routes API (Maps JavaScript)** | `routes.googleapis.com` | Cálculo de rota, distância (km) e duração para frete | **Ativa (confirmada em 12/10/2026); quota diária personalizada não verificada** | Guard ERP (limite padrão 1.000 req/mês, bloqueio em 95%) + Circuit Breaker (20 req/min) + deduplicação simultânea |
 | **Maps JavaScript API** | `maps-backend.googleapis.com` | Carregamento da biblioteca de mapas e componentes web | **100 map loads / dia** (Bloqueio automático ao atingir) | Carregamento único singleton (`__googleMapsPromise`) |
 | **Places API** | `places-backend.googleapis.com` | Autocomplete de endereços de clientes | **100 req / dia** (Bloqueio automático ao atingir) | Debounce 600ms + Min 3 caracteres |
 | **Geocoding API** | `geocoding-backend.googleapis.com` | Resolução de coordenadas a partir de logradouro/CEP | **100 req / dia** (Bloqueio automático ao atingir) | Cache de geocodificação em memória |
@@ -29,7 +29,13 @@ As seguintes APIs foram **desabilitadas** no projeto por não serem utilizadas:
 - ❌ `distance-matrix-backend.googleapis.com` (Distance Matrix API)
 - ❌ `placewidgets.googleapis.com` (Places UI Kit)
 - ❌ `maps-embed-backend.googleapis.com` (Maps Embed API)
-- ❌ `routes.googleapis.com` (Routes API)
+
+#### Modelo de custo da Routes API
+- O código usa `Route.computeRoutes` com os campos `distanceMeters`, `durationMillis` e `path`, classificados na SKU Essentials.
+- A tabela global do Google informa 10.000 requisições mensais sem cobrança e, acima da franquia, USD 5 por 1.000 eventos na primeira faixa paga. O faturamento agrega o uso dos projetos vinculados à mesma conta de cobrança.
+- O guard interno mantém um teto conservador padrão de 1.000 requisições mensais (bloqueio a partir de 950), abaixo da franquia publicada. A documentação oficial informa limite técnico de 3.000 consultas por minuto e permite configurar quota diária no Console.
+- Para manter no máximo 70% da franquia mensal apenas com este projeto, a quota diária calculada é `floor(10.000 × 0,70 / 31) = 225` requisições/dia. O Google agrega consumo de projetos ligados à mesma conta de faturamento; reduza a quota conforme o consumo dos demais projetos.
+- A Routes API está ativa conforme confirmação do usuário pelo Console em 12/10/2026. Ainda não foram conferidas a quota diária efetiva nem as restrições da chave de navegador para domínios oficiais e APIs necessárias.
 
 ---
 

@@ -258,7 +258,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
         return res.status(result.status).json(result.body);
       }
-      const result = await emitNormalSale(supabase, command, candidate, issuerSettings, fiscalAuthorization.userId);
+      const result = await withNfeEmissionStage(
+        'normal_sale_pipeline',
+        () => emitNormalSale(supabase!, command, candidate, issuerSettings, fiscalAuthorization.userId),
+        { environment: command.environment }
+      );
       return res.status(result.status).json(result.body);
     }
 

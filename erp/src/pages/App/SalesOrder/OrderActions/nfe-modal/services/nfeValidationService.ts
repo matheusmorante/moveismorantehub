@@ -10,8 +10,7 @@ import {
 } from '../../../../../../../../shared-utils/fiscalNumbering.js';
 import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import {
-  isValidRecipientTaxId,
-  recipientTaxIdMatchesPersonType,
+  getRecipientTaxIdValidationMessage,
 } from '../../../../../../../../shared-utils/recipientTaxId';
 import {
   resolveFiscalCfopOrderScope,
@@ -66,12 +65,26 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
     Number(order.paymentsSummary?.totalOrderValue) ||
     effectiveItemsTotal + effectiveFreightTotal - effectiveDiscountTotal;
 
+  const registeredPersonType = order.customerData?.personType;
+  const hasSelectedCustomer = Boolean(order.customerData?.id || order.customerData?.fullName);
+  if (
+    hasSelectedCustomer &&
+    registeredPersonType !== 'PF' &&
+    registeredPersonType !== 'PJ'
+  ) {
+    return {
+      valid: false,
+      toastError:
+        'O tipo de pessoa do cliente não foi encontrado no cadastro. Atualize o cadastro do cliente antes de emitir a nota.',
+    };
+  }
+
   const recipientReqs = decideFiscalRecipientRequirements({
     model: currentModel,
     presence: currentPresence,
     total: effectiveInvoiceTotal,
-    personType: order.customerData?.personType,
-    recipientTaxId,
+    personType: registeredPersonType,
+    recipientTaxId: registeredPersonType ? recipientTaxId : '',
     operationScope: 'NORMAL_DOMESTIC_SALE',
   });
 
@@ -83,21 +96,23 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
   }
 
   const recipientRequired = recipientReqs.documentRequired;
-  const validForPerson =
-    isValidRecipientTaxId(recipientTaxId) &&
-    recipientTaxIdMatchesPersonType(recipientTaxId, order.customerData?.personType);
+  const recipientTaxIdValidationMessage = getRecipientTaxIdValidationMessage(
+    recipientTaxId,
+    order.customerData?.personType
+  );
+  const validForPerson = !recipientTaxIdValidationMessage;
 
   if (recipientRequired) {
     const missingMessage = recipientReqs.message || 'Documento do destinatário obrigatório.';
     if (!validForPerson) {
       const message = recipientTaxId.trim()
-        ? 'Documento inválido ou incompatível com o tipo PF/PJ do cadastro.'
+        ? recipientTaxIdValidationMessage || 'Documento do destinatário inválido.'
         : missingMessage;
       const fieldErr: FiscalFieldError = {
         tab: 'customer',
         fieldId: 'nfe-recipient-tax-id',
         message: recipientTaxId.trim()
-          ? 'Confira o documento do destinatário e o tipo PF/PJ.'
+          ? message
           : missingMessage,
       };
       return {
@@ -112,13 +127,13 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
       const fieldErr: FiscalFieldError = {
         tab: 'customer',
         fieldId: 'nfe-recipient-tax-id',
-        message: 'Confira o documento informado e o tipo PF/PJ do cadastro.',
+        message: recipientTaxIdValidationMessage || 'Documento do destinatário inválido.',
       };
       return {
         valid: false,
-        recipientTaxIdError: 'Documento inválido ou incompatível com o tipo PF/PJ do cadastro.',
+        recipientTaxIdError: recipientTaxIdValidationMessage || 'Documento do destinatário inválido.',
         fiscalFieldError: fieldErr,
-        toastError: fieldErr.message,
+        toastError: recipientTaxIdValidationMessage || fieldErr.message,
       };
     }
   }

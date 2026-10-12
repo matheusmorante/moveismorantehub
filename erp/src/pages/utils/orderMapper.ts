@@ -280,6 +280,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
   const orderDomain: Order = {
     ...rawLegacy,
     id,
+    updatedAt: row.updated_at || undefined,
     status,
     deliveryStatus: row.delivery_status || rawLegacy.deliveryStatus || null,
     deliveryArrivedAt: row.delivery_arrived_at || rawLegacy.deliveryArrivedAt || null,

@@ -31,12 +31,13 @@ describe('productFiscalDataService', () => {
       data: [
         {
           id: p1,
+          unit: 'PC',
           fiscal: { ncm: '94036000', cfop: '5102', cst: '102', origem: '0' },
           variation_details: [
             { id: 'variation-p1', fiscal: { ncm: '94039000', cfop: '5102' } },
           ],
         },
-        { id: p2, fiscal: { ncm: '94035000', cfop: '5405', cst: '500', origem: '0' } },
+        { id: p2, unit: 'CX', fiscal: { ncm: '94035000', cfop: '5405', cst: '500', origem: '0' } },
       ],
       error: null,
     });
@@ -49,13 +50,14 @@ describe('productFiscalDataService', () => {
     expect(supabase.from).toHaveBeenCalledTimes(1);
     expect(supabase.from).toHaveBeenCalledWith('products');
     expect(mockSelect).toHaveBeenCalledWith(
-      'id, fiscal, variation_details:technical_specs->variationDetails'
+      'id, unit, fiscal, variation_details:technical_specs->variationDetails'
     );
     expect(mockIn).toHaveBeenCalledWith('id', [p1, p2]);
 
     expect(result.size).toBe(2);
     expect(result.get(p1)).toEqual({
       id: p1,
+      unit: 'PC',
       ncm: '94036000',
       cest: undefined,
       cfop: '5102',
@@ -75,6 +77,7 @@ describe('productFiscalDataService', () => {
     });
     expect(result.get(p2)).toEqual({
       id: p2,
+      unit: 'CX',
       ncm: '94035000',
       cest: undefined,
       cfop: '5405',
@@ -125,8 +128,31 @@ describe('productFiscalDataService', () => {
 
     expect(supabase.from).toHaveBeenCalledTimes(2);
     expect(mockSelect).toHaveBeenCalledWith(
-      'id, fiscal, variation_details:technical_specs->variationDetails'
+      'id, unit, fiscal, variation_details:technical_specs->variationDetails'
     );
     expect(refreshed.get(productId)?.ncm).toBe('94032000');
+  });
+
+  it('reaproveita por tempo limitado os dados fiscais pré-carregados para emissão', async () => {
+    const productId = '55555555-5555-4555-8555-555555555555';
+    const mockIn = vi.fn().mockResolvedValue({
+      data: [{ id: productId, fiscal: { ncm: '94036000' } }],
+      error: null,
+    });
+    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
+    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+
+    const preloaded = await getProductsFiscalData([productId], {
+      useCache: false,
+      cacheResult: true,
+    });
+    const emissionRead = await getProductsFiscalData([productId], {
+      useCache: true,
+      maxAgeMs: 60_000,
+    });
+
+    expect(preloaded.get(productId)?.ncm).toBe('94036000');
+    expect(emissionRead.get(productId)?.ncm).toBe('94036000');
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 });

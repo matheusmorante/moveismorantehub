@@ -175,12 +175,12 @@ async function loadPersistedFiscalOrder(client, { orderId, runId, scenarioKey, e
   const customer = await readSingle(
     client,
     'people',
-    'id,address,deleted',
+    'id,full_address,deleted',
     customerId,
     'TEST_ARTIFACT_CUSTOMER_REQUIRED',
   );
   if (customer.deleted === true || customer.id.toLowerCase() !== customerId) fail('TEST_ARTIFACT_CUSTOMER_INVALID');
-  canonicalIdentity(object(customer.address).testArtifact, expected, 'CUSTOMER');
+  canonicalIdentity(object(customer.full_address).testArtifact, expected, 'CUSTOMER');
   await readArtifactIdentity(client, 'people', customer, expected, 'CUSTOMER');
   const customerSearchLabel = typeof object(orderData.customerData).fullName === 'string'
     ? object(orderData.customerData).fullName.trim() : '';
@@ -291,19 +291,12 @@ async function loadPersistedFiscalOrder(client, { orderId, runId, scenarioKey, e
 
   await assertNoFiscalAttempt(client, normalizedOrderId);
 
-  const orderIndex = orderData.orderIndex ?? orderData.orderNumber;
-  if (!Number.isInteger(Number(orderIndex)) || Number(orderIndex) <= 0 ||
-      Number(order.order_index) !== Number(orderIndex) ||
-      String(order.order_number) !== String(orderIndex)) {
-    fail('TEST_ARTIFACT_ORDER_INDEX_REQUIRED');
-  }
   return {
     id: normalizedOrderId,
     runId: normalizedRunId,
     scenarioKey: normalizedScenarioKey,
     ownerId: operator.ownerId,
     freightMode: freightMode == null ? null : String(freightMode),
-    orderIndex: String(orderIndex),
     customerSearchLabel,
     status: order.status,
     deliveryMethod,

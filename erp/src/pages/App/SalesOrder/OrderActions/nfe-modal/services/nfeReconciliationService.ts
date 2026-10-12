@@ -23,9 +23,37 @@ export async function consultSefazStatus(
   environment: 1 | 2,
   currentResult: NfeEmissionResult
 ): Promise<SefazConsultOutcome> {
-  const documentId =
-    currentResult.documentId ||
-    (await findFiscalDocumentForRequest(orderId, environment, currentResult.emissionRequestId!));
+  let documentId = currentResult.documentId;
+  if (!documentId) {
+    try {
+      documentId = await findFiscalDocumentForRequest(
+        orderId,
+        environment,
+        currentResult.emissionRequestId!
+      );
+    } catch (error) {
+      const errorCode =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: unknown }).code
+          : undefined;
+      if (
+        errorCode === 'FISCAL_REQUEST_DOCUMENT_NOT_FOUND' &&
+        currentResult.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+        currentResult.sefazContacted === false
+      ) {
+        return {
+          state: 'not_found',
+          updatedResult: {
+            pending: false,
+            preparationReconciled: true,
+            sefazContacted: false,
+            error: 'A preparação não deixou um documento persistido para esta tentativa.',
+          },
+        };
+      }
+      throw error;
+    }
+  }
 
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {

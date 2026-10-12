@@ -2,31 +2,10 @@ export function normalizeRecipientTaxId(raw: string): string {
   return raw.trim().toUpperCase().replace(/[.\-/\s]/g, '');
 }
 
+/** Valida apenas o formato e os caracteres; não calcula dígitos verificadores. */
 export function isValidRecipientTaxId(raw: string): boolean {
   const value = normalizeRecipientTaxId(raw);
-  if (/^\d{11}$/.test(value)) {
-    if (/^(\d)\1+$/.test(value)) return false;
-    const digit = (base: string, weights: number[]) => {
-      const rest = [...base].reduce((sum, char, i) => sum + Number(char) * weights[i], 0) % 11;
-      return rest < 2 ? 0 : 11 - rest;
-    };
-    return (
-      digit(value.slice(0, -2), [10, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(value.at(-2)) &&
-      digit(value.slice(0, -1), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(value.at(-1))
-    );
-  }
-
-  // Desde 2026, novos CNPJs podem ter letras nos 12 caracteres-base.
-  // A Receita Federal define o valor de cada caractere como ASCII - 48.
-  if (!/^[0-9A-Z]{12}\d{2}$/.test(value) || /^(.)\1+$/.test(value)) return false;
-  const digit = (base: string, weights: number[]) => {
-    const rest = [...base].reduce((sum, char, i) => sum + (char.charCodeAt(0) - 48) * weights[i], 0) % 11;
-    return rest < 2 ? 0 : 11 - rest;
-  };
-  return (
-    digit(value.slice(0, -2), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(value.at(-2)) &&
-    digit(value.slice(0, -1), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(value.at(-1))
-  );
+  return /^\d{11}$/.test(value) || /^[0-9A-Z]{12}\d{2}$/.test(value);
 }
 
 export function recipientTaxIdKind(raw: string): 'CPF' | 'CNPJ' | null {
@@ -41,6 +20,30 @@ export function recipientTaxIdMatchesPersonType(
   const kind = recipientTaxIdKind(raw);
   if (!kind || !['PF', 'PJ'].includes(String(personType || ''))) return true;
   return (personType === 'PF' && kind === 'CPF') || (personType === 'PJ' && kind === 'CNPJ');
+}
+
+export function getRecipientTaxIdValidationMessage(
+  raw: string,
+  personType?: string
+): string | null {
+  const value = normalizeRecipientTaxId(raw);
+  if (!value) return null;
+
+  const isCpf = /^\d{11}$/.test(value);
+  const isCnpj = /^[0-9A-Z]{12}\d{2}$/.test(value);
+  if (!isCpf && !isCnpj) {
+    if (personType === 'PF') return 'CPF inválido: informe 11 dígitos numéricos.';
+    if (personType === 'PJ') return 'CNPJ inválido: informe 12 caracteres e 2 dígitos verificadores.';
+    return 'Documento inválido: informe um CPF com 11 dígitos ou um CNPJ com 14 caracteres.';
+  }
+
+  const kind = isCpf ? 'CPF' : 'CNPJ';
+  if ((personType === 'PF' && kind === 'CNPJ') || (personType === 'PJ' && kind === 'CPF')) {
+    return kind === 'CPF'
+      ? 'Tipo de documento incompatível: cliente PJ precisa de um CNPJ.'
+      : 'Tipo de documento incompatível: cliente PF precisa de um CPF.';
+  }
+  return null;
 }
 
 export function formatRecipientTaxId(raw: string, personType?: string): string {

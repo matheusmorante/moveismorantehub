@@ -13,6 +13,7 @@ import { authorizeFiscalOperator } from './fiscalAuthorization';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { resolvePreparedItems } from './item-defaults/resolvePreparedItems';
 import { getResponsibleTechnicianConfigurationIssues } from './responsibleTechnician';
+import { hasFiscalItemSnapshot } from '../../shared-utils/orderItemFiscalSnapshot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -103,17 +104,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const productIds = Array.from(
       new Set(
         items.flatMap((item) =>
-          typeof item.productId === 'string' &&
+          !hasFiscalItemSnapshot(item) &&
+          typeof (item.productId || item.fiscalSnapshotProductId) === 'string' &&
           /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-            item.productId
+            String(item.productId || item.fiscalSnapshotProductId)
           )
-            ? [item.productId]
+            ? [String(item.productId || item.fiscalSnapshotProductId)]
             : []
         )
       )
     );
     const products = productIds.length
-      ? await db.from('products').select('id,fiscal').in('id', productIds)
+      ? await db.from('products').select('id,fiscal,unit').in('id', productIds)
       : { data: [], error: null };
     // The current schema persists fiscal data on products and order items;
     // product_variations has no fiscal column. Do not invent a storage contract.

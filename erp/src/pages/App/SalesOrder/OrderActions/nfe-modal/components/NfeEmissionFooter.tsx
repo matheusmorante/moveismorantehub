@@ -11,9 +11,7 @@ export interface NfeEmissionFooterProps {
   environment: 1 | 2;
   isNfce: boolean;
   canOperateFiscal: boolean;
-  canPreviewXml: boolean;
   isSubmitting: boolean;
-  isPreparingPreview?: boolean;
   isLoadingFiscalData: boolean;
   isLoadingCustomerType: boolean;
   isOperationIncomplete?: boolean;
@@ -22,7 +20,6 @@ export interface NfeEmissionFooterProps {
   productionConfirmed: boolean;
   onClose: () => void;
   onEmit: (productionConfirmed: boolean, isRetry: boolean) => void;
-  onPreview?: (productionConfirmed: boolean) => void;
   onPrintDanfe: () => void;
   onOpenFiscalIssue?: () => void;
   onTransmissionEnabled?: () => void;
@@ -33,9 +30,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   environment,
   isNfce,
   canOperateFiscal,
-  canPreviewXml,
   isSubmitting,
-  isPreparingPreview = false,
   isLoadingFiscalData,
   isLoadingCustomerType,
   isOperationIncomplete = false,
@@ -44,7 +39,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   productionConfirmed,
   onClose,
   onEmit,
-  onPreview,
   onPrintDanfe,
   onOpenFiscalIssue,
   onTransmissionEnabled,
@@ -64,16 +58,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     !isLoadingCustomerType &&
     !isOperationIncomplete &&
     !hasBlockingPreparationFailure;
-  const isPreviewDisabled =
-    !canOperateFiscal ||
-    isSubmitting ||
-    isPreparingPreview ||
-    isLoadingFiscalData ||
-    isLoadingCustomerType ||
-    isOperationIncomplete ||
-    hasBlockingPreparationFailure ||
-    Boolean(emissionResult?.success || emissionResult?.pending);
-
   React.useLayoutEffect(() => {
     if (isTransmissionReady && !isUnapprovedInterstateMatrix) onTransmissionEnabled?.();
   }, [isTransmissionReady, isUnapprovedInterstateMatrix, onTransmissionEnabled]);
@@ -147,23 +131,13 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
-              {canPreviewXml && onPreview && (
-                <button
-                  type="button"
-                  data-testid="nfe-preview-xml-button"
-                  onClick={() => onPreview(productionConfirmed)}
-                  disabled={isPreviewDisabled}
-                  className="px-4 py-2 rounded-xl border border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-200 text-xs font-bold transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/40 disabled:opacity-50"
-                >
-                  {isPreparingPreview ? 'Preparando prévia...' : 'Visualizar XML'}
-                </button>
-              )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"
                 onClick={() => onEmit(productionConfirmed, false)}
+                disabled={!isTransmissionReady || isUnapprovedInterstateMatrix}
                 aria-busy={isSubmitting}
-                className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>

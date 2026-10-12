@@ -55,7 +55,12 @@ const testIdentity = {
 const scheduledSale = {
   orderType: 'sale',
   status: 'scheduled',
-  items: [{ productId: '00000000-0000-0000-0000-000000000001', quantity: 1 }],
+  items: [{
+    productId: '00000000-0000-0000-0000-000000000001',
+    quantity: 1,
+    fiscalSnapshotVersion: 1,
+    fiscal: { commercialUnit: 'UN', taxableUnit: 'UN' },
+  }],
   payments: [],
 };
 
@@ -231,7 +236,10 @@ describe('cadastro de pedido com estoque atômico', () => {
 
   it('envia somente itens normais vinculados à RPC ao criar ou atender a venda', async () => {
     const items = [
-      { productId: 'normal', condition: 'novo', quantity: 1 },
+      {
+        productId: 'normal', condition: 'novo', quantity: 1,
+        fiscalSnapshotVersion: 1, fiscal: { commercialUnit: 'UN', taxableUnit: 'UN' },
+      },
       { productId: 'salvado', variationId: 'var-s', condition: 'salvado', quantity: 1 },
       { productId: 'usado', variationId: 'var-u', condition: 'usado', quantity: 1 },
     ];
@@ -249,8 +257,14 @@ describe('cadastro de pedido com estoque atômico', () => {
       undefined,
     ]);
     expect(createdItems.slice(1)).toEqual([
-      expect.objectContaining({ condition: 'salvado', isTemporaryProduct: true }),
-      expect.objectContaining({ condition: 'usado', isTemporaryProduct: true }),
+      expect.objectContaining({
+        condition: 'salvado', isTemporaryProduct: true, fiscalSnapshotVersion: 1,
+        fiscal: { commercialUnit: 'UN', taxableUnit: 'UN' },
+      }),
+      expect.objectContaining({
+        condition: 'usado', isTemporaryProduct: true, fiscalSnapshotVersion: 1,
+        fiscal: { commercialUnit: 'UN', taxableUnit: 'UN' },
+      }),
     ]);
 
     mocks.rpc.mockClear();
@@ -261,6 +275,7 @@ describe('cadastro de pedido com estoque atômico', () => {
         ...order,
         id: 'pedido-1',
         orderIndex: 123,
+        items: createdItems,
       } as any
     );
     expect(mocks.rpc.mock.calls[0][1].p_items).toEqual(createdItems);

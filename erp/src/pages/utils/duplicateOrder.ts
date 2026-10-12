@@ -25,6 +25,7 @@ export const createSalesOrderDuplicate = (order: Order): Order => {
     'movedProductIds',
     'linkedReturnMovement',
     'nfeData',
+    'nfeDraft',
     'isRegisteredInBling',
     'isStockChecked',
     'isButtonsClicked',
@@ -33,7 +34,12 @@ export const createSalesOrderDuplicate = (order: Order): Order => {
   return {
     ...source,
     status: 'draft',
-    items: (source.items || []).map((item: any) => ({ ...item })),
+    items: (source.items || []).map((item: any) => ({
+      ...item,
+      // A duplicate starts from the same sale facts, but its nested snapshot
+      // must not be shared by reference with edits to the source order.
+      fiscal: item.fiscal ? { ...item.fiscal } : item.fiscal,
+    })),
     payments: (source.payments || []).map((payment: any) => ({ ...payment })),
     customerData: source.customerData
       ? {

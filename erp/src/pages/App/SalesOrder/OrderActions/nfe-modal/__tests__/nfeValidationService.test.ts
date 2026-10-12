@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import type Order from '@/pages/types/order.type';
+
+vi.mock('@/pages/utils/settingsService', () => ({
+  getSettings: () => ({ companyUF: 'PR' }),
+}));
 
 describe('nfeValidationService', () => {
   const baseOrder: Order = {
@@ -66,6 +70,29 @@ describe('nfeValidationService', () => {
     expect(result.toastError).toBeUndefined();
   });
 
+  it('bloqueia a emissão quando o cliente selecionado não tem PF/PJ resolvido no cadastro', () => {
+    const result = validateNfeEmission({
+      order: {
+        ...baseOrder,
+        customerData: { ...baseOrder.customerData, personType: undefined },
+      },
+      currentModel: '55',
+      deliveryMethod: 'delivery',
+      recipientTaxId: '123.456.789-09',
+      nfeItems: [
+        {
+          ...(baseOrder.items[0] as any),
+          fiscal: { ncm: '12345678', cfop: '5102', cst: '102', origem: '0' },
+        },
+      ],
+      isLoadingFiscalData: false,
+      fiscalPreparationError: null,
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.toastError).toContain('tipo de pessoa do cliente não foi encontrado no cadastro');
+  });
+
   it('bloqueia emissão se o NCM for inválido (menos de 8 dígitos)', () => {
     const result = validateNfeEmission({
       order: baseOrder,
@@ -91,6 +118,21 @@ describe('nfeValidationService', () => {
     expect(result.valid).toBe(false);
     expect(result.fiscalFieldError?.fieldId).toBe('nfe-item-ncm-0');
     expect(result.toastError).toContain('deve conter exatamente 8 dígitos');
+  });
+
+  it('não rejeita CPF de tamanho correto por dígitos verificadores ou sequência repetida', () => {
+    const result = validateNfeEmission({
+      order: baseOrder,
+      currentModel: '55',
+      deliveryMethod: 'delivery',
+      recipientTaxId: '343.324.234-23',
+      nfeItems: [baseOrder.items[0] as any],
+      isLoadingFiscalData: false,
+      fiscalPreparationError: null,
+    });
+
+    expect(result.recipientTaxIdError).toBeNull();
+    expect(result.toastError ?? '').not.toContain('CPF inválido');
   });
 
   it('bloqueia emissão se estiver aguardando preparação fiscal dos itens', () => {

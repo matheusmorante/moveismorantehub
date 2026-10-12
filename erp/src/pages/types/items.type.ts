@@ -26,6 +26,11 @@ export type Item = {
   condition?: 'novo' | 'usado' | 'salvado' | '';
   deliveryMethod?: 'delivery' | 'pickup';
   itemType?: 'product' | 'service';
+  /** Versioned, immutable item-level copy of the product facts used by this order. */
+  fiscalSnapshotVersion?: 1;
+  /** Catalog references retained even for non-stock items whose productId is intentionally empty. */
+  fiscalSnapshotProductId?: string;
+  fiscalSnapshotVariationId?: string;
   fiscal?: FiscalInfo;
   isCombo?: boolean;
   isComboItem?: boolean;

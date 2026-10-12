@@ -25,6 +25,7 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
   env.VERCEL_PROJECT_ID = link.projectId;
   env.VERCEL_ORG_ID = link.orgId;
   if (name === 'development-operator-preflight' || name === 'development-guard-readiness' ||
+      name === 'development-fiscal-artifact-preflight' ||
       name === 'development-test-artifact-postgrest-readonly') {
     env.VERCEL_ENV = 'development';
     env.MORANTE_ENV_SOURCE = 'vercel-development';
@@ -60,6 +61,14 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
           rpcReachable:records[0].rpcReachable,policyStatusValid:records[0].policyStatusValid,
           ready:records[0].ready,policyVersion:records[0].policyVersion,
           behavioralProofRequired:records[0].behavioralProofRequired} : {}),
+        ...(args[0]==='artifact-resolve' && records[0] ? {projectMatches:records[0].projectMatches,
+          vercelDevelopment:records[0].vercelDevelopment,environment:records[0].environment,
+          authenticated:records[0].authenticated,
+          authenticatedIdentityMatches:records[0].authenticatedIdentityMatches,
+          administratorCheckOk:records[0].administratorCheckOk,artifactValid:records[0].artifactValid,
+          scenarioKey:records[0].scenarioKey,deliveryMethod:records[0].deliveryMethod,
+          status:records[0].status,itemCount:records[0].itemCount,paymentCount:records[0].paymentCount,
+          errorCode:records[0].errorCode} : {}),
         ...(args[0]==='artifact-reads' && records[0] ? {projectRef:records[0].projectRef,
           environment:records[0].environment,authenticated:records[0].authenticated,
           authenticatedIdentityMatches:records[0].authenticatedIdentityMatches,
@@ -72,7 +81,7 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
           contradictoryTestCount:records[0].contradictoryTestCount,
           limitedRowsReturned:records[0].limitedRowsReturned,limitedLeakCount:records[0].limitedLeakCount,
           queriesValid:records[0].queriesValid} : {}),
-        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' && args[0]!=='artifact-reads' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
+        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' && args[0]!=='artifact-reads' && args[0]!=='artifact-resolve' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
       }));
       resolve(result);
     });
@@ -87,6 +96,15 @@ async function main() {
   else if (mode === 'operational') await capture('development',['operational'],`operational-${process.argv[3] === 'after' ? 'after' : 'before'}`);
   else if (mode === 'operator') await capture('development',['operator'],'development-operator-preflight');
   else if (mode === 'policy-status') await capture('development',['policy-status'],'development-guard-readiness');
+  else if (mode === 'artifact-resolve') {
+    const [runId,orderId,scenarioKey] = process.argv.slice(3);
+    if (![runId,orderId].every(value => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')) ||
+        !['nfe55_sale','nfe55_delivery_own_transport','nfce65_pickup','nfce65_delivery'].includes((scenarioKey || '').toLowerCase())) {
+      throw new Error('FISCAL_ARTIFACT_PARAMETERS_INVALID');
+    }
+    await capture('development',['artifact-resolve',runId.toLowerCase(),orderId.toLowerCase(),scenarioKey.toLowerCase()],
+      'development-fiscal-artifact-preflight');
+  }
   else if (mode === 'artifact-reads') await capture('development',['artifact-reads'],'development-test-artifact-postgrest-readonly');
   else if (mode === 'envs') for (const environment of ['development','preview','production']) await capture(environment,['env',environment],`${environment}-env`);
   else if (mode === 'tls') {

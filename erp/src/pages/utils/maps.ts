@@ -76,7 +76,7 @@ const loadGoogleMapsApi = async (apiKey?: string): Promise<void> => {
   if (
     (window as any).google?.maps?.places &&
     (window as any).google?.maps?.Geocoder &&
-    (window as any).google?.maps?.DirectionsService
+    typeof (window as any).google?.maps?.importLibrary === 'function'
   ) {
     return Promise.resolve();
   }
@@ -94,7 +94,7 @@ const loadGoogleMapsApi = async (apiKey?: string): Promise<void> => {
     script.defer = true;
     script.onload = () => {
       const googleMaps = (window as any).google?.maps;
-      if (googleMaps?.places && googleMaps?.Geocoder && googleMaps?.DirectionsService) {
+      if (googleMaps?.places && googleMaps?.Geocoder && typeof googleMaps?.importLibrary === 'function') {
         resolve();
         return;
       }
@@ -126,13 +126,52 @@ export interface GeocodeResponse {
 }
 
 const geocodeCache = new Map<string, GeocodeResponse>();
+const geocodeRequests = new Map<
+  string,
+  { promise: Promise<GeocodeResponse | null>; failureReason: string }
+>();
+
+const getGeocodeRequestKey = (address: any): string => {
+  if (typeof address === 'string') {
+    return address.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  }
+  if (!address) return '';
+
+  const mapsUrl = address.mapsUrl || address.googleMapsUrl || address.mapsLink || '';
+  if (
+    ![mapsUrl, address.street, address.number, address.neighborhood, address.city, address.cep].some(
+      (value) => String(value || '').trim()
+    )
+  ) {
+    return '';
+  }
+
+  return [
+    String(mapsUrl).trim(),
+    address.street,
+    address.number,
+    address.neighborhood,
+    address.city,
+    address.state || 'PR',
+    address.cep,
+  ]
+    .map((value, index) =>
+      index === 0
+        ? String(value || '').trim()
+        : String(value || '')
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLocaleLowerCase()
+    )
+    .join('|');
+};
 
 const isGoogleQuotaError = (status: unknown) => {
   const normalized = String(status || '').toUpperCase();
   return normalized.includes('OVER_QUERY_LIMIT') || normalized.includes('OVER_DAILY_LIMIT');
 };
 
-export const geocodeAddress = async (
+const geocodeAddressUncached = async (
   address: CustomerData['fullAddress'] | string | any,
   onFailure?: (reason: string) => void
 ): Promise<GeocodeResponse | null> => {
@@ -303,83 +342,133 @@ export const geocodeAddress = async (
   return null;
 };
 
-// ─── Calculate Route via Google Maps (Exclusivo) ──────────────────────────────
+export const geocodeAddress = async (
+  address: CustomerData['fullAddress'] | string | any,
+  onFailure?: (reason: string) => void
+): Promise<GeocodeResponse | null> => {
+  const requestKey = getGeocodeRequestKey(address);
+  if (!requestKey) return geocodeAddressUncached(address, onFailure);
+
+  const existingRequest = geocodeRequests.get(requestKey);
+  if (existingRequest) {
+    const result = await existingRequest.promise;
+    if (!result && existingRequest.failureReason) onFailure?.(existingRequest.failureReason);
+    return result;
+  }
+
+  const request = { promise: Promise.resolve<GeocodeResponse | null>(null), failureReason: '' };
+  request.promise = geocodeAddressUncached(address, (reason) => {
+    request.failureReason = reason;
+    onFailure?.(reason);
+  });
+  geocodeRequests.set(requestKey, request);
+
+  try {
+    return await request.promise;
+  } finally {
+    if (geocodeRequests.get(requestKey) === request) geocodeRequests.delete(requestKey);
+  }
+};
+
+// ─── Calculate Route via Google Routes API (Exclusivo) ────────────────────────
+
+type GoogleRouteResult = { distanceKm: number; durationMinutes: number; geometry: any };
+// Compartilha somente a chamada em andamento; resultados de rota não ficam armazenados.
+const routeRequests = new Map<string, Promise<GoogleRouteResult | null>>();
 
 export const calculateRouteViaGoogleMaps = async (
   origin: [number, number],
   destination: [number, number],
   apiKey?: string,
   onFailure?: (reason: string) => void
-): Promise<{ distanceKm: number; durationMinutes: number; geometry: any } | null> => {
-  const key = getEffectiveGoogleMapsApiKey(apiKey);
-  const guard = await ApiUsageGuard.check('google_routes');
-  if (!guard.allowed) {
-    console.warn(`[ApiUsageGuard] Cálculo de rota bloqueado: ${guard.reason}`);
-    onFailure?.(`O cálculo da rota foi bloqueado: ${guard.reason}`);
-    return null;
-  }
+): Promise<GoogleRouteResult | null> => {
+  const routeKey = [...origin, ...destination].map((coordinate) => String(Number(coordinate))).join('|');
+  const existingRequest = routeRequests.get(routeKey);
+  if (existingRequest) return existingRequest;
 
-  const startTime = Date.now();
-  try {
-    await loadGoogleMapsApi(key);
-    const directionsService = new (window as any).google.maps.DirectionsService();
-    const request = {
-      origin: { lat: origin[1], lng: origin[0] },
-      destination: { lat: destination[1], lng: destination[0] },
-      travelMode: (window as any).google.maps.TravelMode.DRIVING,
-      region: 'br',
-      language: 'pt-BR',
-    };
-    const r: any = await new Promise((resolve, reject) => {
-      directionsService.route(request, (result: any, status: any) => {
-        if (status === 'OK') resolve(result);
-        else reject(new Error(`Google Directions: ${status}`));
-      });
-    });
+  const request = (async () => {
+    const key = getEffectiveGoogleMapsApiKey(apiKey);
+    const guard = await ApiUsageGuard.check('google_routes');
+    if (!guard.allowed) {
+      console.warn(`[ApiUsageGuard] Cálculo de rota bloqueado: ${guard.reason}`);
+      onFailure?.(`O cálculo da rota foi bloqueado: ${guard.reason}`);
+      return null;
+    }
 
-    if (r.routes && r.routes.length > 0) {
-      const route = r.routes[0];
-      const leg = route.legs[0];
-      const distanceKm = Number((leg.distance.value / 1000).toFixed(1));
-      const durationMinutes = Math.ceil(leg.duration.value / 60);
+    const startTime = Date.now();
+    try {
+      await loadGoogleMapsApi(key);
+      const googleMaps = (window as any).google.maps;
+      const { Route } = await googleMaps.importLibrary('routes');
+      const routeRequest = {
+        origin: { lat: origin[1], lng: origin[0] },
+        destination: { lat: destination[1], lng: destination[0] },
+        travelMode: 'DRIVING',
+        region: 'br',
+        fields: ['distanceMeters', 'durationMillis', 'path'],
+      };
+      const { routes } = await Route.computeRoutes(routeRequest);
 
+      if (routes?.length) {
+        const route = routes[0];
+        const distanceMeters = Number(route.distanceMeters);
+        const durationMillis = Number(route.durationMillis);
+        const path = Array.isArray(route.path) ? route.path : [];
+        if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationMillis) || !path.length) {
+          throw new Error('Google Routes API retornou uma rota sem distância, duração ou caminho.');
+        }
+        const distanceKm = Number((distanceMeters / 1000).toFixed(1));
+        const durationMinutes = Math.ceil(durationMillis / 60_000);
+
+        ApiUsageTracker.record({
+          provider: 'google',
+          service: 'google_routes',
+          operation: 'compute_routes',
+          units: 1,
+          status: 'SUCCESS',
+          response_time_ms: Date.now() - startTime,
+          module_source: 'logistics',
+        });
+
+        return {
+          distanceKm,
+          durationMinutes,
+          geometry: {
+            type: 'LineString',
+            coordinates: path.map((point: any) => [
+              typeof point.lng === 'function' ? point.lng() : point.lng,
+              typeof point.lat === 'function' ? point.lat() : point.lat,
+            ]),
+          },
+        };
+      }
+      throw new Error('Google Routes API não encontrou uma rota dirigível.');
+    } catch (e) {
+      onFailure?.(`O Google Routes API recusou ou não encontrou uma rota dirigível: ${String(e)}`);
+      console.error(
+        'Google Routes API error. Verifique se Routes API está habilitada, se a chave permite este domínio e se o faturamento do projeto está ativo:',
+        e
+      );
       ApiUsageTracker.record({
         provider: 'google',
         service: 'google_routes',
-        operation: 'directions_route',
+        operation: 'compute_routes',
         units: 1,
-        status: 'SUCCESS',
+        status: 'ERROR',
         response_time_ms: Date.now() - startTime,
         module_source: 'logistics',
+        error_message: String(e),
       });
-
-      return {
-        distanceKm,
-        durationMinutes,
-        geometry: {
-          type: 'LineString',
-          coordinates: route.overview_path.map((p: any) => [p.lng(), p.lat()]),
-        },
-      };
     }
-  } catch (e) {
-    onFailure?.(`O Google Maps recusou ou não encontrou uma rota dirigível: ${String(e)}`);
-    console.error(
-      'Google Directions API error. Verifique se Directions API está habilitada, se a chave permite este domínio e se o faturamento do projeto está ativo:',
-      e
-    );
-    ApiUsageTracker.record({
-      provider: 'google',
-      service: 'google_routes',
-      operation: 'directions_route',
-      units: 1,
-      status: 'ERROR',
-      response_time_ms: Date.now() - startTime,
-      module_source: 'logistics',
-      error_message: String(e),
-    });
+    return null;
+  })();
+
+  routeRequests.set(routeKey, request);
+  try {
+    return await request;
+  } finally {
+    if (routeRequests.get(routeKey) === request) routeRequests.delete(routeKey);
   }
-  return null;
 };
 
 // ─── Public: Auto-calculate route distance (Exclusivo Google Maps) ───────────
@@ -434,7 +523,7 @@ export const autoCalculateRouteDistance = async (
     const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, apiKey, onFailure);
     if (!routeData) {
       console.warn(
-        '[autoCalculateRouteDistance] DirectionsService não encontrou rota viável para as coordenadas:',
+        '[autoCalculateRouteDistance] Routes API não encontrou rota viável para as coordenadas:',
         destCoords
       );
       return null;

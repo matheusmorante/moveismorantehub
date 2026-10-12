@@ -13,6 +13,8 @@ import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { assertOwnedByTestContext, getTestArtifactContext, stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
+import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
+import type { OrderUpdateOptions } from './orderMutationTypes';
 
 const TABLE_NAME = 'orders';
 
@@ -23,7 +25,8 @@ export const executeUpdateOrder = async (
   id: string,
   orderToUpdate: Partial<Order>,
   currentOrder?: Order,
-  expectedUpdatedAt?: string
+  expectedUpdatedAt?: string,
+  options: OrderUpdateOptions = {}
 ): Promise<void> => {
   try {
     let merged: any;
@@ -80,13 +83,24 @@ export const executeUpdateOrder = async (
     if (existingCode) {
       merged.orderIndex = existingCode;
       merged.orderNumber = existingCode;
-    } else {
+    } else if (!options.metadataOnly) {
       const newIndex = await getNextOrderIndex();
       merged.orderIndex = newIndex;
       merged.orderNumber = newIndex;
     }
 
-    merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
+    if (!options.metadataOnly) {
+      merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
+    }
+    if (
+      !options.metadataOnly &&
+      ['draft', 'scheduled'].includes(previousOrderData?.status) &&
+      ['draft', 'scheduled'].includes(merged.status) &&
+      Object.hasOwn(cleanUpdates, 'items') &&
+      Array.isArray(merged.items)
+    ) {
+      merged.items = await ensureOrderItemsHaveFiscalSnapshots(merged.items, merged.nfeData);
+    }
     if (merged.id) delete merged.id;
 
     // 2. Validação da transição de status
@@ -104,11 +118,10 @@ export const executeUpdateOrder = async (
       throw new Error(validation.reason);
     }
     // 3. Garantir cliente no CRM
-    const customerId = merged.is_test ? merged.customerData?.id : await ensureCustomerInCrm(
-      merged.customerData,
-      merged.marketingOrigin,
-      false
-    );
+    const customerId =
+      options.metadataOnly || merged.is_test
+        ? merged.customerData?.id
+        : await ensureCustomerInCrm(merged.customerData, merged.marketingOrigin, false);
     if (merged.is_test && !customerId) {
       throw new Error('Pedido de teste exige um cliente identificado da própria execução.');
     }
@@ -150,6 +163,7 @@ export const executeUpdateOrder = async (
     const oldStatus = previousStatus;
     const newStatus = orderToUpdate.status || merged.status || oldStatus;
     if (
+      !options.metadataOnly &&
       !isIdentifiedTestArtifact(previousOrderData) &&
       !isIdentifiedTestArtifact(merged)
     ) {
@@ -157,7 +171,7 @@ export const executeUpdateOrder = async (
     }
 
     // 6. Sincronização em background do cliente no CRM
-    if (!merged.is_test) syncCustomerToCrmBackground(
+    if (!options.metadataOnly && !merged.is_test) syncCustomerToCrmBackground(
       merged.customerData?.id,
       merged.customerData?.phone,
       merged.marketingOrigin

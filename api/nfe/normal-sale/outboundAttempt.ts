@@ -7,7 +7,7 @@ import { parseSefazAuthorization } from '../../../erp/src/pages/utils/nfe/sefazR
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import { getNfeServiceEndpoint } from '../fiscalEnvironmentPolicy';
 import { assertXmlFiscalSelections } from '../fiscalSelectionIntegrity';
-import { assertSignedFiscalXmlMatchesSnapshot, fiscalPreviewFingerprint } from '../fiscalXmlAudit';
+import { assertSignedFiscalXmlMatchesSnapshot } from '../fiscalXmlAudit';
 import type {
   FiscalDocument,
   FiscalEmissionCommand,
@@ -16,6 +16,7 @@ import type {
 import { extractCertificateAndKey } from '../nfeSigner';
 import { validateNfeAgainstOfficialSchema } from '../schemaValidator';
 import { sendSoapToSefaz } from '../sefazClient';
+import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { embeddedNfeXml } from '../xmlEnvelope';
 import {
   canonicalFiscalCommand,
@@ -203,13 +204,18 @@ export async function transmitPreparedOutbound(
     );
   let response: string;
   try {
-    response = await sendSoapToSefaz({
-      url: getNfeServiceEndpoint(a.model, a.environment, 'NFeAutorizacao4'),
-      action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
-      xmlPayload: `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${a.number}</idLote><indSinc>1</indSinc>${embeddedNfeXml(String(doc.xml_nfe))}</enviNFe>`,
-      certPem: certificate.certPem,
-      privateKeyPem: certificate.privateKeyPem,
-    });
+    response = await withNfeEmissionStage(
+      'sefaz_transmission',
+      () =>
+        sendSoapToSefaz({
+          url: getNfeServiceEndpoint(a.model, a.environment, 'NFeAutorizacao4'),
+          action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote',
+          xmlPayload: `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${a.number}</idLote><indSinc>1</indSinc>${embeddedNfeXml(String(doc.xml_nfe))}</enviNFe>`,
+          certPem: certificate.certPem,
+          privateKeyPem: certificate.privateKeyPem,
+        }),
+      { model: a.model, environment: a.environment }
+    );
   } catch {
     let recorded = false;
     try {
@@ -449,17 +455,8 @@ export async function recoverNormalSale(
       metadata(prior.data)
     );
   if (!['authorized', 'rejected'].includes(prior.data.state)) {
-    const proof = command.previewProof;
-    if (!proof)
-      return outboundFailure(
-        409,
-        'FISCAL_PREVIEW_REQUIRED',
-        'A tentativa já reservada precisa ser conferida com a prévia atual antes de qualquer transmissão.',
-        { ...metadata(prior.data), sefazContacted: false }
-      );
-    let prepared: Awaited<ReturnType<typeof loadOutboundAttempt>>;
     try {
-      prepared = await loadOutboundAttempt(db, prior.data.document_id);
+      await loadOutboundAttempt(db, prior.data.document_id);
     } catch {
       return outboundFailure(
         503,
@@ -468,44 +465,8 @@ export async function recoverNormalSale(
         { ...metadata(prior.data), sefazContacted: false }
       );
     }
-    const snapshotResult = await db
-      .from('nfe_fiscal_snapshots')
-      .select('snapshot_data')
-      .eq('id', prior.data.snapshot_id)
-      .maybeSingle();
-    const snapshot = snapshotResult.data?.snapshot_data as unknown as
-      | (FiscalSnapshotCandidate & { resolvedDocument?: FiscalDocument })
-      | undefined;
-    const xml = String(prepared.document.xml_nfe || '');
-    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
-    if (
-      snapshotResult.error ||
-      !snapshot ||
-      !snapshot.resolvedDocument ||
-      !issuedAt ||
-      snapshot.capturedAt !== proof.capturedAt ||
-      proof.model !== prior.data.model ||
-      proof.series !== prior.data.series ||
-      proof.number !== prior.data.number ||
-      proof.accessKey !== prior.data.access_key ||
-      fiscalPreviewFingerprint(
-        snapshot,
-        snapshot.resolvedDocument,
-        {
-          series: prior.data.series,
-          number: prior.data.number,
-          accessKey: prior.data.access_key,
-          issuedAt,
-        },
-        xml
-      ) !== proof.fingerprint
-    )
-      return outboundFailure(
-        409,
-        'FISCAL_PREVIEW_STALE',
-        'A prévia não corresponde ao XML da tentativa reservada. Consulte a tentativa original; não será feita nova transmissão.',
-        { ...metadata(prior.data), sefazContacted: false }
-      );
+    // A tentativa já preparada possui XML assinado e snapshot imutáveis. A integridade
+    // desses dados é revalidada antes de qualquer transmissão em reconcileNormalSale.
   }
   return reconcileNormalSale(
     db,

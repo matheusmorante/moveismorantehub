@@ -16,7 +16,6 @@ const { loadPersistedFiscalOrder } = require('../../../../scripts/testing/fiscal
     expectedEmail: string;
   }) => Promise<{
     id: string;
-    orderIndex: string;
     customerSearchLabel: string;
     scenarioKey: string;
     deliveryMethod: 'delivery' | 'pickup';
@@ -112,7 +111,6 @@ export default async function fiscalPolicyGlobalSetup(_config: FullConfig): Prom
 
   const artifact = await loadPersistedFiscalOrder(operator, { orderId, runId, scenarioKey, expectedEmail: operatorEmail });
   process.env.FISCAL_E2E_SELECTED_ORDER_ID = artifact.id;
-  process.env.FISCAL_E2E_SELECTED_ORDER_INDEX = artifact.orderIndex;
   process.env.FISCAL_E2E_CUSTOMER_SEARCH_LABEL = artifact.customerSearchLabel;
   process.env.FISCAL_E2E_SELECTED_SCENARIO_KEY = artifact.scenarioKey;
   process.env.FISCAL_E2E_SELECTED_DELIVERY_METHOD = artifact.deliveryMethod;

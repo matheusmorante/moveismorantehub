@@ -9,6 +9,7 @@ import {
 } from '@/pages/utils/nfe/orderEditFiscalService';
 import NfeOperationDraftModal from '../../FiscalDocuments/modals/NfeOperationDraftModal';
 import NfeEmissionModal from '../OrderActions/NfeEmissionModal';
+import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
 
 type Props = {
   order: Order;
@@ -86,7 +87,18 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
                   <button type="button" disabled={busy} className={buttonClass} onClick={() => void run(() => consultOrderEditOriginal(row.sourceDocument.id))}>Consultar cancelamento na SEFAZ</button>
                 )}
                 {!awaitingEdit && row.reversalConfirmed && (
-                  <button type="button" disabled={busy} className={buttonClass} onClick={() => setEmission(row)}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() =>
+                      void run(async () => {
+                        const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order);
+                        setOrder(preparedOrder);
+                        setEmission(row);
+                      })
+                    }
+                  >
                     {row.replacementDocumentId ? 'Retomar nova emissão' : 'Conferir e emitir nova nota'}
                   </button>
                 )}

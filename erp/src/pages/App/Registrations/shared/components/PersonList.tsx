@@ -5,6 +5,13 @@ import Person, { PersonVisibilitySettings } from '../../../../types/person.type'
 import ConfirmModal from '@/components/shared/ConfirmModal';
 import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import type { CustomerOrderCountRow } from '../customerOrderCounts';
+import {
+  buildCustomerOrderMatchFilter,
+  calculateCustomerOrderCounts,
+  CUSTOMER_ORDER_PAGE_SIZE,
+  fetchPaginatedRows,
+} from '../customerOrderCounts';
 
 interface PersonListProps {
   onEdit: (person: Person) => void;
@@ -81,6 +88,8 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
     );
 
     useEffect(() => {
+      let active = true;
+
       if (collectionName === 'suppliers') {
         const loadSupplierProductCounts = async () => {
           const { data, error } = await supabase
@@ -105,50 +114,47 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
               counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1;
             });
           });
-          setSupplierProductCounts(counts);
+          if (active) setSupplierProductCounts(counts);
         };
-        loadSupplierProductCounts();
+        void loadSupplierProductCounts();
       }
 
       if (collectionName === 'customers') {
         const loadCustomerOrderCounts = async () => {
-          const { data, error } = await supabase
-            .from('orders')
-            .select('id, customer_id, customer_name')
-            .or('deleted.is.null,deleted.eq.false');
-          if (error || !data) return;
+          const customerFilter = buildCustomerOrderMatchFilter(people);
+          if (!customerFilter) {
+            if (active) setCustomerOrderCounts({});
+            return;
+          }
 
-          // Indexa pessoas por id e por nome minúsculo para busca O(1)
-          const personById = new Map<string, string>();
-          const personByName = new Map<string, string>();
-          people.forEach((p) => {
-            const pid = String(p.id);
-            personById.set(pid, pid);
-            if (p.fullName) {
-              personByName.set(p.fullName.trim().toLowerCase(), pid);
-            }
-          });
+          const rows = await fetchPaginatedRows<CustomerOrderCountRow>(
+            async (from, to) => {
+              const { data, error } = await supabase
+                .from('orders')
+                .select('id, customer_id, customer_name')
+                .or(customerFilter)
+                .order('id', { ascending: true })
+                .range(from, to);
+              return { data, error };
+            },
+            CUSTOMER_ORDER_PAGE_SIZE,
+            () => active
+          );
 
-          const counts: Record<string, number> = {};
-          data.forEach((row: any) => {
-            const cId = row.customer_id ? String(row.customer_id) : undefined;
-            const cName = row.customer_name ? row.customer_name.trim().toLowerCase() : undefined;
-
-            let matchedId: string | undefined = undefined;
-            if (cId && personById.has(cId)) {
-              matchedId = cId;
-            } else if (cName && personByName.has(cName)) {
-              matchedId = personByName.get(cName);
-            }
-
-            if (matchedId) {
-              counts[matchedId] = (counts[matchedId] || 0) + 1;
-            }
-          });
-          setCustomerOrderCounts(counts);
+          if (!active) return;
+          if (!rows) {
+            console.error('Não foi possível carregar os pedidos dos clientes.');
+            setCustomerOrderCounts({});
+            return;
+          }
+          setCustomerOrderCounts(calculateCustomerOrderCounts(people, rows));
         };
-        loadCustomerOrderCounts();
+        void loadCustomerOrderCounts();
       }
+
+      return () => {
+        active = false;
+      };
     }, [collectionName, people]);
 
     // Auto-scroll to top when page changes

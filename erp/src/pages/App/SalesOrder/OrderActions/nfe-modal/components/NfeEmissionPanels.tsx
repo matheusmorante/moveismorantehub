@@ -34,6 +34,7 @@ export interface NfeEmissionPanelsProps {
   setRetryNumber: (val: string) => void;
   handleEmit: (productionConfirmed?: boolean, isRetry?: boolean, retryNumber?: number) => void;
   canOperateFiscal: boolean;
+  isLoadingCustomerType: boolean;
   isLoadingFiscalData: boolean;
   isLoadingNfeNumber: boolean;
   handleReconcile: () => void;
@@ -93,6 +94,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   setRetryNumber,
   handleEmit,
   canOperateFiscal,
+  isLoadingCustomerType,
   isLoadingFiscalData,
   isLoadingNfeNumber,
   handleReconcile,
@@ -192,7 +194,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             onRecipientTaxIdBlur={handleSaveDraft}
             recipientTaxIdError={recipientTaxIdError}
             recipientTaxIdInputRef={recipientTaxIdInput}
-            disabled={isSubmitting || isLocked}
+            disabled={isSubmitting || isLocked || isLoadingCustomerType}
             documentType={recipientRequirements.documentType}
             requirementMessage={recipientRequirements.message}
             recipientIe={recipientIe}

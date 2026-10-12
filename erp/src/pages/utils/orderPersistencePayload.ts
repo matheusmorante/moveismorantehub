@@ -49,6 +49,7 @@ export const buildOrderPersistencePayload = (order: Order) => {
 
   // Normalização segura de order.date caso venha no formato brasileiro
   const sanitizedOrder = { ...order };
+  delete sanitizedOrder.updatedAt;
   if (sanitizedOrder.date && /^\d{2}\/\d{2}\/\d{4}/.test(sanitizedOrder.date)) {
     const [d, m, y] = sanitizedOrder.date.slice(0, 10).split('/');
     sanitizedOrder.date = `${y}-${m}-${d}T12:00:00.000Z`;

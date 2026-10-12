@@ -4,6 +4,7 @@ import { type HmlCsosnConfiguration, resolveItemCsosn } from '../csosnPolicy';
 type FiscalProduct = {
   id: string;
   fiscal: Record<string, unknown> | null;
+  unit?: string | null;
 };
 
 type OrderItem = Record<string, unknown>;
@@ -33,12 +34,12 @@ export function resolvePreparedItems(params: {
   return items.map((item, index) => {
     const itemId = typeof item.productId === 'string' ? item.productId : '';
     const product = productsById.get(itemId);
-    const catalogCst = product?.fiscal?.cst;
-    const catalogCfop = product?.fiscal?.cfop;
     const itemFiscal =
       item.fiscal && typeof item.fiscal === 'object' && !Array.isArray(item.fiscal)
         ? (item.fiscal as Record<string, unknown>)
         : {};
+    const catalogCst = product?.fiscal?.cst;
+    const catalogCfop = product?.fiscal?.cfop;
     const savedCfop = typeof itemFiscal.cfop === 'string' ? itemFiscal.cfop : undefined;
     const sourceCfop = savedCfop || (typeof catalogCfop === 'string' ? catalogCfop : undefined);
     const sourceDefinition = getCfopDefinition(sourceCfop || '');
@@ -60,8 +61,13 @@ export function resolvePreparedItems(params: {
         isSt:
           catalogCst === '500' ||
           itemFiscal.cst === '500' ||
+          itemFiscal.hasSt === true ||
+          itemFiscal.isSt === true ||
           sourceDefinition?.stApplicability === 'required',
-        isOwnProduction: sourceDefinition?.merchandiseOrigin === 'own_production',
+        isOwnProduction:
+          itemFiscal.isOwnProduction === true ||
+          itemFiscal.merchandiseOrigin === 'own_production' ||
+          sourceDefinition?.merchandiseOrigin === 'own_production',
         recipientIeIndicator,
         finalConsumer,
       });
@@ -77,9 +83,22 @@ export function resolvePreparedItems(params: {
         configuration,
         environment: 2,
         issuerCrt,
-        catalog: typeof catalogCst === 'string' ? catalogCst : undefined,
+        catalog:
+          typeof itemFiscal.cst === 'string'
+            ? itemFiscal.cst
+            : typeof catalogCst === 'string'
+              ? catalogCst
+              : undefined,
       }),
       ...(cfop ? { cfop, cfopSource } : {}),
+      ...(typeof itemFiscal.commercialUnit === 'string' || typeof product?.unit === 'string'
+        ? { commercialUnit: String(itemFiscal.commercialUnit || product?.unit) }
+        : {}),
+      ...(typeof itemFiscal.taxableUnit === 'string' ||
+      typeof itemFiscal.commercialUnit === 'string' ||
+      typeof product?.unit === 'string'
+        ? { taxableUnit: String(itemFiscal.taxableUnit || itemFiscal.commercialUnit || product?.unit) }
+        : {}),
     };
   });
 }

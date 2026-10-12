@@ -15,6 +15,8 @@ export interface NfeItemFiscal {
   ncm: string;
   ncmDescription?: string;
   cest?: string;
+  commercialUnit?: string;
+  taxableUnit?: string;
   cfop: string;
   cst: string;
   csosnSource?: string;

@@ -28,6 +28,57 @@ describe('personFormValidation com Zod schema', () => {
     expect(getPersonFormValidationError(validClient, 'customers')).toBeNull();
   });
 
+  it('aceita CPF com qualquer dígito verificador ou sequência repetida, mantendo o formato', () => {
+    const client: Partial<Person> = {
+      fullName: 'Cliente com CPF inválido',
+      personType: 'PF',
+      cpfCnpj: '333.333.333-33',
+      marketingOrigin: 'organic',
+      fullAddress: {
+        cep: '80000000',
+        street: 'Rua das Flores',
+        number: '10',
+        neighborhood: 'Centro',
+        city: 'Curitiba',
+        state: 'PR',
+        complement: '',
+        observation: '',
+      },
+    };
+
+    expect(getPersonFormValidationError(client, 'customers')).toBeNull();
+    expect(
+      getPersonFormValidationError({ ...client, cpfCnpj: '343.445.635-34' }, 'customers')
+    ).toBeNull();
+    expect(
+      getPersonFormValidationError({ ...client, cpfCnpj: '343.445.635-3A' }, 'customers')
+    ).toBe('CPF inválido: informe 11 dígitos numéricos.');
+  });
+
+  it('bloqueia CPF em cliente PJ e continua permitindo cadastro sem documento quando opcional', () => {
+    const client: Partial<Person> = {
+      fullName: 'Empresa Cliente',
+      personType: 'PJ',
+      cpfCnpj: '123.456.789-09',
+      marketingOrigin: 'organic',
+      fullAddress: {
+        cep: '80000000',
+        street: 'Rua das Flores',
+        number: '10',
+        neighborhood: 'Centro',
+        city: 'Curitiba',
+        state: 'PR',
+        complement: '',
+        observation: '',
+      },
+    };
+
+    expect(getPersonFormValidationError(client, 'customers')).toBe(
+      'Tipo de documento incompatível: cliente PJ precisa de um CNPJ.'
+    );
+    expect(getPersonFormValidationError({ ...client, cpfCnpj: '' }, 'customers')).toBeNull();
+  });
+
   it('exige Razão Social para Pessoa Jurídica quando vazio', () => {
     const pj: Partial<Person> = {
       fullName: '',

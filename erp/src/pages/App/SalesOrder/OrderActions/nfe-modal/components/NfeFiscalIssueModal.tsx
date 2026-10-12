@@ -62,6 +62,9 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
 
   const emissionIssueCopy =
     emissionResult && !emissionResult.success ? getFiscalIssuePresentation(emissionResult) : null;
+  const isPreparationUnconfirmed =
+    emissionResult?.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+    emissionResult.sefazContacted === false;
   const preparationIssueCopy =
     fiscalPreparationError && !emissionResult?.success
       ? {
@@ -266,7 +269,8 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
               )}
 
             {hasEmissionIssue &&
-              emissionIssueCopy?.action === 'consult' &&
+              (emissionIssueCopy?.action === 'consult' ||
+                emissionIssueCopy?.action === 'resume-same-attempt') &&
               (emissionResult?.documentId ||
                 emissionResult?.emissionRequestId ||
                 emissionResult?.reservationRecoveryRequired) &&
@@ -278,14 +282,22 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                   className="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700 font-black transition-all"
                 >
                   {isSubmitting
-                    ? emissionResult.reservationRecoveryRequired
-                      ? 'Retomando reserva…'
-                      : 'Consultando a SEFAZ…'
-                    : emissionResult.reservationRecoveryRequired
-                      ? 'Retomar reserva existente'
-                      : emissionResult.databaseReason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
-                        ? 'Consultar tentativa em andamento'
-                        : 'Consultar SEFAZ agora'}
+                    ? emissionIssueCopy.action === 'resume-same-attempt'
+                      ? 'Retomando a mesma tentativa…'
+                      : emissionResult.reservationRecoveryRequired
+                        ? 'Retomando reserva…'
+                        : isPreparationUnconfirmed
+                          ? 'Confirmando preparação…'
+                          : 'Consultando a SEFAZ…'
+                    : emissionIssueCopy.action === 'resume-same-attempt'
+                      ? 'Retomar a mesma tentativa'
+                      : emissionResult.reservationRecoveryRequired
+                        ? 'Retomar reserva existente'
+                        : isPreparationUnconfirmed
+                          ? 'Confirmar preparação'
+                          : emissionResult.databaseReason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
+                            ? 'Consultar tentativa em andamento'
+                            : 'Consultar SEFAZ agora'}
                 </button>
               )}
 

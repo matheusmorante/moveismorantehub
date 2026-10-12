@@ -1,5 +1,9 @@
 import { useCallback } from 'react';
 import Item from '@/pages/types/items.type';
+import {
+  createFiscalItemSnapshot,
+  hasFiscalItemSnapshot,
+} from '../../../../../../shared-utils/orderItemFiscalSnapshot';
 import { getSelectedProductPricing } from '@/pages/utils/productPricing';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import { getProductKind } from '@/pages/utils/productKindRules';
@@ -56,26 +60,31 @@ export function useOrderProductSelection(
             // O cliente disse "expandiremos a composição em suas partes componentes originais para que o pedido deduza os estoques perfeitamente das peças individuais sem violar a rastreabilidade fiscal e contábil."
             // Como não pediram rateio de preço agora, vamos usar o preço real. Se a composição era mais barata, o usuário aplica desconto no pedido.
 
-            return {
-              id: crypto.randomUUID(), // fake id para novo item
-              orderItemId: crypto.randomUUID(),
-              productId: movesStock ? realProduct.id : undefined,
-              variationId: movesStock ? realVariation?.id : undefined,
-              isTemporaryProduct: !movesStock,
-              code: resolvedCode || '',
-              description: getSelectedProductDisplayName(realProduct, realVariation),
-              unitPrice: pricing.unitPrice,
-              unitDiscount: pricing.unitDiscount,
-              discountType: pricing.discountType,
-              quantity: compItem.quantity,
-              total: Math.max(
-                0,
-                (pricing.unitPrice - (pricing.unitDiscount || 0)) * compItem.quantity
-              ),
-              costPrice: Number(selectedCost) || 0,
-              handlingType: '',
-              condition,
-            };
+            return createFiscalItemSnapshot(
+              {
+                id: crypto.randomUUID(), // fake id para novo item
+                orderItemId: crypto.randomUUID(),
+                productId: movesStock ? realProduct.id : undefined,
+                variationId: movesStock ? realVariation?.id : undefined,
+                isTemporaryProduct: !movesStock,
+                code: resolvedCode || '',
+                description: getSelectedProductDisplayName(realProduct, realVariation),
+                unitPrice: pricing.unitPrice,
+                unitDiscount: pricing.unitDiscount,
+                discountType: pricing.discountType,
+                quantity: compItem.quantity,
+                total: Math.max(
+                  0,
+                  (pricing.unitPrice - (pricing.unitDiscount || 0)) * compItem.quantity
+                ),
+                costPrice: Number(selectedCost) || 0,
+                handlingType: '',
+                condition,
+              },
+              realProduct,
+              realVariation,
+              { preserveExisting: false }
+            );
           });
 
           // Substitui a linha vazia (index) pelos itens explodidos
@@ -109,7 +118,7 @@ export function useOrderProductSelection(
           if (i === index) {
             const condition = selectedStockOrigin(product, variation, item.condition);
             const movesStock = condition === 'novo';
-            return {
+            const selectedItem = {
               ...item,
               productId: movesStock ? product.id : undefined,
               variationId: movesStock ? variation?.id : undefined,
@@ -123,6 +132,27 @@ export function useOrderProductSelection(
               handlingType: '',
               condition,
             };
+            const sameProduct =
+              (item.fiscalSnapshotProductId || item.productId) === String(product.id || '') &&
+              (item.fiscalSnapshotVariationId || item.variationId || undefined) ===
+                (variation?.id ? String(variation.id) : undefined);
+            if (sameProduct && hasFiscalItemSnapshot(item)) {
+              return {
+                ...selectedItem,
+                fiscalSnapshotVersion: 1 as const,
+                fiscalSnapshotProductId: item.fiscalSnapshotProductId || String(product.id || ''),
+                ...(variation?.id
+                  ? {
+                      fiscalSnapshotVariationId:
+                        item.fiscalSnapshotVariationId || String(variation.id),
+                    }
+                  : {}),
+                fiscal: item.fiscal,
+              };
+            }
+            return createFiscalItemSnapshot(selectedItem, product, variation, {
+              preserveExisting: false,
+            });
           }
           return item;
         })

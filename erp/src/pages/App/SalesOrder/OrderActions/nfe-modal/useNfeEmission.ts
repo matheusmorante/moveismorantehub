@@ -62,6 +62,7 @@ export function useNfeEmission(
     savedAcquisitionPurpose ?? initialAcquisitionPurpose(order, requiresExplicitAcquisitionPurpose);
   const [isSavingAcquisitionPurpose, setIsSavingAcquisitionPurpose] = useState(false);
   const purposeSaveInProgress = useRef(false);
+  const draftSaveInProgress = useRef(false);
   const finalConsumer = acquisitionPurpose === null ? undefined : acquisitionPurpose !== 'resale';
 
   const deliveryMethod: DeliveryMethod =
@@ -109,7 +110,7 @@ export function useNfeEmission(
     manualFiscalFields,
     finalConsumer,
     recipientIeIndicator,
-    model: currentModel,
+    model: modelDecision?.status === 'ready' ? modelDecision.model : undefined,
   });
 
   // 2. Transporte
@@ -211,8 +212,15 @@ export function useNfeEmission(
   });
 
   const handleSaveDraft = async () => {
-    if (purposeSaveInProgress.current) return;
-    await saveNfeDraftToDatabase(modelOrder, recipientTaxId, nfeItems, environment);
+    if (purposeSaveInProgress.current || draftSaveInProgress.current) return;
+    draftSaveInProgress.current = true;
+    try {
+      await saveNfeDraftToDatabase(order, recipientTaxId, nfeItems, environment);
+    } catch {
+      toast.error('Não foi possível salvar os dados fiscais do rascunho no pedido.');
+    } finally {
+      draftSaveInProgress.current = false;
+    }
   };
 
   return {

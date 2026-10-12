@@ -7,15 +7,15 @@ const { getSettings, usageCheck, usageRecord, supabaseFrom } = vi.hoisted(() => 
   supabaseFrom: vi.fn(),
 }));
 
-vi.mock('./settingsService', () => ({ getSettings }));
-vi.mock('./supabaseConfig', () => ({ supabase: { from: supabaseFrom } }));
+vi.mock('../settingsService', () => ({ getSettings }));
+vi.mock('../supabaseConfig', () => ({ supabase: { from: supabaseFrom } }));
 vi.mock('@/services/apiMonitoring/apiUsageGuard', () => ({ ApiUsageGuard: { check: usageCheck } }));
 vi.mock('@/services/apiMonitoring/apiUsageTracker', () => ({
   ApiUsageTracker: { record: usageRecord },
 }));
 
-import { autoCalculateRouteDistance, searchAddressSuggestions } from '../../';
-import { calculateFreightByDistance } from '../../';
+import { autoCalculateRouteDistance, searchAddressSuggestions } from '../maps';
+import { calculateFreightByDistance } from '../shippingPricing';
 
 describe('fluxo de endereço e logística com Google Maps', () => {
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('fluxo de endereço e logística com Google Maps', () => {
     };
     const maps = {
       Geocoder: class {},
-      DirectionsService: class {},
+      importLibrary: vi.fn(async () => ({ Route: { computeRoutes: vi.fn() } })),
       LatLng: class {
         constructor(_lat: number, _lng: number) {}
       },
@@ -105,7 +105,7 @@ describe('fluxo de endereço e logística com Google Maps', () => {
     };
     const maps = {
       Geocoder: class {},
-      DirectionsService: class {},
+      importLibrary: vi.fn(async () => ({ Route: { computeRoutes: vi.fn() } })),
       places: {
         PlacesServiceStatus: { OK: 'OK' },
         AutocompleteService: class {
@@ -153,25 +153,28 @@ describe('fluxo de endereço e logística com Google Maps', () => {
           );
         }
       },
-      DirectionsService: class {
-        route(_request: unknown, callback: (result: unknown, status: string) => void) {
-          callback(
-            {
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async (request: any) => {
+            expect(request).toMatchObject({
+              travelMode: 'DRIVING',
+              fields: ['distanceMeters', 'durationMillis', 'path'],
+            });
+            return {
               routes: [
                 {
-                  legs: [{ distance: { value: 12500 }, duration: { value: 1800 } }],
-                  overview_path: [
-                    { lng: () => -49.17, lat: () => -25.35 },
-                    { lng: () => -49.2, lat: () => -25.4 },
+                  distanceMeters: 12500,
+                  durationMillis: 1800000,
+                  path: [
+                    { lng: -49.17, lat: -25.35 },
+                    { lng: -49.2, lat: -25.4 },
                   ],
                 },
               ],
-            },
-            'OK'
-          );
-        }
-      },
-      TravelMode: { DRIVING: 'DRIVING' },
+            };
+          }),
+        },
+      })),
     };
     (globalThis as any).window = { google: { maps } };
 
@@ -202,5 +205,71 @@ describe('fluxo de endereço e logística com Google Maps', () => {
         status: 'SUCCESS',
       })
     );
+  });
+
+  it('deduplica chamadas simultâneas para o mesmo endereço em uma geocodificação e uma rota', async () => {
+    let geocodeCalls = 0;
+    let routeCalls = 0;
+    const maps = {
+      places: {},
+      Geocoder: class {
+        geocode(_request: unknown, callback: (results: unknown[], status: string) => void) {
+          geocodeCalls += 1;
+          setTimeout(
+            () =>
+              callback(
+                [{ geometry: { location: { lng: () => -50.2, lat: () => -24.2 } } }],
+                'OK'
+              ),
+            0
+          );
+        }
+      },
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async () => {
+            routeCalls += 1;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            return {
+              routes: [
+                {
+                  distanceMeters: 8400,
+                  durationMillis: 1200000,
+                  path: [
+                    { lng: -50.1, lat: -24.1 },
+                    { lng: -50.2, lat: -24.2 },
+                  ],
+                },
+              ],
+            };
+          }),
+        },
+      })),
+    };
+    (globalThis as any).window = { google: { maps } };
+    getSettings.mockReturnValue({
+      googleMapsApiKey: 'test-google-maps-key',
+      storeOriginCoords: [-50.1, -24.1],
+      freightPerKm: 2,
+    });
+
+    const address = {
+      street: 'Rua de teste concorrente',
+      number: '909',
+      neighborhood: 'Centro de teste',
+      city: 'Cidade de teste',
+      state: 'PR',
+    };
+    const [firstResult, secondResult] = await Promise.all([
+      autoCalculateRouteDistance(address),
+      autoCalculateRouteDistance(address),
+    ]);
+
+    expect(firstResult).toEqual(secondResult);
+    expect(firstResult?.distanceKm).toBe(8.4);
+    expect(geocodeCalls).toBe(1);
+    expect(routeCalls).toBe(1);
+    expect(usageCheck).toHaveBeenCalledTimes(2);
+    expect(usageRecord).toHaveBeenCalledTimes(2);
   });
 });

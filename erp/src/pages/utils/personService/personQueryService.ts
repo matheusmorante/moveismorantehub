@@ -159,17 +159,48 @@ export const fetchPersons = async (
   }
 };
 
-export const fetchPersonById = async (id: string): Promise<Person | null> => {
-  if (!id) return null;
-  try {
-    const { data, error } = await supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).eq('id', id).maybeSingle();
+const personByIdRequests = new Map<string, Promise<Person | null>>();
+const preloadedPersonById = new Map<string, { person: Person; timestamp: number }>();
+const PERSON_PREFETCH_MAX_AGE_MS = 30_000;
 
-    if (error || !data) return null;
-    return mapFromDB(data);
-  } catch (e) {
-    console.error('Erro ao buscar pessoa por ID em personService:', e);
-    return null;
+export const fetchPersonById = (id: string): Promise<Person | null> => {
+  if (!id) return Promise.resolve(null);
+  const preloaded = preloadedPersonById.get(id);
+  if (preloaded && Date.now() - preloaded.timestamp <= PERSON_PREFETCH_MAX_AGE_MS) {
+    return Promise.resolve(preloaded.person);
   }
+  preloadedPersonById.delete(id);
+  const existingRequest = personByIdRequests.get(id);
+  if (existingRequest) return existingRequest;
+
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select(PERSON_QUERY_COLUMNS)
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return mapFromDB(data);
+    } catch (e) {
+      console.error('Erro ao buscar pessoa por ID em personService:', e);
+      return null;
+    }
+  })();
+  personByIdRequests.set(id, request);
+
+  void request.finally(() => {
+    if (personByIdRequests.get(id) === request) personByIdRequests.delete(id);
+  });
+  return request;
+};
+
+/** Eagerly resolve a person while the user is reviewing the order's available actions. */
+export const preloadPersonById = async (id: string): Promise<Person | null> => {
+  const person = await fetchPersonById(id);
+  if (id && person) preloadedPersonById.set(id, { person, timestamp: Date.now() });
+  return person;
 };
 
 export const searchPeople = async (

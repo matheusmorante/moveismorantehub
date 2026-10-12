@@ -30,6 +30,7 @@ export interface UseNfeEmissionModalStateProps {
   isOpen: boolean;
   order: Order | null;
   emissionOrder: Order | null;
+  isLoadingCustomerType: boolean;
   initialEnvironment?: 1 | 2;
   environment: 1 | 2;
   setEnvironment: (env: 1 | 2) => void;
@@ -43,6 +44,7 @@ export function useNfeEmissionModalState({
   isOpen,
   order,
   emissionOrder,
+  isLoadingCustomerType,
   initialEnvironment,
   environment,
   setEnvironment,
@@ -82,10 +84,11 @@ export function useNfeEmissionModalState({
   }, [isOpen, order?.id]);
 
   React.useEffect(() => {
-    if (!isOpen || !emissionOrder?.id) return;
-    if (recipientTaxIdPrefilledOrderId.current === emissionOrder.id) return;
+    if (!isOpen || !emissionOrder?.id || isLoadingCustomerType) return;
+    const prefillKey = `${emissionOrder.id}:${emissionOrder.customerData?.id || ''}`;
+    if (recipientTaxIdPrefilledOrderId.current === prefillKey) return;
 
-    recipientTaxIdPrefilledOrderId.current = emissionOrder.id;
+    recipientTaxIdPrefilledOrderId.current = prefillKey;
     setRecipientTaxId(
       maskRecipientTaxId(
         emissionOrder.customerData?.cpfCnpj || emissionOrder.customerData?.document || ''
@@ -93,7 +96,9 @@ export function useNfeEmissionModalState({
     );
   }, [
     isOpen,
+    isLoadingCustomerType,
     emissionOrder?.id,
+    emissionOrder?.customerData?.id,
     emissionOrder?.customerData?.cpfCnpj,
     emissionOrder?.customerData?.document,
     setRecipientTaxId,

@@ -1,6 +1,12 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { updateOrder } from '@/pages/utils/orderHistoryService';
 import type Order from '@/pages/types/order.type';
+import type Item from '@/pages/types/items.type';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
+import {
+  hasFiscalItemSnapshot,
+  hasPersistedAuthorizedInvoice,
+  ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+} from '../../../../../../../../shared-utils/orderItemFiscalSnapshot';
 
 export async function saveNfeDraftToDatabase(
   order: Order | null,
@@ -9,48 +15,59 @@ export async function saveNfeDraftToDatabase(
   environment: 1 | 2 = 1
 ): Promise<void> {
   if (!order?.id) return;
-  try {
-    // 1. Save NCM to products table
-    const productsToUpdate = nfeItems
-      .filter((i) => i.productId && i.fiscal?.ncm)
-      .map((i) => ({ id: i.productId, ncm: i.fiscal.ncm.replace(/\D/g, '') }));
-
-    if (productsToUpdate.length > 0) {
-      for (const p of productsToUpdate) {
-        const { data: existingProduct } = await supabase
-          .from('products')
-          .select('fiscal')
-          .eq('id', p.id)
-          .single();
-        if (existingProduct) {
-          const newFiscal = { ...(existingProduct.fiscal || {}), ncm: p.ncm };
-          await supabase.from('products').update({ fiscal: newFiscal }).eq('id', p.id);
-        }
-      }
-    }
-
-    // 2. Save order_data to orders table; in HML (environment=2), never persist modal-only tax ID into the order or customer record.
-    const customerData =
-      environment === 2
-        ? order.customerData
-        : {
+  // Homologation-only recipient IDs stay in the modal and are never persisted.
+  const itemsNeedBackfill = (order.items || []).some(
+    (item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item)
+  );
+  let productIndex = 0;
+  const updatedItems = !itemsNeedBackfill
+    ? undefined
+    : hasPersistedAuthorizedInvoice(order)
+      ? order.items || []
+      : (order.items || []).map((item): Item => {
+        if (item.itemType === 'service') return item;
+        const emissionItem = nfeItems[productIndex++];
+        if (!emissionItem || hasFiscalItemSnapshot(item)) return item;
+        return {
+          ...item,
+          fiscal: { ...emissionItem.fiscal },
+          fiscalSnapshotVersion: ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+          ...(item.productId ? { fiscalSnapshotProductId: item.productId } : {}),
+          ...(item.variationId ? { fiscalSnapshotVariationId: item.variationId } : {}),
+        };
+      });
+  const updatedAt = (order as Order & { updatedAt?: string }).updatedAt;
+  const changes: Partial<Order> = {
+    ...(updatedItems ? { items: updatedItems } : {}),
+    ...(environment === 1 && recipientTaxId.trim()
+      ? {
+          customerData: {
             ...order.customerData,
             cpfCnpj: recipientTaxId,
             document: recipientTaxId,
-          };
-    const updatedOrder = {
-      ...order,
-      customerData,
-      items: order.items.map((it, idx) => ({
-        ...it,
-        fiscal: {
-          ...(it.fiscal || {}),
-          ncm: nfeItems[idx]?.fiscal?.ncm || it.fiscal?.ncm || '',
-        },
-      })),
-    };
-    await supabase.from('orders').update({ order_data: updatedOrder }).eq('id', order.id);
-  } catch (err) {
-    console.warn('[nfeDraftService] Erro ao salvar os dados da emissão:', err);
-  }
+          },
+        }
+      : {}),
+    nfeDraft: {
+      ...order.nfeDraft,
+      [environment === 1 ? '1' : '2']: {
+        items: nfeItems.map((item) => ({
+        ...(item.orderItemId ? { orderItemId: item.orderItemId } : {}),
+        ...(item.fiscalSnapshotProductId || item.productId
+          ? { productId: item.fiscalSnapshotProductId || item.productId }
+          : {}),
+        ...(item.fiscalSnapshotVariationId || item.variationId
+          ? { variationId: item.fiscalSnapshotVariationId || item.variationId }
+          : {}),
+        fiscal: { ...item.fiscal },
+        })),
+      },
+    },
+  };
+  await updateOrder(
+    String(order.id),
+    changes,
+    order,
+    updatedAt
+  );
 }

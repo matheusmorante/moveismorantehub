@@ -6,10 +6,6 @@ import {
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
-import {
-  getProductsFiscalData,
-  type ProductFiscalData,
-} from '@/pages/utils/productService/productFiscalDataService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { withNfeEmissionStage } from '../../../../../../../../src/telemetry/nfeEmissionPerformance';
 import { getCfopDefinition } from '../../../../../../../../shared-utils/fiscalCfopModel';
@@ -17,6 +13,11 @@ import { resolveEffectiveRecipientIeIndicator } from '../../../../../../../../sh
 import { resolveItemFiscalCfopContext } from '../domain/itemFiscalCfopContext';
 import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
 import { draftKey } from '../types/nfeEmission.types';
+import {
+  hasFiscalItemSnapshot,
+  hasPersistedAuthorizedInvoice,
+  ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+} from '../../../../../../../../shared-utils/orderItemFiscalSnapshot';
 
 export interface UseNfeItemEnrichmentProps {
   order: Order | null;
@@ -25,17 +26,6 @@ export interface UseNfeItemEnrichmentProps {
   recipientIeIndicator?: '1' | '2' | '9';
   model?: '55' | '65';
   manualFiscalFields: React.MutableRefObject<Map<string, Record<number, Partial<NfeItemFiscal>>>>;
-}
-
-class MissingFiscalProductsError extends Error {
-  constructor(
-    readonly itemNumbers: number[],
-    readonly productData: Map<string, ProductFiscalData>
-  ) {
-    super(
-      `Dados fiscais atuais não encontrados para o(s) item(ns): ${itemNumbers.join(', ')}. Atualize o cadastro antes de transmitir.`
-    );
-  }
 }
 
 export function useNfeItemEnrichment({
@@ -53,10 +43,6 @@ export function useNfeItemEnrichment({
   const orderRef = useRef(order);
   orderRef.current = order;
   const orderId = order?.id;
-  const fiscalLookupRef = useRef<{
-    key: string;
-    promise: Promise<Map<string, ProductFiscalData>>;
-  } | null>(null);
 
   // The full source item covers NCM/CEST/origin/source/ST/quantity/value and future
   // tax characteristics; identification and physical addresses are independent axes.
@@ -78,7 +64,6 @@ export function useNfeItemEnrichment({
   useEffect(() => {
     const currentOrder = orderRef.current;
     if (!currentOrder?.items) {
-      fiscalLookupRef.current = null;
       setNfeItems([]);
       setIsLoadingFiscalData(false);
       setFiscalPreparationError(null);
@@ -92,7 +77,6 @@ export function useNfeItemEnrichment({
       previousDependenciesRef.current.signature !== fiscalDependencySignature;
     previousDependenciesRef.current = { key: dependencyKey, signature: fiscalDependencySignature };
     if (dependenciesChanged) {
-      fiscalLookupRef.current = null;
       const key = draftKey(currentOrder, environment);
       const choices = manualFiscalFields.current.get(key);
       if (choices)
@@ -138,9 +122,56 @@ export function useNfeItemEnrichment({
     setFiscalPreparationError(null);
 
     const productItems = currentOrder.items.filter((item) => item.itemType !== 'service');
+    const emissionDraftByIndex = new Map<number, Partial<NfeItemFiscal>>();
+    const emissionEnvironmentKey = environment === 1 ? '1' : '2';
+    const savedEmissionItems = hasPersistedAuthorizedInvoice(currentOrder)
+      ? []
+      : currentOrder.nfeDraft?.[emissionEnvironmentKey]?.items || [];
+    const usedDraftIndices = new Set<number>();
+    productItems.forEach((item, itemIndex) => {
+      let draftIndex = item.orderItemId
+        ? savedEmissionItems.findIndex(
+            (draft, index) => !usedDraftIndices.has(index) && draft.orderItemId === item.orderItemId
+          )
+        : -1;
+      if (draftIndex < 0 && (item.productId || item.variationId)) {
+        draftIndex = savedEmissionItems.findIndex(
+          (draft, index) =>
+            !usedDraftIndices.has(index) &&
+            draft.productId === (item.fiscalSnapshotProductId || item.productId) &&
+            (draft.variationId || undefined) ===
+              (item.fiscalSnapshotVariationId || item.variationId || undefined)
+        );
+      }
+      if (draftIndex < 0 && savedEmissionItems[itemIndex] && !usedDraftIndices.has(itemIndex)) {
+        draftIndex = itemIndex;
+      }
+      if (draftIndex < 0) return;
+      usedDraftIndices.add(draftIndex);
+      emissionDraftByIndex.set(itemIndex, savedEmissionItems[draftIndex].fiscal);
+    });
+    const manualChoices = manualFiscalFields.current.get(draftKey(currentOrder, environment));
+    const persistedCsosnByIndex = productItems.map((item, index) => {
+      const candidates = [
+        emissionDraftByIndex.get(index)?.cst,
+        item.fiscal?.cst,
+        manualChoices?.[index]?.cst,
+      ];
+      return candidates.find((value) => typeof value === 'string' && value.trim()) as
+        | string
+        | undefined;
+    });
+    const shouldPrepareHmlCsosn =
+      environment === 2 &&
+      model === '55' &&
+      ['1', '2'].includes(operationScope.destination || '') &&
+      persistedCsosnByIndex.some((csosn) => !csosn);
     let invalidatedCfop = false;
-    const fallbackItems: NfeItemWithFiscal[] = productItems.map((item) => {
-      const savedFiscal = item.fiscal;
+    const fallbackItems: NfeItemWithFiscal[] = productItems.map((item, index) => {
+      const savedFiscal = {
+        ...item.fiscal,
+        ...emissionDraftByIndex.get(index),
+      };
       const sourceCfopDefinition = getCfopDefinition(savedFiscal?.cfop || '');
       const savedCfop = dependenciesChanged ? '' : compatibleCfop(savedFiscal?.cfop);
       if (savedFiscal?.cfop && !savedCfop) invalidatedCfop = true;
@@ -150,8 +181,10 @@ export function useNfeItemEnrichment({
         fiscal: {
           ncm: savedFiscal?.ncm || '',
           cest: savedFiscal?.cest || '',
+          commercialUnit: savedFiscal?.commercialUnit,
+          taxableUnit: savedFiscal?.taxableUnit,
           cfop: savedCfop || suggestedInitialCfop,
-          cst: (!dependenciesChanged && savedFiscal?.cst) || '103',
+          cst: (!dependenciesChanged && savedFiscal?.cst) || (model === '65' ? '' : '103'),
           origem: savedFiscal?.origem || defaultFiscal.origem || '0',
           merchandiseOrigin:
             savedFiscal?.merchandiseOrigin || sourceCfopDefinition?.merchandiseOrigin,
@@ -164,54 +197,23 @@ export function useNfeItemEnrichment({
     });
     setNfeItems(fallbackItems);
 
+    const unsnapshottedItems = productItems.flatMap((item, index) =>
+      hasFiscalItemSnapshot(item) ? [] : [index + 1]
+    );
+    if (unsnapshottedItems.length > 0) {
+      setFiscalPreparationError(
+        `O snapshot fiscal dos itens ${unsnapshottedItems.join(', ')} não foi preparado. Feche e reabra a emissão para tentar novamente.`
+      );
+      setIsLoadingFiscalData(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     const enrichItems = async () => {
       try {
-        const productIds = Array.from(
-          new Set(productItems.map((item) => item.productId).filter((id): id is string => !!id))
-        );
-        const fiscalLookupKey = `${currentOrder.id}:${productIds.join(',')}`;
-        let fiscalLookup = fiscalLookupRef.current;
-        if (!fiscalLookup || fiscalLookup.key !== fiscalLookupKey) {
-          const promise = withNfeEmissionStage(
-            'fiscal_enrichment',
-            () => getProductsFiscalData(productIds, { useCache: false }),
-            { product_count: productIds.length }
-          );
-          fiscalLookup = { key: fiscalLookupKey, promise };
-          fiscalLookupRef.current = fiscalLookup;
-          void promise.catch(() => {
-            if (fiscalLookupRef.current === fiscalLookup) fiscalLookupRef.current = null;
-          });
-        }
-        const fiscalDataPromise = fiscalLookup.promise
-          .then((productData) => {
-            const missingItemNumbers = productItems.flatMap((item, index) =>
-              item.productId && !productData.has(item.productId) ? [index + 1] : []
-            );
-            if (missingItemNumbers.length) {
-              throw new MissingFiscalProductsError(missingItemNumbers, productData);
-            }
-            return productData;
-          })
-          .then(
-            (productData) => ({
-              productData,
-              error: null as string | null,
-            }),
-            (error: unknown) => ({
-              productData:
-                error instanceof MissingFiscalProductsError
-                  ? error.productData
-                  : new Map<string, ProductFiscalData>(),
-              error:
-                error instanceof Error
-                  ? error.message
-                  : 'Falha ao consultar os dados fiscais atuais do catálogo.',
-            })
-          );
-
         const csosnPromise =
-          environment === 2 && ['1', '2'].includes(operationScope.destination || '')
+          shouldPrepareHmlCsosn
             ? withNfeEmissionStage('csosn_prepare', () =>
                 prepareHmlItemCsosns(String(currentOrder.id))
               ).then(
@@ -230,82 +232,80 @@ export function useNfeItemEnrichment({
                 error: null as string | null,
               });
 
-        const [fiscalDataResult, csosnResult] = await Promise.all([
-          fiscalDataPromise,
-          csosnPromise,
-        ]);
-        const catalogByProductId = fiscalDataResult.productData;
+        const csosnResult = await csosnPromise;
         const preparedCsosns = csosnResult.preparedCsosns;
-        const preparationErrors = [fiscalDataResult.error, csosnResult.error].filter(
-          (message): message is string => Boolean(message)
-        );
-        let preparationError = preparationErrors.length ? preparationErrors.join(' ') : null;
-        const catalogResults = productItems.map((item) => {
-          const product = item.productId ? catalogByProductId.get(item.productId) : undefined;
-          const variation = item.variationId ? product?.variations?.[item.variationId] : undefined;
+        let preparationError = csosnResult.error;
+        const snapshotResults = productItems.map((item, index) => {
+          const draftFiscal = emissionDraftByIndex.get(index);
           return {
             item,
-            catalogFiscal: {
-              ncm: variation?.ncm || product?.ncm,
-              cest: variation?.cest || product?.cest,
-              cfop: variation?.cfop || product?.cfop,
-              cst: variation?.cst || product?.cst,
-              origem: variation?.origem || product?.origem,
-              merchandiseOrigin: variation?.merchandiseOrigin || product?.merchandiseOrigin,
-              isOwnProduction: variation?.isOwnProduction ?? product?.isOwnProduction,
-              hasSt: variation?.hasSt ?? product?.hasSt,
-              isSt: variation?.isSt ?? product?.isSt,
-            },
+            draftFiscal,
+            snapshotFiscal: item.fiscal || {},
           };
         });
 
         const enrichedList: NfeItemWithFiscal[] = [];
-        for (const [index, { item, catalogFiscal }] of catalogResults.entries()) {
+        for (const [index, { item, snapshotFiscal, draftFiscal }] of snapshotResults.entries()) {
           const preparedCsosn = preparedCsosns.find((entry) => entry.itemNumber === index + 1);
-          if (environment === 2 && !preparedCsosn && !preparationError) {
+          if (
+            shouldPrepareHmlCsosn &&
+            !persistedCsosnByIndex[index] &&
+            !preparedCsosn &&
+            !preparationError
+          ) {
             preparationError = `CSOSN do item ${index + 1} não foi preparado no servidor.`;
           }
           const savedFiscal = item.fiscal;
           const sourceCfopDefinition = getCfopDefinition(
-            catalogFiscal?.cfop || savedFiscal?.cfop || ''
+            snapshotFiscal?.cfop || savedFiscal?.cfop || ''
           );
           enrichedList.push({
             ...fallbackItems[index],
+            fiscalSnapshotVersion: ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
+            ...(item.fiscalSnapshotProductId || item.productId
+              ? { fiscalSnapshotProductId: item.fiscalSnapshotProductId || item.productId }
+              : {}),
+            ...(item.fiscalSnapshotVariationId || item.variationId
+              ? { fiscalSnapshotVariationId: item.fiscalSnapshotVariationId || item.variationId }
+              : {}),
             fiscal: {
-              ncm: catalogFiscal?.ncm || savedFiscal?.ncm || fallbackItems[index].fiscal.ncm,
-              cest: savedFiscal?.cest || catalogFiscal?.cest || fallbackItems[index].fiscal.cest,
+              ncm: draftFiscal?.ncm || savedFiscal?.ncm || fallbackItems[index].fiscal.ncm,
+              cest: draftFiscal?.cest || savedFiscal?.cest || fallbackItems[index].fiscal.cest,
+              commercialUnit: draftFiscal?.commercialUnit || savedFiscal?.commercialUnit || 'UN',
+              taxableUnit: draftFiscal?.taxableUnit || savedFiscal?.taxableUnit || 'UN',
               cfop:
-                (!dependenciesChanged ? compatibleCfop(savedFiscal?.cfop) : '') ||
-                (!dependenciesChanged ? compatibleCfop(catalogFiscal?.cfop) : '') ||
+                (!dependenciesChanged
+                  ? compatibleCfop(draftFiscal?.cfop || savedFiscal?.cfop)
+                  : '') ||
+                (!dependenciesChanged ? compatibleCfop(snapshotFiscal?.cfop) : '') ||
                 (preparedCsosn?.cfop ? compatibleCfop(preparedCsosn.cfop) : '') ||
                 suggestedInitialCfop ||
                 fallbackItems[index].fiscal.cfop ||
                 (operationScope.destination === '1' ? '5102' : '6102'),
               cst:
                 preparedCsosn?.csosn ||
-                (!dependenciesChanged && savedFiscal?.cst) ||
-                catalogFiscal?.cst ||
-                '103',
+                (!dependenciesChanged && (draftFiscal?.cst || savedFiscal?.cst)) ||
+                snapshotFiscal?.cst ||
+                (model === '65' ? '' : '103'),
               csosnSource: preparedCsosn?.source,
-              origem:
-                savedFiscal?.origem || catalogFiscal?.origem || fallbackItems[index].fiscal.origem,
+              origem: draftFiscal?.origem || savedFiscal?.origem || fallbackItems[index].fiscal.origem,
               merchandiseOrigin:
-                savedFiscal?.merchandiseOrigin ||
-                catalogFiscal?.merchandiseOrigin ||
+                draftFiscal?.merchandiseOrigin || savedFiscal?.merchandiseOrigin ||
+                snapshotFiscal?.merchandiseOrigin ||
                 sourceCfopDefinition?.merchandiseOrigin,
               isOwnProduction:
-                savedFiscal?.isOwnProduction ??
-                catalogFiscal?.isOwnProduction ??
+                draftFiscal?.isOwnProduction ?? savedFiscal?.isOwnProduction ??
+                snapshotFiscal?.isOwnProduction ??
                 sourceCfopDefinition?.isOwnProduction,
               hasSt:
-                savedFiscal?.hasSt ??
-                savedFiscal?.isSt ??
-                catalogFiscal?.hasSt ??
-                catalogFiscal?.isSt ??
+                draftFiscal?.hasSt ?? savedFiscal?.hasSt ??
+                draftFiscal?.isSt ?? savedFiscal?.isSt ??
+                snapshotFiscal?.hasSt ??
+                snapshotFiscal?.isSt ??
                 sourceCfopDefinition?.isSt,
               isSt:
                 savedFiscal?.isSt ??
-                catalogFiscal?.isSt ??
+                snapshotFiscal?.isSt ??
                 sourceCfopDefinition?.isSt,
             },
           });
@@ -355,7 +355,15 @@ export function useNfeItemEnrichment({
     return () => {
       isMounted = false;
     };
-  }, [orderId, fiscalDependencySignature, environment, recipientIeIndicator, manualFiscalFields]);
+  }, [
+    orderId,
+    fiscalDependencySignature,
+    model,
+    order?.nfeDraft,
+    environment,
+    recipientIeIndicator,
+    manualFiscalFields,
+  ]);
 
   const handleUpdateItemFiscal = (index: number, updates: Partial<NfeItemFiscal>) => {
     const currentOrder = orderRef.current;

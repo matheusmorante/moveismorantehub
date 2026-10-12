@@ -23,6 +23,7 @@ describe('useNfeEmissionModalState recipient CPF prefill', () => {
       isOpen: true,
       order: null,
       emissionOrder: order,
+      isLoadingCustomerType: false,
       environment: 2,
       setEnvironment: vi.fn(),
       setRecipientTaxId: vi.fn(),
@@ -64,5 +65,40 @@ describe('useNfeEmissionModalState recipient CPF prefill', () => {
     });
 
     expect(result.current.recipientTaxId).toBe('987.654.321-00');
+  });
+
+  it('waits for the registered customer document before prefilling the field', async () => {
+    const order = {
+      id: 'order-2',
+      customerData: { id: 'customer-2', cpfCnpj: '99999999999' },
+    } as Order;
+    const registeredOrder = {
+      ...order,
+      customerData: { id: 'customer-2', personType: 'PJ', cpfCnpj: '12345678000190' },
+    } as Order;
+    const props: UseNfeEmissionModalStateProps = {
+      isOpen: true,
+      order: null,
+      emissionOrder: order,
+      isLoadingCustomerType: true,
+      environment: 2,
+      setEnvironment: vi.fn(),
+      setRecipientTaxId: vi.fn(),
+      fiscalFieldError: null,
+      recipientTaxIdError: null,
+      emissionResult: null,
+    };
+    const { result, rerender } = renderHook(
+      (currentProps) => {
+        const [recipientTaxId, setRecipientTaxId] = useState('');
+        useNfeEmissionModalState({ ...currentProps, setRecipientTaxId });
+        return { recipientTaxId };
+      },
+      { initialProps: props }
+    );
+
+    expect(result.current.recipientTaxId).toBe('');
+    rerender({ ...props, emissionOrder: registeredOrder, isLoadingCustomerType: false });
+    await waitFor(() => expect(result.current.recipientTaxId).toBe('12.345.678/0001-90'));
   });
 });

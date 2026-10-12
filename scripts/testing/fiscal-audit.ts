@@ -392,6 +392,51 @@ async function main() {
         isAdministrator:!role.error && role.data === true}));
       if (role.error || role.data !== true) process.exitCode = 1;
     }
+  } else if (mode === 'artifact-resolve') {
+    const [runId, orderId, scenarioKey] = process.argv.slice(3);
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
+    const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
+    const projectRef = (() => {
+      try { return new URL(url).hostname.split('.')[0]; } catch { return ''; }
+    })();
+    if (projectRef !== 'hkoxhourxwlddgsfdgws' || process.env.VERCEL_ENV !== 'development' ||
+        !email || !password || !process.env.VITE_SUPABASE_ANON_KEY) {
+      console.log(JSON.stringify({mode,projectMatches:projectRef === 'hkoxhourxwlddgsfdgws',
+        vercelDevelopment:process.env.VERCEL_ENV === 'development',authenticated:false,
+        authenticatedIdentityMatches:false,administratorCheckOk:false,artifactValid:false,
+        errorCode:'RUNTIME_OR_PROJECT_MISMATCH'}));
+      process.exitCode = 1;
+      return;
+    }
+    const operator = createClient(url, process.env.VITE_SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const login = await operator.auth.signInWithPassword({ email, password });
+    const authenticatedIdentityMatches = !login.error && Boolean(login.data.session) &&
+      login.data.user?.email?.trim().toLowerCase() === email;
+    if (!authenticatedIdentityMatches) {
+      console.log(JSON.stringify({mode,projectMatches:true,vercelDevelopment:true,authenticated:false,
+        authenticatedIdentityMatches:false,administratorCheckOk:false,artifactValid:false,
+        errorCode:'CONFIGURED_OPERATOR_AUTHENTICATION_FAILED'}));
+      process.exitCode = 1;
+      return;
+    }
+    const { loadPersistedFiscalOrder } = require(path.join(root, 'scripts/testing/fiscal-persisted-artifact.cjs'));
+    try {
+      const artifact = await loadPersistedFiscalOrder(operator, { orderId, runId, scenarioKey, expectedEmail: email });
+      console.log(JSON.stringify({mode,projectMatches:true,vercelDevelopment:true,environment:2,
+        authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:true,artifactValid:true,
+        scenarioKey:artifact.scenarioKey,deliveryMethod:artifact.deliveryMethod,status:artifact.status,
+        itemCount:artifact.itemCount,paymentCount:artifact.paymentCount}));
+    } catch (error) {
+      const code = error && typeof error.code === 'string' && /^[A-Z0-9_]+$/.test(error.code)
+        ? error.code : 'PERSISTED_ARTIFACT_VALIDATION_FAILED';
+      console.log(JSON.stringify({mode,projectMatches:true,vercelDevelopment:true,environment:2,
+        authenticated:true,authenticatedIdentityMatches:true,administratorCheckOk:true,
+        artifactValid:false,errorCode:code}));
+      process.exitCode = 1;
+    }
   } else if (mode === 'policy-status') {
     const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
     const apiKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';

@@ -17,6 +17,7 @@ import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { canGenerateReturn } from '../../utils/returnPolicy';
 import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
+import { toast } from 'react-toastify';
 import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { useAuth } from '@/context/AuthContext';
@@ -28,6 +29,7 @@ import NfeOperationDraftModal from '../FiscalDocuments/modals/NfeOperationDraftM
 import { ReturnFiscalSourcePickerModal } from '../FiscalDocuments/modals/ReturnFiscalSourcePickerModal';
 import { fetchReturnFiscalEligibility } from '../FiscalDocuments/services/fiscalOperationDraftService';
 import { fetchOrderById } from '../../utils/orderHistoryService';
+import { prepareOrderFiscalSnapshotForEmission } from '../../utils/nfeEmissionSnapshotService';
 import type {
   ReturnFiscalEligibility,
   SourceDocument,
@@ -48,6 +50,10 @@ const SalesOrder = () => {
   const [chosenNfeEnvironment, setChosenNfeEnvironment] = useState<1 | 2>(1);
   const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
   const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = useState<number | undefined>();
+  const [nfeSnapshotPreparationOrderId, setNfeSnapshotPreparationOrderId] = useState<
+    string | null
+  >(null);
+  const nfeSnapshotPreparationInProgress = useRef(false);
   const [issuedFiscalDocument, setIssuedFiscalDocument] = useState<{
     result: NfeEmissionResult;
     order: Order;
@@ -329,10 +335,25 @@ const SalesOrder = () => {
     }
   };
 
-  const handleDirectIssueNfe = (order: Order, environment: 1 | 2 = 1) => {
-    setChosenNfeEnvironment(environment);
-    setNfeEmissionOpenedAt(performance.now());
-    setNfeModalOrder(order);
+  const handleDirectIssueNfe = async (order: Order, environment: 1 | 2 = 1) => {
+    if (nfeSnapshotPreparationInProgress.current) return;
+    nfeSnapshotPreparationInProgress.current = true;
+    setNfeSnapshotPreparationOrderId(order.id || 'pending');
+    try {
+      const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order);
+      setChosenNfeEnvironment(environment);
+      setNfeEmissionOpenedAt(performance.now());
+      setNfeModalOrder(preparedOrder);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível preparar os dados fiscais do pedido.'
+      );
+    } finally {
+      nfeSnapshotPreparationInProgress.current = false;
+      setNfeSnapshotPreparationOrderId(null);
+    }
   };
 
   return (
@@ -853,14 +874,26 @@ const SalesOrder = () => {
           isOpen={Boolean(nfeChoiceOrder)}
           order={nfeChoiceOrder}
           onClose={() => setNfeChoiceOrder(null)}
-          onSelectEnvironment={(env) => {
-            const current = nfeChoiceOrder;
+          onSelectEnvironment={(env, preparedOrder) => {
             setNfeChoiceOrder(null);
             setChosenNfeEnvironment(env);
             setNfeEmissionOpenedAt(performance.now());
-            setNfeModalOrder(current);
+            setNfeModalOrder(preparedOrder);
           }}
         />
+      )}
+
+      {nfeSnapshotPreparationOrderId && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[10000000] flex items-center justify-center bg-slate-900/40 p-4"
+        >
+          <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 text-sm font-semibold text-slate-700 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
+            <i className="bi bi-arrow-repeat animate-spin text-xl text-blue-600" />
+            <span>Preparando os dados fiscais do pedido...</span>
+          </div>
+        </div>
       )}
 
       {nfeModalOrder && (

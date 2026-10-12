@@ -35,6 +35,7 @@ import { municipalityCode } from './normal-sale/municipality';
 import { resolveNormalSalePayments } from './normal-sale/payments';
 import { money, obj, required } from './normal-sale/values';
 import { resolveNormalSaleContribution } from './simplesNormalSaleContribution';
+import { hasFiscalItemSnapshot } from '../../shared-utils/orderItemFiscalSnapshot';
 
 export { loadNormalSaleInputs } from './normal-sale/inputLoader';
 export { NORMAL_SALE_RULESET_VERSION };
@@ -194,9 +195,11 @@ export async function createNormalSaleRuleSet(
         itemRecord.fiscal && typeof itemRecord.fiscal === 'object'
           ? (itemRecord.fiscal as Record<string, any>)
           : {};
-      const productFiscalRaw = itemRecord.productId
-        ? productCatalog[itemRecord.productId]
-        : undefined;
+      const productFiscalRaw = hasFiscalItemSnapshot(itemRecord)
+        ? itemFiscal
+        : itemRecord.productId
+          ? productCatalog[itemRecord.productId]
+          : undefined;
       const productFiscal =
         productFiscalRaw && typeof productFiscalRaw === 'object'
           ? (productFiscalRaw as Record<string, any>)

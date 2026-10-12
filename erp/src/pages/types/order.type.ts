@@ -1,5 +1,6 @@
 import type CustomerData from './customerData.type';
 import type { Item, ItemsSummary } from './items.type';
+import type { FiscalInfo } from './product.type';
 import type { Payment, PaymentsSummary } from './payments.type';
 import type Shipping from './Shipping.type';
 
@@ -41,6 +42,8 @@ export type Order = {
     recipientIeIndicator?: '1' | '2' | '9';
   };
   id?: string;
+  /** Versão da linha no banco, usada para proteger atualizações transacionais. */
+  updatedAt?: string;
   orderType?: OrderType;
   status?: string;
   /** Estado físico estruturado da entrega/retirada, mapeado das colunas do pedido. */
@@ -123,6 +126,15 @@ export type Order = {
     emittedAt?: string;
     status?: 'autorizada' | 'homologada' | 'cancelada' | 'pendente';
   };
+  /** Fiscal fields edited in the emission modal, kept apart from the sale-item snapshot. */
+  nfeDraft?: Partial<Record<'1' | '2', {
+    items: Array<{
+      orderItemId?: string;
+      productId?: string;
+      variationId?: string;
+      fiscal: Partial<FiscalInfo> & { csosnSource?: string };
+    }>;
+  }>>;
 };
 
 export type OrderAction =

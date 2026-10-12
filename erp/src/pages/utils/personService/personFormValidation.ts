@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AppSettings } from '@/pages/utils/settingsService';
 import type Person from '../../types/person.type';
+import { getRecipientTaxIdValidationMessage } from '../../../../../shared-utils/recipientTaxId';
 
 type RequiredFields = {
   [Section in keyof AppSettings['requiredFields']]?: Partial<
@@ -81,6 +82,20 @@ export const createPersonFormSchema = (
           message: 'O CPF/CNPJ é obrigatório.',
           path: ['cpfCnpj'],
         });
+      }
+
+      if (isCustomer && data.cpfCnpj?.trim()) {
+        const documentError = getRecipientTaxIdValidationMessage(
+          data.cpfCnpj,
+          data.personType
+        );
+        if (documentError) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: documentError,
+            path: ['cpfCnpj'],
+          });
+        }
       }
 
       // 4. E-mail obrigatório

@@ -37,6 +37,69 @@ const baseOrder: Order = {
 describe('NfeCustomerTab - Dados Fiscais (IE e indIEDest)', () => {
   afterEach(() => cleanup());
 
+  it('usa o tipo cadastrado do cliente para definir o documento, mesmo se a exigência divergir', () => {
+    render(
+      <NfeCustomerTab
+        order={baseOrder}
+        customerPersonType="PJ"
+        isIdentityOptional={false}
+        recipientTaxId="12.345.678/0001-90"
+        onRecipientTaxIdChange={vi.fn()}
+        recipientTaxIdError={null}
+        recipientTaxIdInputRef={{ current: null }}
+        documentType="CPF"
+        fiscalModel="65"
+      />
+    );
+
+    expect(screen.getByText('Pessoa Jurídica (PJ)')).toBeTruthy();
+    expect(screen.getByLabelText(/CNPJ/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^CPF/)).toBeNull();
+  });
+
+  it('não infere se o cliente é PF ou PJ pelo formato do documento', () => {
+    render(
+      <NfeCustomerTab
+        order={{ ...baseOrder, customerData: { ...baseOrder.customerData, personType: undefined } }}
+        isIdentityOptional={false}
+        recipientTaxId="12.345.678/0001-90"
+        onRecipientTaxIdChange={vi.fn()}
+        recipientTaxIdError={null}
+        recipientTaxIdInputRef={{ current: null }}
+        documentType="CPF/CNPJ"
+        fiscalModel="65"
+      />
+    );
+
+    expect(screen.getByText('Tipo de pessoa não determinado')).toBeTruthy();
+    expect(screen.getByLabelText(/CPF\/CNPJ/)).toBeTruthy();
+  });
+
+  it('mantém a entrada limitada a CPF quando o tipo cadastrado é PF', () => {
+    const onRecipientTaxIdChange = vi.fn();
+    render(
+      <NfeCustomerTab
+        order={{
+          ...baseOrder,
+          customerData: { ...baseOrder.customerData, personType: 'PF' },
+        }}
+        customerPersonType="PF"
+        isIdentityOptional={false}
+        recipientTaxId="123.456.789-09"
+        onRecipientTaxIdChange={onRecipientTaxIdChange}
+        recipientTaxIdError={null}
+        recipientTaxIdInputRef={{ current: null }}
+        fiscalModel="55"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/^CPF/) as HTMLInputElement, {
+      target: { value: '12345678000190' },
+    });
+
+    expect(onRecipientTaxIdChange).toHaveBeenCalledWith('123.456.780-00');
+  });
+
   it('exibe a seção de dados fiscais com situação perante o ICMS e IE', () => {
     render(
       <NfeCustomerTab

@@ -111,13 +111,37 @@ describe('NfeEmission Components', () => {
     expect(onEmit).toHaveBeenCalledWith(false, false);
   });
 
-  it('mostra Visualizar XML somente quando canPreviewXml está habilitado', () => {
+  it('mantém emissão indisponível até concluir as consultas fiscais obrigatórias', () => {
+    const { container } = render(
+      <NfeEmissionFooter
+        invoiceTotal={250.75}
+        environment={2}
+        isNfce
+        canOperateFiscal
+        canPreviewXml={false}
+        isSubmitting={false}
+        isLoadingFiscalData
+        isLoadingCustomerType={false}
+        fiscalPreparationError={null}
+        emissionResult={null}
+        productionConfirmed={false}
+        onClose={vi.fn()}
+        onEmit={vi.fn()}
+        onPrintDanfe={vi.fn()}
+      />
+    );
+
+    expect(
+      (container.querySelector('[data-testid="nfe-emit-button"]') as HTMLButtonElement).disabled
+    ).toBe(true);
+  });
+
+  it('não exibe o botão de prévia do XML na emissão', () => {
     const props = {
       invoiceTotal: 250.75,
       environment: 2 as const,
       isNfce: true,
       canOperateFiscal: true,
-      canPreviewXml: true,
       isSubmitting: false,
       isLoadingFiscalData: false,
       isLoadingCustomerType: false,
@@ -126,15 +150,9 @@ describe('NfeEmission Components', () => {
       productionConfirmed: false,
       onClose: vi.fn(),
       onEmit: vi.fn(),
-      onPreview: vi.fn(),
       onPrintDanfe: vi.fn(),
     };
-    const { rerender } = render(<NfeEmissionFooter {...props} />);
-
-    expect(screen.getByTestId('nfe-preview-xml-button')).toBeTruthy();
-
-    rerender(<NfeEmissionFooter {...props} canPreviewXml={false} />);
-
+    render(<NfeEmissionFooter {...props} />);
     expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
   });
 

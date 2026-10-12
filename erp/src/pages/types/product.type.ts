@@ -75,6 +75,8 @@ export type FiscalInfo = {
   ncmDescription?: string; // Auto-generated category or description of the NCM
   material?: string; // Material or composition to aid NCM search
   condition?: 'novo' | 'usado' | 'salvado' | ''; // Store condition inside fiscal jsonb for DB flexibility
+  commercialUnit?: string;
+  taxableUnit?: string;
   cest?: string;
   origem?: string;
   cst?: string; // or CSOSN
