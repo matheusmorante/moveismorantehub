@@ -1,12 +1,6 @@
 function assertVercelDevelopment(env = process.env) {
-  if (env.MORANTE_ENV_SOURCE !== 'vercel-development') {
+  if (env.MORANTE_ENV_SOURCE !== 'vercel-development' || env.VERCEL_ENV !== 'development') {
     throw new Error('Start Development with `npm run dev` to load Vercel variables.');
-  }
-  if (env.NFE_ENVIRONMENT !== '2') {
-    throw new Error('Development requires NFE_ENVIRONMENT=2 (Homologacao).');
-  }
-  if (env.NFE_PRODUCTION_ENABLED !== 'false') {
-    throw new Error('Development requires NFE_PRODUCTION_ENABLED=false.');
   }
 }
 module.exports = {assertVercelDevelopment};

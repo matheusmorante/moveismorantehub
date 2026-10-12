@@ -15,8 +15,6 @@ export interface FiscalE2eSimulatorEnvironment {
   FISCAL_E2E_SIMULATOR_ENABLED?: string;
   MORANTE_ENV_SOURCE?: string;
   NFE_E2E_SEFAZ_MODE?: string;
-  NFE_ENVIRONMENT?: string;
-  NFE_PRODUCTION_ENABLED?: string;
   SUPABASE_URL?: string;
   VERCEL_ENV?: string;
   VITE_SUPABASE_URL?: string;
@@ -41,15 +39,13 @@ function assertSimulatorEnvironment(env: FiscalE2eSimulatorEnvironment): void {
     env.FISCAL_E2E_SIMULATOR_ENABLED !== '1' ||
     env.MORANTE_ENV_SOURCE !== 'vercel-development' ||
     env.VERCEL_ENV !== 'development' ||
-    env.NFE_ENVIRONMENT !== '2' ||
-    ['true', '1'].includes((env.NFE_PRODUCTION_ENABLED || '').toLowerCase()) ||
     !actualRef ||
     !allowedRef ||
     actualRef !== allowedRef ||
     OPERATIONAL_SUPABASE_REFS.has(actualRef)
   ) {
     throw Object.assign(
-      new Error('Simulador fiscal E2E bloqueado: projeto operacional, ambiente não aprovado ou sem proteção de Homologação.'),
+      new Error('Simulador fiscal E2E bloqueado: projeto operacional ou modo de simulação não aprovado.'),
       { code: 'FISCAL_E2E_SIMULATOR_GUARD_FAILED' }
     );
   }

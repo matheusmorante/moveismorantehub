@@ -76,7 +76,6 @@ describe('reserva fiscal via API autenticada', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
-    delete process.env.NFE_PRODUCTION_ENABLED;
   });
 
   it('não consome número sem sessão fiscal', async () => {

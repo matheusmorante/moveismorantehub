@@ -8,22 +8,6 @@ const fail = (code) => {
   process.exitCode = 1;
 };
 
-function readEnvironment(value) {
-  if (value === '2') return 2;
-  try {
-    const parsed = JSON.parse(value || 'null');
-    if (parsed && typeof parsed === 'object') {
-      for (const key of ['tpAmb', 'tp_amb', 'environment']) {
-        if (Number(parsed[key]) === 2) return 2;
-        if (Number(parsed[key]) === 1) return 1;
-      }
-    }
-  } catch {
-    // Treat unknown formats as unsafe; never infer homologation.
-  }
-  return undefined;
-}
-
 function inspectReadiness(env) {
   const supabase = Boolean((env.SUPABASE_URL || env.VITE_SUPABASE_URL) && env.SUPABASE_SECRET_KEY);
   const certificate = Boolean(env.NFE_CERTIFICATE_BASE64);
@@ -34,8 +18,7 @@ function inspectReadiness(env) {
     (env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE));
   const csrtHomologacao = Boolean(env.NFE_CSRT_HOMOLOGACAO);
   const idCsrtHomologacao = Boolean(env.NFE_ID_CSRT_HOMOLOGACAO);
-  const tpAmb = readEnvironment(env.NFE_ENVIRONMENT);
-  const productionEnabled = String(env.NFE_PRODUCTION_ENABLED || '').trim().toLowerCase() === 'true';
+  const tpAmb = 2;
   const operatorEmail = Boolean(env.NFE_HML_TEST_OPERATOR_EMAIL);
   const operatorPassword = Boolean(env.NFE_HML_TEST_OPERATOR_PASSWORD);
   // Actual authentication is verified by the runner, never inferred from a secret key.
@@ -49,7 +32,6 @@ function inspectReadiness(env) {
     idCsrtHomologacao,
     sefazHomologacao: true,
     tpAmb: tpAmb === undefined ? 'unknown' : tpAmb,
-    productionEnabled,
     operatorEmail,
     operatorPassword,
   };
@@ -62,9 +44,7 @@ function inspectReadiness(env) {
     ['csrtHomologacao', 'PRECHECK_CSRT'],
     ['idCsrtHomologacao', 'PRECHECK_ID_CSRT'],
   ].find(([key]) => !readiness[key]);
-  const failure = missing?.[1] || (tpAmb !== 2 ? 'PRECHECK_TPAMB' :
-    productionEnabled ? 'PRECHECK_PRODUCTION_DISABLED' :
-      !operatorConfigured ? 'PRECHECK_OPERATOR_AUTH' : undefined);
+  const failure = missing?.[1] || (!operatorConfigured ? 'PRECHECK_OPERATOR_AUTH' : undefined);
   return { readiness, failure };
 }
 

@@ -5,20 +5,10 @@ const {assertVercelDevelopment} = require('../assert-vercel-development.cjs');
 test('Development rejects entry points without Vercel injection', () => {
   assert.throws(() => assertVercelDevelopment({}), /npm run dev/);
 });
-test('Development requires injected homologation and production disabled', () => {
+test('Development requires its runtime markers without fiscal environment flags', () => {
   assert.doesNotThrow(() => assertVercelDevelopment({
     MORANTE_ENV_SOURCE:'vercel-development',
-    NFE_ENVIRONMENT:'2',
-    NFE_PRODUCTION_ENABLED:'false',
+    VERCEL_ENV:'development',
   }));
-  assert.throws(() => assertVercelDevelopment({MORANTE_ENV_SOURCE:'vercel-development',NFE_ENVIRONMENT:'1'}), /Homologacao/);
-  assert.throws(() => assertVercelDevelopment({
-    MORANTE_ENV_SOURCE:'vercel-development',
-    NFE_ENVIRONMENT:'2',
-    NFE_PRODUCTION_ENABLED:'true',
-  }), /NFE_PRODUCTION_ENABLED=false/);
-  assert.throws(() => assertVercelDevelopment({
-    MORANTE_ENV_SOURCE:'vercel-development',
-    NFE_PRODUCTION_ENABLED:'false',
-  }), /NFE_ENVIRONMENT=2/);
+  assert.throws(() => assertVercelDevelopment({ MORANTE_ENV_SOURCE:'vercel-development' }), /npm run dev/);
 });

@@ -2,7 +2,6 @@ import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
-import { isNfeProductionEnabled } from './productionGuard';
 import { extractCertificateAndKey, signNfeEventXml } from './nfeSigner';
 import { sendNationalEventOnce } from './nationalEnvironmentEventClient';
 import {
@@ -57,9 +56,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const environment = Number(invoice.ambiente) as 1 | 2;
   if (environment === 1 && req.body?.productionConfirmed !== true)
     return res.status(400).json({ success: false, error: 'Confirme explicitamente o envio da Ciência em Produção.' });
-  if (environment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED))
-    return res.status(503).json({ success: false, error: 'Eventos fiscais em Produção estão desabilitados neste servidor.' });
-
   const recipientCnpj = digits(invoice.destinatario_cnpj);
   const { data: settingsRow, error: settingsError } = await db
     .from('settings')

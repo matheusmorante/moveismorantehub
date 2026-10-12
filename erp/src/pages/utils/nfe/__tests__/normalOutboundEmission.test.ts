@@ -371,7 +371,6 @@ function commandWithPreview(d: ReturnType<typeof database>, c = command()) {
   return proof ? { ...c, previewProof: proof } : c;
 }
 beforeEach(() => {
-  vi.stubEnv('NFE_PRODUCTION_ENABLED', 'true');
   vi.stubEnv('NFE_CERTIFICATE_BASE64', 'TEST_UNIT_A1');
   vi.stubEnv('NFE_RESP_TECH_CNPJ', '12345678000195');
   vi.stubEnv('NFE_RESP_TECH_CONTACT', 'TEST UNIT');
@@ -600,11 +599,10 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(mocks.send).toHaveBeenCalledTimes(1);
     expect(d.attempts).toHaveLength(1);
   });
-  it('production switch disables transmission but still permits reconciliation of an existing key', async () => {
+  it('reconciles an existing production key independently of runtime configuration', async () => {
     const d = database();
     mocks.send.mockRejectedValueOnce(new Error('timeout'));
     await emit(d);
-    vi.stubEnv('NFE_PRODUCTION_ENABLED', 'false');
     mocks.send.mockResolvedValueOnce(authorization(d.attempts[0].access_key, 1));
     const r = await reconcileNormalSale(d.db, d.documents[0].id);
     expect(r.body).toMatchObject({ success: true, state: 'authorized' });
@@ -678,11 +676,10 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
       expect(d.attempts[0].state).toBe('reconciling');
     }
   });
-  it('production flag and confirmation are checked before allocating', async () => {
+  it('requires explicit production confirmation before allocating', async () => {
     const d = database();
-    vi.stubEnv('NFE_PRODUCTION_ENABLED', 'false');
-    const r = await emit(d);
-    expect(r.body.code).toBe('PRODUCTION_EMISSION_DISABLED');
+    const r = await emit(d, { ...command(), productionConfirmed: false });
+    expect(r.body.code).toBe('PRODUCTION_CONFIRMATION_REQUIRED');
     expect(d.counters.size).toBe(0);
     expect(mocks.send).not.toHaveBeenCalled();
   });

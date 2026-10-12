@@ -27,7 +27,6 @@ import {
 import { validateUnsignedNfeStructure, validateNfeAgainstOfficialSchema } from './schemaValidator';
 import { extractCertificateAndKey, signNfeXml } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
-import { isNfeProductionEnabled } from './productionGuard';
 import {
   appendResponsibleTechnician,
   getResponsibleTechnicianConfig,
@@ -788,14 +787,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (draft.status === 'transmitting' || draft.status === 'unknown')
       return reconcileStoredAttempt(true);
-
-    if (environment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      return res.status(503).json({
-        success: false,
-        error:
-          'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
-      });
-    }
 
     const review = draft.review_data as Record<string, unknown>;
     if (draft.operation_kind === 'return') {

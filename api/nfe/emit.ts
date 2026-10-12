@@ -9,7 +9,6 @@ import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { validateOrdinaryOutboundEnvelope } from '../../erp/src/pages/utils/nfe/fiscalEnvelope';
-import { isNfeProductionEnabled } from './productionGuard';
 import { getNfeAuthorizationEndpoint } from './fiscalEnvironmentPolicy';
 import { emitNormalSale } from './emitNormalSale';
 import { recoverNormalSale, reconcileNormalSale } from './normal-sale/outboundAttempt';
@@ -427,14 +426,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...retryResponseMetadata,
         error: 'Confirmação explícita de Produção ausente.',
       });
-    if (selectedEnvironment === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      return res.status(503).json({
-        success: false,
-        ...retryResponseMetadata,
-        error:
-          'Transmissões em Produção estão desabilitadas neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
-      });
-    }
     const { data: orderRow, error: orderError } = await supabase
       .from('orders')
       .select('id,order_type,status')

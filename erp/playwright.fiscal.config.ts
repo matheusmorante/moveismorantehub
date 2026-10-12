@@ -58,11 +58,9 @@ function assertFiscalE2eEnvironment(): void {
     process.env.VITE_TEST_ARTIFACT_RUN_ID !== process.env.FISCAL_E2E_RUN_ID ||
     process.env.VITE_TEST_ARTIFACT_SCENARIO_KEY !== process.env.FISCAL_E2E_SCENARIO_KEY ||
     process.env.VERCEL_ENV !== 'development' ||
-    process.env.MORANTE_ENV_SOURCE !== 'vercel-development' ||
-    process.env.NFE_ENVIRONMENT !== '2' ||
-    ['true', '1'].includes((process.env.NFE_PRODUCTION_ENABLED || '').toLowerCase())
+    process.env.MORANTE_ENV_SOURCE !== 'vercel-development'
   ) {
-    throw new Error('E2E fiscal bloqueado: Vercel Development, Supabase vinculado e Homologação são obrigatórios.');
+    throw new Error('E2E fiscal bloqueado: Vercel Development e Supabase vinculado são obrigatórios. O cenário seleciona e valida Homologação pela interface.');
   }
 
   if (mode === 'simulated') {

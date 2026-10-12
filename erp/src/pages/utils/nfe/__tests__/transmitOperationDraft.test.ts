@@ -390,7 +390,6 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     vi.stubEnv('NFE_RESP_TECH_PHONE', '41999999999');
     vi.stubEnv('NFE_CSRT_ID', '01');
     vi.stubEnv('NFE_CSRT_SECRET', 'TESTAUT000000000000000000');
-    process.env.NFE_PRODUCTION_ENABLED = 'true';
     process.env.NFE_CERTIFICATE_BASE64 = 'server-pfx';
     process.env.NFE_CERTIFICATE_PASSWORD = 'server-password';
     mocks.validateNfeAgainstOfficialSchema.mockResolvedValue(undefined);

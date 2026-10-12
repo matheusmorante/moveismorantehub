@@ -1,22 +1,20 @@
 type TestArtifactOperatorEnvironment = {
   MORANTE_ENV_SOURCE?: string;
+  VERCEL_ENV?: string;
   NFE_HML_TEST_OPERATOR_EMAIL?: string;
-  NFE_ENVIRONMENT?: string;
-  NFE_PRODUCTION_ENABLED?: string;
 };
 
 export function isTestArtifactOperatorRuntimeEnabled(
   environment: TestArtifactOperatorEnvironment,
 ): boolean {
   return environment.MORANTE_ENV_SOURCE === 'vercel-development'
-    && environment.NFE_ENVIRONMENT === '2'
-    && environment.NFE_PRODUCTION_ENABLED === 'false';
+    && environment.VERCEL_ENV === 'development';
 }
 
 export function getConfiguredTestArtifactOperatorEmail(
   environment: TestArtifactOperatorEnvironment,
 ): string {
-  if (environment.MORANTE_ENV_SOURCE !== 'vercel-development') return '';
+  if (environment.MORANTE_ENV_SOURCE !== 'vercel-development' || environment.VERCEL_ENV !== 'development') return '';
   const configuredEmail = environment.NFE_HML_TEST_OPERATOR_EMAIL;
   return typeof configuredEmail === 'string' ? configuredEmail.trim().toLowerCase() : '';
 }

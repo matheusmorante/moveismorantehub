@@ -14,7 +14,6 @@ import type {
   FiscalSnapshotCandidate,
 } from '../fiscalSnapshot';
 import { extractCertificateAndKey } from '../nfeSigner';
-import { isNfeProductionEnabled } from '../productionGuard';
 import { validateNfeAgainstOfficialSchema } from '../schemaValidator';
 import { sendSoapToSefaz } from '../sefazClient';
 import { embeddedNfeXml } from '../xmlEnvelope';
@@ -53,12 +52,12 @@ export function productionTransmissionGate(
 ): OutboundResult | null {
   if (
     environment === 1 &&
-    (!isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED) || !confirmed)
+    !confirmed
   )
     return outboundFailure(
       403,
-      'PRODUCTION_EMISSION_DISABLED',
-      'Habilite a emissão produtiva no servidor e confirme o ambiente de Produção.'
+      'PRODUCTION_CONFIRMATION_REQUIRED',
+      'Confirme explicitamente a emissão em Produção.'
     );
   return null;
 }

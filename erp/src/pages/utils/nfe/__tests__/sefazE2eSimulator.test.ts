@@ -13,8 +13,6 @@ const safeEnvironment: FiscalE2eSimulatorEnvironment = {
   FISCAL_E2E_SIMULATOR_ENABLED: '1',
   MORANTE_ENV_SOURCE: 'vercel-development',
   NFE_E2E_SEFAZ_MODE: 'simulated',
-  NFE_ENVIRONMENT: '2',
-  NFE_PRODUCTION_ENABLED: 'false',
   SUPABASE_URL: 'https://fiscal-e2e-isolated.supabase.co',
   VERCEL_ENV: 'development',
 };
@@ -44,10 +42,8 @@ describe('fronteira do simulador fiscal E2E', () => {
     ).toThrowError(expect.objectContaining({ code: 'FISCAL_E2E_SIMULATOR_GUARD_FAILED' }));
   });
 
-  it('bloqueia Produção, endpoint de produção, consultas e XML de ambiente 1', () => {
-    expect(() =>
-      simulateFiscalE2eSoap(params, { ...safeEnvironment, NFE_PRODUCTION_ENABLED: 'true' })
-    ).toThrowError(expect.objectContaining({ code: 'FISCAL_E2E_SIMULATOR_GUARD_FAILED' }));
+  it('mantém a simulação HML limitada a endpoint de homologação, autorização e XML tpAmb=2', () => {
+    expect(simulateFiscalE2eSoap(params, safeEnvironment)).toContain('<tpAmb>2</tpAmb>');
     expect(() =>
       simulateFiscalE2eSoap(
         { ...params, url: 'https://nfe.sefa.pr.gov.br/ws/NFeAutorizacao4.asmx' },

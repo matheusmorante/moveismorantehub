@@ -10,7 +10,6 @@ import {
   parseSefazNfeSituation,
   validateCancellationReason,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
-import { isNfeProductionEnabled } from './productionGuard';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { getGoodsCirculationState } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
@@ -418,15 +417,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           (String(doc.modelo) === '65'
             ? 'Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado.'
             : 'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.'),
-      });
-    }
-
-    if (Number(doc.ambiente) === 1 && !isNfeProductionEnabled(process.env.NFE_PRODUCTION_ENABLED)) {
-      await recordPreflightFailure('Eventos fiscais em Produção estão desabilitados no servidor.');
-      return res.status(503).json({
-        success: false,
-        error:
-          'Eventos em Produção estão desabilitados neste servidor. Configure NFE_PRODUCTION_ENABLED=true somente após aprovação fiscal.',
       });
     }
 

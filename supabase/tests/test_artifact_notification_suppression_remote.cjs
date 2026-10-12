@@ -14,8 +14,6 @@ const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
 assert.ok(url && key && email && password, 'Vercel Development operator credentials are required at runtime.');
 assert.equal(new URL(url).hostname, `${projectRef}.supabase.co`, 'Unexpected Supabase project.');
 assert.equal(process.env.VERCEL_ENV, 'development', 'Vercel Development is required.');
-assert.equal(process.env.NFE_ENVIRONMENT, '2', 'Homologation configuration is required.');
-assert.equal(process.env.NFE_PRODUCTION_ENABLED, 'false', 'Production must be disabled.');
 
 const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const types = ['order_created', 'order_edited', 'order_schedule_changed', 'assembly_outside', 'assembly_depot', 'system'];

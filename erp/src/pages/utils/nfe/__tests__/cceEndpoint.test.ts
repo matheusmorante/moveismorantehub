@@ -160,7 +160,6 @@ describe('API de Carta de Correção Eletrônica', () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
     process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
     process.env.NFE_CERTIFICATE_PASSWORD = 'mock-password';
-    delete process.env.NFE_PRODUCTION_ENABLED;
     mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: documentId });
     mocks.extractCertificateAndKey.mockReturnValue({
       certPem: 'mock-cert-pem',

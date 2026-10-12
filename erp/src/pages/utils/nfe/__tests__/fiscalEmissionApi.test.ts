@@ -146,7 +146,6 @@ describe('API de emissão fiscal server-side', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
-    delete process.env.NFE_PRODUCTION_ENABLED;
     delete process.env.NFE_CERTIFICATE_BASE64;
     delete process.env.NFE_CERTIFICATE_PASSWORD;
     mocks.authorizeFiscalOperator.mockResolvedValue({
@@ -307,7 +306,6 @@ describe('API de emissão fiscal server-side', () => {
   it('conecta Produção ao preflight comum e recusa fatos incompletos antes da reserva', async () => {
     const db = database();
     mocks.createClient.mockReturnValue(db);
-    process.env.NFE_PRODUCTION_ENABLED = 'true';
     const handler = (await import('../../../../../../api/nfe/emit')).default;
     const result = response();
     await handler(

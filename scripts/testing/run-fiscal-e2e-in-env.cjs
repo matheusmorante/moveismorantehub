@@ -90,8 +90,6 @@ env.SUPABASE_SECRET_KEY = serviceKey;
 env.SUPABASE_SERVICE_ROLE_KEY = serviceKey;
 env.VERCEL_ENV = 'development';
 env.MORANTE_ENV_SOURCE = 'vercel-development';
-env.NFE_ENVIRONMENT = '2';
-env.NFE_PRODUCTION_ENABLED = 'false';
 env.PLAYWRIGHT_TEST_BASE_URL = 'http://127.0.0.1:5173';
 
 if (mode === 'simulated') {

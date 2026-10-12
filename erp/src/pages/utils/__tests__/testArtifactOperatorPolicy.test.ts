@@ -10,20 +10,18 @@ const runId = '550e8400-e29b-41d4-a716-446655440001';
 const ownerId = '550e8400-e29b-41d4-a716-446655440002';
 
 describe('test artifact operator authorization', () => {
-  it('requires the official Vercel Development launcher, HML and production disabled', () => {
+  it('requires the official Vercel Development launcher without fiscal environment flags', () => {
     expect(isTestArtifactOperatorRuntimeEnabled({
       MORANTE_ENV_SOURCE: 'vercel-development',
-      NFE_ENVIRONMENT: '2',
-      NFE_PRODUCTION_ENABLED: 'false',
+      VERCEL_ENV: 'development',
     })).toBe(true);
     expect(isTestArtifactOperatorRuntimeEnabled({
       MORANTE_ENV_SOURCE: 'other',
-      NFE_ENVIRONMENT: '2',
-      NFE_PRODUCTION_ENABLED: 'false',
+      VERCEL_ENV: 'development',
     })).toBe(false);
     expect(isTestArtifactOperatorRuntimeEnabled({
-      NFE_ENVIRONMENT: '2',
-      NFE_PRODUCTION_ENABLED: 'false',
+      MORANTE_ENV_SOURCE: 'vercel-development',
+      VERCEL_ENV: 'production',
     })).toBe(false);
   });
 
@@ -48,13 +46,16 @@ describe('test artifact operator authorization', () => {
   it('uses only the canonical Vercel Development operator secret and fails closed elsewhere', () => {
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'vercel-development',
+      VERCEL_ENV: 'development',
       NFE_HML_TEST_OPERATOR_EMAIL: ' Operator@Example.Invalid ',
     })).toBe('operator@example.invalid');
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'vercel-development',
+      VERCEL_ENV: 'development',
     })).toBe('');
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'production',
+      VERCEL_ENV: 'production',
       NFE_HML_TEST_OPERATOR_EMAIL: ' Operator@Example.Invalid ',
     })).toBe('');
   });

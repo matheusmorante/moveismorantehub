@@ -21,7 +21,7 @@ O script raiz executa `dev:stack` dentro do ambiente Vercel Development, passand
 node scripts/run-vercel-env-dev.cjs
 ```
 
-`dev:stack` compila o bundle fiscal e inicia ERP e API. Não há `predev` fazendo `env pull`: `env run` injeta os valores Development no processo em memória, inclusive secrets disponíveis nesse ambiente. O cwd isolado impede que `.env.local` substitua valores retornados pelo Vercel CLI. O launcher limpa variáveis fiscais, Supabase, Vite e overrides TLS herdados antes da consulta e identifica a origem com `MORANTE_ENV_SOURCE=vercel-development`.
+`dev:stack` compila o bundle fiscal e inicia ERP e API. Não há `predev` fazendo `env pull`: `env run` injeta os valores Development no processo em memória, inclusive secrets disponíveis nesse ambiente. O cwd isolado impede que `.env.local` substitua valores retornados pelo Vercel CLI. O launcher limpa variáveis fiscais, Supabase, Vite e overrides TLS herdados antes da consulta e identifica o runtime com `MORANTE_ENV_SOURCE=vercel-development` e `VERCEL_ENV=development`; esses marcadores habilitam somente regras locais de Development, não selecionam ambiente fiscal.
 
 O backend deve aceitar `SUPABASE_SECRET_KEY` diretamente e usar `SUPABASE_SERVICE_ROLE_KEY` somente como fallback de compatibilidade. A API herda as variáveis injetadas sem carregar `.env.local`; o Vite usa o cwd isolado como `envDir`. Os entry points internos exigem a identificação do launcher. Os aliases `dev:erp`, `dev:api` e o `dev` do workspace ERP passam pelo mesmo launcher; o comando oficial continua sendo `npm run dev` na raiz.
 
@@ -44,8 +44,9 @@ Para executar somente a API, use `node scripts/run-vercel-env-dev.cjs api`.
 
 ## Segurança fiscal
 
-- O launcher local fixa `NFE_ENVIRONMENT=2` no processo depois de limpar overrides herdados, e exige `NFE_PRODUCTION_ENABLED=false` antes de iniciar o backend. Para NF-e/NFC-e local, `tpAmb=2` é obrigatório; `environment=1` e `tpAmb=1` são exclusivamente Produção.
-- Não amplie por padrão para Development ou Preview certificados, senhas, flags de Produção ou valores que habilitem `tpAmb=1`. Uma instrução explícita do usuário pode autorizar ampliar o escopo de CSC/CSRT fiscais já existentes; nesse caso, preserve os valores e tipos, não altere `NFE_PRODUCTION_ENABLED` e mantenha essa flag desabilitada em Development e Preview. Em testes locais de homologação, fixe `tpAmb=2` somente no processo de teste; não crie uma variável Vercel remota para substituir essa proteção.
+- `NFE_ENVIRONMENT` e `NFE_PRODUCTION_ENABLED` não são configurações de runtime: não os exija, copie, defina ou consulte em variáveis de ambiente. A interface fiscal seleciona o ambiente do documento; o padrão do ERP é Homologação (`tpAmb=2`). Todos os testes fiscais que abrem a interface devem selecionar Homologação e conferir o XML/retorno com `tpAmb=2`.
+- O caminho de Produção no backend fica habilitado sem uma flag global. Cada operação de Produção ainda exige as confirmações explícitas do fluxo, operador autorizado, certificado e configuração fiscal válidos, integridade dos vínculos, idempotência e validação SEFAZ. A habilitação do caminho não comprova prontidão fiscal nem autoriza uma transmissão; qualquer transmissão de teste continua exclusiva da interface e em Homologação.
+- Não amplie por padrão para Development ou Preview certificados, senhas, CSC/CSRT ou outros secrets fiscais. Uma instrução explícita do usuário pode autorizar ampliar os escopos de CSC/CSRT fiscais já existentes; preserve valores e tipos e limite alterações às chaves nomeadas.
 - A sincronização local não emite documentos nem altera configuração remota. Persistência/emissão fiscal e dados seguem os gates da skill `testes-seguros-erp` e das skills fiscais.
 
 ## Validação e diagnóstico

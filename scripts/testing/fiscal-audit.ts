@@ -23,8 +23,8 @@ const digestKey = fs.readFileSync(keyFile);
 const digest = (value: string) => createHmac('sha256', digestKey).update(value).digest('hex');
 const originalPfx = 'C:/Users/Rosilene/Downloads/MOVEIS MORANTE LTDA44512248000107.pfx';
 const pattern = /^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_SUPABASE_|VERCEL_ENV$|NODE_ENV$|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$|NODE_OPTIONS$|HTTPS?_PROXY$|NO_PROXY$)/;
-const mandatory = ['NFE_CERTIFICATE_BASE64', 'NFE_CERTIFICATE_PASSWORD', 'NFE_PRODUCTION_ENABLED',
-  'NFE_ENVIRONMENT', 'NODE_EXTRA_CA_CERTS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'SUPABASE_URL',
+const mandatory = ['NFE_CERTIFICATE_BASE64', 'NFE_CERTIFICATE_PASSWORD',
+  'NODE_EXTRA_CA_CERTS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'SUPABASE_URL',
   'SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
 const safeSubject = (s: string) => s.replace(/\b\d{11}\b/g, '[CPF omitido]');
 const certificateMetadata = (cert: X509Certificate) => ({
@@ -34,11 +34,13 @@ const certificateMetadata = (cert: X509Certificate) => ({
 });
 
 function inspectEnv(env: NodeJS.ProcessEnv) {
-  const variables = Object.fromEntries([...new Set([...mandatory, ...Object.keys(env).filter(k => pattern.test(k))])].sort().map(name => {
+  const detectedNames = Object.keys(env).filter(k =>
+    pattern.test(k) && k !== 'NFE_ENVIRONMENT' && k !== 'NFE_PRODUCTION_ENABLED');
+  const variables = Object.fromEntries([...new Set([...mandatory, ...detectedNames])].sort().map(name => {
     const value = env[name];
     return [name, { present: value !== undefined && value !== '', length: value?.length || 0,
       hash: value ? digest(value) : null,
-      ...(['NFE_ENVIRONMENT', 'NFE_PRODUCTION_ENABLED', 'VERCEL_ENV', 'NODE_ENV', 'NODE_TLS_REJECT_UNAUTHORIZED'].includes(name) ? { value: value ?? null } : {}),
+      ...(['VERCEL_ENV', 'NODE_ENV', 'NODE_TLS_REJECT_UNAUTHORIZED'].includes(name) ? { value: value ?? null } : {}),
     }];
   }));
   const base64 = env.NFE_CERTIFICATE_BASE64 || '';
@@ -97,13 +99,11 @@ async function testArtifactPostgrestReads() {
   })();
   const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
   const vercelDevelopment = process.env.VERCEL_ENV === 'development';
-  const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
-  const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
-  const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+  const environmentOk = vercelDevelopment;
   const credentialsPresent = Boolean(anonKey && email && password);
   if (!projectMatches || !environmentOk || !credentialsPresent) {
     console.log(JSON.stringify({mode:'artifact-reads',projectMatches,vercelDevelopment,
-      homologationEnvironment,productionDisabled,environmentOk,operatorEmailPresent:Boolean(email),
+      environmentOk,operatorEmailPresent:Boolean(email),
       credentialsPresent,authenticated:false,administratorCheckOk:false,queriesValid:false}));
     process.exitCode = 1;
     return;
@@ -313,8 +313,7 @@ async function main() {
     console.log(JSON.stringify({label:'local-files', files: files.filter(f => fs.existsSync(path.join(root,f))).map(f => ({file:f,...inspectEnv(dotenv.parse(fs.readFileSync(path.join(root,f))))}))}));
   } else if (mode === 'reconcile-http') {
     const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-    if (new URL(url).hostname !== 'hkoxhourxwlddgsfdgws.supabase.co' || process.env.NFE_ENVIRONMENT !== '2' ||
-        process.env.NFE_PRODUCTION_ENABLED !== 'false') throw new Error('AUDIT_ENVIRONMENT_MISMATCH');
+    if (new URL(url).hostname !== 'hkoxhourxwlddgsfdgws.supabase.co') throw new Error('AUDIT_PROJECT_MISMATCH');
     const db = createClient(url,process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',{auth:{persistSession:false,autoRefreshToken:false}});
     const {data:doc,error} = await db.from('nfe_documents').select('id,ambiente,modelo,emission_request_id')
       .eq('emission_request_id','aa1146c0-ea67-47aa-9ec6-8af7e5907dcd').single();
@@ -365,14 +364,12 @@ async function main() {
     })();
     const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
     const vercelDevelopment = process.env.VERCEL_ENV === 'development';
-    const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
-    const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
-    const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+    const environmentOk = vercelDevelopment;
     const operatorEmailPresent = Boolean(email);
     const credentialsPresent = Boolean(password && process.env.VITE_SUPABASE_ANON_KEY);
     if (!projectMatches || !environmentOk || !operatorEmailPresent || !credentialsPresent) {
-      console.log(JSON.stringify({mode,projectRef,projectMatches,vercelDevelopment,homologationEnvironment,
-        productionDisabled,environmentOk,operatorEmailPresent,credentialsPresent,authenticated:false,
+      console.log(JSON.stringify({mode,projectRef,projectMatches,vercelDevelopment,
+        environmentOk,operatorEmailPresent,credentialsPresent,authenticated:false,
         administratorCheckOk:false,isAdministrator:false}));
       process.exitCode = 1;
       return;
@@ -403,16 +400,12 @@ async function main() {
     })();
     const projectMatches = projectRef === 'hkoxhourxwlddgsfdgws';
     const vercelDevelopment = process.env.VERCEL_ENV === 'development';
-    const homologationEnvironment = process.env.NFE_ENVIRONMENT === '2';
-    const productionDisabled = process.env.NFE_PRODUCTION_ENABLED === 'false';
-    const environmentOk = vercelDevelopment && homologationEnvironment && productionDisabled;
+    const environmentOk = vercelDevelopment;
     const serviceCredentialPresent = Boolean(apiKey);
     const emptyStatus = {
       mode,
       projectMatches,
       vercelDevelopment,
-      homologationEnvironment,
-      productionDisabled,
       environmentOk,
       serviceCredentialPresent,
       rpcReachable: false,
