@@ -31,6 +31,7 @@ function assertFiscalE2eEnvironment(): void {
   const required = [
     'FISCAL_E2E_MODE',
     'FISCAL_E2E_RUN_ID',
+    'FISCAL_E2E_SCENARIO_KEY',
     'FISCAL_E2E_ORDER_ID',
     'FISCAL_E2E_ALLOWED_SUPABASE_REF',
     'VITE_SUPABASE_URL',
@@ -54,6 +55,8 @@ function assertFiscalE2eEnvironment(): void {
     !configuredRef ||
     configuredRef !== expectedRef ||
     process.env.FISCAL_E2E_ALLOWED_SUPABASE_REF !== expectedRef ||
+    process.env.VITE_TEST_ARTIFACT_RUN_ID !== process.env.FISCAL_E2E_RUN_ID ||
+    process.env.VITE_TEST_ARTIFACT_SCENARIO_KEY !== process.env.FISCAL_E2E_SCENARIO_KEY ||
     process.env.VERCEL_ENV !== 'development' ||
     process.env.MORANTE_ENV_SOURCE !== 'vercel-development' ||
     process.env.NFE_ENVIRONMENT !== '2' ||

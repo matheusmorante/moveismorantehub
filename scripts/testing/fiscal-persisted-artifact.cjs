@@ -14,6 +14,17 @@ function assertUuid(value, name) {
   return value.toLowerCase();
 }
 
+function assertScenarioKey(value, name) {
+  if (typeof value !== 'string' || !/^[a-z][a-z0-9_-]{2,63}$/i.test(value)) {
+    fail('INVALID_' + name.toUpperCase());
+  }
+  const scenarioKey = value.trim().toLowerCase();
+  if (!['nfe55_sale', 'nfe55_delivery_own_transport', 'nfce65_pickup', 'nfce65_delivery'].includes(scenarioKey)) {
+    fail('UNSUPPORTED_FISCAL_SCENARIO');
+  }
+  return scenarioKey;
+}
+
 function object(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
@@ -118,16 +129,17 @@ async function assertProductComponents(client, product, expected, visited = new 
   visited.delete(productId);
 }
 
-async function loadPersistedFiscalOrder(client, { orderId, runId, expectedEmail }) {
+async function loadPersistedFiscalOrder(client, { orderId, runId, scenarioKey, expectedEmail }) {
   const normalizedOrderId = assertUuid(orderId, 'order_id');
   const normalizedRunId = assertUuid(runId, 'run_id');
+  const normalizedScenarioKey = assertScenarioKey(scenarioKey, 'scenario_key');
   const operator = await verifyAuthenticatedOperator(client, expectedEmail);
   const expected = { runId: normalizedRunId, ownerId: operator.ownerId };
 
   const order = await readSingle(
     client,
     'orders',
-    'id,order_data,order_type,status,deleted,customer_id,order_index,order_number,items,order_items(id,order_id,product_id,variation_id,is_temporary_product),order_payments(order_id,payment_method,amount)',
+    'id,order_data,order_type,status,deleted,customer_id,delivery_method,order_index,order_number,items,order_items(id,order_id,product_id,variation_id,is_temporary_product),order_payments(order_id,payment_method,amount)',
     normalizedOrderId,
     'PERSISTED_TEST_ORDER_REQUIRED',
   );
@@ -138,6 +150,22 @@ async function loadPersistedFiscalOrder(client, { orderId, runId, expectedEmail 
   if (!['scheduled', 'fulfilled'].includes(order.status)) fail('PERSISTED_TEST_ORDER_STATE_INVALID');
   if (orderData.is_test !== true) fail('PERSISTED_TEST_ORDER_REQUIRED');
   canonicalIdentity(orderData.testArtifact, expected, 'ORDER');
+  if (object(orderData.testArtifact).scenarioKey !== normalizedScenarioKey) {
+    fail('TEST_ARTIFACT_ORDER_SCENARIO_MISMATCH');
+  }
+  const deliveryMethod = object(orderData.shipping).deliveryMethod;
+  const freightMode = object(orderData.shipping).freightMode;
+  if (!['delivery', 'pickup'].includes(deliveryMethod) || order.delivery_method !== deliveryMethod) {
+    fail('TEST_ARTIFACT_DELIVERY_METHOD_MISMATCH');
+  }
+  if (
+    (normalizedScenarioKey === 'nfce65_pickup' && deliveryMethod !== 'pickup') ||
+    (normalizedScenarioKey === 'nfce65_delivery' && deliveryMethod !== 'delivery') ||
+    (normalizedScenarioKey === 'nfe55_delivery_own_transport' &&
+      (deliveryMethod !== 'delivery' || String(freightMode) !== '3'))
+  ) {
+    fail('TEST_ARTIFACT_SCENARIO_DELIVERY_MISMATCH');
+  }
   await readArtifactIdentity(client, 'orders', order, expected, 'ORDER');
 
   const customerId = assertUuid(object(orderData.customerData).id, 'customer_id');
@@ -272,10 +300,13 @@ async function loadPersistedFiscalOrder(client, { orderId, runId, expectedEmail 
   return {
     id: normalizedOrderId,
     runId: normalizedRunId,
+    scenarioKey: normalizedScenarioKey,
     ownerId: operator.ownerId,
+    freightMode: freightMode == null ? null : String(freightMode),
     orderIndex: String(orderIndex),
     customerSearchLabel,
     status: order.status,
+    deliveryMethod,
     customerId,
     productIds,
     variationIds,

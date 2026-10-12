@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertTestArtifactLinks, isIdentifiedTestArtifact, isTestArtifactVisibleAt,
-  normalizeTestRunId, readTestArtifactIdentity, TEST_ARTIFACT_EXCLUDED_DESTINATIONS,
+  normalizeTestArtifactScenarioKey, normalizeTestRunId, readTestArtifactIdentity,
+  testArtifactMetadata, TEST_ARTIFACT_EXCLUDED_DESTINATIONS,
 } from '../../../../../shared-utils/testArtifactPolicy';
 import { testArtifactIdentityForAuthenticatedUser } from '../../../../../shared-utils/testArtifactContext';
 
@@ -53,6 +54,39 @@ describe('identificação dos artefatos no schema existente', () => {
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, isAdministrator: false })).toBeNull();
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, configuredOperatorAuthorized: false })).toBeNull();
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, runId: 'TEST_AUT_anything' })).toBeNull();
+  });
+  it('persiste um identificador de cenário validado junto à execução e ao owner', () => {
+    expect(normalizeTestArtifactScenarioKey('NFCe65_Delivery')).toBe('nfce65_delivery');
+    expect(normalizeTestArtifactScenarioKey('delivery home')).toBeNull();
+    expect(readTestArtifactIdentity({ ...metadata, scenarioKey: 'nfce65_delivery' })).toEqual({
+      runId,
+      ownerId,
+      scenarioKey: 'nfce65_delivery',
+    });
+    const identity = testArtifactIdentityForAuthenticatedUser({
+      isDevelopment: true,
+      runId,
+      scenarioKey: 'nfce65_delivery',
+      ownerId,
+      isAdministrator: true,
+      configuredOperatorAuthorized: true,
+    });
+    expect(identity).toEqual({ runId, ownerId, scenarioKey: 'nfce65_delivery' });
+    expect(testArtifactIdentityForAuthenticatedUser({
+      isDevelopment: true,
+      runId,
+      scenarioKey: 'invalid scenario',
+      ownerId,
+      isAdministrator: true,
+      configuredOperatorAuthorized: true,
+    })).toBeNull();
+    expect(identity && testArtifactMetadata(identity)).toEqual({
+      is_test: true,
+      runId,
+      ownerId,
+      scenarioKey: 'nfce65_delivery',
+    });
+    expect(() => testArtifactMetadata({ runId, ownerId, scenarioKey: 'delivery home' })).toThrow('cenário');
   });
   it('recusa vínculo com produto operacional, outra execução ou outro operador', () => {
     for (const artifact of [{}, { ...metadata, runId: ownerId }, { ...metadata, ownerId: runId }])

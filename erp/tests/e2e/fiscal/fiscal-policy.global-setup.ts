@@ -12,8 +12,15 @@ const { loadPersistedFiscalOrder } = require('../../../../scripts/testing/fiscal
   loadPersistedFiscalOrder: (client: unknown, input: {
     orderId: string;
     runId: string;
+    scenarioKey: string;
     expectedEmail: string;
-  }) => Promise<{ id: string; orderIndex: string; customerSearchLabel: string }>;
+  }) => Promise<{
+    id: string;
+    orderIndex: string;
+    customerSearchLabel: string;
+    scenarioKey: string;
+    deliveryMethod: 'delivery' | 'pickup';
+  }>;
 };
 
 interface TestArtifactPolicyStatus {
@@ -39,8 +46,9 @@ export default async function fiscalPolicyGlobalSetup(_config: FullConfig): Prom
   const operatorEmail = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim().toLowerCase();
   const operatorPassword = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
   const runId = process.env.FISCAL_E2E_RUN_ID;
+  const scenarioKey = process.env.FISCAL_E2E_SCENARIO_KEY;
   const orderId = process.env.FISCAL_E2E_ORDER_ID;
-  if (!url || !serviceKey || !anonKey || !operatorEmail || !operatorPassword || !runId || !orderId ||
+  if (!url || !serviceKey || !anonKey || !operatorEmail || !operatorPassword || !runId || !scenarioKey || !orderId ||
       process.env.FISCAL_E2E_ALLOWED_SUPABASE_REF !== projectRef) {
     throw new Error('E2E fiscal bloqueado: faltam os parâmetros verificados do Supabase vinculado.');
   }
@@ -102,8 +110,10 @@ export default async function fiscalPolicyGlobalSetup(_config: FullConfig): Prom
     throw new Error('E2E fiscal bloqueado: o operador autenticado não tem permissão administrativa.');
   }
 
-  const artifact = await loadPersistedFiscalOrder(operator, { orderId, runId, expectedEmail: operatorEmail });
+  const artifact = await loadPersistedFiscalOrder(operator, { orderId, runId, scenarioKey, expectedEmail: operatorEmail });
   process.env.FISCAL_E2E_SELECTED_ORDER_ID = artifact.id;
   process.env.FISCAL_E2E_SELECTED_ORDER_INDEX = artifact.orderIndex;
   process.env.FISCAL_E2E_CUSTOMER_SEARCH_LABEL = artifact.customerSearchLabel;
+  process.env.FISCAL_E2E_SELECTED_SCENARIO_KEY = artifact.scenarioKey;
+  process.env.FISCAL_E2E_SELECTED_DELIVERY_METHOD = artifact.deliveryMethod;
 }

@@ -1,6 +1,6 @@
 # Artefatos fiscais E2E no Supabase
 
-**Regra vigente (12/10/2026):** o Supabase remoto operacional, na branch principal e schema `public`, é a única fonte de dados para cenários E2E fiscais. O runner seleciona artefatos já persistidos por `runId` UUID e UUID de pedido; não gera clientes, produtos, variações, pedidos, pagamentos ou devoluções a partir de presets estáticos no código-fonte.
+**Regra vigente (12/10/2026):** o Supabase remoto operacional, na branch principal e schema `public`, é a única fonte de dados para cenários E2E fiscais. O runner seleciona artefatos já persistidos por `runId`, `scenarioKey` e UUID de pedido; não gera clientes, produtos, variações, pedidos, pagamentos ou devoluções a partir de presets estáticos no código-fonte.
 
 ## Leitura e validação
 
@@ -9,11 +9,12 @@ Antes de abrir o fluxo fiscal pela UI, o runner:
 1. Confere project ref, Development, `environment=2` e produção desabilitada.
 2. Consulta o readiness read-only; a chave de serviço serve somente para esse gate.
 3. Autentica o operador configurado com o cliente Supabase e exige correspondência de identidade e `is_administrator()`.
-4. Recupera o pedido por UUID e confere `is_test`, metadata canônica `order_data.testArtifact`, `runId` e owner igual a `auth.uid()`.
+4. Recupera o pedido por UUID e confere `is_test`, metadata canônica `order_data.testArtifact`, `runId`, `scenarioKey` e owner igual a `auth.uid()`.
 5. Lê cliente, produtos e variações vinculados e compara a identidade usando `test_artifact_row_data`; valida também itens, pagamentos e a relação produto-variação.
-6. Bloqueia se faltar qualquer vínculo, se algum registro for de outra execução ou se houver documento/snapshot/tentativa fiscal anterior.
+6. Compara modalidade de entrega/retirada do JSON com a coluna persistida e valida os cenários `nfe55_sale`, `nfe55_delivery_own_transport` (`freightMode=3`), `nfce65_pickup` e `nfce65_delivery`.
+7. Bloqueia se faltar qualquer vínculo, se algum registro for de outra execução ou se houver documento/snapshot/tentativa fiscal anterior.
 
-O resolvedor é somente leitura. Ele não completa nem corrige cadastros e não cria massa quando o cenário não existe. A interface usa o pedido exato selecionado e aplica as validações dos serviços/formulários reais.
+O resolvedor é somente leitura. Ele não completa nem corrige cadastros e não cria massa quando o cenário não existe. A interface usa o pedido exato selecionado e aplica as validações dos serviços/formulários reais. Para NF-e 55 e NFC-e 65 com entrega, a pré-validação também exige destinatário identificado; o cenário de transporte próprio exige `<modFrete>3</modFrete>` na prévia.
 
 ## Provisionamento e testes unitários
 
@@ -23,4 +24,4 @@ Mocks e dados mínimos continuam válidos em testes unitários. Eles não são a
 
 ## Situação desta alteração
 
-O código local removeu as factories e presets estáticos de cenário e passou a exigir artefatos já persistidos. Nenhuma escrita, DDL, limpeza remota ou transmissão fiscal foi executada nesta tarefa. Os testes do resolvedor usam mocks; não provam a situação atual do Supabase nem uma emissão homologada.
+O código local removeu as factories e presets estáticos de cenário e passou a exigir artefatos já persistidos com `runId`, UUID e `scenarioKey`. Nenhuma escrita, DDL, limpeza remota ou transmissão fiscal foi executada nesta tarefa. Os testes do resolvedor usam mocks; não provam a situação atual do Supabase nem uma emissão homologada.

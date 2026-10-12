@@ -141,9 +141,24 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     test.setTimeout(180_000);
     const orderId = process.env.FISCAL_E2E_SELECTED_ORDER_ID || '';
     const customerSearchLabel = process.env.FISCAL_E2E_CUSTOMER_SEARCH_LABEL || '';
+    const scenarioKey = process.env.FISCAL_E2E_SELECTED_SCENARIO_KEY || '';
+    const deliveryMethod = process.env.FISCAL_E2E_SELECTED_DELIVERY_METHOD || '';
+    const expectedModelByScenario: Record<string, '55' | '65'> = {
+      nfe55_sale: '55',
+      nfe55_delivery_own_transport: '55',
+      nfce65_pickup: '65',
+      nfce65_delivery: '65',
+    };
+    const expectedModel = expectedModelByScenario[scenarioKey];
     const transmissionAuthorized = process.env.FISCAL_E2E_MODE === 'hml'
       && process.env.FISCAL_E2E_TRANSMISSION_AUTHORIZED === 'true';
-    if (!orderId || customerSearchLabel.trim().length < 3) {
+    if (
+      !orderId || customerSearchLabel.trim().length < 3 || !expectedModel ||
+      !['delivery', 'pickup'].includes(deliveryMethod) ||
+      (scenarioKey === 'nfce65_pickup' && deliveryMethod !== 'pickup') ||
+      (scenarioKey === 'nfce65_delivery' && deliveryMethod !== 'delivery') ||
+      (scenarioKey === 'nfe55_delivery_own_transport' && deliveryMethod !== 'delivery')
+    ) {
       throw new Error('O resolvedor não selecionou um pedido fiscal persistido e autorizado.');
     }
 
@@ -178,11 +193,11 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     await emissionModal.locator('#tab-customer').click();
     const taxIdInput = emissionModal.locator('#nfe-recipient-tax-id');
     await expect(taxIdInput).toBeVisible();
-    const taxId = (await taxIdInput.inputValue()).replace(/\D/g, '');
+    const taxId = (await taxIdInput.inputValue()).replace(/[^a-z0-9]/gi, '');
     const taxIdRequired = await emissionModal.getByText('Identificação obrigatória', { exact: true })
       .isVisible().catch(() => false);
-    if (taxIdRequired && !taxId) {
-      throw new Error('O pedido persistido não tem identificação exigida; nenhum dado fiscal será inventado.');
+    if ((taxIdRequired || expectedModel === '55' || scenarioKey === 'nfce65_delivery') && !taxId) {
+      throw new Error('O pedido não tem a identificação exigida pelo cenário fiscal; nenhum dado será inventado.');
     }
 
     await emissionModal.locator('#tab-items').click();
@@ -213,7 +228,8 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     const xml = await page.getByTestId('nfe-xml-preview-content').innerText();
     expect(xml).toContain('<tpAmb>2</tpAmb>');
     const model = xml.match(/<mod>(55|65)<\/mod>/)?.[1] as '55' | '65' | undefined;
-    expect(model).toBeDefined();
+    expect(model).toBe(expectedModel);
+    if (scenarioKey === 'nfe55_delivery_own_transport') expect(xml).toContain('<modFrete>3</modFrete>');
     assertFiscalXmlMatchesSnapshot(xml, {
       model: model as '55' | '65',
       environment: 2,
@@ -250,7 +266,7 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     });
     if (login.error || !login.session) throw new Error('Não foi possível validar o documento fiscal persistido.');
     const { data: documents, error: documentsError } = await db.from('nfe_documents')
-      .select('id,modelo,ambiente,status,numero_protocolo')
+      .select('id,order_id,modelo,ambiente,status,chave_acesso,numero_protocolo,xml_nfe,xml_protocolo,fiscal_snapshot_id')
       .eq('order_id', orderId)
       .eq('modelo', model)
       .eq('ambiente', 2);
@@ -259,6 +275,40 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     }
     if (documents[0].status !== 'homologada' || documents[0].numero_protocolo !== protocol) {
       throw new Error('O documento homologado não foi confirmado na persistência do Supabase.');
+    }
+    if (
+      documents[0].order_id !== orderId ||
+      documents[0].modelo !== expectedModel ||
+      !/^[0-9A-Z]{44}$/.test(documents[0].chave_acesso || '') ||
+      !documents[0].xml_nfe?.includes('<tpAmb>2</tpAmb>') ||
+      !documents[0].xml_nfe?.includes(`<mod>${expectedModel}</mod>`) ||
+      !documents[0].xml_nfe?.includes(`Id="NFe${documents[0].chave_acesso}"`) ||
+      !/<(?:[a-z0-9_-]+:)?Signature(?:\s|>)/i.test(documents[0].xml_nfe || '') ||
+      !/<(?:[a-z0-9_-]+:)?SignatureValue(?:\s|>)/i.test(documents[0].xml_nfe || '') ||
+      !/<(?:[a-z0-9_-]+:)?DigestValue(?:\s|>)/i.test(documents[0].xml_nfe || '') ||
+      !documents[0].xml_protocolo?.includes('<tpAmb>2</tpAmb>') ||
+      !documents[0].xml_protocolo?.includes('<cStat>100</cStat>') ||
+      !documents[0].xml_protocolo?.includes(`<chNFe>${documents[0].chave_acesso}</chNFe>`) ||
+      !documents[0].xml_protocolo?.includes(`<nProt>${protocol}</nProt>`) ||
+      !documents[0].fiscal_snapshot_id
+    ) {
+      throw new Error('Chave, XML assinado, protocolo e snapshot da autorização HML não foram confirmados.');
+    }
+    const { data: snapshots, error: snapshotsError } = await db.from('nfe_fiscal_snapshots')
+      .select('id,order_id,requested_model,environment,snapshot_data,snapshot_sha256')
+      .eq('id', documents[0].fiscal_snapshot_id)
+      .eq('order_id', orderId);
+    const snapshotData = snapshots?.[0]?.snapshot_data as Record<string, unknown> | undefined;
+    const snapshotOrder = snapshotData?.order as Record<string, unknown> | undefined;
+    const snapshotRequest = snapshotData?.emissionRequest as Record<string, unknown> | undefined;
+    if (
+      snapshotsError || !snapshots || snapshots.length !== 1 ||
+      snapshots[0].requested_model !== expectedModel || snapshots[0].environment !== 2 ||
+      !/^[a-f0-9]{64}$/i.test(snapshots[0].snapshot_sha256 || '') ||
+      snapshotOrder?.id !== orderId ||
+      snapshotRequest?.requestedModel !== expectedModel || snapshotRequest?.environment !== 2
+    ) {
+      throw new Error('O snapshot fiscal íntegro não corresponde ao pedido/cenário/modelo/ambiente autorizados.');
     }
     console.log('[HML_UI_RESULT] state=authorized_in_hml; environment=2; persisted=true');
     await details.getByRole('button', { name: 'Fechar', exact: true }).first().click();

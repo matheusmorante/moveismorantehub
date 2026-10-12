@@ -13,7 +13,8 @@ const variationId = '550e8400-e29b-41d4-a716-446655440006';
 const componentProductId = '550e8400-e29b-41d4-a716-446655440007';
 const componentVariationId = '550e8400-e29b-41d4-a716-446655440008';
 const operatorEmail = 'fiscal.operator@example.test';
-const metadata = { is_test: true, runId, ownerId };
+const scenarioKey = 'nfce65_delivery';
+const metadata = { is_test: true, runId, ownerId, scenarioKey };
 
 function fixture() {
   return {
@@ -23,13 +24,15 @@ function fixture() {
       status: 'scheduled',
       deleted: false,
       customer_id: customerId,
+      delivery_method: 'delivery',
       order_index: 902001,
       order_number: '902001',
       items: [{ productId, variationId, itemType: 'product', quantity: 1 }],
       order_data: {
         is_test: true,
-        testArtifact: metadata,
+        testArtifact: { ...metadata },
         orderIndex: 902001,
+        shipping: { deliveryMethod: 'delivery' },
         customerData: { id: customerId, fullName: 'Destinatario HML' },
         items: [{ productId, variationId, itemType: 'product', quantity: 1 }],
         payments: [{ method: 'pix', amount: 25 }],
@@ -37,8 +40,8 @@ function fixture() {
       order_items: [{ id: '550e8400-e29b-41d4-a716-446655440009', order_id: orderId, product_id: productId, variation_id: variationId, is_temporary_product: false }],
       order_payments: [{ order_id: orderId, payment_method: 'pix', amount: 25 }],
     }],
-    people: [{ id: customerId, deleted: false, address: { testArtifact: metadata } }],
-    products: [{ id: productId, deleted: false, technical_specs: { testArtifact: metadata }, combo_items: [] }],
+    people: [{ id: customerId, deleted: false, address: { testArtifact: { ...metadata } } }],
+    products: [{ id: productId, deleted: false, technical_specs: { testArtifact: { ...metadata } }, combo_items: [] }],
     variations: [{ id: variationId, product_id: productId, deleted: false }],
     documents: [],
     snapshots: [],
@@ -96,17 +99,20 @@ function makeClient(state = fixture()) {
   };
 }
 
-const input = () => ({ orderId, runId, expectedEmail: operatorEmail });
+const input = () => ({ orderId, runId, scenarioKey, expectedEmail: operatorEmail });
 
 test('accepts a persisted, owned sale with same-run customer, product, variation and payments', async () => {
   const result = await loadPersistedFiscalOrder(makeClient(), input());
   assert.deepEqual(result, {
     id: orderId,
     runId,
+    scenarioKey,
     ownerId,
     orderIndex: '902001',
     customerSearchLabel: 'Destinatario HML',
     status: 'scheduled',
+    deliveryMethod: 'delivery',
+    freightMode: null,
     customerId,
     productIds: [productId],
     variationIds: [variationId],
@@ -152,6 +158,64 @@ test('rejects owner or run mismatches and cross-execution linked records', async
   const wrongCustomerLink = fixture();
   wrongCustomerLink.orders[0].customer_id = productId;
   await assert.rejects(loadPersistedFiscalOrder(makeClient(wrongCustomerLink), input()), /TEST_ARTIFACT_CUSTOMER_LINK_MISMATCH/);
+});
+
+test('rejects an order whose persisted scenario differs from the requested scenario', async () => {
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(), { ...input(), scenarioKey: 'nfe55_sale' }),
+    /TEST_ARTIFACT_ORDER_SCENARIO_MISMATCH/,
+  );
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(), { ...input(), scenarioKey: 'invalid scenario' }),
+    /INVALID_SCENARIO_KEY/,
+  );
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(), { ...input(), scenarioKey: 'nfce65_return' }),
+    /UNSUPPORTED_FISCAL_SCENARIO/,
+  );
+});
+
+test('binds NFC-e pickup and delivery scenario keys to persisted shipping method', async () => {
+  const pickup = fixture();
+  pickup.orders[0].delivery_method = 'pickup';
+  pickup.orders[0].order_data.shipping.deliveryMethod = 'pickup';
+  pickup.orders[0].order_data.testArtifact.scenarioKey = 'nfce65_pickup';
+  const pickupResult = await loadPersistedFiscalOrder(makeClient(pickup), {
+    ...input(), scenarioKey: 'nfce65_pickup',
+  });
+  assert.equal(pickupResult.deliveryMethod, 'pickup');
+
+  const crossed = fixture();
+  crossed.orders[0].order_data.testArtifact.scenarioKey = 'nfce65_pickup';
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(crossed), { ...input(), scenarioKey: 'nfce65_pickup' }),
+    /TEST_ARTIFACT_SCENARIO_DELIVERY_MISMATCH/,
+  );
+
+  const inconsistent = fixture();
+  inconsistent.orders[0].delivery_method = 'pickup';
+  inconsistent.orders[0].order_data.testArtifact.scenarioKey = 'nfe55_sale';
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(inconsistent), { ...input(), scenarioKey: 'nfe55_sale' }),
+    /TEST_ARTIFACT_DELIVERY_METHOD_MISMATCH/,
+  );
+
+  const ownTransport = fixture();
+  ownTransport.orders[0].order_data.shipping.freightMode = '3';
+  ownTransport.orders[0].order_data.testArtifact.scenarioKey = 'nfe55_delivery_own_transport';
+  const transportResult = await loadPersistedFiscalOrder(makeClient(ownTransport), {
+    ...input(), scenarioKey: 'nfe55_delivery_own_transport',
+  });
+  assert.equal(transportResult.freightMode, '3');
+
+  const invalidOwnTransport = fixture();
+  invalidOwnTransport.orders[0].order_data.testArtifact.scenarioKey = 'nfe55_delivery_own_transport';
+  await assert.rejects(
+    loadPersistedFiscalOrder(makeClient(invalidOwnTransport), {
+      ...input(), scenarioKey: 'nfe55_delivery_own_transport',
+    }),
+    /TEST_ARTIFACT_SCENARIO_DELIVERY_MISMATCH/,
+  );
 });
 
 test('rejects missing payment links, a variation from another product and invalid sale state', async () => {

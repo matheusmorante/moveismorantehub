@@ -1,5 +1,5 @@
 import { assertTestArtifactLinks, readTestArtifactIdentity, testArtifactMetadata,
-  normalizeTestRunId, type TestArtifactIdentity } from './testArtifactPolicy';
+  normalizeTestArtifactScenarioKey, normalizeTestRunId, type TestArtifactIdentity } from './testArtifactPolicy';
 
 /** Contains only artifact IDs. Credentials and authentication state never go here. */
 export const TEST_ARTIFACT_CONTEXT_KEY = 'morante:test-artifact-context';
@@ -7,17 +7,22 @@ export const TEST_ARTIFACT_CONTEXT_KEY = 'morante:test-artifact-context';
 export function testArtifactIdentityForAuthenticatedUser(input: {
   isDevelopment: boolean;
   runId: unknown;
+  scenarioKey?: unknown;
   ownerId: unknown;
   isAdministrator: boolean;
   configuredOperatorAuthorized: boolean;
 }): TestArtifactIdentity | null {
   const runId = normalizeTestRunId(input.runId);
+  const rawScenarioKey = input.scenarioKey;
+  const scenarioKey = rawScenarioKey === undefined || rawScenarioKey === null || rawScenarioKey === ''
+    ? null : normalizeTestArtifactScenarioKey(rawScenarioKey);
   const ownerId = normalizeTestRunId(input.ownerId);
   if (
     !input.isDevelopment || !input.isAdministrator ||
-    !input.configuredOperatorAuthorized || !runId || !ownerId
+    !input.configuredOperatorAuthorized || !runId || !ownerId ||
+    (rawScenarioKey !== undefined && rawScenarioKey !== null && rawScenarioKey !== '' && !scenarioKey)
   ) return null;
-  return { runId, ownerId };
+  return { runId, ownerId, ...(scenarioKey ? { scenarioKey } : {}) };
 }
 
 export function getTestArtifactContext(): TestArtifactIdentity | null {
@@ -32,7 +37,11 @@ export function getTestArtifactContext(): TestArtifactIdentity | null {
 export function bindTestArtifactContext(identity: TestArtifactIdentity): void {
   const metadata = testArtifactMetadata(identity);
   if (typeof sessionStorage === 'undefined') throw new Error('Contexto de teste exige uma sessão do navegador.');
-  sessionStorage.setItem(TEST_ARTIFACT_CONTEXT_KEY, JSON.stringify({ runId: metadata.runId, ownerId: metadata.ownerId }));
+  sessionStorage.setItem(TEST_ARTIFACT_CONTEXT_KEY, JSON.stringify({
+    runId: metadata.runId,
+    ownerId: metadata.ownerId,
+    ...(metadata.scenarioKey ? { scenarioKey: metadata.scenarioKey } : {}),
+  }));
 }
 
 export function clearTestArtifactContext(): void {

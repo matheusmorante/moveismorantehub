@@ -2,7 +2,7 @@ export const TEST_ARTIFACT_EXCLUDED_DESTINATIONS = [
   'reports', 'agenda', 'schedule', 'assemblies', 'dashboard', 'notifications',
 ] as const;
 
-export type TestArtifactIdentity = { runId: string; ownerId: string };
+export type TestArtifactIdentity = { runId: string; ownerId: string; scenarioKey?: string };
 type RecordValue = Record<string, unknown>;
 
 const record = (value: unknown): RecordValue =>
@@ -15,6 +15,12 @@ export function normalizeTestRunId(value: unknown): string | null {
   const uuid = value.replace(/^TEST_AUT_/i, '').toLowerCase();
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid)
     ? uuid : null;
+}
+
+export function normalizeTestArtifactScenarioKey(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const scenarioKey = value.trim().toLowerCase();
+  return /^[a-z][a-z0-9_-]{2,63}$/.test(scenarioKey) ? scenarioKey : null;
 }
 
 function artifactData(value: unknown): RecordValue {
@@ -51,7 +57,9 @@ export function readTestArtifactIdentity(value: unknown): TestArtifactIdentity |
   const runId = normalizeTestRunId(data.runId ?? data.testRunId ?? data.test_run_id);
   const owner = data.ownerId ?? data.testOwnerId;
   const ownerId = typeof owner === 'string' && !/^TEST_AUT_/i.test(owner) ? normalizeTestRunId(owner) : null;
-  return runId && ownerId ? { runId, ownerId } : null;
+  const rawScenarioKey = data.scenarioKey ?? data.scenario_key;
+  const scenarioKey = rawScenarioKey === undefined ? null : normalizeTestArtifactScenarioKey(rawScenarioKey);
+  return runId && ownerId ? { runId, ownerId, ...(scenarioKey ? { scenarioKey } : {}) } : null;
 }
 
 export function isTestArtifactVisibleAt(value: unknown, destination: string): boolean {
@@ -86,5 +94,11 @@ export function testArtifactMetadata(identity: TestArtifactIdentity): RecordValu
     !normalizeTestRunId(identity.ownerId)
   )
     throw new Error('Identificador de execução ou operador inválido.');
-  return { is_test: true, runId: identity.runId, ownerId: identity.ownerId };
+  const metadata: RecordValue = { is_test: true, runId: identity.runId, ownerId: identity.ownerId };
+  if (identity.scenarioKey !== undefined) {
+    const scenarioKey = normalizeTestArtifactScenarioKey(identity.scenarioKey);
+    if (!scenarioKey) throw new Error('Identificador de cenário fiscal inválido.');
+    metadata.scenarioKey = scenarioKey;
+  }
+  return metadata;
 }

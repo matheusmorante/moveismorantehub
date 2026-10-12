@@ -32,8 +32,15 @@ function validUuid(value) {
 
 const runId = optionValue('--run-id');
 const orderId = optionValue('--order-id');
+const scenarioKey = optionValue('--scenario-key');
 if (!validUuid(runId)) stop('E2E fiscal bloqueado: informe --run-id com o UUID de uma execução já persistida.');
 if (!validUuid(orderId)) stop('E2E fiscal bloqueado: informe --order-id com o UUID de um pedido já persistido.');
+if (!/^[a-z][a-z0-9_-]{2,63}$/i.test(scenarioKey)) {
+  stop('E2E fiscal bloqueado: informe --scenario-key com a identificação do cenário persistido.');
+}
+if (!['nfe55_sale', 'nfe55_delivery_own_transport', 'nfce65_pickup', 'nfce65_delivery'].includes(scenarioKey.toLowerCase())) {
+  stop('E2E fiscal bloqueado: informe um cenário implementado: nfe55_sale, nfe55_delivery_own_transport, nfce65_pickup ou nfce65_delivery.');
+}
 const authorizeTransmission = rawArgs.includes('--authorize-hml-transmission');
 if (authorizeTransmission && mode !== 'hml') {
   stop('--authorize-hml-transmission só pode ser usado no modo hml.');
@@ -68,7 +75,9 @@ const env = { ...process.env };
 env.FISCAL_E2E_MODE = mode;
 env.NFE_HML_TEST_OPERATOR_EMAIL = operatorEmail;
 env.FISCAL_E2E_RUN_ID = runId.toLowerCase();
+env.FISCAL_E2E_SCENARIO_KEY = scenarioKey.trim().toLowerCase();
 env.VITE_TEST_ARTIFACT_RUN_ID = runId.toLowerCase();
+env.VITE_TEST_ARTIFACT_SCENARIO_KEY = scenarioKey.trim().toLowerCase();
 env.FISCAL_E2E_ORDER_ID = orderId.toLowerCase();
 if (authorizeTransmission) env.FISCAL_E2E_TRANSMISSION_AUTHORIZED = 'true';
 else delete env.FISCAL_E2E_TRANSMISSION_AUTHORIZED;
@@ -96,10 +105,10 @@ if (mode === 'simulated') {
   delete env.FISCAL_E2E_SIMULATOR_ENABLED;
 }
 
-const consumedOptions = new Set(['--run-id', '--order-id', '--authorize-hml-transmission']);
+const consumedOptions = new Set(['--run-id', '--order-id', '--scenario-key', '--authorize-hml-transmission']);
 const playwrightArgs = rawArgs.filter((arg, index) => {
   if (consumedOptions.has(arg)) return false;
-  if (rawArgs[index - 1] === '--run-id' || rawArgs[index - 1] === '--order-id') return false;
+  if (rawArgs[index - 1] === '--run-id' || rawArgs[index - 1] === '--order-id' || rawArgs[index - 1] === '--scenario-key') return false;
   return true;
 });
 const npmArgs = [

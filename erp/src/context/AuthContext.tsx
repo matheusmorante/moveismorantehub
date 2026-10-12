@@ -341,6 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const testIdentity = testArtifactIdentityForAuthenticatedUser({
             isDevelopment: import.meta.env.DEV,
             runId: import.meta.env.VITE_TEST_ARTIFACT_RUN_ID,
+            scenarioKey: import.meta.env.VITE_TEST_ARTIFACT_SCENARIO_KEY,
             ownerId: newUser.id,
             isAdministrator: isProfileAdministrator,
             configuredOperatorAuthorized,

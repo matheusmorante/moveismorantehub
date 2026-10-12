@@ -38,6 +38,7 @@ const args = [
 ];
 const env = { ...process.env };
 const testArtifactRunId = env.VITE_TEST_ARTIFACT_RUN_ID;
+const testArtifactScenarioKey = env.VITE_TEST_ARTIFACT_SCENARIO_KEY;
 for (const key of Object.keys(env)) {
   if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
 }
@@ -47,6 +48,13 @@ if (testArtifactRunId) {
     process.exit(1);
   }
   env.VITE_TEST_ARTIFACT_RUN_ID = testArtifactRunId.toLowerCase();
+}
+if (testArtifactScenarioKey) {
+  if (!/^[a-z][a-z0-9_-]{2,63}$/i.test(testArtifactScenarioKey)) {
+    process.stderr.write('Vercel Development recusou um identificador de cenário fiscal inválido.\n');
+    process.exit(1);
+  }
+  env.VITE_TEST_ARTIFACT_SCENARIO_KEY = testArtifactScenarioKey.trim().toLowerCase();
 }
 env.MORANTE_ENV_SOURCE = 'vercel-development';
 env.VERCEL_PROJECT_ID = projectId;
