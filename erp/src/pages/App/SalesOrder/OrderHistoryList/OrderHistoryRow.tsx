@@ -106,7 +106,9 @@ const OrderHistoryRow = ({
   const settings = getSettings();
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';
-  const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
+  const canViewDetails =
+    ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '') ||
+    (order.orderType === 'budget' && order.status === 'quoted');
   const statuses = (
     settings.orderStatuses || [
       { id: 'draft', label: 'Rascunho', color: 'slate', isCore: true },
@@ -141,6 +143,14 @@ const OrderHistoryRow = ({
       text: 'text-emerald-600',
       dot: 'bg-emerald-500',
     };
+  if (order.orderType === 'budget' && order.status === 'quoted') {
+    statusConfig.quoted = {
+      label: 'Orçamento cadastrado',
+      bg: 'bg-indigo-50',
+      text: 'text-indigo-700',
+      dot: 'bg-indigo-500',
+    };
+  }
   statusConfig.fulfilled.label = getOrderStatusLabel(
     { ...order, status: 'fulfilled' },
     statusConfig.fulfilled.label

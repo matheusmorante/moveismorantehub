@@ -6,25 +6,53 @@ import {
   type OrderCirculationState,
 } from './nfe/cancellationEligibility';
 
+type OrderStatusTransitionContext = OrderCirculationState & {
+  orderType?: string | null;
+  order_data?: (NonNullable<OrderCirculationState['order_data']> & {
+    orderType?: string | null;
+  }) | null;
+};
+
+const resolveOrderType = (order?: OrderStatusTransitionContext): string | undefined =>
+  order?.orderType || order?.order_data?.orderType || undefined;
+
 /**
  * Valida se uma transição de status de pedido é permitida pelas regras de negócio.
  *
  * Regras Canônicas:
  * 1. Um pedido já cadastrado (ex: 'scheduled', 'fulfilled') não pode voltar para 'draft'.
  * 2. Um pedido 'cancelled' não pode ter seu status alterado para nenhum outro status.
- * 3. Pedidos em 'draft' podem avançar para 'scheduled' ou 'fulfilled' (conforme agendamento/retirada).
- * 4. Pedidos 'scheduled' podem transicionar para 'fulfilled' (atendido) ou 'cancelled' (cancelado).
- * 5. 'fulfilled' pode voltar para 'scheduled' pela ação explícita de correção de atendimento;
+ * 3. Pedidos em 'draft' podem avançar para 'quoted' (orçamento), 'scheduled' ou 'fulfilled'.
+ * 4. Um 'quoted' permanece orçamento; gerar venda cria um pedido separado.
+ * 5. Pedidos 'scheduled' podem transicionar para 'fulfilled' (atendido) ou 'cancelled' (cancelado).
+ * 6. 'fulfilled' pode voltar para 'scheduled' pela ação explícita de correção de atendimento;
  *    o fluxo continua respeitando qualquer evidência física registrada na venda.
  */
 export const validateOrderStatusTransition = (
   currentStatus?: Order['status'],
   newStatus?: Order['status'],
-  currentOrder?: OrderCirculationState
+  currentOrder?: OrderStatusTransitionContext
 ): { allowed: boolean; reason?: string } => {
-  if (!newStatus || currentStatus === newStatus) {
+  if (!newStatus) {
     return { allowed: true };
   }
+
+  if (newStatus === 'quoted' && resolveOrderType(currentOrder) !== 'budget') {
+    return {
+      allowed: false,
+      reason: 'Somente orçamentos podem usar o status “Orçamento cadastrado”.',
+    };
+  }
+
+  if (currentStatus === 'quoted' && newStatus !== 'quoted') {
+    return {
+      allowed: false,
+      reason:
+        'Um orçamento cadastrado não pode avançar para status de venda. Gere uma venda a partir do orçamento.',
+    };
+  }
+
+  if (currentStatus === newStatus) return { allowed: true };
 
   // Regra 1: Não pode reverter para rascunho se já foi efetivado
   if (newStatus === 'draft' && currentStatus && currentStatus !== 'draft') {

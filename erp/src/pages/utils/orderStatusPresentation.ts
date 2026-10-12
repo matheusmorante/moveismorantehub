@@ -153,6 +153,14 @@ export const getOrderStatusLabel = (
   const status = String(order.status || '')
     .trim()
     .toLocaleLowerCase('pt-BR');
+  const orderType = String(
+    order.orderType ||
+      order.order_type ||
+      order.order_data?.orderType ||
+      order.order_data?.order_type ||
+      ''
+  ).toLocaleLowerCase('pt-BR');
+  if (status === 'quoted' && orderType === 'budget') return 'Orçamento cadastrado';
   if (isReturnOrder(order)) {
     if (status === 'scheduled') {
       return resolveReturnMethod(order) === 'store_collection' ? 'Coleta agendada' : 'Agendado';

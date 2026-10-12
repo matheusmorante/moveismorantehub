@@ -167,11 +167,6 @@ export function useNfeEmissionActions({
       return;
     }
 
-    if (!previewOnly && !isRetry && !hasCurrentXmlPreview) {
-      toast.error('Gere uma nova prévia do XML com as escolhas atuais antes de transmitir.');
-      return;
-    }
-
     if (isSavingAcquisitionPurpose) {
       toast.info('Aguarde o salvamento da finalidade da compra antes de emitir.');
       return;

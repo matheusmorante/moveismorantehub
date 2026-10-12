@@ -9,7 +9,9 @@ const { mockSaveOrder } = vi.hoisted(() => ({ mockSaveOrder: vi.fn() }));
 
 vi.mock('@/pages/utils/orderHistoryService', () => ({
   saveOrder: mockSaveOrder,
-  resolveCompletedOrderStatus: vi.fn(() => 'scheduled'),
+  resolveCompletedOrderStatus: vi.fn((order: { orderType?: string }) =>
+    order.orderType === 'budget' ? 'quoted' : 'scheduled'
+  ),
 }));
 
 vi.mock('@/pages/utils/validations', () => ({
@@ -78,6 +80,25 @@ vi.mock('@/pages/utils/settingsService', () => ({
 }));
 
 describe('Persistência de Manuseios em Pedidos de Venda', () => {
+  it('conclui o cadastro do orçamento como quoted sem convertê-lo em venda', async () => {
+    mockSaveOrder.mockReset().mockResolvedValue('orcamento-123');
+    const { result } = renderHook(() => useSalesOrderForm(undefined, 'budget'));
+    let completedOrder: any;
+
+    await act(async () => {
+      completedOrder = await result.current.actions.handleCompleteOrder();
+    });
+
+    expect(mockSaveOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ orderType: 'budget', status: 'quoted' })
+    );
+    expect(completedOrder).toMatchObject({
+      id: 'orcamento-123',
+      orderType: 'budget',
+      status: 'quoted',
+    });
+  });
+
   it('deve preservar o manuseio dos itens intacto ao carregar pedido para edição, sem forçar montagem no local', () => {
     const mockOrder: Order = {
       id: 'order-123',

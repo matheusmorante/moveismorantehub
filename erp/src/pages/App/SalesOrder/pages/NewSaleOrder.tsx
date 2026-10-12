@@ -241,7 +241,11 @@ const NewSaleOrder = ({
         const completedOrder =
           typeof result === 'object' && result !== null
             ? result
-            : { ...form.state.currentOrder, id: savedId, status: 'scheduled' };
+            : {
+                ...form.state.currentOrder,
+                id: savedId,
+                status: form.state.currentOrder.orderType === 'budget' ? 'quoted' : 'scheduled',
+              };
         onSaveSuccess(savedId, completedOrder);
         onClose();
       }

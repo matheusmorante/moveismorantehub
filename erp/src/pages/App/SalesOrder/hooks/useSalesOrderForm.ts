@@ -113,7 +113,7 @@ export const useSalesOrderForm = (
   const { handleSelectProduct, handleItemChange } = useOrderProductSelection(items, setItems);
 
   const getOrderData = useCallback(
-    (newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'): Order => {
+    (newStatus?: Order['status']): Order => {
       const s = latestState.current;
       const currentItemsSummary = calcItemsSummary(s.items);
       const firstHandling =
@@ -151,7 +151,7 @@ export const useSalesOrderForm = (
     [orderIndex]
   );
 
-  const { isSavingDraft, draftAutoSaveStatus, autoSaveTimerRef } = useOrderAutoSave(
+  const { isSavingDraft, draftAutoSaveStatus, autoSaveTimerRef, waitForActiveSave } = useOrderAutoSave(
     items,
     shipping,
     payments,
@@ -334,14 +334,11 @@ export const useSalesOrderForm = (
         }
 
         const isBudgetOrder = latestState.current.orderType === 'budget';
-        const savedStatus = isBudgetOrder
-          ? 'draft'
-          : latestState.current.currentOrderId && latestState.current.status !== 'draft'
+        const savedStatus =
+          latestState.current.currentOrderId && latestState.current.status !== 'draft'
             ? latestState.current.status
             : 'draft';
-        const orderData = getOrderData(
-          savedStatus as 'draft' | 'scheduled' | 'fulfilled' | 'cancelled'
-        );
+        const orderData = getOrderData(savedStatus);
         const validationErrors = validateOrder(orderData);
 
         if (Object.keys(validationErrors).length > 0) {
@@ -352,6 +349,7 @@ export const useSalesOrderForm = (
 
         if (latestState.current.isSaving) return false;
         setIsSaving(true);
+        latestState.current.isSaving = true;
         setErrors({});
 
         try {
@@ -372,6 +370,7 @@ export const useSalesOrderForm = (
           toast.error(error?.message || 'Erro ao salvar pedido.');
           return false;
         } finally {
+          latestState.current.isSaving = false;
           setIsSaving(false);
         }
       } finally {
@@ -406,12 +405,18 @@ export const useSalesOrderForm = (
 
         if (latestState.current.isSaving) return false;
         setIsSaving(true);
+        latestState.current.isSaving = true;
         setErrors({});
 
         try {
           if (autoSaveTimerRef.current) {
             clearTimeout(autoSaveTimerRef.current);
           }
+          await waitForActiveSave();
+          if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+          }
+          const orderData = getOrderData(resolvedStatus);
           const savedId = await saveOrder(orderData);
           // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
           // Isso garante que qualquer falha posterior (UI, notificação, etc.)
@@ -427,6 +432,8 @@ export const useSalesOrderForm = (
             toast.success(
               `Pedido cadastrado. ${getFulfillmentLabels(orderData).successMessage} ✨`
             );
+          } else if (resolvedStatus === 'quoted') {
+            toast.success('Orçamento cadastrado com sucesso!');
           } else {
             toast.success('Pedido CADASTRADO com sucesso!');
           }
@@ -441,13 +448,17 @@ export const useSalesOrderForm = (
           toast.error(error?.message || 'Erro ao cadastrar pedido.');
           return false;
         } finally {
+          if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+          }
+          latestState.current.isSaving = false;
           setIsSaving(false);
         }
       } finally {
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, autoSaveTimerRef, orderIndex]
+    [getOrderData, ensureOrderCode, autoSaveTimerRef, orderIndex, waitForActiveSave]
   );
 
   const clearForm = useCallback(() => {

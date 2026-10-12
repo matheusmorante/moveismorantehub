@@ -18,6 +18,7 @@ const sale = (status: string, item: any): Order =>
 describe('regras de estoque de pedido de venda', () => {
   it('mantém estoque somente para venda agendada ou atendida', () => {
     expect(canMaintainSaleStock(sale('draft', {}))).toBe(false);
+    expect(canMaintainSaleStock({ orderType: 'budget', status: 'quoted' } as Order)).toBe(false);
     expect(canMaintainSaleStock(sale('scheduled', {}))).toBe(true);
     expect(canMaintainSaleStock(sale('fulfilled', {}))).toBe(true);
     expect(canMaintainSaleStock(sale('cancelled', {}))).toBe(false);

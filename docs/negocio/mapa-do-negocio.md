@@ -16,7 +16,8 @@ flowchart LR
 
     subgraph VENDAS["🛒 Domínio de Vendas"]
         V1[Pedido de Venda] :::venda
-        V2[Rascunho / Orçamento] :::venda
+        V2[Rascunho] :::venda
+        V4[Orçamento cadastrado - quoted] :::venda
         V3[Devolução de Venda] :::venda
     end
 

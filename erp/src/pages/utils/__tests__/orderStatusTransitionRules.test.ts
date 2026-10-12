@@ -24,6 +24,21 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(validateOrderStatusTransition('draft', 'fulfilled')).toEqual({ allowed: true });
     });
 
+    it('permite cadastrar orçamento como quoted e impede avançar para status de venda', () => {
+      expect(
+        validateOrderStatusTransition('draft', 'quoted', { orderType: 'budget' })
+      ).toEqual({ allowed: true });
+      expect(validateOrderStatusTransition('draft', 'quoted', { orderType: 'sale' }).allowed).toBe(
+        false
+      );
+      expect(
+        validateOrderStatusTransition('quoted', 'scheduled', { orderType: 'budget' })
+      ).toMatchObject({ allowed: false, reason: expect.stringContaining('Gere uma venda') });
+      expect(
+        validateOrderStatusTransition('quoted', 'quoted', { orderType: 'budget' })
+      ).toEqual({ allowed: true });
+    });
+
     it('impede retorno de pedido já cadastrado para draft', () => {
       const fromScheduled = validateOrderStatusTransition('scheduled', 'draft');
       expect(fromScheduled.allowed).toBe(false);
@@ -90,12 +105,12 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
   });
 
   describe('resolveCompletedOrderStatus (Conclusão do Formulário de Venda)', () => {
-    it('retorna "draft" quando o tipo de pedido é orçamento (budget)', () => {
+    it('retorna "quoted" quando conclui o cadastro de um orçamento (budget)', () => {
       const status = resolveCompletedOrderStatus({
         orderType: 'budget',
         shipping: { deliveryMethod: 'pickup' } as any,
       });
-      expect(status).toBe('draft');
+      expect(status).toBe('quoted');
     });
 
     it('retorna "scheduled" para entrega padrão (deliveryMethod = delivery)', () => {

@@ -40,8 +40,8 @@ export const resolveCompletedOrderStatus = (order: {
   shipping?: Shipping;
   orderType?: string;
   status?: string;
-}, now = new Date()): 'draft' | 'scheduled' | 'fulfilled' => {
-  if (order.orderType === 'budget') return 'draft';
+}, now = new Date()): 'draft' | 'quoted' | 'scheduled' | 'fulfilled' => {
+  if (order.orderType === 'budget') return 'quoted';
 
   const shipping = order.shipping;
   const isPickup = shipping?.deliveryMethod === 'pickup';

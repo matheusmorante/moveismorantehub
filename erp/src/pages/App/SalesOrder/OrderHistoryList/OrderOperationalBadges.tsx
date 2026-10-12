@@ -42,6 +42,7 @@ export const OrderOperationalBadges = ({
     draft: 'bi-clock',
     scheduled: 'bi-calendar3',
     fulfilled: 'bi-check-circle-fill',
+    quoted: 'bi-file-text',
     cancelled: 'bi-x-circle-fill',
   };
   const sIcon = sIcons[order.status || 'draft'] || 'bi-dot';
@@ -55,7 +56,9 @@ export const OrderOperationalBadges = ({
       text: 'text-slate-500',
       dot: 'bg-slate-400',
     };
-  const isStatusBadgeReadOnly = ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
+  const isStatusBadgeReadOnly =
+    ['sale', 'showroom', 'return'].includes(order.orderType || 'sale') ||
+    (order.orderType === 'budget' && order.status === 'quoted');
 
   return (
     <div

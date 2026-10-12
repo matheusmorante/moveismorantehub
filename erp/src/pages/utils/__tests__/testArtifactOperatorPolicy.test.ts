@@ -45,20 +45,18 @@ describe('test artifact operator authorization', () => {
     })).toBe(false);
   });
 
-  it('uses the explicit Vercel Development operator alias and fails closed if absent', () => {
+  it('uses only the canonical Vercel Development operator secret and fails closed elsewhere', () => {
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'vercel-development',
-      MORANTE_HML_TEST_OPERATOR_EMAIL: ' Operator@Example.Invalid ',
-      NFE_HML_TEST_OPERATOR_EMAIL: 'stale@example.invalid',
+      NFE_HML_TEST_OPERATOR_EMAIL: ' Operator@Example.Invalid ',
     })).toBe('operator@example.invalid');
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'vercel-development',
-      NFE_HML_TEST_OPERATOR_EMAIL: 'stale@example.invalid',
     })).toBe('');
     expect(getConfiguredTestArtifactOperatorEmail({
       MORANTE_ENV_SOURCE: 'production',
       NFE_HML_TEST_OPERATOR_EMAIL: ' Operator@Example.Invalid ',
-    })).toBe('operator@example.invalid');
+    })).toBe('');
   });
 
   it('binds fixture metadata only after the backend authorization succeeds', () => {

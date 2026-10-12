@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Order from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
 import Shipping from '@/pages/types/Shipping.type';
@@ -19,7 +19,7 @@ export function useOrderAutoSave(
   orderDate: string,
   status: string,
   orderIndex: number | null,
-  getOrderData: (newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled') => Order,
+  getOrderData: (newStatus?: Order['status']) => Order,
   setCurrentOrderId: (id: string | undefined) => void,
   latestStateRef: React.MutableRefObject<any>,
   isDraftAutoSaveEnabled: boolean,
@@ -29,8 +29,12 @@ export function useOrderAutoSave(
   const autoSaveTimerRef = useRef<any>(null);
   const isInitialMount = useRef(true);
   const isSavingRef = useRef(false);
+  const activeSavePromiseRef = useRef<Promise<string> | null>(null);
   const saveRevisionRef = useRef(0);
   const isSavingDraft = draftAutoSaveStatus === 'saving';
+  const waitForActiveSave = useCallback(async () => {
+    if (activeSavePromiseRef.current) await activeSavePromiseRef.current;
+  }, []);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -114,7 +118,9 @@ export function useOrderAutoSave(
       try {
         isSavingRef.current = true;
         setDraftAutoSaveStatus('saving');
-        const savedId = await saveOrder(draft);
+        const savePromise = saveOrder(draft);
+        activeSavePromiseRef.current = savePromise;
+        const savedId = await savePromise;
         if (!latestStateRef.current.currentOrderId && savedId) {
           latestStateRef.current.currentOrderId = savedId;
           setCurrentOrderId(savedId);
@@ -124,6 +130,7 @@ export function useOrderAutoSave(
         console.error('Erro no salvamento automático:', error);
         setDraftAutoSaveStatus(saveRevision === saveRevisionRef.current ? 'error' : 'pending');
       } finally {
+        activeSavePromiseRef.current = null;
         isSavingRef.current = false;
       }
     };
@@ -155,5 +162,6 @@ export function useOrderAutoSave(
     isSavingDraft,
     draftAutoSaveStatus,
     autoSaveTimerRef,
+    waitForActiveSave,
   };
 }

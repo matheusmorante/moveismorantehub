@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
@@ -151,6 +151,36 @@ describe('useOrderAutoSave', () => {
     expect(result.current.draftAutoSaveStatus).toBe('saved');
     expect(saveOrder).toHaveBeenCalledTimes(2);
     expect(vi.mocked(saveOrder).mock.calls[1][0].items).toBe(latestChangedItems);
+  });
+
+  it('permite aguardar a persistência do autosave antes de concluir o cadastro', async () => {
+    let resolveSave!: (id: string) => void;
+    const savePromise = new Promise<string>((resolve) => {
+      resolveSave = resolve;
+    });
+    vi.mocked(saveOrder).mockReturnValue(savePromise);
+
+    const { result, rerender, latestStateRef } = renderAutoSave();
+    rerender({ items: changedItems });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    let waitResolved = false;
+    const waitPromise = result.current.waitForActiveSave().then(() => {
+      waitResolved = true;
+    });
+    await Promise.resolve();
+    expect(waitResolved).toBe(false);
+
+    await act(async () => {
+      resolveSave('draft-123');
+      await savePromise;
+      await waitPromise;
+    });
+
+    expect(waitResolved).toBe(true);
+    expect(latestStateRef.current.currentOrderId).toBe('draft-123');
   });
 
   it('não mostra confirmação verde quando a gravação falha', async () => {

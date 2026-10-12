@@ -40,12 +40,12 @@ Para executar somente a API, use `node scripts/run-vercel-env-dev.cjs api`.
 - `.env.local` e `.env.*.local` devem permanecer ignorados pelo Git. Não versione, imprima, registre ou copie valores de secrets em logs, documentação, backups versionados ou relatórios.
 - Antes de adotar o pull em um projeto que já tenha `.env.local`, identifique apenas os nomes das chaves locais e preserve configurações legítimas em arquivo local apropriado ao consumidor, como `.env.development.local`. Não revele valores durante a auditoria. Exceção: se o usuário perguntar diretamente qual e-mail está configurado em `NFE_HML_TEST_OPERATOR_EMAIL`, informe esse endereço em resposta direta, sem incluí-lo em logs, diagnósticos automatizados, documentação ou relatórios. Senhas, tokens e demais secrets continuam protegidos.
 - Cadastre no Vercel Development credenciais adequadas para uso local quando isso for apropriado. Para Supabase backend, prefira `SUPABASE_SECRET_KEY`; mantenha `SUPABASE_SERVICE_ROLE_KEY` apenas durante compatibilidade necessária.
-- Secrets com proteção que impede recuperação local não devem ter seu tipo rebaixado nem ser revelados para permitir pull. Se o usuário autorizar explicitamente ampliar para Development uma credencial existente apropriada para homologação, preserve o tipo e os escopos atuais e adicione Development.
+- Secrets com proteção que impede recuperação local não devem ter seu tipo rebaixado nem ser revelados para permitir pull. Preserve valores e tipos ao alterar somente os escopos explicitamente pedidos pelo usuário; limite a mudança às chaves nomeadas. Para CSC/CSRT fiscais já existentes, a autorização explícita do usuário pode incluir Development, Preview e Production.
 
 ## Segurança fiscal
 
-- Development local deve conter configuração fiscal de homologação. Para NF-e/NFC-e local, `tpAmb=2` é obrigatório; `environment=1` e `tpAmb=1` são exclusivamente Produção.
-- Nunca copie para Development certificados, senhas, CSRT ou flags exclusivas de Produção, nem valores que possam habilitar `tpAmb=1`.
+- O launcher local fixa `NFE_ENVIRONMENT=2` no processo depois de limpar overrides herdados, e exige `NFE_PRODUCTION_ENABLED=false` antes de iniciar o backend. Para NF-e/NFC-e local, `tpAmb=2` é obrigatório; `environment=1` e `tpAmb=1` são exclusivamente Produção.
+- Não amplie por padrão para Development ou Preview certificados, senhas, flags de Produção ou valores que habilitem `tpAmb=1`. Uma instrução explícita do usuário pode autorizar ampliar o escopo de CSC/CSRT fiscais já existentes; nesse caso, preserve os valores e tipos, não altere `NFE_PRODUCTION_ENABLED` e mantenha essa flag desabilitada em Development e Preview. Em testes locais de homologação, fixe `tpAmb=2` somente no processo de teste; não crie uma variável Vercel remota para substituir essa proteção.
 - A sincronização local não emite documentos nem altera configuração remota. Persistência/emissão fiscal e dados seguem os gates da skill `testes-seguros-erp` e das skills fiscais.
 
 ## Validação e diagnóstico

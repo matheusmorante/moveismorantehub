@@ -8,7 +8,8 @@ Esta matriz permite consultar rapidamente o impacto exato que qualquer ação op
 
 | Ação Operacional | Efeito em Estoque | Efeito em Custo / CMV | Efeito Financeiro | Efeito Operacional / Logística | Auditoria / Histórico | Reversibilidade |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Venda Rascunho / Orçamento** | Nenhum | Nenhum | Nenhum | Nenhum | Registra rascunho em `orders` (`status: draft`) | Total (edição ou exclusão direta) |
+| **Pedido / Orçamento em Rascunho (`draft`)** | Nenhum | Nenhum | Nenhum | Nenhum | Registra rascunho em `orders` | Total (edição ou exclusão direta) |
+| **Orçamento Cadastrado (`quoted`)** | Nenhum | Nenhum | Nenhum | Nenhum | Registra orçamento em `orders`; gerar venda cria pedido separado | Editável; gerar venda cria um novo pedido de venda |
 | **Venda Agendada (`scheduled`)** | Saída efetiva na data do pedido (`order.date`) | Materializa CMV imutável com base no CMPM | Gera contas a receber (`status: pending`) | Envia para a grade de entregas e gera selos `Drill` | Grava histórico em `order_status_history` e `inventory_moves` | Cancelamento antes da circulação; o tratamento fiscal é escolhido pela política central após o commit |
 | **Venda Atendida (`fulfilled`)** | Saída efetiva mantida ou ajustada | Mantém CMV materializado | Título em contas a receber concluído/recebido | Entrega ou retirada confirmada | Grava histórico de transição | Devolução vinculada após retorno físico; não cancelamento/estorno por operação não realizada |
 | **Venda Cancelada** | Reverte a saída de estoque (se `stockProcessed`) | Neutraliza a saída de CMV | Cancela os títulos a receber pendentes | Remove da grade de entregas e oculta selos `Drill` | Registra histórico de cancelamento | Irreversível (exige nova venda ou duplicação) |

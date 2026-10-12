@@ -103,6 +103,31 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
   });
 
+  it('grava orçamento concluído com status quoted pela RPC existente', async () => {
+    const budget = { orderType: 'budget', status: 'quoted', items: [], payments: [] };
+    mocks.rpc.mockResolvedValue({
+      data: { id: 'orcamento-1', order_index: 123, order_data: budget },
+      error: null,
+    });
+
+    await expect(executeSaveOrder(budget as any, vi.fn())).resolves.toBe('orcamento-1');
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_order_with_inventory_transaction',
+      expect.objectContaining({ p_order_payload: expect.objectContaining({ status: 'quoted' }) })
+    );
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia status quoted para registros que não são orçamentos', async () => {
+    await expect(
+      executeSaveOrder({ ...scheduledSale, status: 'quoted' } as any, vi.fn())
+    ).rejects.toThrow('Somente orçamentos podem ser cadastrados com este status');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.getNextOrderIndex).not.toHaveBeenCalled();
+  });
+
   it('invalida a lista de pedidos depois que a atualização persiste com sucesso', async () => {
     mocks.rpc.mockResolvedValue({ data: { order_data: scheduledSale }, error: null });
 
@@ -113,6 +138,17 @@ describe('cadastro de pedido com estoque atômico', () => {
     );
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
+  });
+
+  it('bloqueia a mudança para quoted em venda antes de chamar a RPC', async () => {
+    await expect(
+      executeUpdateOrder(
+        'pedido-1',
+        { status: 'quoted' } as any,
+        { ...scheduledSale, id: 'pedido-1', orderIndex: 123 } as any
+      )
+    ).rejects.toThrow('Somente orçamentos podem ser cadastrados com este status');
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it('usa uma chave estável de idempotência quando a fixture a fornece', async () => {

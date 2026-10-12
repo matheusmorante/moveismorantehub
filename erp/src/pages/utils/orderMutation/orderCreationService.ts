@@ -22,6 +22,10 @@ export const executeSaveOrder = async (
   updateOrderFn: (id: string, partial: Partial<Order>, current?: Order) => Promise<void>,
   options: { idempotencyKey?: string } = {}
 ): Promise<string> => {
+  if (order.status === 'quoted' && order.orderType !== 'budget') {
+    throw new Error('Somente orçamentos podem ser cadastrados com este status.');
+  }
+
   if (order.id) {
     await updateOrderFn(order.id, order);
     return order.id;

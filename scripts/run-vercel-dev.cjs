@@ -6,10 +6,6 @@ require('./assert-vercel-development.cjs').assertVercelDevelopment();
 
 const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const env = { ...process.env };
-if (env.MORANTE_ENV_SOURCE === 'vercel-development'
-  && env.NFE_HML_TEST_OPERATOR_EMAIL?.trim()) {
-  env.MORANTE_HML_TEST_OPERATOR_EMAIL = env.NFE_HML_TEST_OPERATOR_EMAIL.trim();
-}
 const child = spawn(executable, ['-y', 'vercel', 'dev', '..\\erp', '--listen', '3000', '--yes', '--cwd', '.'], {
   cwd: vercelCliCwd,
   env,

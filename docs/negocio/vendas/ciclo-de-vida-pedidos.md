@@ -9,6 +9,8 @@ Este documento descreve os estados, máquinas de estado, transições e regras o
 ```mermaid
 stateDiagram-v2
     [*] --> Draft: Criar Pedido / Salvamento Automático
+    Draft --> Quoted: Concluir cadastro do orçamento
+    Quoted --> [*]: Gerar venda em pedido separado
     
     Draft --> Scheduled: Confirmar / Agendar Venda
     Draft --> Fulfilled: Atender Venda Direta (Balcão)
@@ -28,7 +30,8 @@ stateDiagram-v2
 
 | Status | Nome no Sistema | Descrição Operacional | Efeito comercial/estoque |
 | :--- | :--- | :--- | :--- |
-| `draft` | **Rascunho / Orçamento** | Pedido em digitação ou orçamento preliminar. Não gera baixa de estoque. | Sem movimentação de saída. |
+| `draft` | **Rascunho** | Pedido ou orçamento ainda em digitação. Não gera baixa de estoque. | Sem movimentação de saída. |
+| `quoted` | **Orçamento cadastrado** | Orçamento concluído e editável, sem converter-se em venda. A venda é criada separadamente pela ação de gerar venda do orçamento. | Sem estoque, contas a receber ou notificações de venda. |
 | `scheduled` | **Agendado** | Venda confirmada com data de entrega/montagem programada. | A saída segue o gatilho comercial/estoque do pedido. Cancelamento só se não houver circulação. |
 | `fulfilled` | **Atendido** | Entrega ou retirada confirmada. Conta como circulação para a política fiscal. | Preserva a saída confirmada; eventual retorno físico segue devolução vinculada. |
 | `cancelled` | **Cancelado** | Cancelamento comercial permitido quando não houve circulação. | Reverte os efeitos de estoque dentro da operação transacional; eventual tratamento fiscal é decidido pela política central após o commit. |
@@ -37,10 +40,11 @@ stateDiagram-v2
 
 ## 🔒 Regras de Transição e Validação
 
-1. **Rascunho → Agendado / Atendido**:
-   - Valida obrigatoriedade de cliente, itens e condições de pagamento via `validateOrder()`.
-   - Dispara a gestão de estoque em [orderStockOperations.ts](../../../erp/src/pages/utils/orderStockOperations.ts).
-   - Gera notificação de venda e montagens via `notifyNewSaleAndAssemblies()`.
+1. **Rascunho → Orçamento cadastrado / Agendado / Atendido**:
+   - Ao concluir o formulário de orçamento, persiste `quoted` no mesmo cadastro transacional, sem efeitos de venda.
+   - Um orçamento cadastrado permanece em `quoted`; gerar a venda cria um pedido de venda separado.
+   - Pedidos de venda validam obrigatoriedade de cliente, itens e condições de pagamento via `validateOrder()`.
+   - Somente venda em `scheduled` ou `fulfilled` dispara a gestão de estoque em [orderStockOperations.ts](../../../erp/src/pages/utils/orderStockOperations.ts) e as notificações de venda/montagens via `notifyNewSaleAndAssemblies()`.
 2. **Cancelamento antes da circulação**:
    - Pedido e efeitos de estoque são atualizados pela operação transacional compartilhada.
    - Se houver documento fiscal autorizado, a política escolhe automaticamente cancelamento SEFAZ dentro do prazo ou estorno quando permitido; sem documento autorizado, não há evento fiscal.

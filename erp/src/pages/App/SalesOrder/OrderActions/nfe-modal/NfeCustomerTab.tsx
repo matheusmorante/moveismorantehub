@@ -89,7 +89,11 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
   const inferredDocumentType = recipientTaxIdKind(recipientTaxId);
   const isPJ = effectivePersonType === 'PJ' || inferredDocumentType === 'CNPJ';
   const isPF = effectivePersonType === 'PF' || inferredDocumentType === 'CPF';
-  const docLabel = documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
+  const docLabel = effectivePersonType === 'PJ'
+    ? 'CNPJ'
+    : effectivePersonType === 'PF'
+      ? 'CPF'
+      : documentType || (isPJ ? 'CNPJ' : isPF ? 'CPF' : 'CPF/CNPJ');
   const personLabel = isPJ
     ? 'Pessoa Jurídica (PJ)'
     : isPF

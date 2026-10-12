@@ -14,11 +14,22 @@ import {
   shouldNotifyOrderChange,
 } from '@/pages/utils/orderChangeDetector';
 
+const isBudgetOrder = (order: any): boolean =>
+  [order?.orderType, order?.order_type, order?.order_data?.orderType, order?.order_data?.order_type]
+    .filter(Boolean)
+    .includes('budget');
+
 /**
  * Dispara notificações ao criar um novo pedido.
  */
 export const dispatchOrderCreationNotifications = (orderId: string, order: Order): void => {
-  if (isIdentifiedTestArtifact(order) || !order.status || order.status === 'draft') return;
+  if (
+    isBudgetOrder(order) ||
+    isIdentifiedTestArtifact(order) ||
+    !order.status ||
+    order.status === 'draft'
+  )
+    return;
 
   void (async () => {
     try {
@@ -47,7 +58,13 @@ export const dispatchOrderUpdateNotifications = (
   oldStatus?: Order['status'],
   newStatus?: Order['status']
 ): void => {
-  if (isIdentifiedTestArtifact(previousOrderData) || isIdentifiedTestArtifact(merged)) return;
+  if (
+    isBudgetOrder(previousOrderData) ||
+    isBudgetOrder(merged) ||
+    isIdentifiedTestArtifact(previousOrderData) ||
+    isIdentifiedTestArtifact(merged)
+  )
+    return;
 
   const customerName = merged.customerData?.fullName || 'Cliente';
   const schedText = formatOrderSchedulingText(merged.shipping, merged);

@@ -76,7 +76,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     emissionResult,
     xmlPreview,
     isXmlPreviewOpen,
-    hasCurrentXmlPreview,
     closeXmlPreview,
     nfeItems,
     handleUpdateItemFiscal,
@@ -339,7 +338,6 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         canPreviewXml={canPreviewXml}
         isSubmitting={isSubmitting}
         isPreparingPreview={isPreparingPreview}
-        hasCurrentXmlPreview={hasCurrentXmlPreview}
         isLoadingFiscalData={isLoadingFiscalData}
         isLoadingCustomerType={isLoadingCustomerType}
         fiscalPreparationError={fiscalPreparationError}

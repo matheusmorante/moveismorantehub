@@ -196,6 +196,7 @@ const OrderFilters = ({ filters, setFilters }: OrderFiltersProps) => {
             >
               <option value="">Todos os Status</option>
               <option value="draft">Rascunho</option>
+              <option value="quoted">Orçamento cadastrado</option>
               <option value="waiting">Aguardando</option>
               <option value="scheduled">Agendado</option>
               <option value="in_transit">Em Trânsito</option>

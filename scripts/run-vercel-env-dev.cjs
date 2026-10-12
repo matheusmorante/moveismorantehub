@@ -42,6 +42,7 @@ const testArtifactScenarioKey = env.VITE_TEST_ARTIFACT_SCENARIO_KEY;
 for (const key of Object.keys(env)) {
   if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
 }
+env.NFE_ENVIRONMENT = '2';
 if (testArtifactRunId) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(testArtifactRunId)) {
     process.stderr.write('Vercel Development recusou um identificador de execução de teste inválido.\n');

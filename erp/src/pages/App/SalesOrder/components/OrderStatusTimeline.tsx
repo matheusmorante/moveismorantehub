@@ -46,6 +46,11 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { label: string; color: string; icon: string }> = {
       draft: { label: 'Rascunho', color: 'slate', icon: 'bi-pencil' },
+      quoted: {
+        label: getOrderStatusLabel({ ...order, status }, 'Orçamento cadastrado'),
+        color: 'indigo',
+        icon: 'bi-file-text',
+      },
       scheduled: { label: 'Agendado', color: 'blue', icon: 'bi-calendar-event' },
       confirmed: { label: 'Confirmado', color: 'emerald', icon: 'bi-check-circle' },
       shipped: { label: 'Enviado', color: 'indigo', icon: 'bi-truck' },
@@ -101,6 +106,8 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
                                 ${
                                   config.color === 'blue'
                                     ? 'bg-blue-600 shadow-blue-200 dark:shadow-none'
+                                    : config.color === 'indigo'
+                                      ? 'bg-indigo-600 shadow-indigo-200 dark:shadow-none'
                                     : config.color === 'emerald'
                                       ? 'bg-emerald-600 shadow-emerald-200 dark:shadow-none'
                                       : config.color === 'red'

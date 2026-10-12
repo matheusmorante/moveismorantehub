@@ -14,7 +14,6 @@ export interface NfeEmissionFooterProps {
   canPreviewXml: boolean;
   isSubmitting: boolean;
   isPreparingPreview?: boolean;
-  hasCurrentXmlPreview?: boolean;
   isLoadingFiscalData: boolean;
   isLoadingCustomerType: boolean;
   isOperationIncomplete?: boolean;
@@ -37,7 +36,6 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   canPreviewXml,
   isSubmitting,
   isPreparingPreview = false,
-  hasCurrentXmlPreview = true,
   isLoadingFiscalData,
   isLoadingCustomerType,
   isOperationIncomplete = false,
@@ -65,8 +63,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
     !isLoadingFiscalData &&
     !isLoadingCustomerType &&
     !isOperationIncomplete &&
-    !hasBlockingPreparationFailure &&
-    hasCurrentXmlPreview;
+    !hasBlockingPreparationFailure;
   const isPreviewDisabled =
     !canOperateFiscal ||
     isSubmitting ||

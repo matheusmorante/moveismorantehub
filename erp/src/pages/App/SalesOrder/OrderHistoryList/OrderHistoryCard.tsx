@@ -106,7 +106,9 @@ const OrderHistoryCard = ({
   onIssueNfe,
 }: OrderHistoryCardProps) => {
   const settings = getSettings();
-  const canViewDetails = ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '');
+  const canViewDetails =
+    ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '') ||
+    (order.orderType === 'budget' && order.status === 'quoted');
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';
   const isEditLocked =
@@ -138,6 +140,14 @@ const OrderHistoryCard = ({
       { ...order, status: 'fulfilled' },
       statusConfig.fulfilled.label
     );
+  }
+  if (order.orderType === 'budget' && order.status === 'quoted') {
+    statusConfig.quoted = {
+      label: 'Orçamento cadastrado',
+      bg: 'bg-indigo-50',
+      text: 'text-indigo-700',
+      dot: 'bg-indigo-500',
+    };
   }
   if (statusConfig.scheduled) {
     statusConfig.scheduled.label = getOrderStatusLabel(

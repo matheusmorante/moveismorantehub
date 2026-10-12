@@ -91,6 +91,10 @@ export const executeUpdateOrder = async (
 
     // 2. Validação da transição de status
     const previousStatus = previousOrderData?.status;
+    const resultingStatus = orderToUpdate.status || merged.status || previousStatus;
+    if (resultingStatus === 'quoted' && merged.orderType !== 'budget') {
+      throw new Error('Somente orçamentos podem ser cadastrados com este status.');
+    }
     const validation = validateOrderStatusTransition(
       previousStatus,
       orderToUpdate.status,

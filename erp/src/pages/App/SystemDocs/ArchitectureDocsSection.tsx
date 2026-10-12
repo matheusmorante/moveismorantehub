@@ -68,11 +68,18 @@ const effectMatrix: EffectMatrixRow[] = [
 
 const decisionTableData = [
   {
-    status: 'Rascunho / Orçamento',
+    status: 'Rascunho',
     edit: 'Sim',
     stock: 'Não',
     reverse: 'Não (Pode Excluir)',
     rule: 'Sem movimentação nem reserva',
+  },
+  {
+    status: 'Orçamento cadastrado',
+    edit: 'Sim',
+    stock: 'Não',
+    reverse: 'Não (Pode Excluir)',
+    rule: 'Sem estoque, financeiro ou notificações de venda',
   },
   {
     status: 'Agendado',

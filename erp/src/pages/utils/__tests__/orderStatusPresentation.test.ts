@@ -14,6 +14,12 @@ describe('apresentação do status fulfilled entre ERP e aplicativo', () => {
     ['Aplicativo', getMobileFulfillmentLabels, getMobileOrderStatusLabel],
   ] as const;
 
+  it('apresenta orçamento concluído como Orçamento cadastrado no ERP', () => {
+    expect(getErpOrderStatusLabel({ orderType: 'budget', status: 'quoted' })).toBe(
+      'Orçamento cadastrado'
+    );
+  });
+
   it.each(presentations)(
     '%s apresenta entregas como Entregue',
     (_name, getLabels, getStatusLabel) => {
