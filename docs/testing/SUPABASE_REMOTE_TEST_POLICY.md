@@ -36,3 +36,12 @@ Relate a camada validada e use a matriz:
 `Teste | Executado | Projeto/ref (sem credenciais) | Massa sintética/runId | Resultado | Limitação/evidência pendente`
 
 Não descreva mocks como prova de integração PostgreSQL. Não declare atomicidade, rollback, RLS, idempotência ou concorrência como comprovados sem exercitar a propriedade na camada correspondente. Não marque falta de Docker como bloqueio; documente somente impedimentos concretos de acesso ao projeto remoto. Para a exceção fiscal HML, registre o pedido usado sem expor dados pessoais e a autorização explícita do usuário.
+
+## Política de origem dos artefatos E2E fiscais — 11/10/2026
+
+- **Fonte única dos dados de cenários E2E:** registros persistidos no Supabase remoto operacional, branch primária e schema `public`. O runner seleciona registros autorizados por identidade autenticada, `runId`, owner e vínculos validados no backend; não constrói pedidos, clientes, produtos, pagamentos ou devoluções fictícios a partir de objetos estáticos no código.
+- Testes unitários podem continuar com mocks e valores de entrada mínimos para provar lógica pura. Esses valores não são artefatos E2E, não podem ser enviados à SEFAZ e não substituem registros persistidos. Não remover testes unitários só por conterem dados de exemplo.
+- Não converter fixtures legadas automaticamente em registros remotos nem apagar dados fiscais existentes. Inventariar os geradores e consumidores, migrar cada cenário para leitura de IDs persistidos e verificar os mesmos serviços de validação do formulário.
+- O `runId` não autoriza escrita sozinho. Permanecem obrigatórias autorização explícita para cada operação remota, proteção de ownership, RLS/RPC, isolamento dos cinco destinos operacionais e supressão de notificações. Não contornar `TEST_ARTIFACT_UNAUTHORIZED` enquanto a prontidão comportamental não for comprovada.
+- O executor deve falhar fechado se faltar cenário persistido, permissão, isolamento ou correspondência de ambiente; não criar massa implícita. Transmissão real à SEFAZ permanece exclusivamente pela UI, em homologação, conforme política acima.
+- Implementar a migração em etapas, com evidência de regressão por camada. Manter histórico e documentos fiscais persistentes; limpeza só por fluxo autorizado e sem afetar registros operacionais.
