@@ -31,6 +31,7 @@ async function check() {
     'return-capacity': 'operations',
     'operation-drafts': 'operations',
     'transmit-operation-draft': 'operations',
+    'automatic-return-transmission-worker': 'operations',
     cce: 'operations',
     'reserve-number': 'operations',
     'document-details': 'auxiliary',

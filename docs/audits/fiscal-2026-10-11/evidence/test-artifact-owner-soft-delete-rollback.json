@@ -1,0 +1,34 @@
+{
+  "name": "test-artifact-owner-soft-delete-rollback",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "fixtureOrderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+  "runId": "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+  "ownerId": "13eab361-be48-4e49-be4b-4ad79813b812",
+  "method": "PostgreSQL transaction with SET LOCAL ROLE authenticated and simulated request.jwt.claims; forced exception rolled back all changes",
+  "safeEmptyFixtureConfirmed": true,
+  "ownerAndDifferentAdminProfilesConfirmed": true,
+  "foreignAdminUpdateRejectedByArtifactGuard": true,
+  "foreignAdminSoftDeleteRejectedByArtifactGuard": true,
+  "ownerSoftDeleteAllowedInsideTransaction": true,
+  "softDeletedStateVisibleInsideTransaction": true,
+  "rollbackVerifiedByIndependentRead": true,
+  "afterRollback": {
+    "orderPresent": true,
+    "status": "cancelled",
+    "deleted": false,
+    "itemCount": 0,
+    "fiscalDocuments": 0,
+    "inventoryMoves": 0,
+    "financialTransactions": 0,
+    "notifications": 0
+  },
+  "physicalDeletePolicyAvailable": false,
+  "result": "passed",
+  "limitations": [
+    "Database-role/claims proof only; it does not replace a normal ERP UI cleanup test.",
+    "The orders table has no direct DELETE RLS policy; cleanup must use the supported soft-delete flow.",
+    "No full active-order lifecycle or fiscal document was created."
+  ]
+}

@@ -8,7 +8,9 @@ const vercelEnvCwd = path.join(projectRoot, '.vercel');
 const mode = process.argv[2];
 
 if (!['simulated', 'hml'].includes(mode)) {
-  process.stderr.write('Use `npm run test:e2e:fiscal:simulated` or `npm run test:e2e:fiscal:hml`.\n');
+  process.stderr.write(
+    'Use `npm run test:e2e:fiscal:hml -- --run-id <UUID> --order-id <UUID>` with artifacts already persisted.\n',
+  );
   process.exit(2);
 }
 
@@ -34,9 +36,10 @@ const args = [
   '--cwd',
   `"${vercelEnvCwd}"`,
   '--',
-  process.execPath,
-  path.join(__dirname, 'run-fiscal-e2e-in-env.cjs'),
+  'node',
+  `"${path.join(__dirname, 'run-fiscal-e2e-in-env.cjs')}"`,
   mode,
+  ...process.argv.slice(3),
 ];
 const env = { ...process.env };
 for (const key of Object.keys(env)) {

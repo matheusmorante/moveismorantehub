@@ -14,9 +14,12 @@ import {
 import { toast } from 'react-toastify';
 import { capitalizePerson } from '@/pages/utils/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
+import { getPersonFormValidationError } from '@/pages/utils/personService/personFormValidation';
 import { getAddressByCep, getShippingRouteUrl } from '@/pages/utils/maps';
 import { UserRole } from '@/context/AuthContext';
 import { getPrimaryRole } from '@/pages/utils/accessRoles';
+import { setTestArtifactMode } from '../../../../../../../../shared-utils/testArtifactContext';
+import { readTestArtifactIdentity } from '../../../../../../../../shared-utils/testArtifactPolicy';
 
 export const EMPLOYEE_ROLES: {
   value: UserRole;
@@ -70,6 +73,7 @@ export interface UsePersonFormProps {
   collectionName: string;
   title: string;
   canManageAccessRoles?: boolean;
+  canMarkTestArtifact?: boolean;
 }
 
 export const usePersonForm = ({
@@ -80,6 +84,7 @@ export const usePersonForm = ({
   collectionName,
   title,
   canManageAccessRoles = false,
+  canMarkTestArtifact = false,
 }: UsePersonFormProps) => {
   const isEmployee = collectionName === 'employees';
 
@@ -116,6 +121,7 @@ export const usePersonForm = ({
   });
 
   const [loading, setLoading] = useState(false);
+  const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
   const [settings] = useState(getSettings());
   const isInitialMount = useRef(true);
   const [isAddressOpen, setIsAddressOpen] = useState(!isEmployee);
@@ -223,6 +229,7 @@ export const usePersonForm = ({
         roles: initialRoles as UserRole[],
         personType: person.personType || 'PF',
         fullAddress: {
+          ...person.fullAddress,
           cep: person.fullAddress?.cep || '',
           street: person.fullAddress?.street || '',
           number: person.fullAddress?.number || '',
@@ -379,70 +386,13 @@ export const usePersonForm = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { requiredFields } = settings;
-
-    if (!formData.fullName) {
-      toast.error(
-        formData.personType === 'PJ' ? 'A Razão Social é obrigatória.' : 'O nome é obrigatório.'
-      );
-      return;
-    }
-
-    if (
-      collectionName === 'customers' &&
-      requiredFields.customer?.phone &&
-      !formData.noPhone &&
-      (!formData.phone || formData.phone.trim() === '')
-    ) {
-      toast.error('O telefone é obrigatório.');
-      return;
-    }
-
-    if (
-      collectionName !== 'suppliers' &&
-      requiredFields.customer?.cpfCnpj &&
-      (!formData.cpfCnpj || formData.cpfCnpj.trim() === '')
-    ) {
-      toast.error('O CPF/CNPJ é obrigatório.');
-      return;
-    }
-
-    if (
-      (isEmployee || (collectionName !== 'suppliers' && requiredFields.customer?.email)) &&
-      (!formData.email || formData.email.trim() === '')
-    ) {
-      toast.error('O e-mail é obrigatório.');
-      return;
-    }
-
-    if (
-      collectionName !== 'suppliers' &&
-      requiredFields.customer?.rgIe &&
-      (!(formData as any).rgIe || (formData as any).rgIe.trim() === '')
-    ) {
-      toast.error('O RG/IE é obrigatório.');
-      return;
-    }
-
-    if (
-      collectionName === 'employees' &&
-      requiredFields.customer?.position &&
-      (!formData.position || formData.position.trim() === '')
-    ) {
-      toast.error('O Cargo Principal é obrigatório.');
-      return;
-    }
-
-    if (collectionName === 'customers' && !formData.noAddress) {
-      const addr = formData.fullAddress;
-      if (!addr?.street || !addr?.number || !addr?.city) {
-        toast.error('Rua, Número e Cidade são obrigatórios no endereço.');
-        return;
-      }
-    }
-
-    if (collectionName === 'customers' && !formData.marketingOrigin) {
-      toast.error('Por favor, informe se o cliente é de tráfego pago.');
+    const formValidationError = getPersonFormValidationError(
+      formData,
+      collectionName,
+      settings.requiredFields
+    );
+    if (formValidationError) {
+      toast.error(formValidationError);
       return;
     }
 
@@ -460,11 +410,6 @@ export const usePersonForm = ({
         toast.error('Já existe um fornecedor cadastrado com este nome.');
         return;
       }
-    }
-
-    if (formData.ieIndicator === '1' && !(formData.ie || formData.rgIe)?.trim()) {
-      toast.error('A Inscrição Estadual é obrigatória quando o cliente é Contribuinte do ICMS.');
-      return;
     }
 
     if (!person) {
@@ -505,7 +450,12 @@ export const usePersonForm = ({
         dataToSave.role = dataToSave.role || getPrimaryRole(dataToSave.roles);
       }
 
-      const savedPerson = await savePerson(formData.type || collectionName, dataToSave);
+      const saveOptions = !person && collectionName === 'customers' && isTestArtifact
+        ? { isTestArtifact: true }
+        : undefined;
+      const savedPerson = saveOptions
+        ? await savePerson(formData.type || collectionName, dataToSave, saveOptions)
+        : await savePerson(formData.type || collectionName, dataToSave);
 
       if (isEmployee) {
         try {
@@ -536,6 +486,12 @@ export const usePersonForm = ({
   return {
     formData,
     setFormData,
+    isTestArtifact,
+    setIsTestArtifact: (enabled: boolean) => {
+      if (!canMarkTestArtifact || person || collectionName !== 'customers') return;
+      setFormData((prev) => setTestArtifactMode(prev, 'fullAddress', enabled));
+    },
+    canMarkTestArtifact: canMarkTestArtifact && !person && collectionName === 'customers',
     loading,
     settings,
     isEmployee,

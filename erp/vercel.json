@@ -17,6 +17,7 @@
     { "source": "/api/nfe/return-capacity", "destination": "/api/nfe/operations?operation=return-capacity" },
     { "source": "/api/nfe/operation-drafts", "destination": "/api/nfe/operations?operation=operation-drafts" },
     { "source": "/api/nfe/transmit-operation-draft", "destination": "/api/nfe/operations?operation=transmit-operation-draft" },
+    { "source": "/api/nfe/automatic-return-transmission-worker", "destination": "/api/nfe/operations?operation=automatic-return-transmission-worker" },
     { "source": "/api/nfe/cce", "destination": "/api/nfe/operations?operation=cce" },
     { "source": "/api/nfe/reserve-number", "destination": "/api/nfe/operations?operation=reserve-number" },
     {

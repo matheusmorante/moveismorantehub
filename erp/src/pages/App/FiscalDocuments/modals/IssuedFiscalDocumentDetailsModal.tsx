@@ -29,8 +29,8 @@ interface IssuedFiscalDocumentDetailsModalProps {
   order?: Order;
   orderNumber?: number;
   onClose: () => void;
-}
-
+}
+
 function downloadBlob(file: File) {
   const url = URL.createObjectURL(file);
   const link = document.createElement('a');
@@ -222,7 +222,7 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
         />
 
         <main className="min-h-[280px] flex-1 overflow-y-auto bg-slate-50/70 p-4 dark:bg-slate-950/30 sm:p-6">
-          {isLoading ? (
+          {isLoading && (activeTab !== 'general' || (!details && !document)) ? (
             <div role="status" className="flex min-h-[240px] items-center justify-center gap-3 text-sm text-slate-500">
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
               Carregando informações do XML armazenado…

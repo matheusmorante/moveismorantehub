@@ -184,6 +184,7 @@ function unsignedXml(
     model?: '55' | '65';
     accessKey?: string;
     number?: number;
+    csosn?: string;
   } = {}
 ) {
   const model = overrides.model || '55';
@@ -201,8 +202,10 @@ function unsignedXml(
     const cfop = index === 0 ? overrides.sofaCfop || item.classification.cfop : item.classification.cfop;
     const price = item.product.unitValue.toFixed(4);
     const gross = item.product.gross.toFixed(2);
+    const csosn = overrides.csosn || '102';
+    const icmsGroup = ['102', '103', '300', '400'].includes(csosn) ? 'ICMSSN102' : `ICMSSN${csosn}`;
     const taxes =
-      `<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS>` +
+      `<imposto><ICMS><${icmsGroup}><orig>0</orig><CSOSN>${csosn}</CSOSN></${icmsGroup}></ICMS>` +
       `<PIS><PISNT><CST>08</CST></PISNT></PIS><COFINS><COFINSNT><CST>08</CST></COFINSNT></COFINS></imposto>`;
     return (
       `<det nItem="${index + 1}"><prod><cProd>${item.product.code}</cProd><cEAN>SEM GTIN</cEAN>` +
@@ -233,7 +236,7 @@ function unsignedXml(
     `<emit><CNPJ>12345678000199</CNPJ><xNome>Emitente sintético</xNome><enderEmit><xLgr>Rua de Teste</xLgr>` +
     `<nro>100</nro><xBairro>Centro</xBairro><cMun>4104808</cMun><xMun>Cascavel</xMun><UF>PR</UF>` +
     `<CEP>85801000</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>1234567890</IE><CRT>1</CRT></emit>` +
-    `<dest><CPF>52998224725</CPF><xNome>${model === '55' ? 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' : 'Cliente sintético'}</xNome><indIEDest>9</indIEDest></dest>` +
+    `<dest><CPF>52998224725</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>` +
     `${serializeItem(sofa, 0)}${serializeItem(wardrobe, 1)}<total><ICMSTot>${totals}</ICMSTot></total>` +
     `<transp><modFrete>9</modFrete></transp><pag><detPag><tPag>01</tPag><vPag>3500.00</vPag></detPag></pag>` +
     `</infNFe>${model === '65' ? `<infNFeSupl><qrCode><![CDATA[http://www.fazenda.pr.gov.br/nfce/qrcode?p=${key}|3|2]]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl>` : ''}</NFe>`
@@ -258,6 +261,28 @@ describe('auditoria backend do XML fiscal', () => {
         snapshot,
         document,
         sign(),
+        auditIdentity,
+        certificatePem
+      )
+    ).not.toThrow();
+  });
+
+  it('audita CSOSN 103 no grupo XML ICMSSN102 conforme o mapeamento fiscal', () => {
+    const csosn103Document: FiscalDocument = {
+      ...document,
+      items: document.items.map((item) => ({
+        ...item,
+        taxes: item.taxes.map((tax) =>
+          tax.group === 'ICMS' ? { ...tax, code: '103' } : tax
+        ),
+      })),
+    };
+
+    expect(() =>
+      assertSignedFiscalXmlMatchesSnapshot(
+        snapshot,
+        csosn103Document,
+        sign(unsignedXml({ csosn: '103' })),
         auditIdentity,
         certificatePem
       )

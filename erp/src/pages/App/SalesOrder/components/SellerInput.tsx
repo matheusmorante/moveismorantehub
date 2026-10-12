@@ -1,8 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { subscribeToPeople } from '@/pages/utils/personService';
-import Person from '@/pages/types/person.type';
+import { type FC, useEffect, useId, useRef, useState } from 'react';
+import type Person from '@/pages/types/person.type';
 import { isValidEmployee } from '@/pages/utils/accessRoles';
+import { subscribeToPeople } from '@/pages/utils/personService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+
+const findExactEmployee = (searchTerm: string, employees: Person[]): Person | undefined => {
+  const normalizedTerm = normalizeSearchTerm(searchTerm);
+  if (!normalizedTerm) return undefined;
+
+  const matches = employees.filter((employee) =>
+    [employee.fullName, employee.nickname].some(
+      (name) => normalizeSearchTerm(name || '') === normalizedTerm
+    )
+  );
+
+  return matches.length === 1 && matches[0].id ? matches[0] : undefined;
+};
 
 interface SellerInputProps {
   value: string;
@@ -15,7 +28,7 @@ interface SellerInputProps {
   isAIFilling?: boolean;
 }
 
-export const SellerInput: React.FC<SellerInputProps> = ({
+export const SellerInput: FC<SellerInputProps> = ({
   value,
   sellerId,
   onChange,
@@ -25,6 +38,7 @@ export const SellerInput: React.FC<SellerInputProps> = ({
   className = '',
   isAIFilling = false,
 }) => {
+  const inputId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [employees, setEmployees] = useState<Person[]>([]);
   const [filterText, setFilterText] = useState(value || '');
@@ -33,6 +47,17 @@ export const SellerInput: React.FC<SellerInputProps> = ({
   useEffect(() => {
     setFilterText(value || '');
   }, [value]);
+
+  useEffect(() => {
+    if (sellerId || !onSelectSeller) return;
+
+    const exactEmployee = findExactEmployee(value, employees);
+    if (!exactEmployee?.id) return;
+
+    const sellerName = exactEmployee.nickname || exactEmployee.fullName;
+    if (sellerName !== value) onChange(sellerName);
+    onSelectSeller({ name: sellerName, id: String(exactEmployee.id) });
+  }, [employees, onChange, onSelectSeller, sellerId, value]);
 
   useEffect(() => {
     const unsub = subscribeToPeople('employees', (data) => {
@@ -60,11 +85,16 @@ export const SellerInput: React.FC<SellerInputProps> = ({
       normalizeSearchTerm(e.position || '').includes(term)
     );
   });
+  const exactEmployeeForValue = findExactEmployee(value, employees);
+  const isSellerSelected = Boolean(sellerId || exactEmployeeForValue);
 
   return (
     <div ref={containerRef} className={`relative flex-1 flex flex-col group ${className}`}>
       <div className="flex items-center justify-between mb-2 ml-1">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+        <label
+          htmlFor={inputId}
+          className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5"
+        >
           <i className="bi bi-person-badge text-blue-500 text-xs" />
           Vendedor
         </label>
@@ -78,23 +108,43 @@ export const SellerInput: React.FC<SellerInputProps> = ({
 
       <div className="relative flex items-center">
         <input
+          id={inputId}
           type="text"
           value={filterText}
           onChange={(e) => {
-            const newVal = e.target.value;
-            setFilterText(newVal);
-            onChange(newVal);
+            const typedValue = e.target.value;
+            const exactEmployee = findExactEmployee(typedValue, employees);
+            const sellerName = exactEmployee
+              ? exactEmployee.nickname || exactEmployee.fullName
+              : typedValue;
+
+            setFilterText(sellerName);
+            onChange(sellerName);
+            onSelectSeller?.({
+              name: sellerName,
+              id: exactEmployee?.id ? String(exactEmployee.id) : undefined,
+            });
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className={`w-full border-b-2 bg-transparent px-3 py-3 text-sm font-bold text-slate-800 placeholder:text-slate-400 outline-none transition-colors dark:text-slate-100 dark:placeholder:text-slate-600 ${
-            isAIFilling
-              ? 'border-violet-500 animate-pulse bg-violet-50/20 dark:bg-violet-950/20'
-              : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500'
+          className={`w-full bg-transparent px-3 py-3 text-sm font-bold placeholder:text-slate-400 outline-none transition-colors dark:placeholder:text-slate-600 ${
+            isSellerSelected
+              ? 'border-2 rounded-xl border-emerald-500 bg-emerald-50/40 text-emerald-700 focus:border-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-500 dark:focus:border-emerald-400'
+              : isAIFilling
+                ? 'border-b-2 border-violet-500 animate-pulse bg-violet-50/20 dark:bg-violet-950/20 text-slate-800 dark:text-slate-100'
+                : 'border-b-2 border-slate-200 text-slate-800 dark:text-slate-100 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500'
           }`}
         />
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {isSellerSelected && (
+            <i
+              data-testid="seller-selected-check"
+              className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-sm"
+              aria-hidden="true"
+              title="Vendedor selecionado"
+            />
+          )}
           {filterText ? (
             <button
               type="button"
@@ -102,6 +152,7 @@ export const SellerInput: React.FC<SellerInputProps> = ({
                 e.stopPropagation();
                 setFilterText('');
                 onChange('');
+                onSelectSeller?.({ name: '' });
                 setIsOpen(true);
               }}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
@@ -126,8 +177,7 @@ export const SellerInput: React.FC<SellerInputProps> = ({
                 const sellerName = e.nickname || e.fullName;
                 const isSelected =
                   (sellerId && String(e.id) === String(sellerId)) ||
-                  (value || '').toLowerCase() === sellerName.toLowerCase() ||
-                  (value || '').toLowerCase() === e.fullName.toLowerCase();
+                  (!sellerId && String(exactEmployeeForValue?.id) === String(e.id));
                 return (
                   <button
                     key={e.id}
@@ -142,26 +192,30 @@ export const SellerInput: React.FC<SellerInputProps> = ({
                     }}
                     className={`flex items-center justify-between p-2.5 rounded-xl transition-all text-left w-full ${
                       isSelected
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
                       >
                         <i className="bi bi-person-fill text-sm" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs font-bold truncate">{e.fullName}</span>
                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                          {e.nickname && <span className="text-blue-500">@{e.nickname}</span>}
+                          {e.nickname && (
+                            <span className={isSelected ? 'text-emerald-600' : 'text-blue-500'}>
+                              @{e.nickname}
+                            </span>
+                          )}
                           {e.position && <span>• {e.position}</span>}
                         </div>
                       </div>
                     </div>
                     {isSelected && (
-                      <i className="bi bi-check-lg text-blue-600 dark:text-blue-400 text-base ml-2 shrink-0" />
+                      <i className="bi bi-check-lg text-emerald-600 dark:text-emerald-400 text-base ml-2 shrink-0" />
                     )}
                   </button>
                 );

@@ -1,12 +1,16 @@
 # NF-e de devolução: regras do formulário, transporte e limites de suporte
 
-**Revisão de implementação e documentação:** 09/10/2026. O escopo descrito abaixo foi conferido contra os serviços locais; resultados de testes, ausência de autorização para NFC-e de origem e limites de XSD ficam em [status-testes-homologacao.md](status-testes-homologacao.md). A atualização oficial do catálogo CFOP e a NT 2026.009 ainda não foram reconciliadas com os CFOPs locais.
+**Revisão de implementação e documentação:** 10/10/2026. O escopo descrito abaixo foi conferido contra os serviços locais; resultados de testes, ausência de autorização para NFC-e de origem e limites de XSD ficam em [status-testes-homologacao.md](status-testes-homologacao.md). A atualização oficial do catálogo CFOP e a NT 2026.009 ainda não foram reconciliadas com os CFOPs locais.
 
 ## Escopo implementado
 
 O formulário e as validações usam a política central `getFiscalFormRules(operationContext)` em `shared-utils/fiscalOperationContext.ts`. O backend recompõe o contexto a partir do pedido de devolução, da NF-e original, das configurações fiscais do estabelecimento e das alocações de itens. Valores informados pelo navegador não são autoridade para método de retorno, destinatário, pagamento, CFOP, tributos ou transporte.
 
 O pedido persiste hoje `store_delivery` (cliente já levou a mercadoria à loja) ou `store_collection` (coleta própria da empresa). O backend normaliza esses valores para `CLIENT_DELIVERED` e `COMPANY_PICKUP` no contexto fiscal. O método não é pedido novamente no modal. Se ele não estiver persistido, a emissão fica bloqueada como `UNSUPPORTED_BY_ERP`; o status `fulfilled` não é usado para inventá-lo.
+
+O registro se chama **pedido de devolução**. “Coleta da devolução” é somente o agendamento operacional selecionado nesse pedido: fica em `scheduled`, aparece como **Coleta agendada** na agenda e no cronograma, e mostra o tempo restante até a conclusão automática. A equipe pode confirmar a coleta antes do prazo; sem confirmação, o Cron do Supabase conclui como **Devolvido** à meia-noite BRT após a data agendada (ou o último dia da janela). A entrada de estoque é gravada na mesma transação da conclusão; a emissão fiscal só começa depois do commit.
+
+Se a venda vinculada tiver NF-e de saída autorizada no mesmo ambiente fiscal, o ERP prepara, valida e transmite automaticamente a NF-e de devolução após o cadastro para `store_delivery`, a confirmação manual da coleta ou a conclusão pelo Cron do Supabase. A transição comercial e a entrada de estoque são confirmadas primeiro; o gatilho grava uma tarefa fiscal na mesma transação e um trabalhador no backend processa a fila, sem depender de uma tela aberta. O trabalhador reutiliza as APIs fiscais existentes para validar elegibilidade, preparar o rascunho e transmitir. Sem NF-e original autorizada, nenhuma NFD é criada. Cenários divergentes ou ainda não suportados ficam bloqueados para revisão; tentativas incertas seguem a reconciliação idempotente da mesma chave. Em Produção, `NFE_PRODUCTION_ENABLED=true` continua sendo requisito do servidor.
 
 O escopo atualmente emitível continua limitado a NF-e modelo 55, com NF-e de saída original autorizada, mesmo pedido e ambiente, retorno físico concluído, destinatário original não contribuinte e consumidor final, operação interna, e dados tributários de origem sem bases/valores não zerados. Isso descreve a capacidade atual do ERP; não declara proibições gerais da SEFAZ ou da legislação.
 
@@ -39,7 +43,7 @@ O escopo atualmente emitível continua limitado a NF-e modelo 55, com NF-e de sa
 | Pagamento `tPag=90` e `vPag=0` | `PROJECT_POLICY` | Domínio do ERP, compatível com as validações de pagamento | A NF-e de devolução deste fluxo não representa pagamento/reembolso. A validação 904 rejeita `tPag=90` com `vPag` diferente de zero; a regra 865 também contém exceções para `finNFe=4` e `tPag=90`. | Sim; fixo no modal e validado antes da transmissão. Reembolso permanece no pedido/comercial. |
 | Modelo 55 | `PROJECT_POLICY` | Escopo do produto | O ERP implementa devolução pela NF-e modelo 55 neste fluxo. Isso não é uma conclusão geral de que toda devolução deva usar exclusivamente modelo 55. | Sim; modelo 65 não aparece nem é aceito pela API. |
 | Referência e vínculo à NF-e original | `FISCAL_RULE` + `PROJECT_POLICY` | Leiaute/regra vigente e integridade do fluxo | O original deve estar autorizado, ser de saída, corresponder ao pedido e ambiente e sustentar itens/quantidades devolvidos. Não se aceita chave livre nem escolha arbitrária quando houver ambiguidade. | Sim; chave, autorização, protocolo, CNPJ, ambiente, modelo, itens, alocações e saldo já devolvido são revalidados no servidor. |
-| Retorno físico antes da emissão fiscal | `PROJECT_POLICY` | Regra operacional documentada do ERP | Criar a devolução não prova que a mercadoria retornou. A coleta deve ser confirmada como Coletada; entrega à loja, como Recebida. | Sim; a API exige devolução atendida e não gera movimento comercial, estoque ou financeiro. |
+| Conclusão comercial antes da emissão fiscal | `PROJECT_POLICY` | Regra operacional documentada do ERP | `store_delivery` conclui no cadastro; `store_collection` conclui por confirmação da equipe ou automaticamente quando vence a data/hora agendada. O status visível é “Devolvido”. | Sim; a elegibilidade exige `fulfilled`, e o serviço de transmissão é iniciado após o commit comercial/estoque. |
 
 ## Contexto logístico e `modFrete`
 
@@ -81,7 +85,13 @@ Os códigos `3` e `4` seguem as definições oficiais “transporte próprio por
 
 Antes de preparar ou salvar revisão, o backend recarrega o pedido, método logístico, NF-e original, ambiente, autorização, alocações e itens. Antes de reservar número ou transmitir, recompõe o mesmo `operationContext`, determina novamente a modalidade, natureza, pagamento, destinatário e opções de CFOP e compara com a revisão persistida. Payload direto com outra modalidade, chave, destinatário, item, pagamento, CFOP ou tributo é rejeitado.
 
-Uma tentativa de transmissão incerta continua no fluxo idempotente de reconciliação da mesma chave; não se cria outra nota automaticamente. Nenhuma emissão real foi executada nesta revisão.
+Uma tentativa de transmissão incerta continua no fluxo idempotente de reconciliação da mesma chave; não se cria outra nota nem se repete o envio automaticamente. O modal de ações após cadastro do pedido de devolução oferece impressão e envio por WhatsApp, sem botão manual para iniciar NFD. A ação fiscal da lista continua disponível para revisão e reconciliação de pendências. Nenhuma emissão real foi executada nesta revisão.
+
+## Fila automática pós-commit
+
+A migration `20261011024729_automatic_return_nfe_fiscal_jobs.sql` cria uma fila idempotente por pedido de devolução e um Cron do Supabase executado a cada dois minutos. A fila recebe somente pedidos comerciais `return` que acabam de chegar a `fulfilled`; os guards existentes excluem artefatos de teste. O worker reserva uma tarefa com lease, registra estados `authorized`, `not_required`, `blocked`, `reconciling` ou `retryable`, e usa a mesma API de transmissão da área fiscal. Timeout ou resposta incerta não desfaz o pedido/estoque; a próxima execução consulta a tentativa persistida antes de qualquer novo envio.
+
+Para ativar o dispatcher no ambiente operacional, depois de publicar a rota Vercel `api/nfe/automatic-return-transmission-worker.ts`, configure `NFE_RETURN_AUTO_WORKER_SECRET` somente em Vercel Production e armazene o mesmo segredo, além da URL base HTTPS de Produção, no Supabase Vault como `nfe_return_auto_worker_secret` e `nfe_return_auto_api_url`. Sem os dois valores no Vault o Cron não envia requisições. Nenhum segredo deve ir para código, migrations, `.env*`, Preview ou Development. Testes do worker usam respostas mockadas e nunca transmitem à SEFAZ.
 
 ## Fontes fiscais consultadas
 

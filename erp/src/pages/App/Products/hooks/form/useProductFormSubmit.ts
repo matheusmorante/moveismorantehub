@@ -4,9 +4,10 @@ import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { checkERPLegibility, checkEcomLegibility } from '../../domain/productLegibilityRules';
 import { toast } from 'react-toastify';
-import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../domain/variationRegistrationRules';
+import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 import { isTestProduct } from '@/pages/utils/hmlTestData';
+import { validateProductFormSubmission } from './productFormValidation';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -24,6 +25,7 @@ interface SubmitProps {
   onSuccess?: (product: Product) => void;
   onSave?: (product?: Product) => void | Promise<void>;
   onClose: () => void;
+  isTestArtifact?: boolean;
 }
 
 export const useProductFormSubmit = ({
@@ -42,50 +44,17 @@ export const useProductFormSubmit = ({
   onSuccess,
   onSave,
   onClose,
+  isTestArtifact = false,
 }: SubmitProps) => {
   const handleSubmit = useCallback(
     async (showResult = true, saveAsDraft = false): Promise<boolean> => {
       const actualSaveAsDraft = isRegisteredProduct ? false : saveAsDraft;
 
       if (!actualSaveAsDraft) {
-        const errors: Record<string, boolean> = {};
-        const enteredName = getEnteredProductName(formData);
-        if (!enteredName) errors.name = true;
-        const validProductKinds = ['normal', 'salvado', 'usado'];
-        if (
-          formData.itemType !== 'service' &&
-          !validProductKinds.includes(formData.productKind || '')
-        ) {
-          errors.productKind = true;
-        }
-        const opportunityCanBeSelected =
-          formData.itemType === 'service' || Boolean(formData.productKind);
-        if (!isStockistOnly && opportunityCanBeSelected && !formData.opportunityId) {
-          errors.opportunityId = true;
-        }
-        const hasVars =
-          Boolean(formData.hasVariations) &&
-          Array.isArray(formData.variations) &&
-          formData.variations.length > 0;
-        if (!hasVars) errors.variations = true;
-        if (!formData.categoryIds || formData.categoryIds.length === 0) errors.categoryIds = true;
-        const ncmDigits = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
-        if (isStockistOnly && formData.itemType !== 'service' && ncmDigits.length !== 8) {
-          errors.ncm = true;
-        }
-        const isOwnProduction =
-          formData.merchandiseOrigin === 'own_production' ||
-          formData.isOwnProduction === true ||
-          formData.fiscal?.merchandiseOrigin === 'own_production';
-        if (!isOwnProduction && !formData.mainSupplierId && !formData.supplierId) errors.mainSupplierId = true;
-
-        const invalidVariation = (formData.variations || [])
-          .map((variation) => ({
-            variation,
-            issue: getVariationRegistrationIssue(formData, variation),
-          }))
-          .find(({ issue }) => issue !== null);
-        if (invalidVariation) errors.variationRegistration = true;
+        const { errors, invalidVariation } = validateProductFormSubmission(formData, {
+          isStockistOnly,
+          saveAsDraft: actualSaveAsDraft,
+        });
 
         if (Object.keys(errors).length > 0) {
           setValidationErrors(errors);
@@ -128,8 +97,11 @@ export const useProductFormSubmit = ({
         }
         setValidationErrors({});
       } else {
-        const enteredName = getEnteredProductName(formData);
-        if (!enteredName) return false;
+        const { errors } = validateProductFormSubmission(formData, {
+          isStockistOnly,
+          saveAsDraft: actualSaveAsDraft,
+        });
+        if (Object.keys(errors).length > 0) return false;
       }
 
       const ecomVal = checkEcomLegibility(formData);
@@ -172,7 +144,9 @@ export const useProductFormSubmit = ({
           name: enteredName,
         });
 
-        const savedId = await saveProduct(normalizedData);
+        const savedId = isTestArtifact && !isRegisteredProduct
+          ? await saveProduct(normalizedData, false, { isTestArtifact: true })
+          : await saveProduct(normalizedData);
         if (savedId && typeof savedId === 'string') {
           normalizedData.id = savedId;
         }
@@ -251,6 +225,7 @@ export const useProductFormSubmit = ({
       onSuccess,
       onSave,
       onClose,
+      isTestArtifact,
     ]
   );
 

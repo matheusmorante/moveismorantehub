@@ -7,6 +7,8 @@ import usePaymentsData from './usePayments';
 import { useCustomerData } from './useCustomerData';
 import { calcPaymentsSummary, calcItemsSummary } from '@/pages/utils/calculations';
 import { toast } from 'react-toastify';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { testArtifactMetadata } from '../../../../../../shared-utils/testArtifactPolicy';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { saveOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
 import { validateBase, validateOrder, ValidationErrors } from '@/pages/utils/validations';
@@ -52,7 +54,8 @@ export const useSalesOrderForm = (
   const [linkedOrderId, setLinkedOrderId] = useState('');
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
   const [currentStep, setCurrentStep] = useState(1);
-  const [isTestMode, setIsTestMode] = useState(false);
+  const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
+  const isTestMode = testModeFields.is_test === true;
 
   // Estado React só é refletido após o próximo render. Esta trava síncrona
   // protege o intervalo entre o clique e a confirmação do insert no banco.
@@ -98,6 +101,7 @@ export const useSalesOrderForm = (
       isButtonsClicked,
       currentStep,
       isTestMode,
+      testModeFields,
     };
   });
 
@@ -141,7 +145,7 @@ export const useSalesOrderForm = (
         assistanceCost: s.assistanceCost,
         linkedOrderId: s.linkedOrderId || undefined,
         isButtonsClicked: s.isButtonsClicked,
-        ...(s.isTestMode ? { is_test: true } : {}),
+        ...s.testModeFields,
       };
     },
     [orderIndex]
@@ -161,7 +165,8 @@ export const useSalesOrderForm = (
     getOrderData,
     setCurrentOrderId,
     latestState,
-    isDraftAutoSaveEnabled
+    isDraftAutoSaveEnabled,
+    testModeFields,
   );
 
   const loadOrderForEditing = useCallback(
@@ -271,9 +276,12 @@ export const useSalesOrderForm = (
       setMarketingOrigin(order.marketingOrigin || 'organic');
       setStatus(loadedStatus);
       setOrderType(order.orderType || 'sale');
-      const loadedTestMode = Boolean(order.id && order.is_test === true);
-      setIsTestMode(loadedTestMode);
-      latestState.current.isTestMode = loadedTestMode;
+      const loadedTestFields = order.id
+        ? { is_test: order.is_test, testArtifact: order.testArtifact }
+        : {};
+      setTestModeFields(loadedTestFields);
+      latestState.current.testModeFields = loadedTestFields;
+      latestState.current.isTestMode = loadedTestFields.is_test === true;
       setAssistanceItems(order.assistanceItems || []);
       setAssistanceServiceValue(order.assistanceServiceValue || 0);
       setAssistanceCost(order.assistanceCost || 0);
@@ -470,7 +478,7 @@ export const useSalesOrderForm = (
       assistanceCost,
       linkedOrderId,
       isButtonsClicked,
-      ...(isTestMode ? { is_test: true } : {}),
+      ...testModeFields,
     };
   }, [
     currentOrderId,
@@ -492,7 +500,7 @@ export const useSalesOrderForm = (
     linkedOrderId,
     isButtonsClicked,
     orderType,
-    isTestMode,
+    testModeFields,
   ]);
 
   const isValidForCompletion = useMemo(
@@ -558,10 +566,19 @@ export const useSalesOrderForm = (
   );
 
   const setTestMode = useCallback((enabled: boolean) => {
+    const identity = getTestArtifactContext();
+    if (enabled && !identity) {
+      toast.error('O modo de teste exige operador autorizado nesta execução.');
+      return;
+    }
     // Atualiza a referência síncrona para que salvar imediatamente após o clique
     // não perca o marcador antes do próximo render.
     latestState.current.isTestMode = enabled;
-    setIsTestMode(enabled);
+    const fields: Pick<Order, 'is_test' | 'testArtifact'> = enabled && identity
+      ? { is_test: true, testArtifact: testArtifactMetadata(identity) }
+      : { is_test: false, testArtifact: null };
+    latestState.current.testModeFields = fields;
+    setTestModeFields(fields);
   }, []);
 
   const actions = useMemo(

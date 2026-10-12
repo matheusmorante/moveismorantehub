@@ -132,7 +132,7 @@ export const createOrderHistoryOperations = ({
       toast.warning(
         'Só é possível corrigir um atendimento marcado por engano quando não há confirmação de entrega, retirada ou saída.'
       );
-      return;
+      return false;
     }
 
     const payload: Partial<Order> = { status: newStatus };
@@ -186,7 +186,7 @@ export const createOrderHistoryOperations = ({
       );
       console.error('Erro ao atualizar status:', error);
       toast.error('Erro ao atualizar status do pedido.');
-      return;
+      return false;
     }
 
     if (isCancelled) {
@@ -241,6 +241,7 @@ export const createOrderHistoryOperations = ({
     } catch {
       toast.warning('O pedido foi atualizado, mas a lista não pôde ser recarregada.');
     }
+    return true;
   };
 
   const retryFiscalCancellation = async (order: Order, documentId?: string) => {

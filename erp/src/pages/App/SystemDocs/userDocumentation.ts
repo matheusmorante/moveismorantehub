@@ -56,7 +56,7 @@ export const userDocumentation: DocumentationSection[] = [
       'Registre o recebimento de mercadoria com itens reais para criar entradas e atualizar o saldo.',
       'O custo do recebimento atualiza o custo médio do saldo. Não trate custo desconhecido como custo zero.',
       'Movimentação é o histórico de cada entrada, saída, ajuste ou estorno. Consulte o detalhe para saber origem e motivo.',
-      'A devolução só cria entrada quando o pedido de devolução é marcado como Atendido, após confirmação de segurança de cinco segundos.',
+      'A devolução só cria entrada quando o pedido de devolução fica como Devolvido, após confirmação de segurança de cinco segundos e confirmação do recebimento físico.',
       'Inicie uma contagem com responsável. Cada diferença efetiva gera ajuste ao finalizar; inventário em andamento pode ser excluído.',
     ],
     flow: [
@@ -92,7 +92,7 @@ export const userDocumentation: DocumentationSection[] = [
       'Acompanhe o desempenho de vendas utilizando o filtro de vendedores elegíveis e o relatório de comissões.',
       'Pedidos agendados cancelados estornam automaticamente os movimentos de estoque e exibem carimbo CANCELADO em destaque.',
       'Utilize a Conciliação Comercial para associar produtos cadastrados a vendas que continham itens temporários para efeito de métricas analíticas.',
-      'Pedidos vencidos há mais de 5 dias da data de entrega são atendidos automaticamente pelo sistema para garantir conformidade de saldo.',
+      'Pedidos agendados para entrega ou retirada passam automaticamente para atendido à meia-noite do dia seguinte à data agendada, com atualização transacional do estoque.',
     ],
     flow: [
       { title: 'Auditar Pedidos', detail: 'Confira vendas agendadas, canceladas e atendidas.' },

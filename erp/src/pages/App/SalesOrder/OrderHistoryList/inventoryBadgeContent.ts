@@ -67,7 +67,7 @@ export const getInventoryBadgeContent = ({
         : 'Apenas alguns itens deste pedido tiveram movimentação de saída de estoque gerada. Itens sem cadastro (temporários) ou itens que não geraram movimentação deixam o status de movimentação parcial.'
       : isReturn
         ? hasMovement
-          ? 'Esta devolução possui uma entrada de estoque vinculada e efetiva. A entrada foi criada quando a devolução foi atendida.'
+          ? 'Esta devolução possui uma entrada de estoque vinculada e efetiva. A entrada foi criada quando a devolução foi concluída.'
           : 'Ainda não há entrada de estoque vinculada a esta devolução. O selo só ficará verde depois que uma entrada real for registrada para os itens devolvidos.'
         : hasMovement
           ? 'Este pedido possui uma saída de estoque vinculada e efetiva para todos os itens vendidos.'

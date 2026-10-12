@@ -55,7 +55,12 @@ async function main() {
     }
     return;
   }
-  if (!['emit', 'reconcile', 'repeat', 'consult'].includes(mode)) throw new Error('Invalid HML action.');
+  if (['emit', 'reconcile', 'repeat'].includes(mode)) {
+    throw new Error(
+      'Emissão e retransmissão fiscal por CLI/HTTP são proibidas pela política do projeto. Inicie e reconcilie exclusivamente pela interface do ERP.'
+    );
+  }
+  if (mode !== 'consult') throw new Error('Invalid HML action. Allowed read-only modes: check, consult.');
   const keys = JSON.parse(cli(['--yes', 'supabase', 'projects', 'api-keys', '--project-ref', ref, '--output', 'json']));
   const serviceKey = keys.find((key) => key.name === 'service_role')?.api_key;
   if (!serviceKey) throw new Error('Backend DB key unavailable.');
@@ -64,9 +69,9 @@ async function main() {
     return captureOrderState(db, id);
   }
   const orderId = existingOrderId;
-  const emissionRequestId = existingRequestId || (mode === 'emit' ? crypto.randomUUID() : undefined);
+  const emissionRequestId = existingRequestId;
   if (!/^[0-9a-f-]{36}$/i.test(orderId || '') || !emissionRequestId)
-    throw new Error('Provide the exact existing real order ID and original emission request for retries.');
+    throw new Error('Provide the exact existing real order ID and original emission request for consultation.');
   const { data: order, error: orderError } = await db.from('orders')
     .select('id,order_type,status,deleted,order_data').eq('id', orderId).single();
   const hasTestMetadata = Boolean(order?.order_data?.testRunId || order?.order_data?.is_test ||
@@ -76,49 +81,23 @@ async function main() {
     order?.order_data?.is_test === true &&
     order?.order_data?.test_environment === 'homologation' &&
     /^[0-9a-f-]{36}$/i.test(order?.id || ''));
-  let savedSelections = {};
   if (orderError || order.deleted === true || order.order_type !== 'sale' ||
       ['draft', 'cancelled', 'cancelado'].includes(order.status) ||
       (hasTestMetadata && !isTaggedHmlTestOrder) ||
       order.order_data?.fiscalScenario === 'HML_TECHNICAL_V1')
     throw new Error('An eligible sale or explicitly tagged HML test sale is required.');
-  if (mode === 'emit' && isTaggedHmlTestOrder) {
-    const selections = order.order_data?.hmlTestFiscalSelections;
-    if (!selections?.itemFiscalSelections)
-      throw new Error('The tagged HML test order must carry reviewed fiscal selections.');
-    savedSelections = {
-      itemFiscalSelections: selections.itemFiscalSelections,
-      itemCsosnOverrides: selections.itemCsosnOverrides || {},
-    };
-  }
   console.log(JSON.stringify({ stage: 'order', orderId, orderNumber: order.order_data?.orderNumber,
     emissionRequestId, environment: 2 }));
   const before = await captureOperationalState(orderId);
-  let prior;
-  if (mode !== 'emit') {
-    const { data, error } = await db.from('nfe_documents')
-      .select('id,xml_nfe,xml_protocolo,numero_protocolo,numero_nfe,serie,status,fiscal_snapshot_id,hml_response_history')
-      .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55')
-      .eq('emission_request_id', emissionRequestId).single();
-    if (error) throw new Error('Original HML document is unavailable.');
-    prior = data;
-    const snapshot = await db.from('nfe_fiscal_snapshots').select('snapshot_data')
-      .eq('id', prior.fiscal_snapshot_id).single();
-    if (snapshot.error || !snapshot.data) throw new Error('Original HML snapshot is unavailable.');
-    const original = snapshot.data.snapshot_data.emissionRequest;
-    savedSelections = { itemFiscalSelections: original.itemFiscalSelections,
-      itemCsosnOverrides: original.itemCsosnOverrides || {} };
-  } else {
-    const existing = await db.from('nfe_documents').select('id', { count: 'exact', head: true })
-      .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55');
-    if (existing.error || existing.count !== 0)
-      throw new Error('Existing HML history requires an explicit document recovery or reviewed correction.');
-  }
-  const result = mode === 'consult'
-    ? request('/api/nfe/consult', { documentId: prior.id })
-    : mode === 'reconcile'
-      ? request('/api/nfe/emit', { retryDocumentId: prior.id, environment: 2 })
-      : request('/api/nfe/emit', { orderId, emissionRequestId, environment: 2, ...savedSelections });
+  const { data: prior, error: priorError } = await db.from('nfe_documents')
+    .select('id,xml_nfe,xml_protocolo,numero_protocolo,numero_nfe,serie,status,fiscal_snapshot_id,hml_response_history,modelo,ambiente')
+    .eq('order_id', orderId).eq('ambiente', 2).eq('modelo', '55')
+    .eq('emission_request_id', emissionRequestId).single();
+  if (priorError || !prior) throw new Error('Original HML document is unavailable.');
+  const snapshot = await db.from('nfe_fiscal_snapshots').select('snapshot_data')
+    .eq('id', prior.fiscal_snapshot_id).single();
+  if (snapshot.error || !snapshot.data) throw new Error('Original HML snapshot is unavailable.');
+  const result = request('/api/nfe/consult', { documentId: prior.id });
   console.log(JSON.stringify({ stage: 'emission', success: result.success, code: result.code,
     error: result.error, blockers: result.blockers, configurationIssues: result.configurationIssues,
     transportDiagnostic: result.transportDiagnostic,

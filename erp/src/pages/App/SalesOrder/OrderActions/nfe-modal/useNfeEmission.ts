@@ -212,7 +212,7 @@ export function useNfeEmission(
 
   const handleSaveDraft = async () => {
     if (purposeSaveInProgress.current) return;
-    await saveNfeDraftToDatabase(modelOrder, recipientTaxId, nfeItems);
+    await saveNfeDraftToDatabase(modelOrder, recipientTaxId, nfeItems, environment);
   };
 
   return {

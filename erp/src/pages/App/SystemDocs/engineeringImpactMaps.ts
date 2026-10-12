@@ -60,11 +60,11 @@ export const engineeringImpactMaps: Record<string, EngineeringImpact[]> = {
       ],
     },
     {
-      action: 'Devolução: Agendado → Atendido',
+      action: 'Devolução: Coleta agendada → Devolvido',
       effects: [
         'Estoque: cria entradas dos itens devolvidos',
         'Agenda: remove devolução',
-        'Integridade: bloqueia cancelar e desfazer',
+        'Integridade: bloqueia cancelar e desfazer após a conclusão',
       ],
     },
   ],

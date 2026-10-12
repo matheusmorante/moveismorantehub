@@ -1,0 +1,19 @@
+{
+  "name": "test-artifact-product-insert-guard-remote",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development",
+  "runId": "ca5f45f5-3b07-410f-a476-5336f3448299",
+  "operatorIdentityVerified": true,
+  "administratorConfirmed": true,
+  "forgedOwnerRejected": true,
+  "productPersisted": false,
+  "variationPersisted": false,
+  "inventoryMovePersisted": false,
+  "result": "passed",
+  "limitations": [
+    "Negative guard behavior only.",
+    "No valid product write, commit, rollback, concurrency, or cleanup was tested."
+  ]
+}

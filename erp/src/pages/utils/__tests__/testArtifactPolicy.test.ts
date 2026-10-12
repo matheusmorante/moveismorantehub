@@ -45,13 +45,13 @@ describe('identificação dos artefatos no schema existente', () => {
       isDevelopment: true,
       runId,
       ownerId,
-      email: ' MATHEUSMORANTE002@GMAIL.COM ',
       isAdministrator: true,
+      configuredOperatorAuthorized: true,
     };
     expect(testArtifactIdentityForAuthenticatedUser(input)).toEqual({ runId, ownerId });
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, isDevelopment: false })).toBeNull();
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, isAdministrator: false })).toBeNull();
-    expect(testArtifactIdentityForAuthenticatedUser({ ...input, email: 'other@example.com' })).toBeNull();
+    expect(testArtifactIdentityForAuthenticatedUser({ ...input, configuredOperatorAuthorized: false })).toBeNull();
     expect(testArtifactIdentityForAuthenticatedUser({ ...input, runId: 'TEST_AUT_anything' })).toBeNull();
   });
   it('recusa vínculo com produto operacional, outra execução ou outro operador', () => {

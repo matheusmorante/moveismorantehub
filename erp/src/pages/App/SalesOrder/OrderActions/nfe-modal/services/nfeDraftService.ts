@@ -5,7 +5,8 @@ import type { NfeItemWithFiscal } from '../NfeItemsSection';
 export async function saveNfeDraftToDatabase(
   order: Order | null,
   recipientTaxId: string,
-  nfeItems: NfeItemWithFiscal[]
+  nfeItems: NfeItemWithFiscal[],
+  environment: 1 | 2 = 1
 ): Promise<void> {
   if (!order?.id) return;
   try {
@@ -28,14 +29,18 @@ export async function saveNfeDraftToDatabase(
       }
     }
 
-    // 2. Save order_data to orders table; a modal-only tax ID must not rewrite the customer profile.
+    // 2. Save order_data to orders table; in HML (environment=2), never persist modal-only tax ID into the order or customer record.
+    const customerData =
+      environment === 2
+        ? order.customerData
+        : {
+            ...order.customerData,
+            cpfCnpj: recipientTaxId,
+            document: recipientTaxId,
+          };
     const updatedOrder = {
       ...order,
-      customerData: {
-        ...order.customerData,
-        cpfCnpj: recipientTaxId,
-        document: recipientTaxId,
-      },
+      customerData,
       items: order.items.map((it, idx) => ({
         ...it,
         fiscal: {

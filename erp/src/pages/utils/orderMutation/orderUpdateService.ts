@@ -10,7 +10,7 @@ import type { OrderCirculationState } from '../nfe/cancellationEligibility';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
-import { assertOwnedByTestContext } from '../../../../../shared-utils/testArtifactContext';
+import { assertOwnedByTestContext, getTestArtifactContext, stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 
@@ -63,7 +63,16 @@ export const executeUpdateOrder = async (
       merged = rest;
     }
 
-    assertOwnedByTestContext(previousOrderData);
+    if (isIdentifiedTestArtifact(previousOrderData)) assertOwnedByTestContext(previousOrderData);
+    if (cleanUpdates.is_test === false) {
+      delete merged.testArtifact;
+      delete merged.testRunId;
+      delete merged.testOwnerId;
+    } else if (cleanUpdates.is_test === true && !isIdentifiedTestArtifact(previousOrderData)) {
+      const identity = getTestArtifactContext();
+      if (!identity) throw new Error('O modo de teste exige operador autorizado nesta execução.');
+      merged = stampTestOrder(merged, identity);
+    }
 
     // 1. Manutenção do código do pedido
     const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;

@@ -2,7 +2,7 @@ import {
   buildProportionalReturnTaxesXml,
   buildReturnProductXml,
   updateFiscalOperationTotalsXml,
-} from '@/pages/utils/nfe/fiscalOperationReview';
+} from '../../../utils/nfe/fiscalOperationReview';
 import type {
   DraftLine,
   DraftPayload,

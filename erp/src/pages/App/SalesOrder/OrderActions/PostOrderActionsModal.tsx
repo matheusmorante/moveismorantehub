@@ -2,9 +2,10 @@ import React from 'react';
 import Order from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { updateOrder } from '../../../utils/orderHistoryService';
-import { POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
+import { POST_RETURN_ACTION_KEYS, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
 import { NfeEmissionModal } from './NfeEmissionModal';
 import { NfeEnvironmentChoiceModal } from './nfe-modal/NfeEnvironmentChoiceModal';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 
 import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
@@ -28,10 +29,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   React.useEffect(() => {
     let active = true;
-    if (!order?.id) return;
-    void fetchOrderFiscalBadgeStatuses([order.id])
+    const orderId = order?.id;
+    if (!orderId) return;
+    void fetchOrderFiscalBadgeStatuses([orderId])
       .then((res) => {
-        if (active) setFiscalStatuses(res[order.id] || null);
+        if (active) setFiscalStatuses(res[orderId] || null);
       })
       .catch((err) => console.error('Erro ao buscar status fiscal:', err));
     return () => {
@@ -46,9 +48,17 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
       order.nfeData?.protocolNumber
   );
 
+  const isReturnOrder = order.orderType === 'return';
+  const isCollectionScheduled =
+    order.status === 'scheduled' &&
+    (order.returnMethod === 'store_collection' || order.returnMethod == null);
+  const isTestArtifact = isIdentifiedTestArtifact(order);
+  const modalTitle = isReturnOrder ? 'Ações após cadastro' : 'Ações Pós-Venda';
   const availableActions = buttons.filter(
     (btn) =>
-      POST_SALE_ACTION_KEYS.has(btn.key) &&
+      (isReturnOrder ? POST_RETURN_ACTION_KEYS : POST_SALE_ACTION_KEYS).has(btn.key) &&
+      (btn.key !== 'sendReturnOSTeam' || isCollectionScheduled) &&
+      (!isReturnOrder || !isTestArtifact || !btn.key.startsWith('sendReturnOS')) &&
       (btn.key !== 'sendCustomerReviews' || !order.reviewRequested)
   );
 
@@ -70,7 +80,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
     <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Fechar modal de ações pós-venda"
+        aria-label={
+          isReturnOrder
+            ? 'Fechar modal de ações após cadastro'
+            : 'Fechar modal de ações pós-venda'
+        }
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
@@ -79,7 +93,6 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
         aria-modal="true"
         aria-labelledby="post-order-title"
         className="relative z-10 bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100 dark:border-slate-800"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -92,7 +105,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                   id="post-order-title"
                   className="text-base font-black text-slate-800 dark:text-slate-100"
                 >
-                  Ações Pós-Venda
+                  {modalTitle}
                 </h3>
                 <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
                   Cadastrado
@@ -112,8 +125,19 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
         <div className="p-6 flex flex-col gap-3">
           <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-            O pedido <strong>já foi cadastrado e gravado</strong> no sistema. Você pode executar as
-            ações rápidas abaixo ou simplesmente fechar esta janela.
+            {isReturnOrder ? (
+              <>
+                O <strong>pedido de devolução já foi cadastrado e gravado</strong>. Você pode{' '}
+                {isCollectionScheduled
+                  ? 'imprimir os dados da coleta, enviar o pedido ao cliente e repassar os dados da coleta à equipe pelo WhatsApp.'
+                  : 'imprimir o comprovante e enviar os dados ao cliente pelo WhatsApp.'}
+              </>
+            ) : (
+              <>
+                O pedido <strong>já foi cadastrado e gravado</strong> no sistema. Você pode executar
+                as ações rápidas abaixo ou simplesmente fechar esta janela.
+              </>
+            )}
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -219,6 +243,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
           <button
+            type="button"
             onClick={onClose}
             className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all flex items-center gap-2"
           >
@@ -227,16 +252,6 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
           </button>
         </div>
       </div>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-                @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-                .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
-                .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-            `,
-        }}
-      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import Order from '../../../types/order.type';
+import type Order from '../../../types/order.type';
 
 type Props = {
   readonly order: Order;
@@ -13,7 +13,8 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
   const isCollection =
     order.returnMethod === 'store_collection' ||
     (order.status === 'scheduled' && !order.returnMethod);
-  const completion = isCollection ? 'coletada' : 'recebida';
+  const confirmation = isCollection ? 'coleta da devolução' : 'recebimento da devolução';
+  const confirmationAction = isCollection ? 'coleta' : 'recebimento';
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,7 +41,7 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label={`Fechar confirmação de devolução ${completion}`}
+          aria-label={`Fechar confirmação de ${confirmation}`}
         className="fixed inset-0 bg-slate-950/60 transition-opacity"
         onClick={onCancel}
       />
@@ -49,13 +50,12 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
         aria-modal="true"
         aria-labelledby="return-fulfillment-title"
         className="relative z-10 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900"
-        onClick={(e) => e.stopPropagation()}
       >
         <h2
           id="return-fulfillment-title"
           className="text-lg font-black text-slate-900 dark:text-white"
         >
-          Confirmar devolução {completion}?
+          Confirmar {confirmation}?
         </h2>
         <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
           Confirme somente após{' '}
@@ -95,7 +95,7 @@ const ReturnFulfillmentConfirmModal = ({ order, onCancel, onConfirm }: Props) =>
             onClick={onConfirm}
             className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {seconds ? `Aguarde ${seconds}s` : `Confirmar ${completion}`}
+            {seconds ? `Aguarde ${seconds}s` : `Confirmar ${confirmationAction}`}
           </button>
         </div>
       </section>

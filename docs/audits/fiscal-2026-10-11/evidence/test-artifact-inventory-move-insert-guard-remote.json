@@ -1,0 +1,20 @@
+{
+  "name": "test-artifact-inventory-move-insert-guard-remote",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development",
+  "runId": "91cdaf2b-c801-4b04-898d-561184db873e",
+  "operatorIdentityVerified": true,
+  "administratorConfirmed": true,
+  "forgedOwnerRejected": true,
+  "nonexistentProductAndVariationUsed": true,
+  "invalidTypePreventsAfterTriggerEffectsIfGuardIsMissing": true,
+  "movementPersisted": false,
+  "catalogRowsPersisted": false,
+  "result": "passed",
+  "limitations": [
+    "Negative guard behavior only.",
+    "No valid movement, stock/cost effect, rollback, concurrency, or cleanup was tested."
+  ]
+}

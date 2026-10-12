@@ -94,20 +94,14 @@ export const getFulfillmentLabels = (
     const returnMethod = resolveReturnMethod(order);
     const isCollection = returnMethod === 'store_collection';
     return {
-      status: isCollection
-        ? 'Coletada'
-        : returnMethod === 'store_delivery'
-          ? 'Recebida'
-          : fallbackStatus,
-      preFulfillmentStatus: isCollection ? 'Aguardando coleta' : 'Aguardando recebimento',
+      status: 'Devolvido',
+      preFulfillmentStatus: isCollection ? 'Coleta agendada' : 'Aguardando recebimento',
       confirmAction: isCollection ? 'Confirmar coleta' : 'Confirmar recebimento',
       correctionAction: isCollection ? 'Corrigir coleta' : 'Corrigir recebimento',
       confirmationQuestion: isCollection
         ? 'A mercadoria já foi coletada?'
         : 'A mercadoria já foi recebida na loja?',
-      successMessage: isCollection
-        ? 'Devolução coletada com sucesso.'
-        : 'Devolução recebida com sucesso.',
+      successMessage: 'Devolução concluída com sucesso.',
     };
   }
   if (!isSalesOrder(order)) {
@@ -160,7 +154,9 @@ export const getOrderStatusLabel = (
     .trim()
     .toLocaleLowerCase('pt-BR');
   if (isReturnOrder(order)) {
-    if (status === 'scheduled') return 'Aguardando coleta';
+    if (status === 'scheduled') {
+      return resolveReturnMethod(order) === 'store_collection' ? 'Coleta agendada' : 'Agendado';
+    }
     if (['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status)) {
       return getFulfillmentLabels(order, fallbackStatus).status;
     }

@@ -21,6 +21,7 @@ import {
   getTestArtifactContext,
   stampTestArtifact,
 } from '../../../../../shared-utils/testArtifactContext';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import {
   checkProductLinkedToSales,
   checkProductHasMoves,
@@ -42,9 +43,24 @@ const invalidateProductQueries = () => {
   }
 };
 
-export type ProductMutationOptions = { deferQueryInvalidation?: boolean };
+export type ProductMutationOptions = {
+  deferQueryInvalidation?: boolean;
+  isTestArtifact?: boolean;
+  preserveVariationIds?: boolean;
+};
 
-export const saveProduct = async (product: Product, forceInsert = false): Promise<string> => {
+export const saveProduct = async (
+  product: Product,
+  forceInsert = false,
+  options: ProductMutationOptions = {},
+): Promise<string> => {
+  const testIdentity = options.isTestArtifact ? getTestArtifactContext() : null;
+  if (options.isTestArtifact && !testIdentity) {
+    throw new Error('O modo de artefato de teste exige operador autorizado nesta execução.');
+  }
+  if (testIdentity) {
+    Object.assign(product, stampTestArtifact(product, 'technicalSpecs', testIdentity));
+  }
   if (isTestProductCatalogPublicationBlocked(product)) {
     throw new Error(TEST_PRODUCT_CATALOG_PUBLICATION_ERROR);
   }
@@ -67,9 +83,6 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
   }
 
   if (isProductDraft(product)) {
-    if (getTestArtifactContext()) {
-      throw new Error('Artefatos de teste precisam ser criados no banco; rascunhos locais não são aceitos.');
-    }
     product.id = resolvedId;
     await persistProductDraft(product);
     const drafts = getLocalProducts();
@@ -83,7 +96,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
 
   const existingLocalProduct = products.find((item) => String(item.id) === String(resolvedId));
   const isContextBound = Boolean(getTestArtifactContext());
-  if (isContextBound && existingLocalProduct) assertOwnedByTestContext(existingLocalProduct);
+  if (isContextBound && isIdentifiedTestArtifact(existingLocalProduct)) assertOwnedByTestContext(existingLocalProduct);
 
   const skusToValidate: string[] = [];
   if (product.code) skusToValidate.push(product.code);
@@ -130,15 +143,14 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
     return String(resolvedId);
   }
 
-  let newProduct: Product = {
+  const newProduct: Product = {
     ...product,
     id: resolvedId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  if (isContextBound) {
-    newProduct = stampTestArtifact(newProduct, 'technicalSpecs');
+  if (options.isTestArtifact && !options.preserveVariationIds) {
     for (const variation of newProduct.variations || []) variation.id = crypto.randomUUID();
   }
 
@@ -147,7 +159,7 @@ export const saveProduct = async (product: Product, forceInsert = false): Promis
   notifySubscribers();
 
   // Sincronizar com Supabase e aguardar conclusão
-  await syncProductToSupabase(newProduct, { insertOnly: isContextBound });
+  await syncProductToSupabase(newProduct, { insertOnly: options.isTestArtifact === true });
   invalidateProductQueries();
 
   if (typeof window !== 'undefined') {
@@ -188,7 +200,7 @@ export const updateProduct = async (
       .maybeSingle();
     if (artifactError) throw artifactError;
     if (!databaseArtifact) throw new Error('O produto não existe para esta execução de teste.');
-    assertOwnedByTestContext(databaseArtifact);
+    if (isIdentifiedTestArtifact(databaseArtifact)) assertOwnedByTestContext(databaseArtifact);
   }
 
   const skusToValidate: string[] = [];

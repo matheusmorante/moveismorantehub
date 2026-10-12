@@ -20,20 +20,30 @@ const complete: Product = {
     active: false, status: 'draft', attributes: [], syncUnitPrice: true }],
 };
 
-function renderSubmit(formData: Product, isRegisteredProduct = false, isStockistOnly = false) {
+function renderSubmit(
+  formData: Product,
+  isRegisteredProduct = false,
+  isStockistOnly = false,
+  isTestArtifact = false,
+) {
   const variations = { setEditingVariationId: vi.fn() };
   const setActiveTab = vi.fn();
   const hook = renderHook(() => useProductFormSubmit({
     formData, setFormData: vi.fn(), product: formData, isRegisteredProduct, isStockistOnly,
     setValidationErrors: vi.fn(), setActiveTab, variations, draft: {},
     setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: { current: true }, onClose: vi.fn(),
+    isTestArtifact,
   }));
   return { ...hook, variations, setActiveTab };
 }
 
 describe('conclusão do pai respeita os requisitos de cada variação', () => {
   it('bloqueia a conclusão quando uma variação não tem dimensão obrigatória', async () => {
-    const { result, variations, setActiveTab } = renderSubmit({ ...complete, height: 0 });
+    const { result, variations, setActiveTab } = renderSubmit({
+      ...complete,
+      height: 0,
+      technicalValues: { ...complete.technicalValues, Altura: '' },
+    });
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
     expect(mocks.saveProduct).not.toHaveBeenCalled();
     expect(variations.setEditingVariationId).toHaveBeenCalledWith('v1');
@@ -51,6 +61,15 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
     expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({ isDraft: false, status: 'hidden',
       variations: [expect.objectContaining({ status: 'hidden', active: true })] }));
+  });
+  it('passa a marcação de teste ao serviço somente quando o controle está ligado', async () => {
+    const { result } = renderSubmit(complete, false, false, true);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
+
+    expect(mocks.saveProduct).toHaveBeenCalledWith(expect.any(Object), false, {
+      isTestArtifact: true,
+    });
   });
   it('força o canal Catálogo Digital para oculto ao salvar produto marcado como teste', async () => {
     const testProduct: Product = {

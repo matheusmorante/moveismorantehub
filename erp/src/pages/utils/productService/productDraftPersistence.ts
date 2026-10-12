@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { mapToDB } from './productToDbMapper';
 import { resolveUniqueSlug } from '../uniqueSlug';
 import { createProductDraftSnapshot, isProductDraft } from './productDraftSnapshot';
+import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 
 /** The draft is one aggregate: saving never creates inventory or partial child records. */
 export async function persistProductDraft(product: Product): Promise<void> {
@@ -15,6 +16,18 @@ export async function persistProductDraft(product: Product): Promise<void> {
   if (existing && !isProductDraft({ isDraft: existing.is_draft, status: existing.status })) {
     throw new Error('O produto já foi concluído. Reabra o cadastro antes de continuar.');
   }
+  if (existing) {
+    const incomingTestIdentity = readTestArtifactIdentity(product);
+    const existingTestIdentity = readTestArtifactIdentity({ technical_specs: existing.technical_specs });
+    if (
+      incomingTestIdentity && existingTestIdentity && (
+        incomingTestIdentity.runId !== existingTestIdentity.runId ||
+        incomingTestIdentity.ownerId !== existingTestIdentity.ownerId
+      )
+    ) {
+      throw new Error('Este rascunho pertence a outra execução ou não é um artefato de teste.');
+    }
+  }
 
   const snapshot = createProductDraftSnapshot(product);
   const payload = mapToDB(snapshot);
@@ -24,10 +37,12 @@ export async function persistProductDraft(product: Product): Promise<void> {
     'meta_description', 'seo_description', 'stock', 'initial_stock',
   ]) delete payload[field];
   payload.technical_specs = {
-    ...(existing?.technical_specs || product.technicalSpecs || {}),
+    ...existing?.technical_specs,
     ...payload.technical_specs,
     draftProduct: snapshot,
   };
+  // A removed form marker must not be resurrected by the persisted JSON merge.
+  if (!readTestArtifactIdentity(product)) delete payload.technical_specs.testArtifact;
   payload.updated_at = new Date().toISOString();
   payload.slug = await resolveUniqueSlug(supabase, 'products', payload.slug || payload.name, product.id);
   payload.category_id = product.categoryIds?.[0] || null;

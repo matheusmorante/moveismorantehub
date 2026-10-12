@@ -26,7 +26,7 @@ export function getHomologationRecipientName(input: {
   environment: FiscalHomologationEnvironment;
   recipientName: string;
 }): string {
-  return input.model === '55' && input.environment === 2
+  return input.environment === 2
     ? HOMOLOGATION_NFE_RECIPIENT_NAME
     : input.recipientName;
 }

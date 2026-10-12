@@ -1,6 +1,6 @@
 # Plano cíclico de testes fiscais — NF-e, NFC-e e devoluções
 
-**Atualizado em 10/10/2026.** Este roteiro separa o cancelamento da operação comercial, o tratamento de cada documento fiscal e a confirmação física de devolução. Cada linha deve registrar camada, execução, `runId` quando aplicável, evidência e limitação. Depois de qualquer correção, repetir os casos relacionados desde a primeira etapa do grupo afetado.
+**Atualizado em 11/10/2026.** Este roteiro separa o cancelamento da operação comercial, o tratamento de cada documento fiscal e a confirmação física de devolução. Cada linha deve registrar camada, execução, `runId` quando aplicável, evidência e limitação. Depois de qualquer correção, repetir os casos relacionados desde a primeira etapa do grupo afetado.
 
 ## Contratos do ciclo
 
@@ -10,17 +10,18 @@
 - **Estornar NF:** o rascunho referencia uma NF autorizada específica e conserva XML, chave, protocolo e linhagem original. Revisão fiscal é necessária antes de transmissão, inclusive para diferenças/acréscimos de período de apuração posterior.
 - **Reduzir valores/quantidades de NF-e 55 no PR:** desde 03/08/2026, quando não for possível cancelar a NF-e de saída, o RICMS/PR remete ao procedimento do Ajuste SINIEF 49/2025. Este caso não deve ser presumido como estorno integral nem como devolução após retorno físico. O ERP ainda não gera `finNFe=5`/`tpNFCredito=04`; manter bloqueado até revisão fiscal e implementação testável.
 - **Referência NFC-e → NF-e:** desde 05/10/2026, a regra internalizada no PR veda NF-e de **saída** referenciar NFC-e, salvo NF-e complementar. Ela não constitui, por si só, proibição para uma NF-e de entrada de devolução; o suporte à devolução de origem NFC-e continua sujeito à política fiscal própria do ERP e está bloqueado no código atual.
-- **Cancelar pedido de devolução:** permitido antes da confirmação física, selecionando o pedido de devolução específico. Não desfaz a venda nem altera estoque. Após “Recebida” ou “Coletada”, o retorno e a entrada física ficam preservados.
-- **Emitir NF-e de devolução:** somente após a confirmação física. A nota contém as linhas e quantidades alocadas àquela devolução e referencia a NF de origem apropriada. Outra devolução pode gerar outro documento.
+- **Cancelar pedido de devolução:** permitido antes da confirmação antecipada ou do vencimento do prazo da coleta, selecionando o pedido de devolução específico. Não desfaz a venda nem altera estoque. Após “Devolvido”, a conclusão e a entrada de estoque ficam preservadas.
+- **Emitir NF-e de devolução:** somente após a conclusão como “Devolvido”, por confirmação antecipada ou vencimento da data/hora agendada. Se a venda vinculada tiver NF-e autorizada no mesmo ambiente e o cenário passar as validações habilitadas, a NFD é transmitida automaticamente após o commit. A nota contém as linhas e quantidades alocadas àquele pedido de devolução; outra devolução de item ainda disponível pode gerar documento independente. Sem NF-e autorizada, não emitir.
 - **Cancelar NF-e de devolução:** a interface e o endpoint atuais aceitam apenas documentos de saída do fluxo de venda; ainda falta validar juridicamente e implementar o evento por NFD, sua linhagem e eventual reemissão sem sobrescrever documento ou alocação histórica. Não simular esse suporte.
 
 ## Segurança e preparação das fixtures
 
 1. Para unitários, usar dados sintéticos e relógio controlado. Isso prova regra local, não PostgreSQL, RLS ou SEFAZ.
 2. Para integração remota, conferir o ref do projeto ERP, usar a branch primária e o schema `public`, gerar `runId` UUID e owner autenticado desde a criação, e registrar IDs em memória.
-3. Antes de gravar fixtures remotas, provar autorização e vínculo por owner/runId, atualização/exclusão limitadas aos próprios artefatos, transações, concorrência e rollback. Provar também a supressão de notificações em todos os canais e exclusão de relatórios, agenda, cronograma, montagens e dashboard, inclusive nas consultas SQL/RPC antes da paginação. O gate atual ainda tem `behavioralProofRequired=true`; não gravar a bateria remota geral enquanto estiver assim.
-4. Não alterar saldo/custo de produto operacional, não gerar reembolso real e não emitir fiscal por CLI, script, SQL ou HTTP. Documentos fiscais de HML são fatos persistentes.
-5. `environment=1` e `tpAmb=1` significam Produção; `environment=2` e `tpAmb=2` significam Homologação. Vínculos de documento, evento e devolução devem ser 1→1 ou 2→2.
+3. A prova prévia de guards, owner/runId, rollback, supressão de notificações e exclusão dos cinco destinos foi registrada em evidências de 11/10/2026. A migration `20261011140105_mark_test_artifact_behavioral_proofs_verified` abriu o gate; `npm run test:nfe:guards-readiness` retornou `ready=true` e `behavioralProofRequired=false`. Esse status libera apenas o gate geral de guards: cada helper e suas dependências de persistência ainda precisam ser confirmados antes de qualquer escrita.
+4. Execute E2E somente com artefatos já persistidos no Supabase, identificados por UUID de `runId` e owner autenticado. Se faltar cenário, prepare cliente, produto/variação e venda explicitamente pelos formulários reais, com o modo de teste autorizado e as validações comerciais/fiscais ativas; não use presets, factories ou geradores de massa em código e não crie massa implicitamente no runner. Antes de gravar, confirme autorização específica, readiness, vínculos e exclusão dos destinos operacionais. O RPC `create_test_artifact_order` cria pedido cancelado/vazio e não serve para emissão.
+5. Não alterar saldo/custo de produto operacional, não gerar reembolso real e não emitir fiscal por CLI, script, SQL ou HTTP. Documentos fiscais de HML são fatos persistentes.
+6. `environment=1` e `tpAmb=1` significam Produção; `environment=2` e `tpAmb=2` significam Homologação. Vínculos de documento, evento e devolução devem ser 1→1 ou 2→2.
 
 ## Matriz A — venda, circulação e cancelamento
 
@@ -58,9 +59,9 @@
 
 | ID | Cenário | Resultado esperado | Camada/evidência |
 |---|---|---|---|
-| C01 | Criar pedido de devolução para coleta | Criar pedido vinculado sem declarar retorno físico e sem entrada de estoque | Unitário + interface |
-| C02 | Cliente entrega o item na loja | Só “Recebida” confirma o retorno; transição comercial e entrada de estoque ficam na mesma transação | Unitário + PostgreSQL após gate |
-| C03 | Equipe traz item coletado | Só “Coletada” confirma o retorno e aciona entrada em transação | Unitário + PostgreSQL após gate |
+| C01 | Criar pedido de devolução com coleta agendada | Salvar como `store_collection`/`scheduled`; aparece na agenda e no cronograma operacional do ERP e do app, sem retorno físico, entrada de estoque ou transmissão NFD | Unitário + interface; persistência protegida pendente |
+| C02 | Cliente entrega o item na loja | Salvar como `store_delivery`/`fulfilled` (“Devolvido”); pedido e entrada de estoque ficam na mesma transação; após o commit, transmitir NFD automaticamente se houver NF-e original autorizada no mesmo ambiente | Unitário + PostgreSQL após gate |
+| C03 | Equipe confirma antes do prazo ou a coleta vence | Confirmação antecipada ou vencimento da data/hora marcada transforma `scheduled` em `fulfilled` (“Devolvido”); entrada de estoque fica na mesma transação; transmitir NFD só depois do commit | Unitário + PostgreSQL após gate |
 | C04 | Devolução parcial de uma linha | Quantidade, valor e snapshot da linha retornada são preservados; restante continua vendida | Unitário + snapshot XML |
 | C05 | Devolução total de uma linha ou venda | Somar alocações sem superar quantidade vendida; entrada física corresponde ao retorno recebido | Unitário + integração protegida |
 | C06 | Duas ou mais devoluções parciais da mesma venda | Cada pedido é selecionável por seu próprio ID; capacidade restante soma todas as alocações ativas | Unitário + PostgreSQL após gate |
@@ -68,14 +69,20 @@
 | C08 | Um pedido de devolução contém linhas vinculadas a notas originais diferentes | Agrupar documentos por nota/ambiente de origem; cada vínculo permanece coerente | Planejamento fiscal + unitário |
 | C09 | Cancelar uma devolução agendada de venda com várias devoluções | Atualizar somente o pedido de devolução escolhido; não limpar o vínculo da venda nem alterar irmãos/estoque | Unitário + interface |
 | C10 | Cancelar sequencialmente todas as devoluções ainda não recebidas | Repetir C09 para cada ID; conferir cada status e preservar retornos já recebidos | Unitário local (duas devoluções em sequência) + integração protegida |
-| C11 | Tentar cancelar retorno após “Recebida”/“Coletada” | Bloquear cancelamento comercial; manter confirmação e movimento de entrada | Unitário + PostgreSQL após gate |
+| C11 | Tentar cancelar retorno após “Devolvido” | Bloquear cancelamento comercial; manter confirmação e movimento de entrada | Unitário + PostgreSQL após gate |
 | C12 | Preparar NF-e de devolução antes do retorno físico | Bloquear preparação/transmissão | Unitário + interface |
-| C13 | Emitir NF-e 55 de devolução parcial | XML contém apenas linhas/quantidades alocadas àquela devolução e referencia a NF autorizada do mesmo ambiente | Unitário/XML local; envio só pela UI após revisão |
-| C14 | Emitir outra devolução de item diferente da mesma venda | Produzir documento independente da alocação anterior; não repetir itens/quantidades já devolvidos | Unitários mockados de capacidade e seleção de alocações (13/13); integração protegida pendente |
+| C13 | Transmitir automaticamente NF-e 55 de devolução parcial após retorno físico | XML contém apenas linhas/quantidades alocadas àquele pedido de devolução e referencia NF-e autorizada do mesmo ambiente; só cenário fiscal habilitado é transmitido automaticamente | Unitário/XML local; transmissão real não executada |
+| C14 | Devolução adicional de item diferente da mesma venda | Salvar outro pedido de devolução com alocação/documento independente; não repetir item ou quantidade já devolvida | Unitários mockados de capacidade e seleção de alocações (13/13); integração protegida pendente |
 | C15 | Cancelar uma NFD autorizada e conservar a devolução física | Tratar apenas o documento e não remover a entrada/retorno; exige parecer legal e suporte de API/linhagem ainda pendentes | Não executar até revisar regra e implementar |
 | C16 | Reemitir NFD após cancelamento de documento anterior | Criar novo documento e vínculo sem substituir nem apagar XML/protocolo/alocação cancelada; suportar várias notas por devolução quando aplicável | Não executar até corrigir modelagem e endpoint |
 | C17 | NF-e 55/CFOP fora da UF, imposto destacado ou cenário sem matriz aprovada | Bloquear transmissão e registrar exatamente a lacuna fiscal; não adaptar CFOP/tributo por aproximação | Matriz fiscal + revisão profissional |
 | C18 | NFC-e 65 como origem de devolução em NF-e de entrada | O código atual bloqueia o modelo 65 como origem de NFD. A regra PR de 05/10 veda NF-e de saída referenciando NFC-e; ela não resolve este caso de entrada. Manter bloqueio até revisão da regra de devolução, do referenciamento por item e de CFOP/tributação | Bloqueio esperado; validar separadamente da vedação de NF-e de saída |
+| C19 | Venda vinculada sem NF-e autorizada | Criar o pedido de devolução normalmente, sem preparar nem transmitir NFD | Unitário + interface |
+| C20 | Coleta agendada ainda dentro do prazo | Manter pedido de devolução na agenda/cronograma como “Coleta agendada”; nenhuma entrada de estoque ou tentativa de transmissão fiscal até confirmação antecipada ou vencimento da data/hora agendada | Unitário + integração protegida pendente |
+| C21 | Transmissão automática sem resposta conclusiva (`transmitting`/`unknown`) | Preservar retorno físico e reconciliar a mesma tentativa; não criar outra chave nem retransmitir automaticamente | Unitário + contrato idempotente |
+| C22 | Pedido de devolução aloca itens de mais de uma NF-e original | Preparar/transmitir um documento independente por origem autorizada, mantendo modelo, vínculo e ambiente consistentes | Unitário; integração protegida pendente |
+| C23 | CFOP, tributo, permissão ou ambiente não passam validação | Não transmitir automaticamente; manter devolução/estoque confirmados e deixar pendência visível para conferência/reconciliação fiscal | Unitário + interface |
+| C24 | Ações após cadastro de pedido de devolução | Exibir impressão e WhatsApp do pedido; oferecer envio dos dados de coleta à equipe somente se houver coleta agendada; não oferecer botão manual de emissão NFD | Unitário + interface |
 
 ## Matriz D — CFOP, modelo, ambiente e destinatário
 
@@ -103,6 +110,7 @@ Para cada combinação habilitada, construir casos separados de venda e devoluç
 
 ## Evidências e pendências atuais
 
+- **Cadastro e transmissão automática de pedido de devolução — 10/10/2026:** 10 arquivos focados passaram (61 testes): campos/snapshots, alocação fiscal, segunda devolução para item distinto, ausência de NFD sem origem autorizada, transmissão após retorno físico, coleta só após commit, rollback sem transmissão, tentativa incerta sem reenvio, ações pós-cadastro sem emissão manual e mensagem de WhatsApp. Também passaram os cenários de agenda/status do ERP e o resumo operacional do app. São testes unitários com mocks; não houve escrita no Supabase nem transmissão SEFAZ. O `tsc` global continua retornando diagnósticos em módulos alheios ao fluxo de devolução; a saída filtrada não apresentou erros nos arquivos deste fluxo. ESLint focado não iniciou por erro de export `zod-validation-error/v4` na configuração instalada.
 - Os lotes locais de 10/10 cobriram 33 arquivos e 259 testes aprovados: correção de clique equivocado em `fulfilled` sem efeitos fiscais/estoque, cancelamento por documento, devolução agendada, retorno físico, políticas de cancelamento, ambiente, XML, consultas de interface, recebimento de mercadorias e matriz de CFOP. O fixture dos testes fiscais foi atualizado para os fatos de destinatário e escopo de modelos exigidos pelo contrato atual; os casos interestaduais confirmam bloqueio enquanto a matriz não contém uma regra aprovada. No agrupamento principal, 32 arquivos/250 testes passaram, mas Vitest registrou três erros não tratados ao carregar `canvas.node`; `canvas@2.11.2` não tem binário pré-compilado para Node 22 nesta máquina e a compilação local falhou. As suítes `fiscalDocumentsComponents` e `fiscalDocumentRowActions` não iniciaram no jsdom. Isso não prova persistência PostgreSQL, essas telas no browser ou SEFAZ.
 - A checagem ampla `tsc --noEmit -p erp/tsconfig.json` retornou erros em diferentes áreas do ERP. A compilação TypeScript global permanece pendente; ESLint focado e os lotes Vitest descritos acima passaram.
 - A tela fiscal passou a repassar o ID do documento selecionado ao serviço central. O restante da bateria fiscal ainda precisa revisar os casos de lote iniciado pelo cancelamento comercial e a reconciliação por documento.

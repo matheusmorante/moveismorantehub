@@ -22,6 +22,7 @@ import {
   buildPersonGroupInviteMessage,
   buildAssistanceServiceOrderMessage,
   buildBudgetWhatsappMessage,
+  buildReturnServiceOrderMessage,
   stringifyAdditionalContacts,
 } from './whatsappTemplates';
 
@@ -323,6 +324,54 @@ export const sendDirectPersonGroupInviteMessage = async (person: any) => {
 export const assistanceServiceOrderWhatsappUrl = (order: Order) => {
   const message = buildAssistanceServiceOrderMessage(order);
   return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+};
+
+export const returnOSCustomerWhatsappUrl = (order: Order) => {
+  const customer = order.customerData;
+  const phone = customer?.phone?.replace(/[^0-9]/g, '') || '';
+  const message = buildReturnServiceOrderMessage(order, 'customer');
+  return phone
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+};
+
+export const sendDirectReturnOSCustomerMessage = async (order: Order) => {
+  const customer = order.customerData;
+  if (!customer?.phone) {
+    toast.error('Cliente sem telefone cadastrado.');
+    return;
+  }
+
+  const message = buildReturnServiceOrderMessage(order, 'customer');
+  await safeSendWhatsAppOrFallback({
+    phone: customer.phone,
+    message,
+    fallbackUrl: returnOSCustomerWhatsappUrl(order),
+    successMessage: 'Pedido de devolução enviado para o cliente.',
+  });
+};
+
+export const returnOSTeamWhatsappUrl = (order: Order) =>
+  `https://api.whatsapp.com/send?text=${encodeURIComponent(buildReturnServiceOrderMessage(order, 'team'))}`;
+
+export const sendDirectReturnOSTeamMessage = async (order: Order) => {
+  const settings = getSettings();
+  const deliveryPhone = settings.orderAutomation?.deliveryPhone;
+  const message = buildReturnServiceOrderMessage(order, 'team');
+  const fallbackUrl = returnOSTeamWhatsappUrl(order);
+
+  if (!deliveryPhone) {
+    toast.info('Telefone da equipe de coleta não configurado. Abrindo link manual...');
+    window.open(fallbackUrl, '_blank');
+    return;
+  }
+
+  await safeSendWhatsAppOrFallback({
+    phone: deliveryPhone,
+    message,
+    fallbackUrl,
+    successMessage: 'Pedido de devolução enviado para a equipe.',
+  });
 };
 
 export const budgetWhatsappUrl = (order: Order) => {

@@ -13,8 +13,8 @@
 | **Cadastro Válido → Agendado (`scheduled`)** | Cada item real (variação com `productId`) gera saída quando `Agendado` for o status de baixa configurado (padrão do ERP). Itens temporários não geram movimento. | Entra no cronograma de rotas e montagens conforme data, tipo e filtros ativos. |
 | **Agendado → Atendido (`fulfilled`)** | Mantém a saída já registrada. Caso ainda não exista, dispara a baixa configurada sem duplicar movimentos existentes. | Sai do cronograma de entregas. Desfazer atendimento devolve o pedido para Agendado. |
 | **Agendado → Cancelado (`cancelled`)** | Estorna todos os movimentos vinculados ao pedido, recompõe o saldo físico e redefine `stockProcessed`. Registra motivo do cancelamento na movimentação. | Sai imediatamente do cronograma de rotas. Bloqueia edições posteriores. |
-| **Pedido de Devolução Criado (`return`)** | Pode nascer de venda atendida ou ser criado sem vínculo. Não cria entrada ao ser gerado; nasce como Agendado. | Segue o fluxo de agendamento da coleta/retorno da mercadoria. |
-| **Pedido de Devolução → Atendido** | Após confirmação com contagem regressiva de segurança de 5 segundos, gera entradas no estoque para os itens e quantidades selecionados. | Sai do cronograma logístico e torna-se definitivo. |
+| **Pedido de Devolução Criado (`return`)** | Pode nascer de venda atendida ou ser criado sem vínculo. Não cria entrada ao ser gerado. Se houver coleta, aparece como **Coleta agendada**. | Segue o agendamento operacional da coleta. |
+| **Pedido de Devolução → Devolvido (`fulfilled`)** | Após confirmar o recebimento físico, ou ao vencer a data/hora da coleta sem confirmação manual, registra entradas no estoque para os itens e quantidades selecionados. | Sai do cronograma logístico e torna-se definitivo. |
 
 ---
 
@@ -54,11 +54,12 @@
 
 ---
 
-## 6. Auto-Atendimento de Pedidos Vencidos (5 Dias)
+## 6. Confirmação Automática de Entrega, Retirada e Coleta de Devolução
 
-- Para pedidos cuja data agendada de entrega já passou e não estão atendidos, rascunho ou cancelados:
-  - O botão de ação exibe: **"Pedido Atendido?"** com subtítulo de contagem regressiva (`Atendido em X dias`, `Atendido em 1 dia` ou `Atendido hoje`).
-  - Após **5 dias do vencimento da data**, o sistema executa o auto-atendimento automático para `fulfilled`, baixando o estoque e protegendo contra concorrência duplicada.
+- Pedidos de venda agendados para entrega ou retirada e pedidos de devolução com coleta permanecem em `scheduled` durante o dia marcado. Devoluções já entregues pelo cliente na loja concluem no recebimento.
+- À meia-noite BRT após a data marcada (último dia da janela, quando houver), o Cron do Supabase conclui vendas de entrega/retirada e devoluções `store_collection` como `fulfilled` pela transação versionada de estoque. A devolução é exibida como **Devolvido**.
+- No dia agendado, a venda mostra **“Confirmação automática em”** e a devolução mostra **“Coleta agendada”**, ambos com contagem até a meia-noite seguinte. Depois do limite, se o Cron ainda não atualizou o registro, o cartão informa que aguarda atualização.
+- A regra central continua tratando `fulfilled` como atendimento/circulação para estoque e cancelamento; para desfazer uma confirmação automática equivocada, use a correção de status enquanto não houver evidência de circulação. Depois de circulação física, use devolução vinculada.
 
 ---
 

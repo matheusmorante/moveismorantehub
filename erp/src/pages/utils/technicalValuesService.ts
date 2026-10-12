@@ -26,6 +26,7 @@ export interface TechnicalFieldDefinition {
   nameOrder?: number;
   options: Array<{ id: string; value: string }>;
   categoryIds?: string[];
+  requiredCategoryIds?: string[];
 }
 
 export interface TechnicalFieldGroup {
@@ -38,7 +39,7 @@ export interface CharacteristicGroup<T extends { name: string }> {
   fields: T[];
 }
 
-export const REQUIRED_CHARACTERISTICS_TOPIC = 'Obrigatórios';
+export const REQUIRED_CHARACTERISTICS_TOPIC = 'Características principais';
 
 const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
   { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
@@ -56,7 +57,9 @@ const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
 ];
 
 /** Organiza características por tópicos de apresentação, sem alterar valores ou identificadores persistidos. */
-export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?: boolean }>(
+export const groupCharacteristicsByTopic = <
+  T extends { name: string; isCustom?: boolean; isRequired?: boolean },
+>(
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => {
   const groups = new Map<string, T[]>();
@@ -64,7 +67,7 @@ export const groupCharacteristicsByTopic = <T extends { name: string; isCustom?:
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
-    if (isRequiredCharacteristicName(field.name)) {
+    if (field.isRequired === true || isRequiredCharacteristicName(field.name)) {
       requiredCharacteristicFields.push(field);
       return;
     }
@@ -388,6 +391,11 @@ export const getApplicableTechnicalFields = (
 ): TechnicalFieldDefinition[] => {
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
+  const isRequiredForProduct = (field: TechnicalFieldDefinition) =>
+    Boolean(
+      field.isRequired ||
+        field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(categoryId))
+    );
 
   let applicable = allFields.filter((field) => {
     if (/^reclin[aá]vel$/i.test(field.name.trim())) return false;
@@ -399,7 +407,7 @@ export const getApplicableTechnicalFields = (
       return hasExistingValue || manualSet.has(field.name);
     }
     // Requisitos obrigatórios do sistema continuam visíveis, independentemente da categoria.
-    if (field.isRequired) return true;
+    if (isRequiredForProduct(field)) return true;
 
     // Se já está ativo ou preenchido no produto atual, SEMPRE inclui para preservar dados
     if (hasExistingValue) {
@@ -454,7 +462,7 @@ export const getApplicableTechnicalFields = (
     });
   }
 
-  return applicable;
+  return applicable.map((field) => ({ ...field, isRequired: isRequiredForProduct(field) }));
 };
 
 /**

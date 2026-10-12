@@ -85,7 +85,7 @@ export function NfeOperationDraftSetup({
             Devolução vinculada ao pedido <strong>{fixedReturnOrderIndex ? `#${fixedReturnOrderIndex}` : 'confirmado'}</strong>. A emissão está limitada aos itens fiscais previamente alocados.
           </div>
         ) : <label className="block space-y-2 text-xs font-bold">
-          <span>Devolução comercial atendida</span>
+          <span>Devolução comercial concluída</span>
           <select
             value={returnOrderId}
             onChange={(event) => onReturnOrderChange(event.target.value)}
@@ -93,7 +93,7 @@ export function NfeOperationDraftSetup({
             className="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950"
           >
             <option value="">
-              {loadingReturns ? 'Carregando devoluções…' : 'Selecione uma devolução atendida'}
+              {loadingReturns ? 'Carregando devoluções…' : 'Selecione uma devolução com status Devolvido'}
             </option>
             {returnOrders.map((order) => (
               <option key={order.id} value={order.id}>

@@ -40,7 +40,7 @@ export const resolveCompletedOrderStatus = (order: {
   shipping?: Shipping;
   orderType?: string;
   status?: string;
-}): 'draft' | 'scheduled' | 'fulfilled' => {
+}, now = new Date()): 'draft' | 'scheduled' | 'fulfilled' => {
   if (order.orderType === 'budget') return 'draft';
 
   const shipping = order.shipping;
@@ -55,10 +55,26 @@ export const resolveCompletedOrderStatus = (order: {
       return 'fulfilled';
     }
 
-    const schedDateStr = scheduling?.date?.trim();
+    const schedDateStr = (
+      (scheduling?.dateType === 'range' || scheduling?.type === 'range') && scheduling.endDate
+        ? scheduling.endDate
+        : scheduling?.date
+    )?.trim();
     if (schedDateStr) {
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (schedDateStr <= todayStr) {
+      const cleanDate = schedDateStr.split('T')[0];
+      const isBrazilianDate = cleanDate.includes('/');
+      const parts = cleanDate.split(isBrazilianDate ? '/' : '-');
+      const year = Number(isBrazilianDate ? parts[2] : parts[0]);
+      const month = Number(parts[1]);
+      const day = Number(isBrazilianDate ? parts[0] : parts[2]);
+      const scheduledDate = new Date(year, month - 1, day);
+      const isValidDate =
+        Number.isInteger(day) && Number.isInteger(month) && Number.isInteger(year) &&
+        scheduledDate.getFullYear() === year &&
+        scheduledDate.getMonth() === month - 1 &&
+        scheduledDate.getDate() === day;
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (isValidDate && scheduledDate < today) {
         return 'fulfilled';
       }
       return 'scheduled';

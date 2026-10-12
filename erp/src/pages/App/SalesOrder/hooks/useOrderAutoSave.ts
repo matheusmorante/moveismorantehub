@@ -22,7 +22,8 @@ export function useOrderAutoSave(
   getOrderData: (newStatus?: 'draft' | 'scheduled' | 'fulfilled' | 'cancelled') => Order,
   setCurrentOrderId: (id: string | undefined) => void,
   latestStateRef: React.MutableRefObject<any>,
-  isDraftAutoSaveEnabled: boolean
+  isDraftAutoSaveEnabled: boolean,
+  draftClassification?: unknown,
 ) {
   const [draftAutoSaveStatus, setDraftAutoSaveStatus] = useState<DraftAutoSaveStatus>('idle');
   const autoSaveTimerRef = useRef<any>(null);
@@ -147,6 +148,7 @@ export function useOrderAutoSave(
     setCurrentOrderId,
     latestStateRef,
     isDraftAutoSaveEnabled,
+    draftClassification,
   ]);
 
   return {

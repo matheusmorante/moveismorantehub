@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
 import {
   getFiscalIssuePresentation,
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
@@ -34,6 +35,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { isRealAdministrator, activeRoleMode } = useAuth();
+  const canPreviewXml = isRealAdministrator && !activeRoleMode;
   const orderId = order?.id;
   const emissionStartedAtRef = React.useRef<number | null>(null);
   const readinessRecordedForRef = React.useRef<number | null>(null);
@@ -119,6 +122,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   React.useEffect(() => {
     if (!isOpen) setIsFiscalIssueModalOpen(false);
   }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!canPreviewXml && isXmlPreviewOpen) closeXmlPreview();
+  }, [canPreviewXml, isXmlPreviewOpen, closeXmlPreview]);
 
   React.useEffect(() => {
     if (
@@ -328,6 +335,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         environment={environment}
         isNfce={isNfce}
         canOperateFiscal={canOperateFiscal}
+        canPreviewXml={canPreviewXml}
         isSubmitting={isSubmitting}
         isPreparingPreview={isPreparingPreview}
         hasCurrentXmlPreview={hasCurrentXmlPreview}
@@ -339,12 +347,12 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         productionConfirmed={productionConfirmed}
         onClose={onClose}
         onEmit={handleEmit}
-        onPreview={handlePreviewXml}
+        onPreview={canPreviewXml ? handlePreviewXml : undefined}
         onPrintDanfe={handlePrintDanfe}
         onTransmissionEnabled={handleTransmissionEnabled}
       />
 
-      {xmlPreview && isXmlPreviewOpen && (
+      {canPreviewXml && xmlPreview && isXmlPreviewOpen && (
         <div
           role="dialog"
           aria-modal="true"

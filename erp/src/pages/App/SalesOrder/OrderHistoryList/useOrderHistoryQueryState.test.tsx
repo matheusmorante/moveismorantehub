@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   fetchOrdersForClientFiltering: vi.fn(),
   fetchOrderFiscalBadgeStatuses: vi.fn(),
   subscribeToOrderChanges: vi.fn(),
-  autoFulfillExpiredOrders: vi.fn(),
+  commitStatusUpdate: vi.fn(),
+  automaticallyTransmitReturnFiscalDocuments: vi.fn(),
+  getAutomaticReturnFiscalEmissionNotice: vi.fn(),
 }));
 
 vi.mock('../../../utils/orderHistoryService', () => ({
@@ -21,8 +23,9 @@ vi.mock('../../../utils/orderHistoryService', () => ({
 vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
   fetchOrderFiscalBadgeStatuses: mocks.fetchOrderFiscalBadgeStatuses,
 }));
-vi.mock('@/pages/utils/orderFulfillmentCountdown', () => ({
-  autoFulfillExpiredOrders: mocks.autoFulfillExpiredOrders,
+vi.mock('../../FiscalDocuments/services/automaticReturnFiscalEmissionService', () => ({
+  automaticallyTransmitReturnFiscalDocuments: mocks.automaticallyTransmitReturnFiscalDocuments,
+  getAutomaticReturnFiscalEmissionNotice: mocks.getAutomaticReturnFiscalEmissionNotice,
 }));
 vi.mock('../../../../hooks/useWindowSize', () => ({ useWindowSize: () => ({ width: 1440 }) }));
 vi.mock('../OrderActions/orderActionsConfig', () => ({ actionsMap: {}, buttons: [] }));
@@ -36,7 +39,7 @@ vi.mock('./useOrderHistoryOperations', () => ({
     handleBulkPermanentDelete: vi.fn(),
     handleBlingUpdate: vi.fn(),
     handleStockCheckUpdate: vi.fn(),
-    commitStatusUpdate: vi.fn(),
+    commitStatusUpdate: mocks.commitStatusUpdate,
     retryFiscalCancellation: vi.fn(),
   }),
 }));
@@ -57,6 +60,90 @@ describe('useOrderHistory query state', () => {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   };
+
+  it('transmite a NFD só depois de confirmar a coleta e concluir a transação comercial', async () => {
+    const collectionOrder = {
+      id: 'return-order-collection',
+      orderType: 'return',
+      returnMethod: 'store_collection',
+      status: 'scheduled',
+      items: [],
+    };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [collectionOrder], total: 1 });
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    mocks.commitStatusUpdate.mockResolvedValue(true);
+    mocks.automaticallyTransmitReturnFiscalDocuments.mockResolvedValue({
+      status: 'authorized',
+      authorizedDocuments: 1,
+      pendingDocuments: 0,
+      failedDocuments: 0,
+    });
+    mocks.getAutomaticReturnFiscalEmissionNotice.mockReturnValue(null);
+
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders[0]?.id).toBe(collectionOrder.id));
+
+    await act(async () => {
+      await result.current.handleStatusUpdate(collectionOrder.id, 'fulfilled');
+    });
+    expect(result.current.pendingReturnFulfillment).toEqual(collectionOrder);
+    expect(mocks.automaticallyTransmitReturnFiscalDocuments).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.confirmReturnFulfillment();
+    });
+
+    expect(mocks.commitStatusUpdate).toHaveBeenCalledWith(collectionOrder, 'fulfilled');
+    expect(mocks.automaticallyTransmitReturnFiscalDocuments).toHaveBeenCalledWith(
+      collectionOrder.id
+    );
+  });
+
+  it('não transmite NFD se a transação de confirmação física falhar', async () => {
+    const collectionOrder = {
+      id: 'return-order-collection-failure',
+      orderType: 'return',
+      returnMethod: 'store_collection',
+      status: 'scheduled',
+      items: [],
+    };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [collectionOrder], total: 1 });
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    mocks.commitStatusUpdate.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders[0]?.id).toBe(collectionOrder.id));
+
+    await act(async () => {
+      await result.current.handleStatusUpdate(collectionOrder.id, 'fulfilled');
+    });
+    await act(async () => {
+      await result.current.confirmReturnFulfillment();
+    });
+
+    expect(mocks.automaticallyTransmitReturnFiscalDocuments).not.toHaveBeenCalled();
+  });
+
+  it('não conclui coleta agendada no navegador ao carregar a tela', async () => {
+    const collectionOrder = {
+      id: 'return-order-auto-collection',
+      orderType: 'return',
+      returnMethod: 'store_collection',
+      status: 'scheduled',
+      items: [],
+    };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [collectionOrder], total: 1 });
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders[0]?.id).toBe(collectionOrder.id));
+
+    expect(mocks.commitStatusUpdate).not.toHaveBeenCalled();
+    expect(mocks.automaticallyTransmitReturnFiscalDocuments).not.toHaveBeenCalled();
+  });
 
   it('does not show the previous page while the new page query is loading', async () => {
     let resolveSecondPage!: (result: { orders: Array<{ id: string }>; total: number }) => void;

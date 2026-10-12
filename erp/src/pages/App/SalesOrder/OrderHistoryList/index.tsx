@@ -28,7 +28,6 @@ type OrderHistoryListProps = {
   onCustomerSearchChange?: (name: string) => void;
   onAction?: (actionKey: string, order: Order) => void;
   onIssueNfe?: (order: Order, environment: 1 | 2) => void;
-  onTestDataAvailabilityChange?: (hasTestData: boolean) => void;
 };
 
 export interface OrderHistoryListRef {
@@ -56,7 +55,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       onCustomerSearchChange,
       onAction: onActionProp,
       onIssueNfe,
-      onTestDataAvailabilityChange,
     },
     ref
   ) => {
@@ -76,7 +74,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
     const {
       orders,
-      hasTestOrders,
       fiscalBadgeStatusByOrderId,
       fiscalBadgeLoadingByOrderId,
       loading,
@@ -108,10 +105,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       totalPages,
       setCurrentPage,
     } = useOrderHistory(filters);
-
-    React.useEffect(() => {
-      onTestDataAvailabilityChange?.(!loading && hasTestOrders);
-    }, [hasTestOrders, loading, onTestDataAvailabilityChange]);
 
     // Auto-scroll para o início da lista ao mudar de página
     React.useEffect(() => {

@@ -69,6 +69,21 @@ describe('gravação do agregado de rascunho', () => {
     expect(draft.updatedAt).toBe('original');
   });
 
+  it('remove o marcador ao salvar OFF e mantém os outros metadados do rascunho', async () => {
+    const testArtifact = { is_test: true, runId: 'fd41a462-a72a-4e69-b0cd-b673b8ccb570', ownerId: '0bad55d5-2099-41fa-8c74-1a9fbab0e183' };
+    db.existing = { id: product().id, is_draft: true, status: 'draft', technical_specs: { testArtifact, custom: 'preservado' } };
+    await persistProductDraft({ ...product(), technicalSpecs: {} });
+    expect(db.payload.technical_specs).not.toHaveProperty('testArtifact');
+    expect(db.payload.technical_specs.custom).toBe('preservado');
+  });
+
+  it('não troca runId ou ownerId de um rascunho já identificado', async () => {
+    const testArtifact = { is_test: true, runId: 'fd41a462-a72a-4e69-b0cd-b673b8ccb570', ownerId: '0bad55d5-2099-41fa-8c74-1a9fbab0e183' };
+    db.existing = { id: product().id, is_draft: true, technical_specs: { testArtifact } };
+    await expect(persistProductDraft({ ...product(), technicalSpecs: { testArtifact: { ...testArtifact, runId: testArtifact.ownerId } } })).rejects.toThrow('outra execução');
+    expect(db.payload).toBeNull();
+  });
+
   it('propaga falha de gravação e bloqueia autosave em produto já concluído', async () => {
     db.written = { data: null, error: new Error('gravação recusada') };
     await expect(persistProductDraft(product())).rejects.toThrow('gravação recusada');

@@ -22,14 +22,16 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
   for (const key of Object.keys(env)) {
     if (/^(?:NFE_|NFCE_|SEFAZ_|SUPABASE_|VITE_|NODE_EXTRA_CA_CERTS$|NODE_TLS_REJECT_UNAUTHORIZED$)/.test(key)) delete env[key];
   }
+  env.VERCEL_PROJECT_ID = link.projectId;
+  env.VERCEL_ORG_ID = link.orgId;
   if (name === 'development-operator-preflight' || name === 'development-guard-readiness' ||
       name === 'development-test-artifact-postgrest-readonly') {
     env.VERCEL_ENV = 'development';
     env.MORANTE_ENV_SOURCE = 'vercel-development';
   }
   const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const cli = ['-y','vercel','env','run','-e',environment,'--project',link.projectId,
-    '--scope','matheusmorantes-projects','--cwd',cwd,'--','node',path.join(root,'erp/server/nfe/fiscal-audit.cjs'),...args];
+  const cli = ['-y','vercel','env','run','-e',environment,'--cwd',`"${cwd}"`,
+    '--','node',`"${path.join(root,'erp/server/nfe/fiscal-audit.cjs')}"`,...args];
   return await new Promise(resolve => {
     const child = spawn(executable,cli,{cwd:root,env,windowsHide:true,shell:process.platform==='win32'});
     let stdout = ''; let stderr = '';

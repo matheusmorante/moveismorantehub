@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import Product from '../../../types/product.type';
 import './ProductFormModal.css';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
 
 // Modular UI Components
 import VariationFormModal from './VariationFormModal';
@@ -47,8 +50,18 @@ export interface ProductFormModalProps {
  */
 const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   const { isOpen, onClose, product, onSuccess } = props;
-  const { profile } = useAuth();
+  const { profile, isAdministrator } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
+  const testContext = getTestArtifactContext();
+  const existingTestIdentity = props.product ? readTestArtifactIdentity(props.product) : null;
+  const canMarkTestArtifact = Boolean(
+    isAdministrator && testContext &&
+    (!product || isProductDraft(product)) &&
+    (!existingTestIdentity || (
+      existingTestIdentity.runId === testContext.runId &&
+      existingTestIdentity.ownerId === testContext.ownerId
+    ))
+  );
   const profileRoles = profile ? getProfileRoles(profile) : [];
   const canConfigureProductTaxes = profileRoles.some(
     (role) => role !== 'seller' && role !== 'stockist'
@@ -72,6 +85,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     setIsConversionModalOpen,
     formData,
     setFormData,
+    isTestArtifact,
+    setIsTestArtifact,
+    canMarkTestArtifact: canToggleTestArtifact,
     isService,
     isDraftProduct,
     ecomStatus,
@@ -94,7 +110,11 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     variationsInUse,
     handleNextStep,
     isLastStep,
-  } = useProductFormModal({ ...props, isStockistOnly });
+  } = useProductFormModal({
+    ...props,
+    isStockistOnly,
+    canMarkTestArtifact,
+  });
 
   const handleDraftFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
@@ -287,6 +307,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           loading={loading}
           isAiProcessing={ai.isAiProcessing}
           isLastStep={isLastStep}
+          canMarkTestArtifact={canToggleTestArtifact}
+          isTestArtifact={isTestArtifact}
+          onTestArtifactChange={setIsTestArtifact}
           onClose={handleCloseWithAutoSave}
           onNextStep={handleNextStep}
           onSubmit={() => handleSubmit()}
@@ -313,6 +336,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               onSave={handleSaveVariation}
               onDraftChange={handleDraftVariationChange}
               onDraftSave={handleDraftVariationSave}
+              canMarkTestArtifact={canToggleTestArtifact}
+              isTestArtifact={isTestArtifact}
+              onTestArtifactChange={setIsTestArtifact}
             />
           )}
 

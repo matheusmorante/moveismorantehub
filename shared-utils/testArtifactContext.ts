@@ -3,21 +3,19 @@ import { assertTestArtifactLinks, readTestArtifactIdentity, testArtifactMetadata
 
 /** Contains only artifact IDs. Credentials and authentication state never go here. */
 export const TEST_ARTIFACT_CONTEXT_KEY = 'morante:test-artifact-context';
-export const TEST_ARTIFACT_OPERATOR_EMAIL = 'matheusmorante002@gmail.com';
 
 export function testArtifactIdentityForAuthenticatedUser(input: {
   isDevelopment: boolean;
   runId: unknown;
   ownerId: unknown;
-  email: unknown;
   isAdministrator: boolean;
+  configuredOperatorAuthorized: boolean;
 }): TestArtifactIdentity | null {
-  const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   const runId = normalizeTestRunId(input.runId);
   const ownerId = normalizeTestRunId(input.ownerId);
   if (
     !input.isDevelopment || !input.isAdministrator ||
-    email !== TEST_ARTIFACT_OPERATOR_EMAIL || !runId || !ownerId
+    !input.configuredOperatorAuthorized || !runId || !ownerId
   ) return null;
   return { runId, ownerId };
 }
@@ -55,6 +53,22 @@ export function stampTestArtifact<T extends object>(
 export function stampTestOrder<T extends object>(value: T, identity = getTestArtifactContext()): T {
   if (!identity) return value;
   return { ...value, is_test: true, testArtifact: testArtifactMetadata(identity) };
+}
+
+/** The form owns the current choice; saving must not restore a removed marker. */
+export function setTestArtifactMode<T extends object>(
+  value: T, jsonField: string, enabled: boolean, identity = getTestArtifactContext(),
+): T {
+  if (enabled) {
+    if (!identity) throw new Error('O modo de teste exige operador autorizado nesta execução.');
+    return stampTestArtifact(value, jsonField, identity);
+  }
+  const row = value as Record<string, unknown>;
+  const original = row[jsonField];
+  if (!original || typeof original !== 'object' || Array.isArray(original)) return value;
+  const data = { ...original } as Record<string, unknown>;
+  delete data.testArtifact;
+  return { ...value, [jsonField]: data };
 }
 
 export function assertOwnedByTestContext(value: unknown): void {

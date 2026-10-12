@@ -1,6 +1,13 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from './textUtils';
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
+import { isRequiredCharacteristicName } from './technicalValuesService';
+
+export interface CategoryAttributeSelection {
+  id: string;
+  name: string;
+  isRequired: boolean;
+}
 
 export type Category = {
   id: string;
@@ -125,7 +132,7 @@ export const generateSlug = (name: string) => {
 export const createCategory = async (
   name: string,
   environmentIds: string[],
-  requiredAttributeIds?: string[],
+  attributes?: CategoryAttributeSelection[],
   seoFields?: Partial<Category>
 ) => {
   const formattedName = toTitleCase(name);
@@ -156,12 +163,18 @@ export const createCategory = async (
     if (insError) throw insError;
   }
 
-  const uniqueRequiredAttributeIds = [...new Set(requiredAttributeIds || [])];
-  if (uniqueRequiredAttributeIds.length > 0) {
-    const attrLinks = uniqueRequiredAttributeIds.map((attrId) => ({
+  const uniqueAttributes = [
+    ...new Map<string, CategoryAttributeSelection>(
+      (attributes || []).map(
+        (attribute): [string, CategoryAttributeSelection] => [attribute.id, attribute]
+      )
+    ).values(),
+  ];
+  if (uniqueAttributes.length > 0) {
+    const attrLinks = uniqueAttributes.map((attribute) => ({
       category_id: newCatId,
-      attribute_id: attrId,
-      is_required: true,
+      attribute_id: attribute.id,
+      is_required: attribute.isRequired || isRequiredCharacteristicName(attribute.name),
     }));
     const { error: attrError } = await supabase.from('category_attributes').insert(attrLinks);
     if (attrError) throw attrError;
@@ -174,7 +187,7 @@ export const updateCategory = async (
   id: string,
   name: string,
   environmentIds: string[],
-  requiredAttributeIds?: string[],
+  attributes?: CategoryAttributeSelection[],
   seoFields?: Partial<Category>
 ) => {
   const formattedName = toTitleCase(name);
@@ -205,19 +218,25 @@ export const updateCategory = async (
   }
 
   // Atualiza relacionamentos em category_attributes (se fornecido explicitamente)
-  if (requiredAttributeIds !== undefined) {
+  if (attributes !== undefined) {
     const { error: delAttrError } = await supabase
       .from('category_attributes')
       .delete()
       .eq('category_id', id);
     if (delAttrError) throw delAttrError;
 
-    const uniqueRequiredAttributeIds = [...new Set(requiredAttributeIds)];
-    if (uniqueRequiredAttributeIds.length > 0) {
-      const attrLinks = uniqueRequiredAttributeIds.map((attrId) => ({
+    const uniqueAttributes = [
+      ...new Map<string, CategoryAttributeSelection>(
+        attributes.map(
+          (attribute): [string, CategoryAttributeSelection] => [attribute.id, attribute]
+        )
+      ).values(),
+    ];
+    if (uniqueAttributes.length > 0) {
+      const attrLinks = uniqueAttributes.map((attribute) => ({
         category_id: id,
-        attribute_id: attrId,
-        is_required: true,
+        attribute_id: attribute.id,
+        is_required: attribute.isRequired || isRequiredCharacteristicName(attribute.name),
       }));
       const { error: insAttrError } = await supabase.from('category_attributes').insert(attrLinks);
       if (insAttrError) throw insAttrError;
@@ -226,15 +245,16 @@ export const updateCategory = async (
 };
 
 /**
- * Busca atributos obrigatórios vinculados a uma categoria.
+ * Busca características vinculadas a uma categoria e seu estado de obrigatoriedade.
  */
-export const fetchCategoryRequiredAttributes = async (
+export const fetchCategoryAttributes = async (
   categoryId: string
-): Promise<{ id: string; name: string }[]> => {
+): Promise<CategoryAttributeSelection[]> => {
   const { data, error } = await supabase
     .from('category_attributes')
     .select(`
             attribute_id,
+            is_required,
             attributes (
                 id,
                 name
@@ -245,14 +265,21 @@ export const fetchCategoryRequiredAttributes = async (
   if (error) throw error;
 
   type AttributeRelation = { id: string; name: string };
-  type RequiredAttributeRow = {
+  type CategoryAttributeRow = {
     attribute_id: string;
+    is_required: boolean | null;
     attributes: AttributeRelation | AttributeRelation[] | null;
   };
 
-  return ((data || []) as RequiredAttributeRow[]).flatMap((row) => {
+  return ((data || []) as CategoryAttributeRow[]).flatMap((row) => {
     const attribute = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
-    return attribute ? [{ id: attribute.id, name: attribute.name }] : [];
+    return attribute
+      ? [{
+          id: attribute.id,
+          name: attribute.name,
+          isRequired: Boolean(row.is_required) || isRequiredCharacteristicName(attribute.name),
+        }]
+      : [];
   });
 };
 

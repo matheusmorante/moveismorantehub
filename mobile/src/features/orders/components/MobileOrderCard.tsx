@@ -144,7 +144,12 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
     !isReturn && (isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot));
 
   const schedule = shipping.scheduling || data.schedule || {};
-  const scheduleDate = schedule.date || schedule.startDate || order.scheduled_date || order.date;
+  const scheduleDate =
+    (isReturn && schedule.dateType === 'range' ? schedule.endDate : undefined) ||
+    schedule.date ||
+    schedule.startDate ||
+    order.scheduled_date ||
+    order.date;
   const isDraft = /draft|rascunh/.test(String(order.status || data.status || '').toLowerCase());
   const cancelled = isCancelledOrder(order);
   const isStockChecked = Boolean(order.isStockChecked ?? data.isStockChecked);
@@ -401,7 +406,7 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
             </View>
           </View>
           <View style={styles.column}>
-            <Text style={styles.label}>{pickup ? 'RETIRADA' : 'ENTREGA'}</Text>
+            <Text style={styles.label}>{isReturn ? 'COLETA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text>
             <Text style={[styles.date, dark && styles.light]}>
               {scheduleDate ? formatOrderDate(scheduleDate) : 'Não informada'}
             </Text>

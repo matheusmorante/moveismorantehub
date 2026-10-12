@@ -11,6 +11,7 @@ export interface NfeEmissionFooterProps {
   environment: 1 | 2;
   isNfce: boolean;
   canOperateFiscal: boolean;
+  canPreviewXml: boolean;
   isSubmitting: boolean;
   isPreparingPreview?: boolean;
   hasCurrentXmlPreview?: boolean;
@@ -33,6 +34,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   environment,
   isNfce,
   canOperateFiscal,
+  canPreviewXml,
   isSubmitting,
   isPreparingPreview = false,
   hasCurrentXmlPreview = true,
@@ -148,7 +150,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
-              {onPreview && (
+              {canPreviewXml && onPreview && (
                 <button
                   type="button"
                   data-testid="nfe-preview-xml-button"

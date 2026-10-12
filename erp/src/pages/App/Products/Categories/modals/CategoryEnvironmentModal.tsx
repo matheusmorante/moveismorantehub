@@ -6,7 +6,9 @@ import {
   EditingNode,
 } from '../types/categoryEnvironment.types';
 import { SecureDeleteButton } from '../components/SecureDeleteButton';
-import AttributeAutocomplete, { type AttributeNode } from '@/components/AttributeAutocomplete';
+import AttributeAutocomplete from '@/components/AttributeAutocomplete';
+import type { CategoryAttributeSelection } from '@/pages/utils/categoryService';
+import { isRequiredCharacteristicName } from '@/pages/utils/technicalValuesService';
 
 interface CategoryEnvironmentModalProps {
   readonly showModal: ModalType | null;
@@ -14,9 +16,11 @@ interface CategoryEnvironmentModalProps {
   readonly nameInput: string;
   readonly onChangeNameInput: (value: string) => void;
   readonly selectedLinks: string[];
-  readonly selectedAttributes?: AttributeNode[];
+  readonly selectedAttributes?: CategoryAttributeSelection[];
   readonly setSelectedAttributes?: (
-    attrs: AttributeNode[] | ((prev: AttributeNode[]) => AttributeNode[])
+    attrs:
+      | CategoryAttributeSelection[]
+      | ((prev: CategoryAttributeSelection[]) => CategoryAttributeSelection[])
   ) => void;
   readonly isLoadingAttributes?: boolean;
   readonly attributeLoadFailed?: boolean;
@@ -172,7 +176,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                     if (exists) {
                       return prev.filter((a) => a.id !== attr.id);
                     }
-                    return [...prev, attr];
+                    return [...prev, { ...attr, isRequired: isRequiredCharacteristicName(attr.name) }];
                   });
                 }}
                 placeholder="Buscar característica (mínimo 2 letras)..."
@@ -186,6 +190,44 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                       className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-500/20 text-xs font-bold shadow-2xs"
                     >
                       <span>{attr.name}</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={attr.isRequired || isRequiredCharacteristicName(attr.name)}
+                        aria-label={`Característica ${attr.name} obrigatória`}
+                        title={
+                          isRequiredCharacteristicName(attr.name)
+                            ? 'Cor é obrigatória em todas as categorias'
+                            : attr.isRequired
+                              ? 'Obrigatória — clique para tornar opcional'
+                              : 'Opcional — clique para tornar obrigatória'
+                        }
+                        onClick={() =>
+                          setSelectedAttributes((prev) =>
+                            prev.map((item) =>
+                              item.id === attr.id ? { ...item, isRequired: !item.isRequired } : item
+                            )
+                          )
+                        }
+                        disabled={isSubmitting || isRequiredCharacteristicName(attr.name)}
+                        className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                          attr.isRequired || isRequiredCharacteristicName(attr.name)
+                            ? 'bg-blue-600'
+                            : 'bg-slate-300 dark:bg-slate-700'
+                        } disabled:cursor-not-allowed disabled:opacity-70`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
+                            attr.isRequired || isRequiredCharacteristicName(attr.name)
+                              ? 'translate-x-3'
+                              : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-[9px] font-semibold">
+                        {attr.isRequired || isRequiredCharacteristicName(attr.name) ? 'Obrigatória' : 'Opcional'}
+                      </span>
                       <button
                         type="button"
                         onClick={() =>

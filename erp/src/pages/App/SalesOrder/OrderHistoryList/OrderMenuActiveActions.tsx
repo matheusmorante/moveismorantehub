@@ -6,6 +6,7 @@ import UndoFulfillmentButton from './UndoFulfillmentButton';
 import CancelScheduledSaleButton from './CancelScheduledSaleButton';
 import { ReturnNfeActionMenuButton } from './ReturnNfeActionMenuButton';
 import { canGenerateReturn } from '@/pages/utils/returnPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 
 interface OrderMenuActiveActionsProps {
   order: Order;
@@ -125,6 +126,10 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
       {buttons
         .filter((btn) => {
           if (isPostSaleAction(btn.key)) return false;
+          if (
+            isIdentifiedTestArtifact(order) &&
+            ['sendReturnOSCustomer', 'sendReturnOSTeam'].includes(btn.key)
+          ) return false;
           if (btn.key === 'sendCustomerReviews' && order.orderType === 'assistance') return false;
           if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
 

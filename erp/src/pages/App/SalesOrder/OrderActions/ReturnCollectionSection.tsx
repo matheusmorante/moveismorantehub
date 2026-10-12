@@ -1,5 +1,5 @@
 import Agendamento from '../ShippingComponents/Agendamento';
-import Shipping from '../../../types/Shipping.type';
+import type Shipping from '../../../types/Shipping.type';
 import ReturnObservationTags from './ReturnObservationTags';
 
 type Props = {
@@ -43,7 +43,7 @@ const ReturnCollectionSection = ({
               O cliente devolveu diretamente na loja
             </span>
             <span className="mt-1 block text-[9px] font-medium text-slate-400">
-              A devolução será atendida agora.
+              O pedido ficará como Devolvido.
             </span>
           </span>
         </label>

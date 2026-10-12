@@ -8,6 +8,8 @@ import SellerSearchModal from '../SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
 
 type NewSaleOrderProps = {
   onClose?: () => void;
@@ -38,7 +40,16 @@ const NewSaleOrder = ({
   const { isAdministrator } = useAuth();
   const typeFromQuery = searchParams.get('type') as Order['orderType'] | null;
   const initialType = orderTypeProp || defaultOrderType || typeFromQuery || 'sale';
-  const showTestMode = isAdministrator && !initialOrder && initialType === 'sale';
+  const testContext = getTestArtifactContext();
+  const existingTestIdentity = readTestArtifactIdentity(initialOrder);
+  const showTestMode = Boolean(
+    isAdministrator && testContext && initialType === 'sale' &&
+    (!initialOrder || initialOrder.status === 'draft') &&
+    (!existingTestIdentity || (
+      existingTestIdentity.runId === testContext.runId &&
+      existingTestIdentity.ownerId === testContext.ownerId
+    ))
+  );
 
   const form = useSalesOrderForm(defaultDeliveryMethod, initialType);
   const scrollContainerRef = useRef<HTMLDivElement>(null);

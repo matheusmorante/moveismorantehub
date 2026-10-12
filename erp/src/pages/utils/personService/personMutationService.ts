@@ -38,8 +38,13 @@ const dispatchPeopleUpdated = (
   );
 };
 
-const stampPersonAddress = <T extends Record<string, any>>(person: T): T => {
-  if (!getTestArtifactContext()) return person;
+const stampPersonAddress = <T extends Record<string, any>>(
+  person: T,
+  isTestArtifact = false,
+): T => {
+  if (!isTestArtifact) return person;
+  const identity = getTestArtifactContext();
+  if (!identity) throw new Error('O modo de artefato de teste exige operador autorizado nesta execução.');
   let address = person.address;
   if (typeof address === 'string') {
     try {
@@ -53,17 +58,23 @@ const stampPersonAddress = <T extends Record<string, any>>(person: T): T => {
   }
   return {
     ...person,
-    address: stampTestArtifact({ address }, 'address').address,
+    address: stampTestArtifact({ address }, 'address', identity).address,
   };
 };
 
-export type SavePersonOptions = PersonMutationOptions & { insertOnly?: boolean };
+export type SavePersonOptions = PersonMutationOptions & {
+  insertOnly?: boolean;
+  isTestArtifact?: boolean;
+};
 
 export const savePerson = async (
   collectionName: string,
   person: Person,
   options: SavePersonOptions = {}
 ): Promise<Person> => {
+  if (options.isTestArtifact && person.id && !options.insertOnly) {
+    throw new Error('O modo de teste só pode ser habilitado na criação de um novo cadastro.');
+  }
   if (person.id && !options.insertOnly) {
     return await updatePerson(collectionName, person.id, person, options);
   }
@@ -73,7 +84,7 @@ export const savePerson = async (
   }
 
   try {
-    const dbPerson = stampPersonAddress(mapToDB(collectionName, person));
+    const dbPerson = stampPersonAddress(mapToDB(collectionName, person), options.isTestArtifact);
     if (options.insertOnly && person.id) dbPerson.id = person.id;
     const { data, error } = await supabase.from(TABLE_NAME).insert([dbPerson]).select();
 

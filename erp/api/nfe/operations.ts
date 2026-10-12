@@ -8,6 +8,7 @@ import reserveNumber from '../../server/nfe/reserve-number.cjs';
 import emit from '../../server/nfe/emit.cjs';
 import consult from '../../server/nfe/consult.cjs';
 import inboundManifestation from '../../server/nfe/inbound-manifestation.cjs';
+import automaticReturnWorker from '../../server/nfe/automatic-return-transmission-worker.cjs';
 
 type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 const unwrap = (handler: Handler): Handler =>
@@ -22,6 +23,7 @@ const handlers: Record<string, Handler> = {
   'transmit-operation-draft': unwrap(transmitOperationDraft),
   cce: unwrap(cce),
   'reserve-number': unwrap(reserveNumber),
+  'automatic-return-transmission-worker': unwrap(automaticReturnWorker),
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

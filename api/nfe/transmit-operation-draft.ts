@@ -16,6 +16,10 @@ import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoi
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
+  AUTOMATIC_RETURN_WORKER_SECRET_HEADER,
+  isAutomaticReturnWorkerAuthorized,
+} from './automaticReturnWorkerAuthorization';
+import {
   decideOperationDraftRecovery,
   getAuthorizedAt,
   parseSefazNfeSituation,
@@ -246,7 +250,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
 
   const db = createClient<FiscalDatabase>(supabaseUrl, serviceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(db, req.headers.authorization);
+  const automaticReturnWorker = isAutomaticReturnWorkerAuthorized(
+    req.headers[AUTOMATIC_RETURN_WORKER_SECRET_HEADER]
+  );
+  const fiscalAuthorization = automaticReturnWorker
+    ? { ok: true as const, userId: null as string | null, isAdministrator: false }
+    : await authorizeFiscalOperator(db, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({
       success: false,
@@ -266,6 +275,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     if (draftError || !draft)
       return res.status(404).json({ success: false, error: 'Rascunho fiscal não encontrado.' });
+    if (automaticReturnWorker && (draft.operation_kind !== 'return' || !draft.return_order_id)) {
+      return res.status(403).json({
+        success: false,
+        error: 'O worker só pode transmitir documentos de devolução vinculados.',
+      });
+    }
     const environment = Number(draft.environment) as Environment;
     if (![1, 2].includes(environment))
       return res
@@ -291,7 +306,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(409)
         .json({ success: false, error: 'Conclua e salve a revisão fiscal antes de transmitir.' });
     }
-    if (environment === 1 && req.body?.productionConfirmed !== true) {
+    if (!automaticReturnWorker && environment === 1 && req.body?.productionConfirmed !== true) {
       return res.status(400).json({
         success: false,
         error: 'Confirme explicitamente a transmissão deste documento em Produção.',

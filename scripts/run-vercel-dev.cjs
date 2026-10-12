@@ -1,12 +1,18 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '..');
+const vercelCliCwd = path.join(projectRoot, '.vercel');
 require('./assert-vercel-development.cjs').assertVercelDevelopment();
 
 const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const child = spawn(executable, ['-y', 'vercel', 'dev', '--listen', '3000', '--yes'], {
-  cwd: projectRoot,
-  env: process.env,
+const env = { ...process.env };
+if (env.MORANTE_ENV_SOURCE === 'vercel-development'
+  && env.NFE_HML_TEST_OPERATOR_EMAIL?.trim()) {
+  env.MORANTE_HML_TEST_OPERATOR_EMAIL = env.NFE_HML_TEST_OPERATOR_EMAIL.trim();
+}
+const child = spawn(executable, ['-y', 'vercel', 'dev', '..\\erp', '--listen', '3000', '--yes', '--cwd', '.'], {
+  cwd: vercelCliCwd,
+  env,
   stdio: 'inherit',
   shell: process.platform === 'win32',
   windowsHide: true,

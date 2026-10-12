@@ -4,6 +4,8 @@ import Person from '@/pages/types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { toast } from 'react-toastify';
+import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtifactContext';
+import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
@@ -38,6 +40,7 @@ export interface UseProductFormModalProps {
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly isQuickRegister?: boolean;
   readonly isStockistOnly?: boolean;
+  readonly canMarkTestArtifact?: boolean;
 }
 
 export function useProductFormModal({
@@ -52,6 +55,7 @@ export function useProductFormModal({
   onSave,
   isQuickRegister = false,
   isStockistOnly = false,
+  canMarkTestArtifact = false,
 }: UseProductFormModalProps) {
   const [activeTab, setActiveTab] = useState<ProductFormTabKey>('geral');
   const [activeEcommerceSubTab, setActiveEcommerceSubTab] = useState<
@@ -79,6 +83,7 @@ export function useProductFormModal({
   });
   const latestFormDataRef = useRef(formData);
   latestFormDataRef.current = formData;
+  const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasChanged = useRef(false);
@@ -254,6 +259,7 @@ export function useProductFormModal({
     onSuccess,
     onSave,
     onClose,
+    isTestArtifact,
   });
 
   const handleCloseWithAutoSave = useCallback(async () => {
@@ -448,6 +454,20 @@ export function useProductFormModal({
     formData,
     setFormData,
     isService,
+    isTestArtifact,
+    setIsTestArtifact: (enabled: boolean) => {
+      if (!canMarkTestArtifact || !isDraftProduct) return;
+      try {
+        const next = setTestArtifactMode(latestFormDataRef.current, 'technicalSpecs', enabled);
+        latestFormDataRef.current = next;
+        setFormData(next);
+        hasChanged.current = true;
+        scheduleDraftAutoSave();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o modo de teste.');
+      }
+    },
+    canMarkTestArtifact: canMarkTestArtifact && isDraftProduct,
     isProductCreation,
     isDraftProduct,
     isRegisteredProduct,

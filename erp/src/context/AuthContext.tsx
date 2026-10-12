@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { User } from '@supabase/supabase-js';
 import {
@@ -12,6 +20,7 @@ import {
   testArtifactIdentityForAuthenticatedUser,
 } from '../../../shared-utils/testArtifactContext';
 import { queryClient } from '@/lib/queryClient';
+import { verifyConfiguredTestArtifactOperator } from '@/services/testArtifactOperator';
 
 export type UserRole =
   | 'administrator'
@@ -64,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const profileResolvedUserIdRef = useRef<string | null>(null);
   const [activeRoleModeState, setActiveRoleModeState] = useState<UserRole | null>(null);
   const [passwordCredentialStatus, setPasswordCredentialStatus] =
     useState<PasswordCredentialStatus>('idle');
@@ -243,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const resolvedProfile = data as Profile;
+      profileResolvedUserIdRef.current = user.id;
       setProfile(resolvedProfile);
       return resolvedProfile;
     } catch (err) {
@@ -257,6 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         full_name:
           user.user_metadata?.full_name || (isMasterEmail ? 'Matheus Morante' : 'Usuário Pendente'),
       };
+      profileResolvedUserIdRef.current = user.id;
       setProfile(pendingProfile);
       return pendingProfile;
     }
@@ -301,6 +313,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       clearTestArtifactContext();
+      if (newUser && profileResolvedUserIdRef.current !== newUser.id) {
+        setProfile(null);
+        setLoading(true);
+      }
+      if (!newUser) profileResolvedUserIdRef.current = null;
       setUser(newUser);
 
       if (newUser) {
@@ -315,12 +332,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const isProfileAdministrator =
             resolvedProfile?.role === 'administrator' ||
             resolvedProfile?.roles?.includes('administrator') === true;
+          const configuredOperatorAuthorized =
+            import.meta.env.DEV
+            && isProfileAdministrator
+            && import.meta.env.VITE_TEST_ARTIFACT_RUN_ID
+            ? await verifyConfiguredTestArtifactOperator(session?.access_token)
+            : false;
           const testIdentity = testArtifactIdentityForAuthenticatedUser({
             isDevelopment: import.meta.env.DEV,
             runId: import.meta.env.VITE_TEST_ARTIFACT_RUN_ID,
             ownerId: newUser.id,
-            email: newUser.email,
             isAdministrator: isProfileAdministrator,
+            configuredOperatorAuthorized,
           });
           if (testIdentity) bindTestArtifactContext(testIdentity);
           else clearTestArtifactContext();
@@ -383,6 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } as any;
 
         setUser(syntheticUser);
+        profileResolvedUserIdRef.current = authUserId;
         setProfile({
           id: authUserId,
           email: authEmail,
@@ -477,6 +501,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     await supabase.auth.signOut();
     clearTestArtifactContext();
+    profileResolvedUserIdRef.current = null;
     setUser(null);
     setProfile(null);
     setActiveRoleModeState(null);

@@ -9,6 +9,7 @@ import {
   toTitleCase,
 } from './formatters';
 import { getShippingRouteUrl } from './maps';
+import { formatOrderCode } from './orderCode';
 
 export const stringifyAdditionalContacts = (contacts?: { name: string; phone: string }[]) => {
   if (!contacts || contacts.length === 0) return '';
@@ -406,6 +407,51 @@ export const buildBudgetWhatsappMessage = (order: Order) => {
 
   message += `Fico à disposição para qualquer dúvida!\n`;
   message += `*Atendente:* ${order.seller || 'Morante'}`;
+
+  return message;
+};
+
+export const buildReturnServiceOrderMessage = (
+  order: Order,
+  audience: 'customer' | 'team'
+) => {
+  const customer = order.customerData;
+  const isCollection =
+    order.returnMethod === 'store_collection' ||
+    (order.returnMethod == null && order.status === 'scheduled');
+  const scheduling = order.shipping?.scheduling;
+  const date = scheduling?.date ? formatDate(scheduling.date) : 'A definir';
+  const time =
+    scheduling?.type === 'range' && scheduling.endTime
+      ? `${scheduling.startTime || ''} às ${scheduling.endTime}`.trim()
+      : scheduling?.startTime || scheduling?.time || 'A definir';
+  const items = (order.items || []).map((item) => `• ${item.quantity}x ${item.description}`);
+
+  let message = `*PEDIDO DE DEVOLUÇÃO - MÓVEIS MORANTE*\n\n`;
+  message += `*Pedido de devolução:* #${formatOrderCode(order)}\n`;
+  message += `*Pedido de venda:* #${order.linkedOrderCode || 'não informado'}\n`;
+  message += `*Cliente:* ${customer?.fullName || 'Não informado'}\n`;
+  message += `*Situação:* ${isCollection ? 'Coleta agendada' : 'Devolvido'}\n`;
+
+  if (isCollection) {
+    message += `*Data da coleta:* ${date}\n*Horário:* ${time}\n`;
+  }
+
+  message += `\n*Itens da devolução:*\n${items.length ? items.join('\n') : '• Nenhum item informado'}\n`;
+
+  if (audience === 'team') {
+    const address = stringifyFullAddressWithObservation(
+      order.shipping?.deliveryAddress || customer?.fullAddress
+    );
+    message += `\n*Telefone do cliente:* ${customer?.phone || 'Não informado'}\n`;
+    if (address) message += `*Endereço:* ${address}\n`;
+    if (order.collectionObservation?.trim()) {
+      message += `*Observações da coleta:* ${order.collectionObservation.trim()}\n`;
+    }
+    if (order.seller) message += `*Vendedor:* ${order.seller}\n`;
+  } else {
+    message += '\nEsta mensagem contém os dados do seu pedido de devolução.';
+  }
 
   return message;
 };

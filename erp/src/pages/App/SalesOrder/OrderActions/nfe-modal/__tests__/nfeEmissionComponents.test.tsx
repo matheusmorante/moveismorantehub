@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type Order from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
@@ -58,6 +57,7 @@ describe('NfeEmission Components', () => {
         environment={1}
         isNfce={false}
         canOperateFiscal={true}
+        canPreviewXml={false}
         isSubmitting={false}
         isLoadingFiscalData={false}
         isLoadingNfeNumber={false}
@@ -77,6 +77,34 @@ describe('NfeEmission Components', () => {
 
     fireEvent.click(emitBtn);
     expect(onEmit).toHaveBeenCalledWith(false, false);
+  });
+
+  it('mostra Visualizar XML somente quando canPreviewXml está habilitado', () => {
+    const props = {
+      invoiceTotal: 250.75,
+      environment: 2 as const,
+      isNfce: true,
+      canOperateFiscal: true,
+      canPreviewXml: true,
+      isSubmitting: false,
+      isLoadingFiscalData: false,
+      isLoadingNfeNumber: false,
+      isLoadingCustomerType: false,
+      fiscalPreparationError: null,
+      emissionResult: null,
+      productionConfirmed: false,
+      onClose: vi.fn(),
+      onEmit: vi.fn(),
+      onPreview: vi.fn(),
+      onPrintDanfe: vi.fn(),
+    };
+    const { rerender } = render(<NfeEmissionFooter {...props} />);
+
+    expect(screen.getByTestId('nfe-preview-xml-button')).toBeTruthy();
+
+    rerender(<NfeEmissionFooter {...props} canPreviewXml={false} />);
+
+    expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
   });
 
   it('exibe o ícone de alerta no cabeçalho somente quando há erro fiscal e aciona onOpenFiscalIssue', () => {

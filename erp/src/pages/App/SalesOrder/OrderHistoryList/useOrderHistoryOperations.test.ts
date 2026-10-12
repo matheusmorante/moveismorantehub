@@ -119,7 +119,7 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
       refresh: vi.fn().mockResolvedValue(undefined),
     });
 
-    await operations.commitStatusUpdate(
+    const result = await operations.commitStatusUpdate(
       {
         id: 'TEST_AUT_order',
         status: 'scheduled',
@@ -128,10 +128,39 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
       'cancelled'
     );
 
+    expect(result).toBe(false);
     expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
     expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
     expect(setOrders).toHaveBeenCalledTimes(2);
     expect(mocks.toast.error).toHaveBeenCalledWith('Erro ao atualizar status do pedido.');
+  });
+
+  it('retorna sucesso somente depois de concluir a transação comercial', async () => {
+    mocks.updateOrder.mockResolvedValue(undefined);
+    const { createOrderHistoryOperations } = await import('./useOrderHistoryOperations');
+    const order = {
+      id: 'return-order-committed',
+      orderType: 'return',
+      returnMethod: 'store_collection',
+      status: 'scheduled',
+      stockProcessed: false,
+      returnStockProcessed: false,
+    } as any;
+    const operations = createOrderHistoryOperations({
+      orders: [order],
+      setOrders: vi.fn(),
+      selectedOrders: [],
+      setSelectedOrders: vi.fn(),
+      setLoading: vi.fn(),
+      refresh: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await expect(operations.commitStatusUpdate(order, 'fulfilled')).resolves.toBe(true);
+    expect(mocks.updateOrder).toHaveBeenCalledWith(
+      order.id,
+      { status: 'fulfilled' },
+      order
+    );
   });
 
   it('mantém a venda cancelada e não repete a movimentação de estoque ao reconciliar o fiscal', async () => {

@@ -18,9 +18,10 @@ export type AssistanceItem = {
 
 export type Order = {
   /** Marcador de rastreabilidade exclusivo de pedidos sintéticos de teste. */
-  syntheticFixture?: { scenarioKey: string; version: 1 };
+  syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string };
   /** Marcador explícito do domínio já persistido em order_data.is_test. */
   is_test?: boolean;
+  testArtifact?: { is_test: true; runId: string; ownerId: string } | null;
   fiscalContext?: {
     acquisitionPurpose?: FiscalAcquisitionPurpose;
     finalConsumer?: boolean;
@@ -144,6 +145,8 @@ export type OrderAction =
   | 'GENERATE_RETURN'
   | 'UNDO_RETURN'
   | 'PRINT_RETURN_OS'
+  | 'SEND_RETURN_OS_CUSTOMER'
+  | 'SEND_RETURN_OS_TEAM'
   | 'DUPLICATE_ORDER'
   | 'GENERATE_SALE_FROM_BUDGET'
   | 'ISSUE_NFE';
@@ -170,6 +173,8 @@ export type IsButtonsClicked = {
   generateReturn?: boolean;
   undoReturn?: boolean;
   printReturnOS?: boolean;
+  sendReturnOSCustomer?: boolean;
+  sendReturnOSTeam?: boolean;
   duplicateOrder?: boolean;
   generateSaleFromBudget?: boolean;
   issueNfe?: boolean;

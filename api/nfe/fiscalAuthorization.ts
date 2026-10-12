@@ -1,8 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hasFiscalOperationRole } from '../../erp/src/pages/utils/nfe/fiscalAuthorization';
+import {
+  hasFiscalAdministratorRole,
+  hasFiscalOperationRole,
+} from '../../erp/src/pages/utils/nfe/fiscalAuthorization';
 
 export type FiscalAuthorizationResult =
-  | { ok: true; userId: string }
+  | { ok: true; userId: string; isAdministrator: boolean }
   | { ok: false; status: 401 | 403 | 503; message: string };
 
 export async function authorizeFiscalOperator(
@@ -32,7 +35,7 @@ export async function authorizeFiscalOperator(
     if (!hasFiscalOperationRole(profile))
       return { ok: false, status: 403, message: 'Seu perfil não pode operar documentos fiscais.' };
 
-    return { ok: true, userId: user.id };
+    return { ok: true, userId: user.id, isAdministrator: hasFiscalAdministratorRole(profile) };
   } catch {
     return { ok: false, status: 503, message: 'Não foi possível validar a permissão fiscal.' };
   }

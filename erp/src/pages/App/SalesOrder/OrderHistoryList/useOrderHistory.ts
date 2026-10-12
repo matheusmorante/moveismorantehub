@@ -9,7 +9,6 @@ import {
   undoReturn,
 } from '../../../utils/orderHistoryService';
 import { actionsMap, buttons } from '../OrderActions/orderActionsConfig';
-import { autoFulfillExpiredOrders } from '@/pages/utils/orderFulfillmentCountdown';
 import { toast } from 'react-toastify';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import {
@@ -24,6 +23,11 @@ import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadg
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
 import { isTestOrder } from '@/pages/utils/hmlTestData';
 import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import {
+  automaticallyTransmitReturnFiscalDocuments,
+  getAutomaticReturnFiscalEmissionNotice,
+} from '../../FiscalDocuments/services/automaticReturnFiscalEmissionService';
 
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
@@ -144,7 +148,6 @@ export const useOrderHistory = (filters?: any) => {
       setOrdersSnapshotQueryKey(currentOrdersQueryKey);
       setTotalDatabaseItems(pageOrdersData.total);
       setFiscalBadgeStatusByOrderId(pageOrdersData.fiscalStatuses);
-      autoFulfillExpiredOrders(pageOrdersData.orders);
       setLoading(false);
     } else if (queryLoading) {
       setLoading(true);
@@ -190,6 +193,35 @@ export const useOrderHistory = (filters?: any) => {
 
   const totalItems = failedWithoutCurrentData ? 0 : totalDatabaseItems || filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+  const handleAutomaticallyFulfilledOrder = useCallback(
+    async (order: Order) => {
+      const orderType = String(
+        order.orderType ||
+          (order as any).order_type ||
+          (order as any).order_data?.orderType ||
+          (order as any).order_data?.order_type ||
+          ''
+      ).toLowerCase();
+      if (orderType !== 'return' || !order.id || isIdentifiedTestArtifact(order)) return;
+
+      void refresh();
+      try {
+        const result = await automaticallyTransmitReturnFiscalDocuments(order.id);
+        const notice = getAutomaticReturnFiscalEmissionNotice(result);
+        if (notice) toast[notice.tone](notice.message);
+      } catch (error: unknown) {
+        console.error('Devolução concluída; emissão fiscal automática pendente:', error);
+        toast.warning(
+          'A devolução foi concluída e a entrada de estoque foi registrada. A transmissão automática da NF-e precisa ser retomada na área fiscal.'
+        );
+      } finally {
+        void refresh();
+      }
+    },
+    [refresh]
+  );
+
 
   useEffect(() => {
     if (queryError) return;
@@ -237,7 +269,7 @@ export const useOrderHistory = (filters?: any) => {
       currentOrder.status === 'fulfilled' &&
       newStatus === 'cancelled'
     ) {
-      toast.warning('Uma devolução atendida não pode ser cancelada ou desfeita.');
+      toast.warning('Uma devolução concluída não pode ser cancelada ou desfeita.');
       return;
     }
     if (
@@ -268,7 +300,9 @@ export const useOrderHistory = (filters?: any) => {
     if (!pendingReturnFulfillment) return;
     const order = pendingReturnFulfillment;
     setPendingReturnFulfillment(null);
-    await operations.commitStatusUpdate(order, 'fulfilled');
+    const committed = await operations.commitStatusUpdate(order, 'fulfilled');
+    if (!committed || !order.id || isIdentifiedTestArtifact(order)) return;
+    await handleAutomaticallyFulfilledOrder(order);
   };
 
   const confirmReturnCancellation = async () => {
@@ -375,7 +409,6 @@ export const useOrderHistory = (filters?: any) => {
 
   return {
     orders: filteredOrders,
-    hasTestOrders: ordersForCurrentQuery.some(isTestOrder),
     fiscalBadgeStatusByOrderId,
     fiscalBadgeLoadingByOrderId,
     totalItems,

@@ -40,7 +40,7 @@ const effectMatrix: EffectMatrixRow[] = [
     badgeColor: 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300',
   },
   {
-    action: 'Devolução: Agendado → Atendido',
+    action: 'Devolução: Coleta agendada → Devolvido',
     stockEffect: 'Gera entrada no estoque usando CMV histórico da venda',
     financialEffect: 'Gera crédito ao cliente ou saldo a reembolsar',
     operationEffect: 'Remove da lista de devoluções pendentes',

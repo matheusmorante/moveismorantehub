@@ -1,0 +1,19 @@
+{
+  "name": "test-artifact-financial-insert-guard-remote",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development / fiscal environment 2",
+  "runId": "73abc0e6-0469-4349-a995-f2d618e951c1",
+  "operatorIdentityVerified": true,
+  "administratorConfirmed": true,
+  "anonymousInsertDenied": true,
+  "authenticatedForgedOwnerRejected": true,
+  "transactionPersisted": false,
+  "invalidTypePreventsPersistenceIfGuardIsMissing": true,
+  "result": "passed",
+  "limitations": [
+    "Negative permission/guard behavior only.",
+    "No valid financial transaction, idempotency, concurrency, or business rollback was tested by this runner."
+  ]
+}

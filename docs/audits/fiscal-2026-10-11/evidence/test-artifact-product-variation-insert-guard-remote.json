@@ -1,0 +1,19 @@
+{
+  "name": "test-artifact-product-variation-insert-guard-remote",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development",
+  "runId": "6464244f-edd5-4f09-9cd6-4aa491014c55",
+  "operatorIdentityVerified": true,
+  "administratorConfirmed": true,
+  "forgedOwnerRejected": true,
+  "nonexistentParentUsed": true,
+  "variationPersisted": false,
+  "inventoryMovePersisted": false,
+  "result": "passed",
+  "limitations": [
+    "Negative guard behavior only.",
+    "No valid variation write, parent synchronization, rollback, concurrency, or cleanup was tested."
+  ]
+}

@@ -21,3 +21,10 @@ export function hasFiscalOperationRole(profile: FiscalRoleProfile | null | undef
 
   return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
 }
+
+export function hasFiscalAdministratorRole(profile: FiscalRoleProfile | null | undefined): boolean {
+  return (
+    profile?.role === 'administrator' ||
+    (Array.isArray(profile?.roles) && profile.roles.includes('administrator'))
+  );
+}

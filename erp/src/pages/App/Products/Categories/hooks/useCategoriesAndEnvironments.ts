@@ -11,9 +11,9 @@ import {
   updateCategory,
   deleteCategory,
   unlinkCategoryFromEnvironment,
-  fetchCategoryRequiredAttributes,
+  fetchCategoryAttributes,
+  type CategoryAttributeSelection,
 } from '@/pages/utils/categoryService';
-import { AttributeNode } from '@/components/AttributeAutocomplete';
 import {
   EnvironmentNode,
   CategoryNode,
@@ -40,7 +40,7 @@ export function useCategoriesAndEnvironments() {
   const [editingNode, setEditingNode] = useState<EditingNode | null>(null);
   const [nameInput, setNameInput] = useState<string>('');
   const [selectedLinks, setSelectedLinks] = useState<string[]>([]);
-  const [selectedAttributes, setSelectedAttributes] = useState<AttributeNode[]>([]);
+  const [selectedAttributes, setSelectedAttributes] = useState<CategoryAttributeSelection[]>([]);
   const [initialAttributeIds, setInitialAttributeIds] = useState<string[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState<boolean>(false);
   const [attributeLoadFailed, setAttributeLoadFailed] = useState<boolean>(false);
@@ -121,16 +121,14 @@ export function useCategoriesAndEnvironments() {
           if (isEnv) {
             await updateEnvironment(editingNode.id, name, selectedLinks);
           } else {
-            const attributeIds = selectedAttributes.map((a) => a.id);
-            await updateCategory(editingNode.id, name, selectedLinks, attributeIds);
+            await updateCategory(editingNode.id, name, selectedLinks, selectedAttributes);
           }
           toast.success(isEnv ? 'Ambiente atualizado!' : 'Categoria atualizada!');
         } else {
           if (isEnv) {
             await createEnvironment(name, selectedLinks);
           } else {
-            const attributeIds = selectedAttributes.map((a) => a.id);
-            await createCategory(name, selectedLinks, attributeIds, {
+            await createCategory(name, selectedLinks, selectedAttributes, {
               meta_title: `${name} | Móveis Morante`,
             });
           }
@@ -215,7 +213,7 @@ export function useCategoriesAndEnvironments() {
     setShowModal('categoria');
 
     try {
-      const attrs = await fetchCategoryRequiredAttributes(cat.id);
+      const attrs = await fetchCategoryAttributes(cat.id);
       setSelectedAttributes(attrs);
       setInitialAttributeIds(attrs.map((attr) => attr.id));
     } catch (err) {

@@ -86,6 +86,11 @@ const FormFooter = ({
                 >
                   {isTestMode ? 'ON' : 'OFF'}
                 </button>
+                {isTestMode && (
+                  <span className="max-w-40 text-[9px] font-semibold text-amber-800 dark:text-amber-200">
+                    Este pedido será criado como pedido de teste.
+                  </span>
+                )}
               </div>
             )}
 

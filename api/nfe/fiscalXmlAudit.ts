@@ -6,6 +6,7 @@ import {
   getHomologationRecipientName,
   shouldUseHomologationFirstItemDescription,
 } from '../../shared-utils/fiscalDocumentModel';
+import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fiscalIcmsGroups';
 import { composeServiceFiscalValues } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
 import { canonicalFiscalCommand } from './normal-sale/attemptPolicy';
 import type {
@@ -14,6 +15,20 @@ import type {
   FiscalDocument,
   FiscalSnapshotCandidate,
 } from './fiscalSnapshot';
+
+function createStrictXmlParser(parseErrors: string[]) {
+  return new DOMParser({
+    errorHandler: (level, message) => {
+      if (
+        level === 'warning' &&
+        String(message).includes('errorHandler') &&
+        String(message).includes('deprecated')
+      )
+        return;
+      parseErrors.push(String(message));
+    },
+  });
+}
 
 export interface FiscalXmlAuditMismatch {
   field: string;
@@ -162,7 +177,10 @@ function compareAddress(
 
 function taxGroupTag(tax: DeterminedTaxGroup): string {
   if (tax.group === 'ICMS') {
-    if (tax.codeSystem === 'CSOSN') return `ICMSSN${tax.code}`;
+    if (tax.codeSystem === 'CSOSN') {
+      if (ZERO_OWN_ICMS_CSOSNS.includes(tax.code)) return zeroOwnIcmsGroup(tax.code);
+      return `ICMSSN${tax.code}`;
+    }
     return `ICMS${tax.code}`;
   }
   if (tax.group === 'PIS' || tax.group === 'COFINS') {
@@ -332,12 +350,7 @@ function compareItem(
 
 export function assertNfeSignature(xml: string, expectedCertificatePem?: string) {
   const parseErrors: string[] = [];
-  const parsed = new DOMParser({
-    errorHandler: {
-      error: (message) => parseErrors.push(message),
-      fatalError: (message) => parseErrors.push(message),
-    },
-  }).parseFromString(xml, 'application/xml');
+  const parsed = createStrictXmlParser(parseErrors).parseFromString(xml, 'application/xml');
   if (parseErrors.length || !parsed.documentElement)
     throw new Error(`XML assinado inválido: ${parseErrors.join('; ') || 'raiz ausente'}`);
   const signatures = allDescendants(parsed.documentElement, 'Signature');
@@ -490,12 +503,7 @@ export function assertSignedFiscalXmlMatchesSnapshot(
   assertNfeSignature(xml, expectedCertificatePem);
 
   const parseErrors: string[] = [];
-  const parsed = new DOMParser({
-    errorHandler: {
-      error: (message) => parseErrors.push(message),
-      fatalError: (message) => parseErrors.push(message),
-    },
-  }).parseFromString(xml, 'application/xml');
+  const parsed = createStrictXmlParser(parseErrors).parseFromString(xml, 'application/xml');
   if (parseErrors.length || !parsed.documentElement)
     throw new Error(`XML fiscal inválido: ${parseErrors.join('; ') || 'raiz ausente'}`);
   const infNfes = allDescendants(parsed.documentElement, 'infNFe');

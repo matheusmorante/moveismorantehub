@@ -172,6 +172,7 @@ export async function fetchFiscalDocumentsList({
           Authorization: `Bearer ${sessionData.session.access_token}`,
         },
         body: JSON.stringify({ documentIds: documents.map((doc) => doc.id) }),
+        signal: AbortSignal.timeout(8000),
       });
       const eligibilityResult = await parseNfeApiResponse<{
         documents?: Record<string, CancellationEligibility>;
@@ -210,6 +211,7 @@ export async function fetchFiscalDocumentDetails(
       Authorization: `Bearer ${data.session.access_token}`,
     },
     body: JSON.stringify({ documentId }),
+    signal: AbortSignal.timeout(8000),
   });
 
   const result: unknown = await response.json();

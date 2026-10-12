@@ -15,6 +15,7 @@ describe('order history global filters', () => {
     expect(requiresGlobalOrderFiltering({ valueRange: { min: 50, max: 500 } })).toBe(false);
     expect(requiresGlobalOrderFiltering({ productName: 'mesa' })).toBe(true);
     expect(requiresGlobalOrderFiltering({ customerName: 'Joao' })).toBe(true);
+    expect(requiresGlobalOrderFiltering({ seller: 'Joao' })).toBe(true);
     expect(requiresGlobalOrderFiltering({ multiSort: [{ key: 'customer', order: 'asc' }] })).toBe(
       true
     );
@@ -51,5 +52,36 @@ describe('order history global filters', () => {
       'order-10',
       'order-7',
     ]);
+  });
+
+  it('filters all order pages by seller name without accents', () => {
+    const orders = [
+      { id: 'order-1', seller: 'João Silva' },
+      { id: 'order-2', seller: 'Joana Costa' },
+      { id: 'order-3', seller: 'João Oliveira' },
+      { id: 'order-4', seller: 'João Silva' },
+      { id: 'order-5', seller: 'Marcos Lima' },
+    ].map((order, index) => ({
+      ...order,
+      date: `2026-10-${String(index + 1).padStart(2, '0')}`,
+      status: 'scheduled',
+      orderType: 'sale',
+      deleted: false,
+      assistanceDescription: '',
+      items: [],
+      paymentsSummary: { totalOrderValue: 100 },
+    })) as any[];
+    const filters = {
+      seller: 'joao',
+      valueRange: { min: 0, max: 1000000 },
+      multiSort: [{ key: 'date', order: 'desc' }],
+    };
+
+    const firstPage = selectFilteredOrderHistoryPage(orders, filters, 1, 2);
+    const secondPage = selectFilteredOrderHistoryPage(orders, filters, 2, 2);
+
+    expect(firstPage.total).toBe(3);
+    expect(firstPage.orders.map((order) => order.id)).toEqual(['order-4', 'order-3']);
+    expect(secondPage.orders.map((order) => order.id)).toEqual(['order-1']);
   });
 });

@@ -124,6 +124,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: fiscalAuthorization.message,
         });
+      if (command.previewOnly && !fiscalAuthorization.isAdministrator)
+        return res.status(403).json({
+          success: false,
+          code: 'FISCAL_XML_PREVIEW_ADMIN_REQUIRED',
+          error: 'Somente administradores podem visualizar a prévia do XML fiscal.',
+        });
 
       const normalRecovery = command.previewOnly ? null : await recoverNormalSale(supabase, command);
       if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);

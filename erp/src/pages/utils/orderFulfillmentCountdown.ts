@@ -1,6 +1,4 @@
-import Order from '../types/order.type';
-import { updateOrder } from './orderHistoryService';
-import { getFulfillmentLabels } from './orderStatusPresentation';
+import type Order from '../types/order.type';
 
 export interface FulfillmentCountdown {
   isPastDelivery: boolean;
@@ -8,145 +6,211 @@ export interface FulfillmentCountdown {
   daysRemaining: number;
   isExpired: boolean;
   countdownLabel: string;
+  deadline: Date | null;
+  hoursRemaining: number | null;
 }
 
 const DEFAULT_AUTO_FULFILL_DAYS = 5;
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const MILLISECONDS_PER_DAY = 24 * MILLISECONDS_PER_HOUR;
+
+type OrderSchedule = {
+  date?: string;
+  endDate?: string;
+  dateType?: string;
+  time?: string;
+  startTime?: string;
+  endTime?: string;
+  type?: string;
+  pendingScheduling?: boolean;
+};
+
+const getOrderSchedule = (order: Order): OrderSchedule | null => {
+  const source = order as any;
+  return (
+    source.shipping?.scheduling ||
+    source.order_data?.shipping?.scheduling ||
+    source.order_data?.schedule ||
+    null
+  );
+};
+
+const getOrderType = (order: Order): string => {
+  const source = order as any;
+  return String(
+    source.orderType ||
+      source.order_type ||
+      source.order_data?.orderType ||
+      source.order_data?.order_type ||
+      ''
+  ).toLowerCase();
+};
+
+const getReturnMethod = (order: Order): string => {
+  const source = order as any;
+  return String(
+    source.returnMethod || source.order_data?.returnMethod || source.order_data?.return_method || ''
+  ).toLowerCase();
+};
+
+const isScheduledReturnCollection = (order: Order): boolean =>
+  getOrderType(order) === 'return' &&
+  order.status === 'scheduled' &&
+  getReturnMethod(order) !== 'store_delivery';
+
+const parseScheduleDate = (value: string): Date | null => {
+  const cleanDate = value.split('T')[0].trim();
+  const parts = cleanDate.includes('/') ? cleanDate.split('/') : cleanDate.split('-');
+  if (parts.length !== 3) return null;
+
+  const day = Number(cleanDate.includes('/') ? parts[0] : parts[2]);
+  const month = Number(parts[1]);
+  const year = Number(cleanDate.includes('/') ? parts[2] : parts[0]);
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) return null;
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+};
+
+
+/** Data/hora limite da coleta. Sem horário, a coleta vence ao final do dia agendado. */
+/** Data limite da coleta: meia-noite BRT após o último dia agendado. */
+export const parseReturnCollectionDeadline = (order: Order): Date | null => {
+  if (!isScheduledReturnCollection(order)) return null;
+
+  const schedule = getOrderSchedule(order);
+  if (!schedule || schedule.pendingScheduling) return null;
+
+  const source = order as any;
+  const isRange = schedule.dateType === 'range' || schedule.type === 'range';
+  const dateValue =
+    (isRange && schedule.endDate ? schedule.endDate : schedule.date) ||
+    source.scheduled_date ||
+    source.scheduledDate ||
+    source.order_data?.scheduledDate;
+  if (typeof dateValue !== 'string' || !dateValue.trim()) return null;
+
+  const deadline = parseScheduleDate(dateValue);
+  if (!deadline) return null;
+
+  deadline.setDate(deadline.getDate() + 1);
+  deadline.setHours(0, 0, 0, 0);
+  return deadline;
+};
 
 /**
  * Converte a string de data de entrega do agendamento em objeto Date (à meia-noite).
- * Trata formatos "DD/MM/YYYY" e "YYYY-MM-DD", além de range de datas considerando a data final (endDate).
+ * Trata formatos "DD/MM/YYYY" e "YYYY-MM-DD", além de range usando a data final.
  */
 export function parseOrderDeliveryDate(order: Order): Date | null {
-  const sched = order.shipping?.scheduling;
-  if (!sched || sched.pendingScheduling) return null;
+  const schedule = getOrderSchedule(order);
+  if (!schedule || schedule.pendingScheduling) return null;
 
-  // Se for range e tiver data final, usa a data final como referência de conclusão da entrega
-  const dateStr =
-    sched.dateType === 'range' && sched.endDate
-      ? sched.endDate
-      : sched.date ||
-        (order as any).scheduled_date ||
-        (order as any).scheduledDate ||
-        (order as any).order_data?.scheduledDate;
+  const source = order as any;
+  const dateValue =
+    ((schedule.dateType === 'range' || schedule.type === 'range') && schedule.endDate
+      ? schedule.endDate
+      : schedule.date) ||
+    source.scheduled_date ||
+    source.scheduledDate ||
+    source.order_data?.scheduledDate;
+  if (typeof dateValue !== 'string' || !dateValue.trim()) return null;
 
-  if (!dateStr || typeof dateStr !== 'string') return null;
-
-  try {
-    const cleanDate = dateStr.split('T')[0].trim();
-    const dateParts = cleanDate.includes('/') ? cleanDate.split('/') : cleanDate.split('-');
-
-    if (dateParts.length !== 3) return null;
-
-    const day = cleanDate.includes('/') ? Number(dateParts[0]) : Number(dateParts[2]);
-    const month = cleanDate.includes('/') ? Number(dateParts[1]) : Number(dateParts[1]);
-    const year = cleanDate.includes('/') ? Number(dateParts[2]) : Number(dateParts[0]);
-
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-
-    const parsedDate = new Date(year, month - 1, day);
-    parsedDate.setHours(0, 0, 0, 0);
-    return parsedDate;
-  } catch (e) {
-    console.error('Erro ao converter data de entrega do pedido:', e);
-    return null;
-  }
+  return parseScheduleDate(dateValue);
 }
 
-/**
- * Calcula os dias passados desde a data de entrega, quantos dias faltam para os 5 dias de auto-atendimento
- * e gera o texto do subtítulo.
- */
+/** Calcula o prazo da coleta agendada ou a confirmação automática da venda. */
 export function getOrderFulfillmentCountdown(
   order: Order,
-  maxDays = DEFAULT_AUTO_FULFILL_DAYS
+  maxDays = DEFAULT_AUTO_FULFILL_DAYS,
+  now = new Date()
 ): FulfillmentCountdown {
+  if (isScheduledReturnCollection(order)) {
+    const deadline = parseReturnCollectionDeadline(order);
+    if (!deadline) {
+      return {
+        isPastDelivery: false,
+        daysPassed: 0,
+        daysRemaining: 0,
+        isExpired: false,
+        countdownLabel: '',
+        deadline: null,
+        hoursRemaining: null,
+      };
+    }
+
+    const remainingMs = deadline.getTime() - now.getTime();
+    const isExpired = remainingMs <= 0;
+    const hoursRemaining = Math.max(0, Math.ceil(remainingMs / MILLISECONDS_PER_HOUR));
+    const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+    const timeRemainingLabel =
+      remainingMinutes < 60
+        ? `${remainingMinutes}min`
+        : `${Math.floor(remainingMs / MILLISECONDS_PER_HOUR)}h${
+            Math.floor((remainingMs % MILLISECONDS_PER_HOUR) / (60 * 1000)) > 0
+              ? ` ${Math.floor((remainingMs % MILLISECONDS_PER_HOUR) / (60 * 1000))}min`
+              : ''
+          }`;
+
+    return {
+      isPastDelivery: isExpired,
+      daysPassed: 0,
+      daysRemaining: 0,
+      isExpired,
+      countdownLabel: isExpired
+        ? 'aguardando atualização'
+        : `Devolvido automaticamente em ${timeRemainingLabel}`,
+      deadline,
+      hoursRemaining,
+    };
+  }
+
+  const deliveryDate = parseOrderDeliveryDate(order);
   const defaultResult: FulfillmentCountdown = {
     isPastDelivery: false,
     daysPassed: 0,
     daysRemaining: maxDays,
     isExpired: false,
     countdownLabel: '',
+    deadline: null,
+    hoursRemaining: null,
   };
-
-  const deliveryDate = parseOrderDeliveryDate(order);
   if (!deliveryDate) return defaultResult;
+  if (order.status !== 'scheduled' || getOrderType(order) !== 'sale') return defaultResult;
 
-  const today = new Date();
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
   const diffMs = today.getTime() - deliveryDate.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor(diffMs / MILLISECONDS_PER_DAY);
 
-  if (diffDays <= 0) {
-    return defaultResult;
-  }
+  if (diffDays < 0) return defaultResult;
 
-  const daysPassed = diffDays;
-  const daysRemaining = Math.max(0, maxDays - daysPassed);
-  const isExpired = daysRemaining <= 0;
-
-  const fulfillmentAction = getFulfillmentLabels(order).confirmAction;
-  const countdownLabel =
-    daysRemaining > 1
-      ? `${fulfillmentAction} em ${daysRemaining} dias`
-      : daysRemaining === 1
-        ? `${fulfillmentAction} em 1 dia`
-        : `${fulfillmentAction} hoje`;
+  const deadline = new Date(deliveryDate);
+  deadline.setDate(deadline.getDate() + 1);
+  const remainingMs = deadline.getTime() - now.getTime();
+  const isExpired = remainingMs <= 0;
+  const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+  const countdownLabel = isExpired
+    ? 'aguardando atualização'
+    : remainingMinutes < 60
+      ? `${remainingMinutes}min`
+      : `${Math.floor(remainingMinutes / 60)}h${remainingMinutes % 60 ? ` ${remainingMinutes % 60}min` : ''}`;
 
   return {
     isPastDelivery: true,
-    daysPassed,
-    daysRemaining,
+    daysPassed: diffDays,
+    daysRemaining: 0,
     isExpired,
     countdownLabel,
+    deadline,
+    hoursRemaining: Math.max(0, Math.ceil(remainingMs / MILLISECONDS_PER_HOUR)),
   };
-}
-
-// Conjunto para evitar disparos concorrentes duplicados no mesmo ciclo de vida
-const inFlightAutoFulfillOrders = new Set<string>();
-
-/**
- * Identifica pedidos cuja data de entrega passou há 5 dias ou mais e que ainda não foram marcados como atendidos,
- * setando o status como 'fulfilled' automaticamente.
- */
-export async function autoFulfillExpiredOrders(
-  orders: Order[],
-  onOrderFulfilled?: (order: Order) => void
-): Promise<void> {
-  const expiredOrders = orders.filter((order) => {
-    if (!order.id) return false;
-    if (
-      order.deleted ||
-      order.status === 'fulfilled' ||
-      order.status === 'cancelled' ||
-      order.status === 'draft'
-    ) {
-      return false;
-    }
-    if (inFlightAutoFulfillOrders.has(order.id) || order.autoFulfillExempt) {
-      return false;
-    }
-
-    const countdown = getOrderFulfillmentCountdown(order);
-    return countdown.isPastDelivery && countdown.isExpired;
-  });
-
-  if (expiredOrders.length === 0) return;
-
-  for (const order of expiredOrders) {
-    if (!order.id) continue;
-    inFlightAutoFulfillOrders.add(order.id);
-
-    try {
-      console.log(
-        `[AutoFulfill] Pedido #${order.id} atingiu o limite de 5 dias após a data operacional. Marcando como ${getFulfillmentLabels(order).status.toLocaleLowerCase('pt-BR')}...`
-      );
-      await updateOrder(order.id, { status: 'fulfilled' }, order);
-      onOrderFulfilled?.(order);
-    } catch (err) {
-      console.error(`[AutoFulfill] Falha ao concluir o pedido #${order.id}:`, err);
-    } finally {
-      inFlightAutoFulfillOrders.delete(order.id);
-    }
-  }
 }

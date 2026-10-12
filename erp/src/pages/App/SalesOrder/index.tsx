@@ -27,6 +27,7 @@ import { IssuedFiscalDocumentDetailsModal } from '../FiscalDocuments/modals/Issu
 import NfeOperationDraftModal from '../FiscalDocuments/modals/NfeOperationDraftModal';
 import { ReturnFiscalSourcePickerModal } from '../FiscalDocuments/modals/ReturnFiscalSourcePickerModal';
 import { fetchReturnFiscalEligibility } from '../FiscalDocuments/services/fiscalOperationDraftService';
+import { fetchOrderById } from '../../utils/orderHistoryService';
 import type {
   ReturnFiscalEligibility,
   SourceDocument,
@@ -199,7 +200,6 @@ const SalesOrder = () => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showTestOrders, setShowTestOrders] = useState(false);
-  const [hasTestOrders, setHasTestOrders] = useState(false);
   // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
@@ -383,7 +383,7 @@ const SalesOrder = () => {
 
             {/* Action Buttons Group (lá no final do lado direito) */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
-              {isAdministrator && hasTestOrders && (
+              {isAdministrator && (
                 <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
               )}
 
@@ -558,7 +558,6 @@ const SalesOrder = () => {
                   onAction={handleOrderAction}
                   onIssueNfe={handleDirectIssueNfe}
                   onShowPostSaleActions={setPostOrderDetails}
-                  onTestDataAvailabilityChange={setHasTestOrders}
                 />
               </div>
             </div>
@@ -842,8 +841,9 @@ const SalesOrder = () => {
           onSuccess={(newId) => {
             setReturningOrder(null);
             orderListRef.current?.refresh();
-            // Redirect or show return OS?
-            // For now just refresh
+            void fetchOrderById(newId).then((savedReturn) => {
+              if (savedReturn) setPostOrderDetails(savedReturn);
+            });
           }}
         />
       )}

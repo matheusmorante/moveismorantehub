@@ -6,6 +6,10 @@ import type Order from '../../../types/order.type';
 import type Shipping from '../../../types/Shipping.type';
 import { findAuthorizedFiscalDocument } from '../../../utils/nfe/findAuthorizedFiscalDocument';
 import {
+  automaticallyTransmitReturnFiscalDocuments,
+  getAutomaticReturnFiscalEmissionNotice,
+} from '../../FiscalDocuments/services/automaticReturnFiscalEmissionService';
+import {
   type AvailableInvoiceLine,
   allocateReturnQuantityAcrossInvoices,
   getBilledCapacityByOrderLine,
@@ -17,6 +21,7 @@ import { supabase } from '../../../utils/supabaseConfig';
 import ReturnFormTabs, { type ReturnFormTab } from '../ReturnFormTabs';
 import ReturnCollectionSection from './ReturnCollectionSection';
 import ReturnItemsSelection from './ReturnItemsSelection';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 
 type Props = {
   readonly order: Order;
@@ -33,6 +38,20 @@ const EMPTY_SCHEDULING: Shipping['scheduling'] = {
   startTime: '',
   endTime: '',
   notInformed: false,
+};
+
+const startAutomaticReturnFiscalTransmission = (returnOrderId: string) => {
+  void automaticallyTransmitReturnFiscalDocuments(returnOrderId)
+    .then((result) => {
+      const notice = getAutomaticReturnFiscalEmissionNotice(result);
+      if (notice) toast[notice.tone](notice.message);
+    })
+    .catch((error: unknown) => {
+      console.error('Pedido de devolução salvo; emissão fiscal automática pendente:', error);
+      toast.warning(
+        'O pedido de devolução foi registrado. A transmissão automática da NF-e precisa ser retomada na área fiscal.'
+      );
+    });
 };
 
 const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
@@ -349,6 +368,13 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
     try {
       const id = await saveOrder(returnOrder);
       toast.success('Pedido de devolução gerado com sucesso!');
+      if (
+        !collectAtAddress &&
+        hasAuthorizedInvoice &&
+        !isIdentifiedTestArtifact(returnOrder)
+      ) {
+        startAutomaticReturnFiscalTransmission(id);
+      }
       onSuccess(id);
     } catch (error: unknown) {
       console.error('Erro ao gerar devolução:', error);
@@ -423,12 +449,12 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
                 </>
               ) : hasAuthorizedInvoice ? (
                 <>
-                  <strong>Pedido comercial e NF-e são etapas separadas.</strong>{' '}
+                  <strong>Pedido de devolução e NF-e são etapas separadas.</strong>{' '}
                   {collectAtAddress === true
-                    ? 'Criar a solicitação não registra retorno físico nem entrada de estoque. Quando a equipe coletar os itens e confirmar a coleta, a entrada de estoque será registrada. Depois, prepare a NF-e de devolução vinculada à nota original, revise os itens e transmita pela área fiscal.'
+                    ? 'O agendamento da coleta aparecerá na agenda e no cronograma operacional. Ele não registra retorno físico nem entrada de estoque. Depois que a equipe confirmar a coleta, a entrada será registrada e, se houver NF-e autorizada na venda, a NF-e de devolução será transmitida automaticamente.'
                     : collectAtAddress === false
-                      ? 'Esta opção confirma que o cliente já entregou os itens na loja. A entrada de estoque será registrada junto com a criação da devolução. Depois, prepare a NF-e de devolução vinculada à nota original, revise os itens e transmita pela área fiscal.'
-                      : 'A entrada de estoque só ocorrerá no momento físico correto: quando o cliente já tiver entregue os itens na loja ou quando a equipe confirmar a coleta. A NF-e de devolução será preparada depois, na área fiscal.'}{' '}
+                      ? 'Esta opção confirma que o cliente já entregou os itens na loja. A entrada de estoque será registrada junto com o pedido de devolução e, se houver NF-e autorizada na venda, a NF-e de devolução será transmitida automaticamente após a gravação.'
+                      : 'A entrada de estoque acontece quando o cliente entrega os itens na loja ou quando a equipe confirma a coleta. Se houver NF-e autorizada na venda, a NF-e de devolução será transmitida automaticamente após o retorno físico.'}{' '}
                   O protocolo da SEFAZ confirma a autorização.
                 </>
               ) : (

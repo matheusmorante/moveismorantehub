@@ -149,7 +149,11 @@ describe('API de emissão fiscal server-side', () => {
     delete process.env.NFE_PRODUCTION_ENABLED;
     delete process.env.NFE_CERTIFICATE_BASE64;
     delete process.env.NFE_CERTIFICATE_PASSWORD;
-    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: 'operator-id' });
+    mocks.authorizeFiscalOperator.mockResolvedValue({
+      ok: true,
+      userId: 'operator-id',
+      isAdministrator: true,
+    });
     mocks.validateNfeAgainstOfficialSchema.mockResolvedValue(undefined);
     mocks.extractCertificateAndKey.mockReturnValue({
       privateKeyPem: 'synthetic-private-key',
@@ -185,6 +189,36 @@ describe('API de emissão fiscal server-side', () => {
     expect(db.rpc).not.toHaveBeenCalled();
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
     expect(mocks.validateNfeAgainstOfficialSchema).not.toHaveBeenCalled();
+  });
+
+  it('recusa a prévia XML para operador fiscal que não é administrador antes de ler dados do pedido', async () => {
+    const db = database();
+    mocks.createClient.mockReturnValue(db);
+    mocks.authorizeFiscalOperator.mockResolvedValue({
+      ok: true,
+      userId: 'manager-id',
+      isAdministrator: false,
+    });
+    const handler = (await import('../../../../../../api/nfe/emit')).default;
+    const result = response();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer manager-token' },
+        body: { orderId, environment: 2, emissionRequestId, previewOnly: true },
+      } as any,
+      result.res
+    );
+
+    expect(result.statusCode).toBe(403);
+    expect(result.body).toMatchObject({
+      success: false,
+      code: 'FISCAL_XML_PREVIEW_ADMIN_REQUIRED',
+    });
+    expect(db.from).not.toHaveBeenCalled();
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
 
   it('recusa XML e decisões fiscais fornecidas pelo navegador', async () => {

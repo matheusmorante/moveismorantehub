@@ -39,16 +39,23 @@ function createOrderWithCustomer(customerData: Partial<Order['customerData']>, f
 }
 
 describe('buildDestXml - Tratamento de Inscrição Estadual e indIEDest', () => {
-  it('aplica o nome de homologação somente à NF-e modelo 55', () => {
+  it('aplica o nome oficial de homologação à NF-e 55 e à NFC-e 65', () => {
     const order = createOrderWithCustomer({ fullName: 'Cliente de Teste' });
-    const nfe = buildDestXml(order, true, '55');
-    const nfce = buildDestXml(order, true, '65');
+    for (const model of ['55', '65'] as const) {
+      const xml = buildDestXml(order, true, model);
+      expect(xml).toContain(
+        '<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>'
+      );
+    }
+  });
 
-    expect(nfe).toContain(
-      '<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>'
-    );
-    expect(nfce).toContain('<xNome>Cliente de Teste</xNome>');
-    expect(nfce).not.toContain('NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO');
+  it('preserva o nome do cliente fora da homologação nos modelos 55 e 65', () => {
+    const order = createOrderWithCustomer({ fullName: 'Cliente de Teste' });
+    for (const model of ['55', '65'] as const) {
+      const xml = buildDestXml(order, false, model);
+      expect(xml).toContain('<xNome>Cliente de Teste</xNome>');
+      expect(xml).not.toContain('NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO');
+    }
   });
 
   it('gera indIEDest=1 e tag IE para destinatário contribuinte do ICMS', () => {

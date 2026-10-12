@@ -22,6 +22,7 @@ const mockDb = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   failProductUpdateId: null as string | null,
   failUpdateTable: null as string | null,
+  persistedDrafts: [] as any[],
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: mockDb.invalidateQueries } }));
@@ -34,11 +35,18 @@ vi.mock('./productPersistenceService', () => ({
   ensureUuidFormat: (product: any) => product.id || crypto.randomUUID(),
   syncProductToSupabase: vi.fn(async (...args: any[]) => { mockDb.syncCalls.push(args); }),
 }));
+vi.mock('./productDraftPersistence', () => ({
+  persistProductDraft: vi.fn(async (product: any) => {
+    product.updatedAt = '2026-10-11T16:00:00.000Z';
+    mockDb.persistedDrafts.push(product);
+  }),
+}));
 
 describe('productMutationService - Sincronização de active entre pai e variações', () => {
   const updates: Array<{ table: string; value: any; filter: any }> = [];
 
   beforeEach(() => {
+    clearTestArtifactContext();
     updates.length = 0;
     mockDb.productKind = 'normal';
     mockDb.databaseProducts = [];
@@ -47,6 +55,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     mockDb.invalidateQueries.mockClear();
     mockDb.failProductUpdateId = null;
     mockDb.failUpdateTable = null;
+    mockDb.persistedDrafts.length = 0;
     mockDb.from.mockImplementation((table: string) => {
       let updateWasCalled = false;
       const chain: any = {
@@ -228,12 +237,77 @@ describe('productMutationService - Sincronização de active entre pai e variaç
       stock: 1,
       status: 'hidden',
       isDraft: false,
-    } as Product, true);
+    } as Product, true, { isTestArtifact: true });
 
     expect(mockDb.syncCalls).toHaveLength(1);
     expect(mockDb.syncCalls[0][0].technicalSpecs.testArtifact)
       .toEqual({ is_test: true, runId, ownerId });
     expect(mockDb.syncCalls[0][1]).toEqual({ insertOnly: true });
+    clearTestArtifactContext();
+  });
+
+  it('permite salvar rascunho de produto identificado sem criar variações ou estoque remoto', async () => {
+    const ownerId = '550e8400-e29b-41d4-a716-446655440001';
+    const runId = '550e8400-e29b-41d4-a716-446655440000';
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
+    bindTestArtifactContext({ runId, ownerId });
+
+    const id = '550e8400-e29b-41d4-a716-446655440022';
+    const draft = {
+      id,
+      name: 'Rascunho de produto sintético',
+      code: 'TESTE-RASCUNHO-22',
+      technicalSpecs: {},
+      isDraft: true,
+      status: 'draft',
+      active: false,
+    } as Product;
+
+    await saveProduct(draft, false, { isTestArtifact: true });
+
+    expect(mockDb.persistedDrafts).toHaveLength(1);
+    expect(mockDb.persistedDrafts[0].technicalSpecs.testArtifact)
+      .toEqual({ is_test: true, runId, ownerId });
+    expect(draft.technicalSpecs?.testArtifact).toEqual({ is_test: true, runId, ownerId });
+    expect(draft.updatedAt).toBe('2026-10-11T16:00:00.000Z');
+    expect(mockDb.syncCalls).toHaveLength(0);
+    clearTestArtifactContext();
+  });
+
+  it('não marca um novo produto quando o contexto existe e o formulário está em OFF', async () => {
+    const ownerId = '550e8400-e29b-41d4-a716-446655440001';
+    const runId = '550e8400-e29b-41d4-a716-446655440000';
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
+    bindTestArtifactContext({ runId, ownerId });
+
+    await saveProduct({
+      id: '550e8400-e29b-41d4-a716-446655440021',
+      name: 'Produto comum',
+      code: 'COMUM-21',
+      unitPrice: 2000,
+      stock: 1,
+      status: 'hidden',
+      isDraft: false,
+    } as Product, true);
+
+    expect(mockDb.syncCalls[0][0].technicalSpecs).toBeUndefined();
+    expect(mockDb.syncCalls[0][1]).toEqual({ insertOnly: false });
     clearTestArtifactContext();
   });
 

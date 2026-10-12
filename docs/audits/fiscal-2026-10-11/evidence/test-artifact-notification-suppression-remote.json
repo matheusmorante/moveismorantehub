@@ -1,0 +1,39 @@
+{
+  "name": "test-artifact-notification-suppression-postgrest",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "environment": "Vercel Development / fiscal environment 2",
+  "method": "Authenticated PostgREST inserts against one owned synthetic order; database BEFORE INSERT guard",
+  "runId": "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+  "orderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+  "preflight": {
+    "authenticatedIdentityMatches": true,
+    "administratorConfirmed": true,
+    "artifactOwnerAndRunMatch": true,
+    "orderStatus": "cancelled",
+    "items": 0,
+    "nfeDocuments": 0,
+    "inventoryMoves": 0,
+    "notificationRowsBefore": 0
+  },
+  "probes": {
+    "attemptedTypes": [
+      "order_created",
+      "order_edited",
+      "order_schedule_changed",
+      "assembly_outside",
+      "assembly_depot",
+      "system"
+    ],
+    "suppressedCount": 6,
+    "persistedRows": 0,
+    "notificationRowsAfter": 0,
+    "directPushRequests": 0
+  },
+  "result": "passed",
+  "limitations": [
+    "Proves suppression at the database/PostgREST notification insertion point.",
+    "No device, Expo, UI, or direct push notification was invoked."
+  ]
+}

@@ -20,6 +20,10 @@ import {
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
+  AUTOMATIC_RETURN_WORKER_SECRET_HEADER,
+  isAutomaticReturnWorkerAuthorized,
+} from './automaticReturnWorkerAuthorization';
+import {
   loadReturnFiscalSourceContext,
   validateAuthorizedOutboundNfe,
   type ReturnFiscalSourceContext,
@@ -54,7 +58,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!supabaseUrl || !serviceKey)
     return res.status(503).json({ error: 'Serviço fiscal indisponível.' });
   const db = createClient<FiscalDatabase>(supabaseUrl, serviceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(db, req.headers.authorization);
+  const automaticReturnWorker = isAutomaticReturnWorkerAuthorized(
+    req.headers[AUTOMATIC_RETURN_WORKER_SECRET_HEADER]
+  );
+  const fiscalAuthorization = automaticReturnWorker
+    ? { ok: true as const, userId: null as string | null, isAdministrator: false }
+    : await authorizeFiscalOperator(db, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({ error: fiscalAuthorization.message });
 
@@ -71,6 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .maybeSingle();
       if (draftError) throw draftError;
       if (!draft) return res.status(404).json({ error: 'Rascunho fiscal não encontrado.' });
+      if (automaticReturnWorker && draft.operation_kind !== 'return') {
+        return res.status(403).json({ error: 'O worker só pode consultar rascunhos de devolução.' });
+      }
       const { data: lines, error: linesError } = await db
         .from('nfe_operation_draft_lines')
         .select(
@@ -265,6 +277,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .maybeSingle();
       if (draftForReviewError) throw draftForReviewError;
       if (!draftForReview) return res.status(404).json({ error: 'Rascunho fiscal não encontrado.' });
+      if (automaticReturnWorker && draftForReview.operation_kind !== 'return') {
+        return res.status(403).json({ error: 'O worker só pode revisar rascunhos de devolução.' });
+      }
       if (draftForReview.operation_kind === 'return' && draftForReview.return_order_id) {
         const sourceContext = await loadReturnFiscalSourceContext(
           db,
@@ -499,6 +514,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const returnOrderId = req.body?.returnOrderId ? String(req.body.returnOrderId) : null;
     const environment = Number(req.body?.environment);
     const reason = String(req.body?.reason || '').trim();
+    if (automaticReturnWorker && (kind !== 'return' || !returnOrderId)) {
+      return res.status(403).json({ error: 'O worker só pode preparar rascunhos de devolução vinculados.' });
+    }
     if (
       !['estorno', 'return'].includes(kind) ||
       !uuid.test(originalDocumentId) ||

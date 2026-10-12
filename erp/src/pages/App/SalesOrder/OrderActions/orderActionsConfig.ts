@@ -17,6 +17,8 @@ import {
   budgetWhatsappUrl,
   sendDirectBudgetMessage,
   sendDirectGroupInviteMessage,
+  sendDirectReturnOSCustomerMessage,
+  sendDirectReturnOSTeamMessage,
 } from '../../../utils/whatsapp';
 import { getSettings } from '../../../utils/settingsService';
 import { printSalesOrder, printReceipt } from '../../../utils/printing/printService';
@@ -45,6 +47,12 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
   },
   SEND_ASSISTANCE_OS: (order) => {
     window.open(assistanceServiceOrderWhatsappUrl(order), '_blank');
+  },
+  SEND_RETURN_OS_CUSTOMER: (order) => {
+    void sendDirectReturnOSCustomerMessage(order);
+  },
+  SEND_RETURN_OS_TEAM: (order) => {
+    void sendDirectReturnOSTeamMessage(order);
   },
   SEND_CUSTOMER_REVIEWS: (order) => {
     window.open(customerReviewsWhatsappUrl(order), '_blank');
@@ -257,6 +265,12 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
 
     const formatCurrency = (value: unknown) =>
       Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const isCollection =
+      order.returnMethod === 'store_collection' ||
+      (order.returnMethod == null && order.status === 'scheduled');
+    const returnDocumentTitle = isCollection
+      ? 'OS DE COLETA (DEVOLUÇÃO)'
+      : 'COMPROVANTE DE DEVOLUÇÃO';
     const collectionDate = order.shipping?.scheduling?.date
       ? new Date(`${order.shipping.scheduling.date}T12:00:00`).toLocaleDateString('pt-BR')
       : 'A definir';
@@ -298,7 +312,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     printWindow.document.write(`
             <html>
                 <head>
-                    <title>OS DE COLETA (DEVOLUÇÃO) - ${formatOrderCode(order)}</title>
+                    <title>${returnDocumentTitle} - ${formatOrderCode(order)}</title>
                     <style>
                         body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
                         .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
@@ -315,13 +329,13 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                     <img src="/images/logo-morante.svg" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
                                 </div>
                                 <div>
-                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">OS de Coleta (Devolução)</h1>
+                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">${isCollection ? 'OS de Coleta (Devolução)' : 'Comprovante de Devolução'}</h1>
                                     <div style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 800;">PEDIDO: #${formatOrderCode(order)}</div>
                                 </div>
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 30px; padding: 18px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
+                        ${isCollection ? `<div style="margin-bottom: 30px; padding: 18px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
                             <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #9a3412; margin-bottom: 12px;">Agendamento da Coleta</div>
                             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px;">
                                 <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Data</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionDate}</div></div>
@@ -330,7 +344,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                 <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Tempo estimado</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${estimatedTime}</div></div>
                                 <div style="grid-column: 1 / -1;"><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Endereço da coleta</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionAddress}</div></div>
                             </div>
-                        </div>
+                        </div>` : `<div style="margin-bottom: 30px; padding: 18px; border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 12px; font-weight: 800;">Retorno recebido na loja. Este documento registra o pedido de devolução.</div>`}
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
                             <div style="padding: 15px; background: #fffcf0; border-radius: 12px;">
@@ -358,7 +372,7 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
                                 <tbody>${itemsHtml}</tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="2" style="padding: 15px; text-align: right; font-weight: 900; font-size: 14px; text-transform: uppercase; color: #78350f;">Total do Estorno:</td>
+                                        <td colspan="2" style="padding: 15px; text-align: right; font-weight: 900; font-size: 14px; text-transform: uppercase; color: #78350f;">Total da Devolução:</td>
                                         <td style="padding: 15px; text-align: right; font-weight: 900; font-size: 18px; color: #d97706;">R$ ${formatCurrency(returnTotal)}</td>
                                     </tr>
                                 </tfoot>
@@ -507,9 +521,30 @@ export const buttons: OrderButton[] = [
     key: 'printReturnOS',
     icon: 'bi-printer-fill',
     action: 'PRINT_RETURN_OS',
-    label: 'Imprimir OS de Devolução',
+    label: (order) =>
+      order.returnMethod === 'store_collection'
+        ? 'Imprimir OS de Coleta da Devolução'
+        : 'Imprimir Comprovante de Devolução',
     color: 'text-amber-700 hover:bg-amber-50',
-    tooltip: 'Imprimir comprovante de devolução',
+    tooltip: 'Imprimir documento do pedido de devolução',
+    orderTypes: ['return'],
+  },
+  {
+    key: 'sendReturnOSCustomer',
+    icon: 'bi-whatsapp',
+    action: 'SEND_RETURN_OS_CUSTOMER',
+    label: 'Enviar pedido de devolução ao cliente',
+    color: 'text-green-600 hover:bg-green-50',
+    tooltip: 'Enviar o pedido de devolução ao cliente pelo WhatsApp',
+    orderTypes: ['return'],
+  },
+  {
+    key: 'sendReturnOSTeam',
+    icon: 'bi-send-fill',
+    action: 'SEND_RETURN_OS_TEAM',
+    label: 'Enviar dados da coleta da devolução para equipe',
+    color: 'text-blue-600 hover:bg-blue-50',
+    tooltip: 'Enviar os dados da coleta agendada à equipe pelo WhatsApp',
     orderTypes: ['return'],
   },
   {

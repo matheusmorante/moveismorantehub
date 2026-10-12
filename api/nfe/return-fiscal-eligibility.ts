@@ -4,6 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 import type { FiscalDatabase } from './fiscalDatabaseTypes';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import {
+  AUTOMATIC_RETURN_WORKER_SECRET_HEADER,
+  isAutomaticReturnWorkerAuthorized,
+} from './automaticReturnWorkerAuthorization';
+import {
   MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE,
   resolveFiscalReturnMethod,
   validateAuthorizedOutboundNfe,
@@ -46,7 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Devolução fiscal inválida.' });
 
   const db = createClient<FiscalDatabase>(supabaseUrl, serviceKey);
-  const fiscalAuthorization = await authorizeFiscalOperator(db, req.headers.authorization);
+  const automaticReturnWorker = isAutomaticReturnWorkerAuthorized(
+    req.headers[AUTOMATIC_RETURN_WORKER_SECRET_HEADER]
+  );
+  const fiscalAuthorization = automaticReturnWorker
+    ? { ok: true as const, userId: null as string | null, isAdministrator: false }
+    : await authorizeFiscalOperator(db, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({ error: fiscalAuthorization.message });
 

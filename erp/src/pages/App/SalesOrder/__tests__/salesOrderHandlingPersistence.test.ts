@@ -1,6 +1,7 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import { useSalesOrderForm } from '../useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 
@@ -309,14 +310,32 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
 
   it('envia is_test ao caminho de salvamento quando o administrador liga o modo teste', async () => {
     mockSaveOrder.mockReset().mockResolvedValue('new-test-order');
+    const runId = '550e8400-e29b-41d4-a716-446655440000';
+    const ownerId = '550e8400-e29b-41d4-a716-446655440001';
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
+    bindTestArtifactContext({ runId, ownerId });
     const { result } = renderHook(() => useSalesOrderForm());
 
     act(() => result.current.actions.setTestMode(true));
+    expect(result.current.state.currentOrder.testArtifact).toEqual({ is_test: true, runId, ownerId });
     await act(async () => {
       await result.current.actions.handleSaveOrder();
     });
 
     expect(mockSaveOrder).toHaveBeenCalledTimes(1);
     expect(mockSaveOrder.mock.calls[0][0].is_test).toBe(true);
+    expect(mockSaveOrder.mock.calls[0][0].testArtifact).toEqual({ is_test: true, runId, ownerId });
+    act(() => result.current.actions.setTestMode(false));
+    expect(result.current.state.currentOrder.is_test).toBe(false);
+    expect(result.current.state.currentOrder.testArtifact).toBeNull();
+    clearTestArtifactContext();
   });
 });

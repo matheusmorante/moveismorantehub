@@ -142,16 +142,25 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(status).toBe('fulfilled');
     });
 
-    it('retorna "fulfilled" para retirada com data igual ou anterior a hoje', () => {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const status = resolveCompletedOrderStatus({
+    it('mantém agendada durante a data marcada e só conclui depois da meia-noite', () => {
+      const now = new Date(2026, 9, 10, 23, 59);
+      const todayStatus = resolveCompletedOrderStatus({
         orderType: 'sale',
         shipping: {
           deliveryMethod: 'pickup',
-          scheduling: { date: todayStr },
+          scheduling: { date: '2026-10-10' },
         } as any,
-      });
-      expect(status).toBe('fulfilled');
+      }, now);
+      const pastStatus = resolveCompletedOrderStatus({
+        orderType: 'sale',
+        shipping: {
+          deliveryMethod: 'pickup',
+          scheduling: { date: '2026-10-10' },
+        } as any,
+      }, new Date(2026, 9, 11, 0, 0));
+
+      expect(todayStatus).toBe('scheduled');
+      expect(pastStatus).toBe('fulfilled');
     });
 
     it('retorna "scheduled" para retirada com data futura agendada', () => {

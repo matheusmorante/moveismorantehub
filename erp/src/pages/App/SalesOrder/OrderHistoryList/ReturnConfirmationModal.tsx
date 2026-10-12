@@ -39,7 +39,6 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
         aria-modal="true"
         aria-labelledby="return-confirmation-title"
         className="relative z-10 w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl dark:border-amber-900/70 dark:bg-slate-900"
-        onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
           <i className="bi bi-arrow-return-left text-xl" />
@@ -56,8 +55,8 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
           venda nas análises e relatórios.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          A movimentação de saída original permanece preservada. Quando a devolução for atendida, a
-          entrada correspondente será registrada no estoque{' '}
+          A movimentação de saída original permanece preservada. Quando a devolução ficar como
+          Devolvido, a entrada correspondente será registrada no estoque{' '}
           <strong>apenas para produtos cadastrados</strong>. Itens sem cadastro no sistema não geram
           movimentação de estoque.
         </p>

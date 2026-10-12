@@ -1,0 +1,42 @@
+{
+  "name": "test-artifact-active-financial-rollback",
+  "date": "2026-10-11",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "database": "PostgreSQL 17.6",
+  "method": "Controlled SQL DO block with authenticated role and deliberate final exception to roll back the statement",
+  "runId": "610eef79-9cc7-4b44-a8d3-2c5d7aeb9c24",
+  "orderId": "386ef984-ee54-4d69-bef9-00041fbc5810",
+  "preflight": {
+    "ownedSyntheticArtifact": true,
+    "statusBefore": "cancelled",
+    "items": 0,
+    "nfeDocuments": 0,
+    "inventoryMoves": 0
+  },
+  "checksBeforeRollback": {
+    "authenticatedAdministratorContext": true,
+    "scheduledStateRawCount": 1,
+    "scheduledStateFilteredCount": 0,
+    "fulfilledStateRawCount": 1,
+    "fulfilledStateFilteredCount": 0,
+    "syntheticFinancialProbeVisibleInTransaction": true,
+    "financialReportInclusiveRows": 0,
+    "financialReportExclusiveRows": 0,
+    "crossRunLinkRejected": true,
+    "expectedRollbackMarker": "TEST_ARTIFACT_ROLLBACK_PROOF"
+  },
+  "postRollbackRead": {
+    "orderStatus": "cancelled",
+    "orderDataStatusRestored": true,
+    "financialProbeRowsPersisted": 0,
+    "nfeDocuments": 0,
+    "inventoryMoves": 0,
+    "notificationRows": 0
+  },
+  "result": "passed",
+  "limitations": [
+    "No full sale, cancellation, estorno, return, or fiscal transmission lifecycle was exercised.",
+    "The readiness RPC still reports behavioralProofRequired=true."
+  ]
+}

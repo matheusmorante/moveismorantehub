@@ -1,6 +1,6 @@
 # Cancelamento comercial, estorno e devolução
 
-**Reconciliado com o código em 09/10/2026.** Este documento cobre pedidos de venda vinculados a documentos fiscais de saída. A cobertura e os bloqueios de implementação ficam no [status fiscal](../../fiscal/status-testes-homologacao.md).
+**Reconciliado com o código em 10/10/2026.** Este documento cobre pedidos de venda vinculados a documentos fiscais de saída. A cobertura e os bloqueios de implementação ficam no [status fiscal](../../fiscal/status-testes-homologacao.md).
 
 ## Regras por estado da operação
 
@@ -17,7 +17,7 @@
 - `hasGoodsCirculated(order)` trata `fulfilled` como circulação tanto para entrega quanto para retirada, além das evidências de saída/trânsito definidas pelo serviço central. Trânsito ou estado não reconciliado não pode ser presumido como operação não realizada.
 - No Paraná, a janela é 168 horas para NF-e modelo 55 e 30 minutos para NFC-e modelo 65. Centralizar os prazos e cobrir o instante exato do limite a partir da autorização.
 - Atualização comercial e efeitos de estoque são confirmados na transação do pedido. A chamada à SEFAZ ocorre após o commit; falha ou timeout fiscal exige tentativa idempotente e reconciliação sem desfazer o fato comercial confirmado.
-- Criar uma devolução não confirma retorno físico nem emite documento fiscal. Coleta só conclui como “Coletada” depois da confirmação da coleta; quando o cliente já trouxe a mercadoria à loja, conclui como “Recebida”. A entrada de estoque acompanha a confirmação física na transação do pedido. A NF-e de devolução é preparada na área fiscal depois desse retorno.
+- Criar um pedido de devolução não conclui o retorno nem emite documento. “Coleta da devolução” é o agendamento operacional e aparece como “Coleta agendada”; a equipe pode confirmar antes do prazo ou o pedido é concluído automaticamente como “Devolvido” no vencimento da data/hora agendada. Quando o cliente já trouxe a mercadoria, o pedido fica “Devolvido” no cadastro. A entrada de estoque acompanha a transação que conclui o pedido. Após o commit, transmitir automaticamente a NF-e de devolução se a venda vinculada tiver NF-e autorizada no mesmo ambiente e o cenário passar as validações fiscais habilitadas; sem documento autorizado, não emitir. Falha fiscal não desfaz retorno ou estoque e exige reconciliação idempotente.
 - A criação de devolução fiscal a partir de NFC-e modelo 65 não tem cobertura comprovada; consulte o [status central](../../fiscal/status-testes-homologacao.md). A NF-e original deve ser preservada.
 
 ## Implementação relacionada

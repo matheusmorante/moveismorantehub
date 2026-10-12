@@ -42,6 +42,12 @@ vi.mock('../orderStatusWorkflowService', () => ({ recordOrderStatusHistory: mock
 
 import { executeSaveOrder } from '../orderCreationService';
 import { executeUpdateOrder } from '../orderUpdateService';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+
+const testIdentity = {
+  runId: '550e8400-e29b-41d4-a716-446655440000',
+  ownerId: '550e8400-e29b-41d4-a716-446655440001',
+};
 
 const scheduledSale = {
   orderType: 'sale',
@@ -65,6 +71,16 @@ const splitPayments = [
 describe('cadastro de pedido com estoque atômico', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearTestArtifactContext();
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
     mocks.invalidateQueries.mockResolvedValue(undefined);
   });
 
@@ -109,7 +125,21 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.rpc.mock.calls[0][1].p_order_id).toBe('550e8400-e29b-41d4-a716-446655440010');
   });
 
+  it('não marca um pedido comum quando o contexto de teste existe e o modo está OFF', async () => {
+    bindTestArtifactContext(testIdentity);
+    mocks.rpc.mockResolvedValue({
+      data: { id: 'pedido-normal', order_index: 123, order_data: scheduledSale },
+      error: null,
+    });
+
+    await executeSaveOrder(scheduledSale as any, vi.fn());
+
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data).not.toHaveProperty('is_test');
+    expect(mocks.dispatchNotifications).toHaveBeenCalledTimes(1);
+  });
+
   it('mantém estoque/RPC sem gerar notificação do teste nem atualizar contatos operacionais', async () => {
+    bindTestArtifactContext(testIdentity);
     const syntheticOrder = { ...scheduledSale, customerData: { id: 'test-customer' }, is_test: true, syntheticFixture: { scenarioKey: 'SCENARIO_001', version: 1 } };
     mocks.rpc.mockResolvedValue({
       data: { id: '550e8400-e29b-41d4-a716-446655440011', order_index: 123, order_data: syntheticOrder },
@@ -122,6 +152,10 @@ describe('cadastro de pedido com estoque atômico', () => {
 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data.is_test).toBe(true);
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data.testArtifact).toEqual({
+      is_test: true,
+      ...testIdentity,
+    });
     expect(mocks.syncCustomer).not.toHaveBeenCalled();
     expect(mocks.dispatchNotifications).not.toHaveBeenCalled();
   });

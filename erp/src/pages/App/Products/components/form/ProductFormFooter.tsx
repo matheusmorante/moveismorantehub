@@ -7,6 +7,9 @@ export interface ProductFormFooterProps {
   readonly loading: boolean;
   readonly isAiProcessing: boolean;
   readonly isLastStep: boolean;
+  readonly canMarkTestArtifact?: boolean;
+  readonly isTestArtifact?: boolean;
+  readonly onTestArtifactChange?: (enabled: boolean) => void;
   readonly onClose: () => void;
   readonly onNextStep: () => void;
   readonly onSubmit: () => void;
@@ -21,6 +24,9 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
   loading,
   isAiProcessing,
   isLastStep,
+  canMarkTestArtifact = false,
+  isTestArtifact = false,
+  onTestArtifactChange,
   onClose,
   onNextStep,
   onSubmit,
@@ -30,6 +36,31 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
   return (
     <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 shrink-0">
       <div className="flex items-center gap-2 w-full md:w-auto">
+        {canMarkTestArtifact && onTestArtifactChange && (
+          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+            isTestArtifact
+              ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'
+              : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-800/40'
+          }`}>
+            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+              Artefato de teste
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Artefato de teste do produto"
+              aria-checked={isTestArtifact}
+              onClick={() => onTestArtifactChange(!isTestArtifact)}
+              className={`inline-flex min-w-12 items-center justify-center rounded-full px-2 py-1 text-[9px] font-black tracking-wider transition-colors ${
+                isTestArtifact
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {isTestArtifact ? 'ON' : 'OFF'}
+            </button>
+          </div>
+        )}
         {isDraftProduct && (
           <div
             role="status"

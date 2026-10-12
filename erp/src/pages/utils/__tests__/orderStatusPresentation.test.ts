@@ -84,7 +84,7 @@ describe('apresentação do status fulfilled entre ERP e aplicativo', () => {
   );
 
   it.each(presentations)(
-    '%s apresenta devoluções por coleta como Coletada',
+    '%s apresenta devoluções por coleta como Devolvido',
     (_name, getLabels, getStatusLabel) => {
       const returnOrder = {
         status: 'fulfilled',
@@ -93,24 +93,24 @@ describe('apresentação do status fulfilled entre ERP e aplicativo', () => {
       };
 
       expect(getLabels(returnOrder)).toMatchObject({
-        status: 'Coletada',
+        status: 'Devolvido',
         confirmAction: 'Confirmar coleta',
       });
-      expect(getStatusLabel(returnOrder)).toBe('Coletada');
+      expect(getStatusLabel(returnOrder)).toBe('Devolvido');
     }
   );
 
   it.each(presentations)(
-    '%s apresenta devolução trazida à loja como Recebida',
+    '%s apresenta devolução trazida à loja como Devolvido',
     (_name, getLabels, getStatusLabel) => {
       const order = { status: 'fulfilled', orderType: 'return', returnMethod: 'store_delivery' };
-      expect(getLabels(order).status).toBe('Recebida');
-      expect(getStatusLabel(order)).toBe('Recebida');
+      expect(getLabels(order).status).toBe('Devolvido');
+      expect(getStatusLabel(order)).toBe('Devolvido');
     }
   );
 
   it.each(presentations)(
-    '%s apresenta coleta pendente como Aguardando coleta',
+    '%s apresenta coleta pendente como Coleta agendada',
     (_name, _getLabels, getStatusLabel) => {
       expect(
         getStatusLabel({
@@ -118,7 +118,7 @@ describe('apresentação do status fulfilled entre ERP e aplicativo', () => {
           orderType: 'return',
           returnMethod: 'store_collection',
         })
-      ).toBe('Aguardando coleta');
+      ).toBe('Coleta agendada');
     }
   );
 });

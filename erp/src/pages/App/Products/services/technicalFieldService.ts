@@ -97,6 +97,11 @@ export const fetchTechnicalFieldDefinitions = async (
         : (categoryLinks ?? [])
             .filter((link) => link.attribute_id === attribute.id)
             .map((link) => link.category_id);
+      const requiredCategoryIds = categoryLinksError
+        ? []
+        : (categoryLinks ?? [])
+            .filter((link) => link.attribute_id === attribute.id && link.is_required)
+            .map((link) => link.category_id);
       const dimensionUnit = ['altura', 'largura', 'profundidade'].includes(normalizedName)
         ? 'cm'
         : unitPolicy === 'product-form' && normalizedName === 'peso'
@@ -119,6 +124,7 @@ export const fetchTechnicalFieldDefinitions = async (
         isCustom: Boolean(attribute.is_custom),
         options,
         categoryIds,
+        requiredCategoryIds,
       };
     });
 };

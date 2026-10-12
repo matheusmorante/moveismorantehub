@@ -51,12 +51,23 @@ describe('personMutationService test artifact context', () => {
     await savePerson('customers', {
       fullName: 'Cliente da execução',
       address: { street: 'Rua de teste', city: 'Curitiba', state: 'PR' },
-    } as any);
+    } as any, { isTestArtifact: true });
 
     expect(db.inserts[0].address).toMatchObject({
       street: 'Rua de teste',
       testArtifact: { is_test: true, runId, ownerId },
     });
+  });
+
+  it('não marca cadastros como teste quando o contexto existe e o formulário está em OFF', async () => {
+    bindTestArtifactContext({ runId, ownerId });
+
+    await savePerson('customers', {
+      fullName: 'Cliente operacional',
+      address: { street: 'Rua real', city: 'Curitiba', state: 'PR' },
+    } as any);
+
+    expect(db.inserts[0].address).not.toHaveProperty('testArtifact');
   });
 
   it('recusa editar cadastro operacional ou de outra execução no contexto de teste', async () => {

@@ -1,9 +1,9 @@
 const { spawn } = require('node:child_process');
-const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '../..');
 const mode = process.argv[2];
+const rawArgs = process.argv.slice(3);
 
 function stop(message) {
   process.stderr.write(`${message}\n`);
@@ -13,10 +13,31 @@ function stop(message) {
 function required(name, fallback) {
   const value = (process.env[name] || (fallback ? process.env[fallback] : ''))?.trim();
   if (!value) stop(`E2E fiscal bloqueado. Variável de runtime ausente: ${name}.`);
+  if (/^<redacted>$/i.test(value) || value.toLowerCase() === 'redacted') {
+    stop(`E2E fiscal bloqueado. ${name} recebeu o placeholder de interface <redacted>; leia o secret de runtime novamente.`);
+  }
   return value;
 }
 
 if (!['simulated', 'hml'].includes(mode)) stop('Modo de teste fiscal inválido.');
+
+function optionValue(name) {
+  const index = rawArgs.indexOf(name);
+  return index < 0 ? '' : (rawArgs[index + 1] || '').trim();
+}
+
+function validUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+const runId = optionValue('--run-id');
+const orderId = optionValue('--order-id');
+if (!validUuid(runId)) stop('E2E fiscal bloqueado: informe --run-id com o UUID de uma execução já persistida.');
+if (!validUuid(orderId)) stop('E2E fiscal bloqueado: informe --order-id com o UUID de um pedido já persistido.');
+const authorizeTransmission = rawArgs.includes('--authorize-hml-transmission');
+if (authorizeTransmission && mode !== 'hml') {
+  stop('--authorize-hml-transmission só pode ser usado no modo hml.');
+}
 
 const supabaseUrl = required('VITE_SUPABASE_URL', 'SUPABASE_URL');
 const anonKey = required('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY');
@@ -46,7 +67,11 @@ if (!/^[a-z0-9]{20}$/.test(linkedRef) || configuredRef !== linkedRef) {
 const env = { ...process.env };
 env.FISCAL_E2E_MODE = mode;
 env.NFE_HML_TEST_OPERATOR_EMAIL = operatorEmail;
-env.VITE_TEST_ARTIFACT_RUN_ID = randomUUID();
+env.FISCAL_E2E_RUN_ID = runId.toLowerCase();
+env.VITE_TEST_ARTIFACT_RUN_ID = runId.toLowerCase();
+env.FISCAL_E2E_ORDER_ID = orderId.toLowerCase();
+if (authorizeTransmission) env.FISCAL_E2E_TRANSMISSION_AUTHORIZED = 'true';
+else delete env.FISCAL_E2E_TRANSMISSION_AUTHORIZED;
 env.FISCAL_E2E_ALLOWED_SUPABASE_REF = linkedRef;
 env.VITE_SUPABASE_URL = supabaseUrl;
 env.SUPABASE_URL = supabaseUrl;
@@ -71,8 +96,21 @@ if (mode === 'simulated') {
   delete env.FISCAL_E2E_SIMULATOR_ENABLED;
 }
 
+const consumedOptions = new Set(['--run-id', '--order-id', '--authorize-hml-transmission']);
+const playwrightArgs = rawArgs.filter((arg, index) => {
+  if (consumedOptions.has(arg)) return false;
+  if (rawArgs[index - 1] === '--run-id' || rawArgs[index - 1] === '--order-id') return false;
+  return true;
+});
+const npmArgs = [
+  'run',
+  'test:e2e:fiscal:runner',
+  '--prefix',
+  'erp',
+  ...(playwrightArgs.length ? ['--', ...playwrightArgs] : []),
+];
 const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const child = spawn(executable, ['run', 'test:e2e:fiscal:runner', '--prefix', 'erp'], {
+const child = spawn(executable, npmArgs, {
   cwd: projectRoot,
   env,
   stdio: 'inherit',

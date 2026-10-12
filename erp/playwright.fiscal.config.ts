@@ -1,7 +1,10 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
 function linkedSupabaseRef(): string {
@@ -27,8 +30,11 @@ function supabaseRef(value: string | undefined): string | null {
 function assertFiscalE2eEnvironment(): void {
   const required = [
     'FISCAL_E2E_MODE',
+    'FISCAL_E2E_RUN_ID',
+    'FISCAL_E2E_ORDER_ID',
     'FISCAL_E2E_ALLOWED_SUPABASE_REF',
     'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
     'SUPABASE_SECRET_KEY',
     'NFE_HML_TEST_OPERATOR_EMAIL',
     'NFE_HML_TEST_OPERATOR_PASSWORD',
@@ -88,7 +94,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:5173',
     ...devices['Desktop Chrome'],
-    headless: true,
+    headless: false,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -98,7 +104,7 @@ export default defineConfig({
     cwd: appRoot,
     url: 'http://127.0.0.1:5173',
     timeout: 240_000,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
   },
   projects: [
     {

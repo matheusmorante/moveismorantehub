@@ -8,7 +8,7 @@ import {
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderCreationNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
-import { stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
+import { getTestArtifactContext, stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 
@@ -26,7 +26,14 @@ export const executeSaveOrder = async (
   }
 
   try {
-    let orderToSave = stampTestOrder(removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order)));
+    let orderToSave = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order));
+    if (orderToSave.is_test === true) {
+      const testIdentity = getTestArtifactContext();
+      if (!testIdentity) {
+        throw new Error('O modo de artefato de teste exige operador autorizado nesta execução.');
+      }
+      orderToSave = stampTestOrder(orderToSave, testIdentity);
+    }
     delete orderToSave.id;
     orderToSave.deleted = false;
     orderToSave.deletedAt = null;

@@ -4,7 +4,7 @@ import { SignedXml } from 'xml-crypto';
 export type FiscalXmlEnvironment = 1 | 2;
 
 export interface FiscalXmlItemExpectation {
-  code: string;
+  code?: string;
   description?: string;
   homologationDescription?: string;
   ncm: string;
@@ -13,8 +13,8 @@ export interface FiscalXmlItemExpectation {
   origin: string;
   csosn?: string;
   cst?: string;
-  quantity: number;
-  unitPrice: number;
+  quantity?: number;
+  unitPrice?: number;
   productTotal?: number;
   discount?: number;
   freight?: number;
@@ -47,6 +47,7 @@ export interface FiscalXmlSnapshotExpectation {
   model: '55' | '65';
   environment: FiscalXmlEnvironment;
   operation: 'sale' | 'return';
+  requireSignature?: boolean;
   number?: number | string;
   series?: number | string;
   accessKey?: string;
@@ -60,8 +61,8 @@ export interface FiscalXmlSnapshotExpectation {
   referenceAccessKey?: string;
   freightMode?: string;
   items: FiscalXmlItemExpectation[];
-  totals: {
-    products: number;
+  totals?: {
+    products?: number;
     icmsBase?: number;
     discount?: number;
     freight?: number;
@@ -78,7 +79,7 @@ export interface FiscalXmlSnapshotExpectation {
     cofins?: number;
     other?: number;
     estimatedTaxes?: number;
-    invoice: number;
+    invoice?: number;
   };
 }
 
@@ -315,7 +316,7 @@ export function assertFiscalXmlMatchesSnapshot(
     const detail = details[index];
     const prefix = `det[${index + 1}]`;
     if (!detail) {
-      mismatches.push({ field: `${prefix}.prod`, expected: item.code, actual: '(ausente)' });
+      mismatches.push({ field: `${prefix}.prod`, expected: item.code || item.ncm, actual: '(ausente)' });
       return;
     }
 
@@ -355,25 +356,29 @@ export function assertFiscalXmlMatchesSnapshot(
     compareNumber(mismatches, `${prefix}.imposto.COFINS.vCOFINS`, item.cofins, descendantText(cofins, 'vCOFINS'));
   });
 
-  compareNumber(mismatches, 'total.ICMSTot.vBC', expected.totals.icmsBase, text(total, 'vBC'));
-  compareNumber(mismatches, 'total.ICMSTot.vProd', expected.totals.products, text(total, 'vProd'));
-  compareNumber(mismatches, 'total.ICMSTot.vDesc', expected.totals.discount, text(total, 'vDesc'));
-  compareNumber(mismatches, 'total.ICMSTot.vFrete', expected.totals.freight, text(total, 'vFrete'));
-  compareNumber(mismatches, 'total.ICMSTot.vICMS', expected.totals.icms, text(total, 'vICMS'));
-  compareNumber(mismatches, 'total.ICMSTot.vICMSDeson', expected.totals.icmsExempt, text(total, 'vICMSDeson'));
-  compareNumber(mismatches, 'total.ICMSTot.vBCST', expected.totals.icmsStBase, text(total, 'vBCST'));
-  compareNumber(mismatches, 'total.ICMSTot.vST', expected.totals.icmsSt, text(total, 'vST'));
-  compareNumber(mismatches, 'total.ICMSTot.vSeg', expected.totals.insurance, text(total, 'vSeg'));
-  compareNumber(mismatches, 'total.ICMSTot.vII', expected.totals.importTax, text(total, 'vII'));
-  compareNumber(mismatches, 'total.ICMSTot.vIPI', expected.totals.ipi, text(total, 'vIPI'));
-  compareNumber(mismatches, 'total.ICMSTot.vPIS', expected.totals.pis, text(total, 'vPIS'));
-  compareNumber(mismatches, 'total.ICMSTot.vCOFINS', expected.totals.cofins, text(total, 'vCOFINS'));
-  compareNumber(mismatches, 'total.ICMSTot.vOutro', expected.totals.other, text(total, 'vOutro'));
-  compareNumber(mismatches, 'total.ICMSTot.vTotTrib', expected.totals.estimatedTaxes, text(total, 'vTotTrib'));
-  compareNumber(mismatches, 'total.ICMSTot.vNF', expected.totals.invoice, text(total, 'vNF'));
+  if (expected.totals) {
+    compareNumber(mismatches, 'total.ICMSTot.vBC', expected.totals.icmsBase, text(total, 'vBC'));
+    compareNumber(mismatches, 'total.ICMSTot.vProd', expected.totals.products, text(total, 'vProd'));
+    compareNumber(mismatches, 'total.ICMSTot.vDesc', expected.totals.discount, text(total, 'vDesc'));
+    compareNumber(mismatches, 'total.ICMSTot.vFrete', expected.totals.freight, text(total, 'vFrete'));
+    compareNumber(mismatches, 'total.ICMSTot.vICMS', expected.totals.icms, text(total, 'vICMS'));
+    compareNumber(mismatches, 'total.ICMSTot.vICMSDeson', expected.totals.icmsExempt, text(total, 'vICMSDeson'));
+    compareNumber(mismatches, 'total.ICMSTot.vBCST', expected.totals.icmsStBase, text(total, 'vBCST'));
+    compareNumber(mismatches, 'total.ICMSTot.vST', expected.totals.icmsSt, text(total, 'vST'));
+    compareNumber(mismatches, 'total.ICMSTot.vSeg', expected.totals.insurance, text(total, 'vSeg'));
+    compareNumber(mismatches, 'total.ICMSTot.vII', expected.totals.importTax, text(total, 'vII'));
+    compareNumber(mismatches, 'total.ICMSTot.vIPI', expected.totals.ipi, text(total, 'vIPI'));
+    compareNumber(mismatches, 'total.ICMSTot.vPIS', expected.totals.pis, text(total, 'vPIS'));
+    compareNumber(mismatches, 'total.ICMSTot.vCOFINS', expected.totals.cofins, text(total, 'vCOFINS'));
+    compareNumber(mismatches, 'total.ICMSTot.vOutro', expected.totals.other, text(total, 'vOutro'));
+    compareNumber(mismatches, 'total.ICMSTot.vTotTrib', expected.totals.estimatedTaxes, text(total, 'vTotTrib'));
+    compareNumber(mismatches, 'total.ICMSTot.vNF', expected.totals.invoice, text(total, 'vNF'));
+  }
 
   if (mismatches.length) throw new FiscalXmlSnapshotMismatchError(mismatches);
-  assertFiscalXmlSignatureValid(xml);
+  if (expected.requireSignature !== false) {
+    assertFiscalXmlSignatureValid(xml);
+  }
 }
 
 /** Verifies the XMLDSig over infNFe using the X.509 certificate embedded in KeyInfo. */

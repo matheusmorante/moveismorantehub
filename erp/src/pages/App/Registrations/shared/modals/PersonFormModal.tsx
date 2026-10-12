@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
+import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
 import Person from '../../../../types/person.type';
 import {
   usePersonForm,
@@ -29,10 +30,12 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
   title,
 }) => {
   const { isAdministrator } = useAuth();
-
   const {
     formData,
     setFormData,
+    isTestArtifact,
+    setIsTestArtifact,
+    canMarkTestArtifact,
     loading,
     settings,
     isEmployee,
@@ -55,6 +58,7 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
     collectionName,
     title,
     canManageAccessRoles: isAdministrator,
+    canMarkTestArtifact: Boolean(isAdministrator && getTestArtifactContext()),
   });
 
   if (!isOpen) return null;
@@ -107,6 +111,30 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
           onSubmit={handleSubmit}
           className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar"
         >
+          {canMarkTestArtifact && (
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
+              <div>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Artefato de teste</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  O cadastro será salvo no Supabase vinculado a esta execução.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-label="Artefato de teste do cliente"
+                aria-checked={isTestArtifact}
+                onClick={() => setIsTestArtifact(!isTestArtifact)}
+                className={`inline-flex min-w-12 items-center justify-center rounded-full px-2 py-1 text-[9px] font-black tracking-wider transition-colors ${
+                  isTestArtifact
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {isTestArtifact ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <PersonIdentificationSection
               formData={formData}

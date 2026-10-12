@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
@@ -19,6 +19,7 @@ vi.mock('maplibre-gl', () => ({
 import OrderEditModal from '../modals/OrderEditModal';
 import NewSaleOrder from '../pages/NewSaleOrder';
 import Order from '@/pages/types/order.type';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 
 const { mockUseAuth } = vi.hoisted(() => ({
   mockUseAuth: vi.fn((): { isAdministrator: boolean } => ({ isAdministrator: false })),
@@ -92,6 +93,7 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
   beforeEach(() => {
     document.body.style.overflow = 'auto';
     mockUseAuth.mockReturnValue({ isAdministrator: false });
+    clearTestArtifactContext();
   });
 
   afterEach(() => {
@@ -144,7 +146,20 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
     expect(document.body.style.overflow).toBe('auto');
   });
 
-  it('mostra o modo teste somente para administrador em nova venda', () => {
+  it('mostra o modo teste somente para administrador com contexto autorizado em nova venda', () => {
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+      },
+    });
+    bindTestArtifactContext({
+      runId: '550e8400-e29b-41d4-a716-446655440000',
+      ownerId: '550e8400-e29b-41d4-a716-446655440001',
+    });
     mockUseAuth.mockReturnValue({ isAdministrator: true });
     const adminView = render(<NewSaleOrder onClose={vi.fn()} />);
     expect(adminView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
@@ -155,6 +170,14 @@ describe('Etapa 1.6: Modal de pedido em tela cheia e scroll lock [TESTE_AUT]', (
     mockUseAuth.mockReturnValue({ isAdministrator: false });
     const regularView = render(<NewSaleOrder onClose={vi.fn()} />);
     expect(regularView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
+      'false'
+    );
+  });
+
+  it('oculta o modo teste quando a sessão não tem a identidade da execução', () => {
+    mockUseAuth.mockReturnValue({ isAdministrator: true });
+    const adminView = render(<NewSaleOrder onClose={vi.fn()} />);
+    expect(adminView.getByTestId('mock-sales-order-form-section').dataset.showTestMode).toBe(
       'false'
     );
   });

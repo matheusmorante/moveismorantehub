@@ -4,6 +4,7 @@ import { buttons, actionsMap } from '../OrderActions/orderActionsConfig';
 import { validateOrder, validateAssistanceOrder } from '../../../utils/validations';
 import { toast } from 'react-toastify';
 import { canGenerateReturn } from '../../../utils/returnPolicy';
+import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 
 const OrderActions = ({ order }: { order: Order }) => {
   const [isButtonsClicked, setIsButtonsClicked] = useState<IsButtonsClicked>({
@@ -39,6 +40,10 @@ const OrderActions = ({ order }: { order: Order }) => {
       {buttons
         .filter((btn: any) => {
           if (btn.orderTypes && !btn.orderTypes.includes(order.orderType || 'sale')) return false;
+          if (
+            isIdentifiedTestArtifact(order) &&
+            ['sendReturnOSCustomer', 'sendReturnOSTeam'].includes(btn.key)
+          ) return false;
 
           const hasReturn = !!(
             order.returnOrderId ||

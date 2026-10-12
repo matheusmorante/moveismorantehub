@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Product from '../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { getEnteredProductName, isDraftSaveEligible } from './rules/productDraftRules';
+import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 
 export { getEnteredProductName, isDraftSaveEligible };
 
@@ -67,7 +68,11 @@ export function useProductFormDraft(
               status: 'draft',
             } as Product;
 
-            const savedId = await saveProduct(normalizedData);
+            const savedId = await saveProduct(
+              normalizedData,
+              false,
+              readTestArtifactIdentity(nextData) ? { isTestArtifact: true } : {}
+            );
             savedDraftIdRef.current = savedId;
             savedVersionRef.current = normalizedData.updatedAt;
             const savedSnapshot = { ...normalizedData, id: savedId };
@@ -75,6 +80,8 @@ export function useProductFormDraft(
               ...prev,
               id: savedId,
               updatedAt: normalizedData.updatedAt,
+              ...(prev.technicalSpecs === nextData.technicalSpecs
+                ? { technicalSpecs: normalizedData.technicalSpecs } : {}),
               ...(prev.name === nextData.name ? { name: draftTitle } : {}),
               ...(prev.title === nextData.title ? { title: normalizedData.title } : {}),
               isDraft: true,
