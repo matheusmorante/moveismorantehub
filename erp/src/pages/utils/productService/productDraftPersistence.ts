@@ -3,7 +3,10 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { mapToDB } from './productToDbMapper';
 import { resolveUniqueSlug } from '../uniqueSlug';
 import { createProductDraftSnapshot, isProductDraft } from './productDraftSnapshot';
-import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+import {
+  readTestArtifactIdentity,
+  testArtifactMetadata,
+} from '../../../../../shared-utils/testArtifactPolicy';
 
 /** The draft is one aggregate: saving never creates inventory or partial child records. */
 export async function persistProductDraft(product: Product): Promise<void> {
@@ -31,6 +34,7 @@ export async function persistProductDraft(product: Product): Promise<void> {
 
   const snapshot = createProductDraftSnapshot(product);
   const payload = mapToDB(snapshot);
+  const testArtifactIdentity = readTestArtifactIdentity(product);
   for (const field of [
     'variations', 'brand', 'category', 'ecommerce_description', 'whatsapp_description',
     'whatsapp_template', 'ecommerce_template', 'initial_stock_entries', 'meta_title',
@@ -39,10 +43,11 @@ export async function persistProductDraft(product: Product): Promise<void> {
   payload.technical_specs = {
     ...existing?.technical_specs,
     ...payload.technical_specs,
+    ...(testArtifactIdentity ? { testArtifact: testArtifactMetadata(testArtifactIdentity) } : {}),
     draftProduct: snapshot,
   };
   // A removed form marker must not be resurrected by the persisted JSON merge.
-  if (!readTestArtifactIdentity(product)) delete payload.technical_specs.testArtifact;
+  if (!testArtifactIdentity) delete payload.technical_specs.testArtifact;
   payload.updated_at = new Date().toISOString();
   payload.slug = await resolveUniqueSlug(supabase, 'products', payload.slug || payload.name, product.id);
   payload.category_id = product.categoryIds?.[0] || null;

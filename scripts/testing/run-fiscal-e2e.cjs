@@ -9,7 +9,7 @@ const mode = process.argv[2];
 
 if (!['simulated', 'hml'].includes(mode)) {
   process.stderr.write(
-    'Use `npm run test:e2e:fiscal:hml -- --run-id <UUID> --order-id <UUID> --scenario-key <key>` with artifacts already persisted.\n',
+    'Use `npm run test:fiscal:e2e` with artifact IDs configured in Vercel Development, or pass --run-id, --order-id and --scenario-key for persisted artifacts.\n',
   );
   process.exit(2);
 }

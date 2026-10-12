@@ -41,6 +41,20 @@ beforeEach(() => {
 });
 
 describe('gravação do agregado de rascunho', () => {
+  it('persiste a identidade canônica do artefato de teste fora do snapshot do formulário', async () => {
+    const testArtifact = {
+      is_test: true,
+      runId: '196068ee-6be6-4354-8cf1-295d01ddcad6',
+      ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39',
+      scenarioKey: 'nfce65_pickup',
+    };
+
+    await persistProductDraft({ ...product(), technicalSpecs: { testArtifact } });
+
+    expect(db.payload.technical_specs.testArtifact).toEqual(testArtifact);
+    expect(db.payload.technical_specs.draftProduct).not.toHaveProperty('technicalSpecs');
+  });
+
   it('grava pai e variações incompletas juntos, sem atualizar saldos ou tabelas filhas', async () => {
     const draft = product();
     await persistProductDraft(draft);

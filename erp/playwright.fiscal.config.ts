@@ -92,6 +92,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/fiscal/fiscal-policy.global-setup.ts',
   reporter: [
     ['html', { outputFolder: './playwright-report/fiscal-interface-e2e', open: 'never' }],
+    ['json', { outputFile: './test-results/fiscal-interface-e2e/results.json' }],
     ['list'],
   ],
   use: {

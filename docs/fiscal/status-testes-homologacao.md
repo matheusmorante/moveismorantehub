@@ -8,7 +8,7 @@
 
 **Roteiro completo por cenário:** [Plano cíclico de NF-e, NFC-e, estorno e devoluções](plano-ciclo-testes-fiscais.md).
 
-**Estado do checkout em 12/10/2026:** os runners E2E leem somente artefatos fiscais já persistidos no Supabase e exigem `runId`, UUID do pedido e `scenarioKey` coerentes com `order_data.testArtifact`; factories/presets estáticos foram removidos. O único acesso remoto desta tarefa foi a consulta read-only de readiness no projeto vinculado (HTTP 200, `ready=true`, `policyVersion=json-artifacts-v1`, `behavioralProofRequired=false`); não houve leitura de artefato por execução, escrita, migration, limpeza ou transmissão. Nenhum `runId`/pedido foi fornecido, portanto a preparação de pedidos reais pela UI, a conferência dos documentos persistidos e os cenários de cancelamento/devolução ainda não foram executados.
+**Estado do checkout em 12/10/2026:** os runners E2E leem somente artefatos fiscais já persistidos no Supabase e validam `runId`, UUID do pedido e `scenarioKey` contra `order_data.testArtifact`; factories/presets estáticos foram removidos. O atalho `npm run test:fiscal:e2e` usa esses identificadores de Vercel Development ou argumentos explícitos e grava relatório HTML/JSON; não provisiona registros. O único acesso remoto desta tarefa foi a consulta read-only de readiness no projeto vinculado (HTTP 200, `ready=true`, `policyVersion=json-artifacts-v1`, `behavioralProofRequired=false`); não houve leitura de artefato por execução, escrita, migration, limpeza ou transmissão. Nenhum `runId`/pedido foi fornecido, portanto a preparação de pedidos reais pela UI, a conferência dos documentos persistidos e os cenários de cancelamento/devolução ainda não foram executados.
 
 ## Como interpretar os estados
 

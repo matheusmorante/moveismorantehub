@@ -33,9 +33,18 @@ A execução padrão é somente leitura: abre o modal, valida os campos e a pré
 
 ## Comandos
 
+O atalho único executa o fluxo HML e gera relatórios HTML e JSON do Playwright:
+
+```powershell
+npm run test:fiscal:e2e
+```
+
+Sem parâmetros, o comando usa `FISCAL_E2E_RUN_ID`, `FISCAL_E2E_ORDER_ID` e `FISCAL_E2E_SCENARIO_KEY` do ambiente Vercel Development. Também aceita os parâmetros explícitos abaixo para selecionar uma execução persistida. O runner não cria `runId`, cliente, produto ou pedido; sem um cenário válido e já persistido, encerra antes de abrir o navegador. Para transmitir, continua exigindo a autorização específica `--authorize-hml-transmission`.
+
 ```powershell
 npm run test:e2e:fiscal:simulated -- --run-id <UUID> --order-id <UUID> --scenario-key <key>
 npm run test:e2e:fiscal:hml -- --run-id <UUID> --order-id <UUID> --scenario-key <key>
+npm run test:fiscal:e2e -- --run-id <UUID> --order-id <UUID> --scenario-key <key>
 ```
 
 Esses comandos não criam artefatos. O modo HML acima valida a UI e a prévia, sem clicar em transmitir. A opção `--authorize-hml-transmission` é uma decisão operacional separada e só deve ser usada sob autorização explícita para a transmissão concreta, exclusivamente em HML. Não repetir após timeout/502 ou resposta ambígua; reconciliar a tentativa pela UI primeiro.

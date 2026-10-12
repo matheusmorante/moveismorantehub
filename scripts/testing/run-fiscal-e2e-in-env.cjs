@@ -21,22 +21,23 @@ function required(name, fallback) {
 
 if (!['simulated', 'hml'].includes(mode)) stop('Modo de teste fiscal inválido.');
 
-function optionValue(name) {
+function optionValue(name, environmentName) {
   const index = rawArgs.indexOf(name);
-  return index < 0 ? '' : (rawArgs[index + 1] || '').trim();
+  const argumentValue = index < 0 ? '' : (rawArgs[index + 1] || '').trim();
+  return argumentValue || (environmentName ? (process.env[environmentName] || '').trim() : '');
 }
 
 function validUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-const runId = optionValue('--run-id');
-const orderId = optionValue('--order-id');
-const scenarioKey = optionValue('--scenario-key');
-if (!validUuid(runId)) stop('E2E fiscal bloqueado: informe --run-id com o UUID de uma execução já persistida.');
-if (!validUuid(orderId)) stop('E2E fiscal bloqueado: informe --order-id com o UUID de um pedido já persistido.');
+const runId = optionValue('--run-id', 'FISCAL_E2E_RUN_ID');
+const orderId = optionValue('--order-id', 'FISCAL_E2E_ORDER_ID');
+const scenarioKey = optionValue('--scenario-key', 'FISCAL_E2E_SCENARIO_KEY');
+if (!validUuid(runId)) stop('E2E fiscal bloqueado: informe FISCAL_E2E_RUN_ID com o UUID de uma execução já persistida ou use --run-id.');
+if (!validUuid(orderId)) stop('E2E fiscal bloqueado: informe FISCAL_E2E_ORDER_ID com o UUID de um pedido já persistido ou use --order-id.');
 if (!/^[a-z][a-z0-9_-]{2,63}$/i.test(scenarioKey)) {
-  stop('E2E fiscal bloqueado: informe --scenario-key com a identificação do cenário persistido.');
+  stop('E2E fiscal bloqueado: informe FISCAL_E2E_SCENARIO_KEY ou --scenario-key do cenário persistido.');
 }
 if (!['nfe55_sale', 'nfe55_delivery_own_transport', 'nfce65_pickup', 'nfce65_delivery'].includes(scenarioKey.toLowerCase())) {
   stop('E2E fiscal bloqueado: informe um cenário implementado: nfe55_sale, nfe55_delivery_own_transport, nfce65_pickup ou nfce65_delivery.');

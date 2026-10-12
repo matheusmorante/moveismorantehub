@@ -10,10 +10,10 @@ const runner = path.join(__dirname, 'run-fiscal-e2e-in-env.cjs');
 const validRunId = '550e8400-e29b-41d4-a716-446655440001';
 const validOrderId = '550e8400-e29b-41d4-a716-446655440003';
 
-function invoke(args) {
+function invoke(args, extraEnv = {}) {
   return spawnSync(process.execPath, [runner, ...args], {
     cwd: projectRoot,
-    env: {},
+    env: { ...extraEnv },
     encoding: 'utf8',
     windowsHide: true,
   });
@@ -22,13 +22,24 @@ function invoke(args) {
 test('fails when a preexisting runId and order UUID are not supplied', () => {
   const result = invoke(['hml']);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /run-id.*UUID.*já persistida/i);
+  assert.match(result.stderr, /FISCAL_E2E_RUN_ID.*UUID.*já persistida/i);
 });
 
 test('requires a scenario key linked to the persisted order', () => {
   const result = invoke(['hml', '--run-id', validRunId, '--order-id', validOrderId]);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /scenario-key.*identificação.*cenário persistido/i);
+  assert.match(result.stderr, /FISCAL_E2E_SCENARIO_KEY.*cenário persistido/i);
+});
+
+test('reads an already-persisted scenario from the Vercel Development runtime for the one-command runner', () => {
+  const result = invoke(['hml'], {
+    FISCAL_E2E_RUN_ID: validRunId,
+    FISCAL_E2E_ORDER_ID: validOrderId,
+    FISCAL_E2E_SCENARIO_KEY: 'nfe55_sale',
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Variável de runtime ausente: VITE_SUPABASE_URL/i);
+  assert.doesNotMatch(result.stderr, /run-id.*UUID|order-id.*UUID|scenario-key/i);
 });
 
 test('rejects fiscal scenario keys that this runner does not implement', () => {

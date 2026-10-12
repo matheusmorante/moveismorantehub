@@ -45,7 +45,7 @@ describe('personMutationService test artifact context', () => {
     });
   });
 
-  it('grava a identidade no JSON address ao criar uma pessoa', async () => {
+  it('grava a identidade no JSON de endereço canônico ao criar uma pessoa', async () => {
     bindTestArtifactContext({ runId, ownerId });
 
     await savePerson('customers', {
@@ -54,6 +54,10 @@ describe('personMutationService test artifact context', () => {
     } as any, { isTestArtifact: true });
 
     expect(db.inserts[0].address).toMatchObject({
+      street: 'Rua de teste',
+      testArtifact: { is_test: true, runId, ownerId },
+    });
+    expect(db.inserts[0].full_address).toMatchObject({
       street: 'Rua de teste',
       testArtifact: { is_test: true, runId, ownerId },
     });
@@ -68,6 +72,25 @@ describe('personMutationService test artifact context', () => {
     } as any);
 
     expect(db.inserts[0].address).not.toHaveProperty('testArtifact');
+    expect(db.inserts[0]).not.toHaveProperty('full_address');
+  });
+
+  it('preserva a identidade canônica ao editar um cadastro da própria execução', async () => {
+    bindTestArtifactContext({ runId, ownerId });
+    db.currentPerson = {
+      id: 'person-id',
+      address: JSON.stringify({
+        street: 'Rua de teste',
+        testArtifact: { is_test: true, runId, ownerId },
+      }),
+    };
+
+    await updatePerson('customers', 'person-id', { fullName: 'Cliente fiscal atualizado' });
+
+    expect(db.updates[0].full_address).toMatchObject({
+      street: 'Rua de teste',
+      testArtifact: { is_test: true, runId, ownerId },
+    });
   });
 
   it('recusa editar cadastro operacional ou de outra execução no contexto de teste', async () => {
