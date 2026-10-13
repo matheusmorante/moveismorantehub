@@ -2,10 +2,10 @@ export const getCatalogApiUrl = () => {
   if (import.meta.env.VITE_CATALOG_API_URL) {
     return import.meta.env.VITE_CATALOG_API_URL.replace(/\/$/, '');
   }
-  // Em produção, as credenciais do R2 ficam protegidas na API do catálogo.
-  // O ERP recebe apenas uma URL temporária para enviar o arquivo. Para usar
-  // uma API local, defina VITE_CATALOG_API_URL no arquivo .env.local.
-  return 'https://www.moveismorante.com.br';
+  // Por padrão, usa o próprio backend do MoranteHub ERP (/api/upload).
+  // Em dev local, o proxy do Vite (/api) encaminha para a porta da API.
+  // Em produção (Vercel), a função serverless /api/upload é servida na mesma origem.
+  return '';
 };
 
 /**
@@ -17,10 +17,12 @@ export const getCatalogApiUrl = () => {
 export const uploadFile = async (file: File, path: string): Promise<string> => {
   try {
     const catalogApiUrl = getCatalogApiUrl();
-    const credentialResponse = await fetch(`${catalogApiUrl}/api/upload`, {
+    const endpoint = catalogApiUrl ? `${catalogApiUrl}/api/upload` : '/api/upload';
+    const contentType = file.type || 'image/jpeg';
+    const credentialResponse = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: path.replace(/^\/+/, ''), contentType: file.type }),
+      body: JSON.stringify({ fileName: path.replace(/^\/+/, ''), contentType }),
     });
 
     if (!credentialResponse.ok) {
@@ -31,7 +33,7 @@ export const uploadFile = async (file: File, path: string): Promise<string> => {
     const { uploadUrl, fileUrl } = await credentialResponse.json();
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': file.type },
+      headers: { 'Content-Type': contentType },
       body: file,
     });
 

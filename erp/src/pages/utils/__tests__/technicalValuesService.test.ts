@@ -68,9 +68,22 @@ describe('technicalValuesService', () => {
       options: [],
     };
 
-    expect(
-      getApplicableTechnicalFields([peso], ['cat-chair']).map((field) => field.isRequired)
-    ).toEqual([false]);
+    const applicable = getApplicableTechnicalFields([peso], ['cat-chair']);
+    expect(applicable.map((field) => field.isRequired)).toEqual([false]);
+    expect(applicable.map((field) => field.decimalPlaces)).toEqual([1]);
+  });
+
+  it('formata Peso com 1 casa decimal no nome da variação', () => {
+    const peso: TechnicalFieldDefinition = {
+      id: 'peso',
+      name: 'Peso',
+      dataType: 'weight',
+      unit: 'kg',
+      includeInName: true,
+      options: [],
+    };
+    const name = computeEffectiveVariationName('Sofá Florença', [peso], { Peso: 15.5 });
+    expect(name).toBe('Sofá Florença 15,5 kg');
   });
 
   it('herda valor padrão do produto pai quando não há override', () => {

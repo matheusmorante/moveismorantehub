@@ -42,12 +42,15 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
   isSingleVariation = false,
 }) => {
   return (
-    <div className="space-y-6 animate-in fade-in duration-350">
+    <div className="space-y-6 animate-in fade-in duration-350 min-w-0">
       {/* Linha com Nome (ERP) e Título (Catálogo) */}
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4 min-w-0">
         {/* Nome da Variação (ERP) */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+        <div className="space-y-1.5 min-w-0">
+          <label
+            htmlFor="variation-name-suffix-input"
+            className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6"
+          >
             <span>Nome da variação</span>
             <span className="text-red-500 ml-0.5">*</span>
           </label>
@@ -80,18 +83,22 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 
             return (
               <div
-                className="w-full flex items-center border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400 transition-colors py-1.5"
+                className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400 transition-colors py-1.5 min-w-0"
                 title="O nome do produto pai é imutável no início. Você pode editar livremente o que vem após o nome do pai."
               >
-                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none mr-2 border border-slate-200 dark:border-slate-700">
-                  {parentPrefixLabel}
+                <span
+                  title={parentPrefixLabel}
+                  className="self-start sm:self-auto inline-flex items-center max-w-full sm:max-w-[60%] px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold font-mono shrink-0 select-none border border-slate-200 dark:border-slate-700 min-w-0"
+                >
+                  <span className="truncate">{parentPrefixLabel}</span>
                 </span>
                 <input
+                  id="variation-name-suffix-input"
                   type="text"
                   placeholder="Ex.: Branco 6 Portas"
                   value={currentSuffix}
                   onChange={(e) => handleSuffixChange(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="w-full min-w-0 flex-1 bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70"
                   aria-label="Nome da variação"
                 />
               </div>
@@ -101,11 +108,15 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 
         {/* Título da Variação (Catálogo) */}
         {diferenciarTitulo ? (
-          <div className="space-y-1.5 animate-in slide-in-from-right-2 duration-200">
-            <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
+          <div className="space-y-1.5 animate-in slide-in-from-right-2 duration-200 min-w-0">
+            <label
+              htmlFor="variation-catalog-title-input"
+              className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6"
+            >
               <span>Título no Catálogo</span>
             </label>
             <input
+              id="variation-catalog-title-input"
               type="text"
               disabled={isSingleVariation}
               placeholder="Título exibido no catálogo digital..."

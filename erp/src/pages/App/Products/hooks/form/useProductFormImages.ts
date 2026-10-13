@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import Product from '../../../../types/product.type';
 import { toast } from 'react-toastify';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
-import { uploadFile } from '@/pages/utils/storageService';
 import { getMaxParentProductImages } from '@/pages/utils/productImageLimits';
+import { uploadFile } from '@/pages/utils/storageService';
+import type Product from '../../../../types/product.type';
 
 export type FileInputSource =
   | React.ChangeEvent<HTMLInputElement>
@@ -77,11 +77,17 @@ export function useProductFormImages(
         });
         const thumbPath = `products/${baseName}_thumb.webp`;
 
-        // Upload paralelo das 3 variações da imagem
+        // Upload paralelo das 3 variações da imagem (original mandatória; medium e thumb como otimizações)
         const [originalUrl] = await Promise.all([
           uploadFile(file, originalPath),
-          uploadFile(mediumFile, mediumPath),
-          uploadFile(thumbFile, thumbPath),
+          uploadFile(mediumFile, mediumPath).catch((err) => {
+            console.warn('Falha no upload da versão medium, fallback para original:', err);
+            return originalPath;
+          }),
+          uploadFile(thumbFile, thumbPath).catch((err) => {
+            console.warn('Falha no upload da versão thumbnail, fallback para original:', err);
+            return originalPath;
+          }),
         ]);
 
         // Retorna apenas a URL original. As outras URLs serão derivadas pelo ProductImage

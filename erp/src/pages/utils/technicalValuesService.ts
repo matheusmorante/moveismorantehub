@@ -347,11 +347,12 @@ export const formatValueForName = (field: TechnicalFieldDefinition, value: any):
     return '';
   }
 
+  const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
   const rawValue = String(value).trim();
   const strVal =
-    field.dataType === 'decimal' && Number.isFinite(Number(value))
+    (field.dataType === 'decimal' || isWeight) && Number.isFinite(Number(value))
       ? Number(value)
-          .toFixed(field.decimalPlaces ?? 2)
+          .toFixed(isWeight ? 1 : (field.decimalPlaces ?? 2))
           .replace('.', ',')
       : rawValue;
   if (!strVal) return '';
@@ -488,7 +489,14 @@ export const getApplicableTechnicalFields = (
     });
   }
 
-  return applicable.map((field) => ({ ...field, isRequired: isRequiredForProduct(field) }));
+  return applicable.map((field) => {
+    const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
+    return {
+      ...field,
+      isRequired: isRequiredForProduct(field),
+      decimalPlaces: isWeight ? 1 : field.decimalPlaces,
+    };
+  });
 };
 
 /**

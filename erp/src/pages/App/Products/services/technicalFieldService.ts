@@ -112,9 +112,10 @@ export const fetchTechnicalFieldDefinitions = async (
                 !isWeightCharacteristicName(attribute.name)
             )
             .map((link) => link.category_id);
+      const isWeight = isWeightCharacteristicName(attribute.name) || attribute.data_type === 'weight';
       const dimensionUnit = isMeasureCharacteristic
         ? 'cm'
-        : unitPolicy === 'product-form' && normalizedName === 'peso'
+        : isWeight
           ? 'kg'
           : undefined;
 
@@ -125,11 +126,13 @@ export const fetchTechnicalFieldDefinitions = async (
         dataType: isMeasureCharacteristic ? 'measure' : attribute.data_type || 'list',
         unit: attribute.unit || dimensionUnit,
         decimalPlaces:
-          attribute.decimal_places === 1 ||
-          attribute.decimal_places === 2 ||
-          attribute.decimal_places === 3
-            ? attribute.decimal_places
-            : undefined,
+          isWeight
+            ? 1
+            : attribute.decimal_places === 1 ||
+              attribute.decimal_places === 2 ||
+              attribute.decimal_places === 3
+              ? attribute.decimal_places
+              : undefined,
         isRequired: isRequiredCharacteristicName(attribute.name),
         isCustom: Boolean(attribute.is_custom),
         options,

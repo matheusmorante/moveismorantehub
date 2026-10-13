@@ -55,12 +55,34 @@ export const compressImageToFile = async (
     // Ensure its a File object. If we forced a fileType like image/webp, change the extension if needed.
     let newName = file.name;
     if (options?.fileType === 'image/webp' && !newName.toLowerCase().endsWith('.webp')) {
-      newName = newName.replace(/\.[^/.]+$/, '') + '.webp';
+      newName = `${newName.replace(/\.[^/.]+$/, '')}.webp`;
     }
-    return new File([compressedFile], newName, { type: compressedFile.type });
+    const finalType = compressedFile.type || options?.fileType || 'image/webp';
+    return new File([compressedFile], newName, { type: finalType });
   } catch (err) {
-    console.error('Erro ao comprimir imagem para arquivo:', err);
-    toast.error('Falha ao processar imagem.');
-    throw err;
+    console.warn('Erro ao comprimir com webworker, tentando sem webworker:', err);
+    try {
+      const imageCompression = (await import('browser-image-compression')).default;
+      const fallbackOptions = {
+        maxSizeMB: options?.maxMB || 0.1,
+        maxWidthOrHeight: options?.maxWidth || 1200,
+        useWebWorker: false,
+        initialQuality: options?.initialQuality || 0.75,
+        fileType: options?.fileType,
+      };
+      const compressedFile = await imageCompression(file, fallbackOptions);
+      let newName = file.name;
+      if (options?.fileType === 'image/webp' && !newName.toLowerCase().endsWith('.webp')) {
+        newName = `${newName.replace(/\.[^/.]+$/, '')}.webp`;
+      }
+      const finalType = compressedFile.type || options?.fileType || 'image/webp';
+      return new File([compressedFile], newName, { type: finalType });
+    } catch (fallbackErr) {
+      console.warn(
+        'Compressão falhou completamente, usando arquivo original como fallback:',
+        fallbackErr
+      );
+      return file;
+    }
   }
 };

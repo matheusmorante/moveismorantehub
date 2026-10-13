@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
-import type Product from '../../../../types/product.type';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
-import { uploadFile } from '@/pages/utils/storageService';
+import type React from 'react';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { getMaxParentProductImages, MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import { uploadFile } from '@/pages/utils/storageService';
+import type Product from '../../../../types/product.type';
+import { moveProductImage, replaceProductImage } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
-import {
-  moveProductImage,
-  replaceProductImage,
-  setProductCoverImage,
-} from './images/productImageOrdering';
-import {
-  getMaxParentProductImages,
-  MAX_VARIATION_IMAGES,
-} from '@/pages/utils/productImageLimits';
 
 interface ProductEcommerceTabProps {
   readonly formData: Partial<Product>;
@@ -120,22 +114,25 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
           aria-label="Limite de fotos do produto"
           className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900 dark:border-blue-800/70 dark:bg-blue-950/30 dark:text-blue-200"
         >
-          <i className="bi bi-info-circle-fill mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+          <i
+            className="bi bi-info-circle-fill mt-0.5 shrink-0 text-blue-600 dark:text-blue-400"
+            aria-hidden="true"
+          />
           <div className="space-y-1 text-xs">
             <p>
-              Adicione aqui as fotos principais do produto. As variações poderão vincular fotos desta
-              galeria para mostrar imagens específicas de cada modelo.
+              Adicione aqui as fotos principais do produto. As variações poderão vincular fotos
+              desta galeria para mostrar imagens específicas de cada modelo.
             </p>
-            <p className="font-black">
-              Limite do produto pai: {maxPhotos} foto(s).
-            </p>
+            <p className="font-black">Limite do produto pai: {maxPhotos} foto(s).</p>
             <p>
               Cada variação acrescenta mais {MAX_VARIATION_IMAGES} espaços para fotos à galeria e
               pode vincular até {MAX_VARIATION_IMAGES} fotos.
             </p>
             {currentCount > maxPhotos && (
               <p className="font-semibold">
-                Este cadastro já possui {currentCount} fotos, acima do limite atual. As fotos existentes serão preservadas; remova algumas ou aumente a quantidade de variações até o limite cobrir o total atual antes de incluir novas.
+                Este cadastro já possui {currentCount} fotos, acima do limite atual. As fotos
+                existentes serão preservadas; remova algumas ou aumente a quantidade de variações
+                até o limite cobrir o total atual antes de incluir novas.
               </p>
             )}
           </div>
@@ -155,8 +152,9 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
             {(formData.images || []).map((url, index) => {
               const borderClass = 'border-slate-200 dark:border-slate-800';
               return (
+                // biome-ignore lint/a11y/noStaticElementInteractions: item de galeria arrastavel
                 <div
-                  key={index}
+                  key={url}
                   draggable
                   onDragStart={() => setDraggedIndex(index)}
                   onDragOver={(e) => {
@@ -167,10 +165,6 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     setFormData({ ...formData, images: newImages });
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
-                  onClick={(event) => {
-                    // Clique na foto não executa ação destrutiva. A remoção
-                    // deve acontecer somente pelo botão da lixeira.
-                  }}
                   className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
                   title="Arraste para reordenar ou passe o mouse para obter opções"
                 >
@@ -234,33 +228,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         <i className="bi bi-trash text-xs"></i>
                       </button>
                     </div>
-
-                    {index !== 0 && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setFormData({
-                            ...formData,
-                            images: setProductCoverImage(formData.images || [], index),
-                          });
-                        }}
-                        className="bg-white text-[9px] text-slate-900 font-black uppercase tracking-widest px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors shadow-md"
-                      >
-                        Definir Capa
-                      </button>
-                    )}
                   </div>
-                  {index === 0 && (
-                    <span className="absolute top-2 left-2 bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full pointer-events-none z-20 shadow-md">
-                      Capa
-                    </span>
-                  )}
                 </div>
               );
             })}
             {Array.from({ length: isDraggingPhoto }, (_, index) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: placeholder list during upload
                 key={`uploading-${index}`}
                 className="aspect-square w-full rounded-none border-2 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30 flex flex-col items-center justify-center gap-2 animate-pulse"
               >

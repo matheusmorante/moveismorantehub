@@ -15,7 +15,12 @@ const parent = {
   width: 80,
   height: 180,
   depth: 50,
-  technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+  technicalValues: {
+    Cor: 'Azul',
+    Modelo: 'Padrão',
+    Marca: 'Morante',
+    'Material da estrutura': 'Madeira',
+  },
 };
 
 const variation = {
@@ -51,7 +56,7 @@ describe('productRegistrationRules', () => {
   it('mantém Material da estrutura opcional, como no ERP', () => {
     expect(
       getMobileVariationRegistrationIssue(
-        { ...parent, technicalValues: { Cor: 'Azul', 'Material da estrutura': '' } },
+        { ...parent, technicalValues: { ...parent.technicalValues, 'Material da estrutura': '' } },
         variation,
         [variation]
       )
@@ -112,6 +117,8 @@ describe('productRegistrationRules', () => {
       depth: 0,
       technicalValues: {
         Cor: 'Azul',
+        Modelo: 'Padrão',
+        Marca: 'Morante',
         'Material da estrutura': 'Madeira',
         Largura: '80',
         Altura: '180',

@@ -16,6 +16,8 @@ export interface ProductTechnicalField {
   isCustom?: boolean;
   is_custom?: boolean;
   categoryIds?: readonly string[];
+  decimal_places?: 1 | 2 | 3 | null;
+  data_type?: string | null;
 }
 
 export interface ProductTechnicalFieldGroup<
@@ -298,6 +300,10 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   return applicable.map((field) => ({
     ...field,
     isRequired: isProductTechnicalFieldRequired(field, categoryIds),
+    decimal_places:
+      isWeightCharacteristicName(field.name) || field.data_type === 'weight'
+        ? 1
+        : field.decimal_places,
   }));
 };
 

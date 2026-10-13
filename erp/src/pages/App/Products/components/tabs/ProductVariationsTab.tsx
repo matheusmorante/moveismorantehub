@@ -1,8 +1,8 @@
-import React from 'react';
+import type React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
-import { VariationRow as DefaultVariationRow } from '../VariationRow';
 import type { VariationRowProps } from '../VariationRow';
+import { VariationRow as DefaultVariationRow } from '../VariationRow';
 
 interface ProductVariationsTabProps {
   readonly formData?: Partial<Product>;
@@ -22,8 +22,6 @@ interface ProductVariationsTabProps {
   readonly onRemoveVariation?: (id: string) => void;
   readonly onDeleteVariation?: (id: string) => void;
   readonly deletingVariationId?: string | null;
-  readonly onDeleteProductWithOnlyVariation?: () => void;
-  readonly deletingProductWithVariation?: boolean;
   readonly setFormData?: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly onEditCombo?: (id: string) => void;
   // Aceita tanto onEdit (legado) quanto onEditVariation (ProductFormModal)
@@ -53,8 +51,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
   onRemoveVariation,
   onDeleteVariation,
   deletingVariationId,
-  onDeleteProductWithOnlyVariation,
-  deletingProductWithVariation = false,
   isCombo = false,
   onEdit,
   onEditVariation,
@@ -106,18 +102,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
             <i className="bi bi-plus-lg mr-2" aria-hidden="true" />
             Adicionar variação
           </button>
-          {list.length === 1 && onDeleteProductWithOnlyVariation && (
-            <button
-              type="button"
-              onClick={onDeleteProductWithOnlyVariation}
-              disabled={deletingProductWithVariation}
-              className="rounded-xl bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
-              title="Excluir produto e sua única variação"
-            >
-              <i className={`bi ${deletingProductWithVariation ? 'bi-arrow-repeat animate-spin' : 'bi-trash3'} mr-2`} aria-hidden="true" />
-              Excluir produto e variação
-            </button>
-          )}
         </div>
 
         <div className="overflow-x-auto rounded-[2.5rem] xl:border xl:border-slate-100 xl:bg-white xl:shadow-sm dark:xl:border-slate-800 dark:xl:bg-slate-950/20">

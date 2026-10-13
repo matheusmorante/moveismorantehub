@@ -89,4 +89,50 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     fireEvent.change(input, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith('');
   });
+
+  it('renderiza Peso como campo decimal com 1 dígito após a vírgula e placeholder "0,0"', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'attr-peso',
+      name: 'Peso',
+      dataType: 'weight',
+      options: [],
+    };
+    const onChange = vi.fn();
+
+    render(<TechnicalFieldInput field={field} value="" onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText('0,0') as HTMLInputElement;
+    expect(input).toBeDefined();
+    expect(input.type).toBe('text');
+    expect(input.inputMode).toBe('decimal');
+
+    // Digita número decimal com 1 dígito
+    fireEvent.change(input, { target: { value: '12,5' } });
+    expect(onChange).toHaveBeenCalledWith(12.5);
+
+    // Não permite segundo dígito decimal
+    fireEvent.change(input, { target: { value: '12,55' } });
+    expect(onChange).toHaveBeenCalledTimes(1); // Não emite o segundo dígito inválido
+  });
+
+  it('formata valor inteiro para 1 casa decimal ao sair do campo (blur) em Peso', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'attr-peso',
+      name: 'Peso',
+      dataType: 'weight',
+      options: [],
+    };
+    const onChange = vi.fn();
+
+    render(<TechnicalFieldInput field={field} value={15} onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText('0,0') as HTMLInputElement;
+    expect(input.value).toBe('15,0');
+
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe('20,0');
+    expect(onChange).toHaveBeenCalledWith(20);
+  });
 });

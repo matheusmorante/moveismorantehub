@@ -59,7 +59,12 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   onChange,
 }) => {
   const type = resolveTechnicalFieldDataType(field.name, field.data_type);
-  const decimalPlaces = type === 'decimal' ? (field.decimal_places ?? 2) : 2;
+  const isWeight = type === 'weight' || field.name.trim().toLocaleLowerCase('pt-BR') === 'peso';
+  const decimalPlaces = isWeight
+    ? 1
+    : type === 'decimal'
+      ? (field.decimal_places ?? 2)
+      : 2;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [decimalDraft, setDecimalDraft] = useState(() =>
@@ -76,7 +81,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }, [value, decimalPlaces, type]);
 
-  if (type === 'integer' || type === 'number' || type === 'weight') {
+  if (type === 'integer' || type === 'number') {
     return (
       <TextInput
         editable={!disabled}
@@ -93,18 +98,14 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
           onChange(numeric);
         }}
         keyboardType="number-pad"
-        placeholder={
-          type === 'weight'
-            ? 'Informe o peso em quilogramas'
-            : getTechnicalFieldIntegerPlaceholder(field.name)
-        }
+        placeholder={getTechnicalFieldIntegerPlaceholder(field.name)}
         placeholderTextColor="#94a3b8"
         style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
       />
     );
   }
 
-  if (type === 'decimal' || type === 'measure') {
+  if (type === 'decimal' || type === 'measure' || type === 'weight' || isWeight) {
     return (
       <TextInput
         editable={!disabled}
@@ -133,7 +134,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
           onChange(numeric);
         }}
         keyboardType="decimal-pad"
-        placeholder={formatDecimal(0, type === 'decimal' ? decimalPlaces : 2)}
+        placeholder={formatDecimal(0, decimalPlaces)}
         placeholderTextColor="#94a3b8"
         style={[styles.input, dark && styles.darkInput, disabled && styles.disabled]}
       />

@@ -111,11 +111,13 @@ const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
           .filter((link) => link.is_required && normalizedName !== 'peso')
           .map((link) => link.category_id),
         decimal_places:
-          attribute.decimal_places === 1 ||
-          attribute.decimal_places === 2 ||
-          attribute.decimal_places === 3
-            ? attribute.decimal_places
-            : null,
+          normalizedName === 'peso' || attribute.data_type === 'weight'
+            ? 1
+            : attribute.decimal_places === 1 ||
+              attribute.decimal_places === 2 ||
+              attribute.decimal_places === 3
+              ? attribute.decimal_places
+              : null,
         isRequired: isRequiredCharacteristicName(attribute.name),
         isCustom: Boolean(attribute.is_custom),
         options: orderedValues,

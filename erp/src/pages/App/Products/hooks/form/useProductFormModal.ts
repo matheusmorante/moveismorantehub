@@ -1,33 +1,32 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import Product, { Variation } from '@/pages/types/product.type';
-import Person from '@/pages/types/person.type';
-import { subscribeToPeople } from '@/pages/utils/personService';
-import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import type Person from '@/pages/types/person.type';
+import type Product from '@/pages/types/product.type';
+import type { Variation } from '@/pages/types/product.type';
+import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
+import { subscribeToPeople } from '@/pages/utils/personService';
 import { physicalDeleteVariation, saveVariation } from '@/pages/utils/productService';
 import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
-
+import { checkEcomLegibility } from '../../domain/productLegibilityRules';
+import { getProductFormTabs, isExistingRegisteredProduct } from '../../modals/productFormTabs';
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
-import { checkEcomLegibility } from '../../domain/productLegibilityRules';
 import {
+  type ProductFormTabKey,
   scrollToRequirementField,
-  ProductFormTabKey,
 } from '../../utils/form/productRequirementNavigation';
-import { getProductFormTabs, isExistingRegisteredProduct } from '../../modals/productFormTabs';
-import { isDraftSaveEligible } from './rules/productDraftRules';
-
-// Sub-hooks
-import { useProductFormPricing } from './useProductFormPricing';
-import { useProductFormAi } from './useProductFormAi';
 import { useProductJevClassification } from '../fiscal/useProductJevClassification';
+import { isDraftSaveEligible } from './rules/productDraftRules';
+import { useProductFormAi } from './useProductFormAi';
 import { useProductFormDraft } from './useProductFormDraft';
 import { useProductFormImages } from './useProductFormImages';
-import { useProductFormVariations } from './useProductFormVariations';
-import { useProductFormSync } from './useProductFormSync';
-import { useProductFormSubmit } from './useProductFormSubmit';
 import { useProductFormLoad } from './useProductFormLoad';
+// Sub-hooks
+import { useProductFormPricing } from './useProductFormPricing';
+import { useProductFormSubmit } from './useProductFormSubmit';
+import { useProductFormSync } from './useProductFormSync';
+import { useProductFormVariations } from './useProductFormVariations';
 
 export interface UseProductFormModalProps {
   readonly isOpen: boolean;
@@ -77,7 +76,6 @@ export function useProductFormModal({
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
   const [isConversionModalOpen, setIsConversionModalOpen] = useState(false);
   const [deletingVariationId, setDeletingVariationId] = useState<string | null>(null);
-  const [deletingProductWithVariation, setDeletingProductWithVariation] = useState(false);
 
   const [formData, setFormData] = useState<Partial<Product>>({
     ...INITIAL_PRODUCT_FORM_DATA,
@@ -122,9 +120,7 @@ export function useProductFormModal({
     return pendingId
       ? {
           ...current,
-          variations: current.variations?.filter(
-            (item) => String(item.id) !== String(pendingId)
-          ),
+          variations: current.variations?.filter((item) => String(item.id) !== String(pendingId)),
         }
       : current;
   }, [pendingNewVariationIdRef]);
@@ -206,7 +202,7 @@ export function useProductFormModal({
         const result = await fetchGroupsAndCategories();
         const categoriesList = Array.isArray(result?.categories) ? result.categories : [];
         setAvailableCategories(categoriesList.map((c: any) => ({ ...c, isGroup: false })));
-      } catch (err) {
+      } catch (_err) {
         setAvailableCategories([]);
       }
     };
@@ -224,7 +220,10 @@ export function useProductFormModal({
         const c = availableCategories.find((item) => item.id === catId);
         if (!c) return;
         if (!c.parents || c.parents.length === 0) roots.add(c.name);
-        else c.parents.forEach((pid: string) => find(pid));
+        else
+          c.parents.forEach((pid: string) => {
+            find(pid);
+          });
       };
       formData.categoryIds.forEach(find);
       const allEnvs = Array.from(roots);
@@ -425,7 +424,8 @@ export function useProductFormModal({
           }));
         } else {
           const productId = String(current.parentId || current.id || '');
-          if (!productId) throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
+          if (!productId)
+            throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
           await saveVariation(productId, updatedVar);
           latestFormDataRef.current = next;
           setFormData(next);
@@ -442,77 +442,49 @@ export function useProductFormModal({
     [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId]
   );
 
-  const handleDeleteVariation = useCallback(async (variationId: string) => {
-    const current = latestFormDataRef.current;
-    if ((current.variations?.length || 0) <= 1) {
-      toast.info('A última variação só pode ser excluída junto com o produto.');
-      return;
-    }
-    if (!isRegisteredProduct) return;
-    if (
-      !window.confirm(
-        'Excluir esta variação permanentemente? O sistema verificará se o UUID possui vínculos antes de continuar.'
+  const handleDeleteVariation = useCallback(
+    async (variationId: string) => {
+      const current = latestFormDataRef.current;
+      if ((current.variations?.length || 0) <= 1) {
+        toast.info('A última variação só pode ser excluída junto com o produto.');
+        return;
+      }
+      if (!isRegisteredProduct) return;
+      if (
+        !window.confirm(
+          'Excluir esta variação permanentemente? O sistema verificará se o UUID possui vínculos antes de continuar.'
+        )
       )
-    ) return;
+        return;
 
-    setDeletingVariationId(variationId);
-    try {
-      const productId = String(current.parentId || current.id || '');
-      const result = await physicalDeleteVariation(productId, variationId);
-      if (!result.success) {
-        toast.error(result.message || 'Não foi possível excluir a variação.');
-        return;
+      setDeletingVariationId(variationId);
+      try {
+        const productId = String(current.parentId || current.id || '');
+        const result = await physicalDeleteVariation(productId, variationId);
+        if (!result.success) {
+          toast.error(result.message || 'Não foi possível excluir a variação.');
+          return;
+        }
+        if (result.parentDeactivated) {
+          toast.success(result.message || 'Produto e variação desativados com sucesso.');
+          onClose();
+          return;
+        }
+        setFormData((previous) => ({
+          ...previous,
+          variations: previous.variations?.filter((variation) => variation.id !== variationId),
+          hasVariations: true,
+        }));
+        toast.success(result.message || 'Variação excluída com sucesso.');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao excluir a variação.');
+        console.error('[ProductForm] Falha ao excluir variação:', error);
+      } finally {
+        setDeletingVariationId(null);
       }
-      if (result.parentDeactivated) {
-        toast.success(result.message || 'Produto e variação desativados com sucesso.');
-        onClose();
-        return;
-      }
-      setFormData((previous) => ({
-        ...previous,
-        variations: previous.variations?.filter((variation) => variation.id !== variationId),
-        hasVariations: true,
-      }));
-      toast.success(result.message || 'Variação excluída com sucesso.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir a variação.');
-      console.error('[ProductForm] Falha ao excluir variação:', error);
-    } finally {
-      setDeletingVariationId(null);
-    }
-  }, [isRegisteredProduct, onClose, setFormData]);
-
-  const handleDeleteProductWithOnlyVariation = useCallback(async () => {
-    const current = latestFormDataRef.current;
-    const onlyVariation = current.variations?.length === 1 ? current.variations[0] : null;
-    if (!isRegisteredProduct || !onlyVariation) return;
-    if (
-      !window.confirm(
-        'Este produto tem uma única variação. O sistema verificará os vínculos do UUID e, se estiver livre, desativará o produto e a variação juntos para preservar o histórico.'
-      )
-    ) return;
-
-    setDeletingProductWithVariation(true);
-    try {
-      const productId = String(current.parentId || current.id || '');
-      const result = await physicalDeleteVariation(productId, onlyVariation.id);
-      if (!result.success) {
-        toast.error(result.message || 'Não foi possível excluir o produto.');
-        return;
-      }
-      if (result.parentDeactivated) {
-        toast.success(result.message || 'Produto e variação desativados com sucesso.');
-        onClose();
-        return;
-      }
-      toast.error('A quantidade de variações mudou. Atualize o produto e tente novamente.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir o produto.');
-      console.error('[ProductForm] Falha ao excluir produto com variação única:', error);
-    } finally {
-      setDeletingProductWithVariation(false);
-    }
-  }, [isRegisteredProduct, onClose]);
+    },
+    [isRegisteredProduct, onClose, setFormData]
+  );
 
   const handleConvertProduct = useCallback(
     (updated: Partial<Product>) => {
@@ -543,9 +515,7 @@ export function useProductFormModal({
     validationErrors,
     setValidationErrors,
     deletingVariationId,
-    deletingProductWithVariation,
     handleDeleteVariation,
-    handleDeleteProductWithOnlyVariation,
     isCategorySearchOpen,
     setIsCategorySearchOpen,
     suppliers,
@@ -565,7 +535,9 @@ export function useProductFormModal({
         hasChanged.current = true;
         scheduleDraftAutoSave();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o modo de teste.');
+        toast.error(
+          error instanceof Error ? error.message : 'Não foi possível alterar o modo de teste.'
+        );
       }
     },
     canMarkTestArtifact: canMarkTestArtifact && isDraftProduct,

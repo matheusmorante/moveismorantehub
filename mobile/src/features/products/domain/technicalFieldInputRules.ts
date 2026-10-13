@@ -7,6 +7,9 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   if (/quantidade de (portas?|gavetas?)/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
+  if (name.trim().toLocaleLowerCase('pt-BR') === 'peso' || dataType === 'weight') {
+    return 'decimal';
+  }
   return dataType || 'list';
 };
 

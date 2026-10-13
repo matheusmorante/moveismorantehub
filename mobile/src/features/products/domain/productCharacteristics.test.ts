@@ -41,8 +41,9 @@ describe('productCharacteristics', () => {
       getApplicableProductTechnicalFields([weightField], ['cat-chair']).map((field) => ({
         name: field.name,
         isRequired: field.isRequired,
+        decimal_places: field.decimal_places,
       }))
-    ).toEqual([{ name: 'Peso', isRequired: false }]);
+    ).toEqual([{ name: 'Peso', isRequired: false, decimal_places: 1 }]);
   });
 
   it('considera variação própria e herança do produto pai com precedência da variação', () => {

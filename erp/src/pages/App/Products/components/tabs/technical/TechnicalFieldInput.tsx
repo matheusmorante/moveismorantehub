@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { TechnicalCombobox } from './TechnicalCombobox';
-import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import {
+  isWeightCharacteristicName,
+  TechnicalFieldDefinition,
+} from '@/pages/utils/technicalValuesService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 const SIMPLE_CHOICE_DROPDOWN_LIMIT = 8;
@@ -23,7 +26,17 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   isInvalid,
   onChange,
 }) => {
-  const type = field.dataType || 'list';
+  let type = field.dataType || 'list';
+  if (/^(marca|modelo|linha)$/i.test(field.name.trim())) {
+    type = 'text_short';
+  } else if (
+    /quantidade de (portas?|gavetas?)/i.test(field.name) ||
+    /lugar(es)?/i.test(field.name)
+  ) {
+    type = 'integer';
+  } else if (type === 'weight' || isWeightCharacteristicName(field.name)) {
+    type = 'decimal';
+  }
   const maxLength = 120;
   if (type === 'text_short' || type === 'text') {
     const isMarca = /^marca$/i.test(field.name.trim());
@@ -62,18 +75,15 @@ export const TechnicalFieldInput: React.FC<Props> = ({
       />
     );
   }
-  if (type === 'integer' || type === 'number' || type === 'weight') {
+  if (type === 'integer' || type === 'number') {
     const isLugares = /lugar(es)?/i.test(field.name);
     return (
       <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={15}
+        type="number"
+        step="1"
+        min="0"
         placeholder={
-          type === 'weight'
-            ? 'Informe o peso em quilogramas'
-            : isLugares
+          isLugares
             ? 'Digite o número de quantidades'
             : /porta|gaveta/i.test(field.name)
               ? 'Insira a quantidade de portas'
@@ -82,25 +92,34 @@ export const TechnicalFieldInput: React.FC<Props> = ({
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => {
-          const rawValue = e.target.value;
-          if (rawValue === '') {
+          if (e.target.value === '') {
             onChange('');
             return;
           }
-          if (!/^\d+$/.test(rawValue)) return;
-          const numeric = Number(rawValue);
-          if (!Number.isSafeInteger(numeric)) return;
-          onChange(numeric);
+          const parsed = parseInt(e.target.value, 10);
+          if (Number.isNaN(parsed)) {
+            onChange('');
+            return;
+          }
+          let val = Math.max(0, parsed);
+          if (isLugares) {
+            if (val > 100) val = 100;
+          } else if (val > 50) {
+            val = 50;
+          }
+          onChange(val);
         }}
         className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"
       />
     );
   }
-  if (type === 'decimal' || type === 'measure') {
+  const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
+  if (type === 'decimal' || type === 'measure' || isWeight) {
+    const decimalPlaces = isWeight ? 1 : type === 'decimal' ? field.decimalPlaces ?? 2 : 2;
     return (
       <DecimalInput
         value={value}
-        decimalPlaces={type === 'decimal' ? field.decimalPlaces ?? 2 : 2}
+        decimalPlaces={decimalPlaces as 1 | 2 | 3}
         disabled={disabled}
         onChange={onChange}
       />
@@ -229,14 +248,14 @@ function DecimalInput({
       disabled={disabled}
       onChange={handleMaskedChange}
       onBlur={handleBlur}
-      className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600"
+      className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"
     />
   );
 }
 
 function formatDecimal(value: any, decimalPlaces: 1 | 2 | 3): string {
   if (value === '' || value === null || value === undefined) return '';
-  const numeric = Number(value);
+  const numeric = typeof value === 'string' ? Number(value.replace(',', '.')) : Number(value);
   return Number.isFinite(numeric) ? numeric.toFixed(decimalPlaces).replace('.', ',') : '';
 }
 

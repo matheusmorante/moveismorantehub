@@ -1,32 +1,30 @@
-import React, { useCallback, useEffect } from 'react';
+import type React from 'react';
+import { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
-import Product from '../../../types/product.type';
+import type Product from '../../../types/product.type';
 import './ProductFormModal.css';
+import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/accessRoles';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
-
-// Modular UI Components
-import VariationFormModal from './VariationFormModal';
+import { ProductFormFooter } from '../components/form/ProductFormFooter';
+import { ProductFormHeader } from '../components/form/ProductFormHeader';
 import CategorySearchModal from '../components/modals/product/CategorySearchModal';
 import ProductConversionModal from '../components/modals/product/ProductConversionModal';
-import { ProductFormHeader } from '../components/form/ProductFormHeader';
-import { ProductFormFooter } from '../components/form/ProductFormFooter';
 import { ProductSaveResultModal } from '../components/modals/product/ProductSaveResultModal';
-
+import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
+import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
+import ProductEcommerceTab from '../components/tabs/ProductEcommerceTab';
 // Modular Tab Components
 import ProductGeneralTab from '../components/tabs/ProductGeneralTab';
-import ProductVariationsTab from '../components/tabs/ProductVariationsTab';
-import ProductEcommerceTab from '../components/tabs/ProductEcommerceTab';
 import ProductInventoryTab from '../components/tabs/ProductInventoryTab';
-import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
+import ProductVariationsTab from '../components/tabs/ProductVariationsTab';
 import ProductTechnicalTab from '../components/tabs/technical/ProductTechnicalTab';
-import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
-import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/accessRoles';
-
 // Orchestrator Hook
 import { useProductFormModal } from '../hooks/form/useProductFormModal';
+// Modular UI Components
+import VariationFormModal from './VariationFormModal';
 
 export interface ProductFormModalProps {
   readonly isOpen: boolean;
@@ -55,12 +53,12 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   const testContext = getTestArtifactContext();
   const existingTestIdentity = props.product ? readTestArtifactIdentity(props.product) : null;
   const canMarkTestArtifact = Boolean(
-    isAdministrator && testContext &&
-    (!product || isProductDraft(product)) &&
-    (!existingTestIdentity || (
-      existingTestIdentity.runId === testContext.runId &&
-      existingTestIdentity.ownerId === testContext.ownerId
-    ))
+    isAdministrator &&
+      testContext &&
+      (!product || isProductDraft(product)) &&
+      (!existingTestIdentity ||
+        (existingTestIdentity.runId === testContext.runId &&
+          existingTestIdentity.ownerId === testContext.ownerId))
   );
   const profileRoles = profile ? getProfileRoles(profile) : [];
   const canConfigureProductTaxes = profileRoles.some(
@@ -107,9 +105,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     handleConvertProduct,
     scheduleDraftAutoSave,
     deletingVariationId,
-    deletingProductWithVariation,
     handleDeleteVariation,
-    handleDeleteProductWithOnlyVariation,
     handleNextStep,
     isLastStep,
   } = useProductFormModal({
@@ -138,7 +134,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
         event.target instanceof HTMLSelectElement &&
         !variations.editingVariationId &&
         !event.target.closest('[data-variation-modal]')
-      ) scheduleDraftAutoSave();
+      )
+        scheduleDraftAutoSave();
     },
     [scheduleDraftAutoSave, variations.editingVariationId]
   );
@@ -290,10 +287,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
               removeVariation={variations.removeVariation}
               onDeleteVariation={isRegisteredProduct ? handleDeleteVariation : undefined}
               deletingVariationId={deletingVariationId}
-              onDeleteProductWithOnlyVariation={
-                isRegisteredProduct ? handleDeleteProductWithOnlyVariation : undefined
-              }
-              deletingProductWithVariation={deletingProductWithVariation}
             />
           )}
 
@@ -325,7 +318,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           onSubmit={() => handleSubmit()}
         />
 
-          {variations.editingVariationId &&
+        {variations.editingVariationId &&
           formData.variations?.some(
             (v) =>
               v.id === variations.editingVariationId ||

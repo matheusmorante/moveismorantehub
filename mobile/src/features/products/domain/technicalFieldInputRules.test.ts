@@ -53,4 +53,10 @@ describe('technical field overrides from ERP', () => {
     expect(getTechnicalFieldMaxLength('text_long')).toBe(4000);
     expect(getTechnicalFieldMaxLength('integer')).toBeUndefined();
   });
+
+  it('resolves Peso and weight data types to decimal', () => {
+    expect(resolveTechnicalFieldDataType('Peso', 'weight')).toBe('decimal');
+    expect(resolveTechnicalFieldDataType('Peso', 'list')).toBe('decimal');
+    expect(resolveTechnicalFieldDataType('Peso suportado', 'weight')).toBe('decimal');
+  });
 });

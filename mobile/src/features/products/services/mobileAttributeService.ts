@@ -135,11 +135,13 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
       active: attribute.active ?? true,
       dataType: normalizeDataType(attribute.data_type || attribute.dataType),
       decimalPlaces:
-        attribute.decimal_places === 1 ||
-        attribute.decimal_places === 2 ||
-        attribute.decimal_places === 3
-          ? attribute.decimal_places
-          : undefined,
+        isWeightCharacteristicName(attribute.name) || attribute.data_type === 'weight'
+          ? 1
+          : attribute.decimal_places === 1 ||
+            attribute.decimal_places === 2 ||
+            attribute.decimal_places === 3
+            ? attribute.decimal_places
+            : undefined,
       isGloballyRequired:
         !isWeightCharacteristicName(attribute.name) &&
         Boolean(attribute.is_globally_required ?? attribute.isGloballyRequired),
@@ -181,7 +183,12 @@ export const saveMobileAttributeDefinition = async (
         : definition.dataType === 'percentage'
           ? '%'
           : definition.unit?.trim() || '',
-    decimalPlaces: definition.dataType === 'decimal' ? (definition.decimalPlaces ?? 2) : undefined,
+    decimalPlaces:
+      definition.dataType === 'decimal'
+        ? (definition.decimalPlaces ?? 2)
+        : definition.dataType === 'weight' || isWeightCharacteristicName(name)
+          ? 1
+          : undefined,
     isGloballyRequired:
       !isWeightCharacteristicName(name) && (definition.isGloballyRequired ?? false),
     isCustom: definition.isCustom ?? true,

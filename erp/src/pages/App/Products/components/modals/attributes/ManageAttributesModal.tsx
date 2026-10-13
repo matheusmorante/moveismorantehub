@@ -96,7 +96,12 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
               : newDataType === 'measure'
                 ? newUnit
                 : '',
-        decimalPlaces: newDataType === 'decimal' ? newDecimalPlaces : undefined,
+        decimalPlaces:
+          newDataType === 'decimal'
+            ? newDecimalPlaces
+            : newDataType === 'weight'
+              ? 1
+              : undefined,
         options: isChoiceType ? finalValues.map((val) => ({ id: '', value: val })) : [],
       });
 
