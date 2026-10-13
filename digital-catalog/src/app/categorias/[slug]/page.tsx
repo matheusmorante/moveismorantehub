@@ -133,9 +133,6 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
             <aside className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-24 self-start">
               <FilterContent
                 filters={filters}
-                categories={categories.filter((c) => c.type === 'category')}
-                environments={categories.filter((c) => c.type === 'environment')}
-                relationships={relationships}
                 onApply={handleFilterChange}
               />
             </aside>
@@ -175,9 +172,6 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
           <FilterContent
             filters={filters}
-            categories={categories.filter((c) => c.type === 'category')}
-            environments={categories.filter((c) => c.type === 'environment')}
-            relationships={relationships}
             onApply={handleFilterChange}
             onClose={() => setIsSidebarOpen(false)}
           />

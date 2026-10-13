@@ -39,6 +39,7 @@ interface ProductCardProps {
       border_color: string;
       border_style?: string;
       badge_animation?: string;
+      title_color?: string;
     } | null;
   };
   style?: ProductCardStyle;

@@ -37,9 +37,8 @@ describe('ProductEcommerceTab image limits', () => {
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('30 foto(s)');
-    expect(notice.textContent).toContain('2 × 15');
-    expect(notice.textContent).toContain('adicione outra');
-    expect(notice.textContent).toContain('vincular até 15 fotos');
+    expect(notice.textContent).toContain('Cada variação acrescenta mais 15 espaços');
+    expect(notice.textContent).toContain('pode vincular até 15 fotos');
   });
 
   it('keeps a 15 photo baseline when the product has no variations', () => {
@@ -47,15 +46,25 @@ describe('ProductEcommerceTab image limits', () => {
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('15 foto(s)');
-    expect(notice.textContent).toContain('Sem variações, o limite é 15 fotos');
+    expect(notice.textContent).toContain('Cada variação acrescenta mais 15 espaços');
   });
 
   it('warns when existing photos exceed the current cap without hiding them', () => {
-    renderTab(1, Array.from({ length: 16 }, (_, index) => `photo-${index}`));
+    renderTab(
+      1,
+      Array.from({ length: 16 }, (_, index) => `photo-${index}`)
+    );
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('possui 16 fotos, acima do limite atual');
     expect(screen.getByText('Galeria (16/15)')).toBeTruthy();
     expect(screen.queryByText('Adicionar')).toBeNull();
+  });
+
+  it('does not render cover badge or define cover button on gallery photos', () => {
+    renderTab(1, ['photo-1.jpg', 'photo-2.jpg']);
+
+    expect(screen.queryByText('Capa')).toBeNull();
+    expect(screen.queryByText('Definir Capa')).toBeNull();
   });
 });

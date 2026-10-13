@@ -14,18 +14,19 @@ export async function getCachedStoreStyleSettings() {
     return fetchPromise;
   }
 
-  fetchPromise = supabase
-    .from('store_style_settings')
-    .select(STYLE_COLUMNS)
-    .eq('id', true)
-    .maybeSingle()
-    .then(({ data, error }) => {
-      if (!error && data) {
-        cachedStyleSettings = data;
-      }
-      fetchPromise = null;
-      return { data, error };
-    });
+  fetchPromise = (async () => {
+    const { data, error } = await supabase
+      .from('store_style_settings')
+      .select(STYLE_COLUMNS)
+      .eq('id', true)
+      .maybeSingle();
+
+    if (!error && data) {
+      cachedStyleSettings = data;
+    }
+    fetchPromise = null;
+    return { data, error };
+  })();
 
   return fetchPromise;
 }

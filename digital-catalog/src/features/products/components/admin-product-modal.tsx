@@ -327,7 +327,7 @@ export function AdminProductModal({
   const handleVarDiscountPercentChange = (valStr: string) => {
     setVarDiscountPercent(valStr);
     const orig = parsePrice(
-      varFormState.use_parent_price !== false ? formData.price : varFormState.price
+      varFormState.use_parent_price !== false ? formData.price : (varFormState.price || '')
     );
     if (isNaN(orig) || orig <= 0 || valStr === '') {
       setVarDiscountFixed('');
@@ -356,7 +356,7 @@ export function AdminProductModal({
   const handleVarDiscountFixedChange = (valStr: string) => {
     setVarDiscountFixed(valStr);
     const orig = parsePrice(
-      varFormState.use_parent_price !== false ? formData.price : varFormState.price
+      varFormState.use_parent_price !== false ? formData.price : (varFormState.price || '')
     );
     if (isNaN(orig) || orig <= 0 || valStr === '') {
       setVarDiscountPercent('');
@@ -385,7 +385,7 @@ export function AdminProductModal({
   const handleVarPromoPriceFieldChange = (valStr: string) => {
     setVarFormState((prev) => ({ ...prev, promo_price: valStr, use_parent_promo_price: false }));
     const orig = parsePrice(
-      varFormState.use_parent_price !== false ? formData.price : varFormState.price
+      varFormState.use_parent_price !== false ? formData.price : (varFormState.price || '')
     );
     if (isNaN(orig) || orig <= 0 || valStr === '') {
       setVarDiscountPercent('');
@@ -2125,7 +2125,7 @@ export function AdminProductModal({
                                 {varPromoPrice ? (
                                   <div className="flex flex-col gap-0.5">
                                     <span className="text-[10px] text-red-500 line-through font-bold">
-                                      R$ {parseFloat(varPrice).toFixed(2)}
+                                      R$ {parseFloat(varPrice || '0').toFixed(2)}
                                     </span>
                                     <span className="text-xs font-black text-primary">
                                       R$ {parseFloat(varPromoPrice).toFixed(2)}
@@ -2212,7 +2212,7 @@ export function AdminProductModal({
                                   {varPromoPrice ? (
                                     <div className="flex flex-col gap-0.5">
                                       <span className="text-[10px] text-red-500 line-through font-bold">
-                                        R$ {parseFloat(varPrice).toFixed(2)}
+                                        R$ {parseFloat(varPrice || '0').toFixed(2)}
                                       </span>
                                       <span className="font-extrabold text-xs text-primary">
                                         R$ {parseFloat(varPromoPrice).toFixed(2)}

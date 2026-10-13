@@ -31,7 +31,7 @@ const allowedOrigins = new Set([
     .filter(Boolean),
 ]);
 
-function corsHeaders(request: Request) {
+function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('origin') || '';
   return allowedOrigins.has(origin)
     ? {

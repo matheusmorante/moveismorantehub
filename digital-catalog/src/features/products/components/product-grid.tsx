@@ -585,7 +585,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
         filtered = filtered.filter((product) => {
           const productCategoryIds =
             product.product_categories?.map((link: any) => link.category_id).filter(Boolean) || [];
-          return productCategoryIds.some((categoryId) => allCatTargetIds.has(categoryId));
+          return productCategoryIds.some((categoryId: string) => allCatTargetIds.has(categoryId));
         });
       }
     }

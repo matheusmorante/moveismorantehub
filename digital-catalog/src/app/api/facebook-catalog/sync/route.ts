@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       (p: any) => p.status === 'published' && !p.deleted_at && !p.deleted && !p.is_draft
     );
 
-    for (const p of allProducts) {
+    for (const p of (allProducts as any[])) {
       const relationalVariations = p.product_variations || [];
       const hasRelationalVariations = relationalVariations.length > 0;
       const isParentVisible =
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
       if (hasRelationalVariations) {
         // Tratar as variantes como produtos individuais no Meta
-        for (const v of visibleVariations) {
+        for (const v of (visibleVariations as any[])) {
           const isParentPrice = v.use_parent_price !== false;
           const isParentPromo = v.use_parent_promo_price !== false;
           const isParentDesc = v.use_parent_description !== false;
@@ -208,9 +208,10 @@ export async function POST(request: Request) {
           ? `${globalDescPrefix}\n${p.description || ''}`.trim()
           : p.description || '';
 
-        if (p.opportunities && p.opportunities.observations) {
+        const opp = Array.isArray(p.opportunities) ? p.opportunities[0] : p.opportunities;
+        if (opp && opp.observations) {
           descWithPrefix =
-            `${descWithPrefix}\n\nAviso Importante (${p.opportunities.name}): ${p.opportunities.observations}`.trim();
+            `${descWithPrefix}\n\nAviso Importante (${opp.name}): ${opp.observations}`.trim();
         }
 
         descWithPrefix = stripHtml(descWithPrefix);

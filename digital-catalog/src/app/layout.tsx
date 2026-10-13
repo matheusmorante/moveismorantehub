@@ -58,14 +58,23 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  names.forEach(function(name) {
+                    if (name.startsWith('morante-cache-')) {
+                      caches.delete(name);
+                    }
+                  });
+                });
+              }
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(
                     function(registration) {
-                      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                      registration.update();
                     },
                     function(err) {
-                      console.log('ServiceWorker registration failed: ', err);
+                      console.warn('ServiceWorker registration failed: ', err);
                     }
                   );
                 });
